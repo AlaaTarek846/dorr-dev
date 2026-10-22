@@ -132,7 +132,7 @@ private fun LinkRow(icon: ImageVector, title: String, sub: String?, onClick: () 
 /** My link: copy, share, join now, cancel it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CallLinkShareSheet(link: CallLinkDto, onCancelled: () -> Unit, onDismiss: () -> Unit) {
+internal fun CallLinkShareSheet(link: CallLinkDto, onCancelled: () -> Unit, onDismiss: () -> Unit) {
     val host = LocalChat.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

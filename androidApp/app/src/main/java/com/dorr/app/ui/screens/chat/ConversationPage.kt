@@ -49,18 +49,26 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.AddLink
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -74,13 +82,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,6 +99,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.chat.CallController
+import com.dorr.app.network.CallLinkDto
+import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
+import com.dorr.app.ui.components.DarkHeroButton
+import com.dorr.app.ui.components.DarkHeroPanel
+import com.dorr.app.ui.theme.CairoFontFamily
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.MessageDto
@@ -483,18 +499,19 @@ fun ConversationPage(route: ChRoute.Conversation) {
 private fun ConversationSearchBar(query: String, onChange: (String) -> Unit, onClose: () -> Unit) {
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush).padding(horizontal = 10.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        GlassIcon(Icons.Rounded.Close, size = 38.dp, onClick = onClose)
-        Spacer(Modifier.width(8.dp))
-        ChField(
-            query, onChange, stringResource(R.string.ch_search_in_chat),
-            modifier = Modifier.weight(1f),
-            icon = Icons.Rounded.Search, clearable = true,
-            fieldModifier = Modifier.focusRequester(focus),
-        )
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        DarkHeroPanel {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                ChField(
+                    query, onChange, stringResource(R.string.ch_search_in_chat),
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Rounded.Search, clearable = true,
+                    fieldModifier = Modifier.focusRequester(focus),
+                )
+                Spacer(Modifier.width(8.dp))
+                DarkHeroButton(Icons.Rounded.Close, onClose, stringResource(R.string.ch_close_sheet))
+            }
+        }
     }
 }
 
@@ -533,78 +550,175 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
     val presence = peerKey?.let { host.presence[it] } ?: c?.presence
     val activity = host.activity(state.id).firstOrNull()
     val startCall = rememberCallStarter()
+    val scope = rememberCoroutineScope()
+    val locale = rememberAppLocaleFrame()
+    var callPicker by remember { mutableStateOf(false) }
+    var morePicker by remember { mutableStateOf(false) }
+    var linkTypePicker by remember { mutableStateOf(false) }
+    var showingLink by remember { mutableStateOf<CallLinkDto?>(null) }
+    val networkError = stringResource(R.string.ch_error_network)
     val video = remember { Animatable(0f) }
     LaunchedEffect(Unit) { video.animateTo(1f, spring(dampingRatio = 0.6f)) }
 
-    Box(
-        Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp), spotColor = Ch.Red.copy(alpha = 0.4f))
-            .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush),
-    ) {
-        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 10.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            ChBack(onBack = { host.pop() }, size = 38.dp, logoWidth = 44.dp)
-            Spacer(Modifier.width(8.dp))
-            Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { host.push(ChRoute.Info(state.id)) }.padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ChAvatar(c?.avatar, c?.title, peerKey ?: state.id, size = 42.dp, isGroup = c?.isGroup == true, online = presence?.online == true)
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(c?.title.orEmpty(), color = Color.White, fontSize = 16.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val subtitle = when {
-                        activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
-                        c?.isChannel == true -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
-                        c?.isGroup == true -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
-                        c?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
-                        // Their status ("🏖️ On holiday"), with "online" when they are.
-                        statusLine(c?.peer?.status) != null -> statusLine(c?.peer?.status)!! + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
-                        // A business: open or closed now (and online, when it is).
-                        c?.business != null -> businessStatus(c.business) + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
-                        presence?.online == true -> stringResource(R.string.ch_online)
-                        presence?.lastSeenAt != null -> lastSeenText(presence.lastSeenAt)
-                        else -> stringResource(R.string.ch_tap_info)
-                    }
-                    AnimatedContent(targetState = subtitle, label = "subtitle", transitionSpec = {
-                        (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
-                    }) { text ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text, color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (activity != null) {
-                                Spacer(Modifier.width(5.dp))
-                                TypingDots(Color.White, dot = 4.dp)
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        DarkHeroPanel {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { host.push(ChRoute.Info(state.id)) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ChAvatar(c?.avatar, c?.title, peerKey ?: state.id, size = 34.dp, isGroup = c?.isGroup == true, online = presence?.online == true)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            c?.title.orEmpty(),
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = CairoFontFamily,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val subtitle = when {
+                            activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
+                            c?.isChannel == true -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
+                            c?.isGroup == true -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
+                            c?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
+                            // Their status ("🏖️ On holiday"), with "online" when they are.
+                            statusLine(c?.peer?.status) != null -> statusLine(c?.peer?.status)!! + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
+                            // A business: open or closed now (and online, when it is).
+                            c?.business != null -> businessStatus(c.business) + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
+                            presence?.online == true -> stringResource(R.string.ch_online)
+                            presence?.lastSeenAt != null -> lastSeenText(presence.lastSeenAt)
+                            else -> stringResource(R.string.ch_tap_info)
+                        }
+                        AnimatedContent(targetState = subtitle, label = "subtitle", transitionSpec = {
+                            (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
+                        }) { text ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text, color = Color.White.copy(alpha = 0.85f), fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (activity != null) {
+                                    Spacer(Modifier.width(5.dp))
+                                    TypingDots(Color.White, dot = 4.dp)
+                                }
                             }
                         }
                     }
                 }
-            }
-            // AI about this chat, on a tap: summary, a question, commitments (spec 124–126).
-            if (ChatAi.summarize || ChatAi.ask || ChatAi.commitments) {
-                GlassIcon(Icons.Rounded.AutoAwesome, size = 38.dp, onClick = onAi)
-                Spacer(Modifier.width(6.dp))
-            }
-            GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
-            Spacer(Modifier.width(6.dp))
-            // The group's standing voice room (spec 91).
-            if (c != null && c.isGroup && !c.isRequest && c.canCall != false && com.dorr.app.chat.ChatFeatures.allows("voice_rooms")) {
-                val host = LocalChat.current
-                GlassIcon(Icons.Rounded.GraphicEq, size = 38.dp) { host.push(ChRoute.VoiceRoom(state.id, c.title)) }
-                Spacer(Modifier.width(6.dp))
-            }
-            // No calls with myself, nor where calls are switched off (my or their country), nor
-            // while a request I sent is still waiting to be accepted.
-            if (c != null && c.status == "accepted" && c.canSend && !c.isSelf && c.canCall != false) {
-                Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
-                    GlassIcon(Icons.Rounded.Videocam, size = 38.dp) { startCall(state.id, true, c.title.orEmpty(), c.avatar, peerKey) }
-                }
-                Spacer(Modifier.width(6.dp))
-                Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
-                    GlassIcon(Icons.Rounded.Call, size = 38.dp) { startCall(state.id, false, c.title.orEmpty(), c.avatar, peerKey) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // AI about this chat, on a tap: summary, a question, commitments (spec 124–126).
+                    if (ChatAi.summarize || ChatAi.ask || ChatAi.commitments) {
+                        DarkHeroButton(Icons.Rounded.AutoAwesome, onAi, stringResource(R.string.ch_ai_menu))
+                    }
+                    // No calls with myself, nor where calls are switched off (my or their country), nor
+                    // while a request I sent is still waiting to be accepted.
+                    if (c != null && c.status == "accepted" && c.canSend && !c.isSelf && c.canCall != false) {
+                        Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                Row(
+                                    Modifier
+                                        .height(34.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.White.copy(alpha = 0.12f))
+                                        .clickable { callPicker = true }
+                                        .padding(start = 9.dp, end = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Rounded.Call, stringResource(R.string.ch_calls_title), tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Rounded.ArrowDropDown, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                    DarkHeroButton(Icons.Rounded.MoreVert, { morePicker = true }, stringResource(R.string.ch_share_more))
+                    DarkHeroButton(Icons.AutoMirrored.Rounded.ArrowBack, { host.pop() }, stringResource(R.string.common_back), flip = true)
                 }
             }
         }
         if (c?.disappearingSeconds != null) {
             Icon(Icons.Rounded.Timer, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).size(12.dp))
         }
+        Box(Modifier.align(Alignment.BottomEnd)) {
+            DropdownMenu(
+                expanded = callPicker,
+                onDismissRequest = { callPicker = false },
+                shape = RoundedCornerShape(18.dp),
+                containerColor = Ch.Surface,
+            ) {
+                locale.Provide {
+                    MenuItem(Icons.Rounded.Call, stringResource(R.string.ch_call_voice)) {
+                        callPicker = false
+                        startCall(state.id, false, c?.title.orEmpty(), c?.avatar, peerKey)
+                    }
+                    MenuItem(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video)) {
+                        callPicker = false
+                        startCall(state.id, true, c?.title.orEmpty(), c?.avatar, peerKey)
+                    }
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp), color = Ch.Line)
+                    MenuItem(Icons.Rounded.AddLink, stringResource(R.string.ch_send_call_link)) {
+                        callPicker = false
+                        linkTypePicker = true
+                    }
+                }
+            }
+            DropdownMenu(
+                expanded = morePicker,
+                onDismissRequest = { morePicker = false },
+                shape = RoundedCornerShape(18.dp),
+                containerColor = Ch.Surface,
+            ) {
+                locale.Provide {
+                    MenuItem(Icons.Rounded.Search, stringResource(R.string.ch_search_in_chat)) {
+                        morePicker = false
+                        onSearch()
+                    }
+                    MenuItem(Icons.Rounded.Info, stringResource(R.string.ch_info)) {
+                        morePicker = false
+                        host.push(ChRoute.Info(state.id))
+                    }
+                    MenuItem(Icons.Rounded.PhotoLibrary, stringResource(R.string.ch_media)) {
+                        morePicker = false
+                        host.push(ChRoute.Media(state.id))
+                    }
+                    if (c != null && c.isGroup && !c.isRequest && c.canCall != false && com.dorr.app.chat.ChatFeatures.allows("voice_rooms")) {
+                        MenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.vr_join_room)) {
+                            morePicker = false
+                            host.push(ChRoute.VoiceRoom(state.id, c.title))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (linkTypePicker) {
+        ChoiceSheet(
+            title = stringResource(R.string.cl_pick_type),
+            subtitle = stringResource(R.string.cl_create_sub),
+            options = listOf(
+                stringResource(R.string.cl_voice) to {
+                    scope.launch {
+                        try {
+                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "audio")).data
+                        } catch (e: Exception) {
+                            host.showToast(e.apiFailure().message ?: networkError, error = true)
+                        }
+                    }
+                },
+                stringResource(R.string.cl_video) to {
+                    scope.launch {
+                        try {
+                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "video")).data
+                        } catch (e: Exception) {
+                            host.showToast(e.apiFailure().message ?: networkError, error = true)
+                        }
+                    }
+                },
+            ),
+            onDismiss = { linkTypePicker = false },
+        )
+    }
+    showingLink?.let { link ->
+        CallLinkShareSheet(link, onCancelled = { showingLink = null }) { showingLink = null }
     }
 }
 

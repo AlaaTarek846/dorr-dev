@@ -21,10 +21,20 @@ class ChatOverviewController extends Controller
         return ApiResponse::success($this->overview->catchUp($request->user(), $data['since'] ?? null), __('api.retrieved'));
     }
 
-    /** GET conversations/{c}/money */
+    /** GET conversations/{c}/money?page=&per_page= */
     public function money(Request $request, ChatConversation $conversation)
     {
-        return ApiResponse::success($this->overview->money($request->user(), $conversation), __('api.retrieved'));
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return ApiResponse::success($this->overview->money(
+            $request->user(),
+            $conversation,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? 15),
+        ), __('api.retrieved'));
     }
 
     /** GET privacy/center */

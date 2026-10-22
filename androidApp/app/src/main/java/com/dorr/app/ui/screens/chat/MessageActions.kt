@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BookmarkAdd
@@ -318,24 +320,44 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
 /** A small sheet of choices (delete for me / for everyone, pin duration, mute duration…). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, onDismiss: () -> Unit) {
+internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, radios: Boolean = false, selected: Int? = null, onDismiss: () -> Unit) {
+    var picked by remember { mutableStateOf(selected) }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             subtitle?.let { Text(it, color = Ch.Mut, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp)) }
             Spacer(Modifier.height(14.dp))
             options.forEachIndexed { i, (label, action) ->
-                Box(
+                Row(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(i).clip(RoundedCornerShape(16.dp))
                         .background(if (danger && i == 0) Ch.Danger.copy(alpha = 0.1f) else Ch.SurfaceMuted)
-                        .clickable { action(); onDismiss() }
+                        .clickable { picked = i; action(); onDismiss() }
                         .padding(horizontal = 16.dp, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(label, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(label, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    if (radios) {
+                        val on = picked == i
+                        Icon(
+                            if (on) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                            null,
+                            tint = if (on) Ch.Red else Ch.Soft,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
-            Box(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onDismiss).padding(15.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.ch_cancel), color = Ch.Mut, fontWeight = FontWeight.Bold)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Ch.SurfaceMuted)
+                    .clickable(onClick = onDismiss)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(stringResource(R.string.ch_cancel), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }

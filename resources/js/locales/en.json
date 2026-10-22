@@ -3357,7 +3357,7 @@
         },
         "channels": {
             "title": "Channels & verification",
-            "search": "Search by name or @handle...",
+            "search": "Search by name or {'@'}handle...",
             "channel": "Channel",
             "followers": "Followers",
             "paid_until": "Paid verification until",

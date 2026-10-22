@@ -5,6 +5,7 @@ namespace Modules\Chat\Services;
 use App\Support\Media\WebpUploadConverter;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -749,25 +750,30 @@ class MessageService
     }
 
     /**
-     * My starred messages — across every chat, or in one.
-     *
-     * @return array<string, mixed>
+     * My starred messages — across every chat, or in one. Pages of 15 (the app loads the next 15 at the end of the list).
      */
-    public function starred(Model $me, ?ChatConversation $conversation = null, int|string|null $folder = null): array
+    public function starred(Model $me, ?ChatConversation $conversation = null, int|string|null $folder = null, int $page = 1, int $perPage = 15): LengthAwarePaginator
     {
-        $states = ChatMessageUserState::query()
+        $perPage = min(max(1, $perPage), 50);
+        $page = max(1, $page);
+        $paginator = ChatMessageUserState::query()
             ->whereIn('participant_id', ChatParticipant::query()->of($me)->when($conversation, fn ($q) => $q->where('conversation_id', $conversation->id))->pluck('id'))
             ->whereNotNull('starred_at')->whereNull('deleted_at')
             // One favourites folder, or "none" = the ones in no folder.
             ->when($folder === 'none', fn ($q) => $q->whereNull('star_folder_id'))
             ->when(is_int($folder), fn ($q) => $q->where('star_folder_id', $folder))
-            ->latest('starred_at')->limit(200)->with('message.conversation')->get();
+            ->latest('starred_at')->with('message.conversation')
+            ->paginate($perPage, ['*'], 'page', $page);
 
-        return $states->map(function (ChatMessageUserState $state) use ($me) {
-            $message = $state->message;
+        $paginator->setCollection(
+            $paginator->getCollection()->map(function (ChatMessageUserState $state) use ($me) {
+                $message = $state->message;
 
-            return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
-        })->filter()->values()->all();
+                return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
+            })->filter()->values()
+        );
+
+        return $paginator;
     }
 
     /**

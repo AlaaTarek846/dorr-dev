@@ -42,7 +42,7 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | PUT | `messages/{m}/reaction` | `emoji` (null removes it) | One reaction per person |
 | GET | `messages/{m}/reactions` | | Who reacted with what |
 | PUT | `messages/{m}/star` | `starred` | |
-| GET | `messages/starred`, `conversations/{c}/starred` | | |
+| GET | `messages/starred`, `conversations/{c}/starred` | `page`, `per_page` (default 15, max 50) | `pagination.has_more_pages` |
 | PUT | `messages/{m}/read-later` | `on` (bool) | "Read later": my own list, apart from stars. The message carries `is_read_later` |
 | GET | `messages/read-later` | | My list across every chat, oldest first (up to 200) |
 | PUT | `messages/{m}/follow-up` | `on` (bool) | "Needs a reply" (spec 118): on my follow-up list until I answer. In a one-to-one chat anything I send afterwards answers it; in a group only a reply to it does. The message carries `is_follow_up` |
@@ -163,7 +163,7 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `stories` | | `{mine, recent, muted}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first |
+| GET | `stories` | `page`, `per_page` | `{mine, recent, muted, has_more}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first. `per_page` default 15; later pages append more people on the bar |
 | POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `public`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours`. `public`: also on the home page for everyone, up to `public_stories_free` running (`chat_public_story_limit` with `data.max`; `chat_public_stories_disabled` when the admin turned them off) |
 | GET | `stories/public` | `page`, `per_page` | The home page: `{enabled, quota: {free, used}, mine, dorr, people[], has_more}`. With `per_page` (the app uses 10) the people come a page at a time (later pages: `mine` and `dorr` null); without it, everyone at once. `dorr` is Dorr's own stories as one group (`owner.type` = `dorr`, stories with `is_dorr`, `link_url`, `link_label`). `people` = everyone's public stories, the unseen first (most viewed + reacted first), the seen at the back; muted and blocked people left out. **`owner.phone` is null** unless I saved them or a direct chat between us was accepted |
 | POST | `stories/dorr/{id}/view` | | One of Dorr's stories watched (counted once per person) |
@@ -465,7 +465,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 |---|---|---|---|
 | 1 | POST / PATCH | `folders` · `folders/{id}` | also `color` (#RRGGBB), `emoji` |
 | 24 | GET / POST / PATCH / DELETE | `star-folders` (+ `/{id}`) | `{name, emoji?, color?}`; up to 30. `GET` gives `{unsorted_count, folders[{id, name, emoji, color, count}]}`. Deleting one keeps its messages starred |
-| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}` |
+| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}&page=&per_page=15` |
 | 20 + 21 | GET | `conversations/{c}/messages/search?q=&types[]=` | `q` optional when `types` given; types: text, image, video, voice, document, link, location, poll, contact, sticker, money. Matches the words or, in voice notes **I** transcribed, what was said (`chat_message_transcripts`, per participant) |
 | 17 + 18 | GET | `conversations/{c}/gallery` | also `date` (Y-m-d, from that day back), `file_kind` (pdf, word, excel, slides, archive, other — by type or extension), `min_size` / `max_size` (bytes), `sort=size` (biggest first, one page) |
 | 25 | PUT / DELETE | `conversations/{c}/lock-pin` | `{pin (4–8 digits), current_pin?}` / `{pin}`. Setting one locks the chat. The conversation carries `has_lock_pin` |
@@ -474,7 +474,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 | 81 | GET | `users/by-username?u=@name` | The profile, with `phone: null` |
 | 114 | GET | `conversations?filter=priority` | Unread mentions, urgent messages and replies I owe first, then unread direct chats (muted ones only for a mention or something urgent). Each row has `priority: [mention\|urgent\|owed\|direct]` |
 | 123 | GET | `catch-up?since=ISO` | Default 24 h, at most 7 days: `{mentions, replies, urgent, owed, missed_calls, reminders, decisions, unread_chats}`. Never reads locked chats or locked / hidden circles |
-| 66 | GET | `conversations/{c}/money` | `{items[{message_id, type, amount_minor, currency, status, is_mine, note, created_at}], totals{sent_minor, received_minor, i_owe_minor, owed_to_me_minor, currency}}` |
+| 66 | GET | `conversations/{c}/money?page=&per_page=` | `{items[{message_id, type, amount_minor, currency, status, is_mine, note, created_at}], totals{sent_minor, received_minor, i_owe_minor, owed_to_me_minor, currency}, has_more}`. Default `per_page` 15 (max 50). Totals are for the whole chat. |
 | 153 | POST | `messages/{m}/decision` | also `description?`, `deadline_at?` |
 | 153 | GET | `decisions/{id}` | The room: the decision plus `can_decide` and `arguments[{id, stance, option_id, text, by, is_mine}]` |
 | 153 | POST / DELETE | `decisions/{id}/arguments` · `/{argument}` | `{stance: pro\|con\|note, text, option_id?}`, members only and while open / before the deadline (`chat_decision_closed`). Deleting: my own, or anyone's for an admin |
