@@ -79,7 +79,13 @@
                                             <span class="presence-dot" :class="`presence-dot--${row.presence}`"></span>{{ t(`rides.presence.${row.presence}`) }}
                                         </span>
                                     </td>
-                                    <td class="text-end pe-4"><i class="ri-arrow-left-s-line fs-18 text-muted rtl-flip"></i></td>
+                                    <td class="text-end pe-4" @click.stop>
+                                        <!-- O-04: edit right here, in the same modal as adding — like the rest of the dashboard. -->
+                                        <button v-if="can('drivers.update')" type="button" class="btn btn-sm btn-icon btn-primary-light me-1" :title="t('rides.drivers.edit')" :disabled="editingId === row.id" @click="openEdit(row)">
+                                            <span v-if="editingId === row.id" class="spinner-border spinner-border-sm"></span><i v-else class="ri-pencil-line"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-icon btn-light" :title="t('rides.drivers.details')" @click="open(row)"><i class="ri-eye-line"></i></button>
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
@@ -90,6 +96,7 @@
         </div>
 
         <DriverFormModal :show="showCreate" :options="options" @close="showCreate = false" @saved="onCreated" />
+        <DriverFormModal :show="editDriver !== null" :options="options" :driver="editDriver" @close="editDriver = null" @saved="onEdited" />
     </div>
 </template>
 
@@ -117,6 +124,8 @@ const { rows, loading, pagination, filters, fetch } = useWalletList('drivers', {
 const options = reactive({ countries: [], cities: [], statuses: [], residencies: [], id_types: [], genders: [] });
 const statusTabs = computed(() => [{ value: '', label: t('rides.drivers.all') }, ...options.statuses.map((s) => ({ value: s, label: t(`rides.driver_status.${s}`) }))]);
 const showCreate = ref(false);
+const editDriver = ref(null);
+const editingId = ref(null);
 
 const statusClass = (status) => ({
     active: 'bg-success-transparent',
@@ -135,6 +144,24 @@ function open(row) {
 
 function openCreate() {
     showCreate.value = true;
+}
+
+// The full driver (every field the modal edits), then the modal — the list rows carry only a summary.
+async function openEdit(row) {
+    editingId.value = row.id;
+    try {
+        const { data } = await adminAxios.get(`/api/admin/v1/drivers/${row.id}`);
+        editDriver.value = data.data;
+    } catch (error) {
+        showError(extractApiErrorMessage(error));
+    } finally {
+        editingId.value = null;
+    }
+}
+
+function onEdited() {
+    editDriver.value = null;
+    fetch(pagination.value?.current_page ?? 1);
 }
 
 function onCreated(driver) {

@@ -4,6 +4,7 @@ namespace Modules\Rides\Services\Lifecycle;
 
 use Modules\Driver\Models\Driver;
 use Modules\Driver\Services\PresenceService;
+use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideActiveLock;
 use Modules\Rides\Models\RideOffer;
@@ -40,7 +41,11 @@ class RideCloser
                 ->update(['status' => CheckoutStatus::Expired->value]);
         }
 
-        if ($ride->driver_id !== null && ($driver = Driver::query()->find($ride->driver_id)) !== null) {
+        // With Me: the pool a ride opened closes with its last rider; the captain is free only when the car is empty.
+        app(\Modules\Rides\Services\Pool\RidePoolService::class)->afterRideEnded($ride);
+        $stillOn = $ride->driver_id !== null && Ride::query()->where('driver_id', $ride->driver_id)->where('id', '!=', $ride->id)
+            ->whereIn('status', [RideStatus::Accepted->value, RideStatus::Arrived->value, RideStatus::InProgress->value])->exists();
+        if (! $stillOn && $ride->driver_id !== null && ($driver = Driver::query()->find($ride->driver_id)) !== null) {
             $this->presence->rideEnded($driver);
         }
     }

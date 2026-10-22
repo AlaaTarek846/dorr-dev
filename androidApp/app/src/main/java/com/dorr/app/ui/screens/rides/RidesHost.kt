@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -73,20 +74,17 @@ import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.theme.AppColors
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.gson.Gson
-import com.google.maps.android.compose.CameraPositionState
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.dorr.app.map.DorrCamera
+import com.dorr.app.map.DorrMap
+import com.dorr.app.map.MapColors
+import com.dorr.app.map.MapEngine
+import com.dorr.app.map.MapLine
+import com.dorr.app.map.MapPin
+import com.dorr.app.map.PinKind
+import com.dorr.app.map.dpPx
+import com.dorr.app.map.rememberDorrCamera
 import kotlinx.coroutines.launch
 
 /** Where the booking is: the map (pickup), the place search, picking a point on the map, the prices. */
@@ -96,6 +94,9 @@ internal enum class RideStep { Map, Search, PickOnMap, Quotes }
 internal class RidesState {
     var me by mutableStateOf<LatLng?>(null)
     var pickup by mutableStateOf<RidePoint?>(null)
+
+    /** O-51: the pickup's address is being worked out (the map moves / the place is looked up). */
+    var pickupLoading by mutableStateOf(false)
     var destination by mutableStateOf<RidePoint?>(null)
     val stops = mutableStateListOf<RidePoint>()
     var openDestination by mutableStateOf(false)
@@ -109,7 +110,12 @@ internal class RidesState {
     var editing by mutableStateOf("destination")
     var quotes by mutableStateOf<List<RideQuoteDto>>(emptyList())
     var selected by mutableStateOf<RideQuoteDto?>(null)
-    var payment by mutableStateOf("wallet")
+    // O-37: cash by default; the wallet's balance goes first when [useWallet] (the rest is cash).
+    var payment by mutableStateOf("cash")
+    var useWallet by mutableStateOf(true)
+
+    /** O-33: With Me — who may share the car: any / male / female. */
+    var shareWith by mutableStateOf("any")
 
     /** R-45: the promo code priced into the quotes, and why the last one was refused. */
     var couponCode by mutableStateOf<String?>(null)
@@ -117,6 +123,8 @@ internal class RidesState {
 
     /** D-60, D-61: how many ride, and a short note for the captain about the pickup. */
     var passengers by mutableIntStateOf(1)
+    /** O-15: the category picked by itself for more riders (the popup says so), then cleared. */
+    var categorySwitchedTo by mutableStateOf<String?>(null)
     var pickupNote by mutableStateOf("")
 
     /** R-13: booking for someone else — their name and number, and the rider's own consent tick (never pre-ticked). */
@@ -154,6 +162,33 @@ internal class RidesState {
     var scheduleOpen by mutableStateOf(false)
     var myRidesOpen by mutableStateOf(false)
 
+    /** O-22, O-23: the bus booking pages, over the rides map. */
+    var busOpen by mutableStateOf(false)
+
+    /** R-146..R-155: DORR points, over the rides map. */
+    var loyaltyOpen by mutableStateOf(false)
+
+    /** R-233..R-237, R-NEW-06: what's added to the trip (priced into the quotes), and why the last change was refused. */
+    var addons by mutableStateOf(TripOptions())
+    var addonsApplied = TripOptions()
+    var addonsError by mutableStateOf<String?>(null)
+
+    /** O-25: boats & yachts, over the rides map. */
+    var marineOpen by mutableStateOf(false)
+
+    /** O-26c: find a driver, over the rides map. */
+    var hireOpen by mutableStateOf(false)
+
+    /** O-26b: driving lessons, over the rides map. */
+    var lessonsOpen by mutableStateOf(false)
+
+    /** O-18: the service picked on the first screen (instant ride → the map); false = the picker shows. */
+    var servicePicked by mutableStateOf(false)
+
+    /** O-17: by the hour — how many hours, on which category (null = by the distance). */
+    var hourlyHours by mutableStateOf<Int?>(null)
+    var hourlySlug by mutableStateOf<String?>(null)
+
     /** Complaints and disputes (R-133..R-140): the page is open, and the ride a new one is about (null = pick). */
     var casesOpen by mutableStateOf(false)
     var caseRideUuid by mutableStateOf<String?>(null)
@@ -187,6 +222,8 @@ internal class RidesState {
     }
 
     fun resetBooking() {
+        hourlyHours = null
+        hourlySlug = null
         destination = null
         stops.clear()
         openDestination = false
@@ -198,6 +235,9 @@ internal class RidesState {
         fromHistory = false
         couponCode = null
         couponError = null
+        addons = TripOptions()
+        addonsApplied = TripOptions()
+        addonsError = null
         passengers = 1
         pickupNote = ""
         forOther = false
@@ -228,7 +268,7 @@ fun RidesHost(onExit: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember { RidesState() }
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(Riyadh, 15f) }
+    val camera = rememberDorrCamera(Riyadh, 15f)
     var hasLocation by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
     }
@@ -236,33 +276,71 @@ fun RidesHost(onExit: () -> Unit) {
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         hasLocation = granted.values.any { it }
     }
+    // O-48: allowed *and* switched on (the gate below asks for both); `located` = the real position is known.
+    var locationOk by remember { mutableStateOf(locationReady(context)) }
+    var located by remember { mutableStateOf(false) }
 
     // An active ride first: the app may have been closed in the middle of one.
     LaunchedEffect(Unit) {
+        // O-53: the admin's map engine (already read from the phone at start) — any change, for next time too.
+        MapEngine.refresh(context) { ApiClient.rides.mapConfig(ridesAuth()).data?.let { Triple(it.provider, it.mapboxToken, it.mapboxStyle) } }
         runCatching { ApiClient.rides.current(ridesAuth()).data }.getOrNull()?.takeIf { it.isJsonObject }?.let {
             state.ride = Gson().fromJson(it, RideDto::class.java)
         }
         resumed = true
         // A check-in still waiting after a ride that ended (R-223).
         state.pendingCheck = runCatching { ApiClient.rides.safety(ridesAuth()).data?.pendingCheck }.getOrNull()
-        if (!hasLocation) askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    // A tapped ride notification: that ride — an ended one shows its receipt and the rating (O-41);
+    // `rides/current` alone never returns a finished ride.
+    // A booked service's notification: open that service (it opens the booking itself).
+    val serviceLinked = ServiceLink.pending
+    LaunchedEffect(serviceLinked) {
+        when (serviceLinked?.first) {
+            "loyalty" -> { state.loyaltyOpen = true; ServiceLink.pending = null }
+            "bus" -> state.busOpen = true
+            "marine" -> state.marineOpen = true
+            "hire" -> state.hireOpen = true
+            "lesson" -> state.lessonsOpen = true
+        }
+    }
+    val linked = RidesLink.pending
+    LaunchedEffect(linked) {
+        val uuid = linked ?: return@LaunchedEffect
+        RidesLink.pending = null
+        runCatching { ApiClient.rides.ride(ridesAuth(), uuid).data }.getOrNull()?.let { ride ->
+            if (state.ride == null || state.ride?.uuid == uuid || ride.status == "completed") state.ride = ride
+        }
     }
 
     // Where am I: the camera goes there, and the service switches for this city are read.
-    LaunchedEffect(hasLocation, state.featuresTick) {
-        val here = if (hasLocation) currentLocation(context) else null
+    // O-48, O-50: located again the moment location is allowed and on — and that real place (with its address)
+    // becomes the pickup, never the map's starting point.
+    LaunchedEffect(hasLocation, locationOk, state.featuresTick) {
+        val here = if (hasLocation && locationOk) currentLocation(context) else null
         state.me = here
-        if (here != null && state.ride == null) camera.move(CameraUpdateFactory.newLatLngZoom(here, 16f))
+        if (here != null && state.ride == null) {
+            camera.move(here, 16f)
+            if (state.step == RideStep.Map) {
+                state.pickup = RidePoint(here.latitude, here.longitude, addressOf(context, here) ?: String.format("%.5f, %.5f", here.latitude, here.longitude))
+            }
+            located = true
+        }
         state.features = runCatching { ApiClient.rides.features(ridesAuth(), here?.latitude, here?.longitude).data }.getOrNull()
         loadPlaces(state)
         loadCircle(state)
     }
 
     // The pin: when the map stops, the point under it becomes the pickup (or the point being picked).
+    // O-50: only once the real position is known (or the rider moved the map) — the starting view is no place.
     LaunchedEffect(camera.isMoving, state.step) {
-        if (!camera.isMoving && state.ride == null && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)) {
-            val target = camera.position.target
+        val byHand = camera.byGesture
+        if (camera.isMoving && state.step == RideStep.Map && (located || byHand)) state.pickupLoading = true
+        if (!camera.isMoving && state.ride == null && (located || byHand) && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)) {
+            val target = camera.target
             val name = addressOf(context, target) ?: String.format("%.5f, %.5f", target.latitude, target.longitude)
+            state.pickupLoading = false
             val point = RidePoint(target.latitude, target.longitude, name)
             if (state.step == RideStep.Map) state.pickup = point else state.set(point)
         }
@@ -270,6 +348,12 @@ fun RidesHost(onExit: () -> Unit) {
 
     BackHandler {
         when {
+            state.loyaltyOpen -> state.loyaltyOpen = false
+            state.busOpen -> state.busOpen = false
+            state.marineOpen -> state.marineOpen = false
+            state.hireOpen -> state.hireOpen = false
+            state.lessonsOpen -> state.lessonsOpen = false
+            !state.servicePicked && state.ride == null -> onExit()
             state.scheduleOpen -> state.scheduleOpen = false
             state.safetyOpen -> state.safetyOpen = false
             state.changing != null -> state.changing = null
@@ -279,6 +363,8 @@ fun RidesHost(onExit: () -> Unit) {
             state.ride != null -> onExit()
             state.step == RideStep.Search || state.step == RideStep.PickOnMap -> state.step = if (state.quotes.isNotEmpty()) RideStep.Quotes else RideStep.Map
             state.step == RideStep.Quotes -> state.resetBooking()
+            // Back from the map goes back to the services (O-18).
+            state.ride == null && state.servicePicked -> state.servicePicked = false
             else -> onExit()
         }
     }
@@ -287,7 +373,10 @@ fun RidesHost(onExit: () -> Unit) {
         RidesMap(state, camera)
 
         val pinVisible = state.ride == null && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)
-        if (pinVisible) CenterPin(lifted = camera.isMoving, color = if (state.step == RideStep.Map) AppColors.brandNavy else AppColors.brandOrange)
+        if (pinVisible) PickupPin(
+            lifted = camera.isMoving, color = if (state.step == RideStep.Map) AppColors.brandNavy else AppColors.brandOrange,
+            label = stringResource(if (state.step == RideStep.Map) R.string.pk_pin_pickup else R.string.pk_pin_here),
+        )
 
         // Back, and "my location".
         Box(Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp)) {
@@ -303,7 +392,7 @@ fun RidesHost(onExit: () -> Unit) {
                 if (state.me != null && state.ride == null) {
                     Spacer(Modifier.height(10.dp))
                     RoundButton(Icons.Rounded.MyLocation) {
-                        state.me?.let { scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(it, 16f)) } }
+                        state.me?.let { scope.launch { camera.animate(it, 16f) } }
                     }
                 }
             }
@@ -341,6 +430,66 @@ fun RidesHost(onExit: () -> Unit) {
 
         if (state.step == RideStep.Search && state.ride == null) PlaceSearchPage(state, camera)
 
+        // O-18: the services first — unless a ride is already on (then straight to it).
+        androidx.compose.animation.AnimatedVisibility(
+            visible = resumed && state.ride == null && !state.servicePicked,
+            enter = fadeIn(tween(220)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { -it / 3 } + fadeOut(tween(200)),
+        ) {
+            val ready = buildSet {
+                add(RideService.Instant)
+                if (state.features?.categories?.get("bus") == true) add(RideService.Bus)
+                if (state.features?.categories?.get("marine") == true) add(RideService.Marine)
+                if (state.feature("find_driver")) add(RideService.FindDriver)
+                if (state.feature("driving_lessons")) add(RideService.Lessons)
+            }
+            ServicePicker(
+                ready = ready,
+                onPick = { svc ->
+                    when (svc) {
+                        RideService.Bus -> state.busOpen = true
+                        RideService.Marine -> state.marineOpen = true
+                        RideService.FindDriver -> state.hireOpen = true
+                        RideService.Lessons -> state.lessonsOpen = true
+                        else -> state.servicePicked = true
+                    }
+                },
+                onBack = onExit,
+                onLoyalty = if (state.feature("loyalty")) ({ state.loyaltyOpen = true }) else null,
+                onMyRides = { state.myRidesOpen = true },
+            )
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.busOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { BusHost(state, onClose = { state.busOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.marineOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { MarineHost(state, onClose = { state.marineOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.loyaltyOpen,
+            enter = androidx.compose.animation.slideInVertically(tween(320)) { it / 3 } + fadeIn(tween(220)),
+            exit = androidx.compose.animation.slideOutVertically(tween(260)) { it / 3 } + fadeOut(tween(160)),
+        ) { LoyaltyScreen(onClose = { state.loyaltyOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.hireOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { HireHost(state, onClose = { state.hireOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.lessonsOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { LessonsHost(state, onClose = { state.lessonsOpen = false }) }
+
         androidx.compose.animation.AnimatedVisibility(
             visible = state.myRidesOpen,
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
@@ -364,6 +513,22 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { SafetyCenterPage(state, onClose = { state.safetyOpen = false }) }
+
+        // O-48: nothing here works without the location — a window that stays until it's allowed and on.
+        if (!locationOk || !hasLocation) {
+            LocationGate(onReady = { hasLocation = true; locationOk = true }, onLeave = onExit)
+        }
+
+        // O-09: the in-app call with the captain, over everything.
+        val callContext = androidx.compose.ui.platform.LocalContext.current
+        RideCallOverlay(onAccept = {
+            val ride = RideCallSession.rideUuid
+            val call = RideCallSession.callUuid
+            val other = RideCallSession.acceptApi
+            if (ride != null && call != null) RideCallSession.accept(callContext) {
+                other?.invoke(ride, call) ?: ApiClient.rides.acceptCall(ridesAuth(), ride, call).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) }
+            }
+        })
     }
 
     if (state.scheduleOpen) SchedulePickerSheet(state, onClose = { state.scheduleOpen = false })
@@ -377,57 +542,46 @@ fun RidesHost(onExit: () -> Unit) {
 }
 
 @Composable
-private fun RidesMap(state: RidesState, camera: CameraPositionState) {
+private fun RidesMap(state: RidesState, camera: DorrCamera) {
     val ride = state.ride
-    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline) {
-        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline)
+    val stopsKey = ride?.stops?.map { it.lat to it.lng } ?: state.stops.map { it.lat to it.lng }
+    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline, stopsKey, ride?.destination?.lat, state.destination?.lat) {
+        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline).ifEmpty {
+            // O-56: no drawn route (e.g. right after a stop is added) — the points joined in order.
+            listOfNotNull(
+                ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng,
+                *stopsKey.map { LatLng(it.first, it.second) }.toTypedArray(),
+                ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng,
+            ).takeIf { it.size >= 2 && (ride != null || state.step == RideStep.Quotes) }.orEmpty()
+        }
     }
-    GoogleMap(
-        modifier = Modifier.fillMaxSize(),
-        cameraPositionState = camera,
-        properties = MapProperties(isMyLocationEnabled = false),
-        uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 260.dp),
-    ) {
-        val showPoints = ride != null || state.step == RideStep.Quotes
+    val showPoints = ride != null || state.step == RideStep.Quotes
+    val nearby = rememberNearbyCars(state.me ?: state.pickup?.latLng, enabled = ride == null)
+    val pins = buildList {
         if (showPoints) {
-            val from = ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng
-            val to = ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng
-            from?.let { Marker(state = remember(it) { MarkerState(it) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) }
-            to?.let { Marker(state = remember(it) { MarkerState(it) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)) }
-            (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { stop ->
-                Marker(state = remember(stop) { MarkerState(stop) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW))
-            }
-            if (route.size > 1) Polyline(points = route, color = AppColors.brandNavy, width = 12f)
+            (ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng)?.let { add(MapPin(it, PinKind.Pickup)) }
+            (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { add(MapPin(it, PinKind.Stop)) }
+            (ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng)?.let { add(MapPin(it, PinKind.Dropoff)) }
         }
-        ride?.driver?.location?.let { loc ->
-            val at = LatLng(loc.lat, loc.lng)
-            Marker(state = remember(at) { MarkerState(at) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN), rotation = (loc.heading ?: 0).toFloat(), flat = true)
-        }
+        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat(), id = "my-captain")) }
+        // O-59: before a ride, the free captains' cars around, moving.
+        if (ride == null) nearby.forEach { (id, car) -> add(MapPin(car.at, PinKind.Car, car.heading, id = "car:$id")) }
     }
+    val width = dpPx(5f)
+    // O-53: the admin's engine (Google or Mapbox) draws it — the pins, the route and the car are the same on both.
+    DorrMap(
+        camera = camera,
+        modifier = Modifier.fillMaxSize(),
+        pins = pins,
+        lines = if (showPoints && route.size > 1) listOf(MapLine(route, MapColors.route, width)) else emptyList(),
+        padding = androidx.compose.foundation.layout.PaddingValues(bottom = 260.dp),
+    )
 
     // Keep the whole trip in view once it is planned or running.
+    val fitPadding = dpPx(48f).toInt()
     LaunchedEffect(route.size, ride?.status) {
         val points = route.ifEmpty { listOfNotNull(ride?.origin?.let { LatLng(it.lat, it.lng) }, ride?.destination?.let { LatLng(it.lat, it.lng) }) }
-        if (points.size > 1) {
-            val bounds = LatLngBounds.builder().apply { points.forEach { include(it) } }.build()
-            runCatching { camera.animate(CameraUpdateFactory.newLatLngBounds(bounds, 120)) }
-        }
-    }
-}
-
-/** The pin in the middle of the map: it lifts while the map moves, drops when it stops. */
-@Composable
-private fun CenterPin(lifted: Boolean, color: Color) {
-    val lift by animateFloatAsState(if (lifted) -18f else 0f, tween(180), label = "pin")
-    Box(Modifier.fillMaxSize().padding(bottom = 260.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-22).dp).graphicsLayer { translationY = lift }) {
-            Box(Modifier.size(30.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
-            }
-            Box(Modifier.width(3.dp).height(16.dp).background(color))
-        }
-        Box(Modifier.size(width = 10.dp, height = 4.dp).clip(CircleShape).background(Color.Black.copy(alpha = if (lifted) 0.15f else 0.3f)))
+        camera.fit(points, fitPadding)
     }
 }
 
@@ -450,6 +604,9 @@ internal fun PanelCard(content: @Composable () -> Unit) {
             .clip(shape).background(settingsCard())
             .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .animateContentSize()
+            // The card runs under the phone's navigation bar; its content stays above it, like every other
+            // screen in the app (O-38d).
+            .navigationBarsPadding()
             .padding(horizontal = 18.dp).padding(top = 10.dp, bottom = 24.dp),
     ) {
         Box(Modifier.align(Alignment.CenterHorizontally).size(width = 38.dp, height = 4.dp).clip(CircleShape).background(settingsInk().copy(alpha = 0.15f)))
@@ -482,5 +639,14 @@ internal fun AccentButton(
             if (icon != null) Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
             Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
+    }
+}
+
+/** A ride to open when the rides screen shows — set by a tapped ride notification (O-41). */
+object RidesLink {
+    var pending by androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    fun show(uuid: String) {
+        pending = uuid
     }
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notifications_mark_all_read">قراءة الكل</string>
+    <string name="notifications_empty_title">لا توجد إشعارات</string>
+    <string name="notifications_empty_body">ستظهر هنا الإشعارات عند وجود تحديثات جديدة</string>
+    <string name="notification_default_title">إشعار</string>
+    <string name="notif_time_now">الآن</string>
+    <string name="notif_time_minutes_ago">منذ %1$d دقيقة</string>
+    <string name="notif_time_hours_ago">منذ %1$d ساعة</string>
+    <string name="notif_time_yesterday">منذ يوم</string>
+    <string name="notif_time_days_ago">منذ %1$d يوم</string>
+    <string name="notif_time_weeks_ago">منذ %1$d أسابيع</string>
+    <string name="support_ticket_more">عرض المزيد</string>
+    <string name="notif_open_project">فتح المشروع</string>
+</resources>

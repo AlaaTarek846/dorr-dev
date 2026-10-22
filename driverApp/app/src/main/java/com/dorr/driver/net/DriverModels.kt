@@ -83,6 +83,8 @@ data class OnboardingDto(
     val missing: List<String> = emptyList(),
     @SerializedName("can_submit") val canSubmit: Boolean = false,
     @SerializedName("work_problem") val workProblem: String? = null,
+    /** O-64: the captain signed up without a vehicle (riders' own cars, lessons). */
+    @SerializedName("no_vehicle") val noVehicle: Boolean = false,
 )
 
 data class NamedDto(val id: Int, val name: String? = null, val code: String? = null)
@@ -122,6 +124,26 @@ data class RegulatorDto(
 
 data class PlaceDto(val lat: Double, val lng: Double, val address: String? = null)
 
+data class RatingCriterionDto(val key: String, val label: String? = null)
+
+data class OfferMoneyDto(
+    @SerializedName("fare_minor") val fareMinor: Long = 0,
+    @SerializedName("service_fee_minor") val serviceFeeMinor: Long = 0,
+    @SerializedName("tax_minor") val taxMinor: Long = 0,
+    @SerializedName("tax_on_driver") val taxOnDriver: Boolean = true,
+    @SerializedName("net_minor") val netMinor: Long = 0,
+)
+
+data class MapConfigDto(val provider: String? = "google", @SerializedName("mapbox_token") val mapboxToken: String? = null, @SerializedName("mapbox_style") val mapboxStyle: String? = null)
+
+data class TripPoolDto(@SerializedName("discount_minor") val discountMinor: Long = 0, val riders: Int = 1, @SerializedName("share_with") val shareWith: String? = null)
+
+data class PoolLimitsDto(@SerializedName("min_m") val minM: Int = 1000, @SerializedName("max_m") val maxM: Int = 5000, val editable: Boolean = true)
+
+data class PoolDto(val uuid: String, val mode: String = "route", val destination: PlaceDto, @SerializedName("radius_m") val radiusM: Int = 0, val seats: Int = 4, val rides: List<TripDto> = emptyList())
+
+data class PoolStateDto(val radius: PoolLimitsDto = PoolLimitsDto(), val pool: PoolDto? = null)
+
 data class CurrencyDto(val code: String? = null, val symbol: String? = null, @SerializedName("decimal_places") val decimals: Int = 2)
 
 data class CategoryRefDto(val slug: String? = null, val name: String? = null)
@@ -137,12 +159,16 @@ data class OfferDto(
     @SerializedName("pickup_distance_m") val pickupDistanceM: Int = 0,
     @SerializedName("pickup_eta_s") val pickupEtaS: Int = 0,
     @SerializedName("earning_minor") val earningMinor: Long? = null,
+    /** O-28: the fare, DORR's service fee and the tax behind the earning. */
+    val money: OfferMoneyDto? = null,
     @SerializedName("rider_rating") val riderRating: Double? = null,
     val category: CategoryRefDto? = null,
     @SerializedName("payment_method") val paymentMethod: String? = null,
     /** D-60, D-61: how many ride and the rider's pickup note. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-233..R-237, D-59, D-390: what the rider added — a pet, child seats, a service animal, bags, priority… */
+    val options: List<AddonDto> = emptyList(),
     /** R-13: booked for someone else — whom to pick up (first name only). */
     val beneficiary: BeneficiaryDto? = null,
     /** D-INN-07: the rider chose this captain from their favourites. */
@@ -186,7 +212,7 @@ data class BidCardDto(
     }
 }
 
-data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null)
+data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null, val polyline: String? = null)
 
 data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
 
@@ -231,7 +257,10 @@ data class PickupPointDto(
     val lng: Double = 0.0,
 )
 
-data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String)
+/** O-56: `waypoints` = the stops still ahead (Google Maps' link carries them before the destination). */
+data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String, val waypoints: List<WaypointDto> = emptyList())
+
+data class WaypointDto(val lat: Double, val lng: Double)
 
 data class LineDto(val code: String, val label: String? = null, @SerializedName("amount_minor") val amountMinor: Long = 0)
 
@@ -440,10 +469,48 @@ data class WaitingDto(
 /** D-129: the time and distance left to the next point (pickup / stop / destination). */
 data class ProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
+/** O-58: one hot area — the requests in the last hour there, and how hot (0..1). */
+data class HeatCellDto(val lat: Double, val lng: Double, val weight: Double = 0.0, val requests: Int = 0)
+
+data class DispatchCategoryDto(val slug: String, val name: String? = null, val ok: Boolean = false, val reason: String? = null)
+
+/** One dispatch condition (O-47); `detail` depends on the key (the categories list, the open requests…). */
+data class DispatchCheckItemDto(val key: String, val ok: Boolean, val detail: com.google.gson.JsonElement? = null) {
+    val categories: List<DispatchCategoryDto>
+        get() = if (key == "categories" && detail?.isJsonArray == true) com.google.gson.Gson().fromJson(detail, Array<DispatchCategoryDto>::class.java).toList() else emptyList()
+}
+
+data class DispatchCheckDto(val ready: Boolean = false, val checks: List<DispatchCheckItemDto> = emptyList())
+
+data class TripCallDto(val uuid: String, val status: String, val caller: String)
+
+data class TripCallJoinDto(val url: String, val room: String, val token: String)
+
+data class TripCallStartDto(val uuid: String, val status: String, val caller: String, val join: TripCallJoinDto)
+
+data class TripHourlyDto(
+    val hours: Int = 0,
+    @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
+    @SerializedName("overtime_per_min_minor") val overtimePerMinMinor: Long = 0,
+    @SerializedName("ends_at") val endsAt: String? = null,
+)
+
 data class TripDto(
     val uuid: String,
     val number: String? = null,
     val status: String,
+    /** O-34: the planned route, drawn on the trip map. */
+    val route: RouteDto? = null,
+    /** O-30..O-32: sharing the car — what came off this fare, and how many ride now. */
+    val pool: TripPoolDto? = null,
+    /** O-17: booked by the hour — the hours, the extra per minute after them, when they run out. */
+    val hourly: TripHourlyDto? = null,
+    /** O-09: the in-app call ringing or going on now. */
+    val call: TripCallDto? = null,
+    /** O-10: the rider's messages not read yet (the badge on the chat button). */
+    @SerializedName("unread_messages") val unreadMessages: Int = 0,
+    /** O-09: the rider's number, to call from outside the app while the ride is on. */
+    @SerializedName("call_phone") val callPhone: String? = null,
     val version: Int = 0,
     val category: CategoryRefDto? = null,
     @SerializedName("payment_method") val paymentMethod: String? = null,
@@ -458,6 +525,8 @@ data class TripDto(
     val rider: RiderDto? = null,
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-233..R-237, D-59, D-390: what the rider added — a pet, child seats, a service animal, bags, priority… */
+    val options: List<AddonDto> = emptyList(),
     val beneficiary: BeneficiaryDto? = null,
     @SerializedName("from_circle") val fromCircle: Boolean = false,
     @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
@@ -475,13 +544,15 @@ data class TripDto(
     @SerializedName("change_request") val changeRequest: ChangeRequestDto? = null,
     @SerializedName("safety_check") val safetyCheck: SafetyCheckDto? = null,
     val rated: Boolean? = null,
+    /** O-41: what the captain scores the rider on (manners, punctuality…), each with its own stars. */
+    @SerializedName("rating_criteria") val ratingCriteria: List<RatingCriterionDto> = emptyList(),
 )
 
 data class ReasonDto(val id: Int, val label: String? = null)
 
 data class TagDto(val id: Int, val label: String? = null, val sentiment: String? = null)
 
-data class MessageDto(val id: Long, val from: String, val mine: Boolean? = null, val body: String = "")
+data class MessageDto(val id: Long, val from: String, val mine: Boolean? = null, val body: String = "", @SerializedName("created_at") val createdAt: String? = null)
 
 data class QuickDto(val key: String, val text: String)
 
@@ -573,8 +644,20 @@ data class AutoAcceptDto(
     @SerializedName("payment_filter") val paymentFilter: PaymentFilterDto = PaymentFilterDto(),
 )
 
+/** One add-on of a request (`key`: wait_save / priority / child_seats / pet / service_animal / luggage). */
+data class AddonDto(val key: String, val label: String = "", val count: Int? = null)
+
+/** R-235, R-236, D-390: what the car has / takes, and whether those add-ons are open in the country. */
+data class EquipmentDto(
+    @SerializedName("pet_friendly") val petFriendly: Boolean = false,
+    @SerializedName("child_seats") val childSeats: Int = 0,
+    @SerializedName("pets_offered") val petsOffered: Boolean = false,
+    @SerializedName("child_seats_offered") val childSeatsOffered: Boolean = false,
+)
+
 data class PreferencesDto(
     val currency: CurrencyDto? = null,
+    val equipment: EquipmentDto = EquipmentDto(),
     val categories: List<PrefCategoryDto> = emptyList(),
     @SerializedName("pickup_radius_m") val pickupRadiusM: Int? = null,
     @SerializedName("pickup_radius_max_m") val pickupRadiusMaxM: Int? = null,
@@ -676,3 +759,162 @@ data class DriverRideItemDto(
 )
 
 data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList())
+
+// ---------------------------------------------------------------- rank and performance (D-239..D-259)
+
+data class RankDto(
+    val id: Long,
+    val slug: String = "",
+    val name: String? = null,
+    val color: String? = null,
+    val probation: Boolean = false,
+    val benefits: List<String> = emptyList(),
+    val thresholds: Map<String, Int> = emptyMap(),
+    val current: Boolean = false,
+    val missing: List<RankMissingDto> = emptyList(),
+)
+
+data class RankMissingDto(val metric: String, val need: Int = 0, val have: Int = 0, val min: Boolean = true)
+
+data class RankMetricsDto(
+    val trips: Int = 0,
+    val rating: Int = 0,
+    val cleanliness: Int = 0,
+    val behavior: Int = 0,
+    @SerializedName("commitment_bp") val commitmentBp: Int = 10000,
+    @SerializedName("completion_bp") val completionBp: Int = 10000,
+    @SerializedName("cancel_bp") val cancelBp: Int = 0,
+    val warnings: Int = 0,
+    @SerializedName("window_days") val windowDays: Int = 90,
+)
+
+data class ProbationDto(val active: Boolean = false, @SerializedName("days_left") val daysLeft: Int = 0, @SerializedName("ends_at") val endsAt: String? = null)
+
+data class RankFallingDto(val to: RankDto? = null, @SerializedName("due_at") val dueAt: String? = null, val missing: List<RankMissingDto> = emptyList())
+
+data class PerformanceNoteDto(
+    val id: Long,
+    val kind: String = "note",
+    val title: String = "",
+    val body: String? = null,
+    @SerializedName("appeal_status") val appealStatus: String = "none",
+    @SerializedName("appeal_text") val appealText: String? = null,
+    @SerializedName("appeal_answer") val appealAnswer: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class RankInfoDto(
+    val probation: ProbationDto = ProbationDto(),
+    val rank: RankDto? = null,
+    val next: RankDto? = null,
+    val metrics: RankMetricsDto = RankMetricsDto(),
+    val falling: RankFallingDto? = null,
+    val ranks: List<RankDto> = emptyList(),
+    @SerializedName("appeal_allowed") val appealAllowed: Boolean = false,
+    val notes: List<PerformanceNoteDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- payouts and statements (D-216..D-228)
+
+data class PayoutIntlDto(val status: String = "none", val answer: String? = null, @SerializedName("requested_at") val requestedAt: String? = null)
+
+data class PayoutStatusDto(
+    @SerializedName("kyc_ok") val kycOk: Boolean = true,
+    @SerializedName("kyc_reason") val kycReason: String? = null,
+    @SerializedName("method_hold_hours") val methodHoldHours: Int = 0,
+    @SerializedName("third_party_allowed") val thirdPartyAllowed: Boolean = true,
+    val international: PayoutIntlDto = PayoutIntlDto(),
+    val frozen: Boolean = false,
+)
+
+data class InvoiceLineDto(
+    @SerializedName("ride_number") val rideNumber: String? = null,
+    val date: String? = null,
+    @SerializedName("fare_minor") val fareMinor: Long = 0,
+    @SerializedName("commission_minor") val commissionMinor: Long = 0,
+    @SerializedName("tax_minor") val taxMinor: Long = 0,
+    @SerializedName("net_minor") val netMinor: Long = 0,
+)
+
+data class InvoiceNoteDto(val kind: String = "credit", val type: String? = null, @SerializedName("amount_minor") val amountMinor: Long = 0, val title: String? = null, val date: String? = null)
+
+data class InvoiceDto(
+    val month: String,
+    val number: String = "",
+    val trips: Int = 0,
+    @SerializedName("fares_minor") val faresMinor: Long = 0,
+    @SerializedName("commission_minor") val commissionMinor: Long = 0,
+    @SerializedName("tax_minor") val taxMinor: Long = 0,
+    @SerializedName("net_minor") val netMinor: Long = 0,
+    @SerializedName("credit_notes_minor") val creditNotesMinor: Long = 0,
+    @SerializedName("debit_notes_minor") val debitNotesMinor: Long = 0,
+    @SerializedName("notes_count") val notesCount: Int = 0,
+    val lines: List<InvoiceLineDto> = emptyList(),
+    val notes: List<InvoiceNoteDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- support and lost items (D-285..D-297)
+
+data class HelpNodeDto(val id: Long, val title: String? = null, val answer: String? = null, val children: List<HelpNodeDto> = emptyList())
+
+data class SupportCategoryDto(val key: String, val label: String = "")
+
+data class SupportHelpDto(
+    @SerializedName("open_now") val openNow: Boolean = true,
+    val hours: String? = null,
+    val categories: List<SupportCategoryDto> = emptyList(),
+    val results: List<HelpNodeDto> = emptyList(),
+    val items: List<HelpNodeDto> = emptyList(),
+)
+
+data class SupportLastMessageDto(val sender: String? = null, val body: String? = null)
+
+data class SupportTicketDto(
+    val id: Long,
+    val number: String = "",
+    val title: String = "",
+    val status: String = "opened",
+    @SerializedName("accepts_replies") val acceptsReplies: Boolean = true,
+    @SerializedName("last_message") val lastMessage: SupportLastMessageDto? = null,
+)
+
+data class SupportMessageDto(
+    val id: Long,
+    val sender: String = "user",
+    val body: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("agent_name") val agentName: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class LostRideRefDto(val uuid: String? = null, val number: String? = null)
+
+data class LostMessageDto(val id: Long, val mine: Boolean = false, val body: String = "")
+
+data class LostItemDto(
+    val uuid: String,
+    val status: String = "reported",
+    val description: String = "",
+    @SerializedName("return_plan") val returnPlan: String? = null,
+    val ride: LostRideRefDto = LostRideRefDto(),
+    val messages: List<LostMessageDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- settings and account (D-304..D-318)
+
+data class AlertsDto(val sound: Boolean = true, val vibration: Boolean = true, val voice: Boolean = false)
+
+data class DeviceDto(val id: Long, val device: String = "", val current: Boolean = false, @SerializedName("last_seen_at") val lastSeenAt: String? = null)
+
+data class CloseBlockerDto(val code: String, val label: String = "")
+
+data class CloseCheckDto(@SerializedName("can_close") val canClose: Boolean = false, val blockers: List<CloseBlockerDto> = emptyList())
+
+data class LegalDocDto(
+    val type: String,
+    val version: String = "",
+    @SerializedName("updated_at") val updatedAt: String? = null,
+    val title: String? = null,
+    val content: String? = null,
+    @SerializedName("needs_acceptance") val needsAcceptance: Boolean = false,
+)

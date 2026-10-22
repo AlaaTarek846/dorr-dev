@@ -280,6 +280,16 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'passenger_ride',
                 'actions' => ['view', 'create', 'update', 'delete'],
             ],
+            // Freelance (docs/freelance_tasks.md).
+            'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
+            'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelancers' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
+            'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.
             'ride-settings' => [
                 'module_name' => 'passenger_ride',
@@ -292,6 +302,8 @@ class AdminPermissionSeeder extends Seeder
             'wasl-logs' => ['module_name' => 'passenger_ride', 'actions' => ['view']],
             'ride-safety' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             'ride-lists' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'ride-loyalty' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'driver-ranks' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).

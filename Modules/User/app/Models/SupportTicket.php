@@ -16,7 +16,10 @@ class SupportTicket extends Model
     protected $fillable = [
         'number',
         'user_id',
+        'driver_id',
         'ride_id',
+        'category',
+        'reference',
         'admin_id',
         'title',
         'body',
@@ -56,6 +59,24 @@ class SupportTicket extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** D-285: a captain's ticket. */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Driver\Models\Driver::class);
+    }
+
+    /** Whoever opened it — a rider or a captain. */
+    public function getOwnerAttribute(): ?\Illuminate\Database\Eloquent\Model
+    {
+        return $this->driver_id !== null ? $this->driver : $this->user;
+    }
+
+    /** The private channel of whoever opened it. */
+    public function ownerChannel(): string
+    {
+        return $this->driver_id !== null ? 'Modules.Driver.Models.Driver.'.$this->driver_id : 'Modules.User.Models.User.'.$this->user_id;
     }
 
     /** The support agent who took the ticket (the first one to answer it). */

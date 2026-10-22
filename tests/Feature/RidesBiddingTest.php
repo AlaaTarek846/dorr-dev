@@ -120,6 +120,24 @@ class RidesBiddingTest extends TestCase
         $this->assertSame($price, $ride->fresh()->final_total_minor, 'the agreed price is a fixed fare');
     }
 
+    public function test_an_offers_ride_ended_early_keeps_the_price_both_sides_agreed(): void
+    {
+        $driver = $this->driver();
+        $quote = $this->quote()->json('data.0');
+        $price = $quote['bid']['floor_minor'];
+        $uuid = $this->book($quote, 'cash', $price)->json('data.uuid');
+        $offer = RideOffer::query()->sole();
+        $this->asDriver($driver)->postJson("/api/driver/v1/offers/{$offer->uuid}/bid", ['price_minor' => $price])->assertOk();
+        $at = ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']];
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/arrive", $at)->assertOk();
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/start", $at)->assertOk();
+
+        // Still refused without saying it is an early end; with it, the agreed price is not worked out again (O-40).
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", $at)->assertStatus(422)->assertJsonPath('error_code', 'rides_not_at_destination');
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", $at + ['early' => true])->assertOk();
+        $this->assertSame($price, Ride::query()->where('uuid', $uuid)->value('final_total_minor'));
+    }
+
     public function test_offers_decline_reoffer_lower_and_the_rider_takes_one_with_the_wallet_holding_the_difference(): void
     {
         $this->fund(100000);

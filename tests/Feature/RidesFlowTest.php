@@ -201,6 +201,8 @@ class RidesFlowTest extends TestCase
 
     public function test_only_one_driver_gets_the_ride_and_a_busy_driver_gets_nothing_else(): void
     {
+        // One captain per round (O-36's several-at-once is tested on its own).
+        config(['rides.policy_defaults' => ['search.batch_size' => 1] + config('rides.policy_defaults')]);
         $first = $this->onlineDriver();
         $second = $this->onlineDriver(24.7200, 46.6800);
         $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
@@ -224,6 +226,22 @@ class RidesFlowTest extends TestCase
         $other = User::query()->create(['name' => 'Omar', 'phone' => '+966500000002', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
         $this->book($this->quote($other)->json('data.0'), 'cash')->assertCreated();
         $this->assertFalse(RideOffer::query()->where('driver_id', $second->id)->where('status', 'sent')->exists());
+    }
+
+    public function test_a_request_goes_to_several_captains_at_once_and_the_first_to_accept_takes_it(): void
+    {
+        // O-36 (owner): the request reaches `search.batch_size` captains together; the others' cards are withdrawn.
+        $first = $this->onlineDriver();
+        $second = $this->onlineDriver(24.7200, 46.6800);
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+
+        $offers = RideOffer::query()->where('status', 'sent')->get();
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $offers->pluck('driver_id')->all());
+
+        $mine = $offers->firstWhere('driver_id', $second->id);
+        $this->asDriver($second)->postJson("/api/driver/v1/offers/{$mine->uuid}/accept")->assertOk()->assertJsonPath('data.uuid', $uuid);
+        $this->assertSame($second->id, Ride::query()->where('uuid', $uuid)->value('driver_id'));
+        $this->assertFalse(RideOffer::query()->where('driver_id', $first->id)->where('status', 'sent')->exists(), 'the other card is withdrawn');
     }
 
     public function test_the_rider_has_one_active_ride_and_cancels_free_before_a_driver_accepts(): void
@@ -266,6 +284,8 @@ class RidesFlowTest extends TestCase
 
     public function test_a_driver_who_steps_back_frees_the_ride_for_another_and_never_gets_it_again(): void
     {
+        // One captain per round (O-36's several-at-once is tested on its own).
+        config(['rides.policy_defaults' => ['search.batch_size' => 1] + config('rides.policy_defaults')]);
         $first = $this->onlineDriver();
         $second = $this->onlineDriver(24.7300, 46.6900);
         $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
@@ -441,6 +461,53 @@ class RidesFlowTest extends TestCase
         $this->assertNull($gate->reasonNotToWork($resident->fresh()));
     }
 
+    public function test_the_dispatch_check_says_why_a_request_did_not_reach_a_captain(): void
+    {
+        // O-47: a captain with the rider's own phone number is never sent that rider's request.
+        $same = $this->onlineDriver();
+        $same->forceFill(['phone' => $this->rider->phone])->save();
+        $other = $this->onlineDriver(24.7200, 46.6800);
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+        $ride = Ride::query()->where('uuid', $uuid)->firstOrFail();
+
+        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        \Spatie\Permission\Models\Permission::findOrCreate('rides.view', 'admin_api');
+        $admin->givePermissionTo('rides.view');
+        \Laravel\Sanctum\Sanctum::actingAs($admin, [], 'admin_api');
+        $captains = collect($this->getJson("/api/admin/v1/rides/{$ride->id}/dispatch-check")->assertOk()->json('data.captains'))->keyBy('driver_id');
+        $this->assertSame('same_phone_as_rider', $captains[$same->id]['reason']);
+        $this->assertSame('offered_sent', $captains[$other->id]['reason']);
+
+        // The captain's own readiness list.
+        $checks = collect($this->asDriver($other)->getJson('/api/driver/v1/dispatch-check')->assertOk()->json('data.checks'))->keyBy('key');
+        $this->assertTrue($checks['online']['ok']);
+        $this->assertTrue($checks['account']['ok']);
+        $this->assertArrayHasKey('server_dispatch_tick', $checks->all());
+    }
+
+    public function test_an_in_app_call_rings_the_other_side_is_answered_with_a_livekit_token_and_ends(): void
+    {
+        // O-09 (X-13: LiveKit): neither side sees the other's number — the call goes through DORR.
+        config(['chat.livekit.url' => 'wss://lk.test', 'chat.livekit.api_key' => 'key', 'chat.livekit.api_secret' => str_repeat('s', 32)]);
+        $driver = $this->onlineDriver();
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls")->assertStatus(409)->assertJsonPath('error_code', 'rides_call_not_now');
+
+        $this->acceptAndArrive($driver, $uuid);
+        $call = $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/calls")->assertCreated()
+            ->assertJsonPath('data.status', 'ringing')->assertJsonPath('data.join.url', 'wss://lk.test')->json('data');
+        $this->assertNotEmpty($call['join']['token']);
+
+        // The rider sees it ringing on the ride, answers, and gets their own token for the same room.
+        $this->actingAs($this->rider, 'user_api')->getJson("/api/mobile/v1/rides/$uuid")->assertJsonPath('data.call.uuid', $call['uuid'])->assertJsonPath('data.call.caller', 'driver');
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls/{$call['uuid']}/accept")->assertOk()
+            ->assertJsonPath('data.status', 'active')->assertJsonPath('data.join.room', $call['join']['room']);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/calls/{$call['uuid']}/accept")->assertStatus(409);
+
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls/{$call['uuid']}/end")->assertOk()->assertJsonPath('data.status', 'ended');
+        $this->actingAs($this->rider, 'user_api')->getJson("/api/mobile/v1/rides/$uuid")->assertJsonPath('data.call', null);
+    }
+
     public function test_the_ride_chat_is_open_only_while_a_driver_is_on_the_ride_and_is_kept_after(): void
     {
         $driver = $this->onlineDriver();
@@ -473,6 +540,115 @@ class RidesFlowTest extends TestCase
         $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/messages", ['body' => 'thanks'])->assertStatus(409);
         $this->actingAs($this->rider, 'user_api')->getJson("/api/mobile/v1/rides/$uuid/messages")->assertOk()
             ->assertJsonPath('data.open', false)->assertJsonCount(2, 'data.messages');
+    }
+
+    public function test_a_ride_ended_away_from_the_destination_is_refused_unless_ended_early_and_then_repriced(): void
+    {
+        $this->fund($this->rider, 10000);
+        $driver = $this->onlineDriver();
+        $quote = $this->quote()->json('data.0');
+        $total = (int) $quote['total_minor'];
+        $this->assertGreaterThan(1500, $total, 'the trip is worth more than the minimum fare');
+        $uuid = $this->book($quote, 'wallet')->assertCreated()->json('data.uuid');
+
+        $this->acceptAndArrive($driver, $uuid);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+
+        // O-39: "end ride" without having moved — the destination is kilometres away.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])
+            ->assertStatus(422)->assertJsonPath('error_code', 'rides_not_at_destination');
+        $this->assertSame('in_progress', Ride::query()->where('uuid', $uuid)->value('status')->value);
+
+        // O-40: confirmed as an early end, the fare is what was actually driven — not the whole agreed trip,
+        // and not the planned route either when the phone logged no points.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng'], 'early' => true])
+            ->assertOk()->assertJsonPath('data.status', 'completed');
+        $ride = Ride::query()->where('uuid', $uuid)->firstOrFail();
+        $this->assertSame(1500, $ride->final_total_minor, 'the minimum fare, not the '.$total.' agreed for the whole trip');
+        $this->assertSame(10000 - 1500, $this->wallet($this->rider)->spend_only_minor + $this->wallet($this->rider)->withdrawable_minor);
+        $this->assertTrue(\Modules\Rides\Models\RideEvent::query()->where('ride_id', $ride->id)->where('type', 'completed')->where('payload->ended_early', true)->exists(), 'kept for review');
+    }
+
+    public function test_not_enough_in_the_wallet_says_which_wallet_and_what_is_free_and_held(): void
+    {
+        $this->fund($this->rider, 1000);
+        $this->wallet($this->rider)->forceFill(['held_withdrawable_minor' => 300])->save();
+        $quote = $this->quote()->json('data.0');
+
+        // O-38e: the rider sees the ride's own wallet (one per country), its free balance and what is held.
+        $this->book($quote, 'wallet')->assertUnprocessable()
+            ->assertJsonPath('error_code', 'rides_insufficient_balance')
+            ->assertJsonPath('data.available_minor', 700)
+            ->assertJsonPath('data.held_minor', 300)
+            ->assertJsonPath('data.wallet_country', 'SA')
+            ->assertJsonPath('data.shortfall_minor', (int) $quote['total_minor'] - 700);
+    }
+
+    public function test_every_charge_takes_the_non_withdrawable_money_first(): void
+    {
+        $wallets = app(WalletService::class);
+        $wallet = $wallets->firstOrCreateWallet($this->rider, $this->saudi);
+        $wallets->credit($wallet, 300, WalletBucket::SpendOnly, WalletTransactionType::Topup, ['idempotency_key' => 'bonus']);
+        $wallets->credit($wallet, 1000, WalletBucket::Withdrawable, WalletTransactionType::Topup, ['idempotency_key' => 'cash-in']);
+
+        // O-38f: 500 = all 300 non-withdrawable + 200 withdrawable; a retry moves nothing more.
+        $wallets->debitSpendOnlyFirst($wallet, 500, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-1']);
+        $wallets->debitSpendOnlyFirst($wallet, 500, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-1']);
+        $this->assertSame([0, 800], [$this->wallet($this->rider)->spend_only_minor, $this->wallet($this->rider)->withdrawable_minor]);
+
+        // Past what is there, the rest is a withdrawable debt (spend-only never goes below zero).
+        $wallets->debitSpendOnlyFirst($wallet, 1000, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-2']);
+        $this->assertSame([0, -200], [$this->wallet($this->rider)->spend_only_minor, $this->wallet($this->rider)->withdrawable_minor]);
+    }
+
+    public function test_with_me_a_second_rider_on_the_way_joins_the_car_and_the_fares_are_split(): void
+    {
+        // O-30..O-32: a With Me category, priced like Economy, the money split equally (the admin's option).
+        $withMe = RideCategory::query()->create(['slug' => 'with_me', 'pricing_strategy' => 'distance', 'status' => true, 'sort_order' => 2, 'capacity_max' => 1, 'flags' => ['cash_allowed' => true]]);
+        RideFeatureRule::query()->create(['feature' => 'category.with_me', 'country_id' => $this->saudi->id, 'enabled' => true]);
+        RideFeatures::forget();
+        app(RidePolicies::class)->save($this->saudi->id, null, null, $withMe->id, [
+            'price.base_minor' => 600, 'price.per_km_minor' => 180, 'price.per_min_minor' => 30, 'price.min_fare_minor' => 1500,
+            'with_me.split' => 'equal', 'with_me.driver_share_bp' => 2000,
+        ]);
+        $driver = $this->onlineDriver();
+
+        $pick = fn (User $who) => collect($this->quote($who)->json('data'))->firstWhere('category.slug', 'with_me');
+        $first = $this->book($pick($this->rider), 'cash')->assertCreated()->json('data.uuid');
+        $this->acceptAndArrive($driver, $first);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$first/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+        $fare = (int) Ride::query()->where('uuid', $first)->value('confirmed_snapshot')['breakdown']['fare'];
+
+        // Another rider, the same way: the request comes to the captain already carrying the first one.
+        $second = User::query()->create(['name' => 'Omar Ali', 'phone' => '+966500000077', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $uuid2 = $this->book($pick($second), 'cash')->assertCreated()->json('data.uuid');
+        $offer = RideOffer::query()->where('ride_id', Ride::query()->where('uuid', $uuid2)->value('id'))->where('driver_id', $driver->id)->firstOrFail();
+        $this->asDriver($driver)->postJson("/api/driver/v1/offers/{$offer->uuid}/accept")->assertOk();
+
+        // 20% of the newcomer's price is the captain's; the rest comes off both fares, equally.
+        $each = intdiv((int) round($fare * 0.8), 2);
+        $one = Ride::query()->where('uuid', $first)->firstOrFail();
+        $two = Ride::query()->where('uuid', $uuid2)->firstOrFail();
+        $this->assertSame($one->pool_id, $two->pool_id);
+        $this->assertSame($each, (int) $one->pool_discount_minor);
+        $this->assertSame($each, (int) $two->pool_discount_minor);
+
+        // At the end the first rider pays the fare less what sharing took off.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$first/end", ['lat' => self::DROPOFF['lat'], 'lng' => self::DROPOFF['lng']])->assertOk();
+        $this->assertSame($fare - $each, (int) Ride::query()->where('uuid', $first)->value('final_total_minor'));
+    }
+
+    public function test_an_early_end_never_costs_more_than_the_agreed_price(): void
+    {
+        $driver = $this->onlineDriver();
+        $quote = $this->quote()->json('data.0');
+        $uuid = $this->book($quote, 'cash')->assertCreated()->json('data.uuid');
+        $this->acceptAndArrive($driver, $uuid);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+
+        // A long detour reported by the phone, ending 1.5 km short of the destination.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => 24.7380, 'lng' => 46.6900, 'odometer_m' => 40000, 'early' => true])->assertOk();
+        $this->assertSame((int) $quote['total_minor'], Ride::query()->where('uuid', $uuid)->value('final_total_minor'));
     }
 
     // ---------------------------------------------------------------- helpers

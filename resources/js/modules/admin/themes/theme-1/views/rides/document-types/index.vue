@@ -63,13 +63,13 @@
         <WalletModal :show="showForm" :title="form.id ? t('rides.document_types.edit') : t('rides.document_types.add')" @close="showForm = false">
             <form id="doc-type-form" @submit.prevent="save">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_ar') }} *</label>
-                        <input v-model="form.name.ar" type="text" class="form-control" dir="rtl">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_en') }} *</label>
-                        <input v-model="form.name.en" type="text" class="form-control" dir="ltr">
+                    <div class="col-12">
+                        <RideLangFields v-slot="{ locale, dir }" :required="[form.name]">
+                            <label class="form-label">{{ t('rides.lang.name') }} *</label>
+                            <input v-model="form.name[locale]" type="text" class="form-control mb-3" :dir="dir">
+                            <label class="form-label">{{ t('rides.lang.instructions') }}</label>
+                            <textarea v-model="form.instructions[locale]" rows="2" class="form-control" :dir="dir"></textarea>
+                        </RideLangFields>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('rides.document_types.code') }} *</label>
@@ -87,14 +87,6 @@
                             <input :id="`f-${flag}`" v-model="form[flag]" class="form-check-input" type="checkbox">
                             <label class="form-check-label" :for="`f-${flag}`">{{ t(`rides.document_types.${flag === 'status' ? 'active' : flag}`) }}</label>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.instructions_ar') }}</label>
-                        <textarea v-model="form.instructions.ar" rows="2" class="form-control" dir="rtl"></textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.instructions_en') }}</label>
-                        <textarea v-model="form.instructions.en" rows="2" class="form-control" dir="ltr"></textarea>
                     </div>
                 </div>
 
@@ -137,6 +129,7 @@
 </template>
 
 <script setup>
+import RideLangFields from '../RideLangFields.vue';
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';

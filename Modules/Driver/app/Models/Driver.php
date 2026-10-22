@@ -49,6 +49,7 @@ class Driver extends Authenticatable implements HasMedia
         'national_id',
         'id_type',
         'residency',
+        'no_vehicle',
         'nationality_country_id',
         'country_id',
         'city_id',
@@ -81,6 +82,7 @@ class Driver extends Authenticatable implements HasMedia
     {
         return [
             'phone_verified_at' => 'datetime',
+            'no_vehicle' => 'boolean',
             'date_of_birth' => 'date',
             'activated_at' => 'datetime',
             'onboarding_ends_at' => 'datetime',

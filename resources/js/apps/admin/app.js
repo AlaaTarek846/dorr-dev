@@ -22,6 +22,7 @@ import '../../composables/usePermission';
 import '../../plugins/echo';
 import '../../styles/catalog-list.css';
 import '../../styles/rich-text-content.css';
+import { installPrimeOverlayFollow } from '../../utils/primeOverlayFollow';
 import { watchThemeMode } from '../../utils/themeMode';
 
 applyDocumentDirection(
@@ -50,6 +51,8 @@ app.use(PrimeVue, {
         overlay: 2000,
     },
 });
+
+installPrimeOverlayFollow();
 
 const initialLocale = resolveInitialLocale();
 

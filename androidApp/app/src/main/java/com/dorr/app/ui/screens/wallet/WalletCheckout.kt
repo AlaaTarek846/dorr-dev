@@ -309,7 +309,7 @@ internal fun WalletCheckout(state: CheckoutState) {
                 },
             ) {
                 Box(Modifier.waRise(0)) { OrderCard(checkout) }
-                Box(Modifier.waRise(1).padding(top = 12.dp)) { CouponBox(checkout) { state.checkout = it } }
+                if (checkout.couponsAllowed) Box(Modifier.waRise(1).padding(top = 12.dp)) { CouponBox(checkout) { state.checkout = it } }
 
                 WaSectionTitle(stringResource(R.string.wa_checkout_from_wallet), Modifier.waRise(1))
                 Box(Modifier.waRise(2)) {

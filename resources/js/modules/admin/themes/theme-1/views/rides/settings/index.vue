@@ -6,6 +6,33 @@
             <div class="col-xl-7">
                 <div class="card custom-card">
                     <div class="card-body">
+                        <!-- O-01, O-02: one map provider for the server and both apps — Google or Mapbox. -->
+                        <h6 class="fw-semibold mb-1"><i class="ri-earth-line me-1 text-primary"></i>{{ t('rides.settings.provider') }}</h6>
+                        <p class="text-muted fs-13">{{ t('rides.settings.provider_hint') }}</p>
+                        <div class="btn-group w-100 mb-4" role="group">
+                            <button v-for="p in ['google', 'mapbox']" :key="p" type="button" class="btn" :class="form.map_provider === p ? 'btn-primary' : 'btn-outline-primary'" :disabled="!can('ride-settings.update')" @click="form.map_provider = p">
+                                <i :class="p === 'google' ? 'ri-google-line' : 'ri-map-pin-2-line'" class="me-1"></i>{{ t(`rides.settings.provider_${p}`) }}
+                            </button>
+                        </div>
+
+                        <div v-if="form.map_provider === 'mapbox'" class="mb-4">
+                            <h6 class="fw-semibold mb-1"><i class="ri-map-pin-2-line me-1 text-primary"></i>Mapbox</h6>
+                            <p class="text-muted fs-13">{{ t('rides.settings.mapbox_hint') }}</p>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge" :class="state.mapbox_token_set ? 'bg-success-transparent' : (state.mapbox_env_set ? 'bg-info-transparent' : 'bg-warning-transparent')">
+                                    {{ state.mapbox_token_set ? t('rides.settings.key_set', { hint: state.mapbox_token_hint }) : (state.mapbox_env_set ? t('rides.settings.key_env') : t('rides.settings.key_none')) }}
+                                </span>
+                            </div>
+                            <label class="form-label">{{ t('rides.settings.mapbox_token') }}</label>
+                            <div class="input-group mb-2">
+                                <input v-model="form.mapbox_token" :type="showMapbox ? 'text' : 'password'" dir="ltr" class="form-control" autocomplete="off" placeholder="pk.eyJ1…">
+                                <button type="button" class="btn btn-light" @click="showMapbox = !showMapbox"><i :class="showMapbox ? 'ri-eye-off-line' : 'ri-eye-line'"></i></button>
+                            </div>
+                            <label class="form-label">{{ t('rides.settings.mapbox_style') }}</label>
+                            <input v-model="form.mapbox_style" dir="ltr" class="form-control" placeholder="mapbox/streets-v12">
+                        </div>
+
+                        <template v-if="form.map_provider === 'google'">
                         <h6 class="fw-semibold mb-1"><i class="ri-map-2-line me-1 text-primary"></i>{{ t('rides.settings.google') }}</h6>
                         <p class="text-muted fs-13">{{ t('rides.settings.google_hint') }}</p>
 
@@ -41,7 +68,7 @@
                             <div v-if="report.ok" class="text-success">{{ t('rides.settings.check_ok') }}</div>
                         </div>
                         <div v-for="(reason, api) in pausedNow" :key="api" class="alert alert-warning py-2 fs-13">{{ t('rides.settings.google_paused', { reason }) }} <span class="text-muted" dir="ltr">({{ api }})</span></div>
-                        <div class="fs-13 mb-3" :class="state.osm_fallback ? 'text-success' : 'text-muted'"><i :class="state.osm_fallback ? 'ri-check-line' : 'ri-close-line'" class="me-1"></i>{{ state.osm_fallback ? t('rides.settings.osm_on') : t('rides.settings.osm_off') }}</div>
+                        </template>
 
                         <h6 class="fw-semibold mt-4 mb-1"><i class="ri-route-line me-1 text-primary"></i>{{ t('rides.settings.fallback') }}</h6>
                         <p class="text-muted fs-13">{{ t('rides.settings.fallback_hint') }}</p>
@@ -97,18 +124,22 @@ const { t } = useI18n();
 const { can } = usePermission();
 const { showSuccess, showError } = useToast();
 
-const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false, osm_fallback: true, google_paused: { routes: null, geocoding: null } });
+const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false, map_provider: 'google', mapbox_token_set: false, mapbox_token_hint: null, mapbox_env_set: false, google_paused: { routes: null, geocoding: null } });
 const report = ref(null);
 const checking = ref(false);
 const pausedNow = computed(() => Object.fromEntries(Object.entries(report.value?.paused ?? state.google_paused ?? {}).filter(([, reason]) => reason)));
-const form = reactive({ google_maps_key: '', fallback_speed_kmh: 60, fallback_road_factor_bp: 13000, geocode_cache_days: 30 });
+const form = reactive({ google_maps_key: '', map_provider: 'google', mapbox_token: '', mapbox_style: 'mapbox/streets-v12', fallback_speed_kmh: 60, fallback_road_factor_bp: 13000, geocode_cache_days: 30 });
 const saving = ref(false);
 const showKey = ref(false);
+const showMapbox = ref(false);
 const roadFactor = computed({ get: () => form.fallback_road_factor_bp / 10000, set: (v) => { form.fallback_road_factor_bp = Math.round(Number(v) * 10000); } });
 
 function apply(data) {
     Object.assign(state, data);
-    Object.assign(form, { google_maps_key: '', fallback_speed_kmh: data.fallback_speed_kmh, fallback_road_factor_bp: data.fallback_road_factor_bp, geocode_cache_days: data.geocode_cache_days });
+    Object.assign(form, {
+        google_maps_key: '', mapbox_token: '', map_provider: data.map_provider ?? 'google', mapbox_style: data.mapbox_style ?? 'mapbox/streets-v12',
+        fallback_speed_kmh: data.fallback_speed_kmh, fallback_road_factor_bp: data.fallback_road_factor_bp, geocode_cache_days: data.geocode_cache_days,
+    });
 }
 
 async function checkKey() {
@@ -125,7 +156,8 @@ async function checkKey() {
 
 async function save(clear = false) {
     saving.value = true;
-    const payload = { fallback_speed_kmh: form.fallback_speed_kmh, fallback_road_factor_bp: form.fallback_road_factor_bp, geocode_cache_days: form.geocode_cache_days };
+    const payload = { map_provider: form.map_provider, mapbox_style: form.mapbox_style || 'mapbox/streets-v12', fallback_speed_kmh: form.fallback_speed_kmh, fallback_road_factor_bp: form.fallback_road_factor_bp, geocode_cache_days: form.geocode_cache_days };
+    if (form.mapbox_token.trim()) payload.mapbox_token = form.mapbox_token.trim();
     if (clear) payload.google_maps_key = '';
     else if (form.google_maps_key.trim()) payload.google_maps_key = form.google_maps_key.trim();
     try {

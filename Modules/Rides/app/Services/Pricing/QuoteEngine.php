@@ -51,6 +51,8 @@ class QuoteEngine
         $destination = $trip['destination'] ?? null;
         $stops = array_values($trip['stops'] ?? []);
         $open = $destination === null;
+        // O-17: by the hour (motorcycles…) — a fixed fare of hours × the hour price; the destination is optional.
+        $hours = isset($trip['hours']) && (int) $trip['hours'] > 0 ? (int) $trip['hours'] : null;
 
         $cityId = $this->cities->cityAt((float) $origin['lat'], (float) $origin['lng']);
         $countryId = ($cityId !== null ? $this->cities->countryOf($cityId) : null) ?? $rider->country_id;
@@ -58,12 +60,15 @@ class QuoteEngine
         if ($country === null || ! $this->features->allows($country->id, $cityId, RideFeatures::SERVICE)) {
             throw RidesException::featureDisabled(RideFeatures::SERVICE);
         }
-        if ($open && ! $this->features->allows($country->id, $cityId, 'open_destination')) {
+        if ($open && $hours === null && ! $this->features->allows($country->id, $cityId, 'open_destination')) {
             throw RidesException::featureDisabled('open_destination');
         }
         if ($stops !== [] && ! $this->features->allows($country->id, $cityId, 'multi_stop')) {
             throw RidesException::featureDisabled('multi_stop');
         }
+        // R-233..R-237, R-NEW-06: the add-ons asked for, each switched on here.
+        $options = TripAddons::normalize($trip['options'] ?? null);
+        TripAddons::assertAllowed($this->features, $country->id, $cityId, $options);
 
         // R-16..R-18: in an airport / pickup-only zone the trip starts (and may end) at an approved point,
         // and the zone's own policy (waiting, no-show…) applies to the pickup.
@@ -105,7 +110,8 @@ class QuoteEngine
             ->when($trip['category'] ?? null, fn ($q, $slug) => $q->where('slug', $slug))
             ->orderBy('sort_order')->get()
             ->filter(fn (RideCategory $c) => $this->features->allows($country->id, $cityId, RideFeatures::categoryFeature($c->slug)))
-            ->filter(fn (RideCategory $c) => ! $open || $c->flag('open_destination_allowed'))
+            ->filter(fn (RideCategory $c) => ! $open || $hours !== null || $c->flag('open_destination_allowed'))
+            ->filter(fn (RideCategory $c) => $hours === null || $c->pricing_strategy !== PricingStrategy::Bid)
             ->filter(fn (RideCategory $c) => $stops === [] || $c->flag('multi_stop_allowed'))
             // Bidding (§9) needs a destination to price, and its own switch.
             ->filter(fn (RideCategory $c) => $c->pricing_strategy !== PricingStrategy::Bid || (! $open && $this->features->allows($country->id, $cityId, 'bidding')));
@@ -114,27 +120,55 @@ class QuoteEngine
             throw new RidesException('no_category_here', 422);
         }
 
-        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone) {
+        $refusals = [];
+        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours, $options, &$refusals) {
             $policy = $this->policies->for($country->id, $cityId, $zone?->id, $category->id);
+            $hourly = null;
+            if ($hours !== null) {
+                // Only the categories the admin opened by the hour, with a price.
+                if (! $policy->bool('hourly.enabled') || $policy->int('hourly.hour_price_minor') <= 0) {
+                    return null;
+                }
+                $min = max(1, $policy->int('hourly.min_hours'));
+                $max = max($min, $policy->int('hourly.max_hours'));
+                if ($hours < $min || $hours > $max) {
+                    throw new RidesException('hourly_hours_range', 422, ['min' => $min, 'max' => $max], ['min_hours' => $min, 'max_hours' => $max]);
+                }
+                $hourly = [
+                    'hours' => $hours, 'hour_price_minor' => $policy->int('hourly.hour_price_minor'),
+                    'overtime_per_min_minor' => $policy->int('hourly.overtime_per_min_minor'),
+                ];
+            }
             if ($stops !== [] && count($stops) > $policy->int('stops.max')) {
                 throw new RidesException('too_many_stops', 422, ['max' => $policy->int('stops.max')]);
             }
             $bidding = $category->pricing_strategy === PricingStrategy::Bid;
             // An agreed price is always fixed (§9.2.7).
-            $mode = $open ? PricingMode::Metered : ($bidding ? PricingMode::Upfront : $policy->pricingMode());
+            $mode = $hourly !== null ? PricingMode::Upfront : ($open ? PricingMode::Metered : ($bidding ? PricingMode::Upfront : $policy->pricingMode()));
             $price = FareCalculator::priceOf($policy->all());
             // A category nobody priced yet is never offered — a forgotten price must not mean a free ride.
             if ((int) $price['min_fare_minor'] <= 0 && (int) $price['base_minor'] + (int) $price['per_km_minor'] + (int) $price['per_min_minor'] <= 0) {
                 return null;
             }
 
+            // The add-ons: a category that can't take them (the boot, too many child seats…) isn't offered.
+            $addons = TripAddons::forCategory($options, $policy->all());
+            if (is_string($addons)) {
+                $refusals[] = $addons;
+
+                return null;
+            }
             // DORR's service fee and the coupon (R-45, R-47) — not on an agreed (bidding) price.
             $customerFee = ['minor' => $policy->int('price.customer_fee_minor'), 'bp' => $policy->int('price.customer_fee_bp')];
-            $extras = $bidding ? [] : array_filter([
+            $extras = $bidding ? array_filter(['addons' => $addons['fees'] ?: null]) : array_filter([
+                'addons' => $addons['fees'] ?: null,
+                'wait_save' => $addons['wait_save'],
                 'customer_fee' => $customerFee['minor'] + $customerFee['bp'] > 0 ? $customerFee : null,
                 'coupon' => $coupon,
             ]);
-            $breakdown = $route === null ? null : $this->calculator->compute($price, $route->distanceM, $route->durationS, $tax);
+            $breakdown = $hourly !== null
+                ? $this->calculator->compute($price, (int) $route?->distanceM, (int) $route?->durationS, $tax, fixedFare: $hourly['hours'] * $hourly['hour_price_minor'])
+                : ($route === null ? null : $this->calculator->compute($price, $route->distanceM, $route->durationS, $tax));
             if ($breakdown !== null && $extras !== []) {
                 $breakdown = PriceExtras::apply($breakdown, $extras);
             }
@@ -148,7 +182,7 @@ class QuoteEngine
                 'per_min_minor' => (int) $price['per_min_minor'], 'min_fare_minor' => (int) $price['min_fare_minor'],
             ]]];
 
-            $fingerprintOf = [$category->id, $mode->value, $lines, $total, $min, $max, $hold, $origin, $destination, $stops];
+            $fingerprintOf = [$category->id, $mode->value, $lines, $total, $min, $max, $hold, $origin, $destination, $stops, $hourly, $options];
 
             return RideQuote::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -167,8 +201,9 @@ class QuoteEngine
                 'stops' => $stops === [] ? null : $stops,
                 'pickup_point' => $pickupPoint,
                 'dropoff_point' => $dropoffPoint,
-                'distance_m' => $route?->distanceM,
-                'duration_s' => $route?->durationS,
+                // By the hour with no destination: 0 km planned (so the fixed fare is kept as the ride's breakdown).
+                'distance_m' => $route?->distanceM ?? ($hourly !== null ? 0 : null),
+                'duration_s' => $route?->durationS ?? ($hourly !== null ? $hourly['hours'] * 3600 : null),
                 'route_estimated' => (bool) $route?->estimated,
                 'polyline' => $route?->polyline,
                 'lines' => $lines,
@@ -180,6 +215,10 @@ class QuoteEngine
                 'fingerprint' => hash('sha256', (string) json_encode($fingerprintOf)),
                 'policy_snapshot' => [
                     'policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax, 'zone_id' => $zone?->id,
+                    'hourly' => $hourly,
+                    // R-233..R-237: what the rider added (matching, the captain's card) and what's on offer here.
+                    'options' => $options === [] ? null : $options,
+                    'addons_offer' => TripAddons::offer($this->features, $country->id, $cityId, $policy->all()),
                     // The coupon only stays when it gave something here (a minimum it didn't reach = no coupon).
                     'extras' => ($breakdown?->discount ?? 0) > 0 ? $extras : array_diff_key($extras, ['coupon' => true]),
                     'coupon' => $coupon === null ? null : [
@@ -197,7 +236,8 @@ class QuoteEngine
         })->filter()->values();
 
         if ($quotes->isEmpty()) {
-            throw new RidesException('no_category_here', 422);
+            // Nothing here takes these add-ons: say which one (the luggage, the seats…).
+            throw new RidesException($refusals[0] ?? 'no_category_here', 422);
         }
 
         return $quotes;

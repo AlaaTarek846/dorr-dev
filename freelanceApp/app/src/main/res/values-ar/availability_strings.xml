@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="availability_title">التوفر والأسعار</string>
+    <string name="availability_sub">الإيقاف المؤقت والسعر الاسترشادي والساعات والإجازات</string>
+    <string name="availability_accepting">استقبال طلبات جديدة</string>
+    <string name="availability_accepting_sub">أوقفه لو عايز توقف العروض الجديدة فترة</string>
+    <string name="availability_back_on">تاريخ الرجوع (اختياري)</string>
+    <string name="availability_pause_reason">ملاحظة (انت بس اللي بتشوفها)</string>
+    <string name="availability_rate">السعر الاسترشادي</string>
+    <string name="availability_rate_none">غير محدد</string>
+    <string name="availability_rate_hourly">بالساعة</string>
+    <string name="availability_rate_fixed">سعر ثابت</string>
+    <string name="availability_rate_from">من (%1$s)</string>
+    <string name="availability_rate_to">إلى (%1$s)</string>
+    <string name="availability_rate_invalid">اكتب سعر، ولازم الأعلى يكون مش أقل من الأدنى.</string>
+    <string name="availability_hours">ساعات الأسبوع</string>
+    <string name="availability_hours_invalid">الساعات بشكل 09:00، ولازم النهاية بعد البداية.</string>
+    <string name="availability_time_off">الإجازات</string>
+    <string name="availability_time_off_none">مفيش إجازات متحددة.</string>
+    <string name="availability_from">من</string>
+    <string name="availability_to">إلى</string>
+    <string name="availability_add_time_off">إضافة إجازة</string>
+    <string name="availability_paused_banner">مش بتستقبل عروض جديدة دلوقتي.</string>
+    <string name="day_sun">الأحد</string>
+    <string name="day_mon">الاثنين</string>
+    <string name="day_tue">الثلاثاء</string>
+    <string name="day_wed">الأربعاء</string>
+    <string name="day_thu">الخميس</string>
+    <string name="day_fri">الجمعة</string>
+    <string name="day_sat">السبت</string>
+</resources>

@@ -158,6 +158,39 @@
                                 </div>
                             </WalletSection>
                         </div>
+                        <!-- O-47: why the request did or didn't reach each captain around it. -->
+                        <div class="col-12">
+                            <WalletSection :title="t('rides.dispatch.title')" icon="ri-radar-line">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="text-muted fs-12 flex-grow-1">{{ t('rides.dispatch.hint') }}</span>
+                                    <button type="button" class="btn btn-sm btn-primary-light" :disabled="checking" @click="checkDispatch">
+                                        <span v-if="checking" class="spinner-border spinner-border-sm me-1"></span><i v-else class="ri-search-eye-line me-1"></i>{{ t('rides.dispatch.run') }}
+                                    </button>
+                                </div>
+                                <template v-if="dispatch">
+                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                        <span v-for="(ok, key) in dispatch.server" :key="key" class="badge" :class="ok ? 'bg-success-transparent' : 'bg-danger-transparent'">
+                                            <i :class="ok ? 'ri-check-line' : 'ri-close-line'" class="me-1"></i>{{ t(`rides.dispatch.server.${key}`) }}
+                                        </span>
+                                        <span class="badge bg-light text-dark border">{{ t('rides.dispatch.round', { round: dispatch.ride.round, radius: km(dispatch.ride.search_radius_m), max: km(dispatch.ride.max_radius_m) }) }}</span>
+                                    </div>
+                                    <div v-if="!dispatch.captains.length" class="alert alert-warning py-2 fs-13 mb-0">{{ t('rides.dispatch.nobody') }}</div>
+                                    <div v-else class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead><tr><th>{{ t('rides.drivers.driver') }}</th><th>{{ t('rides.dispatch.distance') }}</th><th>{{ t('rides.dispatch.last_seen') }}</th><th>{{ t('rides.dispatch.reason') }}</th></tr></thead>
+                                            <tbody>
+                                                <tr v-for="c in dispatch.captains" :key="c.driver_id">
+                                                    <td><div class="fw-semibold">{{ c.name || '—' }}</div><div class="fs-11 text-muted" dir="ltr">{{ c.phone }}</div></td>
+                                                    <td>{{ km(c.distance_m) }}</td>
+                                                    <td class="fs-12">{{ formatDate(c.last_seen_at) }}</td>
+                                                    <td><span class="badge" :class="reasonClass(c.reason)">{{ reasonText(c.reason) }}</span></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </template>
+                            </WalletSection>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -183,6 +216,27 @@ const { showSuccess, showError } = useToast();
 const route = useRoute();
 const ride = ref(null);
 const busy = ref(false);
+const dispatch = ref(null);
+const checking = ref(false);
+
+// O-47: «why didn't it reach the captain?» — the dispatch conditions for each captain around the pickup.
+async function checkDispatch() {
+    checking.value = true;
+    try {
+        const { data } = await adminAxios.get(`/api/admin/v1/rides/${route.params.id}/dispatch-check`);
+        dispatch.value = data.data;
+    } catch (error) {
+        showError(extractApiErrorMessage(error));
+    } finally {
+        checking.value = false;
+    }
+}
+const reasonText = (reason) => {
+    const key = `rides.dispatch.reasons.${reason}`;
+    const text = t(key);
+    return text === key ? reason : text;
+};
+const reasonClass = (reason) => (reason.startsWith('offered') || reason === 'eligible_waiting_next_round' ? 'bg-success-transparent' : 'bg-danger-transparent');
 
 const money = (minor) => (minor == null ? '—' : `${(minor / 10 ** (ride.value?.currency?.decimal_places ?? 2)).toFixed(ride.value?.currency?.decimal_places ?? 2)} ${ride.value?.currency?.symbol ?? ''}`);
 const km = (m) => (m == null ? '—' : `${(m / 1000).toFixed(1)} km`);

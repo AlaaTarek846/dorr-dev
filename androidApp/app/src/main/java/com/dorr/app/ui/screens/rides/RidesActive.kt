@@ -57,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -82,7 +84,7 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.theme.AppColors
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.maps.android.compose.CameraPositionState
+import com.dorr.app.map.DorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -93,7 +95,7 @@ private val FINAL = setOf("completed", "canceled", "no_show", "expired")
 
 /** The ride after booking: searching, the captain coming, on the way, and the end (receipt + rating). */
 @Composable
-internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onExit: () -> Unit) {
+internal fun RideActivePanel(state: RidesState, camera: DorrCamera, onExit: () -> Unit) {
     val ride = state.ride ?: return
     var chatOpen by remember { mutableStateOf(false) }
     var cancelOpen by remember { mutableStateOf(false) }
@@ -105,15 +107,20 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
     // nothing asks it on a timer. A reload on open and after a lost connection catches up on what was missed.
     LaunchedEffect(ride.uuid) {
         com.dorr.app.chat.ChatRealtime.watchRide(ride.uuid)
-        suspend fun reload() {
+        // `force`: a call's ring / answer / hang-up doesn't change the ride's version, but must show.
+        suspend fun reload(force: Boolean = false) {
             runCatching { ApiClient.rides.ride(ridesAuth(), ride.uuid).data }.getOrNull()?.let { fresh ->
-                if (fresh.version != state.ride?.version) state.ride = fresh
+                if (force || fresh.version != state.ride?.version || fresh.call?.uuid != state.ride?.call?.uuid || fresh.call?.status != state.ride?.call?.status) state.ride = fresh
             }
         }
         launch { com.dorr.app.chat.ChatRealtime.connected.collect { up -> if (up) reload() } }
         com.dorr.app.chat.ChatRealtime.events.collect { e ->
             when (e.name) {
-                "ride.changed" -> reload()
+                "ride.changed" -> reload(force = e.data.get("event")?.takeIf { it.isJsonPrimitive }?.asString?.startsWith("call_") == true)
+                // O-09: the captain is calling (the push, when the app is open) — show it now.
+                "ride.call" -> reload(force = true)
+                // O-10: a new message — the chat tile's count follows.
+                "ride.message" -> reload()
                 // The car moves on the map from the event itself, without a reload.
                 "ride.driver_location" -> state.ride?.let { current ->
                     val d = current.driver ?: return@let
@@ -126,6 +133,17 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         }
     }
     androidx.compose.runtime.DisposableEffect(ride.uuid) { onDispose { com.dorr.app.chat.ChatRealtime.unwatchRide(ride.uuid) } }
+
+    // O-09: the captain's call rings here; a call that's gone from the ride is over on this phone too.
+    val callContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(ride.call?.uuid, ride.call?.status) {
+        val call = ride.call
+        when {
+            call != null && call.status == "ringing" && call.caller == "driver" ->
+                RideCallSession.incoming(callContext, ride.uuid, call.uuid, ride.driver?.name.orEmpty(), end = { r, c -> ApiClient.rides.endCall(ridesAuth(), r, c) })
+            call == null && RideCallSession.rideUuid == ride.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
+        }
+    }
 
     PanelCard {
         when (ride.status) {
@@ -147,8 +165,12 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         }
     }
 
-    if (chatOpen) RideChatSheet(ride, onClose = { chatOpen = false })
-    if (cancelOpen) CancelSheet(state, onClose = { cancelOpen = false })
+    if (chatOpen) RideChatSheet(ride, onClose = {
+        chatOpen = false
+        // Read now: the badge goes.
+        state.ride = state.ride?.copy(unreadMessages = 0)
+    })
+    if (cancelOpen) CancelRideSheet(state, onClose = { cancelOpen = false })
     if (sosOpen) SosSheet(ride, onClose = { sosOpen = false }, onReport = { sosOpen = false; reportOpen = true })
     if (shareOpen) ShareRideSheet(ride, onClose = { shareOpen = false })
     if (reportOpen) ReportSheet(ride, onClose = { reportOpen = false })
@@ -159,6 +181,13 @@ private fun AwaitingPayment(state: RidesState) {
     Text(stringResource(R.string.rd_awaiting_payment), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
     Spacer(Modifier.height(14.dp))
     AccentButton(stringResource(R.string.rd_pay_now)) { openRidePayment(state) }
+    // O-38c: not locked on the card — switch to cash / the wallet here and the search starts at once.
+    state.ride?.let { ride ->
+        if (ride.paymentChange.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            PaymentSwitch(state, ride)
+        }
+    }
 }
 
 /** A calm radar while the nearest captains are asked one by one. */
@@ -261,8 +290,15 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         }
     }
 
+    // O-32: a shared ride — how many in the car, and what sharing saved.
+    ride.pool?.takeIf { it.riders > 1 || it.discountMinor > 0 }?.let { pool -> SharedRideBanner(pool, ride.currency) }
+    ride.hourly?.let { HourlyRideBanner(it, ride.currency) }
     ChangeTripLinks(state, ride)
     if (ride.status == "accepted" || ride.status == "arrived") PaymentSwitch(state, ride)
+
+    // O-09: a free call inside the app (LiveKit) while the captain is on the ride — the mic asked first.
+    val callCtx = androidx.compose.ui.platform.LocalContext.current
+    val micForCall = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> if (ok) startRideCall(callCtx, ride) }
 
     // The wireflow's row: 💬 Message · 📤 Share · 🚨 SOS.
     Spacer(Modifier.height(14.dp))
@@ -271,6 +307,12 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         onShare = onShare,
         onSos = onSos,
         sharing = sharing,
+        unread = ride.unreadMessages,
+        callPhone = ride.callPhone,
+        onAppCall = if (ride.status in setOf("accepted", "arrived", "in_progress")) ({
+            if (androidx.core.content.ContextCompat.checkSelfPermission(callCtx, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) startRideCall(callCtx, ride)
+            else micForCall.launch(android.Manifest.permission.RECORD_AUDIO)
+        }) else null,
     )
     shareError?.let { Text(it, color = AppColors.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
     if (ride.status != "in_progress") {
@@ -337,6 +379,25 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
         if (ride.paymentStatus == "cash_due") {
             Text(stringResource(R.string.rd_cash_due, money(ride.finalTotalMinor, ride.currency)), color = AppColors.warning, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         }
+        if (ride.options.isNotEmpty()) {
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) { ride.options.forEach { AddonChip(it) } }
+        }
+    }
+    // D-294: something left in the car.
+    LostItemRow(ride.uuid)
+    // R-146: the DORR points this ride earned, popping in.
+    ride.loyaltyPoints?.takeIf { it > 0 }?.let { pts ->
+        val pop = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(pts) { pop.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.45f)) }
+        Row(
+            Modifier.padding(top = 10.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value }
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFE0A526).copy(alpha = 0.16f)).padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.WorkspacePremium, null, tint = Color(0xFFB7791F), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.loy_ride_points, pts.toInt()), color = Color(0xFFB7791F), fontWeight = FontWeight.Black, fontSize = 14.sp)
+        }
     }
     Spacer(Modifier.height(14.dp))
     if (sent) {
@@ -356,6 +417,27 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
                 tint = if (i <= stars) AppColors.warning else settingsMut(),
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { stars = i },
             )
+        }
+    }
+    // O-41: a row of stars per criterion — they start at the overall stars and can each be moved.
+    val scores = remember(ride.uuid) { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+    if (stars > 0 && ride.ratingCriteria.isNotEmpty()) {
+        Column(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(settingsBackground()).padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            ride.ratingCriteria.forEach { c ->
+                val value = scores[c.key] ?: stars
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.label ?: c.key, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    (1..5).forEach { i ->
+                        Icon(
+                            if (i <= value) Icons.Rounded.Star else Icons.Rounded.StarBorder, null,
+                            tint = if (i <= value) AppColors.warning else settingsMut(),
+                            modifier = Modifier.size(26.dp).clip(CircleShape).clickable { scores[c.key] = i },
+                        )
+                    }
+                }
+            }
         }
     }
     if (stars > 0) {
@@ -384,6 +466,9 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
             scope.launch {
                 val body = JsonObject().apply {
                     addProperty("stars", stars)
+                    if (ride.ratingCriteria.isNotEmpty()) {
+                        add("scores", JsonObject().apply { ride.ratingCriteria.forEach { c -> addProperty(c.key, scores[c.key] ?: stars) } })
+                    }
                     add("tags", JsonArray().apply { chosen.value.forEach { add(it) } })
                     if (comment.isNotBlank()) addProperty("comment", comment.trim())
                 }
@@ -411,58 +496,6 @@ private fun Ended(ride: RideDto, onAgain: () -> Unit) {
 }
 
 /** Cancelling: the fee (if any) is shown before, with the reasons to pick from. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CancelSheet(state: RidesState, onClose: () -> Unit) {
-    val ride = state.ride ?: return
-    val scope = rememberCoroutineScope()
-    var fee by remember { mutableStateOf<Long?>(null) }
-    var reasons by remember { mutableStateOf<List<RideReasonDto>>(emptyList()) }
-    var reason by remember { mutableStateOf<Int?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        fee = runCatching { ApiClient.rides.cancelPreview(ridesAuth(), ride.uuid).data?.feeMinor }.getOrNull() ?: 0
-        reasons = runCatching { ApiClient.rides.cancelReasons(ridesAuth()).data.orEmpty() }.getOrDefault(emptyList())
-    }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-            Text(stringResource(R.string.rd_cancel), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            fee?.let {
-                Text(
-                    if (it > 0) stringResource(R.string.rd_cancel_fee, money(it, ride.currency)) else stringResource(R.string.rd_cancel_free),
-                    color = if (it > 0) AppColors.danger else AppColors.success, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 6.dp),
-                )
-            }
-            if (reasons.isNotEmpty()) {
-                Text(stringResource(R.string.rd_cancel_reason), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
-                reasons.forEach { r ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { reason = r.id }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(18.dp).clip(CircleShape).border(2.dp, if (reason == r.id) settingsAccent() else settingsMut(), CircleShape).padding(4.dp)) {
-                            if (reason == r.id) Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(r.label.orEmpty(), color = settingsInk())
-                    }
-                }
-            }
-            error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
-            Spacer(Modifier.height(12.dp))
-            AccentButton(stringResource(R.string.rd_cancel_confirm), busy = busy, color = AppColors.danger) {
-                busy = true
-                scope.launch {
-                    val body = JsonObject().apply { reason?.let { addProperty("reason_id", it) } }
-                    runCatching { ApiClient.rides.cancel(ridesAuth(), UUID.randomUUID().toString(), ride.uuid, body).data }
-                        .onSuccess { state.ride = it; onClose() }
-                        .onFailure { error = it.apiFailure().message }
-                    busy = false
-                }
-            }
-            Text(stringResource(R.string.rd_keep), color = settingsInk(), fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable(onClick = onClose).padding(12.dp))
-        }
-    }
-}
-
 /** The chat with the captain: ready-made messages and text, open while the captain is on the ride. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -499,47 +532,14 @@ private fun RideChatSheet(ride: RideDto, onClose: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding()) {
-            Text(stringResource(R.string.rd_chat_title, ride.driver?.name.orEmpty()), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 380.dp), state = list, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (messages.isEmpty()) item { Text(stringResource(R.string.rd_chat_empty), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 20.dp)) }
-                items(messages, key = { it.id }) { m ->
-                    val mine = m.mine ?: (m.from == "user")
-                    Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                        Text(
-                            m.body, color = if (mine) Color.White else settingsInk(), fontSize = 14.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (mine) settingsAccent() else settingsBackground()).padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                    }
-                }
-            }
-            if (!open) {
-                Text(stringResource(R.string.rd_chat_closed), color = settingsMut(), fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(12.dp))
-                return@Column
-            }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                items(quick) { q ->
-                    Text(
-                        q.text, fontSize = 12.sp, color = settingsInk(),
-                        modifier = Modifier.clip(CircleShape).border(1.dp, settingsInk().copy(alpha = 0.12f), CircleShape).clickable { send(null, q.key) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DorrTextField(
-                    value = text, onValueChange = { text = it.take(1000) },
-                    placeholder = stringResource(R.string.rd_chat_hint), minHeight = 48.dp,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    Modifier.size(46.dp).clip(CircleShape).background(if (text.isBlank()) settingsMut() else settingsAccent())
-                        .clickable(enabled = text.isNotBlank()) { send(text.trim(), null); text = "" },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White) }
-            }
-        }
-    }
+    // O-61: the conversation look of the chat between people.
+    val callCtx = androidx.compose.ui.platform.LocalContext.current
+    RideChatScreen(
+        title = ride.driver?.name.orEmpty(),
+        subtitle = stringResource(R.string.rd_chat_subtitle, ride.number.orEmpty()),
+        messages = messages, quick = quick, open = open,
+        onSend = { body, key -> send(body, key) },
+        onCall = if (ride.status in setOf("accepted", "arrived", "in_progress")) ({ startRideCall(callCtx, ride) }) else null,
+        onClose = onClose,
+    )
 }

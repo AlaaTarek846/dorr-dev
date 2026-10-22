@@ -164,6 +164,19 @@ fun WalletScreen(onBack: (() -> Unit)?) {
     var topupOpen by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(StatementFilter()) }
     var detailId by remember { mutableStateOf<String?>(null) }
+    // D-210, D-216..D-228: the last confirmed balance when offline, the payout safeguards, the statements.
+    val context = LocalContext.current
+    var cachedAt by remember { mutableStateOf<Long?>(null) }
+    var payout by remember { mutableStateOf<com.dorr.driver.net.PayoutStatusDto?>(null) }
+    var intlOpen by remember { mutableStateOf(false) }
+    var invoicesOpen by remember { mutableStateOf(false) }
+    suspend fun loadWallet() {
+        when (val r = apiCall { DriverBackend.api.wallet() }) {
+            is ApiResult.Ok -> { wallet = r.data; cachedAt = null; WalletCache.save(context, r.data) }
+            else -> if (wallet == null) WalletCache.load(context)?.let { (w, at) -> wallet = w; cachedAt = at }
+        }
+        payout = (apiCall { DriverBackend.api.payoutStatus() } as? ApiResult.Ok)?.data ?: payout
+    }
     val list = rememberLazyListState()
     if (onBack != null) BackHandler(onBack = onBack)
 
@@ -174,15 +187,15 @@ fun WalletScreen(onBack: (() -> Unit)?) {
         if (rows == null) rows = emptyList()
     }
     suspend fun load() {
-        (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
+        loadWallet()
         loadRows()
         (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
     }
     LaunchedEffect(Unit) {
-        (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
+        loadWallet()
         withdrawals = (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.data.orEmpty()
         // A settlement, a payout decision, a transfer: the wallet reloads by itself.
-        DriverLive.events.collect { e -> if (e.name.startsWith("wallet") || e.name.contains("withdrawal") || e.name.contains("earnings")) load() }
+        DriverLive.events.collect { e -> if (e.name.startsWith("wallet") || e.name.contains("withdrawal") || e.name.contains("earnings") || e.name.startsWith("driver.payout")) load() }
     }
     LaunchedEffect(filter) { loadRows() }
 
@@ -207,6 +220,7 @@ fun WalletScreen(onBack: (() -> Unit)?) {
                     if (w != null) WalletHero(w, hidden) else HeroSkeleton()
                 }
             }
+            item(key = "payout") { PayoutBanners(payout, cachedAt, onInternational = { intlOpen = true }, onInvoices = { invoicesOpen = true }) }
             if (owing) {
                 item(key = "owing") { Banner(stringResource(R.string.wl_owing), Modifier.padding(horizontal = 16.dp).padding(top = 10.dp), kind = BannerKind.Warning) }
             }
@@ -273,6 +287,8 @@ fun WalletScreen(onBack: (() -> Unit)?) {
             }
         }
     }
+    if (intlOpen) InternationalDialog(onClose = { intlOpen = false }, onSent = { intlOpen = false; scope.launch { loadWallet() } })
+    if (invoicesOpen) InvoicesScreen(w, onClose = { invoicesOpen = false })
     if (topupOpen && w != null) TopupSheet(w, onClose = { topupOpen = false }, onDone = { topupOpen = false; scope.launch { load() } })
     detailId?.let { id -> TransactionDetailSheet(id, w, onClose = { detailId = null }) }
     if (withdrawOpen && w != null) {
@@ -568,6 +584,14 @@ private fun txIcon(type: String): ImageVector = when (type) {
 
 // ---------------------------------------------------------------- withdrawing
 
+/** O-35: the withdrawal sheet, opened from the wallet copied from the DORR app (the captain's own action there). */
+@Composable
+internal fun DriverWithdraw(onClose: () -> Unit, onDone: () -> Unit) {
+    var w by remember { mutableStateOf<WalletDto?>(null) }
+    LaunchedEffect(Unit) { (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { w = it.data } }
+    w?.let { WithdrawSheet(it, onClose = onClose, onDone = onDone) }
+}
+
 /** Withdraw: pick (or add) where to, the amount, then the wallet PIN — made first if there isn't one yet. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -591,6 +615,10 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
     var iban by remember { mutableStateOf("") }
     var provider by remember { mutableStateOf("") }
     var number by remember { mutableStateOf("") }
+    // D-219: the account is in someone else's name — the captain's word for it; D-223: abroad needs approval.
+    var askAck by remember { mutableStateOf(false) }
+    var ack by remember { mutableStateOf(false) }
+    var askIntl by remember { mutableStateOf(false) }
 
     suspend fun load() {
         methods = (apiCall { DriverBackend.api.withdrawalMethods() } as? ApiResult.Ok)?.data.orEmpty()
@@ -674,6 +702,17 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), error = number.isNotEmpty() && number.length < 6,
                     )
                 }
+                if (askAck) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Pal.warning.copy(alpha = 0.1f)).bounceClick { ack = !ack }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (ack) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (ack) Pal.accent else Pal.mut, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.wx_third_party_ack), color = Pal.ink, fontSize = 12.5.sp)
+                    }
+                }
+                if (askIntl) {
+                    Text(stringResource(R.string.wx_intl_needed), color = Pal.accent, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).bounceClick { askIntl = false; onClose(); }.padding(vertical = 6.dp, horizontal = 4.dp))
+                }
                 if (list.isNotEmpty()) {
                     Text(
                         stringResource(R.string.cancel), color = Pal.mut, fontWeight = FontWeight.Bold, fontSize = 13.sp,
@@ -713,6 +752,7 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                     if (adding) {
                         val body = JsonObject().apply {
                             addProperty("type", type)
+                            if (ack) addProperty("acknowledge_third_party", true)
                             if (label.isNotBlank()) addProperty("label", label.trim())
                             add("data", JsonObject().apply {
                                 if (type == "bank") { addProperty("bank_name", bankName.trim()); addProperty("account_holder", holder.trim()); addProperty("iban", iban.trim()) }
@@ -720,8 +760,12 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                             })
                         }
                         when (val r = apiCall { DriverBackend.api.addWithdrawalMethod(pin, body) }) {
-                            is ApiResult.Ok -> { methodId = r.data.id; adding = false; pin = ""; pinConfirm = ""; load() }
-                            is ApiResult.Failed -> error = r.error.displayMessage
+                            is ApiResult.Ok -> { methodId = r.data.id; adding = false; pin = ""; pinConfirm = ""; askAck = false; ack = false; load() }
+                            is ApiResult.Failed -> {
+                                error = r.error.displayMessage
+                                if (r.error.errorCode == "rides_payout_third_party_ack") askAck = true
+                                if (r.error.errorCode == "rides_payout_international_off") askIntl = true
+                            }
                             is ApiResult.Offline -> error = context.getString(R.string.error_offline)
                         }
                     } else {

@@ -60,7 +60,8 @@ class RideSettlementService
             $extras = RidePriceLine::query()->where('ride_id', $ride->id)->where('phase', 'final')->whereIn('code', PriceExtras::CODES)->pluck('amount_minor', 'code');
             $customerFee = (int) ($extras['customer_fee'] ?? 0);
             $paymentFee = (int) ($extras['payment_method_fee'] ?? 0);
-            $discount = -(int) ($extras['discount'] ?? 0);
+            // A coupon and Wait & Save (R-233) are DORR's expense alike.
+            $discount = -(int) ($extras['discount'] ?? 0) - (int) ($extras['wait_save'] ?? 0);
             foreach ([['trip_customer_fees', FinancialEntryType::Income, $customerFee, 'ride_customer_fee'], ['trip_payment_fees', FinancialEntryType::Income, $paymentFee, 'ride_payment_fee'], ['discount_expenses', FinancialEntryType::Expense, $discount, 'ride_discount']] as [$slug, $type, $amount, $note]) {
                 if ($amount > 0) {
                     $this->ledger->record($slug, $type, $amount, $currency, $country, $ride, ['key' => 'wallet.notes.'.$note, 'variables' => ['number' => $ride->number]]);
@@ -76,6 +77,20 @@ class RideSettlementService
                 $this->post($ride, $driver, $country, SettlementItemType::CustomerFee, -$customerFee, WalletTransactionType::Commission, 'ride_customer_fee');
                 $this->post($ride, $driver, $country, SettlementItemType::PaymentMethodFee, -$paymentFee, WalletTransactionType::Commission, 'ride_payment_fee');
                 $this->post($ride, $driver, $country, SettlementItemType::DiscountCompensation, $discount, WalletTransactionType::DiscountCompensation, 'ride_discount');
+                // O-37: the part the rider paid from the wallet reached DORR, not the captain's hand — it is
+                // the captain's, released like any paid-online earning.
+                $walletPaid = (int) $ride->snapshot('wallet_paid_minor', 0);
+                if ($walletPaid > 0) {
+                    RideSettlementItem::query()->create([
+                        'ride_id' => $ride->id,
+                        'driver_id' => $driver->id,
+                        'type' => SettlementItemType::TripEarning,
+                        'amount_minor' => $walletPaid,
+                        'currency_id' => $currency->id,
+                        'status' => SettlementStatus::Pending,
+                        'release_at' => now()->addDays((int) $ride->policy('settlement.pending_days', 2)),
+                    ]);
+                }
 
                 return;
             }
@@ -101,7 +116,8 @@ class RideSettlementService
      */
     public function cashCollected(Ride $ride, int $receivedMinor): int
     {
-        $total = (int) $ride->final_total_minor;
+        // What the captain collects in cash: the total less what the wallet already paid (O-37).
+        $total = (int) $ride->final_total_minor - (int) $ride->snapshot('wallet_paid_minor', 0);
         if ($receivedMinor < $total) {
             throw new RidesException('cash_below_total', 422, [], ['total_minor' => $total]);
         }
@@ -127,12 +143,16 @@ class RideSettlementService
 
             $change = $receivedMinor - $total;
             if ($change > 0) {
+                // The change comes out of the captain's non-withdrawable money first (O-38f); only the rest
+                // may take the withdrawable balance down to the lowest allowed.
                 $limit = (int) $ride->policy('driver.min_balance_minor', -5000);
-                if ($driverWallet->fresh()->withdrawable_minor - $change < $limit) {
-                    throw new RidesException('change_too_large', 422, [], ['max_change_minor' => max(0, $driverWallet->fresh()->withdrawable_minor - $limit)]);
+                $fresh = $driverWallet->fresh();
+                $spendOnly = max(0, $fresh->availableMinor(WalletBucket::SpendOnly));
+                if ($fresh->withdrawable_minor - max(0, $change - $spendOnly) < $limit) {
+                    throw new RidesException('change_too_large', 422, [], ['max_change_minor' => max(0, $fresh->withdrawable_minor - $limit + $spendOnly)]);
                 }
                 $operation = (string) \Illuminate\Support\Str::uuid();
-                $this->wallets->debit($driverWallet, $change, WalletBucket::Withdrawable, WalletTransactionType::TransferOut, $meta('ride_change', 'change:driver') + ['operation_id' => $operation, 'counterparty_wallet_id' => $riderWallet->id]);
+                $this->wallets->debitSpendOnlyFirst($driverWallet, $change, WalletTransactionType::TransferOut, $meta('ride_change', 'change:driver') + ['operation_id' => $operation, 'counterparty_wallet_id' => $riderWallet->id]);
                 $this->wallets->credit($riderWallet, $change, WalletBucket::SpendOnly, WalletTransactionType::TransferIn, $meta('ride_change', 'change:rider') + ['operation_id' => $operation, 'counterparty_wallet_id' => $driverWallet->id]);
             }
 
@@ -199,7 +219,7 @@ class RideSettlementService
         ];
         $transaction = $amountMinor > 0
             ? $this->wallets->credit($wallet, $amountMinor, WalletBucket::Withdrawable, $walletType, $meta)
-            : $this->wallets->debit($wallet, -$amountMinor, WalletBucket::Withdrawable, $walletType, $meta);
+            : $this->wallets->debitSpendOnlyFirst($wallet, -$amountMinor, $walletType, $meta);
 
         RideSettlementItem::query()->create([
             'ride_id' => $ride->id,

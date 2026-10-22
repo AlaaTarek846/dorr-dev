@@ -228,6 +228,10 @@ if (! function_exists('sendPushNotification')) {
             $appId = config('services.onesignal.driver_app_id');
             $restApiKey = config('services.onesignal.driver_rest_api_key');
         }
+        if ($audience === 'freelance' && config('services.onesignal.freelance_app_id') && config('services.onesignal.freelance_rest_api_key')) {
+            $appId = config('services.onesignal.freelance_app_id');
+            $restApiKey = config('services.onesignal.freelance_rest_api_key');
+        }
         $timeout = (int) env('ONESIGNAL_GUZZLE_CLIENT_TIMEOUT', 10);
 
         if (! $appId || ! $restApiKey) {

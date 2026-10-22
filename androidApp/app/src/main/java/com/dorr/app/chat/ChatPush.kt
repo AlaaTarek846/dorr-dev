@@ -22,6 +22,10 @@ import kotlinx.coroutines.launch
 /** Where a tapped notification wants to go. */
 sealed interface ChatDeepLink {
     data class Conversation(val id: String) : ChatDeepLink
+    /** A ride notification (arrived, started, ended…): the rides screen on that ride — ended: the receipt and the rating (O-41). */
+    data class Ride(val uuid: String) : ChatDeepLink
+    /** A booked service's notification (bus, boat, driver, lessons): that booking. */
+    data class Service(val kind: String, val uuid: String?) : ChatDeepLink
     data class Call(val id: String, val conversationId: String?) : ChatDeepLink
     /** DORR Moments: a reminder of one of my own dates (or a group card invite). */
     data object Moments : ChatDeepLink
@@ -145,6 +149,9 @@ object ChatPush {
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         data.optString("type") == "security" -> ChatDeepLink.Security
                         conversation != null -> ChatDeepLink.Conversation(conversation)
+                        data.optString("type") == "ride" && data.optString("ride_uuid").isNotBlank() -> ChatDeepLink.Ride(data.optString("ride_uuid"))
+                        com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) } != null ->
+                            com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) }!!.let { (k, u) -> ChatDeepLink.Service(k, u) }
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
                         data.optString("type") == "sports" -> ChatDeepLink.Sports(data.optString("match_id").takeIf { it.isNotBlank() && it != "null" })

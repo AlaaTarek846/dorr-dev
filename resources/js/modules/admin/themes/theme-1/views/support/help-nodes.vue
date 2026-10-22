@@ -249,6 +249,12 @@
                     <div v-if="editingId" class="text-muted fs-11 mt-1">{{ t('support.help.parent_hint') }}</div>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label" for="hn-audience">{{ t('support.help.audience') }}</label>
+                    <select id="hn-audience" v-model="form.audience" class="form-select">
+                        <option v-for="a in ['all', 'user', 'driver']" :key="a" :value="a">{{ t(`support.help.audiences.${a}`) }}</option>
+                    </select>
+                </div>
                 <div class="row g-3 align-items-end">
                     <div class="col-8">
                         <label class="form-label" for="hn-sort">{{ t('support.quick.sort_order') }}</label>
@@ -428,7 +434,7 @@ const showModal = ref(false);
 const editingId = ref(null);
 const saving = ref(false);
 const generalError = ref('');
-const form = reactive({ parent_id: null, sort_order: 0, status: true, translations: {} });
+const form = reactive({ parent_id: null, sort_order: 0, status: true, audience: 'all', translations: {} });
 const parentOptions = ref([]);
 const expandedKeys = ref({});
 
@@ -508,7 +514,7 @@ function ensureTranslations() {
 
 function openCreate() {
     editingId.value = null;
-    Object.assign(form, { parent_id: parentId.value, sort_order: rows.value.length + 1, status: true, translations: {} });
+    Object.assign(form, { parent_id: parentId.value, sort_order: rows.value.length + 1, status: true, audience: 'all', translations: {} });
     loadParentOptions();
     ensureTranslations();
     activeLocale.value = languages.value[0]?.code || '';
@@ -519,7 +525,7 @@ function openCreate() {
 
 function openEdit(row) {
     editingId.value = row.id;
-    Object.assign(form, { parent_id: row.parent_id ?? null, sort_order: row.sort_order ?? 0, status: Boolean(row.status), translations: {} });
+    Object.assign(form, { parent_id: row.parent_id ?? null, sort_order: row.sort_order ?? 0, status: Boolean(row.status), audience: row.audience || 'all', translations: {} });
     loadParentOptions(row.id);
     ensureTranslations();
     (row.translations ?? []).forEach((tr) => { form.translations[tr.locale] = { title: tr.title ?? '', answer: tr.answer ?? '' }; });
@@ -549,6 +555,7 @@ async function save() {
         parent_id: form.parent_id,
         sort_order: form.sort_order || 0,
         status: form.status,
+        audience: form.audience,
         translations: languages.value.map((lang) => ({ locale: lang.code, title: form.translations[lang.code].title, answer: form.translations[lang.code].answer || null })),
     };
 

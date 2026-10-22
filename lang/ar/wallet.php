@@ -68,6 +68,19 @@ return [
     ],
 
     'notes' => [
+        'bus_ticket' => 'تذكرة باص: :route',
+        'bus_earning' => 'أرباح رحلة باص: :route',
+        'bus_commission' => 'عمولة رحلة باص: :route',
+        'marine_booking' => 'حجز مركب: :title',
+        'marine_earning' => 'أرباح مركب: :title',
+        'marine_commission' => 'عمولة مركب: :title',
+        'hire_payment' => 'سائق لعربيتك: :address',
+        'hire_earning' => 'أرباح شغلانة سائق: :address',
+        'hire_commission' => 'عمولة شغلانة سائق: :address',
+        'lessons_payment' => 'دروس قيادة: :title',
+        'lessons_refund' => 'دروس ما اتاخدتش: :title',
+        'lessons_earning' => 'أرباح درس قيادة: :title',
+        'lessons_commission' => 'عمولة درس قيادة: :title',
         'topup' => 'شحن المحفظة',
         'topup_fee' => 'رسوم خدمة الشحن',
         'topup_bonus' => 'هدية الشحن',
@@ -90,6 +103,9 @@ return [
         'ride_customer_fee' => 'رسوم خدمة رحلة :number',
         'ride_payment_fee' => 'رسوم دفع رحلة :number',
         'ride_discount' => 'خصم رحلة :number',
+        'freelance_commission' => 'عمولة مشروع :project',
+        'freelance_client_fee' => 'رسم عميل على مشروع :project',
+        'freelance_discount' => 'خصم على مشروع :project',
     ],
 
     'types' => [
