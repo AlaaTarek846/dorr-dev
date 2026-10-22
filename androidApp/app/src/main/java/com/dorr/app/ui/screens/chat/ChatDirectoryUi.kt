@@ -96,16 +96,17 @@ internal fun ChCategoryChips(categories: List<CategoryDto>, selected: Int?, allL
     }
 }
 
-/** A directory section header: the category's icon and name. */
+/** A directory section header: the category's name. */
 @Composable
 internal fun ChCategoryHeader(category: CategoryDto?) {
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-            val icon = category?.icon
-            if (icon != null) AsyncImage(com.dorr.app.network.ApiClient.mediaUrl(icon), null, Modifier.fillMaxSize()) else Icon(Icons.Rounded.Category, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
-        }
-        Spacer(Modifier.width(8.dp))
-        Text(category?.name ?: stringResource(R.string.ch_channels_other), color = Ch.Ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+    category?.name?.takeIf { it.isNotBlank() }?.let { name ->
+        Text(
+            name,
+            color = Ch.Ink,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp),
+        )
     }
 }
 

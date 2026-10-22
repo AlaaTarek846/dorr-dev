@@ -66,11 +66,14 @@
     <string name="cp_none">مفيش</string>
     <string name="cp_money">الفلوس في المحادثة</string>
     <string name="cp_my_balance">رصيدي</string>
+    <string name="cp_wallet_public_number">رقم المحفظة العام</string>
+    <string name="cp_account_number">رقم الحساب</string>
     <string name="cp_sent">بعتّ</string>
     <string name="cp_received">استلمت</string>
     <string name="cp_i_owe">عليّا</string>
     <string name="cp_owed_to_me">ليّا</string>
     <string name="cp_history">السجل</string>
+    <string name="cp_show_more">المزيد</string>
     <string name="cp_no_money">مفيش فلوس هنا لسه.</string>
     <string name="cp_t_request">طلب فلوس</string>
     <string name="cp_t_split">تقسيم فاتورة</string>

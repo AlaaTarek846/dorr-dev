@@ -172,16 +172,19 @@ class ChatOverviewService
 
     /**
      * The money in this chat, as I see it: transfers, requests and splits (newest first), and
-     * what I sent, received and still owe / am owed.
+     * what I sent, received and still owe / am owed. The ledger pages 15 at a time; totals are
+     * for the whole chat.
      *
      * @return array<string, mixed>
      */
-    public function money(Model $me, ChatConversation $conversation): array
+    public function money(Model $me, ChatConversation $conversation, int $page = 1, int $perPage = 15): array
     {
+        $page = max(1, $page);
+        $perPage = min(max(1, $perPage), 50);
         $participant = $this->conversations->participantOf($me, $conversation);
         $rows = $this->messages->visibleTo($participant, $conversation->messages()->getQuery())
             ->whereIn('type', [MessageType::WalletTransfer->value, MessageType::MoneyRequest->value, MessageType::BillSplit->value])
-            ->whereNull('deleted_for_everyone_at')->orderByDesc('id')->limit(100)->get();
+            ->whereNull('deleted_for_everyone_at')->orderByDesc('id')->get();
 
         $totals = ['sent_minor' => 0, 'received_minor' => 0, 'i_owe_minor' => 0, 'owed_to_me_minor' => 0];
         $currency = null;
@@ -215,9 +218,13 @@ class ChatOverviewService
                 'note' => $m->body ? Str::limit(ChatPushNotifier::plain((string) $m->body), 80) : null,
                 'created_at' => $m->created_at?->toIso8601String(),
             ];
-        })->values()->all();
+        })->values();
 
-        return ['items' => $items, 'totals' => $totals + ['currency' => $currency]];
+        return [
+            'items' => $items->forPage($page, $perPage)->values()->all(),
+            'totals' => $totals + ['currency' => $currency],
+            'has_more' => $items->count() > $page * $perPage,
+        ];
     }
 
     // ------------------------------------------------------------------ 127

@@ -175,7 +175,11 @@ interface ChatApi {
     suspend fun clearStatus(@Header("Authorization") auth: String): ApiEnvelope<PrivacyDto>
 
     @GET("mobile/v1/chat/messages/starred")
-    suspend fun starred(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+    suspend fun starred(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<MessageDto>>
 
     @POST("mobile/v1/chat/messages/{id}/pin")
     suspend fun pin(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Int>): ApiEnvelope<List<MessageDto>>
@@ -543,7 +547,11 @@ interface ChatApi {
     // ------------------------------------------------------------------ stories
 
     @GET("mobile/v1/chat/stories")
-    suspend fun stories(@Header("Authorization") auth: String): ApiEnvelope<StoryFeedDto>
+    suspend fun stories(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<StoryFeedDto>
 
     @Multipart
     @POST("mobile/v1/chat/stories")
@@ -857,6 +865,7 @@ data class ConversationDto(
     /** My privacy circle for this chat (spec 98) — only I know. */
     val circle: ConversationCircleDto? = null,
     @SerializedName("is_muted") val isMuted: Boolean,
+    @SerializedName("muted_until") val mutedUntil: String? = null,
     @SerializedName("disappearing_seconds") val disappearingSeconds: Int?,
     val theme: ConversationThemeDto? = null,
     // Only on the single-chat screen:
@@ -1397,7 +1406,12 @@ data class StoryGroupDto(
     @SerializedName("block_screenshots") val blockScreenshots: Boolean = false,
 )
 
-data class StoryFeedDto(val mine: StoryGroupDto?, val recent: List<StoryGroupDto> = emptyList(), val muted: List<StoryGroupDto> = emptyList())
+data class StoryFeedDto(
+    val mine: StoryGroupDto?,
+    val recent: List<StoryGroupDto> = emptyList(),
+    val muted: List<StoryGroupDto> = emptyList(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class StoryViewerDto(val viewer: ProfileDto?, @SerializedName("viewed_at") val viewedAt: String?, val reaction: String?)
 
