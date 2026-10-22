@@ -4,18 +4,19 @@ namespace Modules\User\Services;
 
 use App\Models\Faq;
 use App\Repositories\General\FaqRepository;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Safety\RiskClassifier;
-use Modules\AI\Services\AiGateway;
+use Modules\AI\Services\AiTaskRunner;
 use Throwable;
 
 /**
  * Answers a support ticket from the FAQs — through the AI module, exactly like DORR Chat's AI does:
- * the default chat provider (`AiProviderRepository::resolveActiveForChat`), one call through
- * `AiGateway::chat` (which applies the providers' data rules, strips personal data and logs the call),
- * and the AI safety layer's fixed rules (`RiskClassifier::byRules`, no extra model call).
+ * one call through `AiTaskRunner` (the DORR AI system itself: the admin's AI block and safety rules,
+ * routing, fallback, data rules, and the `ai_requests` log as `support.faq`), and the AI safety layer's
+ * fixed rules (`RiskClassifier::byRules`, no extra model call). Support is free: no AI plan quota and
+ * no wallet charge ever apply here.
  *
  * It never invents: the model may only restate one of the published FAQs, chosen by its id, and says
  * "none" when none of them answers. And some tickets never get an automatic answer at all — they go
@@ -49,8 +50,7 @@ class SupportFaqAnswerer
     ];
 
     public function __construct(
-        private readonly AiProviderRepository $providers,
-        private readonly AiGateway $gateway,
+        private readonly AiTaskRunner $runner,
         private readonly RiskClassifier $risk,
         private readonly FaqRepository $faqs,
     ) {}
@@ -81,10 +81,11 @@ class SupportFaqAnswerer
     /**
      * An answer taken from one FAQ, in the customer's language, or null (no provider, no FAQ that
      * answers it, a sensitive ticket, or the provider failed — the ticket then just waits for a person).
+     * [$customer] is who the ticket belongs to (their AI block applies, and the call is logged as theirs).
      *
      * @return array{answer: string, faq_id: int}|null
      */
-    public function answer(string $question, string $locale): ?array
+    public function answer(string $question, string $locale, ?Authenticatable $customer = null): ?array
     {
         $question = trim($question);
 
@@ -92,32 +93,32 @@ class SupportFaqAnswerer
             return null;
         }
 
-        $provider = $this->providers->resolveActiveForChat();
         $faqs = $this->catalog($locale);
 
-        if ($provider === null || $faqs === []) {
+        if (! $this->runner->available() || $faqs === []) {
             return null;
         }
 
         $language = $locale === 'ar' ? 'Arabic' : 'English';
 
         try {
-            $result = $this->gateway->chat($provider, [
+            $result = $this->runner->chat([
                 ['role' => 'system', 'content' => "You are the automatic first reply of Dorr's customer support. You may ONLY use the FAQ entries given below — never your own knowledge, never invent steps, prices, times or promises (no refunds, no compensation, no deadlines).\n"
                     ."Decide whether exactly one FAQ entry clearly answers the customer's ticket. If it does, rewrite that entry's answer as a short, friendly reply to this customer in {$language} (at most 5 sentences, no greeting longer than a few words, no markdown). If none clearly answers it, or the ticket is about money, a payment, fraud, a complaint or a request for a person, answer none.\n"
                     .'Reply with JSON only: {"faq_id": <the id of the entry you used, or null>, "answer": <your reply, or null>}.'
                     ."\n\nFAQ entries:\n".json_encode($faqs, JSON_UNESCAPED_UNICODE)],
                 ['role' => 'user', 'content' => Str::limit($question, self::MAX_QUESTION_CHARS, '')],
-            ]);
+            ], 'support.faq', $customer, free: true);
         } catch (Throwable $e) {
             Log::warning('[SupportAutoReply] AI call failed: '.$e->getMessage());
 
             return null;
         }
 
-        if (! ($result['success'] ?? false) || trim((string) ($result['content'] ?? '')) === '') {
-            // The provider's own words (keys, quotas…) are for the logs, not for the customer.
-            Log::warning('[SupportAutoReply] '.$provider->key.': '.($result['message'] ?? 'empty answer'));
+        if (! $result['success']) {
+            // The provider's own words (keys, quotas…) are for the logs, not for the customer; a blocked
+            // account or text simply waits for a person.
+            Log::warning('[SupportAutoReply] '.($result['provider']?->key ?? '-').' '.$result['reason'].': '.($result['message'] ?? ''));
 
             return null;
         }

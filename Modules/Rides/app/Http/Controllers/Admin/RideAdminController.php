@@ -174,6 +174,16 @@ class RideAdminController extends Controller implements HasMiddleware
             'pickup_point' => PickupPoints::present($r->pickup_point),
             'dropoff_point' => PickupPoints::present($r->dropoff_point),
             'vehicle' => $r->vehicle_snapshot,
+            // Block 06: fraud signs found at the end (AI-06), how likely it was to be cancelled (AI-10), a booking's
+            // lateness warning, the rider's «راحتي» and what the captain couldn't do, and the ride a next trip followed.
+            'ai' => [
+                'risk_score' => $r->risk_score,
+                'risk_flags' => collect((array) $r->risk_flags)->map(fn ($f) => ['code' => $f['code'] ?? null, 'label' => __('rides.fraud.'.($f['code'] ?? 'other')), 'detail' => $f['detail'] ?? []])->values(),
+                'cancel_risk' => $r->cancel_risk,
+                'late_risk' => $r->late_risk,
+                'comfort' => \Modules\Rides\Services\Comfort\ComfortPreferences::present($r),
+                'after_ride_id' => $r->after_ride_id,
+            ],
             // Booked ahead (R-12, D-264): the time, the free-cancel limit, the captain who reserved it.
             'scheduled' => $r->scheduled_at === null ? null : [
                 'at' => $r->scheduled_at->toIso8601String(),

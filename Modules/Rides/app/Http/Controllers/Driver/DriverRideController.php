@@ -15,6 +15,8 @@ use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Http\Resources\DriverRideResource;
 use Modules\Rides\Http\Resources\RideResource;
+use Modules\Rides\Services\Dispatch\NextTrip;
+use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideBid;
 use Modules\Rides\Models\RideCancelReason;
@@ -77,7 +79,8 @@ class DriverRideController extends Controller
     {
         $ride = Ride::query()->where('driver_id', $this->driver($request)->id)
             ->whereIn('status', [RideStatus::Accepted->value, RideStatus::Arrived->value, RideStatus::InProgress->value])
-            ->latest('id')->first()
+            // The ride being driven first — a next trip taken meanwhile waits behind it (Block 06).
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END")->latest('id')->first()
             // Cash still to confirm on the last ride: the app stays on the collect screen.
             ?? Ride::query()->where('driver_id', $this->driver($request)->id)->where('payment_status', 'cash_due')->latest('id')->first();
 
@@ -266,6 +269,11 @@ class DriverRideController extends Controller
             'bid' => $ride->status === RideStatus::Bidding ? $this->bidCard($ride, $offer) : null,
             // D-INN-07: the rider chose their favourite captains and this captain is one of them.
             'from_circle' => in_array($offer->driver_id, array_map('intval', (array) $ride->circle_driver_ids), true),
+            // Block 06: offered while finishing a ride — it starts once that ride ends (a quiet card, not a full-screen ring).
+            'next_trip' => ($now = NextTrip::drivingNow($offer->driver_id)) === null || $now->id === $ride->id ? null : [
+                'after_ride_uuid' => $now->uuid,
+                'finish_in_s' => RideProgress::of($now)['eta_s'] ?? null,
+            ],
             ...RideResource::common($ride),
         ];
     }

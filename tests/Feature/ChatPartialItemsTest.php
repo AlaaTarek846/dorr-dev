@@ -54,6 +54,8 @@ class ChatPartialItemsTest extends TestCase
         app(AiProviderRepository::class)->ensureDefaults();
         AiProvider::query()->where('key', 'openai')->firstOrFail()->update(['is_enabled' => true, 'is_default' => true, 'api_key' => 'sk-test', 'model' => 'gpt-4o-mini']);
         Http::fake(['api.openai.com/v1/audio/transcriptions' => Http::response(['text' => 'Meet me at the blue door'])]);
+        // Transcribing is an AI tool: it needs a DORR AI plan (ADR-013).
+        \Modules\AI\Models\AiPlan::query()->create(['name' => 'Trial', 'code' => 'trial', 'is_trial' => true, 'is_active' => true, 'sort_order' => 1, 'usage_minutes' => 600, 'cooldown_minutes' => 5]);
     }
 
     public function test_folders_have_a_colour_and_starred_messages_go_into_my_favourites_folders(): void

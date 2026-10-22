@@ -323,6 +323,29 @@ For the accounts in `config('chat.business_participants')` (users and providers 
 
 Translate, voice to text, summary and suggested replies, through the AI module's provider (`Services\ChatAiService`). Each is **one tap by the person** — nothing is ever sent to an AI provider by itself. Only chats I'm in, only messages I can see, never a view-once message (`chat_ai_view_once`). Translations and transcripts are cached per message (30 days), summaries for 10 minutes. The admin switch is `ai_enabled` in chat settings.
 
+**Same system as DORR AI (2026-10-14):** every AI tool here runs through `Modules\AI\Services\AiTaskRunner` — the admin's AI settings apply exactly as in the DORR AI chat: routing policy and per-country provider/model flags, fallback and circuit breaker, safety rules, the speech-to-text model registered in the Model Registry, and each call logged in `ai_requests` with its `source` (`chat.translate`, `chat.summary`…). Extra errors: `chat_ai_blocked` (403, the admin blocked this account from AI) and `chat_ai_message_blocked` (422, an admin safety rule blocked the text).
+
+**DORR AI plan (2026-10-15, ADR-013):** every AI tool here needs a DORR AI plan — an active subscription or the admin's free trial — exactly like the DORR AI chat, and uses up its usage window. Refusal: `chat_ai_plan_{reason}` (402; `reason` ∈ no_plan, trial_ended, subscription_suspended, cooldown, limit_reached, blocked; `data.reason`, `data.cooldown_seconds_left`). `GET ai` adds `plan {allowed, reason}` (read-only — opening the chat starts no trial) and `image_generate`, `image_edit`.
+
+**DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat (2026-10-20):**
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `conversations/{c}/ai/search` | `q` (2–100) | `{terms[], messages[], matches{message id → word}}` — DORR AI widens the query (synonyms, dialect, the other language), then the chat's own search runs for each word: only messages I can see in this chat. One AI call (cached a day per query). Throttled 20/min |
+| POST | `conversations/{c}/ai/capsule` | `messages?[]` | `{capsule{goal, decisions, facts, files, open_tasks, done}, text, messages}` — a summary of the picked (or latest) messages to carry the work on elsewhere. Nothing is sent: the app shows `text`, I edit it and send it to the chats I choose (ordinary text messages). Throttled 10/min |
+| GET | `ai/images` | | Every image message marked `meta.ai_generated` in my chats (by anyone), newest first, only what I can see — each with its `conversation_id` to open it there |
+
+**Memory:** the chat's assistant and suggested replies read my DORR AI memory (the same one as the DORR AI chat — `AiMemoryService`, managed at `/api/user/v1/ai-chat/memories`); an assistant question starting «افتكر إن…» / "remember that…" saves to it. `GET ai` adds `search_meaning`, `memory`, `capsule`, `ai_images`.
+
+**Images (spec 50, 51):**
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `ai/image/quota` | | Today's AI images on my plan before I start (read-only, nothing counted) → `{allowed, reason, limit (null = unlimited), used, remaining, styles[]}`; `reason`: `no_plan` · `trial_ended` · `subscription_suspended` · `blocked` · `not_in_plan` · `daily_limit_reached` |
+| POST | `conversations/{c}/ai/image` | `prompt` (≤1000), `style?` (`realistic` · `illustration` · `anime` · `3d` · `oil` · `minimal`) | A new image → `{draft, url, kind: generate}` — a preview only I see (kept a day). Counts against the plan's daily images: `chat_ai_image_not_in_plan` (402), `chat_ai_image_daily_limit` (429, `data.limit`). Throttled 10/min |
+| POST | `messages/{m}/ai/edit-image` | `prompt` | An image message I can see, changed as described → `{draft, url, kind: edit}` (`chat_ai_not_image`) |
+| POST | `conversations/{c}/ai/image/send` | `draft`, `body?`, `uuid?` | Sends my draft to that chat as an image message with `meta.ai_generated = true` (and `meta.ai_kind`) — used by the AI-images gallery; the apps show no label on the image. Only its maker, only that chat, once (`chat_ai_draft_not_found`) |
+
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `ai` | | `{enabled, translate, summarize, smart_replies, transcribe, ask, commitments}` — the app shows the buttons from this. `transcribe` needs a provider that takes audio (OpenAI or Groq Whisper, or Google Gemini; Anthropic can't) |

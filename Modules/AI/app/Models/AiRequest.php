@@ -35,6 +35,7 @@ class AiRequest extends Model
         'owner_id',
         'gateway_id',
         'intent_id',
+        'source',
         'provider_id',
         'model_key',
         'prompt',

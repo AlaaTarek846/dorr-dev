@@ -100,6 +100,16 @@
                                 </router-link>
                             </li>
                             <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-ar.index' }" class="side-menu__item">
+                                    {{ t('ai_ar.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-world.index' }" class="side-menu__item">
+                                    {{ t('ai_world.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-download.index' }" class="side-menu__item">
                                     {{ t('ai_site_download.title') }}
                                 </router-link>
@@ -859,6 +869,7 @@ const ridesItems = [
     { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
     { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
     { route: 'admin.rides.cases', permission: 'ride-cases.view', icon: 'ri-customer-service-2-line', label: 'rides.cases.title' },
+    { route: 'admin.rides.quality', permission: 'rides.view', icon: 'ri-sparkling-2-line', label: 'rides.quality.title' },
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.loyalty', permission: 'ride-loyalty.view', icon: 'ri-vip-crown-2-line', label: 'rides.loyalty.title' },

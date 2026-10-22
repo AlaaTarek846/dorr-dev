@@ -15,7 +15,7 @@ class AiChatController extends Controller
 
     public function status(Request $request)
     {
-        return $this->service->activeProviderStatus();
+        return $this->service->activeProviderStatus($this->owner($request));
     }
 
     public function usage(Request $request)

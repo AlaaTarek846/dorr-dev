@@ -700,6 +700,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var liveSeconds by remember { mutableStateOf<Int?>(null) }
     var askingLocation by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
+    // A new image from a description with DORR AI (spec 50).
+    var aiImageOpen by remember { mutableStateOf(false) }
     var interactiveOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
@@ -770,6 +772,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             gifVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
         },
         AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
+        if (ChatAi.imageGenerate) AttachItem(Icons.Rounded.AutoAwesome, R.string.ch_ai_image_title, listOf(Color(0xFF818CF8), Color(0xFF4F46E5))) { aiImageOpen = true } else null,
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
         // Reply buttons / a list of choices (WhatsApp list 123–125).
         AttachItem(Icons.Rounded.SmartButton, R.string.ia_attach, listOf(Color(0xFF7DD3FC), Color(0xFF0284C7))) { interactiveOpen = true },
@@ -877,6 +880,10 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         ) { sent ->
             if (sent != null) state.replaceMessage(sent.id, UiMessage(sent)) else host.scope.launch { state.refreshScheduled() }
         }
+        return
+    }
+    if (aiImageOpen) {
+        ChatAiImageSheet(state, source = null, onDismiss = { aiImageOpen = false; onDismiss() })
         return
     }
     if (interactiveOpen) {

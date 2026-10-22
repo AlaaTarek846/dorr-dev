@@ -1213,6 +1213,22 @@ data class AiCapabilitiesDto(
     val important: Boolean = false,
     @SerializedName("related_files") val relatedFiles: Boolean = false,
     val today: Boolean = false,
+    // Images with DORR AI (spec 50, 51).
+    @SerializedName("image_generate") val imageGenerate: Boolean = false,
+    @SerializedName("image_edit") val imageEdit: Boolean = false,
+    // DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat.
+    @SerializedName("search_meaning") val searchMeaning: Boolean = false,
+    val memory: Boolean = false,
+    val capsule: Boolean = false,
+    @SerializedName("ai_images") val aiImages: Boolean = false,
+    /** The DORR AI plan (2026-10-15): when not allowed the tools stay, a tap offers the subscription. */
+    val plan: AiPlanStateDto? = null,
+)
+
+data class AiPlanStateDto(
+    val allowed: Boolean = false,
+    /** no_plan · trial_ended · subscription_suspended · cooldown · limit_reached · blocked */
+    val reason: String? = null,
 )
 
 data class AiTextDto(val text: String, val to: String? = null)

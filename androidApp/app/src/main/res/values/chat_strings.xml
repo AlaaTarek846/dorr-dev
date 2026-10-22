@@ -851,6 +851,68 @@
     <!-- Wide screens (spec 89): beside the list before a chat is opened. -->
     <string name="ch_pane_title">Pick a chat</string>
     <string name="ch_pane_sub">It opens here, next to your chats.</string>
+    <!-- Images with DORR AI (spec 50, 51) -->
+    <string name="ch_ai_image_title">AI image</string>
+    <string name="ch_ai_image_edit_title">Edit with AI</string>
+    <string name="ch_ai_image_sub">A preview only you see — send it if you like it</string>
+    <string name="ch_ai_image_hint">Describe the image, e.g. a cat in a spacesuit</string>
+    <string name="ch_ai_image_edit_hint">How should it change? e.g. make it black and white</string>
+    <string name="ch_ai_image_caption">Add a caption (optional)</string>
+    <string name="ch_ai_image_go">Create</string>
+    <string name="ch_ai_image_edit_go">Edit</string>
+    <string name="ch_ai_image_again">Try again</string>
+    <string name="ch_ai_image_send">Send</string>
+    <string name="ch_ai_image_quota_note">Each image counts against your DORR AI plan\'s daily images.</string>
+    <string name="ch_ai_image_ideas">Ideas</string>
+    <string name="ch_ai_image_style">Style</string>
+    <string name="ch_ai_style_realistic">Realistic</string>
+    <string name="ch_ai_style_illustration">Illustration</string>
+    <string name="ch_ai_style_anime">Anime</string>
+    <string name="ch_ai_style_3d">3D</string>
+    <string name="ch_ai_style_oil">Oil painting</string>
+    <string name="ch_ai_style_minimal">Minimal</string>
+    <string name="ch_ai_image_change">Change the words</string>
+    <string name="ch_ai_image_source">The image you\'re changing</string>
+    <string name="ch_ai_image_left">%1$d left today</string>
+    <string name="ch_ai_image_unlimited">Unlimited</string>
+    <string name="ch_ai_image_locked_chip">Locked</string>
+    <string name="ch_ai_image_no_plan">AI images need a DORR AI plan. Subscribe and start creating.</string>
+    <string name="ch_ai_image_trial_ended">Your free trial has ended. Pick a DORR AI plan to keep creating images.</string>
+    <string name="ch_ai_image_blocked">DORR AI is turned off for your account right now.</string>
+    <string name="ch_ai_image_not_in_plan">Your current plan doesn\'t include AI images. Upgrade to create them.</string>
+    <string name="ch_ai_image_limit_reached">You\'ve used today\'s %1$d images. Come back tomorrow or upgrade your plan.</string>
+    <string-array name="ch_ai_image_ideas">
+        <item>A sunset over the pyramids, cinematic</item>
+        <item>A cute cat in a space suit</item>
+        <item>A birthday card with balloons</item>
+        <item>A cozy coffee shop on a rainy day</item>
+        <item>A futuristic city at night</item>
+    </string-array>
+    <string-array name="ch_ai_image_edit_ideas">
+        <item>Make it black and white</item>
+        <item>Remove the background</item>
+        <item>Make it look like a cartoon</item>
+        <item>Add a warm sunset light</item>
+        <item>Make it look like an oil painting</item>
+    </string-array>
+    <string-array name="ch_ai_image_making">
+        <item>Drawing your image…</item>
+        <item>Mixing the colours…</item>
+        <item>Adding the details…</item>
+        <item>Almost there…</item>
+    </string-array>
+    <!-- DORR AI in the chat: search by meaning, continue elsewhere, memory, AI images -->
+    <string name="ch_ai_meaning_toggle">By meaning</string>
+    <string name="ch_ai_meaning_terms">Also looked for: %1$s</string>
+    <string name="ch_ai_capsule_title">Continue in another chat</string>
+    <string name="ch_ai_capsule_sub">A summary of this chat to carry the work on</string>
+    <string name="ch_ai_capsule_note">Edit it as you like. It is sent only to the chats you pick.</string>
+    <string name="ch_ai_capsule_send">Send to a chat</string>
+    <string name="ch_ai_capsule_sent">Summary sent</string>
+    <string name="ch_ai_memory">DORR AI memory</string>
+    <string name="ch_ai_images_title">AI images</string>
+    <string name="ch_ai_images_sub">Everything made or edited with AI in your chats</string>
+    <string name="ch_ai_images_empty">No AI images in your chats yet.</string>
     <!-- Call links (WhatsApp list 72) -->
     <string name="cl_create">Create call link</string>
     <string name="cl_create_sub">Anyone with the link can join</string>

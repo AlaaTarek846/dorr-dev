@@ -1,0 +1,13 @@
+<resources>
+    <string name="are_title">محرر الواقع المعزز</string>
+    <string name="are_pick_model">اختار نموذج وبعدين اضغط على سطح لتحطه</string>
+    <string name="are_items">%1$d موضوع</string>
+    <string name="are_undo">تراجع عن الأخير</string>
+    <string name="are_save">حفظ التصميم</string>
+    <string name="are_saved">تم حفظ التصميم</string>
+    <string name="are_failed">تعذر الإكمال: %1$s</string>
+    <string name="are_no_ar">الموبايل ده مش بيدعم الواقع المعزز. استخدم موبايل بيدعم ARCore.</string>
+    <string name="are_camera">محتاجين إذن الكاميرا عشان نحط النماذج.</string>
+    <string name="are_hint">اسحب للتحريك، لف للتدوير، قرّب أصابعك للتكبير.</string>
+    <string name="are_loading">جاري التحميل…</string>
+</resources>
