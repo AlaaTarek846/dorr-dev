@@ -918,3 +918,27 @@ data class LegalDocDto(
     val content: String? = null,
     @SerializedName("needs_acceptance") val needsAcceptance: Boolean = false,
 )
+
+// ---------------------------------------------------------------- exceptional states (D-329..D-344)
+
+data class PausedCategoryDto(val slug: String, val name: String = "")
+
+data class EmergencyReviewDto(@SerializedName("ride_number") val rideNumber: String? = null, val since: String? = null, val until: String? = null)
+
+data class LastWithdrawalDto(
+    val id: Long,
+    val state: String = "pending",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    val reason: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class ServiceStatusDto(
+    val maintenance: Boolean = false,
+    @SerializedName("maintenance_message") val maintenanceMessage: String? = null,
+    @SerializedName("safe_mode") val safeMode: Boolean = false,
+    @SerializedName("service_on") val serviceOn: Boolean = true,
+    @SerializedName("paused_categories") val pausedCategories: List<PausedCategoryDto> = emptyList(),
+    @SerializedName("emergency_review") val emergencyReview: EmergencyReviewDto? = null,
+    @SerializedName("last_withdrawal") val lastWithdrawal: LastWithdrawalDto? = null,
+)

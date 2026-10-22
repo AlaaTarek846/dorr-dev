@@ -179,6 +179,7 @@ fun DriverNavHost() {
                         )
                     }
                     composable("home") {
+                        TermsGate()
                         HomeScreen(
                             onOpenSignup = { nav.navigate("signup") },
                             onOpenRide = { if (nav.currentDestination?.route != "trip") nav.navigate("trip") },

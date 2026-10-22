@@ -310,8 +310,8 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, DorrBrand.navy.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
                         .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${nav.lat},${nav.lng}&mode=d")).setPackage("com.google.android.apps.maps")
-                            runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(nav.googleMapsUrl))) }
+                            // D-341: never stuck without a way there.
+                            openNavigation(context, nav.lat, nav.lng, nav.googleMapsUrl)
                         }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -514,6 +514,11 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
         Text(stringResource(R.string.trip_done), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         Text(stringResource(R.string.trip_total, money(t.finalTotalMinor, t.currency)), fontSize = 15.sp)
         Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold)
+        // D-337: paid by card / wallet but not confirmed yet, or failed.
+        when (t.paymentStatus) {
+            "pending", "awaiting_topup", "held" -> if (t.paymentMethod != "cash") Text(stringResource(R.string.ss_pay_pending), color = DorrBrand.orange, fontSize = 13.sp)
+            "failed" -> Text(stringResource(R.string.ss_pay_failed), color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+        }
         t.tipMinor?.let {
             Spacer(Modifier.height(10.dp))
             TipBanner(it, t.currency)

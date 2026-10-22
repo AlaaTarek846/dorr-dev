@@ -149,7 +149,7 @@ fun HireJobsScreen(onBack: () -> Unit) {
                             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Chip("📞 " + (j.rider?.name ?: stringResource(R.string.hj_rider)), tint = Pal.success) { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } }
                                 Chip("🧭 " + stringResource(R.string.hj_navigate), tint = Mint) {
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${j.pickup.lat},${j.pickup.lng}"))) }
+                                    openNavigation(context, j.pickup.lat, j.pickup.lng)
                                 }
                             }
                         }

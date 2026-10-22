@@ -425,6 +425,10 @@ interface DriverApi {
     suspend fun lostItemReturned(@Path("uuid") uuid: String, @Part photo: MultipartBody.Part?): Response<ApiEnvelope<LostItemDto>>
 
     /** D-216..D-224: my payout safeguards; D-227, D-228: monthly statements. */
+    /** D-329..D-344: maintenance, safe mode, switched-off service / categories, emergency review, the last withdrawal. */
+    @GET("driver/v1/service-status")
+    suspend fun serviceStatus(): Response<ApiEnvelope<ServiceStatusDto>>
+
     @GET("driver/v1/payouts/status")
     suspend fun payoutStatus(): Response<ApiEnvelope<PayoutStatusDto>>
 
