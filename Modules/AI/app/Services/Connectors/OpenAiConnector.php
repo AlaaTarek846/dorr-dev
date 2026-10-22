@@ -186,7 +186,7 @@ class OpenAiConnector extends AbstractHttpConnector implements TranscribesAudio
     }
 
     /** @return array{success: bool, message: string, job_id: ?string} */
-    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds, array $options = []): array
     {
         if (! $provider->hasApiKey()) {
             return ['success' => false, 'message' => __('ai.api_key_missing'), 'job_id' => null];

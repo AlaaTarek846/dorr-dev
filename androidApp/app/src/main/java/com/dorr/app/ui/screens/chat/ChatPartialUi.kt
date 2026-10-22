@@ -27,15 +27,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.CallMissed
+import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Payments
@@ -61,22 +67,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
@@ -92,6 +104,12 @@ import com.dorr.app.network.PrivacyCenterDto
 import com.dorr.app.network.StarFolderDto
 import com.dorr.app.network.StarFoldersDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.MoneyItemDto
+import com.dorr.app.network.MoneyTotalsDto
+import com.dorr.app.network.WalletBalanceDto
+import com.dorr.app.ui.screens.wallet.WalletFlag
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.wallet.PadResult
 import com.dorr.app.ui.screens.wallet.WaPinPad
 import com.dorr.app.ui.screens.wallet.formatMinor
@@ -337,22 +355,42 @@ private fun FolderRow(emoji: String, name: String, tint: Color?, count: Int? = n
 fun FavouritesPage() {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var folders by remember { mutableStateOf<StarFoldersDto?>(null) }
     var selected by remember { mutableStateOf<String?>(null) } // null all · "none" · id
     var list by remember { mutableStateOf<List<MessageDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     var managing by remember { mutableStateOf<StarFolderDto?>(null) }
     var renaming by remember { mutableStateOf<StarFolderDto?>(null) }
     var creating by remember { mutableStateOf(false) }
     var moving by remember { mutableStateOf<MessageDto?>(null) }
 
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching { ApiClient.more.starred(chatAuth(), selected, page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        list = if (reset) chunk else {
+            val known = list.orEmpty().map { it.id }.toSet()
+            list.orEmpty() + chunk.filter { it.id !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
     suspend fun reload() {
         folders = runCatching { ApiClient.more.starFolders(chatAuth()).data }.getOrNull() ?: StarFoldersDto()
-        list = runCatching { ApiClient.more.starred(chatAuth(), selected).data }.getOrNull().orEmpty()
+        loadPage(reset = true)
     }
-    LaunchedEffect(selected) { list = null; reload() }
+    LaunchedEffect(selected) { list = null; page = 1; hasMore = false; reload() }
 
-    ChPage(stringResource(R.string.ch_starred_title), onBack = { host.pop() }) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ch_starred_title)) { host.pop() }
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FolderChip(stringResource(R.string.cp_all), selected == null, null) { selected = null }
                 FolderChip("⭐ " + stringResource(R.string.cp_favourites), selected == "none", null) { selected = "none" }
@@ -365,9 +403,18 @@ fun FavouritesPage() {
             }
             val items = list
             when {
-                items == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                items.isEmpty() -> ChEmptyState(Icons.Rounded.Star, stringResource(R.string.ch_starred_title), stringResource(R.string.ch_no_starred), animated = true)
-                else -> LazyColumn(contentPadding = PaddingValues(vertical = 6.dp)) {
+                items == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                items.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth()) {
+                    ChEmptyState(Icons.Rounded.Star, stringResource(R.string.ch_starred_title), stringResource(R.string.ch_no_starred), animated = true)
+                }
+                else -> {
+                    LaunchedEffect(listState, items.size, hasMore) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+                            .collect { (last, total) ->
+                                if (last != null && total > 0 && last >= total - 3) scope.launch { loadPage(reset = false) }
+                            }
+                    }
+                    LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 6.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
                     itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
                         Column(Modifier.fillMaxWidth().chStagger(i).combinedClickable(onClick = { host.focusRequest = m.conversationId to m.id; host.push(ChRoute.Conversation(m.conversationId)) }, onLongClick = { moving = m }).padding(vertical = 6.dp)) {
                             Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -378,6 +425,7 @@ fun FavouritesPage() {
                             }
                             MessageRow(UiMessage(m), firstInRun = true, lastInRun = true, isGroup = false, actions = BubbleActions({}, {}, {}, {}, { _, _ -> }, { host.openWalletQr(it) }, {}))
                         }
+                    }
                     }
                 }
             }
@@ -715,51 +763,107 @@ private fun RefCard(top: String, text: String, at: String?, onClick: () -> Unit)
 // =============================================================================== 66 money in a chat
 
 /** My wallet balance and the money in this chat: transfers, requests, splits, and what's owed. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatMoneySheet(conversationId: String, onDismiss: () -> Unit, onJump: (String) -> Unit) {
-    var data by remember { mutableStateOf<ChatMoneyDto?>(null) }
-    var balance by remember { mutableStateOf<String?>(null) }
+fun ChatMoneyPage(conversationId: String) {
+    val host = LocalChat.current
+    var items by remember { mutableStateOf<List<MoneyItemDto>>(emptyList()) }
+    var totals by remember { mutableStateOf(MoneyTotalsDto()) }
+    var hasMore by remember { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(1) }
+    var loaded by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var wallet by remember { mutableStateOf<WalletBalanceDto?>(null) }
     LaunchedEffect(conversationId) {
-        data = runCatching { ApiClient.more.money(chatAuth(), conversationId).data }.getOrNull() ?: ChatMoneyDto()
-        balance = runCatching { ApiClient.wallet.balance(chatAuth()) }.getOrNull()?.let { env ->
-            val w = env.data ?: return@let null
-            formatMinor(w.totalMinor, w.currencyCode)
-        }
+        wallet = runCatching { ApiClient.wallet.balance(chatAuth()).data }.getOrNull()
     }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            Text(stringResource(R.string.cp_money), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(10.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Ch.HeaderBrush).padding(16.dp)) {
-                Text(stringResource(R.string.cp_my_balance), color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                Text(balance ?: "—", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-            }
-            val d = data
-            if (d == null) {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                return@Column
-            }
-            val cur = d.totals.currency
-            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Total(stringResource(R.string.cp_sent), formatMinor(d.totals.sentMinor, cur), Ch.Red, Modifier.weight(1f))
-                Total(stringResource(R.string.cp_received), formatMinor(d.totals.receivedMinor, cur), Color(0xFF16A34A), Modifier.weight(1f))
-            }
-            if (d.totals.iOweMinor > 0 || d.totals.owedToMeMinor > 0) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Total(stringResource(R.string.cp_i_owe), formatMinor(d.totals.iOweMinor, cur), Color(0xFFD97706), Modifier.weight(1f))
-                Total(stringResource(R.string.cp_owed_to_me), formatMinor(d.totals.owedToMeMinor, cur), Color(0xFF2563EB), Modifier.weight(1f))
-            }
-            Text(stringResource(R.string.cp_history), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
-            if (d.items.isEmpty()) Text(stringResource(R.string.cp_no_money), color = Ch.Soft, fontSize = 13.5.sp)
-            d.items.forEach { m ->
-                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).clickable { onDismiss(); onJump(m.messageId) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Payments, null, tint = if (m.isMine) Ch.Red else Color(0xFF16A34A), modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(when (m.type) { "money_request" -> R.string.cp_t_request; "bill_split" -> R.string.cp_t_split; else -> if (m.isMine) R.string.cp_t_sent else R.string.cp_t_received }), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(listOfNotNull(m.note, m.status, listTime(m.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    LaunchedEffect(conversationId, page) {
+        if (page > 1) loadingMore = true
+        val data = runCatching { ApiClient.more.money(chatAuth(), conversationId, page = page, perPage = 15).data }.getOrNull() ?: ChatMoneyDto()
+        totals = data.totals
+        items = if (page == 1) data.items else items + data.items
+        hasMore = data.hasMore
+        loaded = true
+        loadingMore = false
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.cp_money)) { host.pop() }
+            if (!loaded) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+            } else {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp)) {
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.HeaderBrush).padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.Start,
+                        ) {
+                            val publicNumber = wallet?.walletNumberFormatted ?: wallet?.walletNumber.orEmpty()
+                            val chip = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50))
+                                .padding(horizontal = 9.dp, vertical = 4.dp)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Row(chip, verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(stringResource(R.string.wa_total_balance), color = Color.White.copy(alpha = 0.92f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                if (publicNumber.isNotBlank()) {
+                                    Row(chip, verticalAlignment = Alignment.CenterVertically) {
+                                        WalletFlag(wallet?.countryCode, Modifier.size(width = 16.dp, height = 11.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                            Text(publicNumber, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                            Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp).height(1.dp).background(Color.White.copy(alpha = 0.16f)))
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                val amount = wallet?.let { formatMinor(it.totalMinor, null) } ?: "—"
+                                val code = wallet?.currencyCode.orEmpty()
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    Text(amount, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                                    if (code.isNotBlank()) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(code, color = Color.White.copy(alpha = 0.82f), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 2.dp))
+                                    }
+                                }
+                            }
+                        }
+                        val cur = totals.currency
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Total(Icons.Rounded.SouthWest, stringResource(R.string.cp_received), formatMinor(totals.receivedMinor, cur), Color(0xFF16A34A), Modifier.weight(1f), iconAtStart = true)
+                            Total(Icons.Rounded.NorthEast, stringResource(R.string.cp_sent), formatMinor(totals.sentMinor, cur), Ch.Red, Modifier.weight(1f), iconAtStart = false)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Total(Icons.Rounded.Schedule, stringResource(R.string.cp_i_owe), formatMinor(totals.iOweMinor, cur), Color(0xFF94A3B8), Modifier.weight(1f), iconAtStart = true)
+                            Total(Icons.Rounded.CreditCard, stringResource(R.string.cp_owed_to_me), formatMinor(totals.owedToMeMinor, cur), Color(0xFF94A3B8), Modifier.weight(1f), iconAtStart = false)
+                        }
+                        Text(stringResource(R.string.cp_history), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                        if (items.isEmpty()) Text(stringResource(R.string.cp_no_money), color = Ch.Soft, fontSize = 13.5.sp)
                     }
-                    Text(formatMinor(m.amountMinor, m.currency), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    itemsIndexed(items, key = { _, m -> m.messageId }) { _, m ->
+                        MoneyHistoryRow(m) { host.showInChat(conversationId, m.messageId) }
+                    }
+                    if (hasMore) {
+                        item {
+                            ChPrimaryButton(
+                                stringResource(R.string.cp_show_more),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                enabled = !loadingMore,
+                            ) { page += 1 }
+                        }
+                    }
                 }
             }
         }
@@ -767,10 +871,53 @@ fun ChatMoneySheet(conversationId: String, onDismiss: () -> Unit, onJump: (Strin
 }
 
 @Composable
-private fun Total(label: String, value: String, tint: Color, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(tint.copy(alpha = 0.1f)).padding(12.dp)) {
-        Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(value, color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+private fun MoneyHistoryRow(m: MoneyItemDto, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.Payments, null, tint = if (m.isMine) Ch.Red else Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(when (m.type) { "money_request" -> R.string.cp_t_request; "bill_split" -> R.string.cp_t_split; else -> if (m.isMine) R.string.cp_t_sent else R.string.cp_t_received }),
+                color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+            )
+            Text(listOfNotNull(m.note, m.status, listTime(m.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(formatMinor(m.amountMinor, m.currency), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun Total(icon: ImageVector, label: String, value: String, tint: Color, modifier: Modifier = Modifier, iconAtStart: Boolean) {
+    Column(modifier.clip(RoundedCornerShape(14.dp)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (iconAtStart) Arrangement.spacedBy(6.dp) else Arrangement.SpaceBetween,
+        ) {
+            val well = @Composable {
+                Box(
+                    Modifier.size(26.dp).clip(CircleShape).background(tint.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
+                }
+            }
+            val title = @Composable {
+                Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            if (iconAtStart) {
+                well()
+                title()
+            } else {
+                title()
+                well()
+            }
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(value, color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
     }
 }
 

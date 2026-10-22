@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Diversity3
 import androidx.compose.material.icons.rounded.Pin
@@ -60,6 +62,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
@@ -69,6 +72,7 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.AddReaction
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -99,6 +103,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.chat.CallController
+import com.dorr.app.ui.screens.ConfirmDialog
+import com.dorr.app.ui.components.DarkHeroButton
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.MemberDto
@@ -155,24 +161,34 @@ fun ChatInfoPage(id: String) {
             // ------------------------------------------------------------ hero
             item {
                 val shrink = (listState.firstVisibleItemScrollOffset / 400f).coerceIn(0f, 1f)
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)).background(Ch.HeaderBrush).padding(top = 66.dp, bottom = 22.dp)) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)).background(Ch.HeaderBrush).padding(top = 48.dp, bottom = 14.dp)) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.graphicsLayer { val s = 1f - 0.35f * shrink; scaleX = s; scaleY = s; alpha = 1f - shrink }) {
-                            ChAvatar(conversation?.avatar, conversation?.title, conversation?.peer?.key ?: id, size = 112.dp, isGroup = conversation?.isGroup == true, ring = true)
+                            ChAvatar(conversation?.avatar, conversation?.title, conversation?.peer?.key ?: id, size = 72.dp, isGroup = conversation?.isGroup == true)
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(conversation?.title.orEmpty(), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Text(
+                                conversation?.title.orEmpty(),
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
                             if (conversation?.isChannel == true && conversation.group?.isVerified == true) {
                                 Spacer(Modifier.width(6.dp))
-                                VerifiedBadge(22.dp, tint = Color.White)
+                                VerifiedBadge(18.dp, tint = Color.White)
                             }
                             val g = conversation?.group
                             if (g != null && conversation.isMember && (conversation.isAdmin || !g.onlyAdminsEditInfo)) {
                                 Spacer(Modifier.width(8.dp))
-                                GlassIcon(Icons.Rounded.Edit, size = 34.dp) { editing = true }
+                                GlassIcon(Icons.Rounded.Edit, size = 28.dp) { editing = true }
                             }
                         }
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             when {
                                 conversation?.isChannel == true -> listOfNotNull(conversation.group?.handle?.let { "@$it" }, stringResource(R.string.ch_followers, conversation.group?.membersCount ?: 0)).joinToString("  ·  ")
@@ -180,14 +196,14 @@ fun ChatInfoPage(id: String) {
                                 conversation?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
                                 else -> ltrNumber(conversation?.peer?.phone)
                             },
-                            color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp,
                         )
                         conversation?.group?.description?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 13.5.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 6.dp))
+                            Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(10.dp))
                         if (conversation != null && conversation.canSend && !conversation.isChannel && !conversation.isSelf) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 // No call buttons where calls can't work (switched off in my or their country,
                                 // or a request not accepted yet).
                                 if (conversation.canCall != false && conversation.status == "accepted") {
@@ -203,10 +219,55 @@ fun ChatInfoPage(id: String) {
                 }
             }
 
+            // ------------------------------------------------------------ members first
+            if (conversation?.isGroup == true) {
+                val canAdd = conversation.isMember && (conversation.isAdmin || !(conversation.group?.onlyAdminsAddMembers ?: true))
+                if (conversation.isChannel && conversation.isAdmin) item {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_channel_invite_contacts), lined = false) { sheet = "inviteChannel" }
+                    }
+                } else if (!conversation.isChannel && canAdd) item {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members), lined = false) { host.push(ChRoute.NewGroup(addTo = id)) }
+                    }
+                }
+                if (members.isNotEmpty()) item {
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 4.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(if (conversation.isChannel) R.string.ch_followers else R.string.ch_members, conversation.group?.membersCount ?: members.size),
+                            color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                        )
+                        HorizontalDivider(Modifier.weight(1f).padding(start = 10.dp), color = Ch.Line, thickness = 1.dp)
+                    }
+                }
+                itemsIndexed(members.take(6), key = { _, m -> m.participantId }) { i, m ->
+                    val preview = members.take(6)
+                    GroupMemberRow(m, i, isAdmin = conversation.isAdmin, lined = i < preview.lastIndex) { memberSheet = m }
+                }
+                if (members.size > 6) item {
+                    val total = conversation.group?.membersCount ?: members.size
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .border(1.5.dp, Ch.Red, RoundedCornerShape(18.dp))
+                            .background(Ch.Red.copy(alpha = 0.1f))
+                            .clickable { host.push(ChRoute.GroupMembers(id)) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(stringResource(R.string.ch_see_all_members, total), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                    }
+                }
+            }
+
             // ------------------------------------------------------------ its community (WhatsApp list 93)
             conversation?.group?.community?.let { community ->
                 item(key = "community") {
-                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                    Card(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                         SettingRow(Icons.Rounded.Diversity3, stringResource(if (community.isAnnouncement) R.string.cm_announcements_of else R.string.cm_part_of, community.name)) {
                             host.push(ChRoute.Community(community.id))
                         }
@@ -216,27 +277,63 @@ fun ChatInfoPage(id: String) {
 
             // ------------------------------------------------------------ gallery
             item {
-                Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("media" to R.string.ch_media, "docs" to R.string.ch_docs, "links" to R.string.ch_links).forEach { (key, label) ->
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.ch_media_title),
+                        color = Ch.Mut,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Row(
+                        Modifier.clip(RoundedCornerShape(8.dp)).clickable { host.push(ChRoute.Media(id, tab)) }.padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(stringResource(R.string.ch_media_all), color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Red, modifier = Modifier.size(14.dp))
+                    }
+                }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOf(
+                            Triple("media", R.string.ch_media, Icons.Rounded.PhotoLibrary),
+                            Triple("docs", R.string.ch_docs, Icons.Rounded.Description),
+                            Triple("links", R.string.ch_links, Icons.Rounded.Link),
+                        ).forEach { (key, label, icon) ->
                             val active = tab == key
                             val bg by animateColorAsState(if (active) Ch.Red else Color.Transparent, label = "tab")
-                            Box(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(bg).clickable { tab = key }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
-                                Text(stringResource(label), color = if (active) Color.White else Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                            val fg = if (active) Color.White else Ch.Mut
+                            Row(
+                                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(bg).clickable { tab = key }.padding(horizontal = 4.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                Icon(icon, null, tint = fg, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(label), color = fg, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
                     AnimatedContent(targetState = tab to gallery, label = "gallery", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (_, items) ->
                         if (items.isEmpty()) {
-                            Text(stringResource(R.string.ch_no_media), color = Ch.Soft, modifier = Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center)
+                            Text(stringResource(R.string.ch_no_media), color = Ch.Soft, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(20.dp), textAlign = TextAlign.Center)
                         } else if (tab == "media") {
-                            Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                items.flatMap { m -> m.attachments.map { m to it } }.take(12).chunked(3).forEach { row ->
+                            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                items.flatMap { m -> m.attachments.map { m to it } }.take(6).chunked(3).forEach { row ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         row.forEach { (m, a) ->
-                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted).clickable { host.push(ChRoute.Media(id, tab)) }) {
+                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(Ch.SurfaceMuted).clickable { host.push(ChRoute.Media(id, tab)) }) {
                                                 AsyncImage(ApiClient.mediaUrl(if (m.type == "video") a.thumbnail ?: a.url else a.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-                                                if (m.type == "video") Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(30.dp))
+                                                if (m.type == "video") Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(26.dp))
                                             }
                                         }
                                         repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -244,23 +341,18 @@ fun ChatInfoPage(id: String) {
                                 }
                             }
                         } else {
-                            Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                            Column(Modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
                                 items.take(5).forEach { m ->
-                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { host.push(ChRoute.Media(id, tab)) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(if (tab == "docs") Icons.Rounded.Description else Icons.Rounded.Link, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
+                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { host.push(ChRoute.Media(id, tab)) }.padding(horizontal = 6.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                                            Icon(if (tab == "docs") Icons.Rounded.Description else Icons.Rounded.Link, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
+                                        }
                                         Spacer(Modifier.width(10.dp))
-                                        Text(m.attachments.firstOrNull()?.name ?: plainChatText(m.body), color = Ch.Ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(m.attachments.firstOrNull()?.name ?: plainChatText(m.body), color = Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
                         }
-                    }
-                    Row(
-                        Modifier.fillMaxWidth().clickable { host.push(ChRoute.Media(id, tab)) }.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(stringResource(R.string.ch_media_all), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -270,56 +362,71 @@ fun ChatInfoPage(id: String) {
                 item { BusinessCardInfo(b) }
             }
 
-            // ------------------------------------------------------------ my settings
-            if (conversation != null) item {
-                Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    SettingRow(if (conversation.isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.Notifications, stringResource(R.string.ch_mute_notifications),
-                        value = if (conversation.isMuted) stringResource(R.string.ch_muted) else null) { sheet = "mute" }
-                    SettingRow(Icons.Rounded.Timer, stringResource(R.string.ch_disappearing), value = disappearingLabel(conversation.disappearingSeconds)) { sheet = "disappearing" }
-                    if (!conversation.isSelf) SettingRow(
-                        Icons.Rounded.MusicNote, stringResource(R.string.ch_tone),
-                        value = when (tone) {
-                            null -> stringResource(R.string.ch_tone_default)
-                            com.dorr.app.chat.ChatTones.SILENT -> stringResource(R.string.ch_tone_none)
-                            else -> com.dorr.app.chat.ChatTones.title(context, tone) ?: stringResource(R.string.ch_tone_custom)
-                        },
-                    ) { sheet = "tone" }
-                    // In my contacts? (They see my stories only if they are.)
-                    if (!conversation.isGroup && !conversation.isSelf && conversation.peer != null) {
-                        if (conversation.peer.isContact) {
-                            SettingRow(Icons.Rounded.HowToReg, stringResource(R.string.ch_in_contacts), value = "✓") {}
-                        } else {
-                            val added = stringResource(R.string.ch_contact_added)
-                            SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_to_contacts)) {
-                                scope.launch {
-                                    runCatching { addPeerToContacts(conversation) }
-                                        .onSuccess { fresh -> fresh?.let { c = it; host.upsert(it) }; host.showToast(added) }
-                                        .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+            // ------------------------------------------------------------ my settings, split like Chat settings
+            if (conversation != null) {
+                item {
+                    InfoLabel(R.string.ch_info_notify)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                        SettingRow(if (conversation.isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.Notifications, stringResource(R.string.ch_mute_notifications),
+                            value = muteChoiceLabel(conversation)) { sheet = "mute" }
+                        if (!conversation.isSelf) SettingRow(
+                            Icons.Rounded.MusicNote, stringResource(R.string.ch_tone),
+                            value = when (tone) {
+                                null -> stringResource(R.string.ch_tone_default)
+                                com.dorr.app.chat.ChatTones.SILENT -> stringResource(R.string.ch_tone_none)
+                                else -> com.dorr.app.chat.ChatTones.title(context, tone) ?: stringResource(R.string.ch_tone_custom)
+                            },
+                            lined = false,
+                        ) { sheet = "tone" }
+                    }
+                }
+                item {
+                    InfoLabel(R.string.ch_privacy_title)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                        ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
+                        SettingRow(Icons.Rounded.Pin, stringResource(R.string.cp_pin_title), value = stringResource(if (conversation.hasLockPin) R.string.cp_on else R.string.ch_off)) { sheet = "pin" }
+                        ToggleRow(Icons.Rounded.VisibilityOff, stringResource(R.string.ch_hide_in_safe_view), id in com.dorr.app.chat.ChatShield.safeHidden, subtitle = stringResource(R.string.ch_hide_in_safe_view_sub)) {
+                            com.dorr.app.chat.ChatShield.toggleSafeHidden(context, id)
+                        }
+                        if (!conversation.isGroup && !conversation.isSelf && conversation.peer != null) {
+                            if (conversation.peer.isContact) {
+                                SettingRow(Icons.Rounded.HowToReg, stringResource(R.string.ch_in_contacts), value = "✓", opens = false, lined = false) {}
+                            } else {
+                                val added = stringResource(R.string.ch_contact_added)
+                                SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_to_contacts)) {
+                                    scope.launch {
+                                        runCatching { addPeerToContacts(conversation) }
+                                            .onSuccess { fresh -> fresh?.let { c = it; host.upsert(it) }; host.showToast(added) }
+                                            .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+                                    }
                                 }
                             }
                         }
                     }
-                    ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
-                    // Its own PIN instead of the phone's lock (spec 25).
-                    SettingRow(Icons.Rounded.Pin, stringResource(R.string.cp_pin_title), value = stringResource(if (conversation.hasLockPin) R.string.cp_on else R.string.ch_off)) { sheet = "pin" }
-                    // The money in this chat (spec 66).
-                    if (!conversation.isGroup && conversation.isSelf != true) SettingRow(Icons.Rounded.Payments, stringResource(R.string.cp_money)) { sheet = "money" }
-                    ToggleRow(Icons.Rounded.VisibilityOff, stringResource(R.string.ch_hide_in_safe_view), id in com.dorr.app.chat.ChatShield.safeHidden, subtitle = stringResource(R.string.ch_hide_in_safe_view_sub)) {
-                        com.dorr.app.chat.ChatShield.toggleSafeHidden(context, id)
+                }
+                item {
+                    InfoLabel(R.string.ch_set_messages)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                        SettingRow(Icons.Rounded.Timer, stringResource(R.string.ch_disappearing), value = disappearingLabel(conversation.disappearingSeconds)) { sheet = "disappearing" }
+                        SettingRow(Icons.Rounded.Folder, stringResource(R.string.ch_add_to_folder)) { sheet = "folder" }
+                        SettingRow(Icons.Rounded.IosShare, stringResource(R.string.bk_export)) { sheet = "export" }
+                        if (ChatAi.summarize) SettingRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_summary)) { sheet = "summary" }
+                        if (!conversation.isGroup && conversation.isSelf != true) SettingRow(Icons.Rounded.Payments, stringResource(R.string.cp_money)) { host.push(ChRoute.ChatMoney(id)) }
                     }
-                    SettingRow(Icons.Rounded.Folder, stringResource(R.string.ch_add_to_folder)) { sheet = "folder" }
-                    // Export the chat (backlog 25).
-                    SettingRow(Icons.Rounded.IosShare, stringResource(R.string.bk_export)) { sheet = "export" }
-                    // ✨ The AI's summary of this chat (one tap; the messages go to the AI provider for it).
-                    if (ChatAi.summarize) SettingRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_summary)) { sheet = "summary" }
-                    SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr)) { sheet = "theme" }
+                }
+                item {
+                    InfoLabel(R.string.ch_set_look)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                        SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr), lined = false) { host.push(ChRoute.ChatTheme(id)) }
+                    }
                 }
             }
 
             // ------------------------------------------------------------ group
             if (conversation?.isGroup == true) {
                 if (conversation.isAdmin) item {
-                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                    InfoLabel(R.string.ch_settings)
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                         SettingRow(Icons.Rounded.Link, stringResource(R.string.ch_invite_link)) { sheet = "invite" }
                         if (!conversation.isChannel) SettingRow(Icons.Rounded.Gavel, stringResource(R.string.ch_decisions)) { host.push(ChRoute.Decisions(id, true)) }
                         val g = conversation.group!!
@@ -357,53 +464,17 @@ fun ChatInfoPage(id: String) {
                         }
                     }
                 }
-                // Add people right where the members are: a group adds them, a channel invites them
-                // (nobody is added to a channel — they choose to follow).
-                val canAdd = conversation.isMember && (conversation.isAdmin || !(conversation.group?.onlyAdminsAddMembers ?: true))
-                if (conversation.isChannel && conversation.isAdmin) item {
-                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_channel_invite_contacts)) { sheet = "inviteChannel" }
-                    }
-                } else if (!conversation.isChannel && canAdd) item {
-                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members)) { host.push(ChRoute.NewGroup(addTo = id)) }
-                    }
-                }
-                if (members.isNotEmpty()) item {
-                    Text(
-                        stringResource(if (conversation.isChannel) R.string.ch_followers else R.string.ch_members, members.size),
-                        color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 26.dp, top = 12.dp, bottom = 4.dp),
-                    )
-                }
-                itemsIndexed(members, key = { _, m -> m.participantId }) { i, m ->
-                    Row(
-                        Modifier.fillMaxWidth().chStagger(i).padding(horizontal = 14.dp, vertical = 2.dp).clip(RoundedCornerShape(18.dp)).background(Ch.Surface)
-                            .clickable(enabled = conversation.isAdmin && m.profile?.isMe != true && m.role != "owner") { memberSheet = m }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ChAvatar(m.profile?.avatar, m.profile?.name, m.profile?.key, size = 44.dp, online = host.presence[m.profile?.key]?.online == true)
-                        Spacer(Modifier.width(12.dp))
-                        Text(if (m.profile?.isMe == true) stringResource(R.string.ch_you) else m.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
-                        if (m.role != "member") {
-                            Text(
-                                stringResource(if (m.role == "owner") R.string.ch_owner else R.string.ch_admin), color = Ch.Red, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Ch.Red.copy(alpha = 0.1f)).padding(horizontal = 8.dp, vertical = 3.dp),
-                            )
-                        }
-                    }
-                }
             }
 
             // ------------------------------------------------------------ danger zone
             if (conversation != null) item {
-                Card(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
                     if (!conversation.isGroup && conversation.peer != null) {
-                        SettingRow(Icons.Rounded.Block, stringResource(if (conversation.iBlocked == true) R.string.ch_unblock else R.string.ch_block), danger = true) { sheet = "block" }
+                        SettingRow(Icons.Rounded.Block, stringResource(if (conversation.iBlocked == true) R.string.ch_unblock else R.string.ch_block), danger = true, opens = false) { sheet = "block" }
                     }
                     // Nobody to report in my own notes.
                     if (!conversation.isSelf) SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
-                    SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true) { sheet = "clear" }
+                    SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true, opens = false) { sheet = "clear" }
                     // The owner can delete the whole group / channel for everyone.
                     if (conversation.isGroup && conversation.myRole == "owner" && conversation.isMember) SettingRow(
                         Icons.Rounded.DeleteForever,
@@ -413,16 +484,20 @@ fun ChatInfoPage(id: String) {
                         Icons.AutoMirrored.Rounded.ExitToApp,
                         stringResource(if (conversation.isChannel) R.string.ch_unfollow else R.string.ch_leave_group), danger = true,
                     ) { sheet = "leave" }
-                    else SettingRow(Icons.Rounded.Delete, stringResource(R.string.ch_delete_chat), danger = true) { sheet = "delete" }
+                    else SettingRow(Icons.Rounded.Delete, stringResource(R.string.ch_delete_chat), danger = true, opens = false) { sheet = "delete" }
                 }
             }
         }
 
         // Compact header that fades in once the hero scrolls away.
-        Box(Modifier.fillMaxWidth().graphicsLayer { alpha = headerAlpha }.background(Ch.HeaderBrush).padding(start = 132.dp, top = 22.dp, bottom = 18.dp)) {
-            Text(conversation?.title.orEmpty(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1)
+        Box(Modifier.fillMaxWidth().graphicsLayer { alpha = headerAlpha }.background(Ch.HeaderBrush).padding(start = 16.dp, end = 56.dp, top = 12.dp, bottom = 12.dp)) {
+            Text(conversation?.title.orEmpty(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Box(Modifier.padding(12.dp)) { ChBack(onBack = { host.pop() }) }
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Box(Modifier.align(Alignment.TopEnd)) {
+                DarkHeroButton(Icons.AutoMirrored.Rounded.ArrowBack, { host.pop() }, stringResource(R.string.common_back), flip = true)
+            }
+        }
     }
 
     // ------------------------------------------------------------ sheets
@@ -437,21 +512,31 @@ fun ChatInfoPage(id: String) {
         "reactions" -> c?.let { current -> ChannelReactionsSheet(id, current.group?.allowedReactions, onDismiss = { sheet = null }) { fresh -> c = fresh } }
         "folder" -> c?.let { current -> FolderPickerSheet(current) { sheet = null } }
         "invite" -> c?.let { current -> InviteLinkSheet(current) { sheet = null } }
-        "tone" -> ChoiceSheet(stringResource(R.string.ch_tone), listOf(
-            stringResource(R.string.ch_tone_pick) to {
-                tonePicker.launch(android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
-                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
-                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                    tone?.takeIf { it != com.dorr.app.chat.ChatTones.SILENT }?.let { putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, android.net.Uri.parse(it)) }
-                })
-                Unit
-            },
-            stringResource(R.string.ch_tone_default) to { com.dorr.app.chat.ChatTones.set(context, id, null); tone = null; Unit },
-        ), subtitle = stringResource(R.string.ch_tone_sub), onDismiss = { sheet = null })
+        "tone" -> ChoiceSheet(
+            stringResource(R.string.ch_tone),
+            listOf(
+                (when {
+                    tone == null -> stringResource(R.string.ch_tone_pick)
+                    tone == com.dorr.app.chat.ChatTones.SILENT -> stringResource(R.string.ch_tone_none)
+                    else -> com.dorr.app.chat.ChatTones.title(context, tone) ?: stringResource(R.string.ch_tone_custom)
+                }) to {
+                    tonePicker.launch(android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                        putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                        putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
+                        putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                        tone?.takeIf { it != com.dorr.app.chat.ChatTones.SILENT }?.let { putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, android.net.Uri.parse(it)) }
+                    })
+                    Unit
+                },
+                stringResource(R.string.ch_tone_default) to { com.dorr.app.chat.ChatTones.set(context, id, null); tone = null; Unit },
+            ),
+            subtitle = stringResource(R.string.ch_tone_sub),
+            radios = true,
+            selected = if (tone == null) 1 else 0,
+            onDismiss = { sheet = null },
+        )
         "summary" -> AiSummarySheet(id, unreadFirst = false) { sheet = null }
         "pin" -> c?.let { conv -> ChatPinSheet(id, conv.hasLockPin, onDismiss = { sheet = null }) { has -> c = conv.copy(hasLockPin = has, isLocked = conv.isLocked || has).also { host.upsert(it) } } }
-        "money" -> ChatMoneySheet(id, onDismiss = { sheet = null }) { m -> host.showInChat(id, m) }
         "banned" -> c?.let { current -> BannedWordsSheet(current, onDismiss = { sheet = null }) { saved -> c = saved; host.upsert(saved) } }
         "slow" -> ChoiceSheet(stringResource(R.string.ch_slow_mode), SlowModeSteps.map { seconds ->
             (if (seconds == (c?.group?.slowModeSeconds ?: 0)) "✓  " else "") + slowModeLabel(seconds) to {
@@ -475,12 +560,6 @@ fun ChatInfoPage(id: String) {
             }
         }
         "verify" -> ChannelVerificationSheet(id, onDismiss = { sheet = null }) { scope.launch { reload() } }
-        "theme" -> c?.let { current ->
-            ThemePickerSheet(current, onDismiss = { sheet = null }) { saved ->
-                c = saved
-                host.upsert(saved)
-            }
-        }
         "report" -> c?.let { current ->
             ReportSheet(current, onDismiss = { sheet = null }) { changed -> if (changed) scope.launch { reload() } }
         }
@@ -502,17 +581,34 @@ fun ChatInfoPage(id: String) {
             stringResource(R.string.ch_mute_1w) to { update(mapOf("mute" to "1w")); Unit },
             stringResource(R.string.ch_mute_always) to { update(mapOf("mute" to "always")); Unit },
             stringResource(R.string.ch_unmute) to { update(mapOf("mute" to "off")); Unit },
-        ), onDismiss = { sheet = null })
-        "disappearing" -> ChoiceSheet(stringResource(R.string.ch_disappearing), listOf(null, 86400, 604800, 7776000).map { s ->
-            disappearingLabel(s) to {
-                scope.launch { runCatching { ApiClient.chat.disappearing(chatAuth(), id, mapOf("seconds" to s)).data }.getOrNull()?.let { c = it } }
-                Unit
-            }
-        }, onDismiss = { sheet = null })
-        "clear" -> ChoiceSheet(stringResource(R.string.ch_clear_chat), listOf(stringResource(R.string.ch_clear_chat) to {
-            scope.launch { runCatching { ApiClient.chat.clear(chatAuth(), id) }; host.pop(); host.pop() }
-            Unit
-        }), danger = true, subtitle = stringResource(R.string.ch_confirm_clear), onDismiss = { sheet = null })
+        ), radios = true, selected = muteChoiceIndex(c) ?: 3, onDismiss = { sheet = null })
+        "disappearing" -> {
+            val steps = listOf(null, 86400, 604800, 7776000)
+            ChoiceSheet(stringResource(R.string.ch_disappearing), steps.map { s ->
+                disappearingLabel(s) to {
+                    scope.launch { runCatching { ApiClient.chat.disappearing(chatAuth(), id, mapOf("seconds" to s)).data }.getOrNull()?.let { c = it } }
+                    Unit
+                }
+            }, radios = true, selected = steps.indexOf(c?.disappearingSeconds).takeIf { it >= 0 } ?: 0, onDismiss = { sheet = null })
+        }
+        "clear" -> {
+            val done = stringResource(R.string.ch_clear_done)
+            ConfirmDialog(
+                icon = Icons.Rounded.CleaningServices,
+                title = stringResource(R.string.ch_clear_chat),
+                message = stringResource(R.string.ch_confirm_clear),
+                confirmLabel = stringResource(R.string.ch_clear_chat),
+                onConfirm = {
+                    sheet = null
+                    host.scope.launch {
+                        runCatching { ApiClient.chat.clear(chatAuth(), id) }
+                            .onSuccess { host.showToast(done); host.pop(); host.pop() }
+                            .onFailure { e -> e.apiFailure().message?.let { host.showToast(it, error = true) } }
+                    }
+                },
+                onDismiss = { sheet = null },
+            )
+        }
         "deleteAll" -> {
             val label = stringResource(if (c?.isChannel == true) R.string.ch_delete_channel_all else R.string.ch_delete_group_all)
             ChoiceSheet(label, listOf(label to {
@@ -527,10 +623,24 @@ fun ChatInfoPage(id: String) {
                 Unit
             }), danger = true, subtitle = stringResource(R.string.ch_confirm_delete_all), onDismiss = { sheet = null })
         }
-        "delete" -> ChoiceSheet(stringResource(R.string.ch_delete_chat), listOf(stringResource(R.string.ch_delete_chat) to {
-            scope.launch { runCatching { ApiClient.chat.deleteConversation(chatAuth(), id) }; host.remove(id); host.pop(); host.pop() }
-            Unit
-        }), danger = true, subtitle = stringResource(R.string.ch_confirm_delete_chat), onDismiss = { sheet = null })
+        "delete" -> {
+            val done = stringResource(R.string.ch_delete_done)
+            ConfirmDialog(
+                icon = Icons.Rounded.Delete,
+                title = stringResource(R.string.ch_delete_chat),
+                message = stringResource(R.string.ch_confirm_delete_chat),
+                confirmLabel = stringResource(R.string.ch_delete_chat),
+                onConfirm = {
+                    sheet = null
+                    host.scope.launch {
+                        runCatching { ApiClient.chat.deleteConversation(chatAuth(), id) }
+                            .onSuccess { host.showToast(done); host.remove(id); host.pop(); host.pop() }
+                            .onFailure { e -> e.apiFailure().message?.let { host.showToast(it, error = true) } }
+                    }
+                },
+                onDismiss = { sheet = null },
+            )
+        }
         "leave" -> {
             val label = stringResource(if (c?.isChannel == true) R.string.ch_unfollow else R.string.ch_leave_group)
             ChoiceSheet(label, listOf(label to {
@@ -541,47 +651,61 @@ fun ChatInfoPage(id: String) {
         "block" -> {
             val peer = conversation?.peer
             val blocking = conversation?.iBlocked != true
-            ChoiceSheet(
-                stringResource(if (blocking) R.string.ch_block else R.string.ch_unblock),
-                listOf(stringResource(if (blocking) R.string.ch_block else R.string.ch_unblock) to {
-                    scope.launch {
-                        peer?.let { p ->
-                            runCatching { if (blocking) ApiClient.chat.block(chatAuth(), mapOf("participant_id" to p.id)) else ApiClient.chat.unblock(chatAuth(), mapOf("participant_id" to p.id)) }
+            val action = stringResource(if (blocking) R.string.ch_block else R.string.ch_unblock)
+            val blocked = stringResource(R.string.ch_block_done)
+            val unblocked = stringResource(R.string.ch_unblock_done)
+            ConfirmDialog(
+                icon = Icons.Rounded.Block,
+                title = action,
+                message = if (blocking) stringResource(R.string.ch_confirm_block, conversation?.title.orEmpty()) else action,
+                confirmLabel = action,
+                onConfirm = {
+                    val done = if (blocking) blocked else unblocked
+                    sheet = null
+                    host.scope.launch {
+                        val p = peer
+                        if (p == null) return@launch
+                        runCatching {
+                            if (blocking) ApiClient.chat.block(chatAuth(), mapOf("participant_id" to p.id))
+                            else ApiClient.chat.unblock(chatAuth(), mapOf("participant_id" to p.id))
                         }
-                        reload()
+                            .onSuccess { host.showToast(done); reload() }
+                            .onFailure { e -> e.apiFailure().message?.let { host.showToast(it, error = true) } }
                     }
-                    Unit
-                }),
-                danger = blocking,
-                subtitle = if (blocking) stringResource(R.string.ch_confirm_block, conversation?.title.orEmpty()) else null,
+                },
                 onDismiss = { sheet = null },
             )
         }
     }
     memberSheet?.let { m ->
-        ChoiceSheet(m.profile?.name.orEmpty(), listOfNotNull(
-            // Only the owner hands over ownership (and stays an admin).
-            if (c?.myRole == "owner") stringResource(R.string.ch_make_owner) to {
-                scope.launch {
-                    try {
-                        ApiClient.chat.transferOwnership(chatAuth(), id, mapOf("participant_id" to m.participantId)).data?.let { c = it; host.upsert(it) }
-                        reload()
-                    } catch (e: Exception) {
-                        e.apiFailure().message?.let { host.showToast(it) }
-                    }
-                }
-                Unit
-            } else null,
-            stringResource(if (m.role == "admin") R.string.ch_dismiss_admin else R.string.ch_make_admin) to {
-                scope.launch { members = runCatching { ApiClient.chat.setRole(chatAuth(), id, m.participantId, mapOf("role" to if (m.role == "admin") "member" else "admin")).data }.getOrNull() ?: members }
-                Unit
-            },
-            stringResource(R.string.ch_remove_member) to {
-                scope.launch { members = runCatching { ApiClient.chat.removeMember(chatAuth(), id, m.participantId).data }.getOrNull() ?: members }
-                Unit
-            },
-        ), onDismiss = { memberSheet = null })
+        MemberActionsSheet(
+            groupId = id,
+            member = m,
+            myRole = c?.myRole,
+            onMembers = { members = it },
+            onConversation = { c = it },
+            onDismiss = { memberSheet = null },
+        )
     }
+}
+
+private fun muteChoiceIndex(c: ConversationDto?): Int? {
+    if (c?.isMuted != true) return null
+    val until = parseInstant(c.mutedUntil) ?: return 2
+    val hours = java.time.Duration.between(java.time.Instant.now(), until).toHours()
+    return when {
+        hours > 24 * 20 -> 2
+        hours > 10 -> 1
+        else -> 0
+    }
+}
+
+@Composable
+private fun muteChoiceLabel(c: ConversationDto?): String? = when (muteChoiceIndex(c)) {
+    0 -> stringResource(R.string.ch_mute_8h)
+    1 -> stringResource(R.string.ch_mute_1w)
+    2 -> stringResource(R.string.ch_mute_always)
+    else -> null
 }
 
 @Composable
@@ -597,44 +721,87 @@ private fun disappearingLabel(seconds: Int?): String = stringResource(
 @Composable
 private fun QuickAction(icon: ImageVector, label: String, index: Int, onClick: () -> Unit) {
     Column(
-        Modifier.width(92.dp).chStagger(index).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick).padding(vertical = 12.dp),
+        Modifier.width(84.dp).chStagger(index).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.16f)).clickable(onClick = onClick).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
         Spacer(Modifier.height(4.dp))
-        Text(label, color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
 @Composable
 internal fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.08f)).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)) { content() }
+    Column(modifier.fillMaxWidth().shadow(3.dp, RoundedCornerShape(18.dp), spotColor = Color.Black.copy(alpha = 0.06f)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface)) { content() }
 }
 
 @Composable
-internal fun SettingRow(icon: ImageVector, title: String, value: String? = null, danger: Boolean = false, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(if (danger) Ch.Danger.copy(alpha = 0.1f) else Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = if (danger) Ch.Danger else Ch.Red, modifier = Modifier.size(19.dp))
+private fun InfoLabel(res: Int) {
+    Text(
+        stringResource(res),
+        color = Ch.Mut,
+        fontWeight = FontWeight.Bold,
+        fontSize = 12.5.sp,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 6.dp),
+    )
+}
+
+@Composable
+internal fun SettingRow(icon: ImageVector, title: String, value: String? = null, danger: Boolean = false, opens: Boolean = true, lined: Boolean = true, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (danger) Ch.Danger.copy(alpha = 0.1f) else Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (danger) Ch.Danger else Ch.Red, modifier = Modifier.size(17.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                value?.let {
+                    Text(
+                        it,
+                        color = Ch.Ink,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Ch.Surface)
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                    )
+                }
+            }
+            if (opens) {
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Ch.Soft, modifier = Modifier.size(18.dp))
+            }
         }
-        Spacer(Modifier.width(12.dp))
-        Text(title, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-        value?.let { Text(it, color = Ch.Mut, fontSize = 13.sp) }
+        if (lined) HorizontalDivider(Modifier.padding(start = 58.dp, end = 16.dp), color = Ch.Line)
     }
 }
 
 @Composable
 internal fun ToggleRow(icon: ImageVector, title: String, checked: Boolean, subtitle: String? = null, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(19.dp))
+    Column(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(title, color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red, checkedThumbColor = Color.White))
         }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
-            subtitle?.let { Text(it, color = Ch.Mut, fontSize = 12.sp) }
+        subtitle?.let {
+            Text(
+                it,
+                color = Ch.Mut,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 44.dp, top = 4.dp, end = 4.dp),
+            )
         }
-        Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red, checkedThumbColor = Color.White))
+        HorizontalDivider(Modifier.padding(start = 44.dp, top = 10.dp), color = Ch.Line)
     }
 }
 

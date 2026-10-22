@@ -24,11 +24,13 @@ object CoreHttp {
         token: () -> String?,
         onUnauthorized: () -> Unit,
         debug: Boolean,
+        // The app's own language when it has a picker (the freelancer app); the phone's otherwise.
+        locale: () -> String = { Locale.getDefault().language.takeIf { it == "ar" || it == "en" } ?: "ar" },
     ): OkHttpClient {
         val headers = Interceptor { chain ->
             val builder = chain.request().newBuilder()
                 .header("Accept", "application/json")
-                .header("X-Locale", Locale.getDefault().language.takeIf { it == "ar" || it == "en" } ?: "ar")
+                .header("X-Locale", locale())
                 .header("X-Device-Id", deviceId())
             val bearer = token()
             if (bearer != null) builder.header("Authorization", "Bearer $bearer")

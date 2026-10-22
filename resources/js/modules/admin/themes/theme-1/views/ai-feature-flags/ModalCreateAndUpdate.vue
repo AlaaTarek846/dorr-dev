@@ -35,10 +35,11 @@
                                     <option value="provider">{{ t('ai_feature_flags.target_type_provider') }}</option>
                                     <option value="model">{{ t('ai_feature_flags.target_type_model') }}</option>
                                     <option value="tool">{{ t('ai_feature_flags.target_type_tool') }}</option>
+                                    <option value="service">{{ t('ai_feature_flags.target_type_service') }}</option>
                                 </select>
                             </div>
 
-                            <div class="col-md-4" v-if="form.target_type !== 'tool'">
+                            <div class="col-md-4" v-if="form.target_type === 'provider' || form.target_type === 'model'">
                                 <label for="flag-provider" class="form-label">{{ t('ai_feature_flags.provider') }}</label>
                                 <select id="flag-provider" v-model="form.provider_id" class="form-select">
                                     <option :value="null">-</option>
@@ -54,6 +55,14 @@
                             <div class="col-md-4" v-if="form.target_type === 'tool'">
                                 <label for="flag-tool-key" class="form-label">{{ t('ai_feature_flags.tool_key') }}</label>
                                 <input id="flag-tool-key" v-model="form.tool_key" type="text" class="form-control">
+                            </div>
+
+                            <!-- A whole service (today: the DORR AI chat) — switched off for a country, it shows "not available". -->
+                            <div class="col-md-4" v-if="form.target_type === 'service'">
+                                <label for="flag-service-key" class="form-label">{{ t('ai_feature_flags.service_key') }}</label>
+                                <select id="flag-service-key" v-model="form.tool_key" class="form-select">
+                                    <option value="ai_chat">{{ t('ai_feature_flags.service_ai_chat') }}</option>
+                                </select>
                             </div>
 
                             <div class="col-md-4">
@@ -242,12 +251,14 @@ async function submit() {
 
     try {
         let response;
+        // A service flag names its service in tool_key (today only the DORR AI chat).
+        const payload = { ...form, ...(form.target_type === 'service' ? { provider_id: null, model_key: '', tool_key: form.tool_key || 'ai_chat' } : {}) };
 
         if (isEdit.value && props.record?.id) {
-            response = await adminAxios.put(`/api/admin/v1/ai-feature-flags/${props.record.id}`, { ...form });
+            response = await adminAxios.put(`/api/admin/v1/ai-feature-flags/${props.record.id}`, payload);
             showSuccess(extractApiMessage(response, t('toast.updated')));
         } else {
-            response = await adminAxios.post('/api/admin/v1/ai-feature-flags', { ...form });
+            response = await adminAxios.post('/api/admin/v1/ai-feature-flags', payload);
             showSuccess(extractApiMessage(response, t('toast.created')));
         }
 

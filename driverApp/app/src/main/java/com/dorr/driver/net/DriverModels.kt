@@ -182,7 +182,13 @@ data class OfferDto(
     val stops: List<StopDto> = emptyList(),
     val route: RouteDto? = null,
     val bid: BidCardDto? = null,
+    /** «راحتي»: how the rider likes the trip (requests, not guarantees). */
+    val comfort: ComfortDto? = null,
+    /** Block 06: offered while I'm finishing a ride — it starts after that ride ends. */
+    @SerializedName("next_trip") val nextTrip: NextTripOfferDto? = null,
 )
+
+data class NextTripOfferDto(@SerializedName("after_ride_uuid") val afterRideUuid: String? = null, @SerializedName("finish_in_s") val finishInS: Int? = null)
 
 data class CommissionDto(val type: String = "percent", val value: Long = 0)
 
@@ -546,6 +552,97 @@ data class TripDto(
     val rated: Boolean? = null,
     /** O-41: what the captain scores the rider on (manners, punctuality…), each with its own stars. */
     @SerializedName("rating_criteria") val ratingCriteria: List<RatingCriterionDto> = emptyList(),
+    /** «راحتي»: what the rider asked for, and what I said can't be done. */
+    val comfort: ComfortDto? = null,
+    /** Block 06: the next trip I took while driving this one. */
+    @SerializedName("next_trip") val nextTrip: NextTripDto? = null,
+    /** Block 06: on a next trip — the ride it waits for. */
+    @SerializedName("waiting_for_ride") val waitingForRide: RideRefDto? = null,
+)
+
+data class NextTripDto(
+    val uuid: String,
+    val number: String? = null,
+    val rider: String? = null,
+    val pickup: PlaceDto? = null,
+    @SerializedName("earning_minor") val earningMinor: Long? = null,
+)
+
+data class RideRefDto(val uuid: String, val number: String? = null)
+
+data class ComfortItemDto(val item: String, val label: String = "")
+
+data class ComfortReasonDto(val value: String, val label: String = "")
+
+data class ComfortUnableDto(val item: String? = null, val label: String? = null, val reason: String? = null, @SerializedName("reason_label") val reasonLabel: String? = null)
+
+data class ComfortDto(
+    val quiet: Boolean = false,
+    val ac: String = "any",
+    val music: String = "any",
+    val items: List<ComfortItemDto> = emptyList(),
+    val unable: List<ComfortUnableDto> = emptyList(),
+    val reasons: List<ComfortReasonDto> = emptyList(),
+    val disclaimer: String? = null,
+)
+
+// ---------------------------------------------------------------- Block 06: demand and DORR Driver AI
+
+data class HotZoneDto(
+    val lat: Double, val lng: Double,
+    val requests: Int = 0, val unmet: Int = 0, val captains: Int = 0,
+    val score: Double = 0.0, val shortage: Boolean = false,
+    @SerializedName("distance_m") val distanceM: Int = 0,
+    val why: String? = null,
+)
+
+data class ForecastZoneDto(val lat: Double, val lng: Double, val expected: Double = 0.0, val confidence: Double = 0.0, @SerializedName("distance_m") val distanceM: Int = 0)
+
+data class ForecastSlotDto(@SerializedName("in_min") val inMin: Int, val zones: List<ForecastZoneDto> = emptyList())
+
+data class ScheduledDemandDto(val hour: String, val booked: Int = 0, val usual: Double = 0.0)
+
+data class AiAccessDto(val available: Boolean = false, val allowed: Boolean = false, val reason: String? = null)
+
+data class DemandDto(
+    @SerializedName("hot_zones") val hotZones: List<HotZoneDto> = emptyList(),
+    val ai: AiAccessDto = AiAccessDto(),
+    val forecast: List<ForecastSlotDto>? = null,
+    val scheduled: List<ScheduledDemandDto>? = null,
+)
+
+data class DriverAiCardDto(
+    val type: String,
+    val title: String? = null,
+    val text: String? = null,
+    val why: String? = null,
+    val confidence: Double? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    @SerializedName("ride_uuid") val rideUuid: String? = null,
+    @SerializedName("goal_minor") val goalMinor: Long? = null,
+    @SerializedName("earned_minor") val earnedMinor: Long? = null,
+    @SerializedName("left_minor") val leftMinor: Long? = null,
+    val progress: Double? = null,
+)
+
+data class DriverAiDto(val allowed: Boolean = false, val reason: String? = null, val cards: List<DriverAiCardDto> = emptyList(), @SerializedName("goal_minor") val goalMinor: Long? = null)
+
+data class DriverAiAnswerDto(val answer: String = "", val confidence: Double? = null)
+
+data class AiPlanDto(
+    val id: Int,
+    val name: String = "",
+    val description: String? = null,
+    val price: Double? = null,
+    @SerializedName("original_price") val originalPrice: Double? = null,
+    val currency: String? = null,
+    @SerializedName("duration_days") val durationDays: Int? = null,
+    @SerializedName("is_trial") val isTrial: Boolean = false,
+    @SerializedName("is_featured") val isFeatured: Boolean = false,
+    val badge: String? = null,
+    /** Whatever the admin wrote for the plan (a list of lines, or objects). */
+    val features: com.google.gson.JsonElement? = null,
 )
 
 data class ReasonDto(val id: Int, val label: String? = null)
@@ -662,7 +759,12 @@ data class PreferencesDto(
     @SerializedName("pickup_radius_m") val pickupRadiusM: Int? = null,
     @SerializedName("pickup_radius_max_m") val pickupRadiusMaxM: Int? = null,
     @SerializedName("auto_accept") val autoAccept: AutoAcceptDto = AutoAcceptDto(),
+    /** Block 06: a next trip near where my ride ends (when the country has it), and my daily earnings goal. */
+    @SerializedName("next_trips") val nextTrips: NextTripsPrefDto = NextTripsPrefDto(),
+    @SerializedName("daily_goal_minor") val dailyGoalMinor: Long? = null,
 )
+
+data class NextTripsPrefDto(val available: Boolean = false, val enabled: Boolean = true)
 
 // ---------------------------------------------------------------- driving time (D-42, D-43)
 

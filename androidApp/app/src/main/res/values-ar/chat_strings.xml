@@ -1,13 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ch_title">المحادثات</string>
+    <string name="ch_settings">الإعدادات</string>
+    <string name="ch_chat_settings">إعدادات المحادثات</string>
+    <string name="ch_my_followers">متابعيني</string>
+    <string name="ch_set_account">الحساب والملف الشخصي</string>
+    <string name="ch_set_privacy">الخصوصية والأمان</string>
+    <string name="ch_set_messages">المحادثات والرسائل</string>
+    <string name="ch_set_org">التنظيم والإنتاجية</string>
+    <string name="ch_set_look">المظهر وإمكانية الوصول</string>
+    <string name="ch_set_data">البيانات والأداء</string>
+    <string name="ch_set_calls">المكالمات والمجتمعات</string>
+    <string name="ch_set_biz">أدوات البيزنس</string>
+    <string name="ch_info_notify">الإشعارات</string>
     <string name="ch_search_hint">ابحث في المحادثات والرسائل</string>
     <string name="ch_filter_all">الكل</string>
     <string name="ch_filter_unread">غير مقروءة</string>
     <string name="ch_filter_groups">المجموعات</string>
+    <string name="ch_filter_contacts">الجهات</string>
     <string name="ch_filter_archived">المؤرشفة</string>
     <string name="ch_requests_banner">طلبات المراسلة</string>
-    <string name="ch_requests_count">%d في انتظارك</string>
+    <string name="ch_requests_count">%d في الانتظار</string>
     <string name="ch_empty_title">لا توجد محادثات بعد</string>
     <string name="ch_empty_text">ابدأ محادثة مع جهات اتصالك أو أنشئ مجموعة.</string>
     <string name="ch_start_chat">ابدأ محادثة</string>
@@ -117,6 +130,7 @@
 
     <string name="ch_call_voice">مكالمة صوتية</string>
     <string name="ch_call_video">مكالمة فيديو</string>
+    <string name="ch_send_call_link">أرسل لينك مكالمة</string>
     <string name="ch_call_missed">مكالمة فائتة</string>
     <string name="ch_call_declined">مرفوضة</string>
     <string name="ch_call_cancelled">ملغاة</string>
@@ -174,12 +188,25 @@
     <string name="ch_confirm_delete_chat">حذف هذه المحادثة؟ لديك فقط.</string>
     <string name="ch_confirm_leave">الخروج من هذه المجموعة؟</string>
     <string name="ch_confirm_block">حظر %s؟ لن يتمكن من مراسلتك أو الاتصال بك.</string>
+    <string name="ch_block_done">تم الحظر</string>
+    <string name="ch_unblock_done">تم إلغاء الحظر</string>
+    <string name="ch_clear_done">تم مسح المحادثة</string>
+    <string name="ch_delete_done">تم حذف المحادثة</string>
     <string name="ch_add_members">إضافة أعضاء</string>
+    <string name="ch_group_members">أعضاء المجموعة</string>
+    <string name="ch_followers_list">المتابعون</string>
+    <string name="ch_see_all_members">عرض الكل (%d)</string>
     <string name="ch_owner">المالك</string>
     <string name="ch_admin">مشرف</string>
     <string name="ch_make_admin">تعيين كمشرف</string>
     <string name="ch_dismiss_admin">إلغاء الإشراف</string>
-    <string name="ch_remove_member">إزالة</string>
+    <string name="ch_remove_member">إخراج من المجموعة</string>
+    <string name="ch_confirm_remove_member">هل تريد إخراج %1$s من المجموعة؟</string>
+    <string name="ch_remove">إخراج</string>
+    <string name="ch_member_removed">تم إخراج %1$s من المجموعة</string>
+    <string name="ch_member_now_admin">أصبح %1$s مشرفًا</string>
+    <string name="ch_member_admin_dismissed">لم يعد %1$s مشرفًا</string>
+    <string name="ch_member_now_owner">أصبح %1$s مالك المجموعة</string>
     <string name="ch_invite_link">الدعوة عبر رابط</string>
     <string name="ch_link_copied">تم نسخ الرابط</string>
     <string name="ch_group_settings">إعدادات المجموعة</string>
@@ -211,6 +238,7 @@
     <string name="ch_my_qr_title">رمز المحادثة الخاص بي</string>
     <string name="ch_my_qr_sub">من يمسح هذا الرمز يمكنه بدء محادثة معك.</string>
     <string name="ch_reset_qr">إعادة تعيين الرمز</string>
+    <string name="ch_conversation_link">لينك المحادثة</string>
     <string name="ch_qr_reset_done">رمزك القديم لم يعد يعمل</string>
     <string name="ch_scan_prompt">امسح رمز محادثة دُر</string>
 
@@ -277,6 +305,9 @@
     <string name="ch_channels_hero">القنوات</string>
     <string name="ch_channels_hero_sub">تحديثات من الأشخاص والشركات التي تتابعها</string>
     <string name="ch_channels_search">ابحث في القنوات</string>
+    <string name="ch_channels_filter">فلتر</string>
+    <string name="ch_channels_filter_search">ابحث في الفلتر</string>
+    <string name="ch_channels_filter_verify">التوثيق</string>
     <string name="ch_channels_none">لا توجد قنوات</string>
     <string name="ch_channel_new">قناة جديدة</string>
     <string name="ch_channel_create">إنشاء قناة</string>
@@ -442,6 +473,7 @@
     <string name="ch_save_contact">حفظ جهة الاتصال</string>
     <string name="ch_contact_saved">اتحفظ في جهات اتصالك</string>
     <string name="ch_message">مراسلة</string>
+    <string name="ch_call">اتصال</string>
     <string name="ch_number_not_on_dorr">%1$s لسه مش على دُر</string>
     <string name="ch_search_country">دوّر على دولة أو كود</string>
     <string name="ch_search_contacts">دوّر بالاسم أو الرقم</string>
@@ -508,11 +540,15 @@
     <string name="ch_add_to_contacts">إضافة لجهات الاتصال</string>
     <string name="ch_theme_yours">خصّصها بنفسك</string>
     <string name="ch_theme_yours_sub">صورة من عندك وألوان رسايل للمحادثة دي، وإنت بس اللي بتشوفها.</string>
+    <string name="ch_theme_add_photo">إضافة صورة</string>
     <string name="ch_theme_photo">صورة من المعرض</string>
-    <string name="ch_theme_change_photo">غيّر الصورة</string>
-    <string name="ch_theme_remove_photo">شيل الصورة</string>
-    <string name="ch_theme_my_bubbles">رسايلي</string>
-    <string name="ch_theme_their_bubbles">رسايلهم</string>
+    <string name="ch_theme_change_photo">تغيير الصورة</string>
+    <string name="ch_theme_remove_photo">حذف الصورة</string>
+    <string name="ch_theme_dim">شفافية الخلفية</string>
+    <string name="ch_theme_wallpaper">الخلفية</string>
+    <string name="ch_theme_message_colors">ألوان الرسائل</string>
+    <string name="ch_theme_my_bubbles">رسائلي</string>
+    <string name="ch_theme_their_bubbles">رسائله</string>
     <string name="ch_theme_reset">رجوع لشكل دُر</string>
     <string name="ch_folder_pick_title">اختار المحادثات</string>
     <string name="ch_folder_edit_chats">إضافة أو إزالة محادثات</string>
@@ -651,7 +687,13 @@
     <string name="ch_status_today">النهارده</string>
     <string name="ch_status_week">الأسبوع ده</string>
     <string name="ch_status_forever">لحد ما أشيلها</string>
-    <string name="ch_status_clear">شيل الحالة</string>
+    <string name="ch_status_clear">إزالة الحالة</string>
+    <string name="ch_status_except_people">استثناء أشخاص</string>
+    <string name="ch_status_pick">اختار حالة</string>
+    <string name="ch_status_pick_contact">اختار جهة الاتصال</string>
+    <string name="ch_status_sample_name">زائر</string>
+    <string name="ch_status_saved">اتحفظت الحالة</string>
+    <string name="ch_status_removed">اتشالت الحالة</string>
     <string name="ch_status_holiday">في أجازة</string>
     <string name="ch_status_work">في الشغل</string>
     <string name="ch_status_driving">سايق</string>
@@ -819,6 +861,68 @@
     <!-- الشاشات العريضة (البند 89): جنب القايمة قبل ما تفتح محادثة. -->
     <string name="ch_pane_title">اختار محادثة</string>
     <string name="ch_pane_sub">هتفتح هنا، جنب محادثاتك.</string>
+    <!-- الصور بالذكاء الاصطناعي (البند 50 و51) -->
+    <string name="ch_ai_image_title">صورة بالذكاء الاصطناعي</string>
+    <string name="ch_ai_image_edit_title">عدّلها بالذكاء الاصطناعي</string>
+    <string name="ch_ai_image_sub">معاينة ليك انت بس، ابعتها لو عجبتك</string>
+    <string name="ch_ai_image_hint">اوصف الصورة، مثلاً: قطة لابسة بدلة فضاء</string>
+    <string name="ch_ai_image_edit_hint">عايزها تتغير إزاي؟ مثلاً: خليها أبيض وأسود</string>
+    <string name="ch_ai_image_caption">ضيف تعليق (اختياري)</string>
+    <string name="ch_ai_image_go">اعمل الصورة</string>
+    <string name="ch_ai_image_edit_go">عدّل</string>
+    <string name="ch_ai_image_again">جرّب تاني</string>
+    <string name="ch_ai_image_send">إرسال</string>
+    <string name="ch_ai_image_quota_note">كل صورة بتتحسب من الصور اليومية في باقة دُرر AI بتاعتك.</string>
+    <string name="ch_ai_image_ideas">أفكار</string>
+    <string name="ch_ai_image_style">الستايل</string>
+    <string name="ch_ai_style_realistic">واقعي</string>
+    <string name="ch_ai_style_illustration">رسم</string>
+    <string name="ch_ai_style_anime">أنمي</string>
+    <string name="ch_ai_style_3d">ثلاثي الأبعاد</string>
+    <string name="ch_ai_style_oil">لوحة زيت</string>
+    <string name="ch_ai_style_minimal">بسيط</string>
+    <string name="ch_ai_image_change">غيّر الوصف</string>
+    <string name="ch_ai_image_source">الصورة اللي هتتعدل</string>
+    <string name="ch_ai_image_left">باقي %1$d النهارده</string>
+    <string name="ch_ai_image_unlimited">بلا حدود</string>
+    <string name="ch_ai_image_locked_chip">مقفولة</string>
+    <string name="ch_ai_image_no_plan">صور الذكاء الاصطناعي محتاجة باقة دُرر AI. اشترك وابدأ اعمل صورك.</string>
+    <string name="ch_ai_image_trial_ended">الفترة التجريبية خلصت. اختار باقة دُرر AI علشان تكمل تعمل صور.</string>
+    <string name="ch_ai_image_blocked">دُرر AI متوقف لحسابك دلوقتي.</string>
+    <string name="ch_ai_image_not_in_plan">باقتك الحالية مفيهاش صور بالذكاء الاصطناعي. رقّي باقتك علشان تعملها.</string>
+    <string name="ch_ai_image_limit_reached">خلصت صور النهارده (%1$d). ارجع بكرة أو رقّي باقتك.</string>
+    <string-array name="ch_ai_image_ideas">
+        <item>غروب الشمس فوق الأهرامات، سينمائي</item>
+        <item>قطة لطيفة لابسة بدلة فضاء</item>
+        <item>كارت عيد ميلاد ببالونات</item>
+        <item>كافيه دافي في يوم ممطر</item>
+        <item>مدينة مستقبلية بالليل</item>
+    </string-array>
+    <string-array name="ch_ai_image_edit_ideas">
+        <item>خليها أبيض وأسود</item>
+        <item>شيل الخلفية</item>
+        <item>خليها كرتون</item>
+        <item>ضيف إضاءة غروب دافية</item>
+        <item>خليها لوحة زيت</item>
+    </string-array>
+    <string-array name="ch_ai_image_making">
+        <item>بيرسم صورتك…</item>
+        <item>بيخلط الألوان…</item>
+        <item>بيضيف التفاصيل…</item>
+        <item>خلاص قربت…</item>
+    </string-array>
+    <!-- دُرر AI في الشات: البحث بالمعنى، والمتابعة في محادثة تانية، والذاكرة، وصور الذكاء الاصطناعي -->
+    <string name="ch_ai_meaning_toggle">بالمعنى</string>
+    <string name="ch_ai_meaning_terms">دوّرنا كمان على: %1$s</string>
+    <string name="ch_ai_capsule_title">كمّل في محادثة تانية</string>
+    <string name="ch_ai_capsule_sub">ملخص للمحادثة دي عشان تكمّل الشغل في مكان تاني</string>
+    <string name="ch_ai_capsule_note">عدّله زي ما تحب. مش هيتبعت غير للمحادثات اللي تختارها.</string>
+    <string name="ch_ai_capsule_send">ابعته في محادثة</string>
+    <string name="ch_ai_capsule_sent">الملخص اتبعت</string>
+    <string name="ch_ai_memory">ذاكرة دُرر AI</string>
+    <string name="ch_ai_images_title">صور الذكاء الاصطناعي</string>
+    <string name="ch_ai_images_sub">كل اللي اتعمل أو اتعدل بالذكاء الاصطناعي في محادثاتك</string>
+    <string name="ch_ai_images_empty">لسه مفيش صور بالذكاء الاصطناعي في محادثاتك.</string>
     <!-- لينكات المكالمات -->
     <string name="cl_create">إنشاء لينك مكالمة</string>
     <string name="cl_create_sub">أي حد معاه اللينك يقدر يدخل</string>

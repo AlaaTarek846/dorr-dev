@@ -80,7 +80,7 @@ class OnlineTransactionController extends Controller implements HasMiddleware
             'status' => ['nullable', 'in:pending,paid,failed,expired,refunded'],
             'payment_method_id' => ['nullable', 'integer'],
             'country_id' => ['nullable', 'integer'],
-            'owner_type' => ['nullable', 'in:user,provider'],
+            'owner_type' => ['nullable', 'in:user,provider,freelancer'],
             'owner_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],

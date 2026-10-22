@@ -91,6 +91,12 @@ object ChatAi {
     val important get() = caps?.important == true
     val relatedFiles get() = caps?.relatedFiles == true
     val today get() = caps?.today == true
+    val imageGenerate get() = caps?.imageGenerate == true
+    val imageEdit get() = caps?.imageEdit == true
+    val searchMeaning get() = caps?.searchMeaning == true
+    val memory get() = caps?.memory == true
+    val capsule get() = caps?.capsule == true
+    val aiImages get() = caps?.aiImages == true
 }
 
 /** A translation or a voice transcript shown under a message (only for me, only when I asked). */

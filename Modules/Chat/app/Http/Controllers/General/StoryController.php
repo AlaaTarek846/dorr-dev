@@ -23,7 +23,15 @@ class StoryController extends Controller
 
     public function index(Request $request)
     {
-        return ApiResponse::success($this->stories->feed($request->user()), __('api.retrieved'));
+        $q = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return ApiResponse::success(
+            $this->stories->feed($request->user(), (int) ($q['page'] ?? 1), (int) ($q['per_page'] ?? 15)),
+            __('api.retrieved'),
+        );
     }
 
     public function store(Request $request)

@@ -198,6 +198,7 @@ fun DriverNavHost() {
                         AccountScreen(
                             onOpenSignup = { nav.navigate("signup") },
                             onOpenPreferences = { nav.navigate("preferences") },
+                            onOpenDriverAi = { nav.navigate("driver_ai") },
                             onOpenScheduled = { nav.navigate("scheduled") },
                             onOpenAirport = { nav.navigate("airport") },
                             onOpenCases = { nav.navigate("cases") },
@@ -243,6 +244,8 @@ fun DriverNavHost() {
                     composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
                     composable("airport") { AirportScreen(onBack = { nav.popBackStack() }) }
                     composable("preferences") { PreferencesScreen(onBack = { nav.popBackStack() }) }
+                    // Block 06: DORR Driver AI and where the work is.
+                    composable("driver_ai") { DriverAiScreen(onBack = { nav.popBackStack() }) }
                     composable("cases") { CasesScreen(onBack = { nav.popBackStack() }) }
                     composable("scheduled") {
                         ScheduledScreen(onBack = { nav.popBackStack() }, onStarted = { nav.navigate("trip") { popUpTo("home") } })

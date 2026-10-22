@@ -54,6 +54,8 @@ class ChatPartialItemsTest extends TestCase
         app(AiProviderRepository::class)->ensureDefaults();
         AiProvider::query()->where('key', 'openai')->firstOrFail()->update(['is_enabled' => true, 'is_default' => true, 'api_key' => 'sk-test', 'model' => 'gpt-4o-mini']);
         Http::fake(['api.openai.com/v1/audio/transcriptions' => Http::response(['text' => 'Meet me at the blue door'])]);
+        // Transcribing is an AI tool: it needs a DORR AI plan (ADR-013).
+        \Modules\AI\Models\AiPlan::query()->create(['name' => 'Trial', 'code' => 'trial', 'is_trial' => true, 'is_active' => true, 'sort_order' => 1, 'usage_minutes' => 600, 'cooldown_minutes' => 5]);
     }
 
     public function test_folders_have_a_colour_and_starred_messages_go_into_my_favourites_folders(): void
@@ -78,6 +80,24 @@ class ChatPartialItemsTest extends TestCase
         // Someone else's folder can't be used.
         $this->as($this->bob);
         $this->putJson("/api/mobile/v1/chat/messages/{$recipe}/star", ['starred' => true, 'folder_id' => $folder], $this->headers())->assertNotFound();
+    }
+
+    public function test_starred_messages_page_fifteen_at_a_time(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        $ids = [];
+        for ($i = 1; $i <= 16; $i++) {
+            $ids[] = $this->send($this->bob, $chat, ['type' => 'text', 'body' => "star {$i}"])->json('data.id');
+        }
+        $this->as($this->alice);
+        foreach ($ids as $id) {
+            $this->putJson("/api/mobile/v1/chat/messages/{$id}/star", ['starred' => true], $this->headers())->assertOk();
+        }
+
+        $first = $this->getJson('/api/mobile/v1/chat/messages/starred?page=1&per_page=15', $this->headers())->assertOk();
+        $first->assertJsonCount(15, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/messages/starred?page=2&per_page=15', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
     }
 
     public function test_search_finds_what_was_said_in_voice_notes_i_transcribed_and_filters_by_kind(): void
@@ -170,7 +190,28 @@ class ChatPartialItemsTest extends TestCase
 
         $this->getJson("/api/mobile/v1/chat/conversations/{$withBob}/money", $this->headers())->assertOk()
             ->assertJsonPath('data.items.0.type', 'money_request')
-            ->assertJsonPath('data.totals.i_owe_minor', 5000);
+            ->assertJsonPath('data.totals.i_owe_minor', 5000)
+            ->assertJsonPath('data.has_more', false);
+    }
+
+    public function test_money_in_a_chat_pages_fifteen_at_a_time(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        for ($i = 1; $i <= 16; $i++) {
+            $this->send($this->bob, $chat, ['type' => 'money_request', 'amount_minor' => 1000 * $i, 'body' => "ask {$i}"])->assertCreated();
+        }
+
+        $this->as($this->alice);
+        $this->getJson("/api/mobile/v1/chat/conversations/{$chat}/money?page=1&per_page=15", $this->headers())
+            ->assertOk()
+            ->assertJsonCount(15, 'data.items')
+            ->assertJsonPath('data.has_more', true)
+            ->assertJsonPath('data.totals.i_owe_minor', 136000);
+        $this->getJson("/api/mobile/v1/chat/conversations/{$chat}/money?page=2&per_page=15", $this->headers())
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.has_more', false)
+            ->assertJsonPath('data.totals.i_owe_minor', 136000);
     }
 
     public function test_the_decision_room_and_the_privacy_center(): void

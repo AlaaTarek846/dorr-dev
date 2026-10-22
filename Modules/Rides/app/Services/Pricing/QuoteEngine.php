@@ -229,7 +229,12 @@ class QuoteEngine
                     // R-48: each method's fee on what this price charges; the chosen one joins the lines at confirmation.
                     'payment_fees' => $breakdown === null || $bidding ? null : self::paymentFees($policy->all(), (int) ($max ?? $total)),
                 ] + ($bidding && $total !== null ? [
-                    'bid' => ['suggested' => $total, 'floor' => BidPricing::floor($policy->all(), $total)],
+                    // AI-05: the suggestion follows demand around the pickup, within the policy's room (off by default).
+                    'bid' => (function () use ($policy, $total, $origin) {
+                        $smart = SmartPrice::suggest($policy->all(), $total, (float) $origin['lat'], (float) $origin['lng']);
+
+                        return ['suggested' => $smart['suggested'], 'floor' => BidPricing::floor($policy->all(), $smart['suggested']), 'base' => $total, 'adjust_bp' => $smart['adjust_bp'], 'why' => $smart['why']];
+                    })(),
                 ] : []),
                 'expires_at' => now()->addSeconds($policy->int('quote_ttl_s')),
             ])->setRelation('category', $category);

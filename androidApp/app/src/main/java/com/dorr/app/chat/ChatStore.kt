@@ -93,6 +93,12 @@ object ChatStore {
 
     fun saveConversations(list: List<ConversationDto>) = write("conversations.json", list.take(100))
 
+    fun requestsCount(): Int = prefs?.getInt("requests_count", 0) ?: 0
+
+    fun saveRequestsCount(count: Int) {
+        prefs?.edit()?.putInt("requests_count", count)?.apply()
+    }
+
     suspend fun messages(conversationId: String): List<MessageDto>? = read(fileFor(conversationId), object : TypeToken<List<MessageDto>>() {})
 
     fun saveMessages(conversationId: String, list: List<MessageDto>) = write(fileFor(conversationId), list.takeLast(MESSAGES_KEPT))
