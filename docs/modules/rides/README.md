@@ -342,6 +342,39 @@ Both apps show the request's state from the ride (`change_request`): the rider a
 - **Notifications** (`marine.booked`, `marine.confirmed`, `marine.canceled`, `marine.booking_canceled`, `marine.extension_asked/approved/declined`) are the only live signal. Open pages reload once on them.
 - **Not yet:** an admin page and photos of the boat.
 
+## The captain's account (D-5, D-6, D-210..D-344)
+- **Ranks** (`Services/Drivers/DriverRanks`, `driver_ranks`, `driver_rank_states`, `driver_performance_notes`):
+  - A captain is «new» for `ranks.probation_days` after activation, then takes the highest rank whose thresholds they meet. The thresholds are rows in the admin, not code.
+  - The numbers cover the last `ranks.window_days`: trips, rating, cleanliness and behaviour scores, on time (`ranks.on_time_grace_s`), completion, the captain's cancellations, and warnings.
+  - Going up happens at once. Going down first sends a warning, then waits `ranks.grace_days`.
+  - A category can ask for a rank (`eligibility.min_rank` → `driver_rank`).
+  - The captain can appeal a warning within `ranks.appeal_window_days`, and the admin answers it.
+  - The sweep `rides:driver-ranks` runs daily at 03:30.
+  - API: `GET driver/v1/rank`, `POST rank/notes/{note}/appeal`. Admin: `driver-ranks*` (permission `driver-ranks`).
+- **Payouts** (`DriverPayouts`, registered on `WithdrawalGuards` for `driver`):
+  - Withdrawals need an activated (KYC) account.
+  - A new or changed payout account waits `wallet.driver_new_method_hold_hours`.
+  - An account in someone else's name needs `acknowledge_third_party`, where `wallet.driver_third_party_payout` allows it.
+  - An IBAN abroad is refused until the captain asks for international payouts (`payouts/international`) and the admin approves.
+  - Emergency freeze: `emergency/freeze/request|confirm` works without signing in. It blocks withdrawals and signs the captain out everywhere; the admin unfreezes.
+  - Monthly statements: `invoices`, `invoices/{month}`.
+- **Support & lost items:**
+  - Captains open tickets on the same support desk (`support_tickets.driver_id`, `category`, `reference`) at `driver/v1/support/*`. The help centre filters by `audience`.
+  - Lost items (`ride_lost_items`): the rider reports within `lost_items.report_days`. The captain answers found / not found with a hand-over plan, they chat without phone numbers, and the hand-over is recorded with a photo.
+- **Settings** (`DriverAccount`):
+  - Alerts (sound, vibration, voice) and trusted wallet devices.
+  - Changing the phone number needs the wallet PIN plus a code to the new number.
+  - The terms are shown with their version and acceptance (`driver_consents`). With `drivers.require_terms`, newer terms keep the captain offline (`terms_pending`).
+  - Closing the account checks for blockers first (balance, debt, a pending withdrawal, a running trip, pending earnings, an open case).
+  - Notifications can be deleted one by one, or all the read ones (`DELETE notifications/read`).
+- **Exceptional states** (`DriverServiceStatus`, `GET driver/v1/service-status`):
+  - Maintenance (`ops.driver_maintenance` → `maintenance`).
+  - Financial safe mode (`ops.financial_safe_mode` → `423 rides_financial_safe_mode` on withdrawals and payout accounts).
+  - The service off in the city (`service_off_here`), and the captain's categories paused there.
+  - Emergency review: a rider's open SOS keeps the captain offline for up to `safety.review_hold_hours` (`emergency_review`).
+  - The last withdrawal: pending / unknown (past `wallet.payout_sla_hours`) / paid / failed.
+  - The app reads this on open, on reconnect and on `driver.*` events, never on a timer.
+
 ## Ride chat (`RideChatService`, `ride_messages`)
 Rider ↔ driver, text and ready-made messages (`lang/*/rides.php → quick`), open only while a driver is on the ride; when it ends nobody can write (`409 rides_chat_closed`) but the conversation stays for the admin. Live on `rides.{uuid}` as `ride.message`, plus a push to the other side; a `client_id` makes a re-send land once. API: `GET|POST mobile/v1/rides/{uuid}/messages` and `driver/v1/rides/{uuid}/messages` (`{open, quick_replies, messages}`).
 
@@ -412,6 +445,13 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - A yacht hire: booked by the hour, an overlapping hire refused, more time asked and approved (charged then), boarded by QR, and the captain paid less the `marine` commission.
 - Find a driver: the quote, a request paid upfront, a second open request refused, the rider's phone hidden until a captain accepts, then arrived → started → completed and the captain paid less `hire.commission_bp`.
 - Driving lessons: a pack bought, a lesson booked and confirmed, «done» refused before its time and then paid per lesson, and the lessons not taken refunded on quit.
+
+`RidesDriverRanksTest` (5) covers the captain's account:
+- ranks: probation → up → a warning → down after the grace period → an appeal;
+- payouts: third-party, international, KYC, the hold on a new account, the monthly statement and the emergency freeze;
+- support tickets and lost items;
+- settings: alerts, deleting notifications, changing the phone number, the terms and closing the account;
+- the exceptional states: maintenance, the financial safe mode, a pending / late withdrawal and the emergency review.
 
 `RidesFlowTest::test_a_request_goes_to_several_captains_at_once_and_the_first_to_accept_takes_it` checks O-36: one request goes to several captains, and the other cards are withdrawn once one accepts. The older order-by-turn tests (nearest first, step back, favourite first) set `search.batch_size` to 1. The airport queue always offers one captain at a time.
 

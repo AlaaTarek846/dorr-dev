@@ -68,6 +68,19 @@ class RideFeatures
         Cache::forget(self::CACHE);
     }
 
+    /**
+     * D-335, D-336: a switch the admin turned off here (the city's rule first, else the country's) —
+     * unlike a place where it was never set up.
+     */
+    public function switchedOff(int $countryId, ?int $cityId, string $feature): bool
+    {
+        $rules = $this->rules()->where('feature', $feature)->where('country_id', $countryId);
+        $rule = ($cityId !== null ? $rules->first(fn (RideFeatureRule $r) => $r->city_id === $cityId) : null)
+            ?? $rules->first(fn (RideFeatureRule $r) => $r->city_id === null);
+
+        return $rule !== null && ! $rule->enabled;
+    }
+
     private function rule(int $countryId, ?int $cityId, string $feature): bool
     {
         $rules = $this->rules()->where('feature', $feature)->where('country_id', $countryId);

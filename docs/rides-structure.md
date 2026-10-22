@@ -1147,6 +1147,22 @@ ride_policies → countries / (city) / ride_zones / ride_categories ; ride_tax_r
 
 الإضافات نفسها مش جدول: بتتحفظ في `ride_quotes.policy_snapshot.options` و`rides.confirmed_snapshot.options`، وأسعارها في `extras.addons` و`extras.wait_save` (بتتحسب تاني آخر الرحلة). سطور السعر: `addon_priority` و`addon_child_seat` و`addon_pet` و`addon_luggage` (للكابتن) و`wait_save` (خصم على دُرر). المفاتيح في `ride_policies`: `addons.*` و`loyalty.*`.
 
+## 15.2 الكابتن: الرتب، والسحب، والدعم والمفقودات، والحساب (D-5، D-6، D-210..D-344)
+
+| الجدول | فيه إيه |
+|---|---|
+| `driver_ranks` | الرتب (جديد/برونزي/فضي/ذهبي/ماسي): الاسم والمزايا `{ar, en}`، واللون، والترتيب، و`probation`، والشروط: `min_trips`، و`min_rating` (×100)، و`min_cleanliness`، و`min_behavior`، و`min_commitment_bp`، و`min_completion_bp`، و`max_cancel_bp`، و`max_warnings` |
+| `driver_rank_states` | رتبة كل كابتن (`driver_id` مفتاح)، وأرقامه آخر حساب (`metrics` JSON)، و`falling_to_id` + `downgrade_due_at` لمهلة ما قبل النزول |
+| `driver_performance_notes` | ملاحظة / تحذير / مدح / تغيير رتبة، من الإدارة أو النظام، ومرتبطة برحلة اختيارياً؛ والاعتراض: `appeal_status` (none/pending/accepted/rejected) والنص والرد وتواريخهم |
+| `driver_payout_settings` | السحب الدولي (`international_status/reason/answer` وتواريخه)، والتجميد الطارئ (`frozen_at`، `frozen_reason`) |
+| `ride_lost_items` / `ride_lost_item_messages` | بلاغ الحاجة المنسية في العربية: الوصف، والحالة (reported/found/not_found/returned/closed)، وخطة التسليم، وصورة التسليم؛ والمحادثة بين الطرفين من غير أرقام |
+| `driver_phone_changes` | طلب تغيير الرقم: الرقم الجديد، والكود (زي كود الدخول: ثابت لحد ربط مزود SMS)، وانتهاؤه، والمحاولات |
+| `driver_consents` | موافقة الكابتن على نسخة الشروط/الخصوصية (`type`، `version` = وقت تعديل الصفحة) |
+| `drivers.closed_at` / `closed_reason` | إغلاق الحساب من الكابتن (الحالة بتبقى Blocked بسبب `closed_by_driver`) |
+| `support_tickets.driver_id` / `category` / `reference` (و`user_id` بقى nullable)، `support_messages.driver_id`، `support_help_nodes.audience` | تذاكر الكباتن على نفس لوحة الدعم، ومركز مساعدة بجمهور (all/user/driver) |
+
+المفاتيح في `ride_policies`: `ranks.*`، و`wallet.driver_new_method_hold_hours`، و`wallet.driver_third_party_payout`، و`wallet.payout_sla_hours`، و`lost_items.report_days`، و`drivers.require_terms`، و`ops.driver_maintenance` (+ `ops.driver_maintenance_message`)، و`ops.financial_safe_mode`، و`safety.review_hold_hours`. الحالات الاستثنائية للكابتن بترجع من `GET driver/v1/service-status`.
+
 ## 16. ترتيب الـ Migrations
 
 **المرحلة 0:**

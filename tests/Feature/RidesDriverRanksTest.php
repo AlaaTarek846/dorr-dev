@@ -21,10 +21,6 @@ use Modules\Driver\Models\VehicleMake;
 use Modules\Driver\Models\VehicleModel;
 use Modules\Rides\Events\RideChanged;
 use Modules\Rides\Events\RideDriverMoved;
-use Modules\Rides\Models\LoyaltyBadge;
-use Modules\Rides\Models\LoyaltyChallenge;
-use Modules\Rides\Models\LoyaltyReward;
-use Modules\Rides\Models\LoyaltyTier;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideCategory;
 use Modules\Rides\Models\RideFeatureRule;
@@ -35,7 +31,6 @@ use Modules\Rides\Services\Policy\RidePolicies;
 use Modules\User\Models\User;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
-use Modules\Wallet\Models\WalletCoupon;
 use Modules\Wallet\Services\WalletService;
 use Tests\TestCase;
 
@@ -260,6 +255,63 @@ class RidesDriverRanksTest extends TestCase
         $as()->postJson('/api/driver/v1/account/close', ['reason' => 'Moving', 'confirm' => true])->assertOk();
         $this->assertNotNull($captain->refresh()->closed_at);
         $this->assertSame(0, $captain->tokens()->count());
+    }
+
+    public function test_captain_exceptional_states(): void
+    {
+        $captain = $this->onlineDriver();
+        $gate = app(\Modules\Rides\Services\Drivers\DriverEligibility::class);
+        $policies = fn (array $extra) => [app(RidePolicies::class)->save($this->saudi->id, null, null, null, ['loyalty.points_per_unit' => 2, 'loyalty.committed_bonus_bp' => 0] + $extra), RidePolicies::forget()];
+        $status = fn () => $this->asDriver($captain)->getJson('/api/driver/v1/service-status')->assertOk()->json('data');
+
+        $s = $status();
+        $this->assertFalse($s['maintenance']);
+        $this->assertTrue($s['service_on']);
+        $this->assertNull($s['last_withdrawal']);
+        $this->assertSame([], $s['paused_categories']);
+
+        // D-335, D-336: a category, then the whole service, switched off here.
+        $switch = fn (string $feature, bool $on) => [RideFeatureRule::query()->where('feature', $feature)->where('country_id', $this->saudi->id)->update(['enabled' => $on]), \Modules\Rides\Services\Features\RideFeatures::forget()];
+        $switch('category.economy', false);
+        $this->assertSame('economy', $status()['paused_categories'][0]['slug']);
+        $switch('rides', false);
+        $this->assertSame('service_off_here', $gate->reasonNotToWork($captain->refresh()));
+        $this->assertFalse($status()['service_on']);
+        $switch('rides', true);
+        $switch('category.economy', true);
+
+        // D-329: maintenance keeps everyone offline, with its message.
+        $policies(['ops.driver_maintenance' => true]);
+        $this->assertSame('maintenance', $gate->reasonNotToWork($captain->refresh()));
+        $this->assertNotEmpty($status()['maintenance_message']);
+
+        // D-330: the financial safe mode stops withdrawals.
+        $policies(['ops.financial_safe_mode' => true, 'wallet.driver_new_method_hold_hours' => 0]);
+        $this->assertNull($gate->reasonNotToWork($captain->refresh()));
+        app(\Modules\Wallet\Services\PinService::class)->set($captain, '1234');
+        $h = ['X-Wallet-Pin' => '1234', 'X-Country' => 'SA'];
+        $this->asDriver($captain)->postJson('/api/driver/v1/wallet/withdrawal-methods', ['type' => 'bank', 'data' => ['bank_name' => 'Al Rajhi', 'account_holder' => $captain->name, 'iban' => 'SA0380000000608010167519']], $h)
+            ->assertStatus(423)->assertJsonPath('error_code', 'rides_financial_safe_mode');
+
+        // D-338, D-340: a withdrawal pending, then late with no result yet.
+        $policies(['wallet.driver_new_method_hold_hours' => 0]);
+        $method = $this->asDriver($captain)->postJson('/api/driver/v1/wallet/withdrawal-methods', ['type' => 'bank', 'data' => ['bank_name' => 'Al Rajhi', 'account_holder' => $captain->name, 'iban' => 'SA0380000000608010167519']], $h)->assertCreated()->json('data.id');
+        $wallets = app(WalletService::class);
+        $wallets->credit($wallets->firstOrCreateWallet($captain, $this->saudi), 50000, WalletBucket::Withdrawable, WalletTransactionType::ServiceEarning, ['idempotency_key' => 'earn:'.$captain->id]);
+        $captain->forceFill(['activated_at' => now()->subDays(60)])->save();
+        $this->asDriver($captain)->postJson('/api/driver/v1/wallet/withdrawals', ['withdrawal_method_id' => $method, 'amount_minor' => 10000], $h + ['Idempotency-Key' => 'withdraw-state-1'])->assertCreated();
+        $this->assertSame('pending', $status()['last_withdrawal']['state']);
+        $this->travel(73)->hours();
+        $this->assertSame('unknown', $status()['last_withdrawal']['state']);
+        $this->travelBack();
+
+        // D-344: a rider's open SOS keeps the captain offline for the review.
+        DriverPresence::query()->where('driver_id', $captain->id)->update(['last_seen_at' => now(), 'online_since' => now()]);
+        $this->fund($this->rider, 50000);
+        $ride = $this->rideToTheEnd($captain);
+        \Modules\Rides\Models\RideSafetyIncident::query()->create(['uuid' => (string) Str::uuid(), 'ride_id' => $ride->id, 'type' => 'sos', 'reporter_type' => 'user', 'reporter_id' => $this->rider->id, 'ride_status' => 'completed']);
+        $this->assertSame('emergency_review', $gate->reasonNotToWork($captain->refresh()));
+        $this->assertSame($ride->number, $status()['emergency_review']['ride_number']);
     }
 
     private function rideToTheEnd(Driver $captain): Ride
