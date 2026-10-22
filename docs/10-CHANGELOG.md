@@ -8,7 +8,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- **Admin → Chat → Channels would not open (2026-10-22):** the search placeholder used `@handle`, which vue-i18n treats as a linked message and crashed the page. The `@` is escaped in ar/en.
+
 ### Changed
+- **Android channels create (2026-10-22):** **إنشاء قناة** is a sticky primary button at the bottom of the list, not a hero pill.
+- **Android channels filter (2026-10-22):** the icon beside search is the browse Tune circle (`WaCircleButton`); tap opens the same filter sheet (searchable selects, Apply / Clear).
+- **Android chat money page (2026-10-20):** chat info → money opens `ChRoute.ChatMoney` with the settings header (`SubHeader` + pink wash). The ledger is `GET conversations/{c}/money?page=&per_page=15` with `has_more`; **المزيد** loads the next 15. Totals stay for the whole chat.
+- **Android chat theme screen (2026-10-20):** wallpaper and bubble colours open as a full page from chat info (`ChRoute.ChatTheme`) with the same settings header as Chat settings, not a bottom sheet or the calendar hero. Preview, swatches, custom photo, and colours sit on the page; Apply stays at the bottom.
+- **Android chat header calls (2026-10-19):** one videocam + chevron in the conversation header; tapping it opens a dropdown (voice, video, send call link) just under the header, in chat colours.
+- **Android chat toast (2026-10-19):** the in-chat notice uses the wallet chip (navy or danger, white type) so it stays readable at night instead of `Ch.Ink` on white text.
+- **Starred messages pages of 15 (2026-10-19):** `GET chat/messages/starred` (and `conversations/{c}/starred`) takes `page` / `per_page` (default 15). The Android favourites screen loads 15, then the next 15 at the end of the list.
+- **Android chat inner headers (2026-10-19):** inner chat screens and the open conversation use the calendar header: 22sp Black Cairo title, 34dp / 16dp icon wells, back on the trailing edge (left in Arabic), 8dp gaps, the same navy panel padding and bottom curve. No DORR wordmark.
+- **Android chat overflow menu (2026-10-19):** the three-dots menu is Starred, Locked chats, Communities, and Settings. **Chat settings** lists the eight topics (Account-style cards); tapping one opens that topic’s own page (e.g. Account and profile → QR, My status, My followers).
+- **Android chat list + stories pages of 15 (2026-10-19):** conversations load 15 at a time (`GET chat/conversations?page=&per_page=15`) and the next 15 arrive when the list nears its end. The stories bar does the same (`GET chat/stories?page=&per_page=15`, `has_more`). Home public stories also page 15.
+- **Android chat list header (2026-10-19):** the conversations header matches the calendar: 22sp title, 34dp icon wells with 16dp icons, 8dp gaps, and the same navy panel padding.
 - **Android Discover — my interests (2026-10-19):** the kinds list pages 15 at a time (`GET discover/categories?page=&per_page=15`); **Show more** loads the next 15. Tapping a kind saves without reloading Discover home (that was freezing the page).
 - **Android Discover — organizer my events (2026-10-19):** a search field under “My events” filters the list (`GET discover/organizer?q=`, title / venue / description), still 15 at a time with Show more.
 - **Android Discover — home strips (2026-10-19):** each home row (`this_week` and the others) loads 15 events; a small chevron sits on the start side of the title when there is more. Tapping it scrolls the same row to the next pair; reaching the last card loads the next 15 (`GET discover/sections/{key}?page=&per_page=15`, `has_more` on home). The “What you like” category row uses the same chevron and 15-at-a-time scroll.

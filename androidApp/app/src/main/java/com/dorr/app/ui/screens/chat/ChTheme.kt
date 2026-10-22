@@ -304,7 +304,7 @@ fun ChAvatar(
             Modifier
                 .fillMaxSize()
                 .then(
-                    if (ring) Modifier.border(2.5.dp, Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red)), CircleShape)
+                    if (ring) Modifier.border(2.5.dp, Brush.sweepGradient(listOf(Ch.Red, Ch.RedDeep, Ch.Red.shade(0.45f), Ch.Red)), CircleShape)
                     else Modifier,
                 ),
         ) {

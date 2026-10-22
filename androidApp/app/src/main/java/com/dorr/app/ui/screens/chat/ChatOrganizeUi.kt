@@ -55,11 +55,13 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,6 +88,8 @@ import com.dorr.app.network.apiFailure
 import com.google.gson.Gson
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -653,11 +657,14 @@ fun BroadcastPage(id: String) {
 /** Pick people from my contacts on Dorr (search, tick, done). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, onDone: (List<Int>) -> Unit) {
+internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: Int = R.string.ch_broadcast_pick, onDone: (List<Int>) -> Unit) {
     var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
     var query by remember { mutableStateOf("") }
+    var visibleCount by remember { mutableIntStateOf(15) }
+    val listState = rememberLazyListState()
     val picked = remember { mutableStateListOf<Int>().apply { addAll(initial) } }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
+    LaunchedEffect(query) { visibleCount = 15 }
 
     ChSheet(
         onDismissRequest = onDismiss,
@@ -666,13 +673,23 @@ internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, onDone:
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
-            Text(stringResource(R.string.ch_broadcast_pick), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(8.dp))
             ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
             Spacer(Modifier.height(8.dp))
             val shown = contacts.orEmpty().filter { c -> c.profile != null && (query.isBlank() || c.name.contains(query.trim(), ignoreCase = true) || c.phone.contains(query.trim())) }
-            LazyColumn(Modifier.height(380.dp)) {
-                items(shown, key = { it.id }) { c ->
+            val paged = shown.take(visibleCount)
+            LaunchedEffect(listState, paged.size, shown.size) {
+                snapshotFlow {
+                    val info = listState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 3 && visibleCount < shown.size
+                }.distinctUntilChanged().filter { it }.collect {
+                    visibleCount = (visibleCount + 15).coerceAtMost(shown.size)
+                }
+            }
+            LazyColumn(Modifier.height(380.dp), state = listState) {
+                items(paged, key = { it.id }) { c ->
                     val uid = c.profile?.id ?: return@items
                     val on = uid in picked
                     Row(Modifier.fillMaxWidth().clickable { if (on) picked.remove(uid) else picked.add(uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
