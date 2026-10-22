@@ -669,6 +669,13 @@ export default [
                 meta: { middleware: [auth], permission: 'ride-cases.view' },
             },
             {
+                // Block 06: service quality (AI-19) and rides with fraud signs (AI-06).
+                path: 'rides/quality',
+                name: 'admin.rides.quality',
+                component: page('rides/quality/index'),
+                meta: { middleware: [auth], permission: 'rides.view' },
+            },
+            {
                 path: 'rides/safety',
                 name: 'admin.rides.safety',
                 component: page('rides/safety/index'),
@@ -697,6 +704,54 @@ export default [
                 name: 'admin.rides.lists',
                 component: page('rides/lists/index'),
                 meta: { middleware: [auth], permission: 'ride-lists.view' },
+            },
+            {
+                path: 'freelance/policies',
+                name: 'admin.freelance.policies',
+                component: page('freelance/policies/index'),
+                meta: { middleware: [auth], permission: 'freelance-policies.view' },
+            },
+            {
+                path: 'freelance/projects',
+                name: 'admin.freelance.projects',
+                component: page('freelance/projects/index'),
+                meta: { middleware: [auth], permission: 'freelance-projects.view' },
+            },
+            {
+                path: 'freelance/verifications',
+                name: 'admin.freelance.verifications',
+                component: page('freelance/verifications/index'),
+                meta: { middleware: [auth], permission: 'freelance-verifications.view' },
+            },
+            {
+                path: 'freelance/document-types',
+                name: 'admin.freelance.document-types',
+                component: page('freelance/document-types/index'),
+                meta: { middleware: [auth], permission: 'freelance-document-types.view' },
+            },
+            {
+                path: 'freelance/skills',
+                name: 'admin.freelance.skills',
+                component: page('freelance/skills/index'),
+                meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
+            },
+            {
+                path: 'freelance/specialties',
+                name: 'admin.freelance.specialties',
+                component: page('freelance/specialties/index'),
+                meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
+            },
+            {
+                path: 'freelance/switches',
+                name: 'admin.freelance.switches',
+                component: page('freelance/switches/index'),
+                meta: { middleware: [auth], permission: 'freelance-feature-rules.view' },
+            },
+            {
+                path: 'freelance/overview',
+                name: 'admin.freelance.overview',
+                component: page('freelance/overview/index'),
+                meta: { middleware: [auth], permission: 'freelance-settings.view' },
             },
             {
                 path: 'rides/settings',

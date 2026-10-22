@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_projects">Projects</string>
+    <string name="projects_title">Projects</string>
+    <string name="projects_project">Project</string>
+    <string name="projects_search">Search projects</string>
+    <string name="projects_filter">Filter</string>
+    <string name="projects_all">All</string>
+    <string name="projects_saved">Saved</string>
+    <string name="projects_save">Save</string>
+    <string name="projects_clear_filter">Clear filter (%1$d)</string>
+    <string name="projects_none">No projects match</string>
+    <string name="projects_none_text">Try a different search or filter.</string>
+    <string name="projects_no_saved">Nothing saved yet</string>
+    <string name="projects_no_saved_text">Tap the star on a project to keep it here.</string>
+    <string name="projects_days">%1$d days</string>
+    <string name="projects_specialty">Specialty</string>
+    <string name="projects_any">Any specialty</string>
+    <string name="projects_budget">Budget</string>
+    <string name="projects_from">From</string>
+    <string name="projects_to">To</string>
+    <string name="projects_duration">Duration</string>
+    <string name="projects_duration_max">Up to (days)</string>
+    <string name="projects_apply">Apply</string>
+    <string name="projects_reset">Reset</string>
+    <string name="projects_description">Description</string>
+    <string name="projects_skills">Skills</string>
+    <string name="projects_files_note">The client attached %1$d file(s). You see them once your offer is accepted.</string>
+    <string name="hub_portfolio_sub">The works you show clients</string>
+    <string name="projects_mine">My specialties</string>
+    <string name="projects_all_specialties">All specialties</string>
+    <string name="projects_show_all">See all specialties</string>
+    <string name="projects_offers">Offers</string>
+    <string name="projects_offers_closed">Closed for offers</string>
+    <string name="projects_offers_left">%1$d days left for offers</string>
+    <string name="projects_offers_last_day">Last day for offers</string>
+    <string name="projects_offer_chosen">The client chose an offer</string>
+</resources>

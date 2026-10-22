@@ -124,6 +124,9 @@ class RideController extends Controller
             'circle' => ['nullable', 'array'],
             'circle.driver_ids' => ['nullable', 'array', 'max:20'],
             'circle.driver_ids.*' => ['integer', 'min:1'],
+            // «راحتي» for this ride only (else the rider's saved preferences go with it).
+            'comfort' => ['nullable', 'array'],
+            ...RideAiController::comfortRules('comfort.'),
         ]);
 
         $ride = $service->request(
@@ -138,6 +141,7 @@ class RideController extends Controller
             $request->boolean('use_wallet'),
             $data['share_with'] ?? 'any',
         );
+        app(\Modules\Rides\Services\Comfort\ComfortPreferences::class)->attach($ride, $this->rider($request), isset($data['comfort']) ? (array) $data['comfort'] : null);
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
     }

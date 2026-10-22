@@ -126,8 +126,14 @@ fun MainScreen(
     var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
     // Passenger rides open their own map screen, not the generic service page.
     var ridesOpen by rememberSaveable { mutableStateOf(false) }
+    // Freelance work (FL-201): my projects and the project form, over everything.
+    var freelanceOpen by rememberSaveable { mutableStateOf(false) }
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
-        if (service.moduleName == "passenger_ride") ridesOpen = true else serviceDetail = service to color
+        when (service.moduleName) {
+            "passenger_ride" -> ridesOpen = true
+            "freelance" -> freelanceOpen = true
+            else -> serviceDetail = service to color
+        }
     }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
@@ -459,6 +465,15 @@ fun MainScreen(
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
         com.dorr.app.ui.screens.rides.RidesHost(onExit = { ridesOpen = false })
+    }
+
+    // Freelance work: my projects and the project form (FL-201 / FL-202).
+    AnimatedVisibility(
+        visible = freelanceOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.freelance.FreelanceHost(onExit = { freelanceOpen = false }) }
     }
 
     // The one payment screen, over whatever opened it.

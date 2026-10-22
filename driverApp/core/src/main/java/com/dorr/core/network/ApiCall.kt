@@ -35,7 +35,7 @@ suspend fun <T> apiCall(block: suspend () -> Response<ApiEnvelope<T>>): ApiResul
     return ApiResult.Failed(parseError(response.code(), response.errorBody()?.string(), body?.message))
 }
 
-internal fun parseError(status: Int, raw: String?, fallback: String?): ApiError {
+fun parseError(status: Int, raw: String?, fallback: String?): ApiError {
     val json: JsonObject? = runCatching { JsonParser.parseString(raw ?: "").asJsonObject }.getOrNull()
     val message = json?.get("message")?.takeIf { it.isJsonPrimitive }?.asString ?: fallback ?: "HTTP $status"
     val errorCode = json?.get("error_code")?.takeIf { it.isJsonPrimitive }?.asString

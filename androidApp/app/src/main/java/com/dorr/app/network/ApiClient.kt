@@ -141,6 +141,7 @@ object ApiClient {
     val languages: LanguageApi by lazy { retrofit.create(LanguageApi::class.java) }
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
+    val freelance: FreelanceApi by lazy { retrofit.create(FreelanceApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }

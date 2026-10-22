@@ -157,6 +157,7 @@
 | **Decision** | 2. Every AI task for a person goes through `AiTaskRunner`, which applies `AiChatUsageGuard` exactly like the DORR AI chat: an active plan or the admin's free trial, within its usage window and cooldown, using that window up. Images also count against the plan's daily images (`AiMediaQuotaService`). Exempt: support's automatic FAQ answer (`free: true`) — the platform runs it, nobody asks for it. The chat core (messages, calls, files…) stays free. |
 | **Reason** | Owner's decision; one plan for all of DORR AI, wherever it is used. Plan limits and daily image quotas make spec 50/51 safe to offer. |
 | **Consequences** | Chat errors `chat_ai_plan_{reason}` (402), `chat_ai_image_not_in_plan` (402), `chat_ai_image_daily_limit` (429); `GET chat/ai` returns `plan {allowed, reason}` read-only (`AiChatUsageGuard::preview()` — opening the chat starts nothing). The app keeps the AI buttons and, on a refusal, offers the DORR AI subscription. This overrides the spec's "free chat" line for the AI tools only. |
+| **Rides (2026-10-22, Block 06)** | The same rule in rides: the rider's booking assistant and suggested category, the captain's DORR Driver AI and demand forecast need a plan (`rides_ai_plan_{reason}`, 402); captains subscribe to the same plans (`driver/v1/ai-subscription`, owner_type `driver`). DORR's own reading for its team (case triage, the quality report) is `free`; dispatch, fraud signs, safety checks, cancel risk, ETA and lateness warnings are operational and work for everyone. |
 
 ## NEEDS-DECISION
 

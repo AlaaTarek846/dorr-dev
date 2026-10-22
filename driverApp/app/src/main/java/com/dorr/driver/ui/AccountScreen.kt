@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Settings
@@ -101,6 +102,7 @@ fun AccountScreen(
     onOpenRank: () -> Unit = {},
     onOpenSupport: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenDriverAi: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -146,6 +148,9 @@ fun AccountScreen(
                     RowDivider()
                     // D-285..D-297: support, the help centre and lost items.
                     ListRow(Icons.Rounded.SupportAgent, stringResource(R.string.sp_title), subtitle = stringResource(R.string.sp_home_hint), tint = Pal.accent, onClick = onOpenSupport)
+                    RowDivider()
+                    // Block 06: DORR Driver AI — where the work is, clashes with my bookings, my daily goal.
+                    ListRow(Icons.Rounded.AutoAwesome, stringResource(R.string.dai_title), subtitle = stringResource(R.string.dai_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF6D5BFF), onClick = onOpenDriverAi)
                     RowDivider()
                     // D-239..D-259: my rank and performance.
                     ListRow(Icons.Rounded.MilitaryTech, stringResource(R.string.rk_title), subtitle = stringResource(R.string.rk_home_hint), tint = Pal.warning, onClick = onOpenRank)

@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Route;
 /*
 |--------------------------------------------------------------------------
 | Notifications for mobile accounts — /api/mobile/v1 (users), /api/provider/v1 (providers),
-| /api/driver/v1 (drivers: the ride requests reach a closed app through these devices)
+| /api/driver/v1 (drivers: the ride requests reach a closed app through these devices),
+| /api/freelance/v1 (freelancers: FL-007)
 |--------------------------------------------------------------------------
 |
 | The same five endpoints for both audiences; the guard decides whose notifications they are.
@@ -17,6 +18,7 @@ $audiences = [
     'mobile/v1' => ['auth:user_api', 'ensure-phone-verified:user_api'],
     'provider/v1' => ['auth:provider_api'],
     'driver/v1' => ['auth:driver_api', 'ensure-phone-verified:driver_api'],
+    'freelance/v1' => ['auth:freelance_api', 'ensure-phone-verified:freelance_api'],
 ];
 
 foreach ($audiences as $prefix => $auth) {

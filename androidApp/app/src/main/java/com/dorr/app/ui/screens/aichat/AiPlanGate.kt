@@ -50,13 +50,13 @@ object AiPlanGate {
 
     /** Error codes that mean "this needs (a bigger) DORR AI plan". */
     private fun isPlanCode(code: String): Boolean =
-        code.startsWith("chat_ai_plan_") || code == "chat_ai_image_not_in_plan" || code == "chat_ai_image_daily_limit" || code == "ai_plan_required"
+        code.startsWith("chat_ai_plan_") || code.startsWith("rides_ai_plan_") || code == "chat_ai_image_not_in_plan" || code == "chat_ai_image_daily_limit" || code == "ai_plan_required"
 
     /** Called by the HTTP client with a 402/429 answer's body. */
     fun inspect(body: String) {
         val root = runCatching { JsonParser.parseString(body).asJsonObject }.getOrNull() ?: return
         val code = root.get("error_code")?.takeIf { it.isJsonPrimitive }?.asString ?: return
-        if (code == "chat_ai_plan_blocked" || !isPlanCode(code)) return
+        if (code == "chat_ai_plan_blocked" || code == "rides_ai_plan_blocked" || !isPlanCode(code)) return
         val message = root.get("message")?.takeIf { it.isJsonPrimitive }?.asString ?: return
         Handler(Looper.getMainLooper()).post { prompt = message }
     }
