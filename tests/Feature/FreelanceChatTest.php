@@ -172,7 +172,7 @@ class FreelanceChatTest extends TestCase
         $this->asFreelancer();
         $url = $this->freelancerBase()."/conversations/{$this->room->uuid}/messages";
 
-        $this->postJson($url, ['file' => UploadedFile::fake()->create('brief.pdf', 200, 'application/pdf'), 'body' => 'The brief'])
+        $this->postJson($url, ['file' => UploadedFile::fake()->createWithContent('brief.pdf', "%PDF-1.4\n%%EOF"), 'body' => 'The brief'])
             ->assertCreated()->assertJsonPath('data.kind', 'file')->assertJsonPath('data.body', 'The brief')->assertJsonStructure(['data' => ['attachment' => ['url', 'name', 'mime', 'size']]]);
         $this->postJson($url, ['file' => UploadedFile::fake()->image('logo.png', 40, 40)])
             ->assertCreated()->assertJsonPath('data.kind', 'image');

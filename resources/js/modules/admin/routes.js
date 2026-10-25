@@ -693,6 +693,18 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-policies.view' },
             },
             {
+                path: 'freelance/reports',
+                name: 'admin.freelance.reports',
+                component: page('freelance/reports/index'),
+                meta: { middleware: [auth], permission: 'freelance-reports.view' },
+            },
+            {
+                path: 'freelance/disputes',
+                name: 'admin.freelance.disputes',
+                component: page('freelance/disputes/index'),
+                meta: { middleware: [auth], permission: 'freelance-disputes.view' },
+            },
+            {
                 path: 'freelance/projects',
                 name: 'admin.freelance.projects',
                 component: page('freelance/projects/index'),

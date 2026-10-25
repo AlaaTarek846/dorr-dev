@@ -153,9 +153,30 @@ class ClientProjects
             ->load(['specialty.translations', 'skills.translations', 'media', 'events']);
     }
 
+    /** A part started, delivered or in dispute: its money can't simply go back (FL-506). */
+    private function hasWorkOn(Project $project): bool
+    {
+        return \Modules\Freelance\Models\FreelanceMilestone::query()->where('project_id', $project->id)->whereIn('status', ['in_progress', 'revision', 'delivered', 'disputed'])->exists();
+    }
+
     public function cancel(Project $project, User $client, ?string $reason): Project
     {
-        return $this->machine->move($project, Status::Cancelled, 'project.cancelled', 'client', $client->id, ['closed_at' => now()], $reason ? ['reason' => $reason] : [])
+        // FL-501: money held for work can't be left behind — giving it back is FL-506.
+        // FL-506: parts nobody started go back at once; one with work on it (started, delivered, in dispute) must be settled first.
+        // All or nothing: the money goes back only if the project is really cancelled.
+        $cancelled = \Illuminate\Support\Facades\DB::transaction(function () use ($project, $client, $reason) {
+            if ($this->hasWorkOn($project)) {
+                throw new FreelanceException('project_has_funded_work', 409);
+            }
+            app(MilestoneCancellation::class)->refundFunded($project, 'client', $client->id);
+            $cancelled = $this->machine->move($project, Status::Cancelled, 'project.cancelled', 'client', $client->id, ['closed_at' => now()], $reason ? ['reason' => $reason] : []);
+            app(\Modules\Freelance\Services\Chat\OfferChat::class)->freeze($cancelled);
+            app(Agreements::class)->projectCancelled($cancelled);
+
+            return $cancelled;
+        });
+
+        return $cancelled
             ->load(['specialty.translations', 'skills.translations', 'media', 'events']);
     }
 
@@ -216,6 +237,7 @@ class ClientProjects
             'status_reason' => $project->status_reason,
             'title' => $project->title,
             'description' => $project->description,
+            'questions' => array_values((array) $project->questions),
             'specialty' => $project->specialty === null ? null : ['id' => $project->specialty->id, 'name' => $project->specialty->translatedName()],
             'skills' => $project->skills->map(fn (FreelanceSkill $s) => ['id' => $s->id, 'name' => $s->translatedName()])->values()->all(),
             'budget' => [
@@ -238,9 +260,15 @@ class ClientProjects
                 'edit' => $status->editable(),
                 'submit' => $status->editable(),
                 'withdraw' => $status === Status::PendingReview,
-                'cancel' => in_array($status, [Status::PendingReview, Status::ChangesRequested, Status::Rejected, Status::Published, Status::Awarded], true),
+                'cancel' => in_array($status, [Status::PendingReview, Status::ChangesRequested, Status::Rejected, Status::Published, Status::Awarded], true)
+                    // In progress: only while no part has work on it (the funded ones go back).
+                    || ($status === Status::InProgress && ! $this->hasWorkOn($project)),
                 'delete' => $status === Status::Draft,
             ],
+            // FL-205: invitations to a private project.
+            'invitations' => $project->visibility === 'private' ? app(ProjectInvitations::class)->summary($project) : null,
+            // FL-401: the agreement with the chosen freelancer, when there is one.
+            'agreement' => ($a = app(Agreements::class)->current($project)) === null ? null : ['uuid' => $a->uuid, 'status' => $a->status],
             'offers' => $this->window->present($project, true) + [
                 'count' => \Modules\Freelance\Models\FreelanceOffer::query()->where('project_id', $project->id)->where('status', '!=', 'withdrawn')->count(),
                 // The offer the client chose (FL-309), for the project page.
@@ -281,6 +309,11 @@ class ClientProjects
         }
         if (array_key_exists('budget_type', $data)) {
             $out['budget_type'] = $data['budget_type'];
+        }
+        // FL-307: the same questions for every freelancer who offers (blank ones dropped).
+        if (array_key_exists('questions', $data)) {
+            $q = array_values(array_filter(array_map(fn ($t) => trim(strip_tags((string) $t)), (array) ($data['questions'] ?? [])), fn ($t) => $t !== ''));
+            $out['questions'] = $q === [] ? null : $q;
         }
         foreach (['budget_min_minor', 'budget_max_minor', 'duration_days'] as $key) {
             if (array_key_exists($key, $data)) {

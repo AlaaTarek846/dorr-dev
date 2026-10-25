@@ -153,7 +153,7 @@ class FreelanceClientProjectsTest extends TestCase
     public function test_files_are_added_listed_downloaded_by_the_owner_and_removed(): void
     {
         $uuid = $this->draft();
-        $media = $this->post(self::API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->create('brief.pdf', 120, 'application/pdf')], ['Accept' => 'application/json'])
+        $media = $this->post(self::API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->createWithContent('brief.pdf', "%PDF-1.4\n%%EOF")], ['Accept' => 'application/json'])
             ->assertCreated()->assertJsonPath('data.attachments.0.name', fn ($n) => str_ends_with($n, '.pdf'))->json('data.attachments.0.id');
         $this->post(self::API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->create('virus.exe', 10)], ['Accept' => 'application/json'])->assertUnprocessable();
         $this->get(self::API."/{$uuid}/attachments/{$media}")->assertOk();

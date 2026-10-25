@@ -1,15 +1,25 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerInvitationController;
+use Modules\Freelance\Http\Controllers\ReceiptController;
+use Modules\Freelance\Http\Controllers\ApprovalTrailController;
 use Modules\Freelance\Http\Controllers\FreelanceCatalogController;
 use Modules\Freelance\Http\Controllers\FreelanceChatController;
+use Modules\Freelance\Http\Controllers\MilestoneDeliveryController;
+use Modules\Freelance\Http\Controllers\FreelanceInterviewController;
 use Modules\Freelance\Http\Controllers\FreelanceConfigController;
 use Modules\Freelance\Http\Controllers\FreelanceRealtimeController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAccountController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAuthController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAvailabilityController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerPortfolioController;
+use Modules\Freelance\Http\Controllers\ChangeRequestController;
+use Modules\Freelance\Http\Controllers\DisputeController;
+use Modules\Freelance\Http\Controllers\ReviewController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAgreementController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerOfferController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerOfferTemplateController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerProjectController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerProfileListsController;
 use Modules\Freelance\Http\Controllers\PortfolioViewController;
@@ -58,13 +68,59 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             Route::get('{uuid}', [FreelancerProjectController::class, 'show'])->whereUuid('uuid');
             Route::post('{uuid}/favorite', [FreelancerProjectController::class, 'favorite'])->whereUuid('uuid');
             Route::delete('{uuid}/favorite', [FreelancerProjectController::class, 'unfavorite'])->whereUuid('uuid');
+            // FL-401: the agreement on my chosen offer.
+            Route::get('{uuid}/agreement', [FreelancerAgreementController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/agreement/approve', [FreelancerAgreementController::class, 'approve'])->whereUuid('uuid');
+            // FL-601 / FL-602: the versions delivered (files kept as uploaded, downloaded by the two people of the agreement only).
+            Route::get('{uuid}/milestones/{milestone}/deliveries', [MilestoneDeliveryController::class, 'index'])->whereUuid(['uuid', 'milestone']);
+            Route::get('{uuid}/milestones/{milestone}/deliveries/{delivery}/files/{media}', [MilestoneDeliveryController::class, 'file'])->whereUuid(['uuid', 'milestone', 'delivery'])->whereNumber('media');
+            Route::post('{uuid}/milestones/{milestone}/{action}', [FreelancerAgreementController::class, 'milestoneAction'])->whereUuid(['uuid', 'milestone'])->whereIn('action', ['start', 'deliver', 'withdraw', 'cancel-accept', 'cancel-reject']);
+            // FL-704: disputes on a part.
+            Route::post('{uuid}/milestones/{milestone}/dispute', [DisputeController::class, 'open'])->whereUuid(['uuid', 'milestone'])->middleware('freelance.feature:disputes');
+            Route::get('{uuid}/disputes/{dispute}', [DisputeController::class, 'show'])->whereUuid(['uuid', 'dispute']);
+            Route::post('{uuid}/disputes/{dispute}/evidence', [DisputeController::class, 'evidence'])->whereUuid(['uuid', 'dispute'])->middleware('throttle:20,1,freelance-dispute-evidence');
+            Route::post('{uuid}/disputes/{dispute}/appeal', [DisputeController::class, 'appeal'])->whereUuid(['uuid', 'dispute']);
+            Route::get('{uuid}/disputes/{dispute}/files/{media}', [DisputeController::class, 'file'])->whereUuid(['uuid', 'dispute'])->whereNumber('media');
+            // FL-701: rating each other after the project.
+            Route::get('{uuid}/review', [ReviewController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/review', [ReviewController::class, 'store'])->whereUuid('uuid')->middleware('freelance.feature:ratings');
+            // FL-404 / FL-405: changes to an active agreement.
+            // FL-406: the record of approvals.
+            Route::get('{uuid}/agreement/trail', [ApprovalTrailController::class, 'index'])->whereUuid('uuid');
+            Route::get('{uuid}/agreement/changes', [ChangeRequestController::class, 'index'])->whereUuid('uuid');
+            Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
+            Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
+            Route::post('{uuid}/agreement/decline', [FreelancerAgreementController::class, 'decline'])->whereUuid('uuid');
             // Offers (FL-301), behind the `bidding` switch too.
             Route::middleware('freelance.feature:bidding')->group(function () {
+                Route::post('{uuid}/offer-check', [FreelancerOfferTemplateController::class, 'check'])->whereUuid('uuid');
                 Route::get('{uuid}/offer-preview', [FreelancerOfferController::class, 'preview'])->whereUuid('uuid');
                 Route::get('{uuid}/my-offer', [FreelancerOfferController::class, 'mine'])->whereUuid('uuid');
                 Route::post('{uuid}/offers', [FreelancerOfferController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-offer-send');
             });
         });
+        // FL-205: my invitations to private projects; answering needs a verified account (FL-110).
+        Route::prefix('invitations')->middleware(['freelance.feature:projects', 'freelance.feature:invitations'])->group(function () {
+            Route::get('/', [FreelancerInvitationController::class, 'index']);
+            Route::post('{uuid}/{action}', [FreelancerInvitationController::class, 'respond'])->whereUuid('uuid')->whereIn('action', ['accept', 'decline'])->middleware('freelance.verified');
+        });
+        // FL-703: my numbers and the latest ratings clients gave me.
+        Route::get('reviews', [ReviewController::class, 'mine']);
+        // FL-511: my receipts of the project money.
+        Route::get('receipts', [ReceiptController::class, 'index']);
+        Route::get('receipts/{uuid}', [ReceiptController::class, 'show'])->whereUuid('uuid');
+
+        // FL-509: my earnings from projects.
+        Route::get('earnings', [FreelancerAgreementController::class, 'earnings'])->middleware('freelance.feature:projects');
+
+        // FL-304: my offer texts to start from.
+        Route::prefix('offer-templates')->middleware(['freelance.feature:projects', 'freelance.feature:bidding'])->group(function () {
+            Route::get('/', [FreelancerOfferTemplateController::class, 'index']);
+            Route::post('/', [FreelancerOfferTemplateController::class, 'store']);
+            Route::put('{id}', [FreelancerOfferTemplateController::class, 'update'])->whereNumber('id');
+            Route::delete('{id}', [FreelancerOfferTemplateController::class, 'destroy'])->whereNumber('id');
+        });
+
         Route::prefix('offers')->middleware(['freelance.feature:projects', 'freelance.feature:bidding'])->group(function () {
             Route::get('/', [FreelancerOfferController::class, 'index']);
             Route::put('{offer}', [FreelancerOfferController::class, 'update'])->whereUuid('offer');
@@ -105,6 +161,10 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             Route::get('conversations/{uuid}/messages', [FreelanceChatController::class, 'messages'])->whereUuid('uuid');
             Route::post('conversations/{uuid}/messages', [FreelanceChatController::class, 'send'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-chat-send');
             Route::post('conversations/{uuid}/read', [FreelanceChatController::class, 'read'])->whereUuid('uuid');
+            // FL-310: short interviews inside the room.
+            Route::get('conversations/{uuid}/interviews', [FreelanceInterviewController::class, 'index'])->whereUuid('uuid');
+            Route::post('conversations/{uuid}/interviews', [FreelanceInterviewController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-interview');
+            Route::post('conversations/{uuid}/interviews/{interview}/{action}', [FreelanceInterviewController::class, 'respond'])->whereUuid(['uuid', 'interview'])->whereIn('action', ['confirm', 'decline', 'cancel']);
             Route::delete('messages/{message}', [FreelanceChatController::class, 'destroy'])->whereNumber('message');
         });
     });

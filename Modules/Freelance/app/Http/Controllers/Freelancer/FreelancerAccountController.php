@@ -48,7 +48,7 @@ class FreelancerAccountController extends Controller
 
     public function avatar(Request $request): JsonResponse
     {
-        $request->validate(['avatar' => ['required', 'image', 'max:5120']]);
+        $request->validate(['avatar' => ['required', 'image', 'max:5120', new \Modules\Freelance\Rules\CleanUpload]]);
 
         return ApiResponse::success(new FreelancerResource($this->profile->avatar($this->freelancer($request), $request->file('avatar'))), __('api.updated'));
     }

@@ -479,7 +479,11 @@
         },
         "help": {
             "audience": "Shown to",
-            "audiences": {"all": "Riders and captains", "user": "Riders only", "driver": "Captains only"},
+            "audiences": {
+                "all": "Riders and captains",
+                "user": "Riders only",
+                "driver": "Captains only"
+            },
             "title": "Quick chat",
             "search": "Search topics",
             "main_menu": "Main menu",
@@ -4112,7 +4116,12 @@
                 "review": "Review & delivery",
                 "milestones": "Milestones",
                 "project": "Project budget",
-                "earnings": "Earnings"
+                "earnings": "Earnings",
+                "cancellation": "Cancelling started work",
+                "disputes": "Disputes",
+                "changes": "Changes after the agreement",
+                "ratings": "Ratings",
+                "invitations": "Invitations"
             },
             "choice": {
                 "percent": "Percent",
@@ -4137,7 +4146,13 @@
                 "milestones__min_amount_minor": "Smallest milestone",
                 "project__min_budget_minor": "Smallest budget",
                 "project__max_budget_minor": "Largest budget",
-                "earnings__hold_days": "Days before earnings can be used (0 = at once)"
+                "earnings__hold_days": "Days before earnings can be used (0 = at once)",
+                "cancellation__started_freelancer_bp": "Freelancer's share when started work is cancelled",
+                "disputes__response_days": "Days each side has to answer a dispute",
+                "disputes__appeal_days": "Days to appeal a dispute decision",
+                "changes__response_days": "Days to answer a change",
+                "ratings__window_days": "Days to rate after a project",
+                "invitations__max_per_project": "Most freelancers one private project can invite"
             }
         },
         "overview": {
@@ -4221,7 +4236,8 @@
                 "published": "Published",
                 "closed": "Closed",
                 "cancelled": "Cancelled",
-                "awarded": "Offer chosen"
+                "awarded": "Offer chosen",
+                "in_progress": "In progress"
             },
             "fields": {
                 "title": "title",
@@ -4243,7 +4259,9 @@
                 "project.edited_by_admin": "Fixed by the reviewer",
                 "project.offers_closed": "Offers closed",
                 "project.offers_reopened": "Offers opened again",
-                "project.awarded": "The client chose an offer"
+                "project.awarded": "The client chose an offer",
+                "project.started": "Agreement approved: work started",
+                "project.reopened": "Taking offers again"
             },
             "offers": "Offers",
             "offers_open": "Taking offers until {date}",
@@ -4256,6 +4274,124 @@
             "offers_count": "{n} offer(s)",
             "offers_closed_max_offers": "Full: the most offers it takes",
             "offers_closed_chosen": "The client chose an offer"
+        },
+        "disputes": {
+            "title": "Disputes",
+            "waiting": "{n} need a decision",
+            "hint": "A dispute freezes one part of the work and its money. A first decision moves the money only after the appeal days (Prices & rules); either side may appeal once, then someone else decides — finally, at once.",
+            "project": "Project / part",
+            "reason": "Reason",
+            "amount": "Part",
+            "opened": "Opened",
+            "overdue": "Response time is up",
+            "respond_by": "Answers by {date}",
+            "decide": "Decide",
+            "decide_appeal": "Decide the appeal",
+            "case": "Dispute",
+            "client": "Client",
+            "freelancer": "Freelancer",
+            "by": {
+                "client": "opened by the client",
+                "freelancer": "opened by the freelancer"
+            },
+            "side": {
+                "client": "Client",
+                "freelancer": "Freelancer"
+            },
+            "status": {
+                "open": "Open",
+                "decided": "Decided (waiting for appeal)",
+                "appealed": "Appealed",
+                "resolved": "Resolved"
+            },
+            "appeal_by": "Appeal by the {side}",
+            "final": "final",
+            "done_at": "Money moved on {date}",
+            "runs_at": "The money moves on {date} unless appealed",
+            "evidence": "What each side showed",
+            "no_evidence": "Nothing yet.",
+            "part": "The part",
+            "held": "Held",
+            "revisions_used": "Rounds of changes used",
+            "delivery": "Delivery",
+            "last_changes": "Last changes asked",
+            "agreement": "The agreement",
+            "includes": "Included",
+            "excludes": "Not included",
+            "chat": "The chat between them",
+            "no_chat": "They did not chat.",
+            "timeline": "Evidence timeline",
+            "timeline_show": "Show everything in order",
+            "timeline_hide": "Hide",
+            "timeline_export": "Download CSV",
+            "timeline_empty": "Nothing recorded yet.",
+            "timeline_staff": "Staff",
+            "timeline_kind": {
+                "agreement": "Agreement",
+                "approval": "Approval",
+                "work": "Work",
+                "delivery": "Delivery",
+                "dispute": "Dispute",
+                "evidence": "Evidence",
+                "chat": "Chat"
+            },
+            "decision": {
+                "refund": "Everything back to the client",
+                "release": "Everything to the freelancer",
+                "split": "Split"
+            },
+            "decision_split": "Split: {n}% to the freelancer",
+            "freelancer_share": "The freelancer’s share",
+            "to_freelancer": "Freelancer: {amount}",
+            "to_client": "Client: {amount}",
+            "before_fees": "(of the part; the fee and the commission follow the same share)",
+            "note_hint": "Why (both sides read it) — at least 10 characters",
+            "first_rule": "This decision waits for the appeal days before the money moves.",
+            "appeal_rule": "This decision is final and moves the money now. It must come from someone other than the first decision.",
+            "confirm": "Take the decision",
+            "confirm_text": "Freelancer: {freelancer} — Client: {client}. Take this decision?"
+        },
+        "reports": {
+            "title": "Project money",
+            "hint": "What is held now, and what was funded, paid, given back and kept in the period, per country. The reconciliation counts the same money from two places and lists every difference — nothing is fixed by itself.",
+            "from": "From",
+            "to": "To",
+            "show": "Show",
+            "country": "Country",
+            "cols": {
+                "held": "Held now",
+                "funded": "Funded",
+                "paid": "Paid",
+                "refunded": "Given back",
+                "earned": "Freelancers’ net",
+                "pending_earnings": "Earnings waiting",
+                "client_fees": "Client fees",
+                "commissions": "Commissions",
+                "counts": "Projects"
+            },
+            "counts": {
+                "projects": "{n} new",
+                "active": "{n} active",
+                "completed": "{n} completed",
+                "disputes": "{n} disputes open"
+            },
+            "reconcile": "Reconciliation",
+            "check": "Check now",
+            "differences": "{n} difference(s)",
+            "all_match": "Everything matches",
+            "no_issues": "No differences.",
+            "issue": "Difference",
+            "where": "Where",
+            "expected": "Expected",
+            "found": "Found",
+            "kinds": {
+                "hold_mismatch": "Held amount differs",
+                "hold_left": "Money still held",
+                "receipt_missing": "Receipt missing",
+                "fee_mismatch": "Client fees differ",
+                "commission_mismatch": "Commissions differ",
+                "earning_unpaid": "Earning not credited"
+            }
         }
     },
     "rides": {
@@ -5053,8 +5189,13 @@
             "confirm_delete": "Delete this? It can't be undone."
         },
         "ranks": {
-                "payouts": {"intl": "International", "frozen": "Frozen", "unfreeze": "Lift the freeze", "confirm_unfreeze": "Lift the freeze? Check the captain's identity first."},
-                "title": "Captain ranks",
+            "payouts": {
+                "intl": "International",
+                "frozen": "Frozen",
+                "unfreeze": "Lift the freeze",
+                "confirm_unfreeze": "Lift the freeze? Check the captain's identity first."
+            },
+            "title": "Captain ranks",
             "hint": "A captain starts «New» in probation, then takes the best rank their numbers reach. When numbers drop, a warning and a grace come before a lower rank (rules: ranks.*).",
             "tabs": {
                 "payouts": "Captain payouts",

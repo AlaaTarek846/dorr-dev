@@ -128,7 +128,7 @@ private fun offersLine(p: ProjectDto): Pair<String, Boolean>? {
  * the saved ones, 15 at a time with infinite scroll. Read when the page opens and when the connection returns; nothing on a timer.
  */
 @Composable
-fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}) {
+fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}, onOpenInvitations: () -> Unit = {}) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val night = settingsNight()
@@ -217,6 +217,7 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
                 }
                 ProjectChip(stringResource(R.string.projects_saved), savedOnly) { savedOnly = true }
                 ProjectChip(stringResource(R.string.offer_my_offers), false, onClick = onOpenMyOffers)
+                ProjectChip(stringResource(R.string.inv_title), false, onClick = onOpenInvitations)
                 if (filter.active > 0) ProjectChip(stringResource(R.string.projects_clear_filter, filter.active), false) { filter = ProjectFilter() }
             }
         }
@@ -362,7 +363,7 @@ private fun SpecialtyOption(text: String, selected: Boolean, bold: Boolean = fal
 /** One project's page (FL-207): everything the client wrote, the budget and the time, and the star to save it. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = {}, onEditOffer: () -> Unit = {}) {
+fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = {}, onEditOffer: () -> Unit = {}, onChat: (String) -> Unit = {}, onAgreement: () -> Unit = {}) {
     var myOffer by remember { mutableStateOf<com.dorr.freelance.net.OfferDto?>(null) }
     var offerChecked by remember { mutableStateOf(false) }
     val reconnect = collectReconnectTick()
@@ -426,6 +427,10 @@ fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = 
                 }
             }
         }
+        if (p.questions.isNotEmpty()) {
+            Text(stringResource(R.string.offer_questions), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            p.questions.forEachIndexed { i, q -> Text("${i + 1}. $q", color = settingsMut(), fontSize = 13.sp) }
+        }
         if (p.attachmentsCount > 0) Text(stringResource(R.string.projects_files_note, p.attachmentsCount), color = settingsMut(), fontSize = 12.sp)
         // My offer, or the button to send one (FL-301): the form itself says why not when I can't.
         LaunchedEffect(uuid, p.offered) {
@@ -436,11 +441,19 @@ fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = 
                 (apiCall { ApiClient.offers.mine(uuid) } as? ApiResult.Ok)?.data?.let { myOffer = it.offer }
             }
         }
+        // FL-205: an invitation to a private project waits for my yes or no.
+        var invitation by remember(p.invitation) { mutableStateOf(p.invitation) }
+        invitation?.let { inv ->
+            Card {
+                Text(stringResource(R.string.inv_banner, invitationStatusLabel(inv.status)), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (inv.status == "sent") InvitationAnswer(inv.uuid, onAnswered = { invitation = inv.copy(status = it) }, onError = { error = it })
+            }
+        }
         val sent = myOffer
         when {
             sent != null -> {
                 Text(stringResource(R.string.offer_mine), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                MyOfferCard(sent, onEdit = onEditOffer, onChanged = { myOffer = it })
+                MyOfferCard(sent, onEdit = onEditOffer, onChanged = { myOffer = it }, onChat = onChat, onAgreement = onAgreement)
             }
             offerChecked && p.offers.accepting -> SettingsPrimaryButton(text = stringResource(R.string.offer_send_one), onClick = onOffer)
         }

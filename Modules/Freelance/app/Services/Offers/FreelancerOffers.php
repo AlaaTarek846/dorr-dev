@@ -41,6 +41,10 @@ class FreelancerOffers
     {
         $this->gate->assertCanOffer($freelancer);
         $this->window->assertAccepting($project);
+        // FL-205: a private project takes offers from the freelancers invited to it only.
+        if ($project->visibility === 'private' && ! app(\Modules\Freelance\Services\Projects\ProjectInvitations::class)->hasLive($freelancer, $project)) {
+            throw new FreelanceException('project_invite_only', 403);
+        }
         if ($this->mine($freelancer, $project) !== null) {
             throw new FreelanceException('offer_already_sent', 409);
         }
@@ -97,6 +101,8 @@ class FreelancerOffers
             'net_minor' => $breakdown['freelancer_net_minor'],
             'currency' => $project->currency_code,
             'commission' => $commission,
+            // FL-510: the same as price lines.
+            'lines' => FreelanceFees::lines('freelancer', ['price_minor' => $breakdown['amount_minor'], 'commission_minor' => $breakdown['commission_minor'], 'net_minor' => $breakdown['freelancer_net_minor']]),
         ];
     }
 
@@ -106,12 +112,15 @@ class FreelancerOffers
      */
     public function send(Freelancer $freelancer, Project $project, array $data, array $files = []): Offer
     {
+        // No way to reach each other outside Dorr before the agreement (FL-304 / FL-308).
+        app(OfferChecks::class)->assertNoContact($data['details'] ?? null);
+        $answers = $this->answers($project, $data['answers'] ?? null);
         $min = $this->policies->for($project->country_id, $project->freelance_specialty_id)->get('project.min_budget_minor');
         if ($min !== null && $data['price_minor'] < (int) $min) {
             throw new FreelanceException('offer_below_min', 422, ['min' => number_format($min / 100, 2).' '.$project->currency_code], ['min_minor' => (int) $min]);
         }
 
-        $offer = DB::transaction(function () use ($freelancer, $project, $data, $files) {
+        $offer = DB::transaction(function () use ($freelancer, $project, $data, $files, $answers) {
             // One at a time per project, so its limit and the one-offer rule hold when two arrive together.
             $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             $this->assertCanSend($freelancer, $locked);
@@ -124,6 +133,7 @@ class FreelancerOffers
                 'currency_code' => $locked->currency_code,
                 'duration_days' => (int) $data['duration_days'],
                 'details' => trim(strip_tags((string) $data['details'])),
+                'answers' => $answers,
                 'status' => OfferStatus::Submitted,
                 'commission_minor' => $preview['commission_minor'],
                 'net_minor' => $preview['net_minor'],
@@ -134,6 +144,7 @@ class FreelancerOffers
                 $offer->addAttachment($file);
             }
             $this->record($offer, 'offer.submitted', 'freelancer', $freelancer->id, null, OfferStatus::Submitted);
+            app(\Modules\Freelance\Services\Projects\ProjectInvitations::class)->acceptedByOffer($freelancer, $locked);
 
             // The offer that fills the project closes it to more.
             $max = (int) $this->policies->for($locked->country_id, $locked->freelance_specialty_id)->get('offers.max_per_project');
@@ -166,7 +177,9 @@ class FreelancerOffers
      */
     public function edit(Freelancer $freelancer, Offer $offer, array $data): Offer
     {
-        $updated = DB::transaction(function () use ($freelancer, $offer, $data) {
+        app(OfferChecks::class)->assertNoContact($data['details'] ?? null);
+        $newAnswers = array_key_exists('answers', $data) ? $this->answers($offer->project, $data['answers']) : null;
+        $updated = DB::transaction(function () use ($freelancer, $offer, $data, $newAnswers) {
             /** @var Offer $locked */
             $locked = Offer::query()->whereKey($offer->id)->lockForUpdate()->firstOrFail();
             $this->assertChangeable($locked);
@@ -179,7 +192,8 @@ class FreelancerOffers
             }
             $details = array_key_exists('details', $data) ? trim(strip_tags((string) $data['details'])) : $locked->details;
             $days = (int) ($data['duration_days'] ?? $locked->duration_days);
-            if ($price === $locked->price_minor && $days === $locked->duration_days && $details === $locked->details) {
+            $answersChanged = $newAnswers !== null && $newAnswers !== $locked->answers;
+            if ($price === $locked->price_minor && $days === $locked->duration_days && $details === $locked->details && ! $answersChanged) {
                 throw new FreelanceException('offer_unchanged', 422);
             }
 
@@ -193,6 +207,7 @@ class FreelancerOffers
             $preview = $this->preview($project, $price);
             $locked->update([
                 'price_minor' => $preview['price_minor'], 'duration_days' => $days, 'details' => $details,
+            ] + ($newAnswers !== null ? ['answers' => $newAnswers] : []) + [
                 'commission_minor' => $preview['commission_minor'], 'net_minor' => $preview['net_minor'], 'fees' => $preview['commission'],
             ]);
             $this->record($locked, 'offer.edited', 'freelancer', $freelancer->id, $locked->status, $locked->status);
@@ -218,6 +233,8 @@ class FreelancerOffers
             $from = $locked->status;
             $locked->update(['status' => OfferStatus::Withdrawn, 'withdrawn_at' => now()]);
             $this->record($locked, 'offer.withdrawn', 'freelancer', $freelancer->id, $from, OfferStatus::Withdrawn, ['quota_returned' => $locked->viewed_at === null && $locked->free]);
+
+            app(\Modules\Freelance\Services\Chat\OfferChat::class)->freeze($locked->project, $locked->freelancer_id);
 
             return $locked->refresh()->load(['project', 'media']);
         });
@@ -272,6 +289,8 @@ class FreelancerOffers
             'currency' => $offer->currency_code,
             'duration_days' => $offer->duration_days,
             'details' => $offer->details,
+            // FL-307: each of the project's questions with this offer's answer.
+            'answers' => collect((array) $offer->project?->questions)->values()->map(fn ($q, $i) => ['question' => $q, 'answer' => ((array) $offer->answers)[$i] ?? null])->all(),
             'attachments' => $offer->getMedia('attachments')->map(fn (Media $m) => ['id' => $m->id, 'name' => $m->file_name, 'mime' => $m->mime_type, 'size' => $m->size, 'path' => "{$filesPath}/{$m->id}"])->values()->all(),
             'created_at' => $offer->created_at?->toIso8601String(),
             'edited' => $offer->revisions()->exists(),
@@ -281,8 +300,11 @@ class FreelancerOffers
             return $out + [
                 'can' => ['edit' => $offer->status->editable() && $offer->project?->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published, 'withdraw' => $offer->status->editable() && $offer->project?->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published],
                 'revisions' => $offer->revisions()->count(),
-                'status_reason' => $offer->status === OfferStatus::Rejected ? ($offer->status_reason ?? $this->autoReason($offer)) : null,
+                'status_reason' => in_array($offer->status, [OfferStatus::Rejected, OfferStatus::Withdrawn], true) ? ($offer->status_reason ?? $this->autoReason($offer)) : null,
+                // FL-401: the agreement on my accepted offer, once the client sent it.
+                'agreement' => ($ag = \Modules\Freelance\Models\FreelanceAgreement::query()->where('offer_id', $offer->id)->where('status', '!=', 'draft')->latest('id')->first()) === null ? null : ['uuid' => $ag->uuid, 'status' => $ag->status],
                 'timeline' => $offer->events()->orderBy('id')->get()->map(fn ($e) => ['type' => $e->type, 'to' => $e->to_status, 'at' => $e->created_at?->toIso8601String()])->values()->all(),
+                'chat' => app(\Modules\Freelance\Services\Chat\OfferChat::class)->summary($offer, 'freelancer'),
                 'commission_minor' => $offer->commission_minor,
                 'net_minor' => $offer->net_minor,
                 'project' => $offer->relationLoaded('project') && $offer->project !== null ? ['uuid' => $offer->project->uuid, 'title' => $offer->project->title] : null,
@@ -302,12 +324,39 @@ class FreelancerOffers
         ];
     }
 
+    /**
+     * The answers to the project's questions, in their order: one for each, none left blank, no contact details (FL-307).
+     *
+     * @param  mixed  $given
+     * @return list<string>|null
+     */
+    private function answers(Project $project, $given): ?array
+    {
+        $questions = array_values((array) $project->questions);
+        if ($questions === []) {
+            return null;
+        }
+        $given = array_values((array) $given);
+        $out = [];
+        foreach ($questions as $i => $q) {
+            $a = trim(strip_tags((string) ($given[$i] ?? '')));
+            if (mb_strlen($a) < 2) {
+                throw new FreelanceException('offer_answers_required', 422, ['count' => count($questions)], ['count' => count($questions)]);
+            }
+            $out[] = $a;
+        }
+        app(OfferChecks::class)->assertNoContact(implode("\n", $out));
+
+        return $out;
+    }
+
     /** «Another offer was chosen» when the offer was turned down by the choice of another one (FL-309). */
     private function autoReason(Offer $offer): ?string
     {
-        $last = $offer->events()->where('type', 'offer.rejected')->latest('id')->first();
+        $last = $offer->events()->whereIn('type', ['offer.rejected', 'offer.withdrawn'])->latest('id')->first();
+        $why = $last?->payload['auto'] ?? null;
 
-        return ($last?->payload['auto'] ?? null) === 'another_chosen' ? __('freelance.offer_reasons.another_chosen') : null;
+        return in_array($why, ['another_chosen', 'agreement_cancelled', 'agreement_expired', 'agreement_declined'], true) ? __('freelance.offer_reasons.'.$why) : null;
     }
 
     /** @param  array<string, mixed>  $payload */

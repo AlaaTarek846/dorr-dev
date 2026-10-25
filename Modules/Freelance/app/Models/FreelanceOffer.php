@@ -23,7 +23,7 @@ class FreelanceOffer extends Model implements HasMedia
     public const DISK = 'local';
 
     protected $fillable = [
-        'uuid', 'project_id', 'freelancer_id', 'price_minor', 'currency_code', 'duration_days', 'details', 'status', 'status_reason',
+        'uuid', 'project_id', 'freelancer_id', 'price_minor', 'currency_code', 'duration_days', 'details', 'answers', 'status', 'status_reason',
         'commission_minor', 'net_minor', 'fees', 'free', 'viewed_at', 'accepted_at', 'withdrawn_at',
     ];
 
@@ -41,6 +41,7 @@ class FreelanceOffer extends Model implements HasMedia
             'commission_minor' => 'integer',
             'net_minor' => 'integer',
             'fees' => 'array',
+            'answers' => 'array',
             'free' => 'boolean',
             'viewed_at' => 'datetime',
             'accepted_at' => 'datetime',

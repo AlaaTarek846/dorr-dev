@@ -19,8 +19,8 @@ use Modules\Freelance\Services\Policy\FreelancePolicies;
 /**
  * The offers on a project as its client compares them (FL-305): each with what helps to choose — how complete and verified the
  * freelancer is, how many works they show, which of the project's skills they have — sorted and filtered, up to three side by side,
- * and the freelancer's profile as a client may read it (never a phone or an email). The rating and the finished projects come with
- * FL-701 / FL-703: until then they are null and the app says «new».
+ * and the freelancer's profile as a client may read it (never a phone or an email). The rating (from three ratings, else null and the
+ * app says «new») and the finished projects come from FL-701 / FL-703.
  */
 class ClientOfferViews
 {
@@ -89,13 +89,19 @@ class ClientOfferViews
         $f = $offer->freelancer;
         if ($f !== null) {
             $out['freelancer'] += $this->summary($f, $project);
+            // FL-306: the client keeps this freelancer.
+            $out['freelancer']['is_favorite'] = app(ClientFavorites::class)->has($project->client, $f->id);
         }
         $out['can'] = [
             'shortlist' => $offer->status->canMoveTo(OfferStatus::Shortlisted) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
+            'unshortlist' => $offer->status === OfferStatus::Shortlisted && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
             'reject' => $offer->status->canMoveTo(OfferStatus::Rejected) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
             'choose' => $offer->status->canMoveTo(OfferStatus::Accepted) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
         ];
         $out['client_cost'] = $this->cost($project, $offer->price_minor);
+        // The talk about it (FL-308): null until the client opens it.
+        $out['chat'] = app(\Modules\Freelance\Services\Chat\OfferChat::class)->summary($offer, 'client');
+        $out['can']['chat'] = in_array($offer->status->value, ['submitted', 'viewed', 'shortlisted', 'accepted'], true) && in_array($project->status->value, ['published', 'awarded'], true);
 
         return $out;
     }
@@ -112,7 +118,9 @@ class ClientOfferViews
         }
         $b = FreelanceFees::breakdown($priceMinor, $values);
 
-        return ['price_minor' => $b['amount_minor'], 'client_fee_minor' => $b['client_fee_minor'], 'total_minor' => $b['client_total_minor'], 'currency' => $project->currency_code];
+        $cost = ['price_minor' => $b['amount_minor'], 'client_fee_minor' => $b['client_fee_minor'], 'total_minor' => $b['client_total_minor']];
+
+        return $cost + ['currency' => $project->currency_code, 'lines' => FreelanceFees::lines('client', $cost)];
     }
 
     /** @return array<string, mixed> the freelancer's profile as the client of one of their offers reads it — no phone, no email */
@@ -136,6 +144,10 @@ class ClientOfferViews
             ])->values()->all(),
             'certificates' => $f->certificates()->orderByDesc('issued_on')->get()->map(fn ($c) => ['title' => $c->title, 'issuer' => $c->issuer, 'issued_on' => $c->issued_on?->format('Y-m')])->values()->all(),
             'portfolio' => $this->portfolio->visibleTo($f, true)->map(fn ($i) => $this->portfolio->present($i, false))->values()->all(),
+            // FL-701: what clients said, once out; and the average by criterion.
+            'reviews' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->latestAbout($f),
+            'rating_criteria' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f)['criteria'],
+            'is_favorite' => app(ClientFavorites::class)->has($project->client, $f->id),
         ] + $this->summary($f, $project);
     }
 
@@ -155,10 +167,11 @@ class ClientOfferViews
             // The project's skills this freelancer has.
             'matching_skills' => $mine->filter(fn (FreelanceSkill $s) => in_array((int) $s->id, $projectSkills, true))->map(fn (FreelanceSkill $s) => ['id' => $s->id, 'name' => $s->translatedName()])->values()->all(),
             'project_skills_count' => count($projectSkills),
-            // FL-701 / FL-703.
-            'rating' => null,
-            'reviews_count' => null,
-            'completed_projects' => null,
+        ] + array_intersect_key(
+            // FL-701 / FL-703: the average (from three ratings), how many, finished projects, on time, and like this one.
+            app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f, $project->freelance_specialty_id),
+            array_flip(['rating', 'reviews_count', 'completed_projects', 'completion_rate', 'on_time_rate', 'similar_projects']),
+        ) + [
         ];
     }
 }

@@ -241,7 +241,7 @@ const meta = (key) => options.keys[key] ?? {};
 const isOwn = (key) => Object.prototype.hasOwnProperty.call(own.value, key);
 const effective = computed(() => ({ ...inherited.value, ...own.value }));
 const isMoney = (key, values = effective.value) => meta(key).kind === 'money' || (meta(key).kind === 'amount' && values[meta(key).type_key] === 'fixed');
-const isPercent = (key, values = effective.value) => meta(key).kind === 'amount' && values[meta(key).type_key] !== 'fixed';
+const isPercent = (key, values = effective.value) => meta(key).kind === 'rate' || (meta(key).kind === 'amount' && values[meta(key).type_key] !== 'fixed');
 const isDays = (key) => key.endsWith('_days') || key === 'review.days';
 const label = (key) => {
     const k = `freelance.policies.keys.${key.replaceAll('.', '__')}`;
@@ -272,7 +272,7 @@ const display = (key, v, values) => {
     if (isMoney(key, values)) return money(v);
     return isDays(key) ? `${v} ${t('freelance.policies.days')}` : String(v);
 };
-const groupIcon = (name) => ({ commission: 'ri-percent-line', client_fee: 'ri-user-received-2-line', offers: 'ri-auction-line', review: 'ri-checkbox-circle-line', milestones: 'ri-flag-2-line', project: 'ri-briefcase-4-line', earnings: 'ri-wallet-3-line' }[name] ?? 'ri-settings-3-line');
+const groupIcon = (name) => ({ commission: 'ri-percent-line', client_fee: 'ri-user-received-2-line', offers: 'ri-auction-line', review: 'ri-checkbox-circle-line', milestones: 'ri-flag-2-line', project: 'ri-briefcase-4-line', earnings: 'ri-wallet-3-line', cancellation: 'ri-close-circle-line', disputes: 'ri-scales-3-line', changes: 'ri-edit-2-line', ratings: 'ri-star-line', invitations: 'ri-user-add-line' }[name] ?? 'ri-settings-3-line');
 
 function toggleOwn(key) {
     const next = { ...own.value };

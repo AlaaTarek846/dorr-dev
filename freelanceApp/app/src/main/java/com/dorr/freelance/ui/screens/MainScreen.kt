@@ -29,6 +29,7 @@ class MainActions(
     val openPortfolio: () -> Unit,
     val openProject: (String) -> Unit,
     val openMyOffers: () -> Unit,
+    val openInvitations: () -> Unit,
     val openCertificates: () -> Unit,
     val openVerification: () -> Unit,
     val openPortfolioItem: (Int) -> Unit,
@@ -76,7 +77,7 @@ fun MainScreen(actions: MainActions) {
     AppShell(onSelectTab = { ShellState.tab = it }, onOpenWallet = actions.openWallet, onOpenNotifications = actions.openNotifications) {
         when (tab) {
             0 -> HomeScreen(actions, failed, onOpenPortfolio = actions.openPortfolio, onOpenProfileTab = { ShellState.tab = 2 })
-            1 -> ProjectsTab(onOpenProject = actions.openProject, onOpenMyOffers = actions.openMyOffers)
+            1 -> ProjectsTab(onOpenProject = actions.openProject, onOpenMyOffers = actions.openMyOffers, onOpenInvitations = actions.openInvitations)
             2 -> ProfileHubScreen(actions)
             else -> AccountScreen(actions)
         }

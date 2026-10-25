@@ -18,6 +18,29 @@ namespace Modules\Freelance\Services\Policy;
 final class FreelanceFees
 {
     /**
+     * FL-510: the money as price lines, each side its own (like a ride's price lines): the client the price, the service fee and what
+     * they pay; the freelancer the price, the commission and what they get. A line of nothing is left out (but the last).
+     *
+     * @param  array<string, int|null>  $money  `price_minor` and `client_fee_minor` + `total_minor`, or `commission_minor` + `net_minor`
+     * @return list<array{key: string, label: string, amount_minor: int, total: bool}>
+     */
+    public static function lines(string $side, array $money): array
+    {
+        $keys = $side === 'client' ? ['price' => 'price_minor', 'client_fee' => 'client_fee_minor', 'total' => 'total_minor']
+            : ['price' => 'price_minor', 'commission' => 'commission_minor', 'net' => 'net_minor'];
+        $last = array_key_last($keys);
+        $out = [];
+        foreach ($keys as $key => $field) {
+            $amount = (int) ($money[$field] ?? 0);
+            if ($amount > 0 || $key === $last) {
+                $out[] = ['key' => $key, 'label' => __('freelance.cost_lines.'.$key), 'amount_minor' => $amount, 'total' => $key === $last];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @param  array<string, mixed>|FreelancePolicyData  $policy  the merged values, or a snapshot's `values`
      * @return array{amount_minor: int, client_fee_minor: int, client_total_minor: int, commission_minor: int, freelancer_net_minor: int}
      */
