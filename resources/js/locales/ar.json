@@ -479,7 +479,11 @@
         },
         "help": {
             "audience": "يظهر لـ",
-            "audiences": {"all": "الركاب والكباتن", "user": "الركاب بس", "driver": "الكباتن بس"},
+            "audiences": {
+                "all": "الركاب والكباتن",
+                "user": "الركاب بس",
+                "driver": "الكباتن بس"
+            },
             "title": "المحادثة السريعة",
             "search": "ابحث في المواضيع",
             "main_menu": "القائمة الرئيسية",
@@ -4296,7 +4300,12 @@
                 "review": "المراجعة والتسليم",
                 "milestones": "المراحل",
                 "project": "ميزانية المشروع",
-                "earnings": "الأرباح"
+                "earnings": "الأرباح",
+                "cancellation": "إلغاء شغل اتبدأ",
+                "disputes": "النزاعات",
+                "changes": "التعديلات بعد الاتفاق",
+                "ratings": "التقييمات",
+                "invitations": "الدعوات"
             },
             "choice": {
                 "percent": "نسبة",
@@ -4321,7 +4330,13 @@
                 "milestones__min_amount_minor": "أقل قيمة للمرحلة",
                 "project__min_budget_minor": "أقل ميزانية",
                 "project__max_budget_minor": "أكبر ميزانية",
-                "earnings__hold_days": "أيام قبل ما الأرباح تبقى متاحة (0 = فوراً)"
+                "earnings__hold_days": "أيام قبل ما الأرباح تبقى متاحة (0 = فوراً)",
+                "cancellation__started_freelancer_bp": "نصيب المحترف لما شغل اتبدأ واتلغى",
+                "disputes__response_days": "أيام الرد في النزاع",
+                "disputes__appeal_days": "أيام الاعتراض على قرار النزاع",
+                "changes__response_days": "أيام الرد على طلب تعديل",
+                "ratings__window_days": "أيام التقييم بعد المشروع",
+                "invitations__max_per_project": "أقصى عدد محترفين يتدعوا لمشروع خاص"
             }
         },
         "overview": {
@@ -4405,7 +4420,8 @@
                 "published": "منشور",
                 "closed": "مغلق",
                 "cancelled": "ملغي",
-                "awarded": "اتختار عرض"
+                "awarded": "اتختار عرض",
+                "in_progress": "قيد التنفيذ"
             },
             "fields": {
                 "title": "العنوان",
@@ -4427,7 +4443,9 @@
                 "project.edited_by_admin": "اتعدّل من المراجع",
                 "project.offers_closed": "اتقفل استقبال العروض",
                 "project.offers_reopened": "اتفتح استقبال العروض تاني",
-                "project.awarded": "العميل اختار عرض"
+                "project.awarded": "العميل اختار عرض",
+                "project.started": "اتوافق على الاتفاق والشغل بدأ",
+                "project.reopened": "رجع يستقبل عروض"
             },
             "offers": "العروض",
             "offers_open": "بيستقبل عروض لحد {date}",
@@ -4440,6 +4458,124 @@
             "offers_count": "{n} عرض",
             "offers_closed_max_offers": "اكتمل: وصل لأقصى عدد عروض",
             "offers_closed_chosen": "العميل اختار عرض"
+        },
+        "disputes": {
+            "title": "النزاعات",
+            "waiting": "{n} محتاجين قرار",
+            "hint": "النزاع بيجمّد مرحلة من الشغل وفلوسها. القرار الأول ما بيحركش الفلوس غير بعد أيام الاعتراض (من الأسعار والقواعد)؛ أي طرف يقدر يعترض مرة واحدة، وبعدين موظف تاني يقرر قرار نهائي ينفذ فوراً.",
+            "project": "المشروع / المرحلة",
+            "reason": "السبب",
+            "amount": "المرحلة",
+            "opened": "اتفتح",
+            "overdue": "مهلة الرد خلصت",
+            "respond_by": "الرد قبل {date}",
+            "decide": "قرّر",
+            "decide_appeal": "قرّر في الاعتراض",
+            "case": "النزاع",
+            "client": "العميل",
+            "freelancer": "المحترف",
+            "by": {
+                "client": "فتحه العميل",
+                "freelancer": "فتحه المحترف"
+            },
+            "side": {
+                "client": "العميل",
+                "freelancer": "المحترف"
+            },
+            "status": {
+                "open": "مفتوح",
+                "decided": "اتقرر (مستني الاعتراض)",
+                "appealed": "عليه اعتراض",
+                "resolved": "اتحل"
+            },
+            "appeal_by": "اعتراض من {side}",
+            "final": "نهائي",
+            "done_at": "الفلوس اتحركت يوم {date}",
+            "runs_at": "الفلوس هتتحرك يوم {date} لو مفيش اعتراض",
+            "evidence": "اللي قدّمه كل طرف",
+            "no_evidence": "لسه مفيش.",
+            "part": "المرحلة",
+            "held": "المحجوز",
+            "revisions_used": "جولات التعديل المستخدمة",
+            "delivery": "التسليم",
+            "last_changes": "آخر تعديل مطلوب",
+            "agreement": "الاتفاق",
+            "includes": "مشمول",
+            "excludes": "مش مشمول",
+            "chat": "المحادثة بينهم",
+            "no_chat": "ما اتكلموش.",
+            "timeline": "الخط الزمني للأدلة",
+            "timeline_show": "اعرض كل حاجة بالترتيب",
+            "timeline_hide": "اخفي",
+            "timeline_export": "نزّل CSV",
+            "timeline_empty": "مفيش حاجة متسجلة لسه.",
+            "timeline_staff": "الموظف",
+            "timeline_kind": {
+                "agreement": "الاتفاق",
+                "approval": "موافقة",
+                "work": "الشغل",
+                "delivery": "تسليم",
+                "dispute": "النزاع",
+                "evidence": "دليل",
+                "chat": "شات"
+            },
+            "decision": {
+                "refund": "كله يرجع للعميل",
+                "release": "كله للمحترف",
+                "split": "تقسيم"
+            },
+            "decision_split": "تقسيم: {n}% للمحترف",
+            "freelancer_share": "نصيب المحترف",
+            "to_freelancer": "المحترف: {amount}",
+            "to_client": "العميل: {amount}",
+            "before_fees": "(من قيمة المرحلة؛ الرسم والعمولة بنفس النسبة)",
+            "note_hint": "السبب (الطرفين بيقروه) — 10 حروف على الأقل",
+            "first_rule": "القرار دا بيستنى أيام الاعتراض قبل ما الفلوس تتحرك.",
+            "appeal_rule": "القرار دا نهائي وبيحرك الفلوس دلوقتي، ولازم ياخده موظف غير اللي أخد القرار الأول.",
+            "confirm": "خد القرار",
+            "confirm_text": "المحترف: {freelancer} — العميل: {client}. تاخد القرار دا؟"
+        },
+        "reports": {
+            "title": "فلوس المشاريع",
+            "hint": "المحجوز دلوقتي، واللي اتمول واتدفع ورجع واتحصّل في الفترة، لكل دولة. المطابقة بتعد نفس الفلوس من مكانين وبتعرض أي فرق — ومفيش حاجة بتتصلح لوحدها.",
+            "from": "من",
+            "to": "لحد",
+            "show": "اعرض",
+            "country": "الدولة",
+            "cols": {
+                "held": "محجوز دلوقتي",
+                "funded": "اتمول",
+                "paid": "اتدفع",
+                "refunded": "رجع",
+                "earned": "صافي المحترفين",
+                "pending_earnings": "أرباح مستنية",
+                "client_fees": "رسوم العملاء",
+                "commissions": "العمولات",
+                "counts": "المشاريع"
+            },
+            "counts": {
+                "projects": "{n} جديد",
+                "active": "{n} شغال",
+                "completed": "{n} خلص",
+                "disputes": "{n} نزاع مفتوح"
+            },
+            "reconcile": "المطابقة",
+            "check": "افحص دلوقتي",
+            "differences": "{n} فرق",
+            "all_match": "كله مطابق",
+            "no_issues": "مفيش فروقات.",
+            "issue": "الفرق",
+            "where": "فين",
+            "expected": "المفروض",
+            "found": "الموجود",
+            "kinds": {
+                "hold_mismatch": "المحجوز مختلف",
+                "hold_left": "فلوس لسه محجوزة",
+                "receipt_missing": "إيصال ناقص",
+                "fee_mismatch": "رسوم العملاء مختلفة",
+                "commission_mismatch": "العمولات مختلفة",
+                "earning_unpaid": "أرباح ماتضافتش"
+            }
         }
     },
     "rides": {
@@ -5318,8 +5454,13 @@
             "confirm_delete": "حذف هذا العنصر؟ لا يمكن التراجع."
         },
         "ranks": {
-                "payouts": {"intl": "سحب دولي", "frozen": "متجمد", "unfreeze": "رفع التجميد", "confirm_unfreeze": "متأكد إنك عايز ترفع التجميد؟ اتأكد من هوية الكابتن الأول."},
-                "title": "رتب الكباتن",
+            "payouts": {
+                "intl": "سحب دولي",
+                "frozen": "متجمد",
+                "unfreeze": "رفع التجميد",
+                "confirm_unfreeze": "متأكد إنك عايز ترفع التجميد؟ اتأكد من هوية الكابتن الأول."
+            },
+            "title": "رتب الكباتن",
             "hint": "الكابتن بيبدأ «جديد» في فترة التأهيل، وبعدها بياخد أعلى رتبة أرقامه بتوصل لشروطها. لو الأرقام نزلت بيجيله تنبيه ومهلة قبل ما الرتبة تقل (من صفحة القواعد: ranks.*).",
             "tabs": {
                 "payouts": "سحب الكباتن",

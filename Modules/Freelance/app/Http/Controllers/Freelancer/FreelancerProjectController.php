@@ -48,7 +48,7 @@ class FreelancerProjectController extends Controller
         $me = $this->me($request);
         $project = $this->projects->find($me, $uuid);
 
-        return ApiResponse::success($this->projects->present($project, isset($this->projects->favoriteIds($me, [$project])[$project->id]), true) + ['offered' => isset($this->projects->offeredIds($me, [$project])[$project->id])], __('api.retrieved'));
+        return ApiResponse::success($this->projects->present($project, isset($this->projects->favoriteIds($me, [$project])[$project->id]), true) + ['offered' => isset($this->projects->offeredIds($me, [$project])[$project->id]), 'invitation' => app(\Modules\Freelance\Services\Projects\ProjectInvitations::class)->mineOn($me, $project)], __('api.retrieved'));
     }
 
     public function favorite(Request $request, string $uuid): JsonResponse

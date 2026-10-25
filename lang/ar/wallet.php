@@ -103,6 +103,8 @@ return [
         'ride_customer_fee' => 'رسوم خدمة رحلة :number',
         'ride_payment_fee' => 'رسوم دفع رحلة :number',
         'ride_discount' => 'خصم رحلة :number',
+        'freelance_payment' => 'دفع شغل على مشروع :project',
+        'freelance_earning' => 'أرباح من مشروع :project',
         'freelance_commission' => 'عمولة مشروع :project',
         'freelance_client_fee' => 'رسم عميل على مشروع :project',
         'freelance_discount' => 'خصم على مشروع :project',

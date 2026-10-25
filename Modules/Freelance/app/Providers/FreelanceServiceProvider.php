@@ -5,6 +5,13 @@ namespace Modules\Freelance\Providers;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Modules\Freelance\Console\CloseExpiredProjectOffers;
+use Modules\Freelance\Console\ExpireAgreements;
+use Modules\Freelance\Console\ReleaseDueMilestones;
+use Modules\Freelance\Console\ExecuteDisputeDecisions;
+use Modules\Freelance\Console\ReleaseFreelanceEarnings;
+use Modules\Freelance\Console\PublishFreelanceReviews;
+use Modules\Freelance\Console\ReconcileFreelanceMoney;
+use Modules\Freelance\Console\RemindFreelanceInterviews;
 use Modules\Freelance\Console\ExpireVerificationDocuments;
 use Illuminate\Support\Facades\Event;
 use Modules\Freelance\Events\FreelanceSkillsMerged;
@@ -35,6 +42,13 @@ class FreelanceServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         ExpireVerificationDocuments::class,
         CloseExpiredProjectOffers::class,
+        ExpireAgreements::class,
+        ReleaseDueMilestones::class,
+        ExecuteDisputeDecisions::class,
+        ReleaseFreelanceEarnings::class,
+        PublishFreelanceReviews::class,
+        ReconcileFreelanceMoney::class,
+        RemindFreelanceInterviews::class,
     ];
 
     public function boot(): void
@@ -53,6 +67,13 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         // Identity documents past their date (FL-107).
         $schedule->command(ExpireVerificationDocuments::class)->dailyAt('02:10')->withoutOverlapping();
         $schedule->command(CloseExpiredProjectOffers::class)->hourly()->withoutOverlapping();
+        $schedule->command(ExpireAgreements::class)->hourly()->withoutOverlapping();
+        $schedule->command(ReleaseDueMilestones::class)->hourly()->withoutOverlapping();
+        $schedule->command(ExecuteDisputeDecisions::class)->hourly()->withoutOverlapping();
+        $schedule->command(ReleaseFreelanceEarnings::class)->hourly()->withoutOverlapping();
+        $schedule->command(PublishFreelanceReviews::class)->hourly()->withoutOverlapping();
+        $schedule->command(ReconcileFreelanceMoney::class)->dailyAt('03:20')->withoutOverlapping();
+        $schedule->command(RemindFreelanceInterviews::class)->everyMinute()->withoutOverlapping();
     }
 
     /**

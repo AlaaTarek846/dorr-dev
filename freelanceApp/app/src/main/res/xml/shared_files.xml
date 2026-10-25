@@ -4,4 +4,6 @@
     <cache-path name="camera" path="camera/" />
     <!-- A certificate proof downloaded to be opened in a viewer. -->
     <cache-path name="proofs" path="proofs/" />
+    <!-- A delivered file downloaded to be opened in a viewer. -->
+    <cache-path name="deliveries" path="deliveries/" />
 </paths>

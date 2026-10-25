@@ -73,9 +73,9 @@ private const val MAX_OFFER_FILES = 5
 private const val DETAILS_MIN = 30
 
 /** A file picked from the phone, kept until the offer is sent. */
-private class PickedFile(val name: String, val type: String, val bytes: ByteArray)
+internal class PickedFile(val name: String, val type: String, val bytes: ByteArray)
 
-private fun readFile(context: Context, uri: Uri): PickedFile? = runCatching {
+internal fun readFile(context: Context, uri: Uri): PickedFile? = runCatching {
     val resolver = context.contentResolver
     val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
     PickedFile(name, resolver.getType(uri) ?: "application/octet-stream", resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null)
@@ -101,7 +101,7 @@ internal fun offerStatusLabel(status: String): String = when (status) {
 
 /** My offer on a project, as a card (on the project page and in my offers). */
 @Composable
-internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit: (() -> Unit)? = null, onChanged: ((OfferDto) -> Unit)? = null) {
+internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit: (() -> Unit)? = null, onChanged: ((OfferDto) -> Unit)? = null, onChat: ((String) -> Unit)? = null, onAgreement: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -124,6 +124,7 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
         Text("‎${formatMinor(offer.priceMinor, null)} ${offer.currency}  ·  " + stringResource(R.string.projects_days, offer.durationDays), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
         Text(stringResource(R.string.offer_net_line, "‎${formatMinor(offer.netMinor, null)} ${offer.currency}"), color = settingsMut(), fontSize = 12.sp)
         Text(offer.details, color = settingsInk(), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        offer.answers.forEach { a -> Text(a.question + "\n" + a.answer.orEmpty(), color = settingsMut(), fontSize = 12.sp) }
         offer.statusReason?.takeIf { it.isNotBlank() }?.let { Text(stringResource(R.string.offer_reject_reason, it), color = Color(0xFFDC2626), fontSize = 13.sp) }
         // Where it has been: sent, seen, shortlisted … with the day.
         if (offer.timeline.size > 1) Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -153,6 +154,18 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
                 Text(stringResource(R.string.offer_revision, r.number, "\u200E${formatMinor(r.priceMinor, null)} ${offer.currency}", r.durationDays), color = settingsInk(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Text(r.details, color = settingsMut(), fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
+        }
+        offer.agreement?.let { ag ->
+            if (onAgreement != null) Text(
+                stringResource(R.string.ag_title) + "  ·  " + agreementStatusText(ag.status), color = if (ag.status == "pending_approval") Color(0xFFD97706) else settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onAgreement() }.padding(vertical = 8.dp),
+            )
+        }
+        offer.chat?.let { room ->
+            if (onChat != null) Text(
+                stringResource(R.string.chat_open) + if (room.unread > 0) " (${room.unread})" else "", color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onChat(room.uuid) }.padding(vertical = 8.dp),
+            )
         }
         if (offer.can.edit && onEdit != null) Text(stringResource(R.string.offer_edit), color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onEdit).padding(vertical = 8.dp))
         if (offer.can.withdraw && onChanged != null) Text(stringResource(R.string.offer_withdraw), color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { confirmWithdraw = true }.padding(vertical = 8.dp))
@@ -199,9 +212,30 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit)
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    var checks by remember { mutableStateOf<List<com.dorr.freelance.net.OfferCheckDto>>(emptyList()) }
+    var templates by remember { mutableStateOf<List<com.dorr.freelance.net.OfferTemplateDto>>(emptyList()) }
+    // FL-307: the client's questions, one answer each.
+    var questions by remember { mutableStateOf<List<String>>(emptyList()) }
+    val answers = remember { mutableStateListOf<String>() }
+    var showTemplates by remember { mutableStateOf(false) }
+    var savingTemplate by remember { mutableStateOf(false) }
+    var templateNotice by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(projectUuid, reconnect) {
         val result = apiCall { ApiClient.offers.preview(projectUuid) }
         if (result is ApiResult.Ok) preview = result.data else error = result.errorText(offlineText) ?: genericError
+        (apiCall { ApiClient.offers.templates() } as? ApiResult.Ok)?.data?.let { templates = it }
+        (apiCall { ApiClient.projects.show(projectUuid) } as? ApiResult.Ok)?.data?.questions?.let { q ->
+            questions = q
+            while (answers.size < q.size) answers.add("")
+        }
+    }
+    // FL-304: what looks weak, asked once the typing stops (not on a timer).
+    LaunchedEffect(price, duration, details, files.size) {
+        if (details.isBlank() && price.isBlank()) { checks = emptyList(); return@LaunchedEffect }
+        delay(700)
+        val body = com.dorr.freelance.net.OfferCheckRequest(parseMinor(price), duration.toIntOrNull(), details.trim(), files.size)
+        (apiCall { ApiClient.offers.check(projectUuid, body) } as? ApiResult.Ok)?.data?.let { checks = it.checks }
     }
     // What the price leaves me, asked once the typing stops.
     LaunchedEffect(price) {
@@ -224,7 +258,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit)
                 "price_minor" to minor.toString().toRequestBody(text),
                 "duration_days" to duration.toRequestBody(text),
                 "details" to details.trim().toRequestBody(text),
-            )
+            ) + answers.mapIndexed { i, a -> "answers[$i]" to a.trim().toRequestBody(text) }
             val parts = files.map { MultipartBody.Part.createFormData("files[]", it.name, it.bytes.toRequestBody(it.type.toMediaTypeOrNull())) }
             val result = apiCall { ApiClient.offers.send(projectUuid, fields, parts) }
             busy = false
@@ -259,6 +293,19 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit)
             DorrTextField(duration, { duration = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.offer_duration), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
             DorrTextField(details, { details = it.take(3000) }, label = stringResource(R.string.offer_details), placeholder = stringResource(R.string.offer_details_hint), singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
             Text(stringResource(R.string.offer_details_count, details.trim().length, DETAILS_MIN), color = if (details.trim().length < DETAILS_MIN) settingsMut() else Color(0xFF16A34A), fontSize = 11.sp)
+            // FL-304: start from a kept text, or keep this one.
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (templates.isNotEmpty()) Text(stringResource(R.string.offer_use_template), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showTemplates = true }.padding(vertical = 4.dp))
+                if (details.trim().length >= DETAILS_MIN) Text(stringResource(R.string.offer_save_template), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { savingTemplate = true }.padding(vertical = 4.dp))
+            }
+            templateNotice?.let { Text(it, color = Color(0xFF16A34A), fontSize = 12.sp) }
+        }
+        if (questions.isNotEmpty()) Card {
+            FieldLabel(stringResource(R.string.offer_questions))
+            questions.forEachIndexed { i, q ->
+                Text("${i + 1}. $q", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                DorrTextField(answers.getOrElse(i) { "" }, { if (i < answers.size) answers[i] = it.take(1000) }, placeholder = stringResource(R.string.offer_answer), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+            }
         }
         Card {
             FieldLabel(stringResource(R.string.offer_files))
@@ -277,12 +324,65 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit)
                 Text(stringResource(R.string.offer_add_file), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
+        if (checks.isNotEmpty()) Card {
+            FieldLabel(stringResource(R.string.offer_checks_title))
+            checks.forEach { c -> Text("•  " + c.message, color = if (c.level == "error") Color(0xFFDC2626) else Color(0xFFD97706), fontSize = 13.sp) }
+        }
         SettingsPrimaryButton(
             text = stringResource(R.string.offer_send), loading = busy,
-            enabled = parseMinor(price) != null && (duration.toIntOrNull() ?: 0) > 0 && details.trim().length >= DETAILS_MIN,
+            enabled = parseMinor(price) != null && (duration.toIntOrNull() ?: 0) > 0 && details.trim().length >= DETAILS_MIN && checks.none { it.level == "error" } && answers.take(questions.size).all { it.trim().length >= 2 },
             onClick = ::send,
         )
         ErrorBanner(error, Modifier.fillMaxWidth())
+    }
+
+    if (showTemplates) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showTemplates = false },
+        title = { Text(stringResource(R.string.offer_templates)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                templates.forEach { t ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable { details = t.details; showTemplates = false }.padding(6.dp)) {
+                            Text(t.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(t.details, color = settingsMut(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        Icon(Icons.Rounded.Close, stringResource(R.string.offer_template_delete), tint = settingsMut(), modifier = Modifier.size(30.dp).clip(RoundedCornerShape(50)).clickable {
+                            scope.launch { if (apiCall { ApiClient.offers.deleteTemplate(t.id) } is ApiResult.Ok) templates = templates.filter { it.id != t.id } }
+                        }.padding(6.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+    )
+    if (savingTemplate) {
+        var name by remember { mutableStateOf("") }
+        var saveError by remember { mutableStateOf<String?>(null) }
+        val savedText = stringResource(R.string.offer_template_saved)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { savingTemplate = false },
+            title = { Text(stringResource(R.string.offer_save_template)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DorrTextField(name, { name = it.take(80) }, placeholder = stringResource(R.string.offer_template_name), modifier = Modifier.fillMaxWidth())
+                    saveError?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = {
+                    scope.launch {
+                        val result = apiCall { ApiClient.offers.saveTemplate(com.dorr.freelance.net.OfferTemplateRequest(name.trim(), details.trim())) }
+                        if (result is ApiResult.Ok) {
+                            templates = listOf(result.data) + templates
+                            templateNotice = savedText
+                            savingTemplate = false
+                        } else saveError = result.errorText(offlineText) ?: genericError
+                    }
+                }) { Text(stringResource(R.string.offer_template_keep), color = settingsAccent()) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { savingTemplate = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        )
     }
 }
 

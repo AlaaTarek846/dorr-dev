@@ -17,6 +17,19 @@ return [
     // Biggest file a project, offer or delivery may carry (KB).
     'upload_max_kb' => (int) env('FREELANCE_UPLOAD_MAX_KB', 20480),
 
+    // FL-1205: every upload is checked by its real bytes (programs, scripts, disguised files, PDFs with active content, archives hiding
+    // programs or macros). That is not an antivirus: set the ClamAV daemon below and each file is also streamed to it.
+    'uploads' => [
+        'clamav' => [
+            'enabled' => (bool) env('FREELANCE_CLAMAV_ENABLED', false),
+            'host' => env('FREELANCE_CLAMAV_HOST', '127.0.0.1'),
+            'port' => (int) env('FREELANCE_CLAMAV_PORT', 3310),
+            'timeout' => (int) env('FREELANCE_CLAMAV_TIMEOUT', 10),
+            // A daemon that can't be reached refuses the file (true) or lets it through with a warning in the log (false).
+            'fail_closed' => (bool) env('FREELANCE_CLAMAV_FAIL_CLOSED', true),
+        ],
+    ],
+
     /*
     | The numbers freelance work runs on (FL-008) — what a country without its own policy gets. The admin
     | overrides any of them per country, or per country + specialty (Admin → Freelance → Prices & rules).
@@ -40,10 +53,22 @@ return [
         'review.auto_approve' => true,
         'review.free_revisions' => 2,
         'milestones.max_count' => 5,
-        'milestones.min_amount_minor' => null,
+        // A part is at least 50.00 in the country's currency when the work is split (owner, 2026-10-22); the admin changes it per country.
+        'milestones.min_amount_minor' => 5000,
         'project.min_budget_minor' => null,
         'project.max_budget_minor' => null,
+        // The freelancer's share (30%) of a part whose work started and then was cancelled by both sides.
+        'cancellation.started_freelancer_bp' => 3000,
+        // Disputes (FL-704 / FL-507): the days each side has to show what they have, and to appeal a decision before the money moves.
+        // Rating each other after a project (FL-701): the days both have; then the ratings show.
+        'ratings.window_days' => 14,
+        // A change to an active agreement (FL-404 / FL-405): the days the other side has to answer.
+        'changes.response_days' => 3,
+        'disputes.response_days' => 5,
+        'disputes.appeal_days' => 3,
         'earnings.hold_days' => 0,
+        // Private projects (FL-205): the most freelancers one project can invite.
+        'invitations.max_per_project' => 10,
     ],
 
     // Skill suggestions (FL-102): how many new skills one freelancer may suggest a day.
@@ -60,6 +85,7 @@ return [
         'max_skills' => 10,
         'max_attachments' => 10,
         'max_open' => 20,
+        'max_questions' => 5,
         'max_reopens' => 3,
         'max_duration_days' => 365,
         'attachment_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip'],

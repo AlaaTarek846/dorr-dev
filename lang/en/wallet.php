@@ -88,6 +88,8 @@ return [
         'topup_bonus' => 'Top-up bonus',
         'topup_refund' => 'Top-up refunded',
         'ride_case_refund' => 'Refund on ride :number',
+        'freelance_payment' => 'Paid for work on project :project',
+        'freelance_earning' => 'Earnings from project :project',
         'freelance_commission' => 'Commission on project :project',
         'freelance_client_fee' => 'Client fee on project :project',
         'freelance_discount' => 'Discount on project :project',

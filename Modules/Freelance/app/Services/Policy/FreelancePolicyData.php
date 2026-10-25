@@ -22,6 +22,7 @@ final class FreelancePolicyData
      *   enum      — one of `options`
      *   amount    — `commission.value` / `client_fee.value`: basis points when its `*.type` is percent, money when fixed
      *   money     — minor units of the country's currency, or null for "no limit"
+     *   rate      — basis points (0–10000), shown as a percent
      *   int       — a whole number between `min` and `max`
      *   bool
      */
@@ -44,7 +45,13 @@ final class FreelancePolicyData
         'milestones.min_amount_minor' => ['group' => 'milestones', 'kind' => 'money'],
         'project.min_budget_minor' => ['group' => 'project', 'kind' => 'money'],
         'project.max_budget_minor' => ['group' => 'project', 'kind' => 'money'],
+        'cancellation.started_freelancer_bp' => ['group' => 'cancellation', 'kind' => 'rate'],
+        'ratings.window_days' => ['group' => 'ratings', 'kind' => 'int', 'min' => 1, 'max' => 90],
+        'changes.response_days' => ['group' => 'changes', 'kind' => 'int', 'min' => 1, 'max' => 30],
+        'disputes.response_days' => ['group' => 'disputes', 'kind' => 'int', 'min' => 1, 'max' => 30],
+        'disputes.appeal_days' => ['group' => 'disputes', 'kind' => 'int', 'min' => 0, 'max' => 30],
         'earnings.hold_days' => ['group' => 'earnings', 'kind' => 'int', 'min' => 0, 'max' => 365],
+        'invitations.max_per_project' => ['group' => 'invitations', 'kind' => 'int', 'min' => 1, 'max' => 100],
     ];
 
     /** Pairs that must not cross: [lower, upper]. */
@@ -109,6 +116,7 @@ final class FreelancePolicyData
                 'enum' => is_string($value) && in_array($value, $meta['options'], true),
                 'bool' => is_bool($value),
                 'int' => is_int($value) && $value >= $meta['min'] && $value <= $meta['max'],
+                'rate' => is_int($value) && $value >= 0 && $value <= self::MAX_BP,
                 'money' => $value === null || (is_int($value) && $value >= 0 && $value <= self::MAX_MONEY),
                 'amount' => is_int($value) && $value >= 0 && $value <= self::MAX_MONEY,
                 default => false,

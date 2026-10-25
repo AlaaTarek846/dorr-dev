@@ -130,16 +130,16 @@
                     </div>
                 </div>
 
-                <div v-if="current.status === 'published'" class="mt-3 border rounded p-3 d-flex align-items-center gap-3 flex-wrap">
+                <div v-if="['published', 'awarded'].includes(current.status)" class="mt-3 border rounded p-3 d-flex align-items-center gap-3 flex-wrap">
                     <div class="flex-fill">
                         <div class="fw-semibold fs-13">{{ t('freelance.projects.offers') }}</div>
-                        <div class="fs-12" :class="current.offers.accepting ? 'text-success' : 'text-warning'">
+                        <div class="fs-12" :class="current.status === 'awarded' ? 'text-primary' : (current.offers.accepting ? 'text-success' : 'text-warning')">
                             <template v-if="current.offers.accepting">{{ t('freelance.projects.offers_open', { date: (current.offers.deadline_at || '').slice(0, 10) }) }}</template>
                             <template v-else>{{ t(`freelance.projects.offers_closed_${current.offers.close_reason || 'deadline'}`) }}</template>
                             · {{ t('freelance.projects.reopened', { n: current.offers.reopen_count }) }} · {{ t('freelance.projects.offers_count', { n: current.offers.count }) }}
                         </div>
                     </div>
-                    <template v-if="can('freelance-projects.update')">
+                    <template v-if="current.status === 'published' && can('freelance-projects.update')">
                         <button v-if="current.offers.accepting" type="button" class="btn btn-sm btn-outline-warning" :disabled="working" @click="offers('close')">{{ t('freelance.projects.close_offers') }}</button>
                         <button v-else type="button" class="btn btn-sm btn-outline-success" :disabled="working" @click="offers('reopen')">{{ t('freelance.projects.reopen_offers') }}</button>
                     </template>
@@ -208,7 +208,7 @@ const countryFilter = ref('all');
 const specialtyFilter = ref('all');
 const page = ref(1);
 
-const statuses = ['pending_review', 'changes_requested', 'rejected', 'published', 'awarded', 'closed', 'cancelled'];
+const statuses = ['pending_review', 'changes_requested', 'rejected', 'published', 'awarded', 'in_progress', 'closed', 'cancelled'];
 const total = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0));
 const statusOptions = computed(() => [
     { value: 'all', label: `${t('countries.filter_all')} (${total.value})` },
@@ -220,7 +220,7 @@ const specialtyChoices = computed(() => specialties.value.map((s) => ({ value: s
 const budgetTypeOptions = computed(() => [{ value: 'fixed', label: t('freelance.projects.fixed') }, { value: 'range', label: t('freelance.projects.range') }]);
 const visibilityOptions = computed(() => [{ value: 'public', label: t('freelance.projects.public') }, { value: 'private', label: t('freelance.projects.private') }]);
 const countryName = (id) => countries.value.find((c) => c.id === id)?.name ?? '—';
-const statusBadge = (s) => ({ pending_review: 'bg-warning-transparent', published: 'bg-success-transparent', awarded: 'bg-primary-transparent', rejected: 'bg-danger-transparent', changes_requested: 'bg-info-transparent', cancelled: 'bg-secondary-transparent' }[s] ?? 'bg-light text-dark');
+const statusBadge = (s) => ({ pending_review: 'bg-warning-transparent', published: 'bg-success-transparent', awarded: 'bg-primary-transparent', in_progress: 'bg-info-transparent', rejected: 'bg-danger-transparent', changes_requested: 'bg-info-transparent', cancelled: 'bg-secondary-transparent' }[s] ?? 'bg-light text-dark');
 const money = (minor) => (minor == null ? '' : (minor / 100).toFixed(2));
 const budgetText = (b) => (b?.min_minor == null ? '—' : `${money(b.min_minor)}${b.max_minor != null ? ` – ${money(b.max_minor)}` : ''} ${b.currency}`);
 const toMinor = (text) => {

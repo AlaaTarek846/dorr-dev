@@ -378,3 +378,182 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - `GET offers/{offer}/freelancer` — بروفايل المحترف للعميل: نبذة، خبرات، شهادات، معرض الأعمال (روابط صور موقّعة)، لغات، مدينة. **من غير تليفون ولا إيميل.**
 - `POST offers/{offer}/choose` — transaction واحدة: العرض `accepted` (`accepted_at`)، الباقي `rejected` تلقائي (حدث فيه `auto: another_chosen`، والمحترف بيقرا «العميل اختار عرض تاني» في `status_reason`)، العروض بتتقفل (`close_reason = chosen`) والمشروع `awarded` (`awarded_at`، حدث `project.awarded`). اختيار تاني = `freelance_offer_already_chosen` (409)؛ مشروع مش منشور = `freelance_project_invalid_state`.
 - حالة المشروع الجديدة `awarded`: `published → awarded → cancelled` (FL-401 هيضيف الاتفاق). المحترف لسه يقدر يفتح مشروع قدّم عليه بعد ما اتختار عرض.
+
+- `POST offers/{offer}/unshortlist` — يشيل العرض من القايمة المختصرة ويرجعه `viewed` (من غير إشعار للمحترف)؛ `can.unshortlist` بيقول إمتى الزرار يظهر. مرفوض (409) لو العرض مش في القايمة.
+
+## المراسلة قبل التعاقد (FL-308)
+
+- `POST mobile/v1/freelance/projects/{uuid}/offers/{offer}/chat` (العميل، مفتاح `chat`) — يفتح أو يلاقي الغرفة. ممكن بس لعرض `submitted|viewed|shortlisted|accepted` على مشروع `published|awarded`، غير كده `freelance_chat_not_available` (409). العميل بس هو اللي يبدأ؛ المحترف بيلاقيها في `offer.chat`.
+- الرسايل بنفس endpoints FL-006: `…/chat/conversations/{uuid}[/messages|/read]` (العميل تحت `mobile/v1/freelance`، المحترف تحت `freelance/v1`). الغرفة بترجع `guarded` و`project{uuid,title}`.
+- قبل الاتفاق (`published|awarded`): أي رسالة فيها رقم موبايل (بأرقام عربي/هندي وبمسافات ونقط) أو إيميل أو رابط أو `@handle` بترجع `freelance_chat_contact_blocked` (422) ومبتتبعتش. التواريخ والأسعار مش بتتعامل كرقم موبايل. الملفات مش بتتفحص.
+- الغرفة بتبقى قراءة بس (`freelance_chat_closed` 409) لما العرض يترفض/يتسحب/يتختار غيره أو المشروع يتلغي.
+- عرض العميل: `chat{uuid, unread, can_write}|null` و`can.chat`؛ عرض المحترف: `chat{…}|null`.
+
+## فحص العرض وقوالب العروض (FL-304)
+
+- `POST projects/{uuid}/offer-check` (`price_minor?`, `duration_days?`, `details?`, `files?`) ← `checks[{code, level, message}]`. `level=error`: `contact` (السيرفر هيرفض). `level=warning`: `details_short` (أقل من 150 حرف)، `no_files`، `price_high` (أكتر من 1.5× أعلى الميزانية)، `price_low` (أقل من نص أقل الميزانية)، `duration_long` (أطول من مدة المشروع).
+- إرسال أو تعديل عرض فيه رقم موبايل/إيميل/رابط/handle ← `freelance_offer_contact_blocked` (422).
+- القوالب: `GET|POST offer-templates`، `PUT|DELETE offer-templates/{id}` (`title` لحد 80، `details` بنفس حدود العرض). بتاعتي بس، حد أقصى 10 (`freelance_offer_templates_full`)، ومن غير بيانات تواصل.
+
+## أسئلة موحدة للمتقدمين (FL-307)
+
+- العميل: `questions[]` (لحد 5، كل سؤال لحد 300 حرف) في `POST|PUT mobile/v1/freelance/projects[/{uuid}]` طول ما المشروع قابل للتعديل. المشروع بيرجع `questions`.
+- المحترف: المشروع (`GET freelance/v1/projects/{uuid}`) فيه `questions`. العرض (`POST projects/{uuid}/offers` و`PUT offers/{uuid}`) بياخد `answers[]` بنفس ترتيب الأسئلة، إجابة لكل سؤال (حرفين على الأقل، لحد 1000). ناقص ← `freelance_offer_answers_required` (422)؛ فيها بيانات تواصل ← `freelance_offer_contact_blocked`.
+- العرض للطرفين فيه `answers[{question, answer}]`، والمقارنة بتعرضهم جنب بعض.
+
+## المفضلة والقائمة المختصرة (FL-306)
+
+- القائمة المختصرة: `shortlist` / `unshortlist` وفلتر `status=shortlisted` (FL-303/305).
+- المحترفين المفضّلين للعميل: `GET mobile/v1/freelance/favorites`، `POST|DELETE favorites/{uuid}` — بس لمحترف قدّم للعميل عرض قبل كده (غير كده 404). العروض والبروفايل فيهم `is_favorite`. القائمة مفيهاش تليفون ولا إيميل.
+
+## الاتفاق الإلكتروني (FL-401)
+
+**الحالات:** `draft` ← `pending_approval` ← `active`؛ أو `declined` / `cancelled` / `expired`. المشروع: `awarded` ← `in_progress` (لما الاتفاق يبقى ساري) أو يرجع `published`.
+
+- **العميل** (`mobile/v1/freelance/projects/{uuid}`): `GET|PUT agreement` (`scope` مطلوب، `includes`، `excludes`)، `POST agreement/send` (= موافقة العميل، والمحترف عنده 7 أيام)، `POST agreement/cancel`. التعديل بعد الإرسال بيرجّعه `draft`.
+- **المحترف** (`freelance/v1/projects/{uuid}`): `GET agreement` (مش ظاهر وهو مسودة)، `POST agreement/approve`، `POST agreement/decline {reason?}`.
+- **الرد:** `money` للعميل `{price_minor, client_fee_minor, total_minor}` وللمحترف `{price_minor, commission_minor, net_minor}`؛ `terms{review_days, free_revisions, auto_approve}` من لقطة السياسة المجمّدة؛ `can{edit,send,cancel}` أو `can{approve,decline}`؛ `expires_at`.
+- **بعد الموافقة:** الاتفاق مايتعدلش (`freelance_agreement_invalid_state` 409)، المشروع `in_progress`، وفلتر بيانات التواصل في الشات بيتشال.
+- **رفض/إلغاء/انتهاء:** المشروع يرجع `published` بمهلة عروض جديدة، العروض اللي اترفضت عشان الاختيار ترجع `viewed`. المشروع (`project.agreement`) وعرض المحترف (`offer.agreement`) فيهم `{uuid, status}`.
+- **الإشعارات:** محترف `agreement.received|cancelled|expired`، `project.cancelled`؛ عميل `agreement.active|declined|expired`.
+- **سجل الموافقات:** `freelance_project_approvals` (مفيش حذف) — بداية FL-406.
+
+## المراحل (FL-402)
+
+- كل اتفاق ليه مرحلة واحدة على الأقل: مع المسودة بتتعمل «الشغل كله» بكامل السعر.
+- العميل: `PUT mobile/v1/freelance/projects/{uuid}/agreement/milestones` بالقايمة كاملة `{milestones: [{title, description?, amount_minor, duration_days?}]}` طول ما الاتفاق قابل للتعديل (بعد الإرسال بيرجّعه `draft`).
+- القواعد من لقطة السياسة: المجموع = السعر بالظبط (`freelance_milestones_total`)، العدد ≤ `milestones.max_count` (`freelance_milestones_too_many`)، ولو أكتر من مرحلة كل واحدة ≥ `milestones.min_amount_minor` (`freelance_milestone_too_small`؛ الافتراضي 5000 = 50.00).
+- الاتفاق بيرجع `milestones[{uuid, position, title, description, amount_minor, duration_days, status}]` + للعميل `client_fee_minor, total_minor` وللمحترف `commission_minor, net_minor`، و`milestone_rules{max_count, min_amount_minor}` و`can.split`.
+- لما الاتفاق يبقى ساري: المراحل بتتجمّد، وفلوس الاتفاق = مجموع المراحل. الحالة `unfunded` لحد FL-403 / FL-501.
+
+## حالات المرحلة (FL-403)
+
+`unfunded → funded → in_progress → delivered → approved`؛ `delivered ↔ revision`؛ `disputed → approved | revision | cancelled`؛ `unfunded | funded | in_progress → cancelled`. أي انتقال غلط ← `freelance_milestone_invalid_state` (409)، ومرحلة قبل دورها ← `freelance_milestone_out_of_turn` (409). كل انتقال حدث في `freelance_milestone_events`.
+
+- المحترف: `POST freelance/v1/projects/{uuid}/milestones/{milestone}/start` (من `funded`)، `/deliver {note}` (من `in_progress` أو `revision`).
+- العميل: `POST mobile/v1/freelance/projects/{uuid}/milestones/{milestone}/approve` و`/revision {reason}` (من `delivered`)، `/cancel` (لو `unfunded` بس).
+- كل مرحلة في الاتفاق فيها `status, delivery_note, revision_reason, revisions_used, delivered_at, approved_at, can{…}` (`can` فاضية لو الاتفاق مش ساري).
+- التمويل (`funded`) بيعمله FL-501 عن طريق `MilestoneWork::fund`.
+
+## تمويل المرحلة (FL-501 + FL-502)
+
+- `POST mobile/v1/freelance/projects/{uuid}/milestones/{milestone}/fund` (العميل، مفتاح `wallet_payment`): بيحجز **قيمة المرحلة + رسم العميل** من محفظة العميل في دولة المشروع (spend-only الأول ثم withdrawable)، والمرحلة تبقى `funded` والمحترف يتبلّغ (`payment.held`).
+- الحجز `reference_type = freelance_milestone` و**من غير تاريخ انتهاء** (`expires_at = null`) فصمام الأمان مش بيفكّه (FL-502).
+- رصيد ناقص ← `freelance_wallet_insufficient` (422) و`data{needed_minor, available_minor, shortfall_minor, currency}`؛ عملة مختلفة ← `freelance_wallet_currency`.
+- التكرار آمن: المرحلة بتتقفل، والمحجوزة أصلاً بترجع زي ما هي، ومفتاح كل حجز `freelance:milestone:{uuid}:{bucket}`. بالترتيب (`freelance_milestone_out_of_turn`).
+- الاتفاق بيرجع `wallet_available_minor` (للعميل)، وكل مرحلة `held_minor` و`can.fund`.
+- مشروع فيه فلوس محجوزة مينفعش يتلغي (`freelance_project_has_funded_work`)؛ الاسترداد في FL-506، والتحرير للمحترف في FL-503.
+
+## التحرير والاعتماد التلقائي وقفل المشروع (FL-503 + FL-504 + FL-408)
+
+- **الاعتماد = الدفع** (`POST …/milestones/{milestone}/approve`): في معاملة واحدة: حجز العميل (القيمة + رسم العميل) بيتلتقط `service_payment`، الصافي (القيمة − العمولة) بيدخل محفظة المحترف withdrawable `service_earning`، ورسم العميل والعمولة بيتقيدوا دخل في الدفتر (`freelance_client_fees`، `freelance_commissions`). لو الحجز مش موجود ← `freelance_milestone_not_funded` (409) والمرحلة تفضل `delivered`. المحترف بيتبلّغ `payment.released`.
+- **الاعتماد التلقائي:** `freelance:release-due` كل ساعة: مرحلة `delivered` عدّى عليها `review.days` (من لقطة الاتفاق) و`review.auto_approve` شغال ← تتعتمد وتتحرر (`milestone.auto_approved` للعميل). تنبيه قبلها بيوم مرة واحدة (`milestone.review_due`). كل مرحلة فيها `auto_approve_at`.
+- **قفل المشروع:** لما كل المراحل `approved|cancelled` ← الاتفاق `completed` (`completed_at`)، المشروع `closed`، الشات قراءة بس، وإشعار `project.completed` للطرفين.
+- كل مرحلة: `released_at`، وللمحترف `paid_minor`.
+
+## إنهاء مرحلة وجولات التعديل (FL-506 + FL-407)
+
+- **ممولة وما بدأتش:** العميل `POST mobile/v1/freelance/projects/{uuid}/milestones/{m}/cancel` أو المحترف `POST freelance/v1/projects/{uuid}/milestones/{m}/withdraw` ← المحجوز كله يتفك ويرجع للعميل (`refunded_minor`)، وإشعار `milestone.called_off` للطرف التاني.
+- **بدأ فيها شغل (`in_progress` / `revision`):** نفس الطلبين بيبعتوا **طلب إنهاء**، والطرف التاني يرد خلال 3 أيام بـ `.../cancel-accept` أو `.../cancel-reject` (عند الاتنين). عند الموافقة: المحترف ياخد نسبة `cancellation.started_freelancer_bp` من المرحلة ومن رسم العميل ومن العمولة (الصافي في محفظته `paid_minor`)، والباقي يرجع للعميل (`refunded_minor`)، والرسم والعمولة يتقيدوا على الجزء المستخدم بس. المرحلة `cancelled`.
+- **مفتاح السياسة الديناميكي:** `cancellation.started_freelancer_bp` (نسبة، افتراضي 30%) من لوحة «الأسعار والقواعد» تحت «إلغاء شغل اتبدأ»، لكل دولة/تخصص، وبيتجمّد مع الاتفاق.
+- **مسلّمة أو عليها نزاع:** مفيش إنهاء من هنا. إلغاء المشروع بيفك المراحل الممولة غير المبدوءة وبيرفض لو فيه مرحلة بدأت/اتسلّمت (`freelance_project_has_funded_work`).
+- **FL-407:** `review.free_revisions` (من لقطة الاتفاق) بيتطبق: بعد الجولات المجانية `POST …/revision` ← `freelance_revisions_exhausted` (409) والمحترف يتبلّغ؛ كل مرحلة فيها `revisions_max` و`revisions_left` و`can.revision`.
+
+## النزاعات — الدفعة 1: الباك (FL-704 / FL-507 / FL-705)
+
+- **الفتح** (الطرفين، مفتاح `disputes`): `POST projects/{uuid}/milestones/{m}/dispute {reason, details}` على مرحلة `funded | in_progress | delivered | revision` في اتفاق ساري. الأسباب: `not_as_agreed, not_delivered, late, quality, out_of_scope, no_response, other`. المرحلة بتبقى `disputed` (متجمّدة: لا اعتماد ولا تلقائي ولا تعديل ولا إنهاء، والمشروع ما يتلغيش) والفلوس تفضل محجوزة. نزاع واحد للمرحلة.
+- **الأدلة:** `POST projects/{uuid}/disputes/{d}/evidence` (multipart `body` + `file?`)، والملفات خاصة `GET …/disputes/{d}/files/{media}`. `GET projects/{uuid}/disputes/{d}` للطرفين بس (أي محترف تاني = 404).
+- **القرار (الأدمن):** `POST admin/v1/freelance-disputes/{uuid}/decide {decision: refund|release|split, freelancer_percent?, note}` بصلاحية `freelance-disputes.update`. القرار الأول بيستنى `disputes.appeal_days` (افتراضي 3) وبعدين ينفذ (`freelance:execute-disputes` كل ساعة).
+- **الاعتراض:** أي طرف مرة واحدة قبل التنفيذ `POST …/disputes/{d}/appeal {reason}` ← موظف **تاني** يقرر (`freelance_dispute_same_admin`) وقراره نهائي وبينفذ فوراً.
+- **التنفيذ:** `release` = اعتماد وتحرير (FL-503)، `refund` = فك الحجز كله، `split` = نسبة المحترف من القيمة والرسم والعمولة والباقي للعميل. مرة واحدة.
+- **مفاتيح السياسة:** `disputes.response_days` (5) و`disputes.appeal_days` (3) من لوحة «الأسعار والقواعد».
+- **الأدمن:** `GET admin/v1/freelance-disputes[?status=&country_id=]` (اللي محتاج قرار الأول، `pagination.counts`)، `GET …/{uuid}` (المرحلة وتسليمها وتاريخها، الاتفاق، الشات، الأدلة).
+- كل مرحلة فيها `dispute{uuid,status}` و`can.dispute`.
+
+## أرباح المحترف وفترة التعليق (FL-505 + FL-509)
+
+- كل صافي للمحترف (اعتماد مرحلة، إنهاء بنسبة، قرار نزاع) بيتسجل في `freelance_earnings`. `earnings.hold_days` من لقطة الاتفاق: صفر (الافتراضي) = في المحفظة فوراً؛ أكتر = `pending` لحد `release_at`، و`freelance:release-earnings` كل ساعة بيحطه في المحفظة مرة واحدة. دخل DORR بيتقيد عند الاعتماد.
+- إشعارات: `payment.pending` (المبلغ والتاريخ) عند الاعتماد مع تعليق، `payment.available` لما يتاح، و`payment.released` لما يكون فوري.
+- `GET freelance/v1/earnings` ← `{currency, available_minor, pending_minor, next_release_at, expected_minor, earned_minor, recent[{kind, amount_minor, status, project, milestone, release_at, released_at}]}`. `expected_minor` = صافي المراحل الممولة اللي لسه ما اتعتمدتش.
+
+## تعديل الاتفاق بعد ما بدأ (FL-404 + FL-405)
+
+- **الطلب** (الطرفين): `POST projects/{uuid}/agreement/changes {type, …, reason?}`. الأنواع:
+  - `extend_days {days, milestone?}`: أيام زيادة للاتفاق أو لمرحلة.
+  - `scope {scope?|includes?|excludes?}`: نص الشغل.
+  - `milestone_price {milestone, amount_minor}`: لمرحلة `unfunded` بس (الممولة ← `freelance_change_part_funded`)؛ الرسم والعمولة والصافي بيتحسبوا تاني من اللقطة، وسعر الاتفاق بيتحدث.
+  - `add_milestone {title, amount_minor, duration_days?}`: مرحلة جديدة `unfunded` (الشغل الزيادة).
+- **الرد** (الطرف التاني): `POST …/agreement/changes/{change}/accept | reject`؛ اللي طلب يقدر `withdraw`. المهلة `changes.response_days` (افتراضي 3، من الداشبورد)، وبعدها الطلب بيظهر `expired`.
+- **القواعد:** طلب واحد مستني لكل مرحلة (أو للاتفاق) `freelance_change_pending`؛ مفيش على مرحلة عليها نزاع أو طلب إنهاء `freelance_change_not_allowed`؛ النزاع بيلغي طلبات المرحلة؛ حد 5 مقبولة `freelance_changes_limit`. مفيش فلوس بتتحرك.
+- `GET …/agreement/changes`، والاتفاق نفسه فيه `changes[{uuid, type, status, mine, milestone, payload, reason, respond_by, can{accept, reject, withdraw}}]`.
+
+## التقييم المتبادل وإحصائيات المحترف (FL-701 + FL-703)
+
+- `GET|POST projects/{uuid}/review` (الطرفين؛ الـ POST بمفتاح `ratings`): `{scores: {criterion: 1..5}, comment?}`. معايير العميل للمحترف: `quality, timeliness, communication, professionalism`؛ معايير المحترف للعميل: `clarity, responsiveness, payment, conduct`. متاح بس بعد ما الاتفاق يبقى `completed` ولمدة `ratings.window_days` (افتراضي 14) ← غير كده `freelance_review_closed`؛ مرة واحدة `freelance_review_exists`.
+- الرد: `{criteria, can_rate, rate_until, mine, theirs, theirs_waiting}` — `theirs` بيظهر بس لما الاتنين يقيّموا أو المدة تخلص (`freelance:publish-reviews` كل ساعة). الاتفاق نفسه فيه `review`.
+- **الإحصائيات** (في العروض والمقارنة وبروفايل المحترف للعميل): `rating` (المتوسط من 3 تقييمات، غير كده null)، `reviews_count`، `completed_projects`، `completion_rate`، `on_time_rate`، `similar_projects`؛ والبروفايل فيه `reviews[]` و`rating_criteria`.
+- `GET freelance/v1/reviews` للمحترف: نفس الأرقام + `latest[]`.
+- تعديلات FL-405: طلب على مرحلة اتغيّرت قبل الرد (اتمولت/اتسوّت/نزاع) بيتقفل `cancelled` لما الطرف التاني يحاول يقبله، واللي طلب بيتبلّغ (`change.cancelled`).
+
+## سجل الموافقات (FL-406)
+
+- `GET projects/{uuid}/agreement/trail` (العميل: كل اتفاقات مشروعه؛ المحترف: اتفاقه بس، غير كده 404) — الأقدم الأول: `{id, action, label, actor (client|freelancer|admin|system), mine, version, details, at}`.
+- الأدمن: `GET admin/v1/freelance-projects/{uuid}/trail` (صلاحية `freelance-projects.view`) بنفس الشكل + `actor_id` و`agreement_id`؛ وملف النزاع فيه `trail`.
+- الخطوات: `agreement.{milestones,sent,withdrawn,approved,declined,expired,cancelled,completed}`، `change.{requested,accepted,rejected,withdrawn,cancelled}`، `milestone.{funded,delivered,revision,approved,auto_approved,cancelled,disputed,cancel_requested,cancel_rejected}`، `dispute.{decided,appealed,final_decided,resolved}`، `review.rated`. الصف مايتعدلش ومايتمسحش.
+
+## الإيصالات (FL-511)
+
+- `GET receipts` (الأحدث الأول، لحد 50) و`GET receipts/{uuid}` — العميل على `mobile/v1/freelance`، المحترف على `freelance/v1`؛ كل طرف إيصالاته بس.
+- الإيصال: `{uuid, number (FR-SA-2026-000123), party, kind, reason, title, project, milestone, currency, amount_minor, fee_minor, total_minor, refunded_minor, issued_at}` + في الواحد: `client, freelancer, reason_text, text` (نص جاهز للمشاركة).
+- الأنواع: `funded` (العميل: المحجوز)، `paid` (العميل: اتدفع عند القبول)، `earned` (المحترف: المبلغ والعمولة والصافي)، `refunded` (العميل: رجع كله)، `settled` (العميل: مرحلة اتقفلت بعد الشغل — المدفوع واللي رجع). السبب: `approved · auto_approved · dispute · ended · cancelled`.
+- الرقم متسلسل لكل دولة وسنة، بيتكتب في نفس ترانزاكشن الحركة.
+
+## تقرير فلوس المشاريع والمطابقة (FL-512)
+
+- `GET admin/v1/freelance-reports/summary[?country_id=&from=&to=]` (الشهر الحالي افتراضيًا): لكل دولة `held_minor, pending_earnings_minor` (دلوقتي) و`funded_minor, paid_minor, refunded_minor, earned_minor, client_fees_minor, commissions_minor, counts` (في الفترة).
+- `GET admin/v1/freelance-reports/reconcile[?country_id=]`: `{checked_at, count, issues[]}` — الأنواع `hold_mismatch, hold_left, receipt_missing, fee_mismatch, commission_mismatch, earning_unpaid`. مفيش حاجة بتتصلح لوحدها.
+- صلاحية `freelance-reports.view`. `freelance:reconcile` يوميًا 03:20 — لو فيه فروقات بيبلّغ الأدمنز اللي معاهم الصلاحية (مرة في اليوم بالكتير، من غير push).
+
+## سطور السعر (FL-510)
+
+- `client_cost.lines` في العروض، `breakdown.lines` في `offer-preview` للمحترف، و`money.lines` في الاتفاق: `[{key, label, amount_minor, total}]` — العميل: `price, client_fee, total`؛ المحترف: `price, commission, net`.
+- فلوس الاتفاق دايمًا مجموع المراحل الحالية؛ للعميل `quoted_total_minor` = الإجمالي اللي اتقال قبل الاختيار (التقسيم ممكن يغيّره لو فيه حد أدنى للرسوم على كل مرحلة).
+
+## المشاريع الخاصة والدعوات (FL-205)
+
+- العميل (`mobile/v1/freelance/projects/{uuid}`، سويتش `invitations`): `GET invitations` (`summary{sent,accepted,declined,max,can_invite,can_make_public}` + القائمة)، `POST invitations {freelancers:[uuid]}` (حد أقصى سياسة `invitations.max_per_project`، الافتراضي 10)، `DELETE invitations/{invitation}`، `GET invitees?q=&all=1`، `POST make-public`.
+- المحترف (`freelance/v1`): `GET invitations`، `POST invitations/{uuid}/accept|decline` (يتطلب حساب موثّق)؛ `GET projects/{uuid}` فيه `invitation{uuid,status}`.
+- المشروع الخاص يظهر للمدعوّين فقط؛ التقديم من غيرهم `freelance_project_invite_only`.
+- أخطاء: `invitations_limit`, `invitation_not_open`, `invitation_closed`, `invitation_project_public`, `invitation_project_not_published`, `invitation_accepted_exists`.
+- العميل يختار عرضًا واحدًا بالطريقة العادية؛ لو محدش قبل يقدر يحوّل المشروع لعام.
+
+## المقابلة القصيرة (FL-310)
+
+- داخل غرفة الشات، للطرفين: `GET chat/conversations/{uuid}/interviews`، `POST …/interviews {starts_at, duration_minutes: 10|15|20|30|45|60, note?}`، `POST …/interviews/{interview}/confirm|decline|cancel` (برفيكس العميل `mobile/v1/freelance/` والمحترف `freelance/v1/`).
+- الحالات: `proposed, confirmed, declined, cancelled, superseded`. اللي اقترح مبيردش على اقتراحه (403 `interview_not_yours_to_answer`). الاقتراح الجديد بيلغي المفتوح.
+- الوقت من 5 دقايق لـ 30 يوم قدام (`interview_time_invalid`). عند التأكيد: عنصر في تقويم العميل + رسالة نظام في الغرفة (`kind=system`)؛ تذكير قبل البداية بـ 15 دقيقة.
+- مفيش مكالمة في شات الفريلانس؛ الكلام في الغرفة نفسها (NEEDS-DECISION: مكالمة لو اتطلبت).
+
+## التسليم بملفات والمعاينة وقائمة القبول (FL-601 → FL-604)
+
+- المحترف: `POST freelance/v1/projects/{uuid}/milestones/{milestone}/deliver` **multipart**: `note` (5–3000) و`files[]` (حتى 10، النوع والحجم من `freelance.upload_max_kb`). كل تسليم نسخة جديدة مرقّمة؛ الأخطاء: `delivery_too_many_files`.
+- الطرفين (برفيكس كل تطبيق): `GET projects/{uuid}/milestones/{milestone}/deliveries` (الأحدث أولًا: `number, note, delivered_at, revision_reason, files[{id,name,mime,size,is_image,path}]`) و`GET …/deliveries/{delivery}/files/{media}` (الصورة inline وغيرها تحميل؛ `nosniff` و`no-store`؛ غير الطرفين 404).
+- طلب التعديل (`…/revision {reason}`) بيكتب السبب على النسخة اللي العميل كان بيراجعها.
+- العميل: `PUT …/milestones/{milestone}/checklist {items:[…]}` (حتى 10 بنود × 200 حرف) لحد ما الشغل يبدأ (`checklist_locked` 409)، و`POST …/checklist/{item}/check|uncheck` وقت المراجعة فقط (`checklist_not_reviewing` 409). التعليم ما بيشترطش للاعتماد، وبيتصفّر بعد جولة التعديل.
+- المرحلة في `agreement` فيها `deliveries_count` و`checklist[{uuid,text,checked}]` و`can.checklist_edit|checklist_tick`.
+
+## فحص الملفات عند الرفع (FL-1205)
+
+- قاعدة `Modules\Freelance\Rules\CleanUpload` (بتشغّل `Services\Security\UploadScanner`) على كل الرفع في الموديول: المعرض، الشهادات والهوية، مرفقات العرض، التسليم، أدلة النزاع، ملفات الشات، مرفقات المشروع، الصور الشخصية. بتقرأ **محتوى الملف الحقيقي** مش الاسم.
+- بتترفض: امتداد ممنوع في أي مكان بالاسم (`report.pdf.exe`)، برنامج/سكريبت/صفحة تشغّل كود، اسم مش مطابق للمحتوى (صورة مزيفة)، PDF فيه كود نشط (JavaScript أو تشغيل)، ملف أوفيس فيه ماكرو، وملف zip فيه برنامج أو ماكرو أو مسار هروب أو قنبلة (عدد ملفات/حجم بعد الفك/نسبة ضغط) أو مش مقروء. أسباب الرفض في اللوج: `blocked_extension, blocked_type, program, script, disguised, pdf_active_content, macros, archive_unreadable, archive_bomb, archive_path, archive_program, malware, scanner_unavailable`.
+- الرد عند الرفض: **422** برسالة `freelance.file_rejected` على حقل الملف؛ الملف ما بيتخزّنش، والمحاولة بتتسجّل في اللوج (مين/ايه/ليه/IP).
+- **ده مش مضاد فيروسات.** لتفعيل ClamAV: `FREELANCE_CLAMAV_ENABLED=true` + `FREELANCE_CLAMAV_HOST` / `PORT` (3310) / `TIMEOUT` (10) — بيتبعت كل ملف للـdaemon (INSTREAM) وكلمة FOUND بترفضه. لو الـdaemon مش متاح الرفع بيترفض (`FREELANCE_CLAMAV_FAIL_CLOSED=true` افتراضيًا، رسالة `freelance.file_scan_unavailable`).
+- أنواع ملفات التسليم: `jpg, jpeg, png, webp, gif, pdf, doc, docx, xls, xlsx, ppt, pptx, txt, zip` (الـrar اتشال لأنه مش بيتفحص).
+
+## الخط الزمني للأدلة في النزاع (FL-606)
+
+- الأدمن (صلاحية `freelance-disputes.view`، والقراءة بتتسجّل في الـaudit log):
+  - `GET admin/v1/freelance-disputes/{uuid}/timeline` → `data.entries[{at, kind, actor, label, detail, files[{name,mime,size,path}]}]` الأقدم أولًا. `kind`: `agreement | approval | work | delivery | dispute | evidence | chat`؛ `actor`: `client | freelancer | admin | null`. الشات لحد 500 رسالة. بيسجّل `freelance.dispute.timeline_viewed`.
+  - `GET admin/v1/freelance-disputes/{uuid}/timeline/export` → CSV (`text/csv`)، الخلايا اللي بتبدأ بـ `= + - @` بتتحوّل لنص. بيسجّل `freelance.dispute.timeline_exported`.
+  - `GET admin/v1/freelance-disputes/{uuid}/deliveries/{delivery}/files/{media}` → ملف التسليم (الصورة inline، `nosniff`، `no-store`).
+- اسم الملف في القوائم والتحميل هو الاسم اللي كتبه الشخص (مش الاسم المخزّن).

@@ -882,6 +882,8 @@ const freelanceItems = [
     { route: 'admin.freelance.overview', permission: 'freelance-settings.view', icon: 'ri-briefcase-4-line', label: 'freelance.overview.title' },
     { route: 'admin.freelance.switches', permission: 'freelance-feature-rules.view', icon: 'ri-toggle-line', label: 'freelance.switches.title' },
     { route: 'admin.freelance.projects', permission: 'freelance-projects.view', icon: 'ri-survey-line', label: 'freelance.projects.title' },
+    { route: 'admin.freelance.disputes', permission: 'freelance-disputes.view', icon: 'ri-scales-3-line', label: 'freelance.disputes.title' },
+    { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },

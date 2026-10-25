@@ -53,10 +53,14 @@ data class ProjectDto(
     val summary: String? = null,
     /** … the page shows all of it. */
     val description: String? = null,
+    /** FL-307: the client's questions, answered with the offer. */
+    val questions: List<String> = emptyList(),
     @SerializedName("attachments_count") val attachmentsCount: Int = 0,
     val offers: ProjectOffersDto = ProjectOffersDto(),
     /** I already sent an offer on it (FL-301). */
     val offered: Boolean = false,
+    /** FL-205: my invitation to this (private) project, if any. */
+    val invitation: InvitationRefDto? = null,
 )
 
 /** Whether offers can still be made on this project (FL-204). */

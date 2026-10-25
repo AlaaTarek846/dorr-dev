@@ -132,7 +132,7 @@ class ClientProjectController extends Controller
         return ApiResponse::success(app(ClientOfferViews::class)->profile($project, $found), __('api.retrieved'));
     }
 
-    /** POST projects/{uuid}/offers/{offer}/shortlist | reject {reason?} | choose — what the client decides about one offer. */
+    /** POST projects/{uuid}/offers/{offer}/shortlist | unshortlist | reject {reason?} | choose — what the client decides about one offer. */
     public function decideOffer(Request $request, string $uuid, string $offer, string $action): JsonResponse
     {
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
@@ -141,6 +141,7 @@ class ClientProjectController extends Controller
         $found = $service->find($this->projects->find($me, $uuid), $offer);
         $done = match ($action) {
             'shortlist' => $service->shortlist($found, $me),
+            'unshortlist' => $service->unshortlist($found, $me),
             'reject' => $service->reject($found, $me, $data['reason'] ?? null),
             default => $service->choose($found, $me),
         };
@@ -148,6 +149,17 @@ class ClientProjectController extends Controller
         $project = $this->projects->find($me, $uuid);
 
         return ApiResponse::success(app(ClientOfferViews::class)->present($project, $done->load('freelancer', 'media')), $action === 'choose' ? __('freelance.offer_chosen') : __('api.updated'));
+    }
+
+    /** POST projects/{uuid}/offers/{offer}/chat - opens (or finds) the room to talk about this offer. */
+    public function openChat(Request $request, string $uuid, string $offer): JsonResponse
+    {
+        $me = $this->me($request);
+        $found = app(ClientOffers::class)->find($this->projects->find($me, $uuid), $offer);
+        abort_if($found->status->value === 'withdrawn', 404);
+        $room = app(\Modules\Freelance\Services\Chat\OfferChat::class)->open($found, $me);
+
+        return ApiResponse::success(app(\Modules\Freelance\Services\Chat\FreelanceChatService::class)->presentConversation($room->load(['client', 'freelancer']), $me), __('api.retrieved'));
     }
 
     /** GET projects/{uuid}/offers/{offer}/attachments/{media} — a file of an offer on my project. */
@@ -182,7 +194,7 @@ class ClientProjectController extends Controller
     {
         $request->validate(['file' => [
             'required', 'file', 'max:'.(int) config('freelance.upload_max_kb', 20480),
-            'mimes:'.implode(',', (array) config('freelance.projects.attachment_types')),
+            'mimes:'.implode(',', (array) config('freelance.projects.attachment_types')), new \Modules\Freelance\Rules\CleanUpload,
         ]]);
         $project = $this->projects->find($this->me($request), $uuid);
         $this->projects->addAttachment($project, $request->file('file'));
@@ -229,6 +241,8 @@ class ClientProjectController extends Controller
             'budget_max_minor' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100000000000'],
             'duration_days' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:'.(int) config('freelance.projects.max_duration_days', 365)],
             'visibility' => ['sometimes', Rule::in(FreelanceProject::VISIBILITIES)],
+            'questions' => ['sometimes', 'nullable', 'array', 'max:'.(int) config('freelance.projects.max_questions', 5)],
+            'questions.*' => ['nullable', 'string', 'max:300'],
         ];
     }
 
