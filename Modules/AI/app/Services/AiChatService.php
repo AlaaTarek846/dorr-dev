@@ -4,6 +4,9 @@ namespace Modules\AI\Services;
 
 use App\Support\Api\ApiResponse;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Modules\AI\Exceptions\AiAssistantException;
+use Modules\AI\Models\AiConversationContext;
+use Modules\AI\Models\AiFeatureFlag;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -121,6 +124,14 @@ class AiChatService
         protected AiMediaQuotaService $mediaQuota,
         protected AiVideoGenerationService $videoGeneration,
         protected SafetyPolicyEngine $safety,
+        // DORR AI's own tools (spec 121–151, 324–332): memory, context capsules, projects, the
+        // evidence rules before an answer and the citation checks after it, and the service flag.
+        protected AiMemoryService $memory,
+        protected AiContextContinuationService $continuation,
+        protected AiUserProjectService $projects,
+        protected AiEvidencePlanner $evidencePlanner,
+        protected AiCitationValidator $citationValidator,
+        protected AiFeatureFlagGate $featureFlags,
     ) {}
 
     public function listConversations(Authenticatable $owner): JsonResponse
@@ -204,6 +215,16 @@ class AiChatService
                     })->values(),
                 ];
             })->values(),
+            // What the person asked DORR AI to remember, and their projects (spec 142, 151).
+            'memories' => $this->memory->list($owner)->map(fn ($memory) => [
+                'content' => $memory->content,
+                'created_at' => optional($memory->created_at)->toIso8601String(),
+            ])->values(),
+            'projects' => $this->projects->list($owner)->map(fn ($project) => [
+                'name' => $project->name,
+                'description' => $project->description,
+                'instructions' => $project->instructions->pluck('instruction')->values(),
+            ])->values(),
         ];
     }
 
@@ -218,6 +239,11 @@ class AiChatService
     public function eraseOwnerData(Authenticatable $owner): JsonResponse
     {
         $deleted = $this->conversations->deleteAllForOwner($owner);
+        // Memories and projects are the person's own too (spec 143, 151).
+        $this->memory->deleteAll($owner);
+        foreach ($this->projects->list($owner) as $project) {
+            $project->delete();
+        }
 
         // v2.0 requirements doc S17.6: an irreversible erase is exactly
         // the kind of event an audit trail exists for - recorded after
@@ -349,10 +375,14 @@ class AiChatService
      * failed-message bubbles. Shared by both the User and Provider chat
      * screens - there is only ever one active provider for the platform.
      */
-    public function activeProviderStatus(): JsonResponse
+    public function activeProviderStatus(?Authenticatable $owner = null): JsonResponse
     {
         return ApiResponse::success([
-            'available' => $this->providers->hasAnyUsableProvider(),
+            // Off as well when the admin switched the DORR AI chat off for the person's country.
+            'available' => $this->providers->hasAnyUsableProvider() && ($owner === null || $this->serviceAllowedFor($owner)),
+            // The person's plan, read-only (starts no trial or usage window) — for the DORR AI
+            // home's plan chip: {allowed, reason, plan_name, is_trial}.
+            'plan' => $owner !== null ? $this->usageGuard->preview($owner) : null,
             'brand_name' => config('ai.chat.brand_name', 'DORR AI'),
             // Phase 11 (doc S32): the Android/Vue attachment UI must use
             // these server-side values rather than a hardcoded guess -
@@ -439,6 +469,12 @@ class AiChatService
         // response (402/403) instead of the 404 an IDOR probe must always
         // see, regardless of the requester's own quota.
         $conversation = $this->conversations->findForOwner($owner, $conversationId);
+
+        // The admin's switch for the whole DORR AI chat in this country (spec "Feature Flag مستقل"):
+        // checked before anything is spent, and nothing is deleted.
+        if (! $this->serviceAllowedFor($owner)) {
+            return ApiResponse::error(__('ai.assistant_service_unavailable'), 403);
+        }
 
         $usage = $this->usageGuard->evaluate($owner);
 
@@ -792,6 +828,17 @@ class AiChatService
             $domainGuidance = $domainGuidance === null ? $toolContext : $domainGuidance."\n\n".$toolContext;
         }
 
+        // EvidencePlanner (spec 324): the evidence and accuracy rules for this request's topics.
+        $domainGuidance = ($domainGuidance === null ? '' : $domainGuidance."\n\n").$this->evidencePlanner->guidance($outgoingContent);
+
+        // Memory only on an explicit request (spec 142): "افتكر إن…" / "remember that…" is saved
+        // (when memory is on) and the answer confirms it — or says why it was not.
+        $memoryNote = $this->rememberIfAsked($owner, $conversation, $content);
+
+        if ($memoryNote !== null) {
+            $domainGuidance .= "\n\n".$memoryNote;
+        }
+
         // Master spec section 47 (structured output) - prompt-level only,
         // see AiRequiredCapabilityResolver's 'structured_output' entry
         // docblock for why this stops short of OpenAI's strict
@@ -935,6 +982,13 @@ class AiChatService
         $safety = null;
 
         if ($result['success']) {
+            // CitationValidator (spec 332, 280–283): what the system checks itself — Qur'an
+            // references, source markers, arithmetic, dates, jurisdiction — before the person sees it.
+            $checked = $this->citationValidator->validate((string) $replyContent, $outgoingContent, max(count($citations), count($fileContext?->citations ?? [])));
+            $replyContent = $checked['text'];
+            // Shown with the verifier's own warnings (verification_warnings / the response's warnings).
+            $verification['warnings'] = array_values(array_unique([...($verification['warnings'] ?? []), ...$checked['warnings']]));
+
             $finished = $this->safety->finish((string) $replyContent, $risk);
             $safety = $finished['safety'];
             $replyContent = SafetyPolicyEngine::withNotice($finished['text'], $safety);
@@ -1596,12 +1650,29 @@ class AiChatService
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $languageDirective];
         }
 
+        // What the person explicitly asked DORR AI to remember (spec 142) — only while memory is on.
+        $memory = $this->memory->systemMessage($owner);
+
+        if ($memory !== null) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $memory];
+        }
+
+        // The project this conversation belongs to: its description, instructions and files (spec 151).
+        $project = $this->projects->systemMessage($conversation);
+
+        if ($project !== null) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $project];
+        }
+
         foreach ($conversation->instructions()->where('is_active', true)->orderByDesc('priority')->get() as $instruction) {
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $instruction->instruction];
         }
 
         foreach ($conversation->contexts()->where('included', true)->get() as $context) {
-            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $context->content];
+            // A Context Capsule is stored as JSON (to show and delete it); the model reads it as text.
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $context->context_type === AiConversationContext::TYPE_CAPSULE
+                ? $this->continuation->render((string) $context->content)
+                : $context->content];
         }
 
         if ($citations !== []) {
@@ -3193,6 +3264,35 @@ PROMPT;
     /**
      * @return array<string, mixed>
      */
+    /** The DORR AI chat is not switched off for the person's country (AiFeatureFlag `service` ai_chat). */
+    protected function serviceAllowedFor(Authenticatable $owner): bool
+    {
+        $country = method_exists($owner, 'country') ? $owner->country()->value('code') : null;
+
+        return $this->featureFlags->isServiceAllowed(AiFeatureFlag::SERVICE_AI_CHAT, $country);
+    }
+
+    /**
+     * Saves what a "remember that…" message asks for, and tells the model what happened so the
+     * answer can confirm it (or say why not). Null for any other message.
+     */
+    protected function rememberIfAsked(Authenticatable $owner, AiConversation $conversation, string $content): ?string
+    {
+        $fact = $this->memory->explicitRequest($content);
+
+        if ($fact === null) {
+            return null;
+        }
+
+        try {
+            $this->memory->remember($owner, $fact, $conversation->id);
+
+            return 'The user asked you to remember: "'.$fact.'". It has been saved to their DORR AI memory (they can see, edit or delete it in the memory settings). Confirm this briefly.';
+        } catch (AiAssistantException $e) {
+            return 'The user asked you to remember something, but it was NOT saved: '.__('ai.assistant_'.$e->reason).' Tell them this briefly, in their language.';
+        }
+    }
+
     protected function usageSummary(array $usage): array
     {
         return [

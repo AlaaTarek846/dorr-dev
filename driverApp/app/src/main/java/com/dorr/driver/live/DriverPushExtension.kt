@@ -29,6 +29,12 @@ class DriverPushExtension : INotificationServiceExtension {
             return
         }
         val data = event.notification.additionalData
+        // Block 06: a next trip reaches a captain who is driving — a plain notification, never the full-screen ring.
+        if (data?.optString("type") == "ride_offer" && data.optBoolean("next_trip")) {
+            DriverLive.requestSync()
+            event.notification.setExtender { builder -> popDown(context, builder) }
+            return
+        }
         if (data?.optString("type") == "ride_offer") {
             event.preventDefault()
             // The app is on screen: its card shows the request already.

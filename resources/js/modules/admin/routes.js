@@ -140,6 +140,18 @@ export default [
                 meta: { middleware: [auth], kind: 'edit_pack' },
             },
             {
+                path: 'ai-ar',
+                name: 'admin.ai-ar.index',
+                component: page('ai-ar/index'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'ai-world',
+                name: 'admin.ai-world.index',
+                component: page('ai-world/index'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'ai-site-download',
                 name: 'admin.ai-site-download.index',
                 component: page('ai-site-download/index'),
@@ -655,6 +667,13 @@ export default [
                 name: 'admin.rides.cases.show',
                 component: page('rides/cases/show'),
                 meta: { middleware: [auth], permission: 'ride-cases.view' },
+            },
+            {
+                // Block 06: service quality (AI-19) and rides with fraud signs (AI-06).
+                path: 'rides/quality',
+                name: 'admin.rides.quality',
+                component: page('rides/quality/index'),
+                meta: { middleware: [auth], permission: 'rides.view' },
             },
             {
                 path: 'rides/safety',

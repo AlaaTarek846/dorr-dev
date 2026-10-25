@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -162,9 +163,21 @@ class MessageController extends Controller
 
     public function starred(Request $request, ?ChatConversation $conversation = null)
     {
-        $folder = $request->query('folder');
+        $q = $request->validate([
+            'folder' => ['nullable', 'string', 'max:32'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $folder = $q['folder'] ?? null;
+        $page = $this->messages->starred(
+            $request->user(),
+            $conversation,
+            $folder === 'none' ? 'none' : (is_numeric($folder) ? (int) $folder : null),
+            (int) ($q['page'] ?? 1),
+            (int) ($q['per_page'] ?? 15),
+        );
 
-        return ApiResponse::success($this->messages->starred($request->user(), $conversation, $folder === 'none' ? 'none' : (is_numeric($folder) ? (int) $folder : null)), __('api.retrieved'));
+        return ApiResponse::success($page->getCollection()->values()->all(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     public function pin(Request $request, ChatMessage $message)

@@ -103,6 +103,7 @@ internal fun ExportChatSheet(conversationId: String, onDismiss: () -> Unit) {
             stringResource(R.string.bk_export_text) to { run(false) },
             stringResource(R.string.bk_export_media) to { run(true) },
         ),
+        radios = true,
         onDismiss = onDismiss,
     )
 }

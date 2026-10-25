@@ -36,9 +36,14 @@ interface ChatMoreApi {
     @PUT("mobile/v1/chat/messages/{id}/star")
     suspend fun star(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: JsonObject): ApiEnvelope<JsonElement?>
 
-    /** `folder` = a folder id, or "none" (starred in no folder). */
+    /** `folder` = a folder id, or "none" (starred in no folder). Pages of 15. */
     @GET("mobile/v1/chat/messages/starred")
-    suspend fun starred(@Header("Authorization") auth: String, @Query("folder") folder: String? = null): ApiEnvelope<List<MessageDto>>
+    suspend fun starred(
+        @Header("Authorization") auth: String,
+        @Query("folder") folder: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<MessageDto>>
 
     /** `{pin, current_pin?}` — 4 digits. */
     @PUT("mobile/v1/chat/conversations/{id}/lock-pin")
@@ -64,7 +69,12 @@ interface ChatMoreApi {
     suspend fun catchUp(@Header("Authorization") auth: String, @Query("since") since: String? = null): ApiEnvelope<CatchUpDto>
 
     @GET("mobile/v1/chat/conversations/{id}/money")
-    suspend fun money(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ChatMoneyDto>
+    suspend fun money(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<ChatMoneyDto>
 
     @GET("mobile/v1/chat/privacy/center")
     suspend fun privacyCenter(@Header("Authorization") auth: String): ApiEnvelope<PrivacyCenterDto>
@@ -152,7 +162,11 @@ data class MoneyTotalsDto(
     val currency: String? = null,
 )
 
-data class ChatMoneyDto(val items: List<MoneyItemDto> = emptyList(), val totals: MoneyTotalsDto = MoneyTotalsDto())
+data class ChatMoneyDto(
+    val items: List<MoneyItemDto> = emptyList(),
+    val totals: MoneyTotalsDto = MoneyTotalsDto(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class PrivacyCenterDto(
     @SerializedName("who_sees") val whoSees: Map<String, Any> = emptyMap(),

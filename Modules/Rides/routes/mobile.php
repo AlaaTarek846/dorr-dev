@@ -75,6 +75,12 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::get('nearby-cars', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'cars']);
         // R-INN-07 DORR Circle: my favourite captains to choose from.
         Route::get('circle', [CircleController::class, 'index']);
+        // Block 06: «دُرر يفهم مقصدك» — is the assistant here and does my plan allow it; AI-09 the category I usually take.
+        Route::get('ai/status', [\Modules\Rides\Http\Controllers\Rider\RideAiController::class, 'status']);
+        Route::post('ai/suggest', [\Modules\Rides\Http\Controllers\Rider\RideAiController::class, 'suggest']);
+        // «راحتي»: how I like the trip (quiet, air conditioning, music, a few notes).
+        Route::get('comfort', [\Modules\Rides\Http\Controllers\Rider\RideAiController::class, 'comfort']);
+        Route::put('comfort', [\Modules\Rides\Http\Controllers\Rider\RideAiController::class, 'saveComfort']);
 
         // Complaints and financial disputes, apart from general support (R-133..R-140).
         Route::get('cases/options', [PartyCaseController::class, 'options']);
@@ -132,6 +138,8 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::post('{uuid}/rate', [RideController::class, 'rate'])->whereUuid('uuid');
         Route::post('{uuid}/tip', [RideController::class, 'tip'])->whereUuid('uuid');
         Route::post('{uuid}/payment-method', [RideController::class, 'changePayment'])->whereUuid('uuid');
+        // Block 06: the trip in my own words (text, or voice turned into text on the phone) → DORR AI.
+        Route::post('ai/understand', [\Modules\Rides\Http\Controllers\Rider\RideAiController::class, 'understand']);
         // "Search all captains", after the circle had no one (R-INN-07).
         Route::post('{uuid}/circle/widen', [CircleController::class, 'widen'])->whereUuid('uuid');
 

@@ -59,6 +59,12 @@ class DriverPreferences
                 'pets_offered' => $countryId !== null && $this->features->allows($countryId, null, 'pet'),
                 'child_seats_offered' => $countryId !== null && $this->features->allows($countryId, null, 'child_seat'),
             ],
+            // Block 06: a next trip near where my ride ends (shown only where the switch is on), and my daily goal.
+            'next_trips' => [
+                'available' => $countryId !== null && $this->features->allows($countryId, null, 'next_trip'),
+                'enabled' => (bool) ($pref?->next_trips ?? true),
+            ],
+            'daily_goal_minor' => $pref?->daily_goal_minor === null ? null : (int) $pref->daily_goal_minor,
             'auto_accept' => [
                 'available' => $available,
                 'enabled' => $available && ! empty($auto['enabled']),
@@ -117,6 +123,13 @@ class DriverPreferences
         }
         if (array_key_exists('child_seats', $input)) {
             $pref->child_seats = max(0, min(3, (int) $input['child_seats']));
+        }
+
+        if (array_key_exists('next_trips', $input)) {
+            $pref->next_trips = (bool) $input['next_trips'];
+        }
+        if (array_key_exists('daily_goal_minor', $input)) {
+            $pref->daily_goal_minor = $input['daily_goal_minor'] === null ? null : max(0, (int) $input['daily_goal_minor']);
         }
 
         if (array_key_exists('auto_accept', $input)) {

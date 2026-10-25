@@ -34,6 +34,15 @@ class AiFeatureFlagGate
         return ! $this->hasMatchingDisableFlag(AiFeatureFlag::TARGET_TOOL, null, null, $toolKey, $countryCode, $domain);
     }
 
+    /**
+     * A whole service (the DORR AI chat…) for this country — off when a disabled `service` flag
+     * matches it. The person then sees "not available" and nothing is deleted (spec 8).
+     */
+    public function isServiceAllowed(string $serviceKey, ?string $countryCode = null): bool
+    {
+        return ! $this->hasMatchingDisableFlag(AiFeatureFlag::TARGET_SERVICE, null, null, $serviceKey, $countryCode, null);
+    }
+
     protected function hasMatchingDisableFlag(
         string $targetType,
         ?int $providerId,

@@ -30,12 +30,22 @@ sealed interface ChRoute {
     data class Info(val id: String) : ChRoute
     /** Everything shared in a chat: photos & videos, files, links, voice — [tab] opens on one of them. */
     data class Media(val id: String, val tab: String = "media") : ChRoute
+    /** Wallpaper and bubble colours for one chat (only I see it). */
+    data class ChatTheme(val id: String) : ChRoute
+    /** Wallet balance and the money in this chat (transfers, requests, splits). */
+    data class ChatMoney(val id: String) : ChRoute
+    /** Everyone in a group or channel, with search. */
+    data class GroupMembers(val id: String) : ChRoute
     data object NewChat : ChRoute
     /** Find and follow public channels. */
     data object Channels : ChRoute
     /** A new group — or, with `addTo`, more members for an existing one. */
     data class NewGroup(val addTo: String? = null) : ChRoute
     data object MyQr : ChRoute
+    /** Emoji + a few words under my name in other people's chats (spec 90). */
+    data object MyStatus : ChRoute
+    /** Overflow → Settings: grouped chat tools (same chrome as Account settings). */
+    data object ChatSettings : ChRoute
     data object Privacy : ChRoute
     /** My business tools: opening hours, welcome / away messages, quick replies. */
     data object Business : ChRoute
@@ -110,6 +120,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
      */
     var twoPane by mutableStateOf(false)
 
+    /** Which Chat-settings group is open, kept while QR / starred / privacy sit on top of it. */
+    internal var chatSettingsSection by mutableStateOf(ChatSetSection.Menu)
+
     /** What opens beside the list: the page on top, unless that's the list itself. */
     val detail: ChRoute? get() = stack.last().takeIf { it !is ChRoute.List }
 
@@ -117,10 +130,13 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     val openConversationId: String? get() = (stack.lastOrNull { it is ChRoute.Conversation } as? ChRoute.Conversation)?.id
 
     val conversations = mutableStateListOf<ConversationDto>()
-    var requestsCount by mutableIntStateOf(0)
+    var requestsCount by mutableIntStateOf(com.dorr.app.chat.ChatStore.requestsCount())
     var listLoaded by mutableStateOf(false)
     var listFailed by mutableStateOf(false)
     var filter by mutableStateOf("all")
+    var listHasMore by mutableStateOf(false)
+    var listLoadingMore by mutableStateOf(false)
+    private var listPage = 1
 
     /** conversation id → people currently typing / recording there. */
     val activity = mutableStateMapOf<String, List<Activity>>()
@@ -130,6 +146,8 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     /** The stories bar (null until loaded; stays null when stories are off). */
     var stories by mutableStateOf<com.dorr.app.network.StoryFeedDto?>(null)
+    var storiesLoadingMore by mutableStateOf(false)
+    private var storiesPage = 1
     var storyViewer by mutableStateOf<StoryViewerSession?>(null)
     /** A story being uploaded — the "my status" ring spins meanwhile. */
     var storyUploading by mutableStateOf(false)
@@ -143,7 +161,29 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     suspend fun refreshStories() {
         onRefreshStories?.let { it(); return }
-        runCatching { ApiClient.chat.stories(chatAuth()).data }.getOrNull()?.let { stories = it }
+        runCatching { ApiClient.chat.stories(chatAuth(), page = 1, perPage = PAGE).data }.getOrNull()?.let {
+            stories = it
+            storiesPage = 1
+        }
+    }
+
+    suspend fun loadMoreStories() {
+        if (publicMode) return
+        val current = stories ?: return
+        if (storiesLoadingMore || !current.hasMore) return
+        storiesLoadingMore = true
+        try {
+            val next = runCatching { ApiClient.chat.stories(chatAuth(), page = storiesPage + 1, perPage = PAGE).data }.getOrNull() ?: return
+            val known = (current.recent + current.muted).map { it.owner?.key }.toSet()
+            stories = current.copy(
+                recent = current.recent + next.recent.filter { it.owner?.key !in known },
+                muted = current.muted + next.muted.filter { it.owner?.key !in known },
+                hasMore = next.hasMore,
+            )
+            storiesPage += 1
+        } finally {
+            storiesLoadingMore = false
+        }
     }
 
     fun openStories(groups: kotlin.collections.List<com.dorr.app.network.StoryGroupDto>, start: Int) {
@@ -151,6 +191,8 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     }
 
     var toast by mutableStateOf<String?>(null)
+    var toastError by mutableStateOf(false)
+        private set
     private var toastJob: Job? = null
     private val typingJobs = mutableMapOf<String, Job>()
     private val gson = Gson()
@@ -177,7 +219,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             return
         }
         forward = false
+        val leaving = stack.last()
         stack.removeAt(stack.lastIndex)
+        if (leaving is ChRoute.ChatSettings) chatSettingsSection = ChatSetSection.Menu
     }
 
     /** Replace the top page (e.g. "New chat" → the conversation it opened). */
@@ -208,7 +252,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         }
     }
 
-    fun showToast(message: String) {
+    fun showToast(message: String, error: Boolean = false) {
+        if (message.isBlank()) return
+        toastError = error
         toast = message
         toastJob?.cancel()
         toastJob = scope.launch {
@@ -248,6 +294,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             com.dorr.app.chat.ChatStore.conversations()?.takeIf { it.isNotEmpty() }?.let {
                 conversations.clear()
                 conversations.addAll(it)
+                requestsCount = com.dorr.app.chat.ChatStore.requestsCount()
                 listLoaded = true
             }
         }
@@ -255,24 +302,56 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             // "folder:12" is one of my folders; everything else is a server filter.
             val folderId = filter.removePrefix("folder:").takeIf { filter.startsWith("folder:") }?.toIntOrNull()
             val circleId = filter.removePrefix("circle:").takeIf { filter.startsWith("circle:") }
-            val page = ApiClient.chat.conversations(
+            val result = ApiClient.chat.conversations(
                 chatAuth(),
                 filter = filter.takeIf { it != "all" && folderId == null && circleId == null },
                 folder = folderId,
                 circle = circleId,
-                perPage = 50,
+                page = 1,
+                perPage = PAGE,
             )
             conversations.clear()
-            conversations.addAll(page.data.orEmpty())
-            requestsCount = page.requestsCount
+            conversations.addAll(result.data.orEmpty())
+            requestsCount = result.requestsCount
+            listPage = 1
+            listHasMore = result.pagination?.hasMorePages == true
             listFailed = false
-            if (filter == "all") com.dorr.app.chat.ChatStore.saveConversations(conversations.toList())
+            if (filter == "all") {
+                com.dorr.app.chat.ChatStore.saveConversations(conversations.toList())
+                com.dorr.app.chat.ChatStore.saveRequestsCount(requestsCount)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (!listLoaded) listFailed = true
         }
         listLoaded = true
+    }
+
+    suspend fun loadMoreList() {
+        if (listLoadingMore || !listHasMore) return
+        listLoadingMore = true
+        try {
+            val folderId = filter.removePrefix("folder:").takeIf { filter.startsWith("folder:") }?.toIntOrNull()
+            val circleId = filter.removePrefix("circle:").takeIf { filter.startsWith("circle:") }
+            val result = ApiClient.chat.conversations(
+                chatAuth(),
+                filter = filter.takeIf { it != "all" && folderId == null && circleId == null },
+                folder = folderId,
+                circle = circleId,
+                page = listPage + 1,
+                perPage = PAGE,
+            )
+            val known = conversations.map { it.id }.toSet()
+            conversations.addAll(result.data.orEmpty().filter { it.id !in known })
+            listPage += 1
+            listHasMore = result.pagination?.hasMorePages == true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        } finally {
+            listLoadingMore = false
+        }
     }
 
     /** Put one updated conversation back in the list, keeping pinned chats on top. */
@@ -436,6 +515,10 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     init {
         scope.launch { ChatRealtime.events.collect { handle(it, (current as? ChRoute.Conversation)?.id) } }
+    }
+
+    companion object {
+        const val PAGE = 15
     }
 }
 

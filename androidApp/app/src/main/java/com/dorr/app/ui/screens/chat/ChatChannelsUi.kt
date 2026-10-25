@@ -7,11 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -20,6 +15,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,12 +26,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Notifications
@@ -51,6 +52,8 @@ import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.VpnLock
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,14 +63,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -83,11 +89,23 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.CategoryDto
 import com.dorr.app.network.ChannelCardDto
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.apiFailure
-import com.dorr.app.ui.theme.CairoFontFamily
+import com.dorr.app.ui.locale.LocaleAwareBottomSheet
+import com.dorr.app.ui.screens.events.FieldGap
+import com.dorr.app.ui.screens.events.FilterBadgeDot
+import com.dorr.app.ui.screens.events.FilterSelect
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.wallet.Wa
+import com.dorr.app.ui.screens.wallet.WaButton
+import com.dorr.app.ui.screens.wallet.WaButtonStyle
+import com.dorr.app.ui.screens.wallet.WaCircleButton
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -108,17 +126,18 @@ fun ChannelsPage() {
     var list by remember { mutableStateOf<List<ChannelCardDto>?>(null) }
     /** Nothing typed, no category picked: the directory, grouped by category (most followed first). */
     var groups by remember { mutableStateOf<List<com.dorr.app.network.ChannelGroupDto>?>(null) }
-    var categories by remember { mutableStateOf<List<com.dorr.app.network.CategoryDto>>(emptyList()) }
-    var category by remember { mutableStateOf<Int?>(null) }
+    var categories by remember { mutableStateOf<List<CategoryDto>>(emptyList()) }
+    var selectedFilters by remember { mutableStateOf(setOf("all")) }
     var creating by remember { mutableStateOf(false) }
     var previewing by remember { mutableStateOf<ChannelCardDto?>(null) }
+    var visibleCount by remember { mutableIntStateOf(15) }
+    val listState = rememberLazyListState()
     LaunchedEffect(Unit) { categories = runCatching { ApiClient.discover.categories(chatAuth()).data }.getOrNull().orEmpty() }
-    LaunchedEffect(query, category) {
+    LaunchedEffect(query) {
+        visibleCount = 15
         if (query.isNotEmpty()) delay(300)
         val q = query.trim().ifEmpty { null }
-        val picked = category
         when {
-            picked != null -> { groups = null; list = runCatching { ApiClient.discover.channelsIn(chatAuth(), picked, q).data }.getOrNull().orEmpty() }
             q == null -> {
                 val directory = runCatching { ApiClient.discover.channelDirectory(chatAuth()).data }.getOrNull()
                 groups = directory
@@ -127,39 +146,90 @@ fun ChannelsPage() {
             else -> { groups = null; list = runCatching { ApiClient.chat.discoverChannels(chatAuth(), q).data }.getOrNull().orEmpty() }
         }
     }
+    LaunchedEffect(selectedFilters) { visibleCount = 15 }
     val followChanged: (ChannelCardDto, Boolean) -> Unit = { channel, followed ->
         val bump: (ChannelCardDto) -> ChannelCardDto = { if (it.id == channel.id) it.copy(isFollowing = followed, followersCount = it.followersCount + if (followed) 1 else -1) else it }
         list = list?.map(bump)
         groups = groups?.map { g -> g.copy(channels = g.channels.map(bump)) }
     }
 
-    ChPage(stringResource(R.string.ch_channels), onBack = { host.pop() }) {
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-            item { ChannelsHero { creating = true } }
-            item {
-                ChField(query, { query = it.take(60) }, stringResource(R.string.ch_channels_search), icon = Icons.Rounded.Search, clearable = true)
-            }
-            if (categories.isNotEmpty()) item {
-                ChCategoryChips(categories, category, stringResource(R.string.ch_all)) { category = it }
-            }
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ch_channels)) { host.pop() }
             val items = list
             val grouped = groups
-            when {
-                items == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(76.dp), RoundedCornerShape(20.dp)) }
-                items.isEmpty() -> item {
-                    Text(stringResource(R.string.ch_channels_none), color = Ch.Mut, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(30.dp))
-                }
-                grouped != null -> grouped.forEach { group ->
-                    item(key = "cat-" + (group.category?.id ?: 0)) { ChCategoryHeader(group.category) }
-                    itemsIndexed(group.channels, key = { _, c -> "g${group.category?.id ?: 0}-" + c.id }) { i, channel ->
-                        ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed -> followChanged(channel, followed) }
+            val allChannels = remember(items, grouped, selectedFilters) {
+                val raw = if (grouped != null) grouped.flatMap { g -> g.channels.map { Triple(g.category?.id, g.category, it) } }
+                else items.orEmpty().map { Triple(it.category?.id, it.category, it) }
+                val allMode = selectedFilters.isEmpty() || "all" in selectedFilters
+                val cats = selectedFilters.mapNotNull { it.removePrefix("cat:").toIntOrNull() }.toSet()
+                val wantVerified = "verified" in selectedFilters
+                val wantUnverified = "unverified" in selectedFilters
+                raw.filter { (catId, _, ch) ->
+                    val catOk = allMode || cats.isEmpty() || catId in cats || ch.category?.id in cats
+                    val verOk = when {
+                        allMode || (wantVerified && wantUnverified) || (!wantVerified && !wantUnverified) -> true
+                        wantVerified -> ch.isVerified
+                        else -> !ch.isVerified
                     }
-                }
-                else -> itemsIndexed(items, key = { _, c -> c.id }) { i, channel ->
-                    // Followed: straight in. Not yet: its card first, with "Follow".
-                    ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed -> followChanged(channel, followed) }
+                    catOk && verOk
                 }
             }
+            val paged = allChannels.take(visibleCount)
+            LaunchedEffect(listState, paged.size, allChannels.size) {
+                snapshotFlow {
+                    val info = listState.layoutInfo
+                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 3 && visibleCount < allChannels.size
+                }.distinctUntilChanged().filter { it }.collect {
+                    visibleCount = (visibleCount + 15).coerceAtMost(allChannels.size)
+                }
+            }
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 110.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            ) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    ChField(
+                        query, { query = it.take(60) }, stringResource(R.string.ch_channels_search),
+                        icon = Icons.Rounded.Search, clearable = true, modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    ChannelFilterButton(categories, selectedFilters) { selectedFilters = it }
+                }
+            }
+            when {
+                items == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(76.dp), RoundedCornerShape(20.dp)) }
+                items.isEmpty() || allChannels.isEmpty() -> item {
+                    Text(stringResource(R.string.ch_channels_none), color = Ch.Mut, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(30.dp))
+                }
+                else -> {
+                    val seen = mutableSetOf<Int>()
+                    paged.forEachIndexed { i, (catId, cat, channel) ->
+                        if (cat != null && catId != null && seen.add(catId)) {
+                            item(key = "cat-$catId") { ChCategoryHeader(cat) }
+                        }
+                        item(key = channel.id) {
+                            ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed -> followChanged(channel, followed) }
+                        }
+                    }
+                }
+            }
+            }
+        }
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Ch.Bg.copy(alpha = 0.96f)), startY = 0f, endY = 90f))
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 16.dp),
+        ) {
+            ChannelCreateBar { creating = true }
         }
     }
 
@@ -179,29 +249,99 @@ fun ChannelsPage() {
 }
 
 @Composable
-private fun ChannelsHero(onCreate: () -> Unit) {
-    val t = rememberInfiniteTransition(label = "megaphone")
-    val bob by t.animateFloat(-1f, 1f, infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ch.HeaderBrush).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun ChannelCreateBar(onCreate: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .shadow(14.dp, RoundedCornerShape(18.dp), spotColor = Ch.Red.copy(alpha = 0.45f))
+            .clip(RoundedCornerShape(18.dp))
+            .background(Ch.HeaderBrush)
+            .clickable(onClick = onCreate)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
+        Text(
+            stringResource(R.string.ch_channel_create),
+            color = Color.White,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+        )
         Box(
-            Modifier.size(58.dp).graphicsLayer { rotationZ = bob * 8f; translationY = bob * 3.dp.toPx() }.clip(CircleShape).background(Color.White.copy(alpha = 0.18f)),
+            Modifier
+                .align(Alignment.CenterStart)
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.Campaign, null, tint = Color.White, modifier = Modifier.size(32.dp)) }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.ch_channels_hero), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-            Text(stringResource(R.string.ch_channels_hero_sub), color = Color.White.copy(alpha = 0.85f), fontSize = 12.5.sp)
-        }
-        Box(
-            Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).clickable(onClick = onCreate).padding(horizontal = 12.dp, vertical = 9.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.ch_channel_create), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+        ) { Icon(Icons.Rounded.Campaign, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+    }
+}
+
+@Composable
+private fun ChannelFilterButton(categories: List<CategoryDto>, selected: Set<String>, onChange: (Set<String>) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        WaCircleButton(Icons.Rounded.Tune, { open = true }, contentDescription = stringResource(R.string.ch_channels_filter))
+        Box(Modifier.align(Alignment.TopEnd)) { FilterBadgeDot(selected.count { it != "all" }) }
+    }
+    if (open) ChannelFilterSheet(categories, selected, onApply = { onChange(it); open = false }, onClose = { open = false })
+}
+
+@Composable
+private fun ChannelFilterSheet(
+    categories: List<CategoryDto>,
+    current: Set<String>,
+    onApply: (Set<String>) -> Unit,
+    onClose: () -> Unit,
+) {
+    val allLabel = stringResource(R.string.ch_all)
+    val verifiedLabel = stringResource(R.string.ch_verified)
+    val unverifiedLabel = stringResource(R.string.ch_not_verified)
+    fun verifyOf(keys: Set<String>) = when {
+        "verified" in keys && "unverified" !in keys -> "verified"
+        "unverified" in keys && "verified" !in keys -> "unverified"
+        else -> "all"
+    }
+    fun catOf(keys: Set<String>) = keys.firstOrNull { it.startsWith("cat:") }?.removePrefix("cat:")?.toIntOrNull()
+    var verify by remember { mutableStateOf(verifyOf(current)) }
+    var categoryId by remember { mutableStateOf(catOf(current)) }
+    fun pack(v: String, cat: Int?) = buildSet {
+        if (v != "all") add(v)
+        if (cat != null) add("cat:$cat")
+        if (isEmpty()) add("all")
+    }
+    val verifyValue = when (verify) {
+        "verified" -> verifiedLabel
+        "unverified" -> unverifiedLabel
+        else -> allLabel
+    }
+    val catName = categories.firstOrNull { it.id == categoryId }?.name?.takeIf { it.isNotBlank() } ?: allLabel
+    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 22.dp)) {
+            Text(stringResource(R.string.ev_filter_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
+                FilterSelect(
+                    stringResource(R.string.ch_channels_filter_verify), Icons.Rounded.Verified, verifyValue,
+                    options = listOf(
+                        allLabel to { verify = "all" },
+                        verifiedLabel to { verify = "verified" },
+                        unverifiedLabel to { verify = "unverified" },
+                    ),
+                    selected = verifyValue,
+                )
+                FilterSelect(
+                    stringResource(R.string.ev_f_category), Icons.Rounded.Category, catName,
+                    options = listOf(allLabel to { categoryId = null }) +
+                        categories.map { c -> (c.name?.takeIf { it.isNotBlank() } ?: "#${c.id}") to { categoryId = c.id } },
+                    selected = catName.takeIf { categoryId != null },
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                WaButton(stringResource(R.string.ev_place_clear), { onApply(setOf("all")) }, style = WaButtonStyle.Ghost, modifier = Modifier.weight(1f))
+                WaButton(stringResource(R.string.ev_place_apply), { onApply(pack(verify, categoryId)) }, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -211,41 +351,44 @@ private fun ChannelsHero(onCreate: () -> Unit) {
 private fun ChannelRow(channel: ChannelCardDto, index: Int, onOpen: () -> Unit, onFollowChanged: (Boolean) -> Unit) {
     val host = LocalChat.current
     var busy by remember { mutableStateOf(false) }
+    val desc = channel.description?.trim()?.takeIf { it.isNotBlank() && !it.equals(channel.name?.trim(), ignoreCase = true) }
+    val handle = channel.handle?.let { "@$it" }
     Row(
-        Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).clickable(onClick = onOpen).padding(12.dp),
+        Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable(onClick = onOpen).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChAvatar(channel.avatar, channel.name, channel.id, size = 52.dp, isGroup = true)
-        Spacer(Modifier.width(12.dp))
+        ChAvatar(channel.avatar, channel.name, channel.id, size = 40.dp, isGroup = true)
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(channel.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (channel.isVerified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(16.dp) }
+                Text(channel.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (channel.isVerified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(14.dp) }
             }
-            Text(
-                listOfNotNull(channel.handle?.let { "@$it" }, stringResource(R.string.ch_followers, channel.followersCount), channel.category?.name).joinToString("  ·  "),
-                color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1,
-            )
-            channel.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ch.Soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            if (handle != null) Text(handle, color = Ch.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (desc != null) Text(desc, color = Ch.Soft, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
-        FollowPill(channel.isFollowing, busy) {
-            busy = true
-            host.scope.launch {
-                try {
-                    if (channel.isFollowing) {
-                        ApiClient.chat.unfollowChannel(chatAuth(), channel.id)
-                        host.remove(channel.id)
-                        onFollowChanged(false)
-                    } else {
-                        ApiClient.chat.followChannel(chatAuth(), channel.id).data?.let { host.upsert(it) }
-                        onFollowChanged(true)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            FollowPill(channel.isFollowing, busy) {
+                busy = true
+                host.scope.launch {
+                    try {
+                        if (channel.isFollowing) {
+                            ApiClient.chat.unfollowChannel(chatAuth(), channel.id)
+                            host.remove(channel.id)
+                            onFollowChanged(false)
+                        } else {
+                            ApiClient.chat.followChannel(chatAuth(), channel.id).data?.let { host.upsert(it) }
+                            onFollowChanged(true)
+                        }
+                    } catch (e: Exception) {
+                        e.apiFailure().message?.let { host.showToast(it) }
                     }
-                } catch (e: Exception) {
-                    e.apiFailure().message?.let { host.showToast(it) }
+                    busy = false
                 }
-                busy = false
             }
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(R.string.ch_followers, channel.followersCount), color = Ch.Mut, fontSize = 11.sp, maxLines = 1)
         }
     }
 }
@@ -255,16 +398,16 @@ private fun ChannelRow(channel: ChannelCardDto, index: Int, onOpen: () -> Unit, 
 private fun FollowPill(following: Boolean, busy: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(if (following) Ch.SurfaceMuted else Ch.Red, label = "followBg")
     Box(
-        Modifier.clip(RoundedCornerShape(14.dp)).background(bg).clickable(enabled = !busy, onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        Modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(enabled = !busy, onClick = onClick).padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(following, label = "follow", transitionSpec = { (scaleIn(spring(dampingRatio = 0.5f)) + fadeIn()) togetherWith (scaleOut() + fadeOut()) }) { on ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (on) {
-                    Icon(Icons.Rounded.Check, null, tint = Ch.Mut, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Rounded.Check, null, tint = Ch.Mut, modifier = Modifier.size(13.dp))
                     Spacer(Modifier.width(3.dp))
                 }
-                Text(stringResource(if (on) R.string.ch_following else R.string.ch_follow), color = if (on) Ch.Mut else Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                Text(stringResource(if (on) R.string.ch_following else R.string.ch_follow), color = if (on) Ch.Mut else Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }

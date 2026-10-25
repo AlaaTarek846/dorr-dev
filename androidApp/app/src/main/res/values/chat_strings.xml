@@ -2,13 +2,26 @@
 <resources>
     <!-- Chat (Modules/Chat). Every key exists in both languages. -->
     <string name="ch_title">Chats</string>
+    <string name="ch_settings">Settings</string>
+    <string name="ch_chat_settings">Chat settings</string>
+    <string name="ch_my_followers">My followers</string>
+    <string name="ch_set_account">Account and profile</string>
+    <string name="ch_set_privacy">Privacy and security</string>
+    <string name="ch_set_messages">Chats and messages</string>
+    <string name="ch_set_org">Organization and productivity</string>
+    <string name="ch_set_look">Appearance and accessibility</string>
+    <string name="ch_set_data">Data and performance</string>
+    <string name="ch_set_calls">Calls and communities</string>
+    <string name="ch_set_biz">Business tools</string>
+    <string name="ch_info_notify">Notifications</string>
     <string name="ch_search_hint">Search chats and messages</string>
     <string name="ch_filter_all">All</string>
     <string name="ch_filter_unread">Unread</string>
     <string name="ch_filter_groups">Groups</string>
+    <string name="ch_filter_contacts">Contacts</string>
     <string name="ch_filter_archived">Archived</string>
     <string name="ch_requests_banner">Message requests</string>
-    <string name="ch_requests_count">%d waiting for you</string>
+    <string name="ch_requests_count">%d waiting</string>
     <string name="ch_empty_title">No chats yet</string>
     <string name="ch_empty_text">Start a conversation with your contacts, or create a group.</string>
     <string name="ch_start_chat">Start a chat</string>
@@ -114,6 +127,7 @@
 
     <string name="ch_call_voice">Voice call</string>
     <string name="ch_call_video">Video call</string>
+    <string name="ch_send_call_link">Send call link</string>
     <string name="ch_call_missed">Missed call</string>
     <string name="ch_call_declined">Declined</string>
     <string name="ch_call_cancelled">Cancelled</string>
@@ -171,12 +185,25 @@
     <string name="ch_confirm_delete_chat">Delete this chat? Only for you.</string>
     <string name="ch_confirm_leave">Exit this group?</string>
     <string name="ch_confirm_block">Block %s? Blocked contacts can\'t message or call you.</string>
+    <string name="ch_block_done">Blocked</string>
+    <string name="ch_unblock_done">Unblocked</string>
+    <string name="ch_clear_done">Chat cleared</string>
+    <string name="ch_delete_done">Chat deleted</string>
     <string name="ch_add_members">Add members</string>
+    <string name="ch_group_members">Group members</string>
+    <string name="ch_followers_list">Followers</string>
+    <string name="ch_see_all_members">See all (%d)</string>
     <string name="ch_owner">Owner</string>
     <string name="ch_admin">Admin</string>
     <string name="ch_make_admin">Make admin</string>
     <string name="ch_dismiss_admin">Dismiss as admin</string>
-    <string name="ch_remove_member">Remove</string>
+    <string name="ch_remove_member">Remove from group</string>
+    <string name="ch_confirm_remove_member">Remove %1$s from the group?</string>
+    <string name="ch_remove">Remove</string>
+    <string name="ch_member_removed">%1$s was removed from the group</string>
+    <string name="ch_member_now_admin">%1$s is now an admin</string>
+    <string name="ch_member_admin_dismissed">%1$s is no longer an admin</string>
+    <string name="ch_member_now_owner">%1$s is now the group owner</string>
     <string name="ch_invite_link">Invite via link</string>
     <string name="ch_link_copied">Link copied</string>
     <string name="ch_group_settings">Group settings</string>
@@ -208,6 +235,7 @@
     <string name="ch_my_qr_title">My chat QR</string>
     <string name="ch_my_qr_sub">People who scan this code can start a chat with you.</string>
     <string name="ch_reset_qr">Reset QR code</string>
+    <string name="ch_conversation_link">Conversation link</string>
     <string name="ch_qr_reset_done">Your old code no longer works</string>
     <string name="ch_scan_prompt">Scan a Dorr chat code</string>
 
@@ -274,6 +302,9 @@
     <string name="ch_channels_hero">Channels</string>
     <string name="ch_channels_hero_sub">Updates from the people and companies you follow</string>
     <string name="ch_channels_search">Search channels</string>
+    <string name="ch_channels_filter">Filter</string>
+    <string name="ch_channels_filter_search">Search filters</string>
+    <string name="ch_channels_filter_verify">Verification</string>
     <string name="ch_channels_none">No channels found</string>
     <string name="ch_channel_new">New channel</string>
     <string name="ch_channel_create">Create channel</string>
@@ -440,6 +471,7 @@
     <string name="ch_save_contact">Save contact</string>
     <string name="ch_contact_saved">Saved to your contacts</string>
     <string name="ch_message">Message</string>
+    <string name="ch_call">Call</string>
     <string name="ch_number_not_on_dorr">%1$s isn\'t on Dorr yet</string>
     <string name="ch_search_country">Search country or code</string>
     <string name="ch_search_contacts">Search name or number</string>
@@ -506,9 +538,13 @@
     <string name="ch_add_to_contacts">Add to contacts</string>
     <string name="ch_theme_yours">Make it yours</string>
     <string name="ch_theme_yours_sub">Your own photo and bubble colours for this chat. Only you see them.</string>
+    <string name="ch_theme_add_photo">Add photo</string>
     <string name="ch_theme_photo">Photo from gallery</string>
     <string name="ch_theme_change_photo">Change photo</string>
-    <string name="ch_theme_remove_photo">Remove photo</string>
+    <string name="ch_theme_remove_photo">Delete photo</string>
+    <string name="ch_theme_dim">Wallpaper transparency</string>
+    <string name="ch_theme_wallpaper">Wallpaper</string>
+    <string name="ch_theme_message_colors">Message colours</string>
     <string name="ch_theme_my_bubbles">My messages</string>
     <string name="ch_theme_their_bubbles">Their messages</string>
     <string name="ch_theme_reset">Back to the Dorr look</string>
@@ -645,7 +681,13 @@
     <string name="ch_status_today">Today</string>
     <string name="ch_status_week">This week</string>
     <string name="ch_status_forever">Until I clear it</string>
-    <string name="ch_status_clear">Clear status</string>
+    <string name="ch_status_clear">Remove status</string>
+    <string name="ch_status_except_people">Exclude people</string>
+    <string name="ch_status_pick">Choose a status</string>
+    <string name="ch_status_pick_contact">Choose a contact</string>
+    <string name="ch_status_sample_name">Visitor</string>
+    <string name="ch_status_saved">Status saved</string>
+    <string name="ch_status_removed">Status removed</string>
     <string name="ch_status_holiday">On holiday</string>
     <string name="ch_status_work">At work</string>
     <string name="ch_status_driving">Driving</string>
@@ -809,6 +851,68 @@
     <!-- Wide screens (spec 89): beside the list before a chat is opened. -->
     <string name="ch_pane_title">Pick a chat</string>
     <string name="ch_pane_sub">It opens here, next to your chats.</string>
+    <!-- Images with DORR AI (spec 50, 51) -->
+    <string name="ch_ai_image_title">AI image</string>
+    <string name="ch_ai_image_edit_title">Edit with AI</string>
+    <string name="ch_ai_image_sub">A preview only you see — send it if you like it</string>
+    <string name="ch_ai_image_hint">Describe the image, e.g. a cat in a spacesuit</string>
+    <string name="ch_ai_image_edit_hint">How should it change? e.g. make it black and white</string>
+    <string name="ch_ai_image_caption">Add a caption (optional)</string>
+    <string name="ch_ai_image_go">Create</string>
+    <string name="ch_ai_image_edit_go">Edit</string>
+    <string name="ch_ai_image_again">Try again</string>
+    <string name="ch_ai_image_send">Send</string>
+    <string name="ch_ai_image_quota_note">Each image counts against your DORR AI plan\'s daily images.</string>
+    <string name="ch_ai_image_ideas">Ideas</string>
+    <string name="ch_ai_image_style">Style</string>
+    <string name="ch_ai_style_realistic">Realistic</string>
+    <string name="ch_ai_style_illustration">Illustration</string>
+    <string name="ch_ai_style_anime">Anime</string>
+    <string name="ch_ai_style_3d">3D</string>
+    <string name="ch_ai_style_oil">Oil painting</string>
+    <string name="ch_ai_style_minimal">Minimal</string>
+    <string name="ch_ai_image_change">Change the words</string>
+    <string name="ch_ai_image_source">The image you\'re changing</string>
+    <string name="ch_ai_image_left">%1$d left today</string>
+    <string name="ch_ai_image_unlimited">Unlimited</string>
+    <string name="ch_ai_image_locked_chip">Locked</string>
+    <string name="ch_ai_image_no_plan">AI images need a DORR AI plan. Subscribe and start creating.</string>
+    <string name="ch_ai_image_trial_ended">Your free trial has ended. Pick a DORR AI plan to keep creating images.</string>
+    <string name="ch_ai_image_blocked">DORR AI is turned off for your account right now.</string>
+    <string name="ch_ai_image_not_in_plan">Your current plan doesn\'t include AI images. Upgrade to create them.</string>
+    <string name="ch_ai_image_limit_reached">You\'ve used today\'s %1$d images. Come back tomorrow or upgrade your plan.</string>
+    <string-array name="ch_ai_image_ideas">
+        <item>A sunset over the pyramids, cinematic</item>
+        <item>A cute cat in a space suit</item>
+        <item>A birthday card with balloons</item>
+        <item>A cozy coffee shop on a rainy day</item>
+        <item>A futuristic city at night</item>
+    </string-array>
+    <string-array name="ch_ai_image_edit_ideas">
+        <item>Make it black and white</item>
+        <item>Remove the background</item>
+        <item>Make it look like a cartoon</item>
+        <item>Add a warm sunset light</item>
+        <item>Make it look like an oil painting</item>
+    </string-array>
+    <string-array name="ch_ai_image_making">
+        <item>Drawing your image…</item>
+        <item>Mixing the colours…</item>
+        <item>Adding the details…</item>
+        <item>Almost there…</item>
+    </string-array>
+    <!-- DORR AI in the chat: search by meaning, continue elsewhere, memory, AI images -->
+    <string name="ch_ai_meaning_toggle">By meaning</string>
+    <string name="ch_ai_meaning_terms">Also looked for: %1$s</string>
+    <string name="ch_ai_capsule_title">Continue in another chat</string>
+    <string name="ch_ai_capsule_sub">A summary of this chat to carry the work on</string>
+    <string name="ch_ai_capsule_note">Edit it as you like. It is sent only to the chats you pick.</string>
+    <string name="ch_ai_capsule_send">Send to a chat</string>
+    <string name="ch_ai_capsule_sent">Summary sent</string>
+    <string name="ch_ai_memory">DORR AI memory</string>
+    <string name="ch_ai_images_title">AI images</string>
+    <string name="ch_ai_images_sub">Everything made or edited with AI in your chats</string>
+    <string name="ch_ai_images_empty">No AI images in your chats yet.</string>
     <!-- Call links (WhatsApp list 72) -->
     <string name="cl_create">Create call link</string>
     <string name="cl_create_sub">Anyone with the link can join</string>

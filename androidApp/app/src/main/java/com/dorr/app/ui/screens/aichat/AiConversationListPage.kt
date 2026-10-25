@@ -23,6 +23,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -60,6 +62,8 @@ internal fun AiConversationListPage(
     onNewChat: () -> Unit,
     onOpenSettings: () -> Unit,
     onDelete: (Int) -> Unit,
+    onOpenSearch: () -> Unit = {},
+    onContinue: () -> Unit = {},
 ) {
     val bg = if (night) Ai.bgDark else Ai.bgLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
@@ -76,6 +80,18 @@ internal fun AiConversationListPage(
             Spacer(Modifier.width(4.dp))
             Text(stringResource(R.string.ai_history_title), color = ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
             if (!unavailable) {
+                // Search the history by word and by meaning (spec 134), and continue earlier
+                // chats in a new one with their context carried over (spec 123).
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenSearch),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.ai_tools_search_title), tint = mut, modifier = Modifier.size(20.dp)) }
+                if (conversations.isNotEmpty()) {
+                    Box(
+                        Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onContinue),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.ai_tools_continue), tint = mut, modifier = Modifier.size(19.dp)) }
+                }
                 // Opens the consolidated AI Assistant settings hub
                 // (AiSettingsScreen) - subscription, language/dialect, and
                 // room for more, instead of a separate top-bar icon per

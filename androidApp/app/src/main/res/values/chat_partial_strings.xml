@@ -66,11 +66,14 @@
     <string name="cp_none">None</string>
     <string name="cp_money">Money in this chat</string>
     <string name="cp_my_balance">My balance</string>
+    <string name="cp_wallet_public_number">Public wallet number</string>
+    <string name="cp_account_number">Account number</string>
     <string name="cp_sent">Sent</string>
     <string name="cp_received">Received</string>
     <string name="cp_i_owe">I owe</string>
     <string name="cp_owed_to_me">Owed to me</string>
     <string name="cp_history">History</string>
+    <string name="cp_show_more">Show more</string>
     <string name="cp_no_money">No money here yet.</string>
     <string name="cp_t_request">Money request</string>
     <string name="cp_t_split">Bill split</string>

@@ -71,13 +71,17 @@ class ChatAiToolsService
             .'Answer in '.$this->language().' unless they write in another language. Be clear and practical; short unless more is needed. '
             .'If messages are given, base what you say about them only on them and never invent what they do not say. '
             .'Reply with JSON only: {"answer": "<your answer>", "refs": [<numbers of the given messages you used>]}.']];
+        // My DORR AI memory (spec 140–144): what I asked it to keep, and «افتكر إن…» saves here too.
+        if (($memory = $this->ai->memoryFor($me, $question)) !== null) {
+            $messages[] = ['role' => 'system', 'content' => $memory];
+        }
         foreach (array_slice($history, -5) as $turn) {
             $messages[] = ['role' => 'user', 'content' => Str::limit((string) ($turn['q'] ?? ''), 500)];
             $messages[] = ['role' => 'assistant', 'content' => Str::limit((string) ($turn['a'] ?? ''), 1500)];
         }
         $messages[] = ['role' => 'user', 'content' => $context.'Question: '.Str::limit(trim($question), 1000)];
 
-        $safe = $this->ai->askSafely($messages, $question, verify: true);
+        $safe = $this->ai->askSafely($messages, $question, verify: true, source: 'chat.assistant', me: $me);
         $json = $this->ai->json($safe['raw']);
         $answer = is_string($json['answer'] ?? null) ? $this->ai->safety()->finish($json['answer'], $safe['risk'])['text'] : $safe['text'];
 
@@ -109,7 +113,7 @@ class ChatAiToolsService
                 .'Keep the same language and dialect (colloquial Arabic stays colloquial), the meaning, tone, emojis, names, numbers, links, @mentions and *_~ formatting marks. '
                 .'Do not rephrase, shorten or add anything. If there is nothing to fix, return it unchanged. Reply with the message only.'],
             ['role' => 'user', 'content' => Str::limit($text, 4000, '')],
-        ]));
+        ], 'chat.proofread'));
         $fixed = trim($fixed, " \t\n\"");
 
         return ['text' => $fixed, 'changed' => $fixed !== $text];
@@ -136,7 +140,7 @@ class ChatAiToolsService
                 .'"summary": "<what the sender wants, in one short sentence>", "tone_note": "<one short sentence on the feeling and how to answer it, or null>", '
                 .'"actions": [any of "reply", "remind", "task", "note"], "replies": [3 short replies the person could send, in the message\'s own language and dialect]}.'],
             ['role' => 'user', 'content' => 'From '.$from.":\n".$text],
-        ], $text);
+        ], $text, source: 'chat.understand', me: $me);
 
         $json = $this->ai->json($safe['raw']);
         $pick = fn (string $key, array $allowed, string $default) => in_array($json[$key] ?? null, $allowed, true) ? $json[$key] : $default;
@@ -166,7 +170,7 @@ class ChatAiToolsService
             ['role' => 'system', 'content' => 'You simplify a long chat message, in '.$this->language().'. Reply with JSON only: '
                 .'{"short": "<the message in one or two simple sentences>", "points": ["<the key points, at most 6, short>"]}. Only what the message says.'],
             ['role' => 'user', 'content' => Str::limit($text, 6000, '')],
-        ])));
+        ], 'chat.simplify', $me)));
 
         return [
             'short' => Str::limit(trim((string) ($json['short'] ?? '')), 500),
@@ -192,7 +196,7 @@ class ChatAiToolsService
                 .'Reply with a JSON array only (empty if there is nothing to do): [{"text": "<the task, short, in the message\'s language>", "due": "YYYY-MM-DD HH:MM" or null}]. '
                 .'Only what the message asks for; never invent a date.'],
             ['role' => 'user', 'content' => Str::limit($this->textOf($message), 4000, '')],
-        ]));
+        ], 'chat.tasks', $me));
         $items = array_is_list($items) ? $items : ($items['tasks'] ?? []);
 
         return ['tasks' => collect((array) $items)->filter(fn ($i) => is_array($i) && is_string($i['text'] ?? null) && trim($i['text']) !== '')->take(15)
@@ -217,7 +221,7 @@ class ChatAiToolsService
             ['role' => 'system', 'content' => 'You make a short organised note from chat messages, in '.$this->language().'. Keep only the useful facts: names, dates, times, places, amounts, numbers, links, decisions. '
                 .'Reply with JSON only: {"title": "<a short title>", "points": ["<one fact per point, at most 10>"]}. Never invent anything.'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
+        ], 'chat.note', $me));
         $title = Str::limit(trim((string) ($json['title'] ?? '')), 80) ?: __('chat.ai.note_title');
         $points = collect((array) ($json['points'] ?? []))->filter(fn ($p) => is_string($p) && trim($p) !== '')->map(fn ($p) => Str::limit(trim($p), 300))->take(10)->values()->all();
         if ($points === []) {
@@ -251,7 +255,7 @@ class ChatAiToolsService
                 .'Reply with a JSON array only (empty if none): [{"title": "<what, short, in the chat\'s language>", "at": "YYYY-MM-DD HH:MM", "all_day": true | false, "ref": <number of the message>}]. '
                 .'Only dates the chat really gives (resolve "tomorrow", "Sunday" from now); an all-day one gets 09:00. Never invent one.'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
+        ], 'chat.dates', $me));
         $items = array_is_list($items) ? $items : ($items['dates'] ?? []);
 
         $out = [];
@@ -291,7 +295,7 @@ class ChatAiToolsService
                 .'appointments, problems, anything urgent or from someone close. Skip greetings, chit-chat and things already answered. Answer in '.$this->language().'. '
                 .'Reply with a JSON array only, most important first, at most 10: [{"ref": <message number>, "level": "high" | "medium", "why": "<a few words>"}].'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
+        ], 'chat.important', $me));
         $items = array_is_list($items) ? $items : ($items['items'] ?? []);
 
         $out = [];
@@ -339,7 +343,7 @@ class ChatAiToolsService
             ['role' => 'system', 'content' => 'You suggest files shared earlier in a chat that relate to what the latest messages are about. Use only names, types, dates and captions. '
                 .'Answer in '.$this->language().'. Reply with a JSON array only, best first, at most 6 (empty if none fit): [{"ref": <file number>, "why": "<a few words>"}].'],
             ['role' => 'user', 'content' => "Latest messages:\n".$recent->implode("\n")."\n\nFiles:\n".$list->implode("\n")],
-        ]));
+        ], 'chat.related_files', $me));
         $items = array_is_list($items) ? $items : ($items['files'] ?? []);
 
         $out = [];
@@ -381,7 +385,7 @@ class ChatAiToolsService
                 .'Reply with JSON only: {"summary": ["<3 to 7 short bullet points: what happened, what was decided, what waits for Me>"], '
                 .'"highlights": [{"ref": <message number>, "text": "<why it matters, a few words>"}] (at most 8)}. Only what the messages say.'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
+        ], 'chat.today', $me));
 
         $highlights = [];
         foreach (array_slice((array) ($json['highlights'] ?? []), 0, 8) as $h) {

@@ -242,7 +242,7 @@ fun Composer(state: ConversationState) {
         state.send(Outgoing("voice", files = listOf(LocalFile(clip.file, "audio/mp4", clip.file.name)), extra = mapOf("duration_ms" to clip.durationMs, "waveform" to clip.waveform)))
     }
 
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 10.dp, vertical = 5.dp)) {
         // --------------------------------------------------------------- my scheduled messages here
         ScheduledPill(state) { scheduledOpen = true }
 
@@ -317,20 +317,20 @@ fun Composer(state: ConversationState) {
                         RecordingBar(recorder, dragX, locked, onCancel = { recorder.cancel(); locked = false; state.sendTyping(stop = true) })
                     } else {
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(6.dp, RoundedCornerShape(25.dp), spotColor = Color.Black.copy(alpha = 0.15f))
+                            Modifier.fillMaxWidth().heightIn(min = 44.dp).shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.12f))
                                 // Slightly see-through: the wallpaper shows around and under the message box.
-                                .clip(RoundedCornerShape(25.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 6.dp),
+                                .clip(RoundedCornerShape(22.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 4.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             val rotation by animateFloatAsState(if (attachOpen) 45f else 0f, spring(dampingRatio = 0.45f), label = "attach")
-                            Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { attachOpen = true }, contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(26.dp).rotate(rotation))
+                            Box(Modifier.padding(bottom = 3.dp).size(34.dp).clip(CircleShape).clickable { attachOpen = true }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(22.dp).rotate(rotation))
                             }
-                            Box(Modifier.weight(1f).padding(vertical = 14.dp, horizontal = 4.dp)) {
+                            Box(Modifier.weight(1f).padding(vertical = 9.dp, horizontal = 4.dp)) {
                                 if (text.isEmpty()) Text(
                                     // Slow mode on: say so where I type.
                                     if (state.slowModeSeconds > 0) stringResource(R.string.ch_slow_mode_hint, slowModeLabel(state.slowModeSeconds)) else stringResource(R.string.ch_message_hint),
-                                    color = Ch.Soft, fontSize = 15.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    color = Ch.Soft, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                                 BasicTextField(
                                     value = text,
@@ -338,7 +338,7 @@ fun Composer(state: ConversationState) {
                                         text = it
                                         if (it.isNotBlank()) state.sendTyping() else state.sendTyping(stop = true)
                                     },
-                                    textStyle = TextStyle(color = Ch.Ink, fontSize = 15.5.sp, fontFamily = CairoFontFamily, lineHeight = 21.sp),
+                                    textStyle = TextStyle(color = Ch.Ink, fontSize = 14.5.sp, fontFamily = CairoFontFamily, lineHeight = 20.sp),
                                     cursorBrush = SolidColor(Ch.Red),
                                     maxLines = 6,
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -347,23 +347,23 @@ fun Composer(state: ConversationState) {
                             }
                             // ✨ Suggest replies — only on an empty field, only when the AI is available.
                             if (text.isEmpty() && ChatAi.smartReplies && state.editing == null) {
-                                Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { state.loadSmartReplies() }, contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Rounded.AutoAwesome, null, tint = if (state.loadingReplies) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
+                                Box(Modifier.padding(bottom = 3.dp).size(34.dp).clip(CircleShape).clickable { state.loadSmartReplies() }, contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.AutoAwesome, null, tint = if (state.loadingReplies) Ch.Red else Ch.Mut, modifier = Modifier.size(18.dp))
                                 }
                             }
                             // Emoji · stickers · GIFs — the face winks when the panel opens.
                             val wink by animateFloatAsState(if (exprOpen) 1f else 0f, spring(dampingRatio = 0.4f), label = "exprWink")
-                            Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { exprOpen = true }, contentAlignment = Alignment.Center) {
+                            Box(Modifier.padding(bottom = 3.dp).size(34.dp).clip(CircleShape).clickable { exprOpen = true }, contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.EmojiEmotions, null, tint = if (exprOpen) Ch.Red else Ch.Mut,
-                                    modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = wink * 18f; scaleX = 1f + wink * 0.15f; scaleY = 1f + wink * 0.15f },
+                                    modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = wink * 18f; scaleX = 1f + wink * 0.15f; scaleY = 1f + wink * 0.15f },
                                 )
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
 
             // --------------------------------------------------------------- mic ⇄ send
             val showSend = text.isNotBlank() || locked
@@ -382,7 +382,7 @@ fun Composer(state: ConversationState) {
                     LaunchedEffect(Unit) { popIn.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 500f)) }
                     androidx.compose.ui.window.Popup(
                         alignment = Alignment.BottomEnd,
-                        offset = with(LocalDensity.current) { androidx.compose.ui.unit.IntOffset(0, -64.dp.roundToPx()) },
+                        offset = with(LocalDensity.current) { androidx.compose.ui.unit.IntOffset(0, -56.dp.roundToPx()) },
                         onDismissRequest = { silentMenu = false },
                         properties = androidx.compose.ui.window.PopupProperties(focusable = true),
                     ) {
@@ -403,7 +403,7 @@ fun Composer(state: ConversationState) {
                     }
                 }
                 // The lock that rises above the mic while recording.
-                androidx.compose.animation.AnimatedVisibility(recorder.recording && !locked, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut(), modifier = Modifier.offset(y = (-70).dp)) {
+                androidx.compose.animation.AnimatedVisibility(recorder.recording && !locked, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut(), modifier = Modifier.offset(y = (-62).dp)) {
                     val lift = (-dragY / lockAt).coerceIn(0f, 1f)
                     Column(
                         Modifier.offset(y = (-lift * 24).dp).shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).padding(horizontal = 8.dp, vertical = 10.dp),
@@ -414,11 +414,11 @@ fun Composer(state: ConversationState) {
                     }
                 }
                 if (recorder.recording && !locked) {
-                    Box(Modifier.size(52.dp).scale(grow * halo).background(Ch.Red.copy(alpha = 0.18f), CircleShape))
+                    Box(Modifier.size(46.dp).scale(grow * halo).background(Ch.Red.copy(alpha = 0.18f), CircleShape))
                 }
                 Box(
                     Modifier
-                        .size(52.dp)
+                        .size(46.dp)
                         .scale(grow)
                         .shadow(12.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.5f))
                         .clip(CircleShape)
@@ -500,7 +500,7 @@ fun Composer(state: ConversationState) {
                         } else {
                             Icon(
                                 if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
-                                null, tint = Color.White, modifier = Modifier.size(24.dp),
+                                null, tint = Color.White, modifier = Modifier.size(20.dp),
                             )
                         }
                     }
@@ -584,7 +584,7 @@ private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean,
     val density = LocalDensity.current
 
     Row(
-        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().height(44.dp).shadow(4.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (locked) {
@@ -700,6 +700,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var liveSeconds by remember { mutableStateOf<Int?>(null) }
     var askingLocation by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
+    // A new image from a description with DORR AI (spec 50).
+    var aiImageOpen by remember { mutableStateOf(false) }
     var interactiveOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
@@ -770,6 +772,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             gifVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
         },
         AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
+        if (ChatAi.imageGenerate) AttachItem(Icons.Rounded.AutoAwesome, R.string.ch_ai_image_title, listOf(Color(0xFF818CF8), Color(0xFF4F46E5))) { aiImageOpen = true } else null,
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
         // Reply buttons / a list of choices (WhatsApp list 123–125).
         AttachItem(Icons.Rounded.SmartButton, R.string.ia_attach, listOf(Color(0xFF7DD3FC), Color(0xFF0284C7))) { interactiveOpen = true },
@@ -877,6 +880,10 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         ) { sent ->
             if (sent != null) state.replaceMessage(sent.id, UiMessage(sent)) else host.scope.launch { state.refreshScheduled() }
         }
+        return
+    }
+    if (aiImageOpen) {
+        ChatAiImageSheet(state, source = null, onDismiss = { aiImageOpen = false; onDismiss() })
         return
     }
     if (interactiveOpen) {

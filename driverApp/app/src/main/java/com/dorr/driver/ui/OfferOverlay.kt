@@ -150,11 +150,13 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
 
     // Sound and vibration while it waits (the notification already rang when the app was closed).
     DisposableEffect(offer.uuid) {
-        val tone = if (!AlertPrefs.sound(context)) null else runCatching { RingtoneManager.getRingtone(context, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)) }.getOrNull()
+        // Block 06: a next trip comes while the captain is driving — no ring, one short buzz, so it never distracts.
+        val quiet = offer.nextTrip != null
+        val tone = if (!AlertPrefs.sound(context) || quiet) null else runCatching { RingtoneManager.getRingtone(context, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)) }.getOrNull()
         tone?.play()
         val vibrator = if (Build.VERSION.SDK_INT >= 31) (context.getSystemService(VibratorManager::class.java))?.defaultVibrator
         else @Suppress("DEPRECATION") context.getSystemService(Vibrator::class.java)
-        if (Build.VERSION.SDK_INT >= 26 && AlertPrefs.vibration(context)) vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 400, 500, 400, 500), -1))
+        if (Build.VERSION.SDK_INT >= 26 && AlertPrefs.vibration(context)) vibrator?.vibrate(if (quiet) VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE) else VibrationEffect.createWaveform(longArrayOf(0, 500, 400, 500, 400, 500), -1))
         NotificationManagerCompat.from(context).cancel(DriverDutyService.ID_OFFER)
         onDispose { tone?.stop(); vibrator?.cancel() }
     }
@@ -195,6 +197,8 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.offer_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            // Block 06: a next trip — it starts once the ride I'm driving ends; the net is right above.
+            NextTripBadge(offer.nextTrip)
             // O-28: the ride's category, and how the earning is made — before accepting.
             offer.category?.name?.let { name ->
                 Text(
@@ -225,6 +229,8 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
             Point(DorrBrand.orange, stringResource(R.string.offer_dropoff), offer.destination?.address ?: stringResource(R.string.offer_open_destination))
             // D-60, D-61: how many ride and the pickup note, before accepting.
             RiderDetails(offer.passengers, offer.pickupNote, offer.beneficiary?.name, offer.pickupPoint, offer.dropoffPoint, offer.fromCircle, offer.options)
+            // «راحتي»: how the rider likes the trip — before accepting.
+            ComfortChips(offer.comfort)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             Spacer(Modifier.height(16.dp))
             // Bidding: the rider's price, "accept for", or my own offer.
