@@ -474,7 +474,13 @@ interface ChatApi {
     // ------------------------------------------------------------------ contacts, privacy, presence
 
     @GET("mobile/v1/chat/contacts")
-    suspend fun contacts(@Header("Authorization") auth: String, @Query("registered") registered: Int = 0): ApiEnvelope<List<ContactDto>>
+    suspend fun contacts(
+        @Header("Authorization") auth: String,
+        @Query("registered") registered: Int = 0,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+    ): ApiEnvelope<List<ContactDto>>
 
     @POST("mobile/v1/chat/contacts/sync")
     suspend fun syncContacts(@Header("Authorization") auth: String, @Body body: ContactSyncRequest): ApiEnvelope<List<ContactDto>>
@@ -516,7 +522,12 @@ interface ChatApi {
     suspend fun privacySummary(@Header("Authorization") auth: String, @Query("from") from: String): ApiEnvelope<PrivacySummaryDto>
 
     @GET("mobile/v1/chat/blocks")
-    suspend fun blocks(@Header("Authorization") auth: String): ApiEnvelope<List<BlockDto>>
+    suspend fun blocks(
+        @Header("Authorization") auth: String,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<BlockDto>>
 
     @POST("mobile/v1/chat/blocks")
     suspend fun block(@Header("Authorization") auth: String, @Body body: Map<String, Int>): ApiEnvelope<List<BlockDto>>
@@ -978,6 +989,8 @@ data class MessageDto(
     @SerializedName("expires_at") val expiresAt: String?,
     val reactions: ReactionsDto = ReactionsDto(),
     @SerializedName("is_starred") val isStarred: Boolean = false,
+    /** Favourites folder; null = unsorted «Favourites». */
+    @SerializedName("star_folder_id") val starFolderId: Int? = null,
     /** On my "read later" list. */
     @SerializedName("is_read_later") val isReadLater: Boolean = false,
     /** A surprise greeting card (spec 165) not opened yet: no words, no files until `meta.card.reveal_at`. */

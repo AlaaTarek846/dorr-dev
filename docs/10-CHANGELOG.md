@@ -8,6 +8,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Android “what I missed” (2026-10-26):** settings header (`SubHeader` + pink wash). Compact time chips, search by name or number under them (`GET catch-up?q=`). Unread-chat rows are cards with a chat-list badge. Unread chats page 15 (`page`, `per_page`, `has_more`); other buckets cap at 15.
+- **Android starred messages (2026-10-26):** Favourites is a card per message (chat name + date, sender on groups, a short preview). Search at the top (`GET messages/starred?q=` name, phone, or text). A star only on unsorted Favourites, not on messages in a named folder. A down arrow expands the message; tap opens that chat; long-press moves folders. Pages of 15; rows carry `star_folder_id`.
+- **Android current context (2026-10-26):** “Right now” is a settings row (title outside the card). Tap opens a sheet of contexts; a duration sheet follows unless “As usual”.
+- **Android context rules (2026-10-26):** “What each context does” is a card of rows. Tapping home/work/… opens one shared screen whose title is that context; each row opens a choice sheet. Same API as before (`PUT attention` `contexts`).
+- **Android communication rules calls + on-phone (2026-10-26):** those two blocks match the rows above (title outside the card). Switches use the Account → Notifications red toggle. Call hours open a sheet for time and weekdays; important words open a sheet with checks.
+- **Android always-get-through (2026-10-26):** title and hint sit outside the card; the row shows how many people are chosen. Tapping opens the people picker with checks on the current set, search, and pages of 15 (`GET chat/contacts?page=&per_page=15&q=`). Without `page` the contacts list is still the full list.
+- **Android communication rules (2026-10-26):** “What interrupts me” matches privacy rows (title and hint outside the card; tap opens a radio sheet for Now / In the summary / Later). Other sections on that page are unchanged.
+- **Android locked chats empty (2026-10-25):** an empty locked list uses the same illustrated empty state as blocked contacts (title + “no locked chats”), instead of a blank screen when message requests exist.
+- **Android blocked contacts (2026-10-25):** moved off the privacy page onto Privacy and security. The new screen searches by name or number and loads 15 at a time (`GET chat/blocks?q=&page=&per_page=15`).
+- **Android username + privacy save (2026-10-25):** deleting a username sends an empty string (Gson was dropping JSON null, so Laravel said the field was missing). Save/delete and privacy updates show a toast. The missing-username API message is translated.
+- **Android privacy center (2026-10-25):** one card of rows like the privacy screen; tapping a topic (e.g. who can see what) opens a choice sheet of its items.
+- **Android privacy schedule sheet (2026-10-25):** time boxes have a clock icon; weekdays have a title, named chips, and multi-select with a check.
+- **Android chat privacy screen (2026-10-25):** the privacy page uses the same card, type size, pink icon wells and red toggles as Account → Notifications. All settings sit in one card; blocked contacts stay a separate list underneath.
+- **Android create channel sheet (2026-10-25):** photo has delete and add badges; category is a searchable select (first: بدون تصنيف); public/private cards have a radio on the title.
+- **Android chat account labels (2026-10-25):** Account and profile rows are **رمز QR**, **حالتي**, and **القنوات** (that row opens channels, not followers).
+- **Android channel unfollow (2026-10-25):** إلغاء المتابعة confirms with the same dialog as مسح المحادثة, then leaves the channel.
+
 ### Fixed
 - **Admin → Chat → Channels would not open (2026-10-22):** the search placeholder used `@handle`, which vue-i18n treats as a linked message and crashed the page. The `@` is escaped in ar/en.
 

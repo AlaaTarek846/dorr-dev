@@ -481,9 +481,30 @@ internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (
                     timeSelectorUnselectedContentColor = Ch.Ink,
                 ),
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) }
-                TextButton({ onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) }
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.ch_cancel),
+                    color = Ch.Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Ch.SurfaceMuted)
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.ch_ok),
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Ch.Red)
+                        .clickable { onPick(LocalTime.of(state.hour, state.minute)) }
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                )
             }
         }
     }

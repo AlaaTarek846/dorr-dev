@@ -317,6 +317,12 @@ fun ChatListPage() {
                             animated = true,
                         )
                     }
+                    rows.isEmpty() && host.filter == "locked" && searchResults == null -> ChEmptyState(
+                        icon = Icons.Rounded.Lock,
+                        title = stringResource(R.string.ch_locked_chats),
+                        text = stringResource(R.string.ch_no_locked),
+                        animated = true,
+                    )
                     rows.isEmpty() && host.requestsCount == 0 -> Column(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f)) {
                             ChEmptyState(

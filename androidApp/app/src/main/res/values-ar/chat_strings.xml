@@ -14,6 +14,7 @@
     <string name="ch_set_biz">أدوات البيزنس</string>
     <string name="ch_info_notify">الإشعارات</string>
     <string name="ch_search_hint">ابحث في المحادثات والرسائل</string>
+    <string name="ch_info_search">ابحث في هذه الشاشة</string>
     <string name="ch_filter_all">الكل</string>
     <string name="ch_filter_unread">غير مقروءة</string>
     <string name="ch_filter_groups">المجموعات</string>
@@ -27,7 +28,7 @@
     <string name="ch_new_chat">محادثة جديدة</string>
     <string name="ch_new_group">مجموعة جديدة</string>
     <string name="ch_scan_qr">مسح رمز QR</string>
-    <string name="ch_my_qr">رمز QR الخاص بي</string>
+    <string name="ch_my_qr">رمز QR</string>
     <string name="ch_today">اليوم</string>
     <string name="ch_yesterday">أمس</string>
     <string name="ch_online">متصل الآن</string>
@@ -187,6 +188,9 @@
     <string name="ch_confirm_clear">مسح كل الرسائل في هذه المحادثة؟ لديك فقط.</string>
     <string name="ch_confirm_delete_chat">حذف هذه المحادثة؟ لديك فقط.</string>
     <string name="ch_confirm_leave">الخروج من هذه المجموعة؟</string>
+    <string name="ch_confirm_unfollow">إلغاء متابعة هذه القناة؟</string>
+    <string name="ch_unfollow_done">تم إلغاء المتابعة</string>
+    <string name="ch_leave_done">خرجت من المجموعة</string>
     <string name="ch_confirm_block">حظر %s؟ لن يتمكن من مراسلتك أو الاتصال بك.</string>
     <string name="ch_block_done">تم الحظر</string>
     <string name="ch_unblock_done">تم إلغاء الحظر</string>
@@ -259,6 +263,8 @@
     <string name="ch_no_blocked">لا توجد جهات اتصال محظورة</string>
     <string name="ch_starred_title">الرسائل المميزة بنجمة</string>
     <string name="ch_no_starred">اضغط مطولاً على أي رسالة واختر «تمييز بنجمة» لتجدها هنا لاحقاً.</string>
+    <string name="ch_starred_expand">عرض الرسالة</string>
+    <string name="ch_starred_collapse">إخفاء الرسالة</string>
     <string name="ch_calls_title">المكالمات</string>
     <string name="ch_no_calls">سيظهر سجل مكالماتك هنا</string>
 
@@ -283,6 +289,7 @@
     <string name="ch_delete_folder">حذف المجلد</string>
     <string name="ch_add_to_folder">إضافة إلى مجلد</string>
     <string name="ch_locked_chats">المحادثات المقفولة</string>
+    <string name="ch_no_locked">لا توجد محادثات مقفولة</string>
     <string name="ch_unlock">فتح</string>
     <string name="ch_unlock_title">فتح المحادثة</string>
     <string name="ch_unlock_sub">استخدم البصمة أو الوجه أو قفل الشاشة</string>
@@ -657,9 +664,10 @@
     <string name="ch_money_send_title">ابعت %1$s</string>
     <string name="ch_money_sent_title">اتبعتت</string>
     <string name="ch_make_owner">خليه المالك</string>
-    <string name="ch_delete_group_all">امسح الجروب عند الكل</string>
-    <string name="ch_delete_channel_all">امسح القناة عند الكل</string>
-    <string name="ch_confirm_delete_all">هيتمسح عند كل الناس بكل رسايله، ومينفعش ترجّعه.</string>
+    <string name="ch_delete_group_all">حذف المجموعة</string>
+    <string name="ch_delete_channel_all">حذف القناة</string>
+    <string name="ch_confirm_delete_all">هتتمسح عند كل الناس بكل الرسائل، ومينفعش ترجع.</string>
+    <string name="ch_delete_all_done">اتمسحت عند الكل</string>
     <string name="ch_video_failed">الفيديو ده مش راضي يشتغل.</string>
     <string name="ch_pdf_page">صفحة %1$d من %2$d</string>
     <string name="ch_pdf_failed">ملف الـ PDF ده مش راضي يتفتح هنا.</string>
@@ -737,6 +745,9 @@
     <string name="ch_privacy_schedule_off">وقّف الجدولة</string>
     <string name="ch_from">من</string>
     <string name="ch_to">لحد</string>
+    <string name="ch_schedule_time">الوقت</string>
+    <string name="ch_weekdays">أيام الأسبوع</string>
+    <string name="ch_weekdays_pick">تقدر تختار أكتر من يوم</string>
     <string name="ch_safe_view">العرض الآمن</string>
     <string name="ch_safe_view_sub">اخفي معاينات المحادثات، والمحادثات اللي تختارها، من القايمة.</string>
     <string name="ch_safe_view_hidden">•••</string>

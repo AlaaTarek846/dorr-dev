@@ -19,7 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
@@ -29,7 +31,6 @@ import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mood
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.PushPin
@@ -132,13 +133,14 @@ fun ChatSettingsPage() {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.QrCode2, R.string.ch_my_qr, dark) { host.push(ChRoute.MyQr) }
                             ChatSettingsRow(Icons.Rounded.Mood, R.string.ch_status_title, dark) { host.push(ChRoute.MyStatus) }
-                            ChatSettingsRow(Icons.Rounded.People, R.string.ch_my_followers, dark, last = true) { host.push(ChRoute.Channels) }
+                            ChatSettingsRow(Icons.Rounded.Campaign, R.string.ch_channels, dark, last = true) { host.push(ChRoute.Channels) }
                         }
                     }
                     ChatSetSection.Privacy -> item {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.Shield, R.string.ch_privacy_title, dark) { host.push(ChRoute.Privacy) }
                             ChatSettingsRow(Icons.Rounded.Security, R.string.cp_privacy_center, dark) { host.push(ChRoute.PrivacyCenter) }
+                            ChatSettingsRow(Icons.Rounded.Block, R.string.ch_blocked_list, dark) { host.push(ChRoute.BlockedContacts) }
                             ChatSettingsRow(Icons.Rounded.Lock, R.string.ch_locked_chats, dark) {
                                 ChatLock.unlock(context) {
                                     host.filter = "locked"

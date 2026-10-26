@@ -47,6 +47,8 @@ sealed interface ChRoute {
     /** Overflow → Settings: grouped chat tools (same chrome as Account settings). */
     data object ChatSettings : ChRoute
     data object Privacy : ChRoute
+    /** Blocked contacts: search and pages of 15. */
+    data object BlockedContacts : ChRoute
     /** My business tools: opening hours, welcome / away messages, quick replies. */
     data object Business : ChRoute
     data object Starred : ChRoute
@@ -77,6 +79,8 @@ sealed interface ChRoute {
     data object Commitments : ChRoute
     /** My communication rules: context, attention, always through, calls (spec 146, 151, 155). */
     data object CommRules : ChRoute
+    /** What one context does (home / work / …) — one screen, title from the key. */
+    data class ContextRules(val key: String) : ChRoute
     /** What needs something from me (spec 147). */
     data object LifeInbox : ChRoute
     /** Data saver and lite mode (spec 82, 87). */

@@ -41,6 +41,7 @@ interface ChatMoreApi {
     suspend fun starred(
         @Header("Authorization") auth: String,
         @Query("folder") folder: String? = null,
+        @Query("q") q: String? = null,
         @Query("page") page: Int = 1,
         @Query("per_page") perPage: Int = 15,
     ): ApiEnvelope<List<MessageDto>>
@@ -66,7 +67,13 @@ interface ChatMoreApi {
     suspend fun byUsername(@Header("Authorization") auth: String, @Query("u") username: String): ApiEnvelope<ProfileDto>
 
     @GET("mobile/v1/chat/catch-up")
-    suspend fun catchUp(@Header("Authorization") auth: String, @Query("since") since: String? = null): ApiEnvelope<CatchUpDto>
+    suspend fun catchUp(
+        @Header("Authorization") auth: String,
+        @Query("since") since: String? = null,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<CatchUpDto>
 
     @GET("mobile/v1/chat/conversations/{id}/money")
     suspend fun money(
@@ -141,6 +148,7 @@ data class CatchUpDto(
     val reminders: List<MsgRefDto> = emptyList(),
     val decisions: List<OpenDecisionDto> = emptyList(),
     @SerializedName("unread_chats") val unreadChats: List<UnreadChatDto> = emptyList(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
 )
 
 data class MoneyItemDto(

@@ -149,13 +149,14 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `contacts` | `registered`, `favorites` | |
+| GET | `contacts` | `registered`, `favorites`, `q` (name or phone), `page`, `per_page` (default 15, max 50) | Without `page` the full list. With `page`, `pagination.has_more_pages` |
 | POST | `contacts/sync` | `contacts[] {name, phone}` (≤2000), `full` | Numbers are normalised to E.164 using the request's country. Returns the contacts who are registered |
 | POST / PATCH / DELETE | `contacts`, `contacts/{id}` | `name`, `phone`, `is_favorite` | |
 | POST | `contacts/lookup` | `phone`, `country_code?` | The number can be written with or without the country code (`+966…`, `00966…`, `966…`), with or without the trunk `0`, and with spaces. Numbers without a code are read in `country_code`, or else in the country of my own phone. It must be a **whole** number: exactly the country's `phone_length` digits, starting with `phone_starts_with`. Otherwise it's `422 chat_invalid_phone` (with `data.phone_length`, `dial_code`), and no search is made. 404 when the number isn't registered. Throttled to 20 per minute. `POST contacts` (manual add) uses the same rule |
 | GET / POST | `contacts/qr`, `contacts/qr/reset`, `contacts/qr/resolve` | `payload` | `dorr://chat/{token}` |
 | GET / PATCH | `privacy` | `last_seen`, `profile_photo`, `who_can_message`, `who_can_add_to_groups`, `who_can_call` (everyone\|contacts\|nobody), `read_receipts`, `block_screenshots`, `notification_privacy` (all\|name\|none) | What a chat push shows: `all` = name + text, `name` = name + "New message", `none` = "Dorr" + "New message". The old switch `notification_preview` (bool) is still accepted (true → all, false → none) and still returned |
-| GET / POST | `blocks`, `blocks/remove` | `participant_id` | |
+| GET | `blocks` | `q` (name or phone), `page`, `per_page` (default 15, max 50) | `pagination.has_more_pages`. Search matches the account or the name/number I saved |
+| POST | `blocks`, `blocks/remove` | `participant_id` | Answers with the full remaining list |
 | POST | `presence` | `online` | Send it on foreground, then every ~60s. It expires after 90s |
 | CRUD | `folders`, `folders/{id}/conversations` (PUT `conversations[]`) | | Limited by `max_folders` |
 
@@ -442,7 +443,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 |---|---|---|---|
 | 1 | POST / PATCH | `folders` · `folders/{id}` | also `color` (#RRGGBB), `emoji` |
 | 24 | GET / POST / PATCH / DELETE | `star-folders` (+ `/{id}`) | `{name, emoji?, color?}`; up to 30. `GET` gives `{unsorted_count, folders[{id, name, emoji, color, count}]}`. Deleting one keeps its messages starred |
-| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}&page=&per_page=15` |
+| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}&q=&page=&per_page=15`. `q` matches chat name, phone, or message text. Each row has `star_folder_id` (null = unsorted Favourites) |
 | 20 + 21 | GET | `conversations/{c}/messages/search?q=&types[]=` | `q` optional when `types` given; types: text, image, video, voice, document, link, location, poll, contact, sticker, money. Matches the words or, in voice notes **I** transcribed, what was said (`chat_message_transcripts`, per participant) |
 | 17 + 18 | GET | `conversations/{c}/gallery` | also `date` (Y-m-d, from that day back), `file_kind` (pdf, word, excel, slides, archive, other — by type or extension), `min_size` / `max_size` (bytes), `sort=size` (biggest first, one page) |
 | 25 | PUT / DELETE | `conversations/{c}/lock-pin` | `{pin (4–8 digits), current_pin?}` / `{pin}`. Setting one locks the chat. The conversation carries `has_lock_pin` |
@@ -450,7 +451,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 | 81 | GET / PUT | `username` | `{username\|null}`: starts with a letter, then letters, digits and `_` (3–32), unique among people **and** channel handles (`chat_username_invalid` / `_taken`). Profiles carry `username` |
 | 81 | GET | `users/by-username?u=@name` | The profile, with `phone: null` |
 | 114 | GET | `conversations?filter=priority` | Unread mentions, urgent messages and replies I owe first, then unread direct chats (muted ones only for a mention or something urgent). Each row has `priority: [mention\|urgent\|owed\|direct]` |
-| 123 | GET | `catch-up?since=ISO` | Default 24 h, at most 7 days: `{mentions, replies, urgent, owed, missed_calls, reminders, decisions, unread_chats}`. Never reads locked chats or locked / hidden circles |
+| 123 | GET | `catch-up?since=ISO&q=&page=&per_page=` | Default 24 h, at most 7 days: `{mentions, replies, urgent, owed, missed_calls, reminders, decisions, unread_chats, has_more}`. `q` matches chat name or phone. Each message bucket is at most 15. `unread_chats` pages (`per_page` default 15, max 50); `has_more` is for that list. Never reads locked chats or locked / hidden circles |
 | 66 | GET | `conversations/{c}/money?page=&per_page=` | `{items[{message_id, type, amount_minor, currency, status, is_mine, note, created_at}], totals{sent_minor, received_minor, i_owe_minor, owed_to_me_minor, currency}, has_more}`. Default `per_page` 15 (max 50). Totals are for the whole chat. |
 | 153 | POST | `messages/{m}/decision` | also `description?`, `deadline_at?` |
 | 153 | GET | `decisions/{id}` | The room: the decision plus `can_decide` and `arguments[{id, stance, option_id, text, by, is_mine}]` |

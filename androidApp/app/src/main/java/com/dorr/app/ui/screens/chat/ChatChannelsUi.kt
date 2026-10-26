@@ -46,10 +46,13 @@ import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Tune
@@ -475,13 +478,41 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
             Spacer(Modifier.height(14.dp))
             val pop = remember { Animatable(0.7f) }
             LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f)) }
-            Box(
-                Modifier.size(96.dp).scale(pop.value).shadow(14.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f)).clip(CircleShape).background(Ch.HeaderBrush)
-                    .clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (photo != null) AsyncImage(photo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                else Icon(Icons.Rounded.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(32.dp))
+            Box(Modifier.size(112.dp).scale(pop.value), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(96.dp)
+                        .shadow(14.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f))
+                        .clip(CircleShape)
+                        .background(Ch.HeaderBrush)
+                        .clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (photo != null) AsyncImage(photo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else Icon(Icons.Rounded.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+                if (photo != null) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(28.dp)
+                            .shadow(6.dp, CircleShape)
+                            .clip(CircleShape)
+                            .background(Ch.Danger)
+                            .clickable { photo = null },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.Close, stringResource(R.string.ch_delete), tint = Color.White, modifier = Modifier.size(15.dp)) }
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(28.dp)
+                        .shadow(6.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(Ch.Red)
+                        .clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Add, stringResource(R.string.ch_add), tint = Color.White, modifier = Modifier.size(16.dp)) }
             }
             Spacer(Modifier.height(14.dp))
             SheetInput(name, stringResource(R.string.ch_channel_name_hint), Icons.Rounded.Campaign) { name = it.take(100) }
@@ -492,12 +523,16 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
                 handle = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' }.take(32)
             }
             if (!handleOk) Text(stringResource(R.string.ch_channel_handle_rule), color = Ch.Danger, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp))
-            if (categories.isNotEmpty()) {
-                Text(stringResource(R.string.ch_channel_category), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 12.dp, bottom = 6.dp))
-                ChCategoryChips(categories, category, stringResource(R.string.ch_channel_category_none)) { category = it }
-            }
+            val noneCat = stringResource(R.string.ch_channel_category_none)
+            val catName = categories.firstOrNull { it.id == category }?.name?.takeIf { it.isNotBlank() } ?: noneCat
+            Spacer(Modifier.height(12.dp))
+            FilterSelect(
+                "", Icons.Rounded.Category, catName,
+                options = listOf(noneCat to { category = null }) +
+                    categories.map { c -> (c.name?.takeIf { it.isNotBlank() } ?: "#${c.id}") to { category = c.id } },
+                selected = if (category == null) noneCat else catName,
+            )
 
-            // Public / link-only, as two cards.
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(true to Triple(Icons.Rounded.Public, R.string.ch_channel_public, R.string.ch_channel_public_sub), false to Triple(Icons.Rounded.VpnLock, R.string.ch_channel_private, R.string.ch_channel_private_sub))
                     .forEach { (value, meta) ->
@@ -506,7 +541,16 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
                         Column(
                             Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(bg).clickable { isPublic = value }.padding(12.dp),
                         ) {
-                            Icon(meta.first, null, tint = if (on) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(meta.first, null, tint = if (on) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
+                                Spacer(Modifier.weight(1f))
+                                Icon(
+                                    if (on) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                                    null,
+                                    tint = if (on) Ch.Red else Ch.Soft,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                             Text(stringResource(meta.second), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp))
                             Text(stringResource(meta.third), color = Ch.Mut, fontSize = 11.5.sp)
                         }

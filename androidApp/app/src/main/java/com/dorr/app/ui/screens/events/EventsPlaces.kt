@@ -357,7 +357,7 @@ internal fun FilterSelect(label: String, icon: ImageVector, value: String, optio
     val searchHint = stringResource(R.string.ev_filter_search)
     val none = stringResource(R.string.ev_place_none)
     Column(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f)) {
-        FieldLabel(label)
+        if (label.isNotBlank()) FieldLabel(label)
         com.dorr.app.ui.screens.calendar.SelectRow(icon, value, open && enabled, { if (enabled) open = it }) {
             DorrTextField(
                 query, { query = it.take(60) },

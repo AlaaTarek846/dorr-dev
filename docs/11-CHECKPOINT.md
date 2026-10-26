@@ -63,6 +63,19 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android “what I missed” (2026-10-26):** settings header; compact time chips; search by name/phone; unread rows are cards with a badge; unread chats page 15 (`GET catch-up?q=&page=&per_page=`).
+- **Android starred messages (2026-10-26):** Favourites lists compact cards. Search at the top (name/phone/text). Star only on unsorted Favourites. Expand arrow; tap jumps to the message; pages of 15.
+- **Android current context (2026-10-26):** communication rules “Right now” is a row + choice sheet (then duration), not chips.
+- **Android context rules (2026-10-26):** one `ChRoute.ContextRules(key)` screen; list rows on communication rules push it.
+- **Android communication rules calls + on-phone (2026-10-26):** same card/rows as the sections above; RedToggle like Account notifications.
+- **Android always-get-through (2026-10-26):** privacy-style row with a count; picker checks the chosen people and loads contacts 15 at a time.
+- **Android communication rules (2026-10-26):** “What interrupts me” uses privacy-style rows + ChoiceSheet; title/description stay outside the card.
+- **Android locked chats empty (2026-10-25):** empty locked list uses `ChEmptyState` like blocked contacts (`ch_no_locked`).
+- **Android blocked contacts (2026-10-25):** Privacy and security → Blocked contacts (search name/phone, pages of 15). Removed from the privacy settings page.
+- **Android username delete (2026-10-25):** remove sends `username: ""` (Gson was dropping JSON null). Save/delete and privacy updates toast. API missing-username message is translated.
+- **Android privacy schedule sheet (2026-10-25):** time boxes have a clock icon; weekdays are named chips (multi-select) under **أيام الأسبوع**.
+- **Android chat privacy screen (2026-10-25):** Privacy matches Account → Notifications (one settings card, 13.5/11sp rows, PinkIcon + RedToggle). Blocked contacts stay a list under that card.
+- **Android channel unfollow (2026-10-25):** unfollow uses the same confirm dialog as clear chat, then pops back to the list.
 - **Android channels create (2026-10-22):** sticky **إنشاء قناة** at the bottom of Channels; filter beside search matches browse.
 - **Android channels filter (2026-10-22):** Channels search uses the browse Tune circle; the sheet is verification + category `FilterSelect`, Apply / Clear.
 - **Android chat money page (2026-10-20):** chat info → money is `ChRoute.ChatMoney` (settings header). Ledger pages 15 (`has_more`, Show more / المزيد). `GET conversations/{c}/money?page=&per_page=`.
