@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BookmarkAdd
@@ -31,38 +33,55 @@ import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Screenshot
 import androidx.compose.material.icons.rounded.PhoneDisabled
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.chat.CallController
 import com.dorr.app.network.ApiClient
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.dorr.app.network.BlockDto
 import com.dorr.app.network.CallDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.network.PrivacyDto
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 // =============================================================================== privacy
@@ -72,65 +91,48 @@ fun PrivacyPage() {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
     var privacy by remember { mutableStateOf<PrivacyDto?>(null) }
-    var blocked by remember { mutableStateOf<List<BlockDto>>(emptyList()) }
-    var picker by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var picker by remember { mutableStateOf<Triple<String, String, String>?>(null) }
     var notificationPicker by remember { mutableStateOf(false) }
     var timerPicker by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<com.dorr.app.network.PrivacySummaryDto?>(null) }
 
     LaunchedEffect(Unit) {
         privacy = runCatching { ApiClient.chat.privacy(chatAuth()).data }.getOrNull()
-        blocked = runCatching { ApiClient.chat.blocks(chatAuth()).data }.getOrNull().orEmpty()
     }
+    val savedToast = stringResource(R.string.ch_saved)
     fun save(key: String, value: Any) = scope.launch {
-        runCatching { ApiClient.chat.updatePrivacy(chatAuth(), mapOf(key to value)).data }.getOrNull()?.let { privacy = it }
+        runCatching { ApiClient.chat.updatePrivacy(chatAuth(), mapOf(key to value)).data }.getOrNull()?.let {
+            privacy = it
+            host.showToast(savedToast)
+        }
     }
 
-    ChPage(stringResource(R.string.ch_privacy_title), onBack = { host.pop() }) {
+    ChPage(stringResource(R.string.ch_privacy_title), onBack = { host.pop() }, settingsHeader = true) {
         val p = privacy
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
             if (p == null) {
-                item { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(320.dp), RoundedCornerShape(22.dp)) }
+                item { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(320.dp), RoundedCornerShape(18.dp)) }
             } else {
                 item {
-                    Card {
-                        AudienceRow(Icons.Rounded.Visibility, stringResource(R.string.ch_last_seen_setting), p.lastSeen) { picker = "last_seen" to it }
-                        AudienceRow(Icons.Rounded.AddPhotoAlternate, stringResource(R.string.ch_profile_photo_setting), p.profilePhoto) { picker = "profile_photo" to it }
-                        AudienceRow(Icons.Rounded.Message, stringResource(R.string.ch_who_message), p.whoCanMessage) { picker = "who_can_message" to it }
-                        AudienceRow(Icons.Rounded.GroupAdd, stringResource(R.string.ch_who_groups), p.whoCanAddToGroups) { picker = "who_can_add_to_groups" to it }
-                        AudienceRow(Icons.Rounded.Call, stringResource(R.string.ch_who_call), p.whoCanCall) { picker = "who_can_call" to it }
-                        AudienceRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_who_urgent), p.whoCanUrgent ?: "contacts") { picker = "who_can_urgent" to it }
-                    }
-                }
-                item {
-                    Card {
-                        ToggleRow(Icons.Rounded.DoneAll, stringResource(R.string.ch_read_receipts), p.readReceipts, subtitle = stringResource(R.string.ch_read_receipts_sub)) { save("read_receipts", it) }
-                        ToggleRow(Icons.Rounded.Screenshot, stringResource(R.string.ch_block_screenshots), p.blockScreenshots) { save("block_screenshots", it) }
-                        // WhatsApp's default timer, and silencing callers I never saved.
-                        SettingRow(Icons.Rounded.Timer, stringResource(R.string.bk_default_timer), value = stringResource(timerLabel(p.defaultDisappearingSeconds))) { timerPicker = true }
-                        ToggleRow(Icons.Rounded.PhoneDisabled, stringResource(R.string.bk_silence_unknown), p.silenceUnknownCallers, subtitle = stringResource(R.string.bk_silence_unknown_sub)) { save("silence_unknown_callers", it) }
-                        // What a notification shows: name and message · name only · nothing.
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        AudienceRow(Icons.Rounded.Visibility, R.string.ch_last_seen_setting, p.lastSeen, "last_seen") { picker = it }
+                        AudienceRow(Icons.Rounded.AddPhotoAlternate, R.string.ch_profile_photo_setting, p.profilePhoto, "profile_photo") { picker = it }
+                        AudienceRow(Icons.Rounded.Message, R.string.ch_who_message, p.whoCanMessage, "who_can_message") { picker = it }
+                        AudienceRow(Icons.Rounded.GroupAdd, R.string.ch_who_groups, p.whoCanAddToGroups, "who_can_add_to_groups") { picker = it }
+                        AudienceRow(Icons.Rounded.Call, R.string.ch_who_call, p.whoCanCall, "who_can_call") { picker = it }
+                        AudienceRow(Icons.Rounded.NotificationsActive, R.string.ch_who_urgent, p.whoCanUrgent ?: "contacts", "who_can_urgent") { picker = it }
+                        PrivacySettingsRow(Icons.Rounded.DoneAll, stringResource(R.string.ch_read_receipts), subtitle = stringResource(R.string.ch_read_receipts_sub), checked = p.readReceipts, onChecked = { save("read_receipts", it) })
+                        PrivacySettingsRow(Icons.Rounded.Screenshot, stringResource(R.string.ch_block_screenshots), checked = p.blockScreenshots, onChecked = { save("block_screenshots", it) })
+                        PrivacySettingsRow(Icons.Rounded.Timer, stringResource(R.string.bk_default_timer), value = stringResource(timerLabel(p.defaultDisappearingSeconds))) { timerPicker = true }
+                        PrivacySettingsRow(Icons.Rounded.PhoneDisabled, stringResource(R.string.bk_silence_unknown), subtitle = stringResource(R.string.bk_silence_unknown_sub), checked = p.silenceUnknownCallers, onChecked = { save("silence_unknown_callers", it) })
                         val level = p.notificationPrivacy ?: if (p.notificationPreview) "all" else "none"
-                        SettingRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_notification_preview), value = stringResource(notificationLevelLabel(level))) { notificationPicker = true }
-                    }
-                }
-                item { PrivacyShieldCards(p, onChanged = { privacy = it }, onSummary = { summary = it }) }
-                item { Text(stringResource(R.string.ch_blocked_list), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp)) }
-                if (blocked.isEmpty()) {
-                    item { Text(stringResource(R.string.ch_no_blocked), color = Ch.Soft, modifier = Modifier.padding(start = 8.dp)) }
-                }
-                itemsIndexed(blocked, key = { _, b -> b.profile?.key ?: b.blockedAt.orEmpty() }) { i, b ->
-                    Row(Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChAvatar(b.profile?.avatar, b.profile?.name, b.profile?.key, size = 44.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(b.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Text(
-                            stringResource(R.string.ch_unblock), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable {
-                                val id = b.profile?.id ?: return@clickable
-                                scope.launch { blocked = runCatching { ApiClient.chat.unblock(chatAuth(), mapOf("participant_id" to id)).data }.getOrNull() ?: blocked }
-                            }.padding(horizontal = 12.dp, vertical = 7.dp),
-                        )
+                        PrivacySettingsRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_notification_preview), value = stringResource(notificationLevelLabel(level))) { notificationPicker = true }
+                        PrivacyShieldCards(p, onChanged = { privacy = it }, onSummary = { summary = it })
                     }
                 }
             }
@@ -140,35 +142,135 @@ fun PrivacyPage() {
     summary?.let { PrivacySummaryDialog(it) { summary = null } }
     if (timerPicker) {
         val current = privacy?.defaultDisappearingSeconds
+        val choices = listOf<Int?>(null, 86400, 604800, 7776000)
         ChoiceSheet(
             title = stringResource(R.string.bk_default_timer),
             subtitle = stringResource(R.string.bk_default_timer_sub),
-            options = listOf<Int?>(null, 86400, 604800, 7776000).map { value ->
-                (if (value == current) "✓  " else "") + stringResource(timerLabel(value)) to { save("default_disappearing_seconds", value ?: 0); Unit }
-            },
+            options = choices.map { value -> stringResource(timerLabel(value)) to { save("default_disappearing_seconds", value ?: 0); Unit } },
+            radios = true,
+            selected = choices.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 0,
             onDismiss = { timerPicker = false },
         )
     }
     if (notificationPicker) {
         val current = privacy?.notificationPrivacy ?: "all"
+        val choices = listOf("all", "name", "none")
         ChoiceSheet(
             title = stringResource(R.string.ch_notification_preview),
-            options = listOf("all", "name", "none").map { value ->
-                (if (value == current) "✓  " else "") + stringResource(notificationLevelLabel(value)) to { save("notification_privacy", value); Unit }
-            },
+            options = choices.map { value -> stringResource(notificationLevelLabel(value)) to { save("notification_privacy", value); Unit } },
             subtitle = stringResource(R.string.ch_notification_privacy_sub),
+            radios = true,
+            selected = choices.indexOfFirst { it == current }.takeIf { it >= 0 } ?: 0,
             onDismiss = { notificationPicker = false },
         )
     }
 
-    picker?.let { (key, current) ->
+    picker?.let { (key, current, title) ->
+        val choices = listOf("everyone" to R.string.ch_everyone, "contacts" to R.string.ch_my_contacts, "nobody" to R.string.ch_nobody)
         ChoiceSheet(
-            title = stringResource(R.string.ch_privacy_title),
-            options = listOf("everyone" to R.string.ch_everyone, "contacts" to R.string.ch_my_contacts, "nobody" to R.string.ch_nobody).map { (value, label) ->
-                (if (value == current) "✓  " else "") + stringResource(label) to { save(key, value); Unit }
-            },
+            title = title,
+            options = choices.map { (value, label) -> stringResource(label) to { save(key, value); Unit } },
+            radios = true,
+            selected = choices.indexOfFirst { it.first == current }.takeIf { it >= 0 } ?: 0,
             onDismiss = { picker = null },
         )
+    }
+}
+
+@Composable
+fun BlockedContactsPage() {
+    val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var query by remember { mutableStateOf("") }
+    var list by remember { mutableStateOf<List<BlockDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val unblocked = stringResource(R.string.ch_unblock_done)
+
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching {
+            ApiClient.chat.blocks(chatAuth(), q = query.trim().ifBlank { null }, page = next, perPage = 15)
+        }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        list = if (reset) chunk else {
+            val known = list.orEmpty().map { it.profile?.key }.toSet()
+            list.orEmpty() + chunk.filter { it.profile?.key !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+
+    LaunchedEffect(query) {
+        delay(280)
+        loadPage(reset = true)
+    }
+    LaunchedEffect(listState, list?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
+
+    ChPage(stringResource(R.string.ch_blocked_list), onBack = { host.pop() }, settingsHeader = true) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+            ChField(
+                query, { query = it.take(80) }, stringResource(R.string.ch_blocked_search),
+                icon = Icons.Rounded.Search, clearable = true, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
+            )
+            val items = list
+            when {
+                items == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Ch.Red)
+                }
+                items.isEmpty() -> Box(Modifier.fillMaxSize()) {
+                    ChEmptyState(Icons.Rounded.Block, stringResource(R.string.ch_blocked_list), stringResource(R.string.ch_no_blocked), animated = true)
+                }
+                else -> LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(items, key = { _, b -> b.profile?.key ?: b.blockedAt.orEmpty() }) { i, b ->
+                        Row(
+                            Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ChAvatar(b.profile?.avatar, b.profile?.name, b.profile?.key, size = 44.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(b.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold)
+                                b.profile?.phone?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ch.Mut, fontSize = 12.5.sp) }
+                            }
+                            Text(
+                                stringResource(R.string.ch_unblock), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable {
+                                    val id = b.profile?.id ?: return@clickable
+                                    scope.launch {
+                                        runCatching { ApiClient.chat.unblock(chatAuth(), mapOf("participant_id" to id)) }.onSuccess {
+                                            list = list.orEmpty().filter { it.profile?.id != id }
+                                            host.showToast(unblocked)
+                                        }
+                                    }
+                                }.padding(horizontal = 12.dp, vertical = 7.dp),
+                            )
+                        }
+                    }
+                    if (loadingMore) item {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -186,8 +288,65 @@ private fun notificationLevelLabel(level: String): Int = when (level) {
 }
 
 @Composable
-private fun AudienceRow(icon: ImageVector, title: String, value: String, onClick: (String) -> Unit) {
-    SettingRow(icon, title, value = stringResource(when (value) { "contacts" -> R.string.ch_my_contacts; "nobody" -> R.string.ch_nobody; else -> R.string.ch_everyone })) { onClick(value) }
+private fun AudienceRow(icon: ImageVector, titleRes: Int, value: String, key: String, onPick: (Triple<String, String, String>) -> Unit) {
+    val title = stringResource(titleRes)
+    PrivacySettingsRow(
+        icon,
+        title,
+        value = stringResource(when (value) {
+            "contacts" -> R.string.ch_my_contacts
+            "nobody" -> R.string.ch_nobody
+            else -> R.string.ch_everyone
+        }),
+    ) { onPick(Triple(key, value, title)) }
+}
+
+/** One row of the privacy card — same type, size and toggle as Account → Notifications. */
+@Composable
+internal fun PrivacySettingsRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    value: String? = null,
+    last: Boolean = false,
+    checked: Boolean? = null,
+    onChecked: ((Boolean) -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val dark = settingsNight()
+    val mut = settingsMut()
+    val label = buildAnnotatedString {
+        append(title)
+        if (!value.isNullOrBlank()) {
+            withStyle(SpanStyle(fontSize = 11.sp, fontWeight = FontWeight.Normal, color = mut)) {
+                append(" ($value)")
+            }
+        }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+        if (checked != null && onChecked != null) {
+            RedToggle(checked, dark) { onChecked(!checked) }
+        } else if (onClick != null) {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = settingsMut(), modifier = Modifier.size(22.dp))
+        }
+    }
+    if (!last) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
+    }
 }
 
 // =============================================================================== starred

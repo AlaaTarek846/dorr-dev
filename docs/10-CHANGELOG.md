@@ -17,6 +17,41 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Every AI tool needs a DORR AI plan (ADR-013, 2026-10-15): the chat's AI tools, Discover's AI search, greetings and portal translations go through `AiChatUsageGuard` like the DORR AI chat; `chat_ai_plan_{reason}` (402). `GET chat/ai` returns `plan`. Android: one "DORR AI plan needed" prompt (any 402/429 plan refusal, `AiPlanGate`) that opens the subscription page. Support's automatic answers stay free
 - DORR AI's own tools (2026-10-14): memory, "continue in a new chat" with a Context Capsule, search by word and by meaning, projects, the outputs gallery, evidence rules and citation checks, and a per-country switch for the whole DORR AI chat — backend, admin (service flags) and Android. Support's FAQ auto-reply now runs on the DORR AI system too (free: no plan, no wallet). See `docs/modules/ai/CHANGELOG.md`. Migration `2026_10_14_110000_create_ai_memories_tables`. Tests: `AiAssistantToolsTest`
 
+### Changed
+- **Android manage storage (2026-10-27):** usage-style hero card; select-all is a checkbox; switching chips no longer races pages (that crash on «اتحوّلت»). File lists page 15.
+- **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` fills large, forwarded, and per-chat files for the last `mobile-app` login so «إدارة المساحة» has rows.
+- **Android usage stats hero (2026-10-27):** memory icon on the total card, calendar before the since date, mobile/Wi-Fi in a glass split like the wallet.
+- **Android usage stats confirm (2026-10-27):** «امسح» and «صفّر الإحصائيات» use `ConfirmDialog` (same as delete chat) then a toast.
+- **Android data and performance (2026-10-27):** the page uses the same settings rows as privacy (title, description, value in parentheses). Data saver and lite mode open a choice sheet. Header is `SubHeader` + pink wash, also on manage storage and usage stats.
+- **Android life inbox search (2026-10-27):** search at the top (`GET life-inbox` `q=` title, who, chat name, or location). Counts and pages follow the match.
+- **Android life inbox requests (2026-10-27):** «طلب مراسلة» uses the same unread-chat icon as the chats list, and opens the message-requests list (with search) instead of popping back to settings.
+- **Android life inbox (2026-10-27):** category chips in one row; the first one with data is selected. Lists page 15 (`GET life-inbox` `section`/`page`/`per_page`).
+- **Chat life-inbox demo (2026-10-27):** `ChatLifeInboxDemoSeeder` fills reply, pay, and appointments for the last `mobile-app` login so «صندوق الحياة» has rows.
+- **Android commitments search (2026-10-27):** search at the top (`GET commitments` / `handoffs` `q=` name, phone, or text). Still pages of 15.
+- **Android commitments list (2026-10-26):** «التزاماتي» pages 15 (`GET commitments` / `GET handoffs` `page`/`per_page`, `pagination.has_more_pages`). Scroll loads the next page.
+- **Chat commitments demo seed (2026-10-26):** `ChatCommitmentsDemoSeeder` fills open commitments and handoffs for the last `mobile-app` login so «التزاماتي» has rows on both tabs.
+- **Android my tasks (2026-10-26):** add button is **إضافة** (smaller). Open and done lists page 15 (`GET tasks?page=&per_page=`, `pagination.has_more_pages`).
+- **Android tasks, commitments, life inbox (2026-10-26):** those three screens use the settings header (`SubHeader` + pink wash), same as privacy and catch-up.
+- **Android today + important layout (2026-10-26):** sparkle + count + the AI privacy line at the top (as in the old sheet). Summary and highlights sit in one grouped card with dividers, not separate floating cards.
+- **Android important + today screens (2026-10-26):** «المهم في رسايلي» and «يومي في الشات» are full pages (settings header), not sheets. Important pages 15 (`POST ai/important` `page`, `per_page`, `has_more`; AI ranks at most 50). In-chat «المهم هنا» stays a sheet.
+- **Chat important demo seed (2026-10-26):** `ChatImportantDemoSeeder` fills unread chats for the last `mobile-app` Sanctum login (not a hardcoded phone), so «المهم في رسايلي» can return items on the device in use.
+- **Android “what I missed” (2026-10-26):** settings header (`SubHeader` + pink wash). Compact time chips, search by name or number under them (`GET catch-up?q=`). Unread-chat rows are cards with a chat-list badge. Unread chats page 15 (`page`, `per_page`, `has_more`); other buckets cap at 15.
+- **Android starred messages (2026-10-26):** Favourites is a card per message (chat name + date, sender on groups, a short preview). Search at the top (`GET messages/starred?q=` name, phone, or text). A star only on unsorted Favourites, not on messages in a named folder. A down arrow expands the message; tap opens that chat; long-press moves folders. Pages of 15; rows carry `star_folder_id`.
+- **Android current context (2026-10-26):** “Right now” is a settings row (title outside the card). Tap opens a sheet of contexts; a duration sheet follows unless “As usual”.
+- **Android context rules (2026-10-26):** “What each context does” is a card of rows. Tapping home/work/… opens one shared screen whose title is that context; each row opens a choice sheet. Same API as before (`PUT attention` `contexts`).
+- **Android communication rules calls + on-phone (2026-10-26):** those two blocks match the rows above (title outside the card). Switches use the Account → Notifications red toggle. Call hours open a sheet for time and weekdays; important words open a sheet with checks.
+- **Android always-get-through (2026-10-26):** title and hint sit outside the card; the row shows how many people are chosen. Tapping opens the people picker with checks on the current set, search, and pages of 15 (`GET chat/contacts?page=&per_page=15&q=`). Without `page` the contacts list is still the full list.
+- **Android communication rules (2026-10-26):** “What interrupts me” matches privacy rows (title and hint outside the card; tap opens a radio sheet for Now / In the summary / Later). Other sections on that page are unchanged.
+- **Android locked chats empty (2026-10-25):** an empty locked list uses the same illustrated empty state as blocked contacts (title + “no locked chats”), instead of a blank screen when message requests exist.
+- **Android blocked contacts (2026-10-25):** moved off the privacy page onto Privacy and security. The new screen searches by name or number and loads 15 at a time (`GET chat/blocks?q=&page=&per_page=15`).
+- **Android username + privacy save (2026-10-25):** deleting a username sends an empty string (Gson was dropping JSON null, so Laravel said the field was missing). Save/delete and privacy updates show a toast. The missing-username API message is translated.
+- **Android privacy center (2026-10-25):** one card of rows like the privacy screen; tapping a topic (e.g. who can see what) opens a choice sheet of its items.
+- **Android privacy schedule sheet (2026-10-25):** time boxes have a clock icon; weekdays have a title, named chips, and multi-select with a check.
+- **Android chat privacy screen (2026-10-25):** the privacy page uses the same card, type size, pink icon wells and red toggles as Account → Notifications. All settings sit in one card; blocked contacts stay a separate list underneath.
+- **Android create channel sheet (2026-10-25):** photo has delete and add badges; category is a searchable select (first: بدون تصنيف); public/private cards have a radio on the title.
+- **Android chat account labels (2026-10-25):** Account and profile rows are **رمز QR**, **حالتي**, and **القنوات** (that row opens channels, not followers).
+- **Android channel unfollow (2026-10-25):** إلغاء المتابعة confirms with the same dialog as مسح المحادثة, then leaves the channel.
+
 ### Fixed
 - **Admin → Chat → Channels would not open (2026-10-22):** the search placeholder used `@handle`, which vue-i18n treats as a linked message and crashed the page. The `@` is escaped in ar/en.
 

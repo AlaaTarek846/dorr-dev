@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -88,6 +89,7 @@ import com.dorr.app.network.apiFailure
 import com.google.gson.Gson
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -654,17 +656,53 @@ fun BroadcastPage(id: String) {
     }), danger = true, onDismiss = { confirmDelete = false })
 }
 
-/** Pick people from my contacts on Dorr (search, tick, done). */
+/** Pick people from my contacts on Dorr (search, tick, pages of 15). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: Int = R.string.ch_broadcast_pick, onDone: (List<Int>) -> Unit) {
-    var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
-    var query by remember { mutableStateOf("") }
-    var visibleCount by remember { mutableIntStateOf(15) }
+internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: Int = R.string.ch_broadcast_pick, allowEmpty: Boolean = false, onDone: (List<Int>) -> Unit) {
+    val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var query by remember { mutableStateOf("") }
+    var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     val picked = remember { mutableStateListOf<Int>().apply { addAll(initial) } }
-    LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
-    LaunchedEffect(query) { visibleCount = 15 }
+
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching {
+            ApiClient.chat.contacts(
+                chatAuth(),
+                registered = 1,
+                q = query.trim().ifBlank { null },
+                page = next,
+                perPage = 15,
+            )
+        }.getOrNull()
+        val chunk = envelope?.data.orEmpty().filter { it.profile != null }
+        contacts = if (reset) chunk else {
+            val known = contacts.orEmpty().map { it.id }.toSet()
+            contacts.orEmpty() + chunk.filter { it.id !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+
+    LaunchedEffect(query) {
+        delay(280)
+        loadPage(reset = true)
+    }
+    LaunchedEffect(listState, contacts?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
 
     ChSheet(
         onDismissRequest = onDismiss,
@@ -675,35 +713,35 @@ internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: 
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
             Text(stringResource(title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(8.dp))
-            ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
+            ChField(query, { query = it.take(80) }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search, clearable = true)
             Spacer(Modifier.height(8.dp))
-            val shown = contacts.orEmpty().filter { c -> c.profile != null && (query.isBlank() || c.name.contains(query.trim(), ignoreCase = true) || c.phone.contains(query.trim())) }
-            val paged = shown.take(visibleCount)
-            LaunchedEffect(listState, paged.size, shown.size) {
-                snapshotFlow {
-                    val info = listState.layoutInfo
-                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 3 && visibleCount < shown.size
-                }.distinctUntilChanged().filter { it }.collect {
-                    visibleCount = (visibleCount + 15).coerceAtMost(shown.size)
+            val items = contacts
+            when {
+                items == null -> Box(Modifier.fillMaxWidth().height(380.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Ch.Red)
                 }
-            }
-            LazyColumn(Modifier.height(380.dp), state = listState) {
-                items(paged, key = { it.id }) { c ->
-                    val uid = c.profile?.id ?: return@items
-                    val on = uid in picked
-                    Row(Modifier.fillMaxWidth().clickable { if (on) picked.remove(uid) else picked.add(uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChAvatar(c.profile.avatar, c.name, c.profile.key, size = 42.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(c.name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-                        Box(Modifier.size(24.dp).clip(CircleShape).background(if (on) Ch.Red else Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
-                            if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                else -> LazyColumn(Modifier.height(380.dp), state = listState) {
+                    items(items, key = { it.id }) { c ->
+                        val uid = c.profile?.id ?: return@items
+                        val on = uid in picked
+                        Row(Modifier.fillMaxWidth().clickable { if (on) picked.remove(uid) else picked.add(uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ChAvatar(c.profile.avatar, c.name, c.profile.key, size = 42.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(c.name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+                            Box(Modifier.size(24.dp).clip(CircleShape).background(if (on) Ch.Red else Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                                if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                    if (loadingMore) item {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            ChPrimaryButton(stringResource(R.string.ch_broadcast_done, picked.size), modifier = Modifier.fillMaxWidth(), enabled = picked.isNotEmpty()) {
+            ChPrimaryButton(stringResource(R.string.ch_broadcast_done, picked.size), modifier = Modifier.fillMaxWidth(), enabled = allowEmpty || picked.isNotEmpty()) {
                 onDone(picked.toList())
                 onDismiss()
             }

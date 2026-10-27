@@ -28,13 +28,14 @@ interface BacklogApi {
     @GET("mobile/v1/chat/storage")
     suspend fun storage(@Header("Authorization") auth: String): ApiEnvelope<StorageDto>
 
-    /** `kind` all · large · forwarded */
+    /** `kind` all · large · forwarded. Pages of 15. */
     @GET("mobile/v1/chat/storage/files")
     suspend fun storageFiles(
         @Header("Authorization") auth: String,
         @Query("kind") kind: String,
         @Query("conversation_id") conversationId: String? = null,
         @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
     ): ApiEnvelope<StorageFilesDto>
 
     /** `{messages[]}` — deleted for me only. */

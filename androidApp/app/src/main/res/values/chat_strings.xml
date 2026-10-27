@@ -15,6 +15,7 @@
     <string name="ch_set_biz">Business tools</string>
     <string name="ch_info_notify">Notifications</string>
     <string name="ch_search_hint">Search chats and messages</string>
+    <string name="ch_info_search">Search this screen</string>
     <string name="ch_filter_all">All</string>
     <string name="ch_filter_unread">Unread</string>
     <string name="ch_filter_groups">Groups</string>
@@ -28,7 +29,7 @@
     <string name="ch_new_chat">New chat</string>
     <string name="ch_new_group">New group</string>
     <string name="ch_scan_qr">Scan QR code</string>
-    <string name="ch_my_qr">My QR code</string>
+    <string name="ch_my_qr">QR code</string>
     <string name="ch_today">Today</string>
     <string name="ch_yesterday">Yesterday</string>
     <string name="ch_online">online</string>
@@ -184,6 +185,9 @@
     <string name="ch_confirm_clear">Clear all messages in this chat? Only for you.</string>
     <string name="ch_confirm_delete_chat">Delete this chat? Only for you.</string>
     <string name="ch_confirm_leave">Exit this group?</string>
+    <string name="ch_confirm_unfollow">Unfollow this channel?</string>
+    <string name="ch_unfollow_done">Unfollowed</string>
+    <string name="ch_leave_done">Left the group</string>
     <string name="ch_confirm_block">Block %s? Blocked contacts can\'t message or call you.</string>
     <string name="ch_block_done">Blocked</string>
     <string name="ch_unblock_done">Unblocked</string>
@@ -253,9 +257,13 @@
     <string name="ch_my_contacts">My contacts</string>
     <string name="ch_nobody">Nobody</string>
     <string name="ch_blocked_list">Blocked contacts</string>
+    <string name="ch_blocked_search">Search by name or number</string>
     <string name="ch_no_blocked">No blocked contacts</string>
     <string name="ch_starred_title">Starred messages</string>
+    <string name="ch_starred_search">Search by message, name or number</string>
     <string name="ch_no_starred">Tap and hold a message and choose Star to find it here later.</string>
+    <string name="ch_starred_expand">Show message</string>
+    <string name="ch_starred_collapse">Hide message</string>
     <string name="ch_calls_title">Calls</string>
     <string name="ch_no_calls">Your call history will appear here</string>
 
@@ -280,12 +288,14 @@
     <string name="ch_delete_folder">Delete folder</string>
     <string name="ch_add_to_folder">Add to folder</string>
     <string name="ch_locked_chats">Locked chats</string>
+    <string name="ch_locked_search">Search by name, number or message</string>
+    <string name="ch_no_locked">No locked chats</string>
     <string name="ch_unlock">Unlock</string>
     <string name="ch_unlock_title">Unlock chat</string>
     <string name="ch_unlock_sub">Use your fingerprint, face or screen lock</string>
     <string name="ch_locked_note">This chat is locked</string>
     <string name="ch_theme">Appearance</string>
-    <string name="ch_theme_system">Same as the app</string>
+    <string name="ch_theme_system">Follow the device</string>
     <string name="ch_theme_light">Light</string>
     <string name="ch_theme_dark">Dark</string>
     <string name="ch_offline">Offline — showing saved messages</string>
@@ -651,9 +661,10 @@
     <string name="ch_money_send_title">Send %1$s</string>
     <string name="ch_money_sent_title">Sent</string>
     <string name="ch_make_owner">Make owner</string>
-    <string name="ch_delete_group_all">Delete group for everyone</string>
-    <string name="ch_delete_channel_all">Delete channel for everyone</string>
+    <string name="ch_delete_group_all">Delete group</string>
+    <string name="ch_delete_channel_all">Delete channel</string>
     <string name="ch_confirm_delete_all">Everyone loses it, with all its messages. This can\'t be undone.</string>
+    <string name="ch_delete_all_done">Deleted for everyone</string>
     <string name="ch_video_failed">This video can\'t be played.</string>
     <string name="ch_pdf_page">Page %1$d of %2$d</string>
     <string name="ch_pdf_failed">This PDF can\'t be opened here.</string>
@@ -731,6 +742,9 @@
     <string name="ch_privacy_schedule_off">Turn the schedule off</string>
     <string name="ch_from">From</string>
     <string name="ch_to">To</string>
+    <string name="ch_schedule_time">Time</string>
+    <string name="ch_weekdays">Days of the week</string>
+    <string name="ch_weekdays_pick">You can pick more than one day</string>
     <string name="ch_safe_view">Safe View</string>
     <string name="ch_safe_view_sub">Hide chat previews, and the chats you choose, from the list.</string>
     <string name="ch_safe_view_hidden">•••</string>

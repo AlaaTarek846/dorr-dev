@@ -1031,6 +1031,7 @@
     <string name="lf_mark_done">خلصت ✅</string>
     <string name="lf_me">أنا</string>
     <string name="lf_my_commitments">التزاماتي</string>
+    <string name="lf_search">ابحث بالعنوان أو الاسم أو الرقم أو الشات</string>
     <string name="lf_no_reminder">من غير تذكير</string>
     <string name="lf_on">على</string>
     <string name="lf_pick_time">اختار ميعاد</string>
@@ -1052,8 +1053,8 @@
     <string name="lf_t_place">المكان</string>
     <string name="lf_t_price">السعر المقترح</string>
     <string name="lf_t_scope">النطاق</string>
-    <string name="lf_tab_on_me">عليّا</string>
-    <string name="lf_tab_waiting">مستنيه من غيري</string>
+    <string name="lf_tab_on_me">التزاماتي</string>
+    <string name="lf_tab_waiting">التزامات الآخرين</string>
     <string name="lf_take_back">اسحبها</string>
     <string name="lf_take_it">استلمها</string>
     <string name="lf_task">مهمة</string>
@@ -1122,9 +1123,10 @@
     <string name="at_all_through">كله زي العادي</string>
     <!-- The life inbox (spec 147) -->
     <string name="li_title">صندوق الحياة</string>
-    <string name="li_needs_you">محتاجينك</string>
-    <string name="li_nothing">مفيش حاجة دلوقتي 🎉</string>
-    <string name="li_n_things">%1$d حاجة</string>
+    <string name="li_search">ابحث بالعنوان أو الاسم أو الشات أو المكان</string>
+    <string name="li_needs_you">رسائلك</string>
+    <string name="li_nothing">مفيش رسايل دلوقتي 🎉</string>
+    <string name="li_n_things">%1$d رسالة</string>
     <string name="li_reply">محتاج رد</string>
     <string name="li_pay">محتاج دفع</string>
     <string name="li_approve">محتاج موافقة</string>
@@ -1246,6 +1248,8 @@
     <string name="us_messages">الرسايل</string>
     <string name="us_sent">اتبعتت</string>
     <string name="us_received">وصلت</string>
+    <string name="us_bytes_sent">بيانات اتبعت</string>
+    <string name="us_bytes_received">بيانات وصلت</string>
     <string name="us_data">البيانات</string>
     <string name="us_media">الصور والفيديوهات والملفات</string>
     <string name="us_uploaded">اتبعت</string>
@@ -1260,10 +1264,13 @@
     <string name="us_storage_images">الصور والملصقات</string>
     <string name="us_storage_sent">ملفات اتجهزت للإرسال</string>
     <string name="us_clear">امسح</string>
+    <string name="us_clear_title">تمسح الملفات المؤقتة؟</string>
+    <string name="us_clear_sub">الصور والكاش على الموبايل ده هتتمسح. رسايلك مش هتتلمس.</string>
     <string name="us_cleared">اتمسحت</string>
     <string name="us_reset">صفّر الإحصائيات</string>
     <string name="us_reset_title">تصفّر الإحصائيات؟</string>
     <string name="us_reset_sub">العد هيبدأ من جديد من دلوقتي. رسايلك مش هتتلمس.</string>
+    <string name="us_reset_done">اتصفرّت الإحصائيات</string>
     <string name="us_cancel">إلغاء</string>
     <string name="us_note">متحسبة على الموبايل ده بس. بيانات المكالمة هي كل اللي التطبيق صرفه وقتها.</string>
     <string name="home_stories_title">القصص</string>
@@ -1294,14 +1301,20 @@
     <string name="bk_export_failed">معرفناش نصدّر المحادثة دي.</string>
     <string name="bk_storage">إدارة المساحة</string>
     <string name="bk_storage_sub">صور وفيديوهات وملفات محادثاتك، الأكبر الأول. المسح هنا بيمسح عندك إنت بس.</string>
+    <string name="bk_storage_used">المساحة المستخدمة</string>
+    <string name="bk_storage_files_count">%d ملف</string>
     <string name="bk_storage_total">%1$s في %2$d ملف</string>
+    <string name="bk_storage_select_all">تحديد الكل</string>
+    <string name="bk_storage_unselect">إلغاء التحديد</string>
+    <string name="bk_storage_delete_title">تمسح الملفات دي عندك؟</string>
+    <string name="bk_storage_delete_sub">هتتمسح من عندك إنت بس. الطرف التاني يفضل شايفها.</string>
     <string name="bk_storage_large">أكبر من 5 ميجا</string>
     <string name="bk_storage_forwarded">اتحوّلت</string>
     <string name="bk_storage_all">كل الملفات</string>
     <string name="bk_storage_chats">المحادثات</string>
     <string name="bk_storage_delete">امسح %1$d عندي</string>
     <string name="bk_storage_deleted">اتمسحت</string>
-    <string name="bk_storage_empty">مفيش حاجة هنا.</string>
+    <string name="bk_storage_empty">لا توجد ملفات محفوظة</string>
     <string name="bk_channel_stats">إحصائيات القناة</string>
     <string name="bk_channel_followers">المتابعين</string>
     <string name="bk_channel_joined">انضموا</string>

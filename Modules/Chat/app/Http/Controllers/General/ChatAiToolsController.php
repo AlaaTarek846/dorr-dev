@@ -88,13 +88,17 @@ class ChatAiToolsController extends Controller
         return ApiResponse::success($this->tools->dates($request->user(), $conversation, $data['messages'] ?? null, $data['timezone'] ?? $this->zone($request)), __('api.retrieved'));
     }
 
-    /** POST ai/important — `{conversation_id?}` (41): in one chat, or across my unread chats. */
+    /** POST ai/important — `{conversation_id?, page?, per_page?}` (41): in one chat, or across my unread chats. */
     public function important(Request $request)
     {
-        $data = $request->validate(['conversation_id' => ['nullable', 'uuid']]);
+        $data = $request->validate([
+            'conversation_id' => ['nullable', 'uuid'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
         $conversation = isset($data['conversation_id']) ? ChatConversation::query()->where('uuid', $data['conversation_id'])->firstOrFail() : null;
 
-        return ApiResponse::success($this->tools->important($request->user(), $conversation), __('api.retrieved'));
+        return ApiResponse::success($this->tools->important($request->user(), $conversation, (int) ($data['page'] ?? 1), (int) ($data['per_page'] ?? 15)), __('api.retrieved'));
     }
 
     /** POST conversations/{c}/related-files (48). */
@@ -113,14 +117,20 @@ class ChatAiToolsController extends Controller
 
     // ------------------------------------------------------------------ my tasks (38)
 
+    /** GET tasks?status=done&page=&per_page= — open (due first) or done, pages of 15. */
     public function tasks(Request $request)
     {
-        $done = $request->query('status') === 'done';
-        $rows = ChatTask::query()->ownedBy($request->user())->with(['message', 'conversation'])
-            ->when($done, fn ($q) => $q->whereNotNull('done_at')->latest('done_at')->limit(200), fn ($q) => $q->whereNull('done_at')->orderByRaw('due_at is null')->orderBy('due_at')->orderBy('sort_order'))
-            ->get();
+        $data = $request->validate([
+            'status' => ['nullable', 'in:done'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $done = ($data['status'] ?? null) === 'done';
+        $page = ChatTask::query()->ownedBy($request->user())->with(['message', 'conversation'])
+            ->when($done, fn ($q) => $q->whereNotNull('done_at')->latest('done_at'), fn ($q) => $q->whereNull('done_at')->orderByRaw('due_at is null')->orderBy('due_at')->orderBy('sort_order'))
+            ->paginate((int) ($data['per_page'] ?? 15));
 
-        return ApiResponse::success($rows->map(fn ($t) => $this->tasks->present($t))->values(), __('api.retrieved'));
+        return ApiResponse::fromPaginator($page, $page->getCollection()->map(fn ($t) => $this->tasks->present($t))->values(), __('api.retrieved'));
     }
 
     /** POST tasks — `{tasks: [{text, due_at?}], message_id?}`. */

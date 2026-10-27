@@ -70,6 +70,7 @@ return [
         'star_folder_not_found' => 'المجلد ده مش موجود.',
         'lock_pin_wrong' => 'الرقم السري غلط. فاضل :left محاولات.',
         'lock_pin_locked' => 'محاولات كتير. جرّب تاني بعد :minutes دقايق.',
+        'username_required' => 'اكتب اسم المستخدم، أو احذفه من الزر.',
         'username_invalid' => 'اسم المستخدم يبدأ بحرف: حروف وأرقام و _ (من 3 لـ 32).',
         'username_taken' => 'اسم المستخدم ده محجوز.',
         'username_unavailable' => 'أسماء المستخدمين للأشخاص بس.',

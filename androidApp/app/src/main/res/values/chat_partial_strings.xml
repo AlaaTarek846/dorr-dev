@@ -16,6 +16,7 @@
     <string name="cp_pick_date">Pick a day</string>
     <string name="cp_until">Until %1$s</string>
     <string name="cp_catch_up">What I missed</string>
+    <string name="cp_search">Search by name or number</string>
     <string name="cp_caught_up">You are all caught up ✨</string>
     <string name="cp_sec_urgent">Urgent</string>
     <string name="cp_sec_mentions">Mentioned you</string>
@@ -24,7 +25,7 @@
     <string name="cp_sec_calls">Missed calls</string>
     <string name="cp_sec_reminders">Reminders</string>
     <string name="cp_sec_decisions">New decisions</string>
-    <string name="cp_sec_unread">Most unread</string>
+    <string name="cp_sec_unread">Unread chats</string>
     <string name="cp_unread_n">%1$d unread</string>
     <string name="cp_video_call">Video call</string>
     <string name="cp_voice_call">Voice call</string>
@@ -123,5 +124,7 @@
     <string name="cp_username">Username</string>
     <string name="cp_username_sub">People can find you by @username without your number.</string>
     <string name="cp_username_hint">your_name</string>
-    <string name="cp_username_remove">Remove my username</string>
+    <string name="cp_username_remove">Delete username</string>
+    <string name="cp_username_saved">Username saved</string>
+    <string name="cp_username_removed">Username removed</string>
 </resources>

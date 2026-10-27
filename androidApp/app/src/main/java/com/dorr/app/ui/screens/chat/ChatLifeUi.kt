@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,8 +38,10 @@ import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.TransferWithinAStation
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -50,6 +56,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,6 +81,7 @@ import com.dorr.app.network.apiFailure
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -601,47 +609,112 @@ private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
 
 // ------------------------------------------------------------------ my commitments page
 
-/** My commitments and handoffs: on me, and what I'm waiting for from others. */
+/** My commitments and handoffs: on me, and what I'm waiting for from others. Pages of 15. */
 @Composable
 fun CommitmentsPage() {
     val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var tab by remember { mutableIntStateOf(0) }
     var commitments by remember { mutableStateOf<List<LifeCommitmentDto>?>(null) }
-    var handoffs by remember { mutableStateOf<List<HandoffDto>?>(null) }
-    val scope = rememberCoroutineScope()
+    var handoffs by remember { mutableStateOf<List<HandoffDto>>(emptyList()) }
+    var cPage by remember { mutableIntStateOf(1) }
+    var hPage by remember { mutableIntStateOf(1) }
+    var cHasMore by remember { mutableStateOf(false) }
+    var hHasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     val scopes = listOf("mine", "theirs")
-    suspend fun load() {
-        commitments = null
-        handoffs = null
-        commitments = runCatching { ApiClient.life.commitments(chatAuth(), scopes[tab]).data }.getOrNull().orEmpty()
-        handoffs = runCatching { ApiClient.life.handoffs(chatAuth(), if (tab == 0) "received" else "sent").data }.getOrNull().orEmpty()
+    suspend fun loadCommitments(reset: Boolean) {
+        if (!reset && (loadingMore || !cHasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else cPage + 1
+        val q = query.trim().ifBlank { null }
+        val envelope = runCatching { ApiClient.life.commitments(chatAuth(), scopes[tab], page = next, perPage = 15, q = q) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        commitments = if (reset) chunk else {
+            val known = commitments.orEmpty().map { it.id }.toSet()
+            commitments.orEmpty() + chunk.filter { it.id !in known }
+        }
+        cPage = next
+        cHasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
     }
-    LaunchedEffect(tab) { load() }
-    ChPage(stringResource(R.string.lf_my_commitments), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.Surface).padding(4.dp)) {
-                listOf(R.string.lf_tab_on_me, R.string.lf_tab_waiting).forEachIndexed { i, l ->
-                    Text(
-                        stringResource(l), color = if (tab == i) Color.White else Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (tab == i) Ch.Red else Color.Transparent).clickable { tab = i }.padding(vertical = 10.dp),
-                    )
+    suspend fun loadHandoffs(reset: Boolean) {
+        if (!reset && (loadingMore || !hHasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else hPage + 1
+        val q = query.trim().ifBlank { null }
+        val envelope = runCatching { ApiClient.life.handoffs(chatAuth(), if (tab == 0) "received" else "sent", page = next, perPage = 15, q = q) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        handoffs = if (reset) chunk else {
+            val known = handoffs.map { it.id }.toSet()
+            handoffs + chunk.filter { it.id !in known }
+        }
+        hPage = next
+        hHasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+    LaunchedEffect(tab, query) {
+        if (query.isNotBlank()) delay(280)
+        commitments = null
+        handoffs = emptyList()
+        loadCommitments(reset = true)
+        loadHandoffs(reset = true)
+    }
+    LaunchedEffect(listState, commitments?.size, handoffs.size, cHasMore, hHasMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+            .collect { (last, total) ->
+                if (last != null && total > 0 && last >= total - 3) {
+                    scope.launch {
+                        if (cHasMore) loadCommitments(reset = false) else loadHandoffs(reset = false)
+                    }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            val cs = commitments
-            val hs = handoffs
-            if (cs == null || hs == null) {
-                repeat(3) { Box(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 8.dp).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted)) }
-            } else if (cs.isEmpty() && hs.isEmpty()) {
-                ChEmptyState(Icons.Rounded.AssignmentInd, stringResource(R.string.lf_empty_title), stringResource(if (tab == 0) R.string.lf_empty_on_me else R.string.lf_empty_waiting), animated = true)
-            } else {
-                cs.forEach { c ->
-                    LifeRow("📌", c.title.orEmpty(), listOfNotNull(if (tab == 0) c.by?.name else c.assignee?.name, lifeWhen(c.dueAt)).joinToString(" · "), c.status, c.conversation?.id) { id -> host.push(ChRoute.Conversation(id)) }
-                }
-                hs.forEach { h ->
-                    LifeRow("🤝", h.note ?: h.source?.preview ?: stringResource(R.string.lf_handoff), (if (tab == 0) h.from?.name else h.to?.name).orEmpty(), h.status, h.conversation?.id) { id -> host.push(ChRoute.Conversation(id)) }
+    }
+    ChPage(stringResource(R.string.lf_my_commitments), onBack = { host.pop() }, settingsHeader = true) {
+        val cs = commitments
+        Column(Modifier.fillMaxSize()) {
+        ChField(
+            query, { query = it.take(80) }, stringResource(R.string.lf_search),
+            icon = Icons.Rounded.Search, clearable = true, fontSize = 13.sp,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+        )
+        LazyColumn(state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
+            item(key = "life-tabs") {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).padding(4.dp)) {
+                    listOf(R.string.lf_tab_on_me, R.string.lf_tab_waiting).forEachIndexed { i, l ->
+                        Text(
+                            stringResource(l), color = if (tab == i) Color.White else Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (tab == i) Ch.Red else Color.Transparent).clickable { tab = i }.padding(vertical = 10.dp),
+                        )
+                    }
                 }
             }
+            when {
+                cs == null -> item(key = "life-load") {
+                    repeat(3) { Box(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 8.dp).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted)) }
+                }
+                cs.isEmpty() && handoffs.isEmpty() -> item(key = "life-empty") {
+                    ChEmptyState(Icons.Rounded.AssignmentInd, stringResource(R.string.lf_empty_title), stringResource(if (tab == 0) R.string.lf_empty_on_me else R.string.lf_empty_waiting), animated = true)
+                }
+                else -> {
+                    items(cs, key = { "c-${it.id}" }) { c ->
+                        LifeRow("📌", c.title.orEmpty(), listOfNotNull(if (tab == 0) c.by?.name else c.assignee?.name, lifeWhen(c.dueAt)).joinToString(" · "), c.status, c.conversation?.id) { id -> host.push(ChRoute.Conversation(id)) }
+                    }
+                    items(handoffs, key = { "h-${it.id}" }) { h ->
+                        LifeRow("🤝", h.note ?: h.source?.preview ?: stringResource(R.string.lf_handoff), (if (tab == 0) h.from?.name else h.to?.name).orEmpty(), h.status, h.conversation?.id) { id -> host.push(ChRoute.Conversation(id)) }
+                    }
+                }
+            }
+            if (loadingMore) {
+                item(key = "life-more") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Ch.Red, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    }
+                }
+            }
+        }
         }
     }
 }

@@ -29,6 +29,9 @@ class MessageViewContext
     /** @var array<int, true> */
     public array $starred = [];
 
+    /** @var array<int, int|null> message id => favourites folder, or null if unsorted */
+    public array $starFolders = [];
+
     /** @var array<int, true> message ids I set aside to "read later" */
     public array $readLater = [];
 
@@ -86,8 +89,10 @@ class MessageViewContext
             $states = ChatMessageUserState::query()
                 ->where('participant_id', $me->id)->whereIn('message_id', $ids)
                 ->where(fn ($q) => $q->whereNotNull('starred_at')->orWhereNotNull('read_later_at')->orWhereNotNull('follow_up_at'))
-                ->get(['message_id', 'starred_at', 'read_later_at', 'follow_up_at']);
-            $context->starred = $states->whereNotNull('starred_at')->pluck('message_id')->flip()->map(fn () => true)->all();
+                ->get(['message_id', 'starred_at', 'star_folder_id', 'read_later_at', 'follow_up_at']);
+            $starred = $states->whereNotNull('starred_at');
+            $context->starred = $starred->pluck('message_id')->flip()->map(fn () => true)->all();
+            $context->starFolders = $starred->mapWithKeys(fn ($s) => [$s->message_id => $s->star_folder_id])->all();
             $context->readLater = $states->whereNotNull('read_later_at')->pluck('message_id')->flip()->map(fn () => true)->all();
             $context->followUp = $states->whereNotNull('follow_up_at')->pluck('message_id')->flip()->map(fn () => true)->all();
             $context->reminders = ChatMessageReminder::query()

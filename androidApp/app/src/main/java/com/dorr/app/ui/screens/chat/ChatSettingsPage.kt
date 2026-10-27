@@ -19,7 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
@@ -29,7 +31,6 @@ import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mood
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.PushPin
@@ -69,6 +70,7 @@ import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 
 internal enum class ChatSetSection { Menu, Account, Privacy, Messages, Org, Look, Data, Calls, Biz }
@@ -82,17 +84,12 @@ fun ChatSettingsPage() {
     val section = host.chatSettingsSection
     var themeSheet by remember { mutableStateOf(false) }
     var comfort by remember { mutableStateOf(false) }
-    var todayOpen by remember { mutableStateOf(false) }
-    var importantOpen by remember { mutableStateOf(false) }
     var aiImagesOpen by remember { mutableStateOf(false) }
     var memoryOpen by remember { mutableStateOf(false) }
     val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
 
     if (themeSheet) ThemeSheet { themeSheet = false }
     if (comfort) ChatComfortSheet { comfort = false }
-    if (todayOpen) AiTodaySheet(onDismiss = { todayOpen = false }, onOpen = openAt)
-    if (importantOpen) AiImportantSheet(null, onDismiss = { importantOpen = false }, onOpen = openAt)
-    // Images made with AI in my chats, and my DORR AI memory.
     if (aiImagesOpen) ChatAiImagesSheet(onDismiss = { aiImagesOpen = false }) { c, m -> aiImagesOpen = false; openAt(c, m) }
     if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
 
@@ -137,13 +134,14 @@ fun ChatSettingsPage() {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.QrCode2, R.string.ch_my_qr, dark) { host.push(ChRoute.MyQr) }
                             ChatSettingsRow(Icons.Rounded.Mood, R.string.ch_status_title, dark) { host.push(ChRoute.MyStatus) }
-                            ChatSettingsRow(Icons.Rounded.People, R.string.ch_my_followers, dark, last = true) { host.push(ChRoute.Channels) }
+                            ChatSettingsRow(Icons.Rounded.Campaign, R.string.ch_channels, dark, last = true) { host.push(ChRoute.Channels) }
                         }
                     }
                     ChatSetSection.Privacy -> item {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.Shield, R.string.ch_privacy_title, dark) { host.push(ChRoute.Privacy) }
                             ChatSettingsRow(Icons.Rounded.Security, R.string.cp_privacy_center, dark) { host.push(ChRoute.PrivacyCenter) }
+                            ChatSettingsRow(Icons.Rounded.Block, R.string.ch_blocked_list, dark) { host.push(ChRoute.BlockedContacts) }
                             ChatSettingsRow(Icons.Rounded.Lock, R.string.ch_locked_chats, dark) {
                                 ChatLock.unlock(context) {
                                     host.filter = "locked"
@@ -156,8 +154,8 @@ fun ChatSettingsPage() {
                     ChatSetSection.Messages -> item {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.Star, R.string.ch_starred_title, dark) { host.push(ChRoute.Starred) }
-                            ChatSettingsRow(Icons.Rounded.PriorityHigh, R.string.ct_important, dark) { importantOpen = true }
-                            ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ct_today, dark) { todayOpen = true }
+                            ChatSettingsRow(Icons.Rounded.PriorityHigh, R.string.ct_important, dark) { host.push(ChRoute.Important) }
+                            ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ct_today, dark) { host.push(ChRoute.Today) }
                             if (ChatAi.aiImages) ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ch_ai_images_title, dark) { aiImagesOpen = true }
                             if (ChatAi.memory) ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ch_ai_memory, dark) { memoryOpen = true }
                             ChatSettingsRow(Icons.Rounded.History, R.string.cp_catch_up, dark, last = true) { host.push(ChRoute.CatchUp) }
@@ -172,7 +170,10 @@ fun ChatSettingsPage() {
                     }
                     ChatSetSection.Look -> item {
                         ChatSettingsGroup(dark) {
-                            ChatSettingsRow(Icons.Rounded.DarkMode, R.string.ch_theme, dark) { themeSheet = true }
+                            ChatSettingsRow(
+                                Icons.Rounded.DarkMode, R.string.ch_theme, dark,
+                                value = stringResource(chatThemeLabel(com.dorr.app.chat.ChatStore.themeMode)),
+                            ) { themeSheet = true }
                             ChatSettingsRow(Icons.Rounded.TextFields, R.string.cp_comfort, dark, last = true) { comfort = true }
                         }
                     }
@@ -249,7 +250,7 @@ private fun ChatSettingsGroup(dark: Boolean, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ChatSettingsRow(icon: ImageVector, title: Int, dark: Boolean, last: Boolean = false, onClick: () -> Unit) {
+private fun ChatSettingsRow(icon: ImageVector, title: Int, dark: Boolean, last: Boolean = false, value: String? = null, onClick: () -> Unit) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column {
         Row(
@@ -273,6 +274,9 @@ private fun ChatSettingsRow(icon: ImageVector, title: Int, dark: Boolean, last: 
                 color = settingsInk(),
                 modifier = Modifier.weight(1f),
             )
+            if (!value.isNullOrBlank()) {
+                Text(value, fontSize = 12.sp, color = settingsMut(), modifier = Modifier.padding(end = 4.dp), maxLines = 1)
+            }
             Icon(
                 Icons.Rounded.ChevronRight,
                 null,
