@@ -91,6 +91,10 @@ class DriverEligibility implements DriverWorkGate
     /** May this driver, with this vehicle, take a ride in this category? Null = yes, else a reason code. */
     public function categoryProblem(Driver $driver, Vehicle $vehicle, RideCategory $category): ?string
     {
+        // O-85: the right kind of vehicle first — a bus never gets Economy, a car never Motorcycle.
+        if (! VehicleKinds::fits($vehicle, $category)) {
+            return 'vehicle_kind';
+        }
         $row = DriverCategoryEligibility::query()->where('driver_id', $driver->id)->where('category_id', $category->id)->first();
         if ($row !== null && $row->admin_override) {
             return $row->status === 'eligible' ? null : 'category_'.$row->status;

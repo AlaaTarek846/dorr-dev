@@ -187,6 +187,8 @@ return [
     // -------------------------------------------------------------- Rides (docs/rides-plan.md)
     'ride_accepted_title' => 'الكابتن :name في الطريق إليك',
     'ride_accepted_body' => ':car :plate — يصل خلال :minutes دقيقة تقريباً.',
+    'ride_arriving_soon_title' => 'الكابتن قرّب يوصل',
+    'ride_arriving_soon_body' => 'الكابتن :name هيوصل خلال حوالي :minutes دقايق. جهّز نفسك.',
     'ride_arrived_title' => 'وصل الكابتن',
     'ride_arrived_body' => 'الكابتن :name بانتظارك في نقطة الالتقاط.',
     'ride_started_title' => 'بدأت الرحلة',

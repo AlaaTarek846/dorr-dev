@@ -4916,6 +4916,7 @@
                 "cash_allowed": "Cash",
                 "surge_allowed": "Surge",
                 "open_destination_allowed": "No destination",
+                "hourly_only": "By the hour only (destination optional)",
                 "multi_stop_allowed": "Stops",
                 "requires_schedule": "Scheduled only",
                 "pin_required": "Ride code"
@@ -5084,6 +5085,8 @@
                 "bids__ttl_s": "Offer time",
                 "price__customer_fee_minor": "Customer fee (fixed)",
                 "price__customer_fee_bp": "Customer fee (of the fare)",
+                "bids__resend_after_s": "Offers: send the request again to the same captain after (s)",
+                "notify__driver_arriving_s": "Tell the rider before the captain arrives (s, 0 = off)",
                 "ops__driver_maintenance": "Captains: maintenance (nobody goes online)",
                 "ops__driver_maintenance_message": "Captains: maintenance message",
                 "ops__financial_safe_mode": "Financial safe mode (withdrawals paused)",

@@ -122,6 +122,8 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('lost-items/{lost}/messages', [\Modules\Rides\Http\Controllers\LostItemController::class, 'message'])->whereUuid('lost');
         Route::post('lost-items/{lost}/returned', [\Modules\Rides\Http\Controllers\LostItemController::class, 'returned'])->whereUuid('lost');
         // D-216..D-224: my payout safeguards; D-227, D-228: monthly statements and their notes.
+        // O-85: the services this captain's vehicle can do (what the app shows).
+        Route::get('work-services', [\Modules\Rides\Http\Controllers\Driver\DriverPreferencesController::class, 'services']);
         // D-329..D-344: maintenance, safe mode, switched-off service / categories, emergency review, the last withdrawal.
         Route::get('service-status', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'serviceStatus']);
         Route::get('payouts/status', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'status']);

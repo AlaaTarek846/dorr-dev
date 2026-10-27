@@ -860,7 +860,9 @@ data class DriverRideItemDto(
     @SerializedName("completed_at") val completedAt: String? = null,
 )
 
-data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList())
+data class DriverRideListMetaDto(@SerializedName("current_page") val currentPage: Int = 1, @SerializedName("last_page") val lastPage: Int = 1, val total: Int = 0)
+
+data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList(), val meta: DriverRideListMetaDto? = null)
 
 // ---------------------------------------------------------------- rank and performance (D-239..D-259)
 
@@ -1044,3 +1046,6 @@ data class ServiceStatusDto(
     @SerializedName("emergency_review") val emergencyReview: EmergencyReviewDto? = null,
     @SerializedName("last_withdrawal") val lastWithdrawal: LastWithdrawalDto? = null,
 )
+
+/** O-85: the captain's kinds of vehicle (car / motorcycle / bus / marine / none) and the services they open. */
+data class WorkServicesDto(val kinds: List<String> = emptyList(), val services: List<String> = emptyList())

@@ -110,6 +110,8 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
     var trip by remember { mutableStateOf<TripDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // O-76: «Arrived» pressed too far from the pickup — shown as a dialog, not a line at the bottom.
+    var notAtPickup by remember { mutableStateOf<com.dorr.core.network.ApiError?>(null) }
     var pinOpen by remember { mutableStateOf(false) }
     var chatOpen by remember { mutableStateOf(false) }
     var cancelOpen by remember { mutableStateOf(false) }
@@ -171,7 +173,7 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
             if (here == null) { error = context.getString(R.string.home_permissions); busy = false; return@launch }
             when (val result = call(JsonObject().apply { addProperty("lat", here.first); addProperty("lng", here.second) }.toString())) {
                 is ApiResult.Ok -> trip = result.data
-                is ApiResult.Failed -> error = result.error.displayMessage
+                is ApiResult.Failed -> if (result.error.errorCode == "rides_not_at_pickup") notAtPickup = result.error else error = result.error.displayMessage
                 is ApiResult.Offline -> error = context.getString(R.string.error_offline)
             }
             busy = false
@@ -425,6 +427,16 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
         confirmButton = { TextButton(onClick = { endConfirm = false; endRide(early = false) }) { Text(stringResource(R.string.trip_end)) } },
         dismissButton = { TextButton(onClick = { endConfirm = false }) { Text(stringResource(R.string.offer_decline)) } },
     )
+    notAtPickup?.let { e ->
+        val data = (e.data as? com.google.gson.JsonObject)
+        NotAtPickupDialog(
+            distanceM = data?.get("distance_m")?.takeIf { !it.isJsonNull }?.asInt,
+            radiusM = data?.get("radius_m")?.takeIf { !it.isJsonNull }?.asInt,
+            message = e.displayMessage,
+            pickupLat = t.origin?.lat, pickupLng = t.origin?.lng,
+            onClose = { notAtPickup = null },
+        )
+    }
     earlyEnd?.let { message ->
         AlertDialog(
             onDismissRequest = { earlyEnd = null },

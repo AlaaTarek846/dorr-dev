@@ -45,7 +45,9 @@ class RideQuoteResource extends JsonResource
             // O-17: this quote is by the hour ({hours, hour_price_minor, overtime_per_min_minor}), or null.
             'hourly' => $this->policy_snapshot['hourly'] ?? null,
             // O-17: the category can also be booked by the hour — the app shows «by distance / by the hour».
-            'hourly_offer' => ($p = (array) ($this->policy_snapshot['policy'] ?? [])) !== [] && ! empty($p['hourly.enabled']) && (int) ($p['hourly.hour_price_minor'] ?? 0) > 0 ? [
+            'hourly_offer' => ($p = (array) ($this->policy_snapshot['policy'] ?? [])) !== [] && (! empty($p['hourly.enabled']) || $this->category?->flag('hourly_only')) && (int) ($p['hourly.hour_price_minor'] ?? 0) > 0 ? [
+                // O-86: by the hour only — the app shows no «by distance».
+                'only' => (bool) $this->category?->flag('hourly_only'),
                 'hour_price_minor' => (int) $p['hourly.hour_price_minor'],
                 'min_hours' => max(1, (int) ($p['hourly.min_hours'] ?? 1)),
                 'max_hours' => max(1, (int) ($p['hourly.max_hours'] ?? 8)),

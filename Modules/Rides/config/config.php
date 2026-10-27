@@ -183,6 +183,8 @@ return [
         'search.max_search_s' => 600,                     // Jawad: 10 minutes
         'payment.await_s' => 900,                         // a card ride not paid within 15 minutes expires
         'search.refuse_cooldown_s' => 300,                // Jawad
+        'bids.resend_after_s' => 120,                     // O-75: an Offers request goes back to a captain who let it go after this
+        'notify.driver_arriving_s' => 180,                // O-72: the rider is told when the captain is this far (in time) from the pickup (0 = off)
 
         'driver.stale_after_s' => 900,                    // Jawad: 15 minutes
         'driver.min_balance_minor' => -5000,              // Jawad: driver_min_to_get_ride

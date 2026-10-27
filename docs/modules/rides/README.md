@@ -401,6 +401,24 @@ Both apps show the request's state from the ride (`change_request`): the rider a
   - The last withdrawal: pending / unknown (past `wallet.payout_sla_hours`) / paid / failed.
   - The app reads this on open, on reconnect and on `driver.*` events, never on a timer.
 
+## Owner notes, fifth round (O-72..O-83)
+- **Arriving soon** (`Notifications/ArrivingSoon`): sent once per ride, when the captain on the way is within `notify.driver_arriving_s` of the pickup (180 by default, 0 = off).
+  - It runs on the captain's location uploads; nothing asks on a timer.
+  - It records the ride event `driver_arriving` and sends `ride.arriving_soon` to the rider.
+- **Live thresholds:** `Ride::livePolicy()` reads `arrival.radius_m` and `arrival.destination_radius_m` from the dashboard now, not from the booking's snapshot.
+  - Prices still come from the snapshot.
+  - `rides_not_at_pickup` returns `distance_m` and `radius_m`; the captain app shows them in a dialog.
+- **For Her:**
+  - A category's `eligibility.rider_gender` hides it from the quote for riders of another gender.
+  - `eligibility.driver_gender` hides it from those captains' preferences.
+  - Gender is now a required profile field in captain onboarding.
+- **Dispatch without waiting for the scheduler:**
+  - Going online fires `DriverCameOnline`. `DispatchEngine::nudgeNear` then runs a round for every searching or bidding request within 50 km that has no open card.
+  - A free captain's location upload runs the rounds that are due, at most once every 5 s per captain.
+  - Offers (bidding) requests return to a captain after `bids.resend_after_s` (120 s by default) instead of `search.refuse_cooldown_s`.
+- **Favourite captains** (`GET mobile/v1/rides/circle?lat&lng`): each favourite comes with `available` (online, GPS on, fresh, not on a ride, may work) and `distance_km` (to 0.1 km). The available ones come first, nearest first.
+- **Time zone:** times written into texts (bus, marine, hire, lessons, the payment page, reminders) use `rides.default_timezone`, never the server's UTC.
+
 ## Ride chat (`RideChatService`, `ride_messages`)
 Rider ↔ driver, text and ready-made messages (`lang/*/rides.php → quick`), open only while a driver is on the ride; when it ends nobody can write (`409 rides_chat_closed`) but the conversation stays for the admin. Live on `rides.{uuid}` as `ride.message`, plus a push to the other side; a `client_id` makes a re-send land once. API: `GET|POST mobile/v1/rides/{uuid}/messages` and `driver/v1/rides/{uuid}/messages` (`{open, quick_replies, messages}`).
 

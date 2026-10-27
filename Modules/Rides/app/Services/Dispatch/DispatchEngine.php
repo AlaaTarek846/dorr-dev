@@ -88,6 +88,28 @@ class DispatchEngine
         return $due->count();
     }
 
+    /**
+     * O-79: a captain came online (or moved) — the requests waiting near them get their next round now,
+     * instead of only on the scheduler's tick. At most once every few seconds per captain.
+     */
+    public function nudgeNear(int $driverId, float $lat, float $lng, bool $cameOnline = false): int
+    {
+        if (! $cameOnline && ! \Illuminate\Support\Facades\Cache::add('rides:nudge:'.$driverId, 1, 5)) {
+            return 0;
+        }
+        [$minLat, $maxLat, $minLng, $maxLng] = Geo::boxAround($lat, $lng, 50000);
+        // Coming online: every request around without an open card (a round skips those itself); moving: the ones due.
+        $due = Ride::query()->whereIn('status', [RideStatus::Searching->value, RideStatus::Bidding->value])
+            ->when(! $cameOnline, fn ($q) => $q->where(fn ($w) => $w->whereNull('next_dispatch_at')->orWhere('next_dispatch_at', '<=', now())))
+            ->whereBetween('origin_lat', [$minLat, $maxLat])->whereBetween('origin_lng', [$minLng, $maxLng])
+            ->orderBy('id')->limit(10)->pluck('id');
+        foreach ($due as $id) {
+            $this->runRound(Ride::query()->findOrFail($id));
+        }
+
+        return $due->count();
+    }
+
     public function runRound(Ride $ride): void
     {
         $ride->refresh();
@@ -452,7 +474,10 @@ class DispatchEngine
     {
         [$minLat, $maxLat, $minLng, $maxLng] = Geo::boxAround($ride->origin_lat, $ride->origin_lng, $radius);
         $staleAfter = (int) ($policy['driver.stale_after_s'] ?? 900);
-        $cooldown = (int) ($policy['search.refuse_cooldown_s'] ?? 300);
+        // O-75: an Offers (bidding) request goes back to a captain who let it go after `bids.resend_after_s`.
+        $cooldown = $ride->status === RideStatus::Bidding
+            ? (int) ($policy['bids.resend_after_s'] ?? 120)
+            : (int) ($policy['search.refuse_cooldown_s'] ?? 300);
 
         $refused = RideOffer::query()->where('ride_id', $ride->id)
             ->where(fn ($q) => $q->whereIn('status', [OfferStatus::Declined->value, OfferStatus::Expired->value])->where('responded_at', '>', now()->subSeconds($cooldown))

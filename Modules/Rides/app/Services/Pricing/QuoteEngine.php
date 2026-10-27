@@ -60,9 +60,8 @@ class QuoteEngine
         if ($country === null || ! $this->features->allows($country->id, $cityId, RideFeatures::SERVICE)) {
             throw RidesException::featureDisabled(RideFeatures::SERVICE);
         }
-        if ($open && $hours === null && ! $this->features->allows($country->id, $cityId, 'open_destination')) {
-            throw RidesException::featureDisabled('open_destination');
-        }
+        // O-86: a category by the hour only (motorcycles) needs no destination; the others need the switch.
+        $openAllowed = $this->features->allows($country->id, $cityId, 'open_destination');
         if ($stops !== [] && ! $this->features->allows($country->id, $cityId, 'multi_stop')) {
             throw RidesException::featureDisabled('multi_stop');
         }
@@ -110,13 +109,18 @@ class QuoteEngine
             ->when($trip['category'] ?? null, fn ($q, $slug) => $q->where('slug', $slug))
             ->orderBy('sort_order')->get()
             ->filter(fn (RideCategory $c) => $this->features->allows($country->id, $cityId, RideFeatures::categoryFeature($c->slug)))
-            ->filter(fn (RideCategory $c) => ! $open || $hours !== null || $c->flag('open_destination_allowed'))
+            // O-73: a category for one gender of rider (For Her) never shows to anyone else.
+            ->filter(fn (RideCategory $c) => empty(((array) $c->eligibility)['rider_gender']) || $rider->gender?->value === ((array) $c->eligibility)['rider_gender'])
+            ->filter(fn (RideCategory $c) => ! $open || $hours !== null || $c->flag('hourly_only') || ($openAllowed && $c->flag('open_destination_allowed')))
             ->filter(fn (RideCategory $c) => $hours === null || $c->pricing_strategy !== PricingStrategy::Bid)
             ->filter(fn (RideCategory $c) => $stops === [] || $c->flag('multi_stop_allowed'))
             // Bidding (§9) needs a destination to price, and its own switch.
             ->filter(fn (RideCategory $c) => $c->pricing_strategy !== PricingStrategy::Bid || (! $open && $this->features->allows($country->id, $cityId, 'bidding')));
 
         if ($categories->isEmpty()) {
+            if ($open && $hours === null && ! $openAllowed) {
+                throw RidesException::featureDisabled('open_destination');
+            }
             throw new RidesException('no_category_here', 422);
         }
 
@@ -124,11 +128,14 @@ class QuoteEngine
         $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours, $options, &$refusals) {
             $policy = $this->policies->for($country->id, $cityId, $zone?->id, $category->id);
             $hourly = null;
-            if ($hours !== null) {
-                // Only the categories the admin opened by the hour, with a price.
-                if (! $policy->bool('hourly.enabled') || $policy->int('hourly.hour_price_minor') <= 0) {
+            // O-86: a category by the hour only is always priced by the hour — at its fewest hours until the rider picks.
+            $hoursHere = $hours ?? ($category->flag('hourly_only') ? max(1, $policy->int('hourly.min_hours')) : null);
+            if ($hoursHere !== null) {
+                // Only the categories the admin opened by the hour, with a price (by the hour only = opened).
+                if ((! $policy->bool('hourly.enabled') && ! $category->flag('hourly_only')) || $policy->int('hourly.hour_price_minor') <= 0) {
                     return null;
                 }
+                $hours = $hoursHere;
                 $min = max(1, $policy->int('hourly.min_hours'));
                 $max = max($min, $policy->int('hourly.max_hours'));
                 if ($hours < $min || $hours > $max) {

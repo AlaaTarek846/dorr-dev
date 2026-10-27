@@ -187,6 +187,8 @@ return [
     // -------------------------------------------------------------- Rides (docs/rides-plan.md)
     'ride_accepted_title' => 'Captain :name is on the way',
     'ride_accepted_body' => ':car :plate — arriving in about :minutes min.',
+    'ride_arriving_soon_title' => 'Your captain is almost there',
+    'ride_arriving_soon_body' => 'Captain :name arrives in about :minutes min. Get ready.',
     'ride_arrived_title' => 'Your captain has arrived',
     'ride_arrived_body' => 'Captain :name is waiting at the pickup point.',
     'ride_started_title' => 'Your ride has started',

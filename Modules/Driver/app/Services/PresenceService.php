@@ -29,7 +29,7 @@ class PresenceService
             throw new DriverException('cannot_go_online', 422, ['reason' => $reason], ['reason' => $reason]);
         }
 
-        return DB::transaction(function () use ($driver, $lat, $lng, $appVersion) {
+        $presence = DB::transaction(function () use ($driver, $lat, $lng, $appVersion) {
             $presence = $this->lockedPresence($driver);
             $onTrip = $this->gate->activeRide($driver) !== null;
 
@@ -52,6 +52,12 @@ class PresenceService
 
             return $presence;
         });
+        // O-79: online is a first position too — riders' maps see the car, and the requests already waiting
+        // near them reach them now (Rides listens; the Driver module only says it happened).
+        event(new \Modules\Driver\Events\DriverLocationUpdated($driver, $lat, $lng, null, null, $this->gate->activeRide($driver)['id'] ?? null));
+        event(new \Modules\Driver\Events\DriverCameOnline($driver, $lat, $lng));
+
+        return $presence;
     }
 
     public function goOffline(Driver $driver, string $reason = 'manual'): DriverPresence

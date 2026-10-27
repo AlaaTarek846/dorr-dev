@@ -27,7 +27,7 @@ interface RidesApi {
 
     /** R-INN-07 DORR Circle: my favourite captains, to choose from when booking. */
     @GET("mobile/v1/rides/circle")
-    suspend fun circle(@Header("Authorization") auth: String): ApiEnvelope<RideCircleDriversDto>
+    suspend fun circle(@Header("Authorization") auth: String, @Query("lat") lat: Double? = null, @Query("lng") lng: Double? = null): ApiEnvelope<RideCircleDriversDto>
 
     /** "Search all captains" once the circle had no one. */
     @POST("mobile/v1/rides/{uuid}/circle/widen")
@@ -401,6 +401,8 @@ data class RideHourlyDto(
 )
 
 data class RideHourlyOfferDto(
+    /** O-86: by the hour only (motorcycles) — no «by distance». */
+    val only: Boolean = false,
     @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
     @SerializedName("min_hours") val minHours: Int = 1,
     @SerializedName("max_hours") val maxHours: Int = 8,
@@ -490,6 +492,9 @@ data class FavoriteDriverDto(
     val name: String? = null,
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     val rating: Double? = null,
+    /** O-81: on the booking sheet only — working and free right now, and how far from the pickup. */
+    val available: Boolean? = null,
+    @SerializedName("distance_km") val distanceKm: Double? = null,
 )
 
 /** "Are you OK?" waiting for an answer (R-222, R-223). */

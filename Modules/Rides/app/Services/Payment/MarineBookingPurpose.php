@@ -29,7 +29,7 @@ class MarineBookingPurpose extends ServiceBookingPurpose
 
     protected function subtitle(Model $booking): ?string
     {
-        return $booking->starts_at?->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i');
+        return $booking->starts_at?->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i');
     }
 
     protected function confirm(Model $booking, int $payable, int $discount): void

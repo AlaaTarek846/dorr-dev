@@ -515,7 +515,7 @@ private fun EntryRow(e: LoyaltyEntryDto) {
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(e.title.orEmpty(), color = settingsInk(), fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(e.createdAt?.take(16)?.replace('T', ' ').orEmpty(), color = settingsMut(), fontSize = 11.sp)
+            Text(localDateTime(e.createdAt), color = settingsMut(), fontSize = 11.sp)
         }
         Text((if (plus) "+" else "") + e.points, color = if (plus) AppColors.success else AppColors.danger, fontWeight = FontWeight.Black)
     }

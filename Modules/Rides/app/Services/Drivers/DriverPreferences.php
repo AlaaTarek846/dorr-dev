@@ -211,6 +211,10 @@ class DriverPreferences
 
         return RideCategory::query()->with('translations')->where('status', true)->orderBy('sort_order')->get()
             ->filter(fn (RideCategory $c) => $countryId !== null && $this->features->allows($countryId, null, RideFeatures::categoryFeature($c->slug)))
+            // O-85: only the categories for the captain's kind of vehicle (no Motorcycle for a car, no Economy for a bus).
+            ->filter(fn (RideCategory $c) => $vehicle === null || VehicleKinds::fits($vehicle, $c))
+            // O-73: a category for women captains (For Her) isn't offered to a man at all.
+            ->filter(fn (RideCategory $c) => empty(((array) $c->eligibility)['driver_gender']) || $driver->gender?->value === ((array) $c->eligibility)['driver_gender'])
             ->map(fn (RideCategory $c) => [
                 'slug' => $c->slug,
                 'name' => $c->translated('name'),

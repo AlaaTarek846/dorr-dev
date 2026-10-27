@@ -513,6 +513,6 @@ class BusService
 
     private function timeText(?CarbonInterface $at): string
     {
-        return $at?->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i') ?? '';
+        return $at?->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i') ?? '';
     }
 }

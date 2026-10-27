@@ -4914,6 +4914,7 @@
                 "cash_allowed": "كاش",
                 "surge_allowed": "ذروة",
                 "open_destination_allowed": "بدون وجهة",
+                "hourly_only": "بالساعة بس (من غير وجهة إجبارية)",
                 "multi_stop_allowed": "محطات",
                 "requires_schedule": "حجز مسبق فقط",
                 "pin_required": "رمز الرحلة"
@@ -5083,6 +5084,8 @@
                 "bids__ttl_s": "مهلة العرض",
                 "price__customer_fee_minor": "رسوم العميل (ثابتة)",
                 "price__customer_fee_bp": "رسوم العميل (من الأجرة)",
+                "bids__resend_after_s": "العروض: إعادة الطلب لنفس الكابتن بعد (ثانية)",
+                "notify__driver_arriving_s": "تنبيه الراكب قبل وصول الكابتن بـ (ثانية، 0 = مقفول)",
                 "ops__driver_maintenance": "الكباتن: وضع الصيانة (محدش يشتغل)",
                 "ops__driver_maintenance_message": "الكباتن: رسالة الصيانة",
                 "ops__financial_safe_mode": "وضع الأمان المالي (إيقاف السحب)",

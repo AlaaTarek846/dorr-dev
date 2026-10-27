@@ -334,6 +334,10 @@ class DrivingLessonService
         if ($status !== DriverStatus::Active->value) {
             throw new RidesException('hire_driver_not_active', 403);
         }
+        // O-85: lessons are taught by car captains (or captains without a vehicle).
+        if (! app(\Modules\Rides\Services\Drivers\VehicleKinds::class)->offers($driver, 'lessons')) {
+            throw new RidesException('service_not_for_vehicle', 403);
+        }
     }
 
     private function assertOwner(Driver $driver, int $ownerId): void
@@ -381,6 +385,6 @@ class DrivingLessonService
 
     private function local(Carbon $at): string
     {
-        return $at->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i');
+        return $at->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i');
     }
 }

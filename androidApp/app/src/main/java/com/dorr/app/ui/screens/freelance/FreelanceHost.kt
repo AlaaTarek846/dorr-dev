@@ -404,7 +404,7 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                 Card {
                     Label(stringResource(R.string.fl_history))
                     events.forEach { e ->
-                        Text("${eventLabel(e.type)}  ·  ‎${e.at?.take(16)?.replace('T', ' ').orEmpty()}", color = settingsMut(), fontSize = 12.sp)
+                        Text("${eventLabel(e.type)}  ·  ‎${com.dorr.app.ui.screens.rides.localDateTime(e.at)}", color = settingsMut(), fontSize = 12.sp)
                     }
                 }
             }

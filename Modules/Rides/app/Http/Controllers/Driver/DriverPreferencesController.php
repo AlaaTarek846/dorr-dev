@@ -49,4 +49,12 @@ class DriverPreferencesController extends Controller
         /** @var Driver */
         return $request->user();
     }
+
+    /** O-85: the services this captain's vehicle can do — the app shows only these. */
+    public function services(Request $request, \Modules\Rides\Services\Drivers\VehicleKinds $kinds): JsonResponse
+    {
+        $driver = $request->user();
+
+        return ApiResponse::success(['kinds' => $kinds->of($driver), 'services' => $kinds->services($driver)], __('api.retrieved'));
+    }
 }

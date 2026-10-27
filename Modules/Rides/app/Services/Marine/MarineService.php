@@ -289,7 +289,7 @@ class MarineService
             'name' => strtok((string) $guest->name, ' ') ?: '', 'title' => $listing->title, 'guests' => $booking->guests,
         ], ['type' => 'marine', 'listing_uuid' => $listing->uuid, 'booking_uuid' => $booking->uuid]);
         $this->notifications->send($guest, 'marine.confirmed', 'marine_confirmed_title', 'marine_confirmed_body', [
-            'title' => $listing->title, 'time' => $booking->starts_at->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i'),
+            'title' => $listing->title, 'time' => $booking->starts_at->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i'),
         ], ['type' => 'marine', 'booking_uuid' => $booking->uuid]);
 
         return $booking->refresh();
