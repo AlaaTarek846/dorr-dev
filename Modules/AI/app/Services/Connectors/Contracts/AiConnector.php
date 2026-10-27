@@ -82,9 +82,18 @@ interface AiConnector
      * Start an asynchronous video job. Video takes minutes, so this only
      * submits it and returns the provider's job id; see pollVideo().
      *
+     * $options are optional and provider-specific; a connector ignores keys
+     * it does not support (it never fakes them):
+     *   - image:            array{base64?: string, bytes?: string, mime: string}  first frame (image-to-video)
+     *   - reference_images: list<array{base64?: string, bytes?: string, mime: string}>  up to 3 subject/asset references
+     *   - aspect_ratio:     string  e.g. "16:9", "9:16"
+     *   - resolution:       string  e.g. "720p", "1080p"
+     *   - person_generation: string provider value, passed through untouched
+     *
+     * @param  array<string, mixed>  $options
      * @return array{success: bool, message: string, job_id: ?string}
      */
-    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array;
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds, array $options = []): array;
 
     /**
      * @return array{success: bool, message: string, state: string, progress: ?int} state: queued|processing|completed|failed

@@ -84,8 +84,14 @@ fun ChatSettingsPage() {
     val section = host.chatSettingsSection
     var themeSheet by remember { mutableStateOf(false) }
     var comfort by remember { mutableStateOf(false) }
+    var aiImagesOpen by remember { mutableStateOf(false) }
+    var memoryOpen by remember { mutableStateOf(false) }
+    val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
+
     if (themeSheet) ThemeSheet { themeSheet = false }
     if (comfort) ChatComfortSheet { comfort = false }
+    if (aiImagesOpen) ChatAiImagesSheet(onDismiss = { aiImagesOpen = false }) { c, m -> aiImagesOpen = false; openAt(c, m) }
+    if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
 
     BackHandler(enabled = section != ChatSetSection.Menu) { host.chatSettingsSection = ChatSetSection.Menu }
 
@@ -150,6 +156,8 @@ fun ChatSettingsPage() {
                             ChatSettingsRow(Icons.Rounded.Star, R.string.ch_starred_title, dark) { host.push(ChRoute.Starred) }
                             ChatSettingsRow(Icons.Rounded.PriorityHigh, R.string.ct_important, dark) { host.push(ChRoute.Important) }
                             ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ct_today, dark) { host.push(ChRoute.Today) }
+                            if (ChatAi.aiImages) ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ch_ai_images_title, dark) { aiImagesOpen = true }
+                            if (ChatAi.memory) ChatSettingsRow(Icons.Rounded.AutoAwesome, R.string.ch_ai_memory, dark) { memoryOpen = true }
                             ChatSettingsRow(Icons.Rounded.History, R.string.cp_catch_up, dark, last = true) { host.push(ChRoute.CatchUp) }
                         }
                     }

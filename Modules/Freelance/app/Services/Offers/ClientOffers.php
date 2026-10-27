@@ -9,6 +9,7 @@ use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Models\FreelanceOfferEvent;
 use Modules\Freelance\Models\FreelanceProject as Project;
+use Modules\Freelance\Services\Chat\OfferChat;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
 use Modules\Freelance\Services\Projects\ProjectStateMachine;
@@ -26,6 +27,7 @@ class ClientOffers
         private readonly FreelanceNotifier $notifier,
         private readonly ProjectOffersWindow $window,
         private readonly ProjectStateMachine $machine,
+        private readonly OfferChat $chat,
     ) {}
 
     /** Marks every offer still `submitted` as seen by the client — the first time only. */
@@ -50,11 +52,24 @@ class ClientOffers
         return $this->move($offer, OfferStatus::Shortlisted, 'offer.shortlisted', $client);
     }
 
+    /** Takes it off the shortlist (back to «seen»). Quiet: the freelancer is not told. */
+    public function unshortlist(Offer $offer, User $client): Offer
+    {
+        if ($offer->status !== OfferStatus::Shortlisted) {
+            throw new FreelanceException('offer_invalid_state', 409, ['status' => __('freelance.offer_statuses.'.$offer->status->value)], ['status' => $offer->status->value]);
+        }
+
+        return DB::transaction(fn () => $this->moveNow($offer, OfferStatus::Viewed, 'offer.unshortlisted', $client))->refresh();
+    }
+
     public function reject(Offer $offer, User $client, ?string $reason): Offer
     {
         $reason = $reason === null ? null : (trim(strip_tags($reason)) ?: null);
 
-        return $this->move($offer, OfferStatus::Rejected, 'offer.rejected', $client, ['status_reason' => $reason], $reason === null ? [] : ['reason' => $reason]);
+        $moved = $this->move($offer, OfferStatus::Rejected, 'offer.rejected', $client, ['status_reason' => $reason], $reason === null ? [] : ['reason' => $reason]);
+        $this->chat->freeze($offer->project, $offer->freelancer_id);
+
+        return $moved;
     }
 
     /**
@@ -86,13 +101,18 @@ class ClientOffers
                 $this->window->closeBecauseChosen($project, $client->id);
             }
             $this->machine->move($project->refresh(), FreelanceProjectStatus::Awarded, 'project.awarded', 'client', $client->id, ['awarded_at' => now()], ['offer' => $chosen->uuid]);
+            // FL-401: the agreement starts as a draft from the chosen offer.
+            app(\Modules\Freelance\Services\Projects\Agreements::class)->draft($project->refresh(), $chosen);
 
             return $chosen;
         });
 
         // Told after the commit: the chosen one, then everyone else.
         $this->tell($chosen, 'offer.accepted');
-        $others->each(fn (Offer $o) => $this->tell($o, 'offer.rejected'));
+        $others->each(function (Offer $o): void {
+            $this->chat->freeze($o->project, $o->freelancer_id);
+            $this->tell($o, 'offer.rejected');
+        });
 
         return $chosen->refresh();
     }

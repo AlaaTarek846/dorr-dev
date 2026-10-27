@@ -290,6 +290,7 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.
             'ride-settings' => [
                 'module_name' => 'passenger_ride',

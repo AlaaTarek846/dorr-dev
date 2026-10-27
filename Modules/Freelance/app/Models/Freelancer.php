@@ -119,6 +119,11 @@ class Freelancer extends Authenticatable implements HasMedia
         return $this->belongsToMany(FreelanceSkill::class, 'freelancer_skills', 'freelancer_id', 'freelance_skill_id')->withPivot('level');
     }
 
+    public function offers(): HasMany
+    {
+        return $this->hasMany(FreelanceOffer::class);
+    }
+
     public function experiences(): HasMany
     {
         return $this->hasMany(FreelancerExperience::class);

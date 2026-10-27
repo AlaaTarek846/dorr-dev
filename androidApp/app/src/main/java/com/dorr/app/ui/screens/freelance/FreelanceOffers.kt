@@ -32,6 +32,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.CircularProgressIndicator
@@ -147,7 +149,9 @@ private fun Avatar(f: FreelanceOfferFreelancerDto?, size: Int = 42) {
 /** «New on DORR» until ratings exist (FL-701). */
 @Composable
 private fun ratingText(f: FreelanceOfferFreelancerDto?): String =
-    f?.rating?.let { stringResource(R.string.fl_rating, it, f.reviewsCount ?: 0) } ?: stringResource(R.string.fl_rating_new)
+    f?.rating?.let { stringResource(R.string.fl_rating, it, f.reviewsCount ?: 0) }
+        ?: f?.reviewsCount?.takeIf { it > 0 }?.let { stringResource(R.string.fl_rating_few, it) }
+        ?: stringResource(R.string.fl_rating_new)
 
 @Composable
 private fun skillsMatch(f: FreelanceOfferFreelancerDto?): String? =
@@ -223,6 +227,7 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                    if (f?.isFavorite == true) Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite), tint = Red, modifier = Modifier.padding(start = 4.dp).size(15.dp))
                 }
                 f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
@@ -306,8 +311,15 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
             CompareRow(stringResource(R.string.fl_verified), d) { o -> Cell(stringResource(if (o.freelancer?.verified == true) R.string.fl_yes else R.string.fl_no)) }
             CompareRow(stringResource(R.string.fl_experience_years), d) { o -> Cell(o.freelancer?.yearsOfExperience?.let { stringResource(R.string.fl_years, it) } ?: "—") }
             CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell("${o.freelancer?.portfolioCount ?: 0}") }
+            // FL-703: what they finished, and on time.
+            CompareRow(stringResource(R.string.fl_st_completed), d) { o -> Cell("${o.freelancer?.completedProjects ?: 0}" + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")) }
+            CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(o.freelancer?.onTimeRate?.let { "$it%" } ?: "—") }
             CompareRow(stringResource(R.string.fl_rating_label), d) { o -> Cell(ratingText(o.freelancer)) }
             CompareRow(stringResource(R.string.fl_offer_details), d) { o -> Cell(o.details, small = true) }
+            // FL-307: the same question, each one's answer.
+            d.offers.firstOrNull()?.answers?.forEachIndexed { i, a ->
+                CompareRow(a.question, d) { o -> Cell(o.answers.getOrNull(i)?.answer ?: "—", small = true) }
+            }
             Text(stringResource(R.string.fl_compare_best_hint), color = settingsMut(), fontSize = 11.sp)
             Spacer(Modifier.height(16.dp))
         }
@@ -335,7 +347,7 @@ private fun Cell(text: String, best: Boolean = false, small: Boolean = false) {
 // ---------------------------------------------------------------- one offer
 
 @Composable
-internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Unit, onProfile: () -> Unit, onChosen: () -> Unit) {
+internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Unit, onProfile: () -> Unit, onChat: (String) -> Unit, onChosen: () -> Unit) {
     val context = LocalContext.current
     val generic = stringResource(R.string.fl_error_generic)
     val fileError = stringResource(R.string.fl_file_open_failed)
@@ -410,6 +422,7 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                 Field(stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}")
                 Field(stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays))
                 Field(stringResource(R.string.fl_offer_details), o.details)
+                o.answers.forEach { a -> Field(a.question, a.answer) }
                 if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp)
             }
             if (f != null) Card {
@@ -439,8 +452,33 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
             notice?.let { Text(it, color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
             error?.let { Text(it, color = Red, fontSize = 13.sp) }
 
+            // FL-308: talk to them before choosing (phone numbers and links are not allowed until the agreement).
+            if (o.can.chat || o.chat != null) SettingsPrimaryButton(
+                text = stringResource(R.string.fl_chat_open) + if ((o.chat?.unread ?: 0) > 0) " (${o.chat?.unread})" else "",
+                loading = busy && sheet == "chat",
+                onClick = {
+                    val existing = o.chat?.uuid
+                    if (existing != null) onChat(existing) else {
+                        busy = true
+                        sheet = "chat"
+                        error = null
+                        scope.launch {
+                            try {
+                                ApiClient.freelance.openChat(auth(), projectUuid, offerUuid).data?.uuid?.let(onChat) ?: run { error = generic }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                error = e.message(generic)
+                            }
+                            busy = false
+                            sheet = null
+                        }
+                    }
+                },
+            )
             if (o.can.choose) SettingsPrimaryButton(text = stringResource(R.string.fl_choose_offer), loading = busy && sheet == null, onClick = { sheet = "choose" })
             if (o.can.shortlist && o.status != "shortlisted") TextAction(stringResource(R.string.fl_shortlist)) { decide("shortlist") }
+            if (o.can.unshortlist) TextAction(stringResource(R.string.fl_unshortlist)) { decide("unshortlist") }
             if (o.can.reject) TextAction(stringResource(R.string.fl_reject_offer), danger = true) { sheet = "reject" }
             Spacer(Modifier.height(20.dp))
         }
@@ -455,7 +493,7 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
 
 /** A panel from the bottom over a dimmed page. */
 @Composable
-private fun BottomPanel(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun BottomPanel(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     LocaleAwareDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable(onClick = onDismiss), contentAlignment = Alignment.BottomCenter) {
             Box(
@@ -532,6 +570,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     val reconnect = collectReconnectTick()
     var profile by remember { mutableStateOf<FreelancerProfileDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(projectUuid, offerUuid, reconnect) {
         try {
@@ -560,6 +599,22 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(p.name ?: "—", color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                     if (p.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+                }
+                // FL-306: keep this freelancer to find them again.
+                Row(
+                    Modifier.clip(RoundedCornerShape(999.dp)).clickable {
+                        val uuid = p.uuid ?: return@clickable
+                        val keep = !p.isFavorite
+                        profile = p.copy(isFavorite = keep)
+                        scope.launch {
+                            val ok = runCatching { if (keep) ApiClient.freelance.addFavorite(auth(), uuid) else ApiClient.freelance.removeFavorite(auth(), uuid) }.isSuccess
+                            if (!ok) profile = profile?.copy(isFavorite = !keep)
+                        }
+                    }.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(if (p.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = Red, modifier = Modifier.size(18.dp))
+                    Text(stringResource(if (p.isFavorite) R.string.fl_favorite_on else R.string.fl_favorite_add), color = Red, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
                 }
                 p.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp) }
                 Text(
@@ -617,11 +672,75 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     }
                 }
             }
+            // FL-701 / FL-703: what clients said, and their numbers.
+            if (p.reviews.isNotEmpty() || (p.completedProjects ?: 0) > 0) Card {
+                Label(stringResource(R.string.fl_rv_about))
+                Text(listOfNotNull(p.completedProjects?.let { stringResource(R.string.fl_st_completed_n, it) }, p.onTimeRate?.let { stringResource(R.string.fl_st_on_time_n, it) }).joinToString("  ·  "), color = settingsMut(), fontSize = 12.sp)
+                p.reviews.forEach { r ->
+                    Column(Modifier.padding(vertical = 4.dp)) {
+                        ReviewStars(r.stars)
+                        r.comment?.let { Text(it, color = settingsInk(), fontSize = 13.sp) }
+                        Text(listOfNotNull(r.project, r.at?.take(10)?.let { "\u200E$it" }).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
+                    }
+                }
+            }
             if (p.certificates.isNotEmpty()) Card {
                 Label(stringResource(R.string.fl_certificates))
                 p.certificates.forEach { c -> Text(listOfNotNull(c.title, c.issuer, c.issuedOn?.let { "‎$it" }).joinToString(" · "), color = settingsInk(), fontSize = 13.sp) }
             }
             Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+// ---------------------------------------------------------------- the freelancers I keep (FL-306)
+
+@Composable
+internal fun FavoritesPage(onBack: () -> Unit) {
+    val generic = stringResource(R.string.fl_error_generic)
+    val reconnect = collectReconnectTick()
+    val scope = rememberCoroutineScope()
+    var list by remember { mutableStateOf<List<com.dorr.app.network.FreelanceFavoriteDto>?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(reconnect) {
+        try {
+            list = ApiClient.freelance.favorites(auth()).data.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = e.message(generic)
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        SubHeader(stringResource(R.string.fl_favorites), onBack)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            val rows = list
+            when {
+                rows == null && error == null -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp)) } }
+                rows != null && rows.isEmpty() -> item { Text(stringResource(R.string.fl_favorites_empty), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(top = 24.dp)) }
+                rows != null -> items(rows, key = { it.uuid }) { f ->
+                    Row(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(FreelanceOfferFreelancerDto(uuid = f.uuid, name = f.name, avatarUrl = f.avatarUrl))
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(f.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                if (f.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                            }
+                            f.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                            Text(stringResource(R.string.fl_completeness, f.completeness), color = settingsMut(), fontSize = 12.sp)
+                        }
+                        Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite_remove), tint = Red, modifier = Modifier.size(34.dp).clip(CircleShape).clickable {
+                            scope.launch {
+                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) list = list?.filter { it.uuid != f.uuid }
+                            }
+                        }.padding(7.dp))
+                    }
+                }
+            }
+            error?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
         }
     }
 }

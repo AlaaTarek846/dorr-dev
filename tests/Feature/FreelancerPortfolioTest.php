@@ -168,7 +168,7 @@ class FreelancerPortfolioTest extends TestCase
         $res = $this->get("/api/freelance/v1/{$image['path']}")->assertOk();
         $this->assertStringContainsString('no-store', $res->headers->get('Cache-Control'));
 
-        foreach ([UploadedFile::fake()->create('x.exe', 10), UploadedFile::fake()->create('big.jpg', 5121, 'image/jpeg'), UploadedFile::fake()->image('tiny.jpg', 50, 50), UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf')] as $bad) {
+        foreach ([UploadedFile::fake()->create('x.exe', 10), UploadedFile::fake()->create('big.jpg', 5121, 'image/jpeg'), UploadedFile::fake()->image('tiny.jpg', 50, 50), UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.4\n%%EOF")] as $bad) {
             $this->post("/api/freelance/v1/profile/portfolio/{$work['id']}/images", ['image' => $bad], ['Accept' => 'application/json'])->assertUnprocessable();
         }
 

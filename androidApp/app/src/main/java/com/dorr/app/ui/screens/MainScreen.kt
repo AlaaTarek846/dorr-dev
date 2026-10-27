@@ -450,6 +450,14 @@ fun MainScreen(
     // A public story being watched or written (from the home page's circles).
     com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
 
+    // An AI tool refused for want of a DORR AI plan (chat, images, Discover…): "Subscribe" leaves
+    // the chat and opens the DORR AI subscription page.
+    com.dorr.app.ui.screens.aichat.AiPlanPromptDialog(night = night) {
+        walletOpen = false
+        chatOpen = false
+        aiChatOpen = true
+    }
+
     // DORR Rides: booking and following a ride, on its own map (the payment screen opens over it).
     AnimatedVisibility(
         visible = ridesOpen,
@@ -470,6 +478,8 @@ fun MainScreen(
 
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
+    // The wallet top-up opened from elsewhere (FL-501: not enough to fund a part).
+    com.dorr.app.ui.screens.wallet.TopupOverlay()
 
     // The goal moment and match banners, over anything (197, 198).
     com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsCelebrationHost() }

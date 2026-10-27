@@ -67,6 +67,8 @@ class RideQuoteResource extends JsonResource
             'bid' => ($bid = $this->policy_snapshot['bid'] ?? null) === null ? null : [
                 'suggested_minor' => (int) $bid['suggested'],
                 'floor_minor' => (int) $bid['floor'],
+                // AI-05: how much the suggestion moved from the rate card, and why (null = not moved).
+                'smart' => empty($bid['adjust_bp']) ? null : ['base_minor' => (int) ($bid['base'] ?? $bid['suggested']), 'adjust_bp' => (int) $bid['adjust_bp'], 'why' => $bid['why'] ?? null],
                 // − / + move by the policy's first step (5 by default) — the rider can also type the price (O-43).
                 'step_minor' => (int) (((array) ($this->policy_snapshot['policy']['bids.counter_steps_minor'] ?? []))[0] ?? 500),
             ],

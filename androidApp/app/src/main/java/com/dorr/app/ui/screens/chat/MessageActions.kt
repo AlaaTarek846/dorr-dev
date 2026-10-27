@@ -224,6 +224,8 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                 if (aiText && !focused.isMine && ChatAi.understand) ActionRow(Icons.Rounded.Psychology, stringResource(R.string.ct_understand)) { state.aiTool = "understand" to dto; close() }
                 if (aiText && ChatAi.simplify && dto.body.orEmpty().length > 220) ActionRow(Icons.Rounded.ShortText, stringResource(R.string.ct_simplify)) { state.aiTool = "simplify" to dto; close() }
                 if (aiText && ChatAi.tasks) ActionRow(Icons.Rounded.TaskAlt, stringResource(R.string.ct_make_tasks)) { state.aiTool = "tasks" to dto; close() }
+                // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
+                if (ChatAi.imageEdit && dto.type == "image" && !dto.viewOnce && !dto.sealed && !dto.isDeleted) ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_image_edit_title)) { state.aiTool = "edit_image" to dto; close() }
                 if (aiText && ChatAi.notes) ActionRow(Icons.Rounded.Description, stringResource(R.string.ct_make_note)) { state.aiNote(listOf(dto.id), noteSaved); close() }
                 // AI, on a tap: translate the text (never a view-once message).
                 if (ChatAi.translate && !dto.body.isNullOrBlank() && !dto.viewOnce && dto.type != "system") {
@@ -393,7 +395,7 @@ private fun EmojiSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
 /** Pick up to 5 chats to forward to; the send button rises in once something is selected. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ForwardSheet(exclude: String, onDismiss: () -> Unit, onSend: (List<String>) -> Unit) {
+internal fun ForwardSheet(exclude: String, onDismiss: () -> Unit, onSend: (List<String>) -> Unit) {
     val host = LocalChat.current
     val selected = remember { mutableStateListOf<String>() }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {

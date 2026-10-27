@@ -100,6 +100,16 @@
                                 </router-link>
                             </li>
                             <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-ar.index' }" class="side-menu__item">
+                                    {{ t('ai_ar.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-world.index' }" class="side-menu__item">
+                                    {{ t('ai_world.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-download.index' }" class="side-menu__item">
                                     {{ t('ai_site_download.title') }}
                                 </router-link>
@@ -859,6 +869,7 @@ const ridesItems = [
     { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
     { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
     { route: 'admin.rides.cases', permission: 'ride-cases.view', icon: 'ri-customer-service-2-line', label: 'rides.cases.title' },
+    { route: 'admin.rides.quality', permission: 'rides.view', icon: 'ri-sparkling-2-line', label: 'rides.quality.title' },
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.loyalty', permission: 'ride-loyalty.view', icon: 'ri-vip-crown-2-line', label: 'rides.loyalty.title' },
@@ -871,6 +882,8 @@ const freelanceItems = [
     { route: 'admin.freelance.overview', permission: 'freelance-settings.view', icon: 'ri-briefcase-4-line', label: 'freelance.overview.title' },
     { route: 'admin.freelance.switches', permission: 'freelance-feature-rules.view', icon: 'ri-toggle-line', label: 'freelance.switches.title' },
     { route: 'admin.freelance.projects', permission: 'freelance-projects.view', icon: 'ri-survey-line', label: 'freelance.projects.title' },
+    { route: 'admin.freelance.disputes', permission: 'freelance-disputes.view', icon: 'ri-scales-3-line', label: 'freelance.disputes.title' },
+    { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },

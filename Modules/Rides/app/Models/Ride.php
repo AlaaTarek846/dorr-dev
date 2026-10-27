@@ -35,6 +35,12 @@ class Ride extends Model
     {
         return [
             'beneficiary' => 'array',
+            'comfort' => 'array',
+            'late_risk' => 'array',
+            'risk_flags' => 'array',
+            'cancel_risk' => 'integer',
+            'risk_score' => 'integer',
+            'after_ride_id' => 'integer',
             'pickup_point' => 'array',
             'circle_driver_ids' => 'array',
             'circle_asked_at' => 'datetime',

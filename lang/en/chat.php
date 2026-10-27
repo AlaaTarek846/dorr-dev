@@ -209,6 +209,20 @@ return [
         'calls_unavailable_peer_country' => 'Calls aren\'t available where this person is.',
         'ai_unavailable' => 'AI features aren\'t available right now.',
         'ai_failed' => 'The AI couldn\'t answer right now. Try again in a moment.',
+        'ai_blocked' => 'AI features are turned off for your account. Contact support.',
+        'ai_message_blocked' => 'This was blocked by the DORR AI safety policy.',
+        // The chat's AI tools need a DORR AI plan (2026-10-15)
+        'ai_plan_no_plan' => 'AI tools in the chat need a DORR AI subscription. Subscribe to a plan to continue.',
+        'ai_plan_trial_ended' => 'Your DORR AI trial has ended. Subscribe to a plan to use AI tools in the chat.',
+        'ai_plan_subscription_suspended' => 'Your DORR AI subscription is suspended because the wallet could not cover the renewal. Top up and renew.',
+        'ai_plan_cooldown' => 'You have used this session\'s time on your plan. Try again shortly or upgrade your plan.',
+        'ai_plan_limit_reached' => 'You have reached your plan\'s limit for now. Try again after the wait or upgrade your plan.',
+        'ai_plan_blocked' => 'AI features are turned off for your account. Contact support.',
+        'ai_image_not_in_plan' => 'AI images are not included in your plan. Upgrade to use them.',
+        'ai_image_daily_limit' => 'You have reached your plan\'s daily images (:limit). Try tomorrow or upgrade your plan.',
+        'ai_image_prompt' => 'Describe the image.',
+        'ai_not_image' => 'This message is not an image.',
+        'ai_draft_not_found' => 'This image no longer exists. Make it again.',
         'ai_nothing_to_translate' => 'There\'s no text in this message to translate.',
         'ai_not_voice' => 'Only voice messages can be turned into text.',
         'ai_audio_too_long' => 'This voice message is too long to turn into text.',
@@ -362,5 +376,16 @@ return [
     ],
     'privacy_center' => [
         'ai_reads' => 'DORR AI reads only what you choose, when you tap it — never a whole chat by itself.',
+    ],
+
+    // "Continue in another chat": headings of the chat summary that gets sent
+    'capsule' => [
+        'title' => 'Summary from an earlier chat',
+        'goal' => 'Goal',
+        'decisions' => 'Decisions',
+        'facts' => 'Important facts',
+        'files' => 'Files',
+        'open_tasks' => 'Still to do',
+        'done' => 'Done',
     ],
 ];

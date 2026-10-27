@@ -30,7 +30,7 @@ class FreelanceProject extends Model implements HasMedia
     public const VISIBILITIES = ['public', 'private'];
 
     protected $fillable = [
-        'uuid', 'client_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'budget_type', 'budget_min_minor',
+        'uuid', 'client_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'questions', 'budget_type', 'budget_min_minor',
         'budget_max_minor', 'currency_code', 'duration_days', 'visibility', 'status', 'status_reason', 'version',
         'submitted_at', 'published_at', 'awarded_at', 'closed_at', 'offers_deadline_at', 'offers_closed_at', 'offers_close_reason', 'reopen_count',
     ];
@@ -44,6 +44,7 @@ class FreelanceProject extends Model implements HasMedia
     {
         return [
             'status' => FreelanceProjectStatus::class,
+            'questions' => 'array',
             'budget_min_minor' => 'integer',
             'budget_max_minor' => 'integer',
             'duration_days' => 'integer',
@@ -82,6 +83,11 @@ class FreelanceProject extends Model implements HasMedia
     public function skills(): BelongsToMany
     {
         return $this->belongsToMany(FreelanceSkill::class, 'freelance_project_skills', 'project_id', 'freelance_skill_id');
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(FreelanceProjectInvitation::class, 'project_id');
     }
 
     public function offers(): HasMany

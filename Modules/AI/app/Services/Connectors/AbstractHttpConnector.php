@@ -58,7 +58,7 @@ abstract class AbstractHttpConnector implements AiConnector
     }
 
     /** @return array{success: bool, message: string, job_id: ?string} */
-    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds, array $options = []): array
     {
         return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name]), 'job_id' => null];
     }

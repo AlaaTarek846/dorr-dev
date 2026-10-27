@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Modules\Freelance\Enums\FreelanceProjectStatus as Status;
 use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Models\FreelanceSpecialty;
+use Modules\Freelance\Services\Projects\ApprovalTrail;
 use Modules\Freelance\Services\Projects\ClientProjects;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
 use Modules\Freelance\Services\Projects\ProjectReviews;
@@ -32,7 +33,7 @@ class FreelanceProjectReviewController extends Controller implements HasMiddlewa
     public static function middleware(): array
     {
         return AdminPermissionMiddleware::fromActionMethodMap('freelance-projects', [
-            ['view', ['index', 'show', 'attachment', 'options']],
+            ['view', ['index', 'show', 'attachment', 'options', 'trail']],
             ['update', ['update', 'publish', 'requestChanges', 'reject', 'reopenOffers', 'closeOffers']],
         ]);
     }
@@ -147,6 +148,12 @@ class FreelanceProjectReviewController extends Controller implements HasMiddlewa
         $file = $this->find($uuid)->getMedia('attachments')->firstWhere('id', $media) ?? abort(404);
 
         return tap(response()->file($file->getPath(), ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
+    }
+
+    /** GET freelance-projects/{uuid}/trail — the project's record of approvals (FL-406), with who did each step. */
+    public function trail(string $uuid): JsonResponse
+    {
+        return ApiResponse::success(app(ApprovalTrail::class)->list((int) $this->find($uuid)->id, null, 'admin'), __('api.retrieved'));
     }
 
     private function find(string $uuid): Project

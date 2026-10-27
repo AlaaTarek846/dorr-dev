@@ -35,4 +35,14 @@
     <string name="projects_offers_left">فاضل %1$d يوم للعروض</string>
     <string name="projects_offers_last_day">آخر يوم للعروض</string>
     <string name="projects_offer_chosen">العميل اختار عرض</string>
+    <string name="chat_title">الرسائل</string>
+    <string name="chat_open">رسايل العميل</string>
+    <string name="chat_hint">اكتب رسالة</string>
+    <string name="chat_send">إرسال</string>
+    <string name="chat_empty">لسه مفيش رسايل.</string>
+    <string name="chat_closed">المحادثة دي اتقفلت.</string>
+    <string name="chat_earlier">رسايل أقدم</string>
+    <string name="chat_deleted">الرسالة دي اتمسحت</string>
+    <string name="chat_file">ملف</string>
+    <string name="chat_guard_hint">لحد ما تتفقوا، مينفعش تبعتوا أرقام موبايل أو إيميلات أو روابط. كلموا بعض هنا.</string>
 </resources>

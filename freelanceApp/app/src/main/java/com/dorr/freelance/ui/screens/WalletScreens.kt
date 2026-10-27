@@ -190,6 +190,8 @@ fun WalletHomeHost(onBack: () -> Unit) {
         "withdraw" -> WalletWithdraw(balance, onBack = home)
         "history" -> WalletHistory(currency, onBack = home, onOpen = { sheetTx = it })
         "security" -> WalletSecurity(onBack = home)
+        // FL-509: my earnings from projects.
+        "earnings" -> ProjectEarningsPage(onBack = home)
         else -> WalletHome(
             balance = balance, hidden = hidden, onHide = { hidden = !hidden }, onBack = onBack,
             onRefresh = { /* re-read below */ }, onOpen = { page = it }, onTx = { sheetTx = it }, onExplain = { explain = true },
@@ -248,6 +250,9 @@ private fun WalletHome(
                 Icon(Icons.Rounded.Settings, null, tint = Wa.Red, modifier = Modifier.size(22.dp))
             }
         }
+
+        // FL-509: what waits its days and what is on its way.
+        ProjectEarningsCard(hidden) { onOpen("earnings") }
 
         WaSectionTitle(stringResource(R.string.wa_recent), Modifier.waRise(5), topPadding = 12.dp) {
             Row(

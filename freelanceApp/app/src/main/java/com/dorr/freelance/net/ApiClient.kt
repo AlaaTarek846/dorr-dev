@@ -96,6 +96,9 @@ object ApiClient {
     val auth: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
     val offers: OffersApi by lazy { retrofit.create(OffersApi::class.java) }
+    val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    val agreements: AgreementsApi by lazy { retrofit.create(AgreementsApi::class.java) }
+    val invitations: InvitationsApi by lazy { retrofit.create(InvitationsApi::class.java) }
     val projects: ProjectsApi by lazy { retrofit.create(ProjectsApi::class.java) }
     val availability: AvailabilityApi by lazy { retrofit.create(AvailabilityApi::class.java) }
     val lists: ListsApi by lazy { retrofit.create(ListsApi::class.java) }

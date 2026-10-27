@@ -76,7 +76,12 @@ class FreelancerProjects
     {
         $project = $this->visible($freelancer)->where('uuid', $uuid)->with(['specialty.translations', 'skills.translations'])->withCount('media')->first();
 
-        return $project ?? Project::query()->where('uuid', $uuid)->whereIn('status', [Status::Awarded->value, Status::Closed->value])
+        // FL-205: a private project they are invited to (and the invitation is still alive).
+        $project ??= Project::query()->where('uuid', $uuid)->where('status', Status::Published->value)->where('visibility', 'private')
+            ->whereHas('invitations', fn ($q) => $q->where('freelancer_id', $freelancer->id)->whereIn('status', \Modules\Freelance\Models\FreelanceProjectInvitation::LIVE))
+            ->with(['specialty.translations', 'skills.translations'])->withCount('media')->first();
+
+        return $project ?? Project::query()->where('uuid', $uuid)->whereIn('status', [Status::Awarded->value, Status::InProgress->value, Status::Closed->value, Status::Published->value, Status::Cancelled->value])
             ->whereHas('offers', fn ($q) => $q->where('freelancer_id', $freelancer->id))
             ->with(['specialty.translations', 'skills.translations'])->withCount('media')->firstOrFail();
     }
@@ -131,7 +136,7 @@ class FreelancerProjects
 
         // The list shows a short text; the page shows all of it. Never the client, never the files themselves.
         return $out + ($detail
-            ? ['description' => $project->description, 'attachments_count' => (int) $project->media_count]
+            ? ['description' => $project->description, 'questions' => array_values((array) $project->questions), 'attachments_count' => (int) $project->media_count]
             : ['summary' => mb_strimwidth((string) $project->description, 0, 160, '…')]);
     }
 

@@ -35,4 +35,14 @@
     <string name="projects_offers_left">%1$d days left for offers</string>
     <string name="projects_offers_last_day">Last day for offers</string>
     <string name="projects_offer_chosen">The client chose an offer</string>
+    <string name="chat_title">Messages</string>
+    <string name="chat_open">Messages with the client</string>
+    <string name="chat_hint">Write a message</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_empty">No messages yet.</string>
+    <string name="chat_closed">This conversation is closed.</string>
+    <string name="chat_earlier">Earlier messages</string>
+    <string name="chat_deleted">This message was deleted</string>
+    <string name="chat_file">A file</string>
+    <string name="chat_guard_hint">Until you agree, phone numbers, emails and links can’t be shared — talk here.</string>
 </resources>
