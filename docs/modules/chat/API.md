@@ -349,10 +349,10 @@ Same rules: one explicit tap each, only what that tap covers goes to the AI, res
 | POST | `messages/{m}/tasks` | `timezone?` | **38.** `{tasks[{text, due_at}]}` — suggestions; saved only with `POST tasks` |
 | POST | `conversations/{c}/note` | `messages[]` | **39.** A short note `{title, points}` saved into "Notes (you)" as my own message; returns it in `message` |
 | POST | `conversations/{c}/dates` | `messages?[]`, `timezone?` | **40.** `{dates[{title, at, all_day, message_id}]}` (UTC, past dropped) — "Remind me" then calls `PUT messages/{m}/reminder` |
-| POST | `ai/important` | `conversation_id?` | **41.** `{items[{message_id, conversation_id, chat, sender, excerpt, level: high\|medium, why}], messages, chats}` — one chat (its unread, else its latest), or across my unread chats |
+| POST | `ai/important` | `conversation_id?`, `page?`, `per_page?` | **41.** `{items[{message_id, conversation_id, chat, sender, excerpt, level: high\|medium, why}], messages, chats, has_more}` — one chat (its unread, else its latest), or across my unread chats. AI ranks at most 50; the list pages (`per_page` default 15, max 50). The ranked list is kept 2 minutes so later pages stay in the same order |
 | POST | `conversations/{c}/related-files` | | **48.** `{files[{message_id, type, name, url, why}]}` — only the latest messages and the files' names / captions go to the AI |
 | POST | `ai/today` | `timezone?` | **49.** `{summary[], highlights[{…, text}], messages, chats}` — today in my zone, across my chats |
-| GET | `tasks?status=done` | | My open tasks (due first), or the done ones |
+| GET | `tasks?status=done&page=&per_page=` | | My open tasks (due first), or the done ones. Pages of 15 (`per_page` default 15, max 50); `pagination.has_more_pages` |
 | POST | `tasks` | `tasks[{text, due_at?}]` (≤ 20), `message_id?` | Up to 500 open (`chat_task_limit`) |
 | PATCH / DELETE | `tasks/{id}` | `text?`, `due_at?` (a new time notifies again), `done?` | Only mine (`chat_task_not_found`) |
 
@@ -577,7 +577,7 @@ Numbers are the WhatsApp list in the spec's backlog. Test: `ChatBacklogTest` (8)
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `storage` | Totals: `total_bytes`, `files`, `large` (> 5 MB), `forwarded`, and the biggest chats. |
-| GET | `storage/files` | `kind` = all · large · forwarded, optional `conversation_id`, `page`. Only messages I can still see. |
+| GET | `storage/files` | `kind` = all · large · forwarded, optional `conversation_id`, `page`, `per_page` (default 15, max 50). `has_more`. Only messages I can still see. |
 | POST | `storage/delete` | `messages[]` (≤ 500 uuids): deletes them for me only. Throttled 20/min. |
 | GET | `conversations/{c}/export` | A `.txt` of the chat, or with `media=1` a `.zip` with its files (up to 300 MB). Throttled 6/min. Error `chat_export_empty`. |
 
@@ -761,11 +761,11 @@ Each one is made from a message (or in a chat), posts its card (message types `c
 | POST | `messages/{m}/commitment` · `conversations/{c}/commitment` | `{title? (required without a message), assignee? (participant id; direct chat: the other one by default), due_at?, remind_minutes?: 0 · 15 · 30 · 60 · 120 · 1440}` | `201 {id, title, status: proposed \| accepted (taken on myself), due_at, remind_minutes, by, assignee{participant_id, key, name, avatar}, source{id, type, preview}}` |
 | POST | `commitments/{id}/respond` | `{accept}` — the one responsible | The commitment (`accepted` · `declined`) |
 | POST | `commitments/{id}/done` · `commitments/{id}/cancel` | — | done: the one responsible, after accepting · cancel: either side, while open |
-| GET | `commitments` | `scope`: mine · theirs · all, `open` (default 1) | The list, with `conversation{id, type, name}` |
+| GET | `commitments` | `scope`: mine · theirs · all, `open` (default 1), `page`, `per_page` (default 15, max 50), `q?` (title, chat name, person name/phone) | The list, with `conversation{id, type, name}` · `pagination.has_more_pages` |
 | GET | `commitments/{id}` | — | The commitment + `log` |
 | POST | `messages/{m}/handoff` | `{to_participant_id}` (a member here: the card is here) or `{to_user_id}` (the message is forwarded to our direct chat under the forwarding rules, the card answers it there), `note?` | `201 {id, note, status: pending, from, to, source}` |
 | POST | `handoffs/{id}/{accept\|decline\|done\|cancel}` | — | accept / decline / done: the one it was handed to · cancel: the sender, while pending |
-| GET | `handoffs` | `scope`: received · sent, `open` | The list |
+| GET | `handoffs` | `scope`: received · sent, `open`, `page`, `per_page` (default 15, max 50), `q?` (note, chat name, person name/phone) | The list · `pagination.has_more_pages` |
 | POST | `conversations/{c}/agreements` | `{title, terms[{label, value}] (1–12), parties?[] (a group: who must agree, me included), source? (message id)}` | `201 {id, title, terms, version: 1, status: proposed, by, parties[{…, decision, at}], source, record_only: true}` — proposing is agreeing |
 | POST | `agreements/{id}/answer` | `{accept, version}` | `agreed` once every party accepted this version (a system line tells the chat), `declined` on a no |
 | PUT | `agreements/{id}` | `{title?, terms[]}` — a party | A new `version`; every approval starts over (the one who changed it agrees) |
@@ -778,7 +778,7 @@ Each one is made from a message (or in a chat), posts its card (message types `c
 | GET | `attention` | — | `{attention{contacts, strangers, groups, mentions, channels, money, urgent: now \| digest \| later}, digest_minutes, context{key, until}\|null, contexts[{key, attention, disclosure: all\|name\|none\|null, calls: everyone\|through\|nobody, custom}], always_through[{key, name, avatar}], call_hours{from, to, days, timezone}\|null, who_can_call, who_can_urgent, quiet{schedule, scope, on}, sources}` |
 | PUT | `attention` | `{attention?, digest_minutes?: 15·30·60·120·240, always_through?[participant keys], call_hours?\|null, contexts?{key: {attention?, disclosure?, calls?}}}` | The same |
 | PUT | `attention/context` | `{context: home·work·meeting·travel·private\|null, minutes?}` (no minutes: until I change it) | The same |
-| GET | `life-inbox` | `timezone` | `{reply[], pay[], approve[], follow[], appointments[], message_requests, counts{…}, total}` — each item `{kind, id?, title, by, due_at?, amount_minor?, currency?, message_id?, conversation_id, chat, at, late?}`. Kinds: needs_reply · mention · money_request · bill_split · commitment · handoff · agreement · join_request · decision · my_commitment · my_handoff · waiting_for · appointment · task. Only chats an overview may read |
+| GET | `life-inbox` | `timezone`, `section?` (reply · pay · approve · follow · appointments), `page`, `per_page` (default 15, max 50), `q?` (title, who, chat name, location) | `{reply[], pay[], approve[], follow[], appointments[], message_requests, counts{…}, total}` · with `section`, only that list is filled (a page) and `pagination.has_more_pages`. Each item `{kind, id?, title, by, due_at?, amount_minor?, currency?, message_id?, conversation_id, chat, at, late?}`. Kinds: needs_reply · mention · money_request · bill_split · commitment · handoff · agreement · join_request · decision · my_commitment · my_handoff · waiting_for · appointment · task. Only chats an overview may read |
 
 **How a message notifies (ChatPushNotifier + AttentionPolicy):** a chat I muted stays muted (urgent excepted) → people in `always_through` get through everything else → quiet time (spec 115) → my attention for the source, shifted by my active context: `now` notifies, `digest` waits for the summary (`chat:attention-digest`, every `digest_minutes` from the first one waiting, never in quiet time), `later` sends only a counter update (`hidden = 1`) → the context's `disclosure` makes the notification show less (the stricter level wins). Calls: outside `call_hours`, or in a context whose `calls` isn't `everyone`, a call doesn't ring (it shows as missed); `always_through` always rings. Nothing here changes what anyone may send — that stays `who_can_message` / `who_can_call` / `who_can_urgent`.
 

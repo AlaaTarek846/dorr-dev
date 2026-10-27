@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-19  
+**Last updated:** 2026-10-26  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -63,6 +63,22 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android manage storage (2026-10-27):** summary card; select-all on the open chip; delete confirms then a toast. Files page 15.
+- **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` — large, forwarded, and per-chat files for last `mobile-app` login.
+- **Android usage stats hero (2026-10-27):** memory well, calendar on the since date, mobile/Wi-Fi glass split like the wallet.
+- **Android usage stats confirm (2026-10-27):** clear cache and reset stats use `ConfirmDialog` then a toast.
+- **Android data and performance (2026-10-27):** data/performance, manage storage, and usage stats use the settings header (`SubHeader` + pink wash).
+- **Android life inbox search (2026-10-27):** `q` on `GET life-inbox` (title, who, chat, location); pages of 15.
+- **Android life inbox requests (2026-10-27):** row uses `MarkChatUnread`; tap opens the requests list (`filter=requests`) with search, not Chat Settings.
+- **Android life inbox (2026-10-27):** chips in one row, first with data selected; pages of 15 (`section`/`page`/`per_page`).
+- **Chat life-inbox demo (2026-10-27):** `ChatLifeInboxDemoSeeder` — reply, pay, appointments for last `mobile-app` login.
+- **Android commitments search (2026-10-27):** `q` on commitments/handoffs (name, phone, title/note); pages of 15.
+- **Android commitments list (2026-10-26):** pages of 15; scroll loads more (`GET commitments` / `handoffs` `page`/`per_page`).
+- **Chat commitments demo (2026-10-26):** `ChatCommitmentsDemoSeeder` for last `mobile-app` login — open commitments + handoffs on «التزاماتي».
+- **Android my tasks (2026-10-26):** compact **إضافة**; lists page 15 (`GET tasks?page=&per_page=`).
+- **Android tasks / commitments / life inbox (2026-10-26):** settings header (`SubHeader` + pink wash).
+- **Android important + today (2026-10-26):** settings rows open `ChRoute.Important` / `ChRoute.Today` (pink header). Important pages 15 (`POST ai/important` `page`/`per_page`/`has_more`). In-chat important stays a sheet.
+- **Chat important demo (2026-10-26):** seeder targets the last `mobile-app` token (currently `+201113667448`); `POST ai/important` ranks unread picks (pages of 15).
 - **Android “what I missed” (2026-10-26):** settings header; compact time chips; search by name/phone; unread rows are cards with a badge; unread chats page 15 (`GET catch-up?q=&page=&per_page=`).
 - **Android starred messages (2026-10-26):** Favourites lists compact cards. Search at the top (name/phone/text). Star only on unsorted Favourites. Expand arrow; tap jumps to the message; pages of 15.
 - **Android current context (2026-10-26):** communication rules “Right now” is a row + choice sheet (then duration), not chips.

@@ -515,40 +515,40 @@
                         <template v-if="smsSectionReady && showSmsSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.sms') }}</span>
-                            </li>
+                        </li>
 
-                            <li class="slide has-sub">
-                                <a
-                                    href="javascript:void(0);"
-                                    class="side-menu__item"
-                                    @click.prevent="toggleSubMenu"
-                                >
-                                    <i class="ri-message-2-line side-menu__icon"></i>
-                                    <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
-                                    <i class="fe fe-chevron-right side-menu__angle"></i>
-                                </a>
-                                <ul class="slide-menu child1">
-                                    <li class="slide side-menu__label1">
-                                        <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
-                                    </li>
-                                    <li v-if="can('sms-providers.view')" class="slide">
-                                        <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
-                                            {{ t('sidebar.sms_items.providers') }}
-                                        </router-link>
-                                    </li>
-                                    <li v-if="can('whatsapp.view')" class="slide">
-                                        <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
-                                            {{ t('sidebar.sms_items.whatsapp') }}
-                                        </router-link>
-                                    </li>
-                                    <li v-if="can('otp-settings.view')" class="slide">
-                                        <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
-                                            {{ t('sidebar.sms_items.otp') }}
-                                        </router-link>
-                                    </li>
-                                </ul>
-                            </li>
-                        </template>
+                        <li class="slide has-sub">
+                            <a
+                                href="javascript:void(0);"
+                                class="side-menu__item"
+                                @click.prevent="toggleSubMenu"
+                            >
+                                <i class="ri-message-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                </li>
+                                <li v-if="can('sms-providers.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.providers') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('whatsapp.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.whatsapp') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('otp-settings.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.otp') }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
 
                         <template v-if="showServicesSection">
                             <li class="slide__category">

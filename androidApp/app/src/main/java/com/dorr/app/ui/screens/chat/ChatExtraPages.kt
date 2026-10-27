@@ -221,7 +221,7 @@ fun BlockedContactsPage() {
     ChPage(stringResource(R.string.ch_blocked_list), onBack = { host.pop() }, settingsHeader = true) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
             ChField(
-                query, { query = it.take(80) }, stringResource(R.string.ch_search_contacts),
+                query, { query = it.take(80) }, stringResource(R.string.ch_blocked_search),
                 icon = Icons.Rounded.Search, clearable = true, modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
             )
             val items = list

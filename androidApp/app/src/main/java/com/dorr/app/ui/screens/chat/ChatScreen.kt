@@ -319,6 +319,8 @@ private fun ChatPage(route: ChRoute) {
         is ChRoute.Broadcast -> BroadcastPage(route.id)
         ChRoute.Tasks -> TasksPage()
         ChRoute.CatchUp -> CatchUpPage()
+        ChRoute.Important -> ImportantPage()
+        ChRoute.Today -> TodayPage()
         ChRoute.PrivacyCenter -> PrivacyCenterPage()
         is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
         ChRoute.Commitments -> CommitmentsPage()

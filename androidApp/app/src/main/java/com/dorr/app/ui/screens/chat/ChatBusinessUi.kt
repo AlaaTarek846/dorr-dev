@@ -54,15 +54,14 @@ import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
@@ -99,6 +98,7 @@ import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.profile.settingsSurface
+import com.dorr.app.ui.screens.profile.settingsSwitchColors
 import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.BusinessDayDto
@@ -306,7 +306,7 @@ fun BusinessPage() {
                                 Text(stringResource(R.string.ch_business_closed), color = Ch.Soft, fontSize = 13.sp)
                             }
                             Spacer(Modifier.weight(1f))
-                            Switch(day.open, { days[i] = day.copy(open = it) }, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red, checkedThumbColor = Color.White))
+                            Switch(day.open, { days[i] = day.copy(open = it) }, colors = settingsSwitchColors())
                         }
                     }
                 }
@@ -481,7 +481,7 @@ internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (
                     timeSelectorUnselectedContentColor = Ch.Ink,
                 ),
             )
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.ch_cancel),
                     color = Ch.Ink,
@@ -493,7 +493,6 @@ internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (
                         .clickable(onClick = onDismiss)
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 )
-                Spacer(Modifier.width(8.dp))
                 Text(
                     stringResource(R.string.ch_ok),
                     color = Color.White,
@@ -533,17 +532,40 @@ private fun DateTimePickDialogs(onDismiss: () -> Unit, onPick: (ZonedDateTime) -
     if (date == null) {
         DatePickerDialog(
             onDismissRequest = onDismiss,
+            colors = DatePickerDefaults.colors(containerColor = Ch.Surface),
             confirmButton = {
                 locale.Provide {
-                    TextButton({ dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }) {
-                        Text(stringResource(R.string.ch_next), color = Ch.Red, fontWeight = FontWeight.Bold)
-                    }
+                    Text(
+                        stringResource(R.string.ch_next),
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .padding(start = 10.dp, end = 4.dp, bottom = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Ch.Red)
+                            .clickable { dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }
+                            .padding(horizontal = 18.dp, vertical = 10.dp),
+                    )
                 }
             },
             dismissButton = {
-                locale.Provide { TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } }
+                locale.Provide {
+                    Text(
+                        stringResource(R.string.ch_cancel),
+                        color = Ch.Ink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .padding(end = 10.dp, bottom = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Ch.SurfaceMuted)
+                            .clickable(onClick = onDismiss)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
             },
-        ) { locale.Provide { DatePicker(dateState) } }
+        ) { locale.Provide { DatePicker(dateState, colors = DatePickerDefaults.colors(containerColor = Ch.Surface)) } }
     } else {
         TimePickDialog(LocalTime.now(zone).plusHours(1).withMinute(0), onDismiss = onDismiss) { time ->
             val at = ZonedDateTime.of(date, time, zone)

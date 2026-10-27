@@ -417,7 +417,7 @@ fun FavouritesPage() {
         Column(Modifier.fillMaxSize()) {
             SubHeader(stringResource(R.string.ch_starred_title)) { host.pop() }
             ChField(
-                query, { query = it.take(80) }, stringResource(R.string.ch_search_contacts),
+                query, { query = it.take(80) }, stringResource(R.string.ch_starred_search),
                 icon = Icons.Rounded.Search, clearable = true, fontSize = 13.sp,
                 modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 4.dp),
             )
@@ -907,7 +907,7 @@ fun CatchUpPage() {
         Column(Modifier.fillMaxSize()) {
             SubHeader(stringResource(R.string.cp_catch_up)) { host.pop() }
             ChField(
-                query, { query = it.take(80) }, stringResource(R.string.ch_search_contacts),
+                query, { query = it.take(80) }, stringResource(R.string.cp_search),
                 icon = Icons.Rounded.Search, clearable = true, fontSize = 13.sp,
                 modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
             )

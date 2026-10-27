@@ -78,7 +78,6 @@ import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,8 +105,14 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.chat.CallController
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.ConfirmDialog
 import com.dorr.app.ui.components.DarkHeroButton
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSwitchColors
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.MemberDto
@@ -848,25 +853,29 @@ internal fun SettingRow(icon: ImageVector, title: String, value: String? = null,
 
 @Composable
 internal fun ToggleRow(icon: ImageVector, title: String, checked: Boolean, subtitle: String? = null, onChange: (Boolean) -> Unit) {
+    val dark = settingsNight()
     Column(Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 14.dp, vertical = 10.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
+            Box(
+                Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (dark) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, null, tint = settingsAccent(), modifier = Modifier.size(17.dp))
             }
             Spacer(Modifier.width(12.dp))
-            Text(title, color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red, checkedThumbColor = Color.White))
+            Text(title, color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Switch(checked, onChange, colors = settingsSwitchColors())
         }
         subtitle?.let {
             Text(
                 it,
-                color = Ch.Mut,
+                color = settingsMut(),
                 fontSize = 12.sp,
                 lineHeight = 16.sp,
                 modifier = Modifier.padding(start = 44.dp, top = 4.dp, end = 4.dp),
             )
         }
-        HorizontalDivider(Modifier.padding(start = 44.dp, top = 10.dp), color = Ch.Line)
+        HorizontalDivider(Modifier.padding(start = 44.dp, top = 10.dp), color = if (dark) AccountDark.line else Ch.Line)
     }
 }
 

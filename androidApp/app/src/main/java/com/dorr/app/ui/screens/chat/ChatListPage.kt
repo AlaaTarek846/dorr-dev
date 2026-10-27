@@ -195,13 +195,16 @@ fun ChatListPage() {
     }
 
     // Debounced server search (names, numbers and message text).
-    LaunchedEffect(query) {
+    LaunchedEffect(query, host.filter) {
         if (query.isBlank()) {
             searchResults = null
             return@LaunchedEffect
         }
         delay(280)
-        searchResults = runCatching { ApiClient.chat.conversations(chatAuth(), search = query, perPage = 30).data.orEmpty() }.getOrNull()
+        val listFilter = host.filter.takeIf { it in SpecialLists }
+        searchResults = runCatching {
+            ApiClient.chat.conversations(chatAuth(), filter = listFilter, search = query, perPage = 30).data.orEmpty()
+        }.getOrNull()
     }
 
     val listTitle = stringResource(
@@ -246,7 +249,11 @@ fun ChatListPage() {
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    SearchField(query, onChange = { query = it })
+                    SearchField(
+                        query,
+                        onChange = { query = it },
+                        hint = if (host.filter == "locked") R.string.ch_locked_search else R.string.ch_search_hint,
+                    )
                 }
                 Box(Modifier.align(Alignment.BottomEnd)) {
                     DropdownMenu(
@@ -403,7 +410,7 @@ internal fun GlassIcon(icon: ImageVector, size: Dp = 40.dp, onClick: () -> Unit)
 }
 
 @Composable
-private fun SearchField(value: String, onChange: (String) -> Unit) {
+private fun SearchField(value: String, onChange: (String) -> Unit, hint: Int = R.string.ch_search_hint) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -417,7 +424,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
         Spacer(Modifier.width(8.dp))
         Box(Modifier.weight(1f)) {
             if (value.isEmpty()) {
-                Text(stringResource(R.string.ch_search_hint), color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp, fontFamily = CairoFontFamily, maxLines = 1)
+                Text(stringResource(hint), color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp, fontFamily = CairoFontFamily, maxLines = 1)
             }
             BasicTextField(
                 value = value,

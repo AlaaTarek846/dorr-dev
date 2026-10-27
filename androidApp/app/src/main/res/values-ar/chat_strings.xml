@@ -260,8 +260,10 @@
     <string name="ch_my_contacts">جهات اتصالي</string>
     <string name="ch_nobody">لا أحد</string>
     <string name="ch_blocked_list">جهات الاتصال المحظورة</string>
+    <string name="ch_blocked_search">ابحث بالاسم أو الرقم</string>
     <string name="ch_no_blocked">لا توجد جهات اتصال محظورة</string>
     <string name="ch_starred_title">الرسائل المميزة بنجمة</string>
+    <string name="ch_starred_search">ابحث في الرسالة أو الاسم أو الرقم</string>
     <string name="ch_no_starred">اضغط مطولاً على أي رسالة واختر «تمييز بنجمة» لتجدها هنا لاحقاً.</string>
     <string name="ch_starred_expand">عرض الرسالة</string>
     <string name="ch_starred_collapse">إخفاء الرسالة</string>
@@ -289,13 +291,14 @@
     <string name="ch_delete_folder">حذف المجلد</string>
     <string name="ch_add_to_folder">إضافة إلى مجلد</string>
     <string name="ch_locked_chats">المحادثات المقفولة</string>
+    <string name="ch_locked_search">ابحث بالاسم أو الرقم أو الرسالة</string>
     <string name="ch_no_locked">لا توجد محادثات مقفولة</string>
     <string name="ch_unlock">فتح</string>
     <string name="ch_unlock_title">فتح المحادثة</string>
     <string name="ch_unlock_sub">استخدم البصمة أو الوجه أو قفل الشاشة</string>
     <string name="ch_locked_note">هذه المحادثة مقفولة</string>
     <string name="ch_theme">المظهر</string>
-    <string name="ch_theme_system">مثل التطبيق</string>
+    <string name="ch_theme_system">حسب الجهاز</string>
     <string name="ch_theme_light">فاتح</string>
     <string name="ch_theme_dark">داكن</string>
     <string name="ch_offline">لا يوجد اتصال — تعرض الرسائل المحفوظة</string>

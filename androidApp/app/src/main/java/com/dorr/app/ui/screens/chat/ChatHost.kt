@@ -71,6 +71,10 @@ sealed interface ChRoute {
     data object Tasks : ChRoute
     /** "What I missed" (spec 123). */
     data object CatchUp : ChRoute
+    /** What deserves attention across unread chats (spec 41). */
+    data object Important : ChRoute
+    /** Today across my chats (spec 49). */
+    data object Today : ChRoute
     /** Every privacy choice in one place (spec 127). */
     data object PrivacyCenter : ChRoute
     /** A group decision's room (spec 153). */
@@ -245,6 +249,15 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
      * "Show in chat" (media page, starred…): back to that conversation if it's already open under
      * this page — no second copy of it — or open it; then it scrolls to the message.
      */
+    /** Open the message-requests list (from صندوق الحياة), not the settings page underneath. */
+    fun showRequests() {
+        filter = "requests"
+        chatSettingsSection = ChatSetSection.Menu
+        forward = false
+        while (stack.size > 1) stack.removeAt(stack.lastIndex)
+        scope.launch { refreshList() }
+    }
+
     fun showInChat(conversationId: String, messageId: String) {
         focusRequest = conversationId to messageId
         val open = stack.indexOfLast { it is ChRoute.Conversation && it.id == conversationId }

@@ -257,8 +257,10 @@
     <string name="ch_my_contacts">My contacts</string>
     <string name="ch_nobody">Nobody</string>
     <string name="ch_blocked_list">Blocked contacts</string>
+    <string name="ch_blocked_search">Search by name or number</string>
     <string name="ch_no_blocked">No blocked contacts</string>
     <string name="ch_starred_title">Starred messages</string>
+    <string name="ch_starred_search">Search by message, name or number</string>
     <string name="ch_no_starred">Tap and hold a message and choose Star to find it here later.</string>
     <string name="ch_starred_expand">Show message</string>
     <string name="ch_starred_collapse">Hide message</string>
@@ -286,13 +288,14 @@
     <string name="ch_delete_folder">Delete folder</string>
     <string name="ch_add_to_folder">Add to folder</string>
     <string name="ch_locked_chats">Locked chats</string>
+    <string name="ch_locked_search">Search by name, number or message</string>
     <string name="ch_no_locked">No locked chats</string>
     <string name="ch_unlock">Unlock</string>
     <string name="ch_unlock_title">Unlock chat</string>
     <string name="ch_unlock_sub">Use your fingerprint, face or screen lock</string>
     <string name="ch_locked_note">This chat is locked</string>
     <string name="ch_theme">Appearance</string>
-    <string name="ch_theme_system">Same as the app</string>
+    <string name="ch_theme_system">Follow the device</string>
     <string name="ch_theme_light">Light</string>
     <string name="ch_theme_dark">Dark</string>
     <string name="ch_offline">Offline — showing saved messages</string>

@@ -16,6 +16,7 @@
     <string name="cp_pick_date">اختار يوم</string>
     <string name="cp_until">لحد %1$s</string>
     <string name="cp_catch_up">اللي فاتني</string>
+    <string name="cp_search">ابحث بالاسم أو الرقم</string>
     <string name="cp_caught_up">مفيش حاجة فاتتك ✨</string>
     <string name="cp_sec_urgent">عاجل</string>
     <string name="cp_sec_mentions">ذكروك</string>

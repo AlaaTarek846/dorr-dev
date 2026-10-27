@@ -277,36 +277,50 @@ class ChatAiToolsService
      * unread chats — with why. Locked chats, locked or hidden circles, sensitive and view-once
      * messages never go.
      *
-     * @return array{items: list<array<string, mixed>>, messages: int, chats: int}
+     * @return array{items: list<array<string, mixed>>, messages: int, chats: int, has_more: bool}
      */
-    public function important(Model $me, ?ChatConversation $conversation): array
+    public function important(Model $me, ?ChatConversation $conversation, int $page = 1, int $perPage = 15): array
     {
-        $rows = $conversation !== null
-            ? $this->fromChat($me, $conversation)
-            : $this->acrossChats($me, fn ($q, ChatParticipant $p) => $q->where('chat_messages.id', '>', (int) $p->last_read_message_id), 40);
-        [$numbered, $lines, $chats] = $this->lines($me, $rows);
+        $page = max(1, $page);
+        $perPage = max(1, min($perPage, 50));
+        $cacheKey = 'chat:ai:important:'.$me->getMorphClass().':'.$me->getKey().':'.($conversation?->getKey() ?? 'all').':'.app()->getLocale();
+        $ranked = Cache::remember($cacheKey, now()->addMinutes(2), function () use ($me, $conversation) {
+            $rows = $conversation !== null
+                ? $this->fromChat($me, $conversation)
+                : $this->acrossChats($me, fn ($q, ChatParticipant $p) => $q->where('chat_messages.id', '>', (int) $p->last_read_message_id), 40);
+            [$numbered, $lines, $chats] = $this->lines($me, $rows);
 
-        $items = $this->ai->json($this->ai->ask([
-            ['role' => 'system', 'content' => 'You pick the chat messages that deserve the person\'s attention ("Me" is them): questions or requests waiting for them, deadlines, money, '
-                .'appointments, problems, anything urgent or from someone close. Skip greetings, chit-chat and things already answered. Answer in '.$this->language().'. '
-                .'Reply with a JSON array only, most important first, at most 10: [{"ref": <message number>, "level": "high" | "medium", "why": "<a few words>"}].'],
-            ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
-        $items = array_is_list($items) ? $items : ($items['items'] ?? []);
+            $items = $this->ai->json($this->ai->ask([
+                ['role' => 'system', 'content' => 'You pick the chat messages that deserve the person\'s attention ("Me" is them): questions or requests waiting for them, deadlines, money, '
+                    .'appointments, problems, anything urgent or from someone close. Skip greetings, chit-chat and things already answered. Answer in '.$this->language().'. '
+                    .'Reply with a JSON array only, most important first, at most 50: [{"ref": <message number>, "level": "high" | "medium", "why": "<a few words>"}].'],
+                ['role' => 'user', 'content' => $lines->implode("\n")],
+            ]));
+            $items = array_is_list($items) ? $items : ($items['items'] ?? []);
 
-        $out = [];
-        foreach (array_slice((array) $items, 0, 10) as $item) {
-            $m = is_array($item) ? $numbered->get((int) ($item['ref'] ?? 0)) : null;
-            if ($m === null || isset($out[$m->id])) {
-                continue;
+            $out = [];
+            foreach (array_slice((array) $items, 0, 50) as $item) {
+                $m = is_array($item) ? $numbered->get((int) ($item['ref'] ?? 0)) : null;
+                if ($m === null || isset($out[$m->id])) {
+                    continue;
+                }
+                $out[$m->id] = $this->refRow($me, $m, $chats) + [
+                    'level' => ($item['level'] ?? '') === 'high' ? 'high' : 'medium',
+                    'why' => Str::limit(trim((string) ($item['why'] ?? '')), 160),
+                ];
             }
-            $out[$m->id] = $this->refRow($me, $m, $chats) + [
-                'level' => ($item['level'] ?? '') === 'high' ? 'high' : 'medium',
-                'why' => Str::limit(trim((string) ($item['why'] ?? '')), 160),
-            ];
-        }
 
-        return ['items' => array_values($out), 'messages' => $numbered->count(), 'chats' => $chats->count()];
+            return ['items' => array_values($out), 'messages' => $numbered->count(), 'chats' => $chats->count()];
+        });
+
+        $all = $ranked['items'];
+
+        return [
+            'items' => array_values(array_slice($all, ($page - 1) * $perPage, $perPage)),
+            'messages' => $ranked['messages'],
+            'chats' => $ranked['chats'],
+            'has_more' => count($all) > $page * $perPage,
+        ];
     }
 
     // ---------------------------------------------------------------- 48 related files
