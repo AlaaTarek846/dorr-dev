@@ -87,6 +87,7 @@ class MessageResource extends JsonResource
             'expires_at' => $m->expires_at?->toIso8601String(),
             'reactions' => $this->reactions($m),
             'is_starred' => isset($ctx->starred[$m->id]),
+            'star_folder_id' => isset($ctx->starred[$m->id]) ? ($ctx->starFolders[$m->id] ?? null) : null,
             'is_read_later' => isset($ctx->readLater[$m->id]),
             'is_follow_up' => isset($ctx->followUp[$m->id]),
             'reminder_at' => $ctx->reminders[$m->id] ?? null,

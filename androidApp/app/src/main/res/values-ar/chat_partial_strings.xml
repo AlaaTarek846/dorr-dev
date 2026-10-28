@@ -16,6 +16,7 @@
     <string name="cp_pick_date">اختار يوم</string>
     <string name="cp_until">لحد %1$s</string>
     <string name="cp_catch_up">اللي فاتني</string>
+    <string name="cp_search">ابحث بالاسم أو الرقم</string>
     <string name="cp_caught_up">مفيش حاجة فاتتك ✨</string>
     <string name="cp_sec_urgent">عاجل</string>
     <string name="cp_sec_mentions">ذكروك</string>
@@ -24,7 +25,7 @@
     <string name="cp_sec_calls">مكالمات فايتة</string>
     <string name="cp_sec_reminders">تذكيرات</string>
     <string name="cp_sec_decisions">قرارات جديدة</string>
-    <string name="cp_sec_unread">أكتر محادثات مش مقروءة</string>
+    <string name="cp_sec_unread">المحادثات غير المقروءة</string>
     <string name="cp_unread_n">%1$d مش مقروءة</string>
     <string name="cp_video_call">مكالمة فيديو</string>
     <string name="cp_voice_call">مكالمة صوت</string>
@@ -123,5 +124,7 @@
     <string name="cp_username">اسم المستخدم</string>
     <string name="cp_username_sub">الناس يقدروا يلاقوك بـ @اسمك من غير رقمك.</string>
     <string name="cp_username_hint">your_name</string>
-    <string name="cp_username_remove">شيل اسم المستخدم</string>
+    <string name="cp_username_remove">حذف اسم المستخدم</string>
+    <string name="cp_username_saved">اتحفظ اسم المستخدم</string>
+    <string name="cp_username_removed">اتحذف اسم المستخدم</string>
 </resources>

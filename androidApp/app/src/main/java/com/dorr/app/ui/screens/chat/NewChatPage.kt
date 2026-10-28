@@ -159,7 +159,17 @@ import kotlinx.coroutines.delay
 
 /** The frame of every secondary chat page: the calendar header (title size, icon well, spacing). */
 @Composable
-internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
+internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, settingsHeader: Boolean = false, content: @Composable () -> Unit) {
+    if (settingsHeader) {
+        Box(Modifier.fillMaxSize()) {
+            PinkBackdrop(Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize()) {
+                SubHeader(title, onBack)
+                Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().background(Ch.Bg)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             DarkHeroPanel {

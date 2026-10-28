@@ -1031,6 +1031,7 @@
     <string name="lf_mark_done">Done ✅</string>
     <string name="lf_me">Me</string>
     <string name="lf_my_commitments">My commitments</string>
+    <string name="lf_search">Search by title, name, number or chat</string>
     <string name="lf_no_reminder">No reminder</string>
     <string name="lf_on">On</string>
     <string name="lf_pick_time">Pick a time</string>
@@ -1052,8 +1053,8 @@
     <string name="lf_t_place">Place</string>
     <string name="lf_t_price">Proposed price</string>
     <string name="lf_t_scope">Scope</string>
-    <string name="lf_tab_on_me">On me</string>
-    <string name="lf_tab_waiting">I\'m waiting for</string>
+    <string name="lf_tab_on_me">My commitments</string>
+    <string name="lf_tab_waiting">Others\' commitments</string>
     <string name="lf_take_back">Take back</string>
     <string name="lf_take_it">Take it on</string>
     <string name="lf_task">Task</string>
@@ -1122,9 +1123,10 @@
     <string name="at_all_through">Everything as usual</string>
     <!-- The life inbox (spec 147) -->
     <string name="li_title">Life inbox</string>
-    <string name="li_needs_you">Needs you</string>
-    <string name="li_nothing">Nothing right now 🎉</string>
-    <string name="li_n_things">%1$d things</string>
+    <string name="li_search">Search by title, name, chat or place</string>
+    <string name="li_needs_you">Your messages</string>
+    <string name="li_nothing">No messages right now 🎉</string>
+    <string name="li_n_things">%1$d messages</string>
     <string name="li_reply">To answer</string>
     <string name="li_pay">To pay</string>
     <string name="li_approve">To approve</string>
@@ -1246,6 +1248,8 @@
     <string name="us_messages">Messages</string>
     <string name="us_sent">Sent</string>
     <string name="us_received">Received</string>
+    <string name="us_bytes_sent">Data sent</string>
+    <string name="us_bytes_received">Data received</string>
     <string name="us_data">Data</string>
     <string name="us_media">Photos, videos and files</string>
     <string name="us_uploaded">Sent</string>
@@ -1260,10 +1264,13 @@
     <string name="us_storage_images">Photos and stickers</string>
     <string name="us_storage_sent">Files prepared for sending</string>
     <string name="us_clear">Clear</string>
+    <string name="us_clear_title">Clear the temporary files?</string>
+    <string name="us_clear_sub">Photos and cache on this phone are removed. Your messages aren\'t touched.</string>
     <string name="us_cleared">Cleared</string>
     <string name="us_reset">Reset the stats</string>
     <string name="us_reset_title">Reset the stats?</string>
     <string name="us_reset_sub">The counting starts again from now. Your messages aren\'t touched.</string>
+    <string name="us_reset_done">Stats were reset</string>
     <string name="us_cancel">Cancel</string>
     <string name="us_note">Counted on this phone only. A call\'s data is all of the app\'s traffic while it lasts.</string>
     <string name="home_stories_title">Stories</string>
@@ -1294,14 +1301,20 @@
     <string name="bk_export_failed">Couldn\'t export this chat.</string>
     <string name="bk_storage">Manage storage</string>
     <string name="bk_storage_sub">Your chats\' photos, videos and files, biggest first. Deleting here deletes for you only.</string>
+    <string name="bk_storage_used">Storage used</string>
+    <string name="bk_storage_files_count">%d files</string>
     <string name="bk_storage_total">%1$s in %2$d files</string>
+    <string name="bk_storage_select_all">Select all</string>
+    <string name="bk_storage_unselect">Clear selection</string>
+    <string name="bk_storage_delete_title">Delete these files for you?</string>
+    <string name="bk_storage_delete_sub">They leave this phone only. The other person still has them.</string>
     <string name="bk_storage_large">Larger than 5 MB</string>
     <string name="bk_storage_forwarded">Forwarded</string>
     <string name="bk_storage_all">All files</string>
     <string name="bk_storage_chats">Chats</string>
     <string name="bk_storage_delete">Delete %1$d for me</string>
     <string name="bk_storage_deleted">Deleted</string>
-    <string name="bk_storage_empty">Nothing here.</string>
+    <string name="bk_storage_empty">No saved files</string>
     <string name="bk_channel_stats">Channel insights</string>
     <string name="bk_channel_followers">Followers</string>
     <string name="bk_channel_joined">Joined</string>

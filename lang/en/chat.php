@@ -70,6 +70,7 @@ return [
         'star_folder_not_found' => 'This folder does not exist.',
         'lock_pin_wrong' => 'Wrong PIN. :left tries left.',
         'lock_pin_locked' => 'Too many tries. Try again in :minutes minutes.',
+        'username_required' => 'Enter a username, or delete it with the button.',
         'username_invalid' => 'A username starts with a letter: letters, numbers and _ (3 to 32).',
         'username_taken' => 'This username is taken.',
         'username_unavailable' => 'Usernames are for people only.',

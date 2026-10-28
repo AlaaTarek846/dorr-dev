@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.chat
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +40,8 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.CallMissed
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.NorthEast
@@ -47,6 +52,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Reply
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.ThumbDown
@@ -80,6 +86,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -95,6 +102,7 @@ import com.dorr.app.R
 import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CatchUpDto
+import com.dorr.app.network.UnreadChatDto
 import com.dorr.app.network.ChatMoneyDto
 import com.dorr.app.network.DecisionRoomDto
 import com.dorr.app.network.FolderDto
@@ -110,15 +118,20 @@ import com.dorr.app.network.WalletBalanceDto
 import com.dorr.app.ui.screens.wallet.WalletFlag
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.dorr.app.ui.screens.wallet.PadResult
 import com.dorr.app.ui.screens.wallet.WaPinPad
 import com.dorr.app.ui.screens.wallet.formatMinor
-import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 /*
  * The chat items that were partial, closed (docs/remaining_chat.md): reading comfort (6), folder
@@ -358,6 +371,7 @@ fun FavouritesPage() {
     val listState = rememberLazyListState()
     var folders by remember { mutableStateOf<StarFoldersDto?>(null) }
     var selected by remember { mutableStateOf<String?>(null) } // null all · "none" · id
+    var query by remember { mutableStateOf("") }
     var list by remember { mutableStateOf<List<MessageDto>?>(null) }
     var page by remember { mutableIntStateOf(1) }
     var hasMore by remember { mutableStateOf(false) }
@@ -371,7 +385,9 @@ fun FavouritesPage() {
         if (!reset && (loadingMore || !hasMore)) return
         if (!reset) loadingMore = true
         val next = if (reset) 1 else page + 1
-        val envelope = runCatching { ApiClient.more.starred(chatAuth(), selected, page = next, perPage = 15) }.getOrNull()
+        val envelope = runCatching {
+            ApiClient.more.starred(chatAuth(), selected, q = query.trim().ifBlank { null }, page = next, perPage = 15)
+        }.getOrNull()
         val chunk = envelope?.data.orEmpty()
         list = if (reset) chunk else {
             val known = list.orEmpty().map { it.id }.toSet()
@@ -385,12 +401,26 @@ fun FavouritesPage() {
         folders = runCatching { ApiClient.more.starFolders(chatAuth()).data }.getOrNull() ?: StarFoldersDto()
         loadPage(reset = true)
     }
-    LaunchedEffect(selected) { list = null; page = 1; hasMore = false; reload() }
+    LaunchedEffect(selected) {
+        folders = runCatching { ApiClient.more.starFolders(chatAuth()).data }.getOrNull() ?: StarFoldersDto()
+    }
+    LaunchedEffect(selected, query) {
+        if (query.isNotBlank()) delay(280)
+        list = null
+        page = 1
+        hasMore = false
+        loadPage(reset = true)
+    }
 
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
             SubHeader(stringResource(R.string.ch_starred_title)) { host.pop() }
+            ChField(
+                query, { query = it.take(80) }, stringResource(R.string.ch_starred_search),
+                icon = Icons.Rounded.Search, clearable = true, fontSize = 13.sp,
+                modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 4.dp),
+            )
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FolderChip(stringResource(R.string.cp_all), selected == null, null) { selected = null }
                 FolderChip("⭐ " + stringResource(R.string.cp_favourites), selected == "none", null) { selected = "none" }
@@ -414,18 +444,31 @@ fun FavouritesPage() {
                                 if (last != null && total > 0 && last >= total - 3) scope.launch { loadPage(reset = false) }
                             }
                     }
-                    LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 6.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
-                        Column(Modifier.fillMaxWidth().chStagger(i).combinedClickable(onClick = { host.focusRequest = m.conversationId to m.id; host.push(ChRoute.Conversation(m.conversationId)) }, onLongClick = { moving = m }).padding(vertical = 6.dp)) {
-                            Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                                ChAvatar(m.sender?.avatar, m.sender?.name, m.sender?.key, size = 26.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(if (m.sender?.isMe == true) stringResource(R.string.ch_you) else m.sender?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Text(listTime(m.createdAt), color = Ch.Soft, fontSize = 11.5.sp)
-                            }
-                            MessageRow(UiMessage(m), firstInRun = true, lastInRun = true, isGroup = false, actions = BubbleActions({}, {}, {}, {}, { _, _ -> }, { host.openWalletQr(it) }, {}))
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    ) {
+                        itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
+                            StarredMessageCard(
+                                m = m,
+                                index = i,
+                                showStar = selected == "none" || (selected == null && m.starFolderId == null),
+                                onClick = {
+                                    host.focusRequest = m.conversationId to m.id
+                                    host.push(ChRoute.Conversation(m.conversationId))
+                                },
+                                onLongClick = { moving = m },
+                            )
                         }
-                    }
+                        if (loadingMore) {
+                            item(key = "starred-more") {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = Ch.Red, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -459,6 +502,100 @@ fun FavouritesPage() {
                 runCatching { ApiClient.more.star(chatAuth(), m.id, JsonObject().apply { addProperty("starred", true); folderId?.let { addProperty("folder_id", it) } }) }
                 reload()
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun StarredMessageCard(m: MessageDto, index: Int, showStar: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val host = LocalChat.current
+    val convo = host.find(m.conversationId)
+    val you = stringResource(R.string.ch_you)
+    val senderName = if (m.sender?.isMe == true) you else m.sender?.name.orEmpty()
+    val title = convo?.title?.takeIf { it.isNotBlank() } ?: senderName
+    val showSender = convo?.type == "group" && senderName.isNotBlank() && senderName != title
+    val (kindIcon, kindLabel) = previewOf(m.type, m.isDeleted)
+    val preview = when {
+        m.isDeleted -> stringResource(R.string.ch_deleted)
+        m.type == "poll" -> listOfNotNull(stringResource(R.string.ch_poll), m.poll?.question?.takeIf { it.isNotBlank() }).joinToString(": ")
+        m.type == "call" -> m.body?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ch_call_missed)
+        !m.body.isNullOrBlank() -> m.body.trim()
+        else -> kindLabel
+    }
+    val previewIcon = when {
+        m.isDeleted -> null
+        m.type == "call" -> Icons.Rounded.CallMissed
+        else -> kindIcon
+    }
+    val stamp = parseInstant(m.createdAt)?.let {
+        DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(ZoneId.systemDefault()).format(it) + " - " + clockTime(m.createdAt)
+    }.orEmpty()
+    val card = RoundedCornerShape(16.dp)
+    var open by remember(m.id) { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .chStagger(index)
+            .settingsSurface(card, 4.dp)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ChAvatar(convo?.avatar ?: m.sender?.avatar, title, convo?.peer?.key ?: m.sender?.key, size = 36.dp, isGroup = convo?.type == "group")
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        title,
+                        color = settingsInk(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (showStar) {
+                        Icon(Icons.Rounded.Star, null, tint = Color(0xFFFBBF24), modifier = Modifier.padding(start = 4.dp).size(13.dp))
+                    }
+                }
+                if (showSender) {
+                    Text(senderName, color = settingsMut(), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (!open && preview.isNotBlank()) {
+                    Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        previewIcon?.let {
+                            Icon(it, null, tint = settingsMut(), modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(preview, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            Spacer(Modifier.width(6.dp))
+            if (stamp.isNotBlank()) {
+                Text(stamp, color = settingsMut(), fontSize = 10.5.sp, maxLines = 1)
+                Spacer(Modifier.width(2.dp))
+            }
+            Icon(
+                if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                contentDescription = stringResource(if (open) R.string.ch_starred_collapse else R.string.ch_starred_expand),
+                tint = settingsMut(),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .clickable { open = !open }
+                    .padding(4.dp),
+            )
+        }
+        AnimatedVisibility(open) {
+            MessageRow(
+                UiMessage(m),
+                firstInRun = true,
+                lastInRun = true,
+                isGroup = convo?.type == "group",
+                actions = BubbleActions({}, {}, {}, {}, { _, _ -> }, { host.openWalletQr(it) }, {}),
+            )
         }
     }
 }
@@ -648,18 +785,30 @@ fun ChatPinSheet(conversationId: String, hasPin: Boolean, onDismiss: () -> Unit,
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UsernameSheet(onDismiss: () -> Unit, onSaved: (String?) -> Unit = {}) {
+    val host = LocalChat.current
     val scope = rememberCoroutineScope()
     var value by remember { mutableStateOf("") }
+    var hasUsername by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { value = runCatching { ApiClient.more.username(chatAuth()).data?.username }.getOrNull().orEmpty() }
+    val savedToast = stringResource(R.string.cp_username_saved)
+    val removedToast = stringResource(R.string.cp_username_removed)
+    LaunchedEffect(Unit) {
+        value = runCatching { ApiClient.more.username(chatAuth()).data?.username }.getOrNull().orEmpty()
+        hasUsername = value.isNotBlank()
+    }
 
     fun save(name: String?) {
         busy = true
         error = null
         scope.launch {
-            runCatching { ApiClient.more.setUsername(chatAuth(), JsonObject().apply { if (name == null) add("username", JsonNull.INSTANCE) else addProperty("username", name) }).data }
-                .onSuccess { onSaved(it?.username); onDismiss() }
+            // Empty string, not JSON null: Gson drops nulls so Laravel never sees `username`.
+            runCatching { ApiClient.more.setUsername(chatAuth(), JsonObject().apply { addProperty("username", name.orEmpty()) }).data }
+                .onSuccess {
+                    onSaved(it?.username)
+                    host.showToast(if (name == null) removedToast else savedToast)
+                    onDismiss()
+                }
                 .onFailure { error = it.apiFailure().message }
             busy = false
         }
@@ -673,9 +822,38 @@ fun UsernameSheet(onDismiss: () -> Unit, onSaved: (String?) -> Unit = {}) {
             ChField(value, { value = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' }.take(32) }, stringResource(R.string.cp_username_hint), icon = Icons.Rounded.AlternateEmail)
             error?.let { Text(it, color = Ch.Danger, fontSize = 12.5.sp, modifier = Modifier.padding(top = 6.dp)) }
             Spacer(Modifier.height(14.dp))
-            ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = value.length >= 3 && !busy) { save(value) }
-            Spacer(Modifier.height(6.dp))
-            TextButton({ save(null) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cp_username_remove), color = Ch.Mut) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val canSave = value.length >= 3 && !busy
+                Text(
+                    stringResource(R.string.ch_save),
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)))
+                        .clickable(enabled = canSave) { save(value) }
+                        .padding(vertical = 14.dp),
+                )
+                if (hasUsername) {
+                    Text(
+                        stringResource(R.string.cp_username_remove),
+                        color = Ch.Danger,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .border(1.5.dp, Ch.Danger, RoundedCornerShape(18.dp))
+                            .clickable(enabled = !busy) { save(null) }
+                            .padding(horizontal = 8.dp, vertical = 14.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -686,77 +864,252 @@ fun UsernameSheet(onDismiss: () -> Unit, onSaved: (String?) -> Unit = {}) {
 @Composable
 fun CatchUpPage() {
     val host = LocalChat.current
-    var range by remember { mutableStateOf(24) } // hours
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var range by remember { mutableIntStateOf(24) }
+    var query by remember { mutableStateOf("") }
     var data by remember { mutableStateOf<CatchUpDto?>(null) }
-    LaunchedEffect(range) {
+    var unread by remember { mutableStateOf<List<UnreadChatDto>>(emptyList()) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val since = { Instant.now().minusSeconds(range * 3600L).toString() }
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val chunk = runCatching {
+            ApiClient.more.catchUp(chatAuth(), since(), q = query.trim().ifBlank { null }, page = next, perPage = 15).data
+        }.getOrNull()
+        if (reset) {
+            data = chunk ?: CatchUpDto()
+            unread = chunk?.unreadChats.orEmpty()
+        } else {
+            val known = unread.mapNotNull { it.conversationId }.toSet()
+            unread = unread + chunk?.unreadChats.orEmpty().filter { it.conversationId !in known }
+        }
+        page = next
+        hasMore = chunk?.hasMore == true
+        if (!reset) loadingMore = false
+    }
+    LaunchedEffect(range, query) {
+        if (query.isNotBlank()) delay(280)
         data = null
-        data = runCatching { ApiClient.more.catchUp(chatAuth(), Instant.now().minusSeconds(range * 3600L).toString()).data }.getOrNull() ?: CatchUpDto()
+        unread = emptyList()
+        page = 1
+        hasMore = false
+        loadPage(reset = true)
     }
     val open: (String?, String?) -> Unit = { c, m -> if (c != null) { if (m != null) host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) } }
 
-    ChPage(stringResource(R.string.cp_catch_up), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.cp_catch_up)) { host.pop() }
+            ChField(
+                query, { query = it.take(80) }, stringResource(R.string.cp_search),
+                icon = Icons.Rounded.Search, clearable = true, fontSize = 13.sp,
+                modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 listOf(8 to R.string.cp_8h, 24 to R.string.cp_24h, 72 to R.string.cp_3d, 168 to R.string.cp_week).forEach { (h, label) ->
-                    Pill(stringResource(label), range == h, Modifier.weight(1f)) { range = h }
+                    CatchRangeChip(stringResource(label), range == h, Modifier.weight(1f)) { range = h }
                 }
             }
             val d = data
-            if (d == null) {
-                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                return@Column
-            }
-            val empty = d.mentions.isEmpty() && d.replies.isEmpty() && d.urgent.isEmpty() && d.owed.isEmpty() && d.missedCalls.isEmpty() && d.reminders.isEmpty() && d.decisions.isEmpty() && d.unreadChats.isEmpty()
-            if (empty) {
-                Spacer(Modifier.height(40.dp))
-                Text(stringResource(R.string.cp_caught_up), color = Ch.Mut, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-                return@Column
-            }
-            RefSection(stringResource(R.string.cp_sec_urgent), Icons.Rounded.NotificationsActive, Ch.Danger, d.urgent, open)
-            RefSection(stringResource(R.string.cp_sec_mentions), Icons.Rounded.AlternateEmail, Ch.Red, d.mentions, open)
-            RefSection(stringResource(R.string.cp_sec_replies), Icons.Rounded.Reply, Color(0xFF2563EB), d.replies, open)
-            RefSection(stringResource(R.string.cp_sec_owed), Icons.Rounded.Psychology, Color(0xFFD97706), d.owed, open)
-            if (d.missedCalls.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.cp_sec_calls), Icons.Rounded.CallMissed, Ch.Danger)
-                d.missedCalls.forEach { c -> RefCard(listOfNotNull(c.caller, c.chat.takeIf { it != c.caller }).joinToString(" · "), stringResource(if (c.type == "video") R.string.cp_video_call else R.string.cp_voice_call), c.createdAt) { open(c.conversationId, null) } }
-            }
-            RefSection(stringResource(R.string.cp_sec_reminders), Icons.Rounded.NotificationsActive, Color(0xFF7C3AED), d.reminders, open)
-            if (d.decisions.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.cp_sec_decisions), Icons.Rounded.Gavel, Color(0xFF16A34A))
-                d.decisions.forEach { x -> RefCard(x.chat.orEmpty(), x.title, x.deadlineAt) { host.push(ChRoute.DecisionRoom(x.id)) } }
-            }
-            if (d.unreadChats.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.cp_sec_unread), Icons.Rounded.Visibility, Ch.Mut)
-                d.unreadChats.forEach { u -> RefCard(u.chat.orEmpty(), stringResource(R.string.cp_unread_n, u.unread) + if (u.mention) "  ·  @" else "", null) { open(u.conversationId, null) } }
+            when {
+                d == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                else -> {
+                    val empty = d.mentions.isEmpty() && d.replies.isEmpty() && d.urgent.isEmpty() && d.owed.isEmpty() && d.missedCalls.isEmpty() && d.reminders.isEmpty() && d.decisions.isEmpty() && unread.isEmpty()
+                    val urgentTitle = stringResource(R.string.cp_sec_urgent)
+                    val mentionsTitle = stringResource(R.string.cp_sec_mentions)
+                    val repliesTitle = stringResource(R.string.cp_sec_replies)
+                    val owedTitle = stringResource(R.string.cp_sec_owed)
+                    val remindersTitle = stringResource(R.string.cp_sec_reminders)
+                    LaunchedEffect(listState, unread.size, hasMore) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+                            .collect { (last, total) ->
+                                if (last != null && total > 0 && last >= total - 3) scope.launch { loadPage(reset = false) }
+                            }
+                    }
+                    LazyColumn(state = listState, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        if (empty) {
+                            item(key = "catch-empty") {
+                                Text(
+                                    stringResource(R.string.cp_caught_up),
+                                    color = settingsMut(),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
+                                )
+                            }
+                        } else {
+                            catchUpRefs(urgentTitle, Icons.Rounded.NotificationsActive, Ch.Danger, d.urgent, open)
+                            catchUpRefs(mentionsTitle, Icons.Rounded.AlternateEmail, Ch.Red, d.mentions, open)
+                            catchUpRefs(repliesTitle, Icons.Rounded.Reply, Color(0xFF2563EB), d.replies, open)
+                            catchUpRefs(owedTitle, Icons.Rounded.Psychology, Color(0xFFD97706), d.owed, open)
+                            if (d.missedCalls.isNotEmpty()) {
+                                item(key = "catch-calls-title") { SectionTitle(stringResource(R.string.cp_sec_calls), Icons.Rounded.CallMissed, Ch.Danger) }
+                                items(d.missedCalls, key = { "call-${it.id}" }) { c ->
+                                    RefCard(
+                                        listOfNotNull(c.caller, c.chat.takeIf { it != c.caller }).joinToString(" · "),
+                                        stringResource(if (c.type == "video") R.string.cp_video_call else R.string.cp_voice_call),
+                                        c.createdAt,
+                                    ) { open(c.conversationId, null) }
+                                }
+                            }
+                            catchUpRefs(remindersTitle, Icons.Rounded.NotificationsActive, Color(0xFF7C3AED), d.reminders, open)
+                            if (d.decisions.isNotEmpty()) {
+                                item(key = "catch-decisions-title") { SectionTitle(stringResource(R.string.cp_sec_decisions), Icons.Rounded.Gavel, Color(0xFF16A34A)) }
+                                items(d.decisions, key = { "dec-${it.id}" }) { x ->
+                                    RefCard(x.chat.orEmpty(), x.title, x.deadlineAt) { host.push(ChRoute.DecisionRoom(x.id)) }
+                                }
+                            }
+                            if (unread.isNotEmpty()) {
+                                item(key = "catch-unread-title") { SectionTitle(stringResource(R.string.cp_sec_unread), Icons.Rounded.Visibility, Ch.Mut) }
+                                items(unread, key = { "unread-${it.conversationId}" }) { u ->
+                                    UnreadCatchRow(u) { open(u.conversationId, null) }
+                                }
+                            }
+                        }
+                        if (loadingMore) {
+                            item(key = "catch-more") {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = Ch.Red, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+private fun LazyListScope.catchUpRefs(
+    title: String,
+    icon: ImageVector,
+    tint: Color,
+    refs: List<MsgRefDto>,
+    open: (String?, String?) -> Unit,
+) {
+    if (refs.isEmpty()) return
+    item(key = "catch-title-$title") { SectionTitle("$title (${refs.size})", icon, tint) }
+    items(refs, key = { "$title-${it.messageId}" }) { r ->
+        RefCard(
+            listOfNotNull(r.chat, r.sender.takeIf { it != r.chat }).joinToString(" · "),
+            r.note?.let { "📝 $it · ${r.excerpt.orEmpty()}" } ?: r.excerpt.orEmpty(),
+            r.createdAt,
+        ) { open(r.conversationId, r.messageId) }
+    }
+}
+
+@Composable
+private fun CatchRangeChip(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (on) Ch.Red else Ch.Surface, label = "catch-range")
+    val fg = if (on) Color.White else settingsInk()
+    Row(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Rounded.Schedule, null, tint = fg, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(
+            label,
+            color = fg,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 @Composable
 private fun SectionTitle(title: String, icon: ImageVector, tint: Color) {
-    Row(Modifier.padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(28.dp).clip(CircleShape).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp)) }
-        Spacer(Modifier.width(8.dp))
-        Text(title, color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+    Row(Modifier.padding(top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(title, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
 @Composable
-private fun RefSection(title: String, icon: ImageVector, tint: Color, refs: List<MsgRefDto>, open: (String?, String?) -> Unit) {
-    if (refs.isEmpty()) return
-    SectionTitle("$title (${refs.size})", icon, tint)
-    refs.forEach { r -> RefCard(listOfNotNull(r.chat, r.sender.takeIf { it != r.chat }).joinToString(" · "), r.note?.let { "📝 $it · ${r.excerpt.orEmpty()}" } ?: r.excerpt.orEmpty(), r.createdAt) { open(r.conversationId, r.messageId) } }
+private fun RefCard(top: String, text: String, at: String?, onClick: () -> Unit) {
+    val card = RoundedCornerShape(18.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .settingsSurface(card, 8.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(top, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            at?.let { Text(listTime(it), color = settingsMut(), fontSize = 11.sp) }
+        }
+        if (text.isNotBlank()) {
+            Text(text, color = settingsMut(), fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
 }
 
 @Composable
-private fun RefCard(top: String, text: String, at: String?, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(top, color = Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            at?.let { Text(listTime(it), color = Ch.Soft, fontSize = 11.sp) }
+private fun UnreadCatchRow(u: UnreadChatDto, onClick: () -> Unit) {
+    val host = LocalChat.current
+    val convo = u.conversationId?.let { host.find(it) }
+    val title = u.chat?.takeIf { it.isNotBlank() } ?: convo?.title.orEmpty()
+    val last = convo?.lastMessage
+    val (kindIcon, kindLabel) = last?.let { previewOf(it.type, it.isDeleted) } ?: (null to "")
+    val preview = when {
+        last == null -> ""
+        last.isDeleted -> stringResource(R.string.ch_deleted)
+        !last.body.isNullOrBlank() -> last.body.trim()
+        else -> kindLabel
+    }
+    val card = RoundedCornerShape(18.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .settingsSurface(card, 8.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ChAvatar(convo?.avatar, title, convo?.peer?.key ?: u.conversationId, size = 40.dp, isGroup = convo?.type == "group")
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (preview.isNotBlank()) {
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    kindIcon?.takeIf { last?.body.isNullOrBlank() }?.let {
+                        Icon(it, null, tint = settingsMut(), modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(preview, color = settingsMut(), fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
-        Text(text, color = Ch.Ink, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (u.mention) {
+                Box(Modifier.size(20.dp).background(Ch.Mention, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.AlternateEmail, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                }
+            }
+            if (u.unread > 0) ChBadge(u.unread, muted = convo?.isMuted == true)
+        }
     }
 }
 
@@ -1046,66 +1399,93 @@ fun PrivacyCenterPage() {
     val host = LocalChat.current
     var data by remember { mutableStateOf<PrivacyCenterDto?>(null) }
     var username by remember { mutableStateOf(false) }
+    var sheet by remember { mutableStateOf<CenterTopic?>(null) }
     LaunchedEffect(Unit) { data = runCatching { ApiClient.more.privacyCenter(chatAuth()).data }.getOrNull() }
 
-    ChPage(stringResource(R.string.cp_privacy_center), onBack = { host.pop() }) {
+    ChPage(stringResource(R.string.cp_privacy_center), onBack = { host.pop() }, settingsHeader = true) {
         val d = data
         if (d == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
             return@ChPage
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            CenterCard(Icons.Rounded.Visibility, stringResource(R.string.cp_pc_who_sees), listOf(
-                stringResource(R.string.cp_pc_last_seen) to audience(d.whoSees["last_seen"]),
-                stringResource(R.string.cp_pc_photo) to audience(d.whoSees["profile_photo"]),
-                stringResource(R.string.cp_pc_status) to audience(d.whoSees["status"]),
-                stringResource(R.string.cp_pc_receipts) to stringResource(if (d.whoSees["read_receipts"] == false) R.string.ch_off else R.string.cp_on),
-            )) { host.push(ChRoute.Privacy) }
-            CenterCard(Icons.Rounded.Shield, stringResource(R.string.cp_pc_who_can), listOf(
-                stringResource(R.string.cp_pc_message) to audience(d.whoCan["message"]),
-                stringResource(R.string.cp_pc_groups) to audience(d.whoCan["add_to_groups"]),
-                stringResource(R.string.cp_pc_call) to audience(d.whoCan["call"]),
-                stringResource(R.string.cp_pc_urgent) to audience(d.whoCan["urgent"]),
-            )) { host.push(ChRoute.Privacy) }
-            CenterCard(Icons.Rounded.NotificationsActive, stringResource(R.string.cp_pc_notifications), listOf(
-                stringResource(R.string.cp_pc_preview) to d.notifications,
-                stringResource(R.string.cp_pc_privacy_mode) to stringResource(if (d.privacyMode["on"] == true) R.string.cp_on else if (d.privacyMode["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
-                stringResource(R.string.cp_pc_quiet) to stringResource(if (d.quiet["on"] == true) R.string.cp_on else if (d.quiet["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
-                stringResource(R.string.cp_pc_screenshots) to stringResource(if (d.blockScreenshots) R.string.cp_blocked_word else R.string.cp_allowed),
-            )) { host.push(ChRoute.Privacy) }
-            CenterCard(Icons.Rounded.Lock, stringResource(R.string.cp_pc_chats), listOf(
-                stringResource(R.string.cp_pc_circles) to "${d.circles["count"] ?: 0} (${stringResource(R.string.cp_pc_locked_n, d.circles["locked"] ?: 0)})",
-                stringResource(R.string.cp_pc_locked_chats) to "${d.lockedChats}",
-                stringResource(R.string.cp_pc_pin_chats) to "${d.pinLockedChats}",
-                stringResource(R.string.cp_pc_blocked) to "${d.blocked}",
-            )) { host.filter = "locked"; host.pop() }
-            CenterCard(Icons.Rounded.AlternateEmail, stringResource(R.string.cp_username), listOf(
-                stringResource(R.string.cp_username) to (d.username?.let { "@$it" } ?: stringResource(R.string.cp_none)),
-            )) { username = true }
-            CenterCard(Icons.Rounded.Psychology, stringResource(R.string.cp_pc_ai), listOf(
-                stringResource(R.string.cp_pc_ai_on) to stringResource(if (d.ai["enabled"] == true) R.string.cp_on else R.string.ch_off),
-            ), note = d.ai["reads"]?.toString()) {}
-            Text(stringResource(R.string.cp_pc_devices), color = Ch.Soft, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        val topics = listOf(
+            CenterTopic(
+                Icons.Rounded.Visibility, stringResource(R.string.cp_pc_who_sees),
+                listOf(
+                    stringResource(R.string.cp_pc_last_seen) to audience(d.whoSees["last_seen"]),
+                    stringResource(R.string.cp_pc_photo) to audience(d.whoSees["profile_photo"]),
+                    stringResource(R.string.cp_pc_status) to audience(d.whoSees["status"]),
+                    stringResource(R.string.cp_pc_receipts) to stringResource(if (d.whoSees["read_receipts"] == false) R.string.ch_off else R.string.cp_on),
+                ),
+            ) { host.push(ChRoute.Privacy) },
+            CenterTopic(
+                Icons.Rounded.Shield, stringResource(R.string.cp_pc_who_can),
+                listOf(
+                    stringResource(R.string.cp_pc_message) to audience(d.whoCan["message"]),
+                    stringResource(R.string.cp_pc_groups) to audience(d.whoCan["add_to_groups"]),
+                    stringResource(R.string.cp_pc_call) to audience(d.whoCan["call"]),
+                    stringResource(R.string.cp_pc_urgent) to audience(d.whoCan["urgent"]),
+                ),
+            ) { host.push(ChRoute.Privacy) },
+            CenterTopic(
+                Icons.Rounded.NotificationsActive, stringResource(R.string.cp_pc_notifications),
+                listOf(
+                    stringResource(R.string.cp_pc_preview) to d.notifications,
+                    stringResource(R.string.cp_pc_privacy_mode) to stringResource(if (d.privacyMode["on"] == true) R.string.cp_on else if (d.privacyMode["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
+                    stringResource(R.string.cp_pc_quiet) to stringResource(if (d.quiet["on"] == true) R.string.cp_on else if (d.quiet["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
+                    stringResource(R.string.cp_pc_screenshots) to stringResource(if (d.blockScreenshots) R.string.cp_blocked_word else R.string.cp_allowed),
+                ),
+            ) { host.push(ChRoute.Privacy) },
+            CenterTopic(
+                Icons.Rounded.Lock, stringResource(R.string.cp_pc_chats),
+                listOf(
+                    stringResource(R.string.cp_pc_circles) to "${d.circles["count"] ?: 0} (${stringResource(R.string.cp_pc_locked_n, d.circles["locked"] ?: 0)})",
+                    stringResource(R.string.cp_pc_locked_chats) to "${d.lockedChats}",
+                    stringResource(R.string.cp_pc_pin_chats) to "${d.pinLockedChats}",
+                    stringResource(R.string.cp_pc_blocked) to "${d.blocked}",
+                ),
+            ) { host.filter = "locked"; host.pop() },
+            CenterTopic(
+                Icons.Rounded.AlternateEmail, stringResource(R.string.cp_username),
+                rows = emptyList(),
+                value = d.username?.takeIf { it.isNotBlank() }?.let { "@$it" },
+                direct = true,
+            ) { username = true },
+            CenterTopic(
+                Icons.Rounded.Psychology, stringResource(R.string.cp_pc_ai),
+                listOf(stringResource(R.string.cp_pc_ai_on) to stringResource(if (d.ai["enabled"] == true) R.string.cp_on else R.string.ch_off)),
+                note = d.ai["reads"]?.toString(),
+            ) {},
+        )
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 16.dp)) {
+            Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                topics.forEachIndexed { i, topic ->
+                    PrivacySettingsRow(topic.icon, topic.title, value = topic.value, last = i == topics.lastIndex) {
+                        if (topic.direct) topic.onPick() else sheet = topic
+                    }
+                }
+            }
+            Text(stringResource(R.string.cp_pc_devices), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         }
+    }
+    sheet?.let { topic ->
+        ChoiceSheet(
+            title = topic.title,
+            subtitle = topic.note,
+            options = topic.rows.map { (k, _) -> k to { topic.onPick() } },
+            values = topic.rows.map { it.second },
+            onDismiss = { sheet = null },
+        )
     }
     if (username) UsernameSheet(onDismiss = { username = false }) { u -> data = data?.copy(username = u) }
 }
 
-@Composable
-private fun CenterCard(icon: ImageVector, title: String, rows: List<Pair<String, String>>, note: String? = null, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(Ch.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(19.dp)) }
-            Spacer(Modifier.width(10.dp))
-            Text(title, color = Ch.Ink, fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold)
-        }
-        Spacer(Modifier.height(6.dp))
-        rows.forEach { (k, v) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
-                Text(k, color = Ch.Mut, fontSize = 13.5.sp, modifier = Modifier.weight(1f))
-                Text(v, color = Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        note?.let { Text(it, color = Ch.Soft, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
-    }
-}
+private data class CenterTopic(
+    val icon: ImageVector,
+    val title: String,
+    val rows: List<Pair<String, String>>,
+    val note: String? = null,
+    val value: String? = null,
+    val direct: Boolean = false,
+    val onPick: () -> Unit,
+)
