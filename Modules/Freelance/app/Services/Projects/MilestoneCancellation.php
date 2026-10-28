@@ -42,22 +42,25 @@ class MilestoneCancellation
     ) {}
 
     /** The client ends a part: before the work, at once; after it started, they ask. */
-    public function byClient(Milestone $m, User $client, ?string $reason): Milestone
+    public function byClient(Milestone $m, User $client, ?string $reason, ?string $code = null): Milestone
     {
         abort_unless((int) $m->agreement->client_id === (int) $client->id, 404);
         if ($m->status === Status::Unfunded) {
-            return $this->work->cancel($m, $client);
+            $done = $this->work->cancel($m, $client);
+            app(CancelReasons::class)->record($m->agreement->project, $m, 'client', $client->id, $code, $reason);
+
+            return $done;
         }
 
-        return $this->end($m, 'client', $client->id, $reason);
+        return $this->end($m, 'client', $client->id, $reason, $code);
     }
 
     /** The freelancer steps back from a part: before the work, at once; after it started, they ask. */
-    public function byFreelancer(Milestone $m, Freelancer $freelancer, ?string $reason): Milestone
+    public function byFreelancer(Milestone $m, Freelancer $freelancer, ?string $reason, ?string $code = null): Milestone
     {
         abort_unless((int) $m->agreement->freelancer_id === (int) $freelancer->id, 404);
 
-        return $this->end($m, 'freelancer', $freelancer->id, $reason);
+        return $this->end($m, 'freelancer', $freelancer->id, $reason, $code);
     }
 
     /** The other side agrees to end a started part. */
@@ -108,11 +111,14 @@ class MilestoneCancellation
 
     // ------------------------------------------------------------------ inside
 
-    private function end(Milestone $m, string $side, ?int $actorId, ?string $reason): Milestone
+    private function end(Milestone $m, string $side, ?int $actorId, ?string $reason, ?string $code = null): Milestone
     {
         $reason = $reason === null ? null : (trim(strip_tags($reason)) ?: null);
+        // FL-607: the stated reason is kept for staff once the call-off is really made (not when it fails for the part's state).
+        $keep = fn () => app(CancelReasons::class)->record($m->agreement->project, $m, $side, (int) $actorId, $code, $reason);
         if ($m->status === Status::Funded) {
             $done = $this->refundAll($m, $side, $actorId, $reason);
+            $keep();
             $this->tell($done, $side === 'client' ? 'freelancer' : 'client', 'milestone.called_off');
             $this->release->closeIfSettled($m->agreement);
 
@@ -125,6 +131,7 @@ class MilestoneCancellation
             throw new FreelanceException('milestone_cancel_pending', 409);
         }
         $m->forceFill(['cancel_requested_by' => $side, 'cancel_requested_at' => now(), 'cancel_reason' => $reason])->save();
+        $keep();
         DB::table('freelance_milestone_events')->insert([
             'milestone_id' => $m->id, 'type' => 'milestone.cancel_requested', 'from_status' => $m->status->value, 'to_status' => $m->status->value,
             'actor_type' => $side, 'actor_id' => $actorId, 'payload' => $reason === null ? null : json_encode(['reason' => $reason]), 'created_at' => now(),

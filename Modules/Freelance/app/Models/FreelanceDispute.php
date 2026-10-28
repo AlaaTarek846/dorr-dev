@@ -22,8 +22,18 @@ class FreelanceDispute extends Model
 
     public const DECISIONS = ['refund', 'release', 'split'];
 
+    /** FL-803: what staff call the problem. The person's own `reason` maps to one by default (`suggestedCategory`). */
+    public const CATEGORIES = ['payment', 'delivery', 'quality', 'conduct', 'scope', 'other'];
+
+    private const REASON_CATEGORY = ['not_delivered' => 'delivery', 'late' => 'delivery', 'no_response' => 'conduct', 'quality' => 'quality', 'not_as_agreed' => 'quality', 'out_of_scope' => 'scope'];
+
+    public function suggestedCategory(): string
+    {
+        return self::REASON_CATEGORY[$this->reason] ?? 'other';
+    }
+
     protected $fillable = [
-        'uuid', 'project_id', 'agreement_id', 'milestone_id', 'opened_by', 'opener_id', 'reason', 'details', 'milestone_status', 'status',
+        'uuid', 'project_id', 'agreement_id', 'milestone_id', 'opened_by', 'opener_id', 'reason', 'category', 'details', 'milestone_status', 'status',
         'respond_by', 'decision', 'freelancer_bp', 'decision_note', 'decided_by_admin_id', 'decided_at', 'executes_at', 'appealed_by',
         'appeal_reason', 'appealed_at', 'final_admin_id', 'resolved_at',
     ];

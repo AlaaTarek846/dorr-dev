@@ -101,6 +101,19 @@ return [
         'waiting.free_s' => 180,                          // Wireflow: 3 free minutes
         'waiting.warn_before_s' => 60,                    // D-122: "free waiting ends soon" this long before
         'eta.speed_kmh' => 30,                            // D-129: the average city speed the remaining time is worked out at
+        'eta.learn_days' => 14,                           // AI-03: the city's own speed at this hour, learned from this many days of trips (0 = off)
+        'eta.min_samples' => 20,                          // …only once there are this many trips at that hour; else eta.speed_kmh
+        'next_trip.before_end_s' => 300,                  // Block 06: a next trip is offered once the current ride has at most this long left
+        'next_trip.radius_m' => 2000,                     // …and the new pickup is this close to where it ends
+        'scheduled.watch_before_s' => 2700,               // Block 06 (car on time): a booking is watched from this long before its time
+        'scheduled.late_alert_s' => 300,                  // …the rider is warned once the captain looks likely to be later than this
+        'scheduled.typical_pickup_s' => 600,              // …what a captain found at the last minute needs to come
+        'cancel_risk.nudge_at' => 70,                     // AI-10: an accepted ride this likely to be cancelled gets one honest ETA update (0 = off)
+        'dispatch.smart' => false,                        // AI-01: ask captains by time to the pickup + acceptance + fairness (off = nearest first)
+        'dispatch.acceptance_min' => 3,                   // …a captain who never accepts counts as this many minutes farther
+        'dispatch.fairness_min' => 2,                     // …a captain who just had a trip counts as this many minutes farther (none after 2 h waiting)
+        'pricing.smart_max_bp' => 0,                      // AI-05: the suggested offers price may move with demand by up to this (0 = off)
+        'fraud.repeat_pair_max' => 4,                     // AI-06: more completed rides than this between one rider and one captain in a day is a sign
         'booking.note_max_chars' => 120,                  // D-61: the pickup note — what's needed only
         'circle.ask_after_s' => 90,                       // R-INN-07: no favourite took it this long → the rider is asked before it goes to everyone
         'places.recent_max' => 5,                         // R-5: recent destinations offered as shortcuts

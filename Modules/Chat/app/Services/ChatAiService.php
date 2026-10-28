@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -13,7 +14,10 @@ use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Safety\RiskAssessment;
 use Modules\AI\Safety\SafetyPolicyEngine;
-use Modules\AI\Services\AiGateway;
+use Modules\AI\Services\AiCitationValidator;
+use Modules\AI\Services\AiEvidencePlanner;
+use Modules\AI\Services\AiMemoryService;
+use Modules\AI\Services\AiTaskRunner;
 use Modules\AI\Services\AiVerificationEngine;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
@@ -32,6 +36,10 @@ use Throwable;
  * conversation they're in, about messages they can see. View-once messages are never sent. Results
  * are cached (translations and transcripts per message, summaries for a few minutes) so a second
  * tap costs nothing.
+ *
+ * Every call goes through the AI module's AiTaskRunner — the same system as the DORR AI chat: the
+ * admin's AI block, safety rules, routing (provider/model per policy and country), fallback,
+ * circuit breaker, the registered speech-to-text model, and the usage log (`source` chat.*).
  */
 class ChatAiService
 {
@@ -55,9 +63,12 @@ class ChatAiService
         private readonly ConversationService $conversations,
         private readonly MessageService $messages,
         private readonly AiProviderRepository $providers,
-        private readonly AiGateway $gateway,
+        private readonly AiTaskRunner $runner,
         private readonly SafetyPolicyEngine $safety,
         private readonly AiVerificationEngine $verifier,
+        private readonly AiEvidencePlanner $evidence,
+        private readonly AiCitationValidator $citations,
+        private readonly AiMemoryService $memory,
     ) {}
 
     /**
@@ -69,14 +80,23 @@ class ChatAiService
     {
         // The admin's switch, and any country or city rule for where I am (ChatFeatures).
         $on = app(ChatFeatures::class)->allows($me, 'ai');
-        $chat = $on && $this->providers->resolveActiveForChat() !== null;
-        $audio = $on && $this->providers->resolveForTranscription() !== null;
+        $chat = $on && $this->runner->available();
+        $audio = $on && $this->runner->canTranscribe();
+        $images = $on && $this->runner->canMakeImages();
+        $owner = $this->owner($me);
 
         return [
             'enabled' => $chat || $audio, 'translate' => $chat, 'summarize' => $chat, 'smart_replies' => $chat, 'transcribe' => $audio, 'ask' => $chat, 'commitments' => $chat,
             // DORR AI tools (spec 31, 36–42, 46, 48, 49).
             'assistant' => $chat, 'proofread' => $chat, 'understand' => $chat, 'simplify' => $chat, 'tasks' => $chat, 'notes' => $chat,
             'dates' => $chat, 'important' => $chat, 'related_files' => $chat, 'today' => $chat,
+            // Images from a description and AI image editing (spec 50, 51).
+            'image_generate' => $images, 'image_edit' => $images,
+            // DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat.
+            'search_meaning' => $chat, 'memory' => $chat, 'capsule' => $chat, 'ai_images' => $on,
+            // Every AI tool needs a DORR AI plan (decision 2026-10-15): when `allowed` is false the
+            // app keeps the buttons but locks them and offers the AI subscription (`reason` says why).
+            'plan' => $owner !== null ? $this->runner->entitlement($owner) : ['allowed' => false, 'reason' => 'no_plan'],
         ];
     }
 
@@ -100,7 +120,7 @@ class ChatAiService
                 .'Keep the tone, emojis, names, numbers and links as they are. If it is already in '.self::LANGUAGES[$to].', return it unchanged. '
                 .'Reply with the translation only — no quotes, no notes.'],
             ['role' => 'user', 'content' => $text],
-        ]));
+        ], 'chat.translate', $me));
 
         return ['text' => $translated, 'to' => $to];
     }
@@ -130,7 +150,7 @@ class ChatAiService
                 .'Brand names, links, numbers and emojis stay as they are; a name that is a brand is transliterated only if that is how it is written in that language. '
                 .'Reply with JSON only: {"<language code>": {"<field>": "<translation>"}} with the same fields you were given.'],
             ['role' => 'user', 'content' => json_encode($fields, JSON_UNESCAPED_UNICODE)],
-        ]);
+        ], 'chat.translate_fields');
 
         $json = json_decode(trim((string) preg_replace('/^```(?:json)?|```$/m', '', $raw)), true);
 
@@ -167,12 +187,12 @@ class ChatAiService
             throw new ChatException('ai_audio_too_long', 422);
         }
 
-        $text = Cache::remember('chat:ai:transcribe:'.$message->id, now()->addDays(30), function () use ($media) {
-            if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveForTranscription()) === null) {
+        $text = Cache::remember('chat:ai:transcribe:'.$message->id, now()->addDays(30), function () use ($me, $media) {
+            if (! ChatSetting::current()->aiEnabled()) {
                 throw new ChatException('ai_unavailable', 503);
             }
 
-            return $this->answer($provider, $this->gateway->transcribe($provider, $media->getPath(), (string) $media->mime_type));
+            return $this->answer($this->runner->transcribe($media->getPath(), (string) $media->mime_type, 'chat.transcribe', $this->owner($me)));
         });
         // Kept for me, so searching my chats finds what was said (spec 20).
         $participant = $this->conversations->participantOf($me, $message->conversation);
@@ -210,7 +230,7 @@ class ChatAiService
                 .'Use 3 to 7 short bullet points: what was discussed, what was decided, questions or requests waiting for Me, and any dates, times, places or amounts. '
                 .'Only use what is in the chat — never invent anything. No title, no closing line.'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]));
+        ], 'chat.summary', $me));
 
         return ['text' => $text, 'messages' => $lines->count()];
     }
@@ -237,7 +257,7 @@ class ChatAiService
                 .'Use only the numbered messages given — if they do not hold the answer, say so plainly. Never invent anything. '
                 .'Reply with JSON only: {"answer": "<short answer>", "refs": [<numbers of the messages the answer is based on>]}.'],
             ['role' => 'user', 'content' => $lines->implode("\n")."\n\nQuestion: ".Str::limit(trim($question), 500)],
-        ], $question, verify: true);
+        ], $question, verify: true, source: 'chat.ask_about', me: $me);
 
         $json = $this->json($safe['raw']);
         $answer = is_string($json['answer'] ?? null) ? $this->safety->finish($json['answer'], $safe['risk'])['text'] : $safe['text'];
@@ -274,7 +294,7 @@ class ChatAiService
                 .'{"text": "<the task, short, in the chat\'s language>", "owner": "me" | "<the other person\'s name>", "due": "YYYY-MM-DD HH:MM" or null, "ref": <number of the message it comes from>}. '
                 .'Only what the chat really says; never invent a date.'],
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]);
+        ], 'chat.commitments', $me);
 
         $items = $this->json($raw);
         $items = array_is_list($items) ? $items : ($items['commitments'] ?? []);
@@ -397,7 +417,7 @@ class ChatAiService
                 .'Write 3 different greetings for the occasion, for the given relationship and tone, each under 40 words, warm and natural, no hashtags. '
                 .'Reply with a JSON array of 3 strings and nothing else.'],
             ['role' => 'user', 'content' => json_encode(['occasion' => $occasion, 'relationship' => $relation, 'tone' => $tone, 'name' => $name], JSON_UNESCAPED_UNICODE)],
-        ]);
+        ], 'chat.greetings');
 
         return ['greetings' => self::parseReplies($raw)];
     }
@@ -419,12 +439,18 @@ class ChatAiService
             throw new ChatException('ai_nothing_to_summarize', 422);
         }
 
-        $raw = $this->ask([
+        // Suggested replies are new text, so they are classified and written under the DORR AI rules
+        // (spec ب.2, 351–362): a medical, legal or religious chat never gets a "yes, double the dose"
+        // suggestion. No referral is added — the person sends these as their own words.
+        $risk = $this->safety->classify((string) $lines->last(), $this->providers->resolveActiveForChat());
+        $raw = $this->ask($this->safety->instruct(array_values(array_filter([
             ['role' => 'system', 'content' => 'You suggest replies in a chat. "Me" is the person you help. Suggest 3 short, natural replies Me could send next, '
                 .'in the same language and tone the chat uses (Arabic dialect stays the same dialect). Each under 12 words, all different. '
                 .'Reply with a JSON array of 3 strings and nothing else.'],
+            // What I asked DORR AI to remember about me (I'm vegetarian, I don't work Fridays…).
+            ($memory = $this->memoryFor($me)) !== null ? ['role' => 'system', 'content' => $memory] : null,
             ['role' => 'user', 'content' => $lines->implode("\n")],
-        ]);
+        ])), $risk), 'chat.smart_replies', $me);
 
         return ['replies' => self::parseReplies($raw)];
     }
@@ -444,6 +470,142 @@ class ChatAiService
             ->map(fn ($item) => trim(preg_replace('/^\s*(?:[-*•]|\d+[.)])\s*/u', '', (string) $item) ?? '', " \t\"'"))
             ->filter(fn (string $item) => $item !== '' && mb_strlen($item) <= 120)
             ->unique()->take(3)->values()->all();
+    }
+
+    // ---------------------------------------------------------------- memory (DORR AI spec 140–144, in the chat)
+
+    /**
+     * My DORR AI memory for a chat AI tool: one memory per person, shared with the DORR AI chat
+     * (AiMemoryService). [$asked] starting with «افتكر إن…» / "remember that…" is saved first (when
+     * memory is on), and the tool is told so it can confirm. Null when memory is off or empty.
+     */
+    public function memoryFor(Model $me, ?string $asked = null): ?string
+    {
+        $owner = $this->owner($me);
+        if ($owner === null) {
+            return null;
+        }
+
+        $note = null;
+        if ($asked !== null && ($fact = $this->memory->explicitRequest($asked)) !== null) {
+            try {
+                $this->memory->remember($owner, $fact);
+                $note = 'The person asked you to remember: "'.$fact.'". It has been saved to their DORR AI memory (they can see, edit or delete it). Confirm this briefly.';
+            } catch (\Modules\AI\Exceptions\AiAssistantException $e) {
+                $note = 'The person asked you to remember something, but it was NOT saved: '.__('ai.assistant_'.$e->reason).' Tell them briefly.';
+            }
+        }
+
+        return collect([$note, $this->memory->systemMessage($owner)])->filter()->implode("\n\n") ?: null;
+    }
+
+    // ---------------------------------------------------------------- search by meaning (DORR AI spec 133–139, in the chat)
+
+    /**
+     * Search this chat by what the words mean: DORR AI widens the query into related words —
+     * synonyms, the dialect and the other language («الكورة» → «الماتش», «كرة القدم», «football») —
+     * and the chat's own search (only messages I can see) runs for each. One AI call, on the plan.
+     *
+     * @return array{terms: list<string>, messages: list<mixed>, matches: array<string, string>}
+     */
+    public function searchByMeaning(Model $me, ChatConversation $conversation, string $query): array
+    {
+        $this->conversations->participantOf($me, $conversation);
+        $query = Str::limit(trim($query), 100, '');
+
+        $terms = Cache::remember('chat:ai:meaning:'.md5(mb_strtolower($query)).':'.app()->getLocale(), now()->addDay(), function () use ($me, $query) {
+            $raw = $this->ask([
+                ['role' => 'system', 'content' => 'You help search a chat by meaning. For the search query, give up to 8 short search words or phrases that '
+                    .'messages about the same thing would contain: synonyms, the formal and the colloquial/dialect forms, related key words, and the English or Arabic equivalent. '
+                    .'One to three words each. Reply with a JSON array of strings only.'],
+                ['role' => 'user', 'content' => $query],
+            ], 'chat.search_meaning', $me);
+
+            return collect($this->json($raw))
+                ->filter(fn ($t) => is_string($t) && mb_strlen(trim($t)) >= 2 && mb_strlen(trim($t)) <= 40)
+                ->map(fn (string $t) => trim($t))
+                ->reject(fn (string $t) => mb_strtolower($t) === mb_strtolower($query))
+                ->unique()->take(8)->values()->all();
+        });
+
+        // The words themselves first, then what they mean; each message once, with the word that found it.
+        $found = collect();
+        $matches = [];
+        foreach ([$query, ...$terms] as $term) {
+            foreach ($this->messages->search($me, $term, $conversation) as $resource) {
+                $id = (string) $resource->resource->uuid;
+                if (! isset($matches[$id])) {
+                    $matches[$id] = $term;
+                    $found->push($resource);
+                }
+            }
+            if ($found->count() >= 100) {
+                break;
+            }
+        }
+
+        return ['terms' => $terms, 'messages' => $found->take(100)->values()->all(), 'matches' => $matches];
+    }
+
+    // ---------------------------------------------------------------- continue in another chat (DORR AI spec 121–132, in the chat)
+
+    /**
+     * A Context Capsule of this chat — its goal, decisions, important facts, files, open tasks and
+     * what was done — from the messages I picked (only those) or the latest, to carry the work on in
+     * another chat. Nothing is sent: the app shows it, I can edit it, and I choose where it goes.
+     *
+     * @param  list<string>|null  $messageIds
+     * @return array{capsule: array<string, mixed>, text: string, messages: int}
+     */
+    public function capsule(Model $me, ChatConversation $conversation, ?array $messageIds): array
+    {
+        $participant = $this->conversations->participantOf($me, $conversation);
+        [$numbered, $lines] = $this->numbered($me, $participant, $conversation, $messageIds);
+        $language = self::LANGUAGES[app()->getLocale()] ?? 'English';
+
+        $json = $this->json($this->ask([
+            ['role' => 'system', 'content' => 'You prepare a "context capsule" so a person can carry on the work of a chat in another chat without starting over. '
+                .'"Me" is the person you help. Write in '.$language.'. Reply with JSON only: '
+                .'{"goal": "<what this chat is trying to get done, one sentence>", "decisions": [<decisions taken>], "facts": [<important facts, numbers, names, dates, places, amounts>], '
+                .'"open_tasks": [<what is still left to do, and by whom when said>], "done": [<what was already done>]}. '
+                .'Short items. Only what the messages really say — never invent anything; an empty list when there is nothing.'],
+            ['role' => 'user', 'content' => $lines->implode("\n")],
+        ], 'chat.capsule', $me));
+
+        $list = fn (string $key) => collect((array) ($json[$key] ?? []))->filter(fn ($v) => is_string($v) && trim($v) !== '')
+            ->map(fn (string $v) => Str::limit(trim($v), 300))->take(15)->values()->all();
+        $capsule = [
+            'goal' => is_string($json['goal'] ?? null) ? Str::limit(trim($json['goal']), 300) : null,
+            'decisions' => $list('decisions'),
+            'facts' => $list('facts'),
+            'open_tasks' => $list('open_tasks'),
+            'done' => $list('done'),
+            // File names from the messages themselves, not from the model.
+            'files' => $numbered->filter(fn (ChatMessage $m) => in_array($m->type, [MessageType::Document, MessageType::Image, MessageType::Video], true))
+                ->map(fn (ChatMessage $m) => $m->getFirstMedia(ChatMessage::ATTACHMENTS)?->file_name)->filter()->unique()->take(20)->values()->all(),
+        ];
+
+        return ['capsule' => $capsule, 'text' => $this->capsuleText($capsule), 'messages' => $numbered->count()];
+    }
+
+    /**
+     * The capsule as a message I can edit and send — headings in my language.
+     *
+     * @param  array<string, mixed>  $capsule
+     */
+    private function capsuleText(array $capsule): string
+    {
+        $parts = ['📌 '.__('chat.capsule.title')];
+        if (filled($capsule['goal'])) {
+            $parts[] = '*'.__('chat.capsule.goal').':* '.$capsule['goal'];
+        }
+        foreach (['decisions', 'facts', 'files', 'open_tasks', 'done'] as $key) {
+            if (! empty($capsule[$key])) {
+                $parts[] = '*'.__('chat.capsule.'.$key).':*'."\n- ".implode("\n- ", $capsule[$key]);
+            }
+        }
+
+        return implode("\n\n", $parts);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -505,15 +667,18 @@ class ChatAiService
     }
 
     /**
+     * One AI call through DORR AI's own system (AiTaskRunner). [$source] names the tool on the
+     * admin usage screens; [$me] is who it is for (the signed-in person when not given).
+     *
      * @param  list<array{role: string, content: string}>  $messages
      */
-    public function ask(array $messages): string
+    public function ask(array $messages, string $source = 'chat', ?Model $me = null): string
     {
-        if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveActiveForChat()) === null) {
+        if (! ChatSetting::current()->aiEnabled()) {
             throw new ChatException('ai_unavailable', 503);
         }
 
-        return $this->answer($provider, $this->gateway->chat($provider, $messages));
+        return $this->answer($this->runner->chat($messages, $source, $this->owner($me)));
     }
 
     /**
@@ -525,18 +690,29 @@ class ChatAiService
      * @param  list<array{role: string, content: string}>  $messages
      * @return array{text: string, raw: string, safety: ?array<string, mixed>, risk: RiskAssessment, verification: ?array{status: string, confidence: ?float, notice: ?string}}
      */
-    public function askSafely(array $messages, string $request, bool $verify = false): array
+    public function askSafely(array $messages, string $request, bool $verify = false, string $source = 'chat', ?Model $me = null): array
     {
-        if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveActiveForChat()) === null) {
+        if (! ChatSetting::current()->aiEnabled() || ! $this->runner->available()) {
             throw new ChatException('ai_unavailable', 503);
         }
 
-        $risk = $this->safety->classify($request, $provider);
+        $owner = $this->owner($me);
+        $risk = $this->safety->classify($request, $this->providers->resolveActiveForChat());
+        // DORR AI's evidence rules for this request's topics (EvidencePlanner, spec 324), after the
+        // safety rules — the chat inherits them like the DORR AI chat (spec ب.2).
         $instructed = $this->safety->instruct($messages, $risk);
-        $raw = $this->answer($provider, $this->gateway->chat($provider, $instructed));
+        array_splice($instructed, 1, 0, [['role' => 'system', 'content' => $this->evidence->guidance($request)]]);
+        $result = $this->runner->chat($instructed, $source, $owner);
+        $raw = $this->answer($result);
         $verification = null;
         if ($verify) {
-            [$raw, $verification] = $this->qualityGate($provider, $instructed, $raw);
+            [$raw, $verification] = $this->qualityGate($result['provider'], $instructed, $raw, $source, $owner);
+            // What the system checks itself (CitationValidator, spec 332): Qur'an references,
+            // arithmetic, dates, jurisdiction — shown with the quality gate's verdict.
+            $warnings = $this->citations->validate($this->answerOf($raw), $request)['warnings'];
+            if ($verification !== null || $warnings !== []) {
+                $verification = ($verification ?? ['status' => 'skipped', 'confidence' => null, 'notice' => null]) + ['warnings' => $warnings];
+            }
         }
 
         return ['raw' => $raw, 'risk' => $risk, 'verification' => $verification] + $this->safety->finish($raw, $risk);
@@ -552,7 +728,7 @@ class ChatAiService
      * @param  list<array{role: string, content: string}>  $messages
      * @return array{0: string, 1: ?array{status: string, confidence: ?float, notice: ?string}}
      */
-    private function qualityGate(AiProvider $provider, array $messages, string $raw): array
+    private function qualityGate(AiProvider $provider, array $messages, string $raw, string $source, ?Authenticatable $owner): array
     {
         if (! config('ai.chat.verification.enabled', true)) {
             return [$raw, null];
@@ -583,12 +759,12 @@ class ChatAiService
                 $verdict['claims'],
             )));
             try {
-                $raw = $this->answer($provider, $this->gateway->chat($provider, [
+                $raw = $this->answer($this->runner->chat([
                     ...$messages,
                     ['role' => 'assistant', 'content' => $raw],
                     ['role' => 'user', 'content' => "A fact-checker reviewed your answer and found:\n- ".implode("\n- ", $issues ?: ['Some claims could not be verified.'])
                         ."\nCorrect it. Do not state anything you cannot support. Keep exactly the same reply format."],
-                ]));
+                ], $source.'.correction', $owner));
             } catch (ChatException) {
                 break;
             }
@@ -625,20 +801,56 @@ class ChatAiService
         return $this->safety;
     }
 
+    /** Who an AI call is for: [$me], or whoever is signed in (null in a background job). */
+    private function owner(?Model $me): ?Authenticatable
+    {
+        $owner = $me ?? request()?->user();
+
+        return $owner instanceof Authenticatable ? $owner : null;
+    }
+
     /**
-     * @param  array{success: bool, message: string, content: ?string}  $result
+     * AiTaskRunner's result as text, or the chat error the person sees.
+     *
+     * @param  array{success: bool, reason: ?string, content: ?string, message: ?string, provider: ?AiProvider}  $result
      */
-    private function answer(AiProvider $provider, array $result): string
+    private function answer(array $result): string
     {
         $text = trim((string) ($result['content'] ?? ''));
 
-        if (! $result['success'] || $text === '') {
-            // The provider's own words (keys, quotas…) are for the logs, not for the person.
-            Log::warning('[ChatAi] '.$provider->key.': '.$result['message']);
-
-            throw new ChatException('ai_failed', 502);
+        if ($result['success'] && $text !== '') {
+            return $text;
         }
 
-        return $text;
+        throw $this->failure($result);
+    }
+
+    /**
+     * The chat error for a refused or failed AI task. A plan refusal is `ai_plan_{reason}` (402)
+     * with `reason` in the data — the app locks the tool and offers the AI subscription.
+     *
+     * @param  array{reason: ?string, message: ?string, provider: ?AiProvider, detail?: array<string, mixed>}  $result
+     */
+    public function failure(array $result): ChatException
+    {
+        $detail = $result['detail'] ?? [];
+
+        return match ($result['reason']) {
+            AiTaskRunner::REASON_OWNER_BLOCKED => new ChatException('ai_blocked', 403),
+            AiTaskRunner::REASON_CONTENT_BLOCKED => new ChatException('ai_message_blocked', 422),
+            AiTaskRunner::REASON_UNAVAILABLE => new ChatException('ai_unavailable', 503),
+            AiTaskRunner::REASON_PLAN => new ChatException('ai_plan_'.($detail['usage_reason'] ?? 'no_plan'), 402, [], [
+                'reason' => $detail['usage_reason'] ?? 'no_plan',
+                'cooldown_seconds_left' => $detail['cooldown_seconds_left'] ?? null,
+            ]),
+            AiTaskRunner::REASON_IMAGE_NOT_IN_PLAN => new ChatException('ai_image_not_in_plan', 402, [], ['reason' => 'image_not_in_plan']),
+            AiTaskRunner::REASON_IMAGE_LIMIT => new ChatException('ai_image_daily_limit', 429, ['limit' => $detail['limit'] ?? 0], ['reason' => 'image_daily_limit', 'limit' => $detail['limit'] ?? 0]),
+            default => (function () use ($result) {
+                // The provider's own words (keys, quotas…) are for the logs, not for the person.
+                Log::warning('[ChatAi] '.($result['provider']?->key ?? '-').': '.$result['message']);
+
+                return new ChatException('ai_failed', 502);
+            })(),
+        };
     }
 }

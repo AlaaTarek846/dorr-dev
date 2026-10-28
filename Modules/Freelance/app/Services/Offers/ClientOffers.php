@@ -11,6 +11,7 @@ use Modules\Freelance\Models\FreelanceOfferEvent;
 use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Services\Chat\OfferChat;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Projects\ClientProjects;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
 use Modules\Freelance\Services\Projects\ProjectStateMachine;
 use Modules\User\Models\User;
@@ -79,6 +80,7 @@ class ClientOffers
      */
     public function choose(Offer $offer, User $client): Offer
     {
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($client, 'work');
         $others = collect();
         $chosen = DB::transaction(function () use ($offer, $client, &$others) {
             /** @var Project $project */
@@ -91,6 +93,8 @@ class ClientOffers
             if (Offer::query()->where('project_id', $project->id)->where('status', OfferStatus::Accepted->value)->exists()) {
                 throw new FreelanceException('offer_already_chosen', 409);
             }
+            // FL-210: dearer than the most the client said they'd pay — refused (they raise or lift the limit first).
+            app(ClientProjects::class)->assertWithinCostCap($project, app(ClientOfferViews::class)->cost($project, (int) $offer->price_minor)['total_minor']);
 
             $chosen = $this->moveNow($offer, OfferStatus::Accepted, 'offer.accepted', $client, ['accepted_at' => now()]);
             $others = Offer::query()->where('project_id', $project->id)->whereKeyNot($chosen->id)

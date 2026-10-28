@@ -63,6 +63,15 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android channels create (2026-10-22):** sticky **إنشاء قناة** at the bottom of Channels; filter beside search matches browse.
+- **Android channels filter (2026-10-22):** Channels search uses the browse Tune circle; the sheet is verification + category `FilterSelect`, Apply / Clear.
+- **Android chat money page (2026-10-20):** chat info → money is `ChRoute.ChatMoney` (settings header). Ledger pages 15 (`has_more`, Show more / المزيد). `GET conversations/{c}/money?page=&per_page=`.
+- **Android chat theme page (2026-10-20):** chat info → theme opens `ChRoute.ChatTheme` with the settings header (`SubHeader` + pink wash): live preview, admin swatches, custom photo and bubble colours, Apply / reset. Same conversation settings API as before.
+- **Android chat header call menu (2026-10-19):** videocam + chevron opens a dropdown from the bottom of the header: voice, video, send call link (`POST calls` / `POST call-links`).
+- **Starred messages pages of 15 (2026-10-19):** `GET chat/messages/starred?page=&per_page=15` with `has_more_pages`; the Android list loads the next 15 near the end.
+- **Android chat inner headers (2026-10-19):** `ChPage` and the conversation header match the calendar title bar (22sp Black Cairo, DarkHero 34/16 icons, back on the left in Arabic).
+- **Android chat overflow → Chat settings (2026-10-19):** three-dots menu is Starred / Locked chats / Communities / Settings. `ChRoute.ChatSettings` lists eight topics; each opens its own page (Account and profile → QR, status, followers / channels, and the other groups the same way).
+- **Android chat list + stories pages of 15 (2026-10-19):** conversations and the stories bar load 15, then the next 15 as you scroll (`per_page=15`, `has_more`).
 - **Admin → Discover → Organizers catalog UI (2026-10-18):** the list follows flags/users (breadcrumb, All/Pending/Verified/Rejected/Suspended counts, search, skeleton/empty, created-at, pagination, details modal, review without `window.prompt`). API extra is `status_counts`, not `pending_count`.
 - **Android Discover my interests (2026-10-19):** kinds page 15 with Show more (`GET discover/categories?page=&per_page=15`); saving a kind no longer reloads home (that froze the screen).
 - **Android Discover organizer (2026-10-19):** My events has a search field (`GET discover/organizer?q=`).

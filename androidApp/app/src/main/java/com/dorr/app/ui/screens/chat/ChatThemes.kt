@@ -21,17 +21,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,8 +44,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.HideImage
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChangeCircle
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FormatColorReset
 import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.CheckBox
@@ -61,23 +66,33 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.network.ChatThemeDto
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.ReportTypeDto
@@ -129,9 +144,33 @@ private val TheirBubbleColors = listOf("#FFFFFF", "#F3F4F6", "#FEF3C7", "#DCFCE7
  * go, the admin's themes, and "make it yours" — a photo from the gallery (dimmed as you like) and
  * your own bubble colours. Only you see it. "Dorr" = the app's own look.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApplied: (ConversationDto) -> Unit) {
+fun ChatThemePage(id: String) {
+    val host = LocalChat.current
+    var conversation by remember { mutableStateOf(host.find(id)) }
+    LaunchedEffect(id) {
+        conversation = runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull() ?: conversation
+    }
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ch_chat_theme)) { host.pop() }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                val conv = conversation
+                if (conv == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(28.dp), color = Ch.Red, strokeWidth = 2.5.dp)
+                    }
+                } else {
+                    ThemePickerBody(conv, onApplied = { conversation = it; host.upsert(it) }, onClose = { host.pop() })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePickerBody(conversation: ConversationDto, onApplied: (ConversationDto) -> Unit, onClose: () -> Unit) {
     val host = LocalChat.current
     val context = LocalContext.current
     var themes by remember { mutableStateOf<List<ChatThemeDto>?>(null) }
@@ -148,6 +187,10 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
 
     fun applyServer(updated: ConversationDto) {
         custom = updated.theme?.custom
+        picked = updated.theme?.themeId
+        mine = custom?.senderColor
+        theirs = custom?.receiverColor
+        dim = (custom?.dim ?: 25).toFloat()
         onApplied(updated)
     }
 
@@ -172,6 +215,8 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
     }
 
     val list = themes
+    val swatchList = rememberLazyListState()
+    val swatchScope = rememberCoroutineScope()
     // What "no pick" shows: the admin's default when there is one, else Dorr's look.
     val fallback = list?.firstOrNull { it.isDefault }
     val base = picked?.let { id -> list?.firstOrNull { it.id == id } } ?: fallback
@@ -194,7 +239,7 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
         host.scope.launch {
             try {
                 ApiClient.chat.updateSettingsJson(chatAuth(), conversation.id, com.dorr.app.network.jsonKeepingNulls(body)).data?.let(::applyServer)
-                if (close) onDismiss()
+                if (close) onClose()
             } catch (e: Exception) {
                 e.apiFailure().message?.let { host.showToast(it) }
             }
@@ -202,89 +247,131 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
         }
     }
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 26.dp)) {
-            Text(stringResource(R.string.ch_chat_theme), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp))
-            Text(stringResource(R.string.ch_chat_theme_sub), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
-            Spacer(Modifier.height(14.dp))
+    Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding()) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
+            Text(
+                stringResource(R.string.ch_chat_theme_sub),
+                color = Ch.Mut,
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
 
-            Box(Modifier.padding(horizontal = 20.dp)) {
-                ThemePreview(previewTheme, Modifier.fillMaxWidth().height(210.dp))
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ThemePreview(previewTheme, Modifier.fillMaxWidth().height(168.dp))
                 androidx.compose.animation.AnimatedVisibility(uploading, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
-                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(30.dp), color = Color.White, strokeWidth = 3.dp)
+                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.5.dp)
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
+            ThemeSectionTitle(stringResource(R.string.ch_theme_wallpaper)) {
+                Box(
+                    Modifier.size(28.dp).clip(CircleShape).clickable {
+                        val last = (swatchList.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                        val next = (swatchList.firstVisibleItemIndex + 3).coerceAtMost(last)
+                        swatchScope.launch { swatchList.animateScrollToItem(next) }
+                    },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Ch.Mut, modifier = Modifier.size(20.dp))
+                }
+            }
 
-            // ------------------------------------------------------------ the admin's themes
-            if (list == null) {
-                Box(Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), color = Ch.Red, strokeWidth = 2.5.dp) }
-            } else {
-                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(state = swatchList, contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                item(key = "add-photo") {
+                    AddPhotoSwatch(
+                        wallpaper = custom?.wallpaper,
+                        selected = custom?.wallpaper != null,
+                        uploading = uploading,
+                        index = 0,
+                    ) {
+                        gallery.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                }
+                if (list == null) {
+                    item(key = "themes-loading") {
+                        Box(Modifier.size(width = 62.dp, height = 82.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(22.dp), color = Ch.Red, strokeWidth = 2.5.dp)
+                        }
+                    }
+                } else {
                     item(key = "dorr") {
-                        Swatch(null, stringResource(R.string.ch_theme_dorr), selected = !hasCustom && picked == null && fallback == null, index = 0) { picked = null; mine = null; theirs = null }
+                        Swatch(null, stringResource(R.string.ch_theme_dorr), selected = !hasCustom && picked == null && fallback == null, index = 1) { picked = null; mine = null; theirs = null }
                     }
                     itemsIndexed(list, key = { _, t -> t.id }) { i, t ->
-                        Swatch(t, t.name.orEmpty(), selected = !hasCustom && (picked ?: fallback?.id) == t.id, index = i + 1) { picked = t.id; mine = null; theirs = null }
+                        Swatch(t, t.name.orEmpty(), selected = !hasCustom && (picked ?: fallback?.id) == t.id, index = i + 2) { picked = t.id; mine = null; theirs = null }
                     }
                 }
             }
 
-            // ------------------------------------------------------------ make it yours
-            Spacer(Modifier.height(20.dp))
-            Text(stringResource(R.string.ch_theme_yours), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp))
-            Text(stringResource(R.string.ch_theme_yours_sub), color = Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp))
-            Spacer(Modifier.height(10.dp))
-            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ThemeAction(
-                    Icons.Rounded.Image, stringResource(if (custom?.wallpaper != null) R.string.ch_theme_change_photo else R.string.ch_theme_photo),
-                    Modifier.weight(1f), enabled = !uploading,
-                ) {
-                    gallery.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-                if (custom?.wallpaper != null) {
-                    ThemeAction(Icons.Rounded.HideImage, stringResource(R.string.ch_theme_remove_photo), Modifier.weight(1f), enabled = !saving) {
-                        save(mapOf("custom_theme" to mapOf("wallpaper" to null)), close = false)
+            AnimatedVisibility(custom?.wallpaper != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(stringResource(R.string.ch_theme_dim), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), maxLines = 1)
+                        ThemeIconBtn(Icons.Rounded.ChangeCircle, stringResource(R.string.ch_theme_change_photo), enabled = !uploading) {
+                            gallery.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        ThemeIconBtn(Icons.Rounded.Delete, stringResource(R.string.ch_theme_remove_photo), enabled = !saving) {
+                            save(mapOf("custom_theme" to mapOf("wallpaper" to null)), close = false)
+                        }
+                    }
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Brightness6, null, tint = Ch.Mut, modifier = Modifier.size(20.dp))
+                        androidx.compose.material3.Slider(
+                            value = dim, onValueChange = { dim = it }, valueRange = 0f..80f, modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
+                            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Ch.Red, activeTrackColor = Ch.Red, inactiveTrackColor = Ch.Red.copy(alpha = 0.2f)),
+                        )
+                        Text("${dim.toInt()}%", color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(34.dp))
                     }
                 }
             }
-            // How dark the photo is under the bubbles.
-            AnimatedVisibility(custom?.wallpaper != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Brightness6, null, tint = Ch.Mut, modifier = Modifier.size(20.dp))
-                    androidx.compose.material3.Slider(
-                        value = dim, onValueChange = { dim = it }, valueRange = 0f..80f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                        colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Ch.Red, activeTrackColor = Ch.Red, inactiveTrackColor = Ch.Red.copy(alpha = 0.2f)),
-                    )
-                    Text("${dim.toInt()}%", color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
-                }
-            }
+            ThemeSectionTitle(stringResource(R.string.ch_theme_message_colors))
             ColorRow(stringResource(R.string.ch_theme_my_bubbles), MyBubbleColors, mine) { mine = it }
             ColorRow(stringResource(R.string.ch_theme_their_bubbles), TheirBubbleColors, theirs) { theirs = it }
+            Spacer(Modifier.height(12.dp))
+        }
 
-            Spacer(Modifier.height(18.dp))
+        val canReset = conversation.theme?.themeId != null || savedCustom != null || custom != null
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             ChPrimaryButton(
                 stringResource(R.string.ch_apply), icon = Icons.Rounded.Check,
-                modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 enabled = !saving && !uploading && list != null && changed,
             ) {
-                // My colours (and the dim over my photo) — or none: just the picked theme.
                 val keepCustom = custom?.wallpaper != null || mine != null || theirs != null
                 save(
                     mapOf(
                         "theme_id" to picked,
                         "custom_theme" to if (!keepCustom) null else mapOf("sender_color" to mine, "receiver_color" to theirs, "dim" to dim.toInt()),
                     ),
+                    close = false,
                 )
             }
-            // Everything back to Dorr's look (my photo is deleted too).
-            if (conversation.theme?.themeId != null || savedCustom != null || custom != null) {
+            Row(
+                Modifier.weight(1f).heightIn(min = 48.dp)
+                    .graphicsLayer { alpha = if (!saving && canReset) 1f else 0.45f }
+                    .clip(RoundedCornerShape(18.dp))
+                    .border(1.5.dp, Ch.Red, RoundedCornerShape(18.dp))
+                    .background(Ch.Red.copy(alpha = 0.08f))
+                    .clickable(enabled = !saving && canReset) { save(mapOf("theme_id" to null, "custom_theme" to null), close = false) }
+                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.FormatColorReset, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
                 Text(
-                    stringResource(R.string.ch_theme_reset), color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 13.5.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp).clip(RoundedCornerShape(10.dp))
-                        .clickable(enabled = !saving) { save(mapOf("theme_id" to null, "custom_theme" to null)) }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    stringResource(R.string.ch_theme_reset),
+                    color = Ch.Red,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -292,26 +379,65 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
 }
 
 @Composable
-private fun ThemeAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+private fun ThemeSectionTitle(title: String, trailing: (@Composable RowScope.() -> Unit)? = null) {
     Row(
-        modifier.clip(RoundedCornerShape(16.dp)).background(Ch.Red.copy(alpha = if (enabled) 0.1f else 0.05f))
-            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(label, color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1)
+        Text(
+            title,
+            color = Ch.Ink,
+            fontFamily = CairoFontFamily,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        trailing?.invoke(this)
+    }
+}
+
+@Composable
+private fun ThemeIconBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(12.dp))
+            .background(Ch.Red.copy(alpha = if (enabled) 0.12f else 0.05f))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+        Text(label, color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
     }
 }
 
 /** A row of colour dots; the first one means: use the theme's colour. */
 @Composable
 private fun ColorRow(title: String, colors: List<String>, selected: String?, onPick: (String?) -> Unit) {
-    Text(title, color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp))
-    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        item(key = "theme") { ColorDot(null, selected == null) { onPick(null) } }
-        itemsIndexed(colors, key = { _, c -> c }) { i, hex ->
-            Box(Modifier.chStagger(i)) { ColorDot(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) } }
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            color = Ch.Ink,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+            modifier = Modifier.width(72.dp).padding(end = 8.dp),
+        )
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            item(key = "theme") { ColorDot(null, selected == null) { onPick(null) } }
+            itemsIndexed(colors, key = { _, c -> c }) { i, hex ->
+                Box(Modifier.chStagger(i)) { ColorDot(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) } }
+            }
         }
     }
 }
@@ -321,7 +447,7 @@ private fun ColorDot(hex: String?, selected: Boolean, onClick: () -> Unit) {
     val ring by animateDpAsState(if (selected) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "dotRing")
     val color = hexColor(hex)
     Box(
-        Modifier.size(42.dp).border(ring, Ch.Red, CircleShape).padding(if (selected) 5.dp else 2.dp).clip(CircleShape)
+        Modifier.size(36.dp).border(ring, Ch.Red, CircleShape).padding(if (selected) 4.dp else 2.dp).clip(CircleShape)
             .background(color ?: Ch.SurfaceMuted).border(1.dp, Ch.Line, CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -337,9 +463,13 @@ private fun ColorDot(hex: String?, selected: Boolean, onClick: () -> Unit) {
 private fun ThemePreview(theme: ChatThemeDto?, modifier: Modifier) {
     val outColor by animateColorAsState(hexColor(theme?.senderColor) ?: Ch.Red, tween(380), label = "pOut")
     val inColor by animateColorAsState(hexColor(theme?.receiverColor) ?: Ch.Surface, tween(380), label = "pIn")
-    Box(modifier.shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp))) {
+    Box(
+        modifier.shadow(6.dp, RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .border(1.dp, Ch.Ink.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
+    ) {
         ThemedWallpaper(theme)
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
+        Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)) {
             ChChip(stringResource(R.string.ch_today), Modifier.align(Alignment.CenterHorizontally))
             PreviewBubble(stringResource(R.string.ch_theme_sample_in), inColor, mine = false, Modifier.align(Alignment.Start))
             PreviewBubble(stringResource(R.string.ch_theme_sample_out), outColor, mine = true, Modifier.align(Alignment.End))
@@ -349,23 +479,75 @@ private fun ThemePreview(theme: ChatThemeDto?, modifier: Modifier) {
 
 @Composable
 private fun PreviewBubble(text: String, color: Color, mine: Boolean, modifier: Modifier) {
-    val shape = if (mine) RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp) else RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+    val shape = if (mine) RoundedCornerShape(14.dp, 14.dp, 4.dp, 14.dp) else RoundedCornerShape(14.dp, 14.dp, 14.dp, 4.dp)
     Text(
-        text, color = if (color.isLight()) Color(0xFF111928) else Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
-        modifier = modifier.shadow(3.dp, shape).clip(shape).background(color).padding(horizontal = 14.dp, vertical = 9.dp),
+        text, color = if (color.isLight()) Color(0xFF111928) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+        modifier = modifier.shadow(2.dp, shape).clip(shape).background(color).padding(horizontal = 11.dp, vertical = 7.dp),
     )
+}
+
+@Composable
+private fun AddPhotoSwatch(wallpaper: String?, selected: Boolean, uploading: Boolean, index: Int, onClick: () -> Unit) {
+    val ring by animateDpAsState(if (selected) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "addRing")
+    val context = LocalContext.current
+    val dash = Ch.Red
+    Column(Modifier.width(68.dp).chStagger(index), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.size(width = 62.dp, height = 82.dp)
+                .border(ring, Ch.Red, RoundedCornerShape(14.dp))
+                .padding(if (selected) 4.dp else 0.dp)
+                .then(
+                    if (wallpaper == null) Modifier.drawBehind {
+                        drawRoundRect(
+                            color = dash,
+                            cornerRadius = CornerRadius(12.dp.toPx()),
+                            style = Stroke(width = 1.6.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 6.dp.toPx()))),
+                        )
+                    } else Modifier.clip(RoundedCornerShape(12.dp)),
+                )
+                .clickable(enabled = !uploading, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                wallpaper != null -> {
+                    AsyncImage(ApiClient.mediaUrl(wallpaper), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    androidx.compose.animation.AnimatedVisibility(selected, enter = scaleIn(spring(dampingRatio = 0.45f)), exit = scaleOut(), modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                        Box(Modifier.size(16.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(11.dp))
+                        }
+                    }
+                }
+                uploading -> CircularProgressIndicator(Modifier.size(18.dp), color = Ch.Red, strokeWidth = 2.dp)
+                else -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(22.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                    Text(
+                        stringResource(R.string.ch_theme_add_photo),
+                        color = Ch.Red,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 12.sp,
+                        maxLines = 2,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
 private fun Swatch(theme: ChatThemeDto?, label: String, selected: Boolean, index: Int, onClick: () -> Unit) {
     val ring by animateDpAsState(if (selected) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "ring")
     val context = LocalContext.current
-    Column(Modifier.width(74.dp).chStagger(index), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.width(68.dp).chStagger(index), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(width = 66.dp, height = 88.dp)
-                .border(ring, Ch.Red, RoundedCornerShape(18.dp))
-                .padding(if (selected) 5.dp else 0.dp)
-                .clip(RoundedCornerShape(14.dp))
+            Modifier.size(width = 62.dp, height = 82.dp)
+                .border(ring, Ch.Red, RoundedCornerShape(14.dp))
+                .padding(if (selected) 4.dp else 0.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onClick),
         ) {
             when {
@@ -373,17 +555,17 @@ private fun Swatch(theme: ChatThemeDto?, label: String, selected: Boolean, index
                 theme.wallpaper != null -> AsyncImage(ApiClient.mediaUrl(theme.wallpaper), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else -> Box(Modifier.fillMaxSize().background(hexColor(theme.backgroundColor) ?: Ch.SurfaceMuted))
             }
-            Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.Bottom)) {
-                Box(Modifier.size(30.dp, 9.dp).clip(RoundedCornerShape(5.dp)).background(hexColor(theme?.receiverColor) ?: Ch.Surface))
-                Box(Modifier.align(Alignment.End).size(30.dp, 9.dp).clip(RoundedCornerShape(5.dp)).background(hexColor(theme?.senderColor) ?: Ch.Red))
+            Column(Modifier.fillMaxSize().padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
+                Box(Modifier.size(24.dp, 7.dp).clip(RoundedCornerShape(4.dp)).background(hexColor(theme?.receiverColor) ?: Ch.Surface))
+                Box(Modifier.align(Alignment.End).size(24.dp, 7.dp).clip(RoundedCornerShape(4.dp)).background(hexColor(theme?.senderColor) ?: Ch.Red))
             }
-            androidx.compose.animation.AnimatedVisibility(selected, enter = scaleIn(spring(dampingRatio = 0.45f)), exit = scaleOut(), modifier = Modifier.align(Alignment.TopEnd).padding(5.dp)) {
-                Box(Modifier.size(20.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+            androidx.compose.animation.AnimatedVisibility(selected, enter = scaleIn(spring(dampingRatio = 0.45f)), exit = scaleOut(), modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                Box(Modifier.size(16.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(11.dp))
                 }
             }
         }
-        Text(label, color = if (selected) Ch.Ink else Ch.Mut, fontSize = 12.sp, fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+        Text(label, color = if (selected) Ch.Ink else Ch.Mut, fontSize = 11.5.sp, fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
     }
 }
 

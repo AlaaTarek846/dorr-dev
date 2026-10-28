@@ -5,7 +5,12 @@
                 <p class="fw-semibold fs-18 mb-0">{{ t('ai_requests.title') }}</p>
                 <span class="fs-semibold text-muted">{{ t('ai_requests.subtitle') }}</span>
             </div>
-            <div class="ms-md-1 ms-0">
+            <div class="ms-md-1 ms-0 d-flex align-items-center gap-2">
+                <select v-model="source" class="form-select form-select-sm w-auto" @change="onChangeSource">
+                    <option value="">{{ t('ai_requests.source_all') }}</option>
+                    <option value="ai_chat">{{ t('ai_requests.source_ai_chat') }}</option>
+                    <option value="tools">{{ t('ai_requests.source_tools') }}</option>
+                </select>
                 <nav>
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item">
@@ -26,6 +31,7 @@
                                 <thead>
                                     <tr>
                                         <th scope="col">{{ t('ai_requests.owner') }}</th>
+                                        <th scope="col">{{ t('ai_requests.source') }}</th>
                                         <th scope="col">{{ t('ai_requests.intent') }}</th>
                                         <th scope="col">{{ t('ai_requests.provider') }}</th>
                                         <th scope="col">{{ t('ai_requests.status') }}</th>
@@ -34,10 +40,10 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="6" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="7" />
 
                                     <tr v-else-if="!requests.length">
-                                        <td colspan="6" class="border-0">
+                                        <td colspan="7" class="border-0">
                                             <div class="text-center py-5 text-muted">{{ t('ai_requests.empty') }}</div>
                                         </td>
                                     </tr>
@@ -46,6 +52,11 @@
                                         <td>
                                             <span class="d-block fw-semibold">{{ ownerDisplayName(item.owner) }}</span>
                                             <span class="d-block text-muted fs-11">#{{ item.owner?.id ?? '-' }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge" :class="item.source ? 'bg-info-transparent' : 'bg-primary-transparent'">
+                                                {{ item.source ?? t('ai_requests.source_ai_chat') }}
+                                            </span>
                                         </td>
                                         <td>{{ item.intent?.name ?? '-' }}</td>
                                         <td>{{ item.provider?.name ?? '-' }}</td>
@@ -88,6 +99,8 @@ const { showError } = useToast();
 
 const requests = ref([]);
 const loading = ref(true);
+// '' = everything, 'ai_chat' = the DORR AI chat, 'tools' = the AI tools of the chat and other modules.
+const source = ref('');
 
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
@@ -112,7 +125,8 @@ async function loadRequests() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-requests', { params: paginationParams.value });
+        const params = { ...paginationParams.value, ...(source.value ? { source: source.value } : {}) };
+        const { data } = await adminAxios.get('/api/admin/v1/ai-requests', { params });
         requests.value = data.data ?? [];
         applyPagination(data);
     } catch (error) {
@@ -124,6 +138,11 @@ async function loadRequests() {
 
 function onChangePage(target) {
     page.value = target;
+    loadRequests();
+}
+
+function onChangeSource() {
+    page.value = 1;
     loadRequests();
 }
 

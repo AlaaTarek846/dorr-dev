@@ -148,7 +148,11 @@ internal fun RideActivePanel(state: RidesState, camera: DorrCamera, onExit: () -
     PanelCard {
         when (ride.status) {
             "awaiting_payment" -> AwaitingPayment(state)
-            "scheduled" -> ScheduledPanel(ride, onDone = { state.ride = null; state.resetBooking() }, onCancel = { cancelOpen = true })
+            "scheduled" -> Column {
+                // Block 06: the booking's captain may be late — said early.
+                RideAiBanners(ride)
+                ScheduledPanel(ride, onDone = { state.ride = null; state.resetBooking() }, onCancel = { cancelOpen = true })
+            }
             "searching" -> Searching(state, ride, onCancel = { cancelOpen = true })
             "bidding" -> BiddingPanel(state, onCancel = { cancelOpen = true })
             "accepted", "arrived", "in_progress" -> OnTheWay(state, ride, onChat = { chatOpen = true }, onCancel = { cancelOpen = true }, onSos = { sosOpen = true }, onShare = { shareOpen = true })
@@ -211,6 +215,7 @@ private fun Searching(state: RidesState, ride: RideDto, onCancel: () -> Unit) {
         BeneficiaryChip(ride)
         CircleNotice(state, ride)
         PickupPointCard(ride)
+        RideAiBanners(ride)
         // R-61: still time to switch how to pay.
         PaymentSwitch(state, ride)
         Spacer(Modifier.height(16.dp))
@@ -239,10 +244,14 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
     if (ride.status == "in_progress") ride.destination?.address?.let { Text(it, color = settingsMut(), fontSize = 13.sp, maxLines = 1) }
     // D-129: the time and distance left — to the pickup, then to the next stop / the destination.
     EtaChip(ride)
+    // Block 06: the captain is finishing a ride nearby; a booking may be late.
+    RideAiBanners(ride)
     // R-13: booked for someone else.
     BeneficiaryChip(ride)
     // R-16..R-18: the approved point to meet at, and how to find it.
     PickupPointCard(ride)
+    // «راحتي»: what I asked for, and what the captain said can't be done.
+    RideComfortCard(ride)
     // A new destination / one more stop: waiting for the captain, or the answer (wireflow 6ج).
     ChangeBanner(ride)
     Spacer(Modifier.height(12.dp))

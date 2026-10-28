@@ -3,6 +3,7 @@
 namespace Modules\Freelance\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,10 @@ class ReceiptController extends Controller
     {
         [$me, $side] = $this->me($request);
 
-        return ApiResponse::success($this->receipts->list($me, $side)['data'], __('api.retrieved'));
+        $request->validate(['project' => ['nullable', 'uuid']]);
+        $page = $this->receipts->list($me, $side, ApiPaginator::perPage(), $request->input('project'));
+
+        return ApiResponse::fromPaginator($page, $page->getCollection()->values(), __('api.retrieved'));
     }
 
     public function show(Request $request, string $uuid): JsonResponse

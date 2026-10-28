@@ -140,6 +140,18 @@ export default [
                 meta: { middleware: [auth], kind: 'edit_pack' },
             },
             {
+                path: 'ai-ar',
+                name: 'admin.ai-ar.index',
+                component: page('ai-ar/index'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'ai-world',
+                name: 'admin.ai-world.index',
+                component: page('ai-world/index'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'ai-site-download',
                 name: 'admin.ai-site-download.index',
                 component: page('ai-site-download/index'),
@@ -657,6 +669,13 @@ export default [
                 meta: { middleware: [auth], permission: 'ride-cases.view' },
             },
             {
+                // Block 06: service quality (AI-19) and rides with fraud signs (AI-06).
+                path: 'rides/quality',
+                name: 'admin.rides.quality',
+                component: page('rides/quality/index'),
+                meta: { middleware: [auth], permission: 'rides.view' },
+            },
+            {
                 path: 'rides/safety',
                 name: 'admin.rides.safety',
                 component: page('rides/safety/index'),
@@ -687,6 +706,48 @@ export default [
                 meta: { middleware: [auth], permission: 'ride-lists.view' },
             },
             {
+                path: 'freelance/oversight',
+                name: 'admin.freelance.oversight',
+                component: page('freelance/oversight/index'),
+                meta: { middleware: [auth], permission: 'freelance-projects.view' },
+            },
+            {
+                path: 'freelance/late',
+                name: 'admin.freelance.late',
+                component: page('freelance/late/index'),
+                meta: { middleware: [auth], permission: 'freelance-projects.view' },
+            },
+            {
+                path: 'freelance/countries',
+                name: 'admin.freelance.countries',
+                component: page('freelance/countries/index'),
+                meta: { middleware: [auth], permission: 'freelance-projects.view' },
+            },
+            {
+                path: 'freelance/support',
+                name: 'admin.freelance.support',
+                component: page('freelance/support/index'),
+                meta: { middleware: [auth], permission: 'freelance-support.view' },
+            },
+            {
+                path: 'freelance/insights',
+                name: 'admin.freelance.insights',
+                component: page('freelance/insights/index'),
+                meta: { middleware: [auth], permission: 'freelance-reports.view' },
+            },
+            {
+                path: 'freelance/risk',
+                name: 'admin.freelance.risk',
+                component: page('freelance/risk/index'),
+                meta: { middleware: [auth], permission: 'freelance-risk.view' },
+            },
+            {
+                path: 'freelance/audit',
+                name: 'admin.freelance.audit',
+                component: page('freelance/audit/index'),
+                meta: { middleware: [auth], permission: 'freelance-audit.view' },
+            },
+            {
                 path: 'freelance/policies',
                 name: 'admin.freelance.policies',
                 component: page('freelance/policies/index'),
@@ -699,10 +760,34 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-reports.view' },
             },
             {
+                path: 'freelance/sanctions',
+                name: 'admin.freelance.sanctions',
+                component: page('freelance/sanctions/index'),
+                meta: { middleware: [auth], permission: 'freelance-sanctions.view' },
+            },
+            {
+                path: 'freelance/reviews',
+                name: 'admin.freelance.reviews',
+                component: page('freelance/reviews/index'),
+                meta: { middleware: [auth], permission: 'freelance-reviews.view' },
+            },
+            {
+                path: 'freelance/message-reports',
+                name: 'admin.freelance.messageReports',
+                component: page('freelance/message-reports/index'),
+                meta: { middleware: [auth], permission: 'freelance-message-reports.view' },
+            },
+            {
                 path: 'freelance/disputes',
                 name: 'admin.freelance.disputes',
                 component: page('freelance/disputes/index'),
                 meta: { middleware: [auth], permission: 'freelance-disputes.view' },
+            },
+            {
+                path: 'freelance/freelancers',
+                name: 'admin.freelance.freelancers',
+                component: page('freelance/freelancers/index'),
+                meta: { middleware: [auth], permission: 'freelancers.view' },
             },
             {
                 path: 'freelance/projects',

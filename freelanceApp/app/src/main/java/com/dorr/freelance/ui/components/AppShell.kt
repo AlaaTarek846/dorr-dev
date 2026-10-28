@@ -1,5 +1,9 @@
 package com.dorr.freelance.ui.components
 
+import androidx.compose.material.icons.outlined.LocalOffer
+import androidx.compose.material.icons.outlined.Handyman
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +31,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.MarkEmailUnread
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Work
@@ -61,12 +66,15 @@ import com.dorr.freelance.ui.kit.settingsAccent
 object ShellState {
     var tab by mutableIntStateOf(0)
     var immersive by mutableStateOf(false)
+    /** Asked from a page over the tabs: open the Account tab straight on «ملفي». The account page takes it once. */
+    var openProfileHub by mutableStateOf(false)
 }
 
 val shellTabs = listOf(
     BottomTab(R.string.tab_home, Icons.Outlined.Home, Icons.Rounded.Home),
     BottomTab(R.string.tab_projects, Icons.Outlined.WorkOutline, Icons.Rounded.Work),
-    BottomTab(R.string.tab_profile, Icons.Outlined.Person, Icons.Filled.Person),
+    BottomTab(R.string.offer_my_offers, Icons.Outlined.LocalOffer, Icons.Rounded.LocalOffer),
+    BottomTab(R.string.tab_work, Icons.Outlined.Handyman, Icons.Rounded.Handyman),
     BottomTab(R.string.tab_account, Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
 
@@ -81,6 +89,7 @@ fun AppShell(
     onSelectTab: (Int) -> Unit,
     onOpenWallet: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenInvitations: () -> Unit = {},
     showHeader: Boolean = true,
     content: @Composable () -> Unit,
 ) {
@@ -89,7 +98,7 @@ fun AppShell(
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.matchParentSize())
         Column(Modifier.fillMaxSize()) {
-            if (chrome && showHeader) AppHeader(onOpenWallet = onOpenWallet, onOpenNotifications = onOpenNotifications)
+            if (chrome && showHeader) AppHeader(onOpenWallet = onOpenWallet, onOpenNotifications = onOpenNotifications, onOpenInvitations = onOpenInvitations)
             Box(
                 Modifier
                     .weight(1f)
@@ -103,7 +112,7 @@ fun AppShell(
 
 /** The DORR-app home header: the photo and name on the app colour, then the wallet and the bell (with the unread dot). */
 @Composable
-fun AppHeader(onOpenWallet: () -> Unit, onOpenNotifications: () -> Unit) {
+fun AppHeader(onOpenWallet: () -> Unit, onOpenNotifications: () -> Unit, onOpenInvitations: () -> Unit = {}) {
     val me by Session.me.collectAsState()
     val unread by Realtime.unread.collectAsState()
     val accent = settingsAccent()
@@ -125,6 +134,10 @@ fun AppHeader(onOpenWallet: () -> Unit, onOpenNotifications: () -> Unit) {
                 me?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_default_user),
                 color = onAccent, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
+        }
+        // The client invitations to private projects, next to the wallet.
+        Box(Modifier.size(34.dp).clip(CircleShape).background(onAccent.copy(alpha = 0.18f)).clickable(onClick = onOpenInvitations), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.MarkEmailUnread, contentDescription = stringResource(R.string.inv_title), tint = onAccent, modifier = Modifier.size(17.dp))
         }
         Spacer(Modifier.width(8.dp))
         // The wallet, one tap from any page (as in the DORR app's header).

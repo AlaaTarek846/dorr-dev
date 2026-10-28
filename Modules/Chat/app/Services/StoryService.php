@@ -205,9 +205,9 @@ class StoryService
      * The stories bar: me first, then everyone whose stories I may see — unseen first, newest
      * first. Muted people come in a separate list at the end.
      *
-     * @return array{mine: array<string, mixed>|null, recent: list<array<string, mixed>>, muted: list<array<string, mixed>>}
+     * @return array{mine: array<string, mixed>|null, recent: list<array<string, mixed>>, muted: list<array<string, mixed>>, has_more: bool}
      */
-    public function feed(Model $viewer): array
+    public function feed(Model $viewer, int $page = 1, int $perPage = 15): array
     {
         $this->assertEnabled();
         $viewerType = ParticipantType::aliasFor($viewer);
@@ -264,6 +264,23 @@ class StoryService
         $order = fn ($a, $b) => [$a['all_seen'], $b['last_at']] <=> [$b['all_seen'], $a['last_at']];
         usort($out['recent'], $order);
         usort($out['muted'], $order);
+
+        $page = max(1, $page);
+        $perPage = min(max(1, $perPage), 50);
+        $people = array_merge($out['recent'], $out['muted']);
+        $out['has_more'] = count($people) > $page * $perPage;
+        $slice = array_slice($people, ($page - 1) * $perPage, $perPage);
+        $recentKeys = array_flip(array_map(fn ($g) => $g['owner']['key'] ?? '', $out['recent']));
+        $out['recent'] = [];
+        $out['muted'] = [];
+        foreach ($slice as $row) {
+            $key = $row['owner']['key'] ?? '';
+            if (isset($recentKeys[$key])) {
+                $out['recent'][] = $row;
+            } else {
+                $out['muted'][] = $row;
+            }
+        }
 
         return $out;
     }

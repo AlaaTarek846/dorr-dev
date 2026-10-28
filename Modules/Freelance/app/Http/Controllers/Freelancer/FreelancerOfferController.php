@@ -107,7 +107,7 @@ class FreelancerOfferController extends Controller
     {
         $file = Offer::query()->where('uuid', $offer)->where('freelancer_id', $this->me($request)->id)->firstOrFail()->getMedia('attachments')->firstWhere('id', $media) ?? abort(404);
 
-        return tap(response()->download($file->getPath(), $file->file_name, ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
+        return tap(response()->download($file->getPath(), \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($file), ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
     }
 
     /** @return array<string, mixed> */

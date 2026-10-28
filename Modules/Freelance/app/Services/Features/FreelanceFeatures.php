@@ -2,6 +2,8 @@
 
 namespace Modules\Freelance\Services\Features;
 
+use App\Models\ServiceAvailability;
+use App\Models\ServiceCategory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Modules\Freelance\Models\FreelanceFeatureRule;
@@ -14,6 +16,8 @@ use Modules\Freelance\Models\FreelanceFeatureRule;
 class FreelanceFeatures
 {
     private const CACHE = 'freelance:feature-rules';
+
+    private const CLOSED_CACHE = 'freelance:service-closed';
 
     public const SERVICE = 'freelance';
 
@@ -34,6 +38,10 @@ class FreelanceFeatures
 
     public function allows(int $countryId, string $feature): bool
     {
+        if ($this->closedByAvailability($countryId)) {
+            return false;
+        }
+
         if ($feature !== self::SERVICE && ! $this->rule($countryId, self::SERVICE)) {
             return false;
         }
@@ -48,7 +56,7 @@ class FreelanceFeatures
      */
     public function snapshot(int $countryId): array
     {
-        $service = $this->rule($countryId, self::SERVICE);
+        $service = $this->rule($countryId, self::SERVICE) && ! $this->closedByAvailability($countryId);
 
         return [
             'service' => $service,
@@ -59,6 +67,19 @@ class FreelanceFeatures
     public static function forget(): void
     {
         Cache::forget(self::CACHE);
+        Cache::forget(self::CLOSED_CACHE);
+    }
+
+    /**
+     * FL-804: the dashboard's `service-availability` page can close the Freelance service in a whole country. Only an explicit
+     * "service off" on the country counts, so a country nobody touched there keeps following its freelance switches.
+     */
+    public function closedByAvailability(int $countryId): bool
+    {
+        return in_array($countryId, Cache::remember(self::CLOSED_CACHE, 300, fn () => ServiceAvailability::query()
+            ->whereNull('region_id')->where('service_enabled', false)
+            ->whereIn('service_category_id', ServiceCategory::query()->where('module_name', config('freelance.service_module_name', 'freelance'))->select('id'))
+            ->pluck('country_id')->map(fn ($id) => (int) $id)->all()), true);
     }
 
     private function rule(int $countryId, string $feature): bool

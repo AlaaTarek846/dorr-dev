@@ -23,7 +23,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Collections
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.material.icons.rounded.Web
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.Icon
@@ -69,6 +74,11 @@ internal fun AiSettingsScreen(
     onOpenSubscription: () -> Unit,
     onOpenLanguage: () -> Unit,
     onOpenSites: () -> Unit,
+    onOpenWorld: () -> Unit,
+    onOpenAr: () -> Unit,
+    onOpenMemory: () -> Unit = {},
+    onOpenProjects: () -> Unit = {},
+    onOpenOutputs: () -> Unit = {},
 ) {
     val bg = if (night) Ai.bgDark else Ai.bgLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
@@ -91,11 +101,42 @@ internal fun AiSettingsScreen(
             subtitle = stringResource(R.string.ai_settings_language_sub),
             onClick = onOpenLanguage,
         ),
+        // DORR AI's own tools (2026-10-14): memory (spec 143), projects (151), outputs (344).
+        AiSettingsEntry(
+            icon = Icons.Rounded.Psychology,
+            title = stringResource(R.string.ai_tools_memory_title),
+            subtitle = stringResource(R.string.ai_tools_memory_sub),
+            onClick = onOpenMemory,
+        ),
+        AiSettingsEntry(
+            icon = Icons.Rounded.Folder,
+            title = stringResource(R.string.ai_tools_projects_title),
+            subtitle = stringResource(R.string.ai_tools_projects_sub),
+            onClick = onOpenProjects,
+        ),
+        AiSettingsEntry(
+            icon = Icons.Rounded.Collections,
+            title = stringResource(R.string.ai_tools_outputs_title),
+            subtitle = stringResource(R.string.ai_tools_outputs_sub),
+            onClick = onOpenOutputs,
+        ),
         AiSettingsEntry(
             icon = Icons.Rounded.Web,
             title = stringResource(R.string.ai_sites_title),
             subtitle = stringResource(R.string.ai_sites_settings_sub),
             onClick = onOpenSites,
+        ),
+        AiSettingsEntry(
+            icon = Icons.Rounded.Public,
+            title = stringResource(R.string.ai_world_title),
+            subtitle = stringResource(R.string.ai_world_settings_sub),
+            onClick = onOpenWorld,
+        ),
+        AiSettingsEntry(
+            icon = Icons.Rounded.ViewInAr,
+            title = stringResource(R.string.ai_ar_title),
+            subtitle = stringResource(R.string.ai_ar_settings_sub),
+            onClick = onOpenAr,
         ),
     )
 
