@@ -10,6 +10,7 @@ use App\Repositories\General\ReferralRepository;
 use App\Services\BaseService;
 use App\Services\Referral\ReferralCodeGenerator;
 use App\Support\Referral\ReferrableType;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
 use Modules\User\Models\User;
@@ -92,7 +93,7 @@ class ReferralService extends BaseService
         }
     }
 
-    public function appliedBy(User $user): ?Referral
+    public function appliedBy(Model $user): ?Referral
     {
         return Referral::query()
             ->with('referralCode')

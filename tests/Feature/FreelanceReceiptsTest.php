@@ -187,6 +187,11 @@ class FreelanceReceiptsTest extends TestCase
         $year = now()->year;
 
         $mine = $this->getJson('/api/mobile/v1/freelance/receipts')->assertOk()->json('data');
+        // One at a time: the older one is on the second page.
+        $this->getJson('/api/mobile/v1/freelance/receipts?per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.kind', 'paid')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/freelance/receipts?project='.$this->project->uuid)->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/mobile/v1/freelance/receipts?project='.fake()->uuid())->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/mobile/v1/freelance/receipts?per_page=1&page=2')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.kind', 'funded')->assertJsonPath('pagination.has_more_pages', false);
         $this->assertSame(['paid', 'funded'], array_column($mine, 'kind'));
         $this->assertSame("FR-SA-{$year}-000001", $mine[1]['number']);
         $this->assertSame(102000, $mine[1]['total_minor']);

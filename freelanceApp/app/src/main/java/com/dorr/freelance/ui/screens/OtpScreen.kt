@@ -74,7 +74,7 @@ import com.dorr.freelance.net.OtpRequest
 import com.dorr.freelance.net.Session
 import com.dorr.freelance.net.VerifyOtpRequest
 import com.dorr.freelance.net.errorText
-import com.dorr.freelance.ui.components.ErrorBanner
+import com.dorr.freelance.ui.components.InlineErrorBanner
 import com.dorr.freelance.ui.components.LanguageSwitch
 import com.dorr.freelance.ui.kit.AccountDark
 import com.dorr.freelance.ui.kit.PinkBackdrop
@@ -289,7 +289,7 @@ fun OtpScreen(
                     )
                 }
 
-                ErrorBanner(if (hasError) errorMessage else null, Modifier.fillMaxWidth())
+                InlineErrorBanner(if (hasError) errorMessage else null, Modifier.fillMaxWidth())
 
                 // A test build accepts a fixed code (config/auth_flow.php); a release build never shows this.
                 if (BuildConfig.DEBUG) {

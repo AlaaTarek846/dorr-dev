@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.RequestQuote
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -56,6 +57,7 @@ import com.dorr.core.network.apiCall
 import com.dorr.freelance.R
 import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.NotificationDto
+import com.dorr.freelance.net.NoticeRoute
 import com.dorr.freelance.net.Realtime
 import com.dorr.freelance.net.collectReconnectTick
 import com.dorr.freelance.ui.kit.AccountDark
@@ -80,13 +82,14 @@ private data class NotificationItem(
     val event: String?,
     val minutesAgo: Int,
     val unread: Boolean,
-    /** The project the notice is about, when it carries one (an offer that was seen, shortlisted, decided…). */
-    val project: String?,
+    /** The screen the notice leads to (see [NoticeRoute]); null when it has none of its own. */
+    val route: String?,
 )
 
 private fun NotificationDto.toItem(): NotificationItem {
     val minutes = runCatching { Duration.between(OffsetDateTime.parse(createdAtIso), OffsetDateTime.now()).toMinutes().toInt() }.getOrDefault(0)
-    return NotificationItem(id, title, message, event, minutes.coerceAtLeast(0), unread = readAt == null, project = data?.get("project")?.takeIf { it.isJsonPrimitive }?.asString)
+    val route = NoticeRoute.resolve(event) { key -> data?.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() } }
+    return NotificationItem(id, title, message, event, minutes.coerceAtLeast(0), unread = readAt == null, route = route)
 }
 
 /** The icon and colour of a notice from its event: verification, the wallet, the wallet PIN, anything else. */
@@ -95,6 +98,7 @@ private fun typeStyle(event: String?): Pair<ImageVector, Color> = when {
     event?.startsWith("wallet.") == true -> Icons.Rounded.AccountBalanceWallet to Color(0xFF16A34A)
     event?.startsWith("freelance.verification") == true -> Icons.Rounded.Verified to Color(0xFF2563EB)
     event?.startsWith("freelance.offer") == true -> Icons.Rounded.RequestQuote to Color(0xFFD97706)
+    event?.startsWith("freelance.project") == true -> Icons.Rounded.Work to Color(0xFF16A34A)
     else -> Icons.Rounded.Notifications to Color(0xFF001B53)
 }
 
@@ -114,7 +118,7 @@ private fun relativeTime(minutesAgo: Int): String = when {
  * Nothing runs on a timer: the list also reloads when the connection returns and once for every live notice.
  */
 @Composable
-fun NotificationsScreen(onBack: () -> Unit, onOpenVerification: () -> Unit, onOpenProject: (String) -> Unit = {}) {
+fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
     val notifications = remember { mutableStateListOf<NotificationItem>() }
     val scope = rememberCoroutineScope()
     var loaded by remember { mutableStateOf(false) }
@@ -206,7 +210,8 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenVerification: () -> Unit, onOp
                         NotificationCard(item) {
                             val index = notifications.indexOfFirst { it.id == item.id }
                             if (index >= 0) notifications[index] = item.copy(unread = false)
-                            selected = item.copy(unread = false)
+                            // A notice goes to the screen of what it is about; one without a screen of its own shows its details.
+                            if (item.route != null) onOpenRoute(item.route) else selected = item.copy(unread = false)
                             if (item.unread) scope.launch {
                                 val result = apiCall { ApiClient.notifications.markRead(item.id) }
                                 if (result is ApiResult.Ok) Realtime.setUnread(result.data.count)
@@ -234,13 +239,7 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenVerification: () -> Unit, onOp
     }
 
     selected?.let { item ->
-        NotificationDetailSheet(item, onDismiss = { selected = null }, onOpenVerification = {
-            selected = null
-            onOpenVerification()
-        }, onOpenProject = {
-            selected = null
-            item.project?.let(onOpenProject)
-        })
+        NotificationDetailSheet(item, onDismiss = { selected = null })
     }
 }
 
@@ -281,7 +280,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Unit, onOpenVerification: () -> Unit, onOpenProject: () -> Unit) {
+private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Unit) {
     val (icon, color) = typeStyle(item.event)
     val night = settingsNight()
     LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = if (night) AccountDark.card else Color.White, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
@@ -299,21 +298,6 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
             }
             Spacer(Modifier.height(18.dp))
             Text(item.body, fontSize = 14.sp, lineHeight = 22.sp, color = settingsInk())
-            // The notices that have a screen of their own say where.
-            if (item.event?.startsWith("freelance.verification") == true) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    stringResource(R.string.home_open_verification), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onOpenVerification).padding(vertical = 6.dp),
-                )
-            }
-            if (item.event?.startsWith("freelance.offer") == true && item.project != null) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    stringResource(R.string.notif_open_project), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onOpenProject).padding(vertical = 6.dp),
-                )
-            }
             Spacer(Modifier.height(24.dp))
         }
     }

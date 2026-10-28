@@ -53,8 +53,8 @@ data class ProjectDto(
     val summary: String? = null,
     /** … the page shows all of it. */
     val description: String? = null,
-    /** FL-307: the client's questions, answered with the offer. */
-    val questions: List<String> = emptyList(),
+    /** FL-307: the client's questions, answered with the offer. Only the project page has them (the list leaves it out, so it is null there: Gson skips the default). */
+    val questions: List<String>? = null,
     @SerializedName("attachments_count") val attachmentsCount: Int = 0,
     val offers: ProjectOffersDto = ProjectOffersDto(),
     /** I already sent an offer on it (FL-301). */

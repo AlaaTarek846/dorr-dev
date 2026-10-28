@@ -50,7 +50,7 @@ internal fun ProjectReceiptsCard(projectUuid: String, refreshKey: String) {
     var list by remember { mutableStateOf<List<ReceiptDto>>(emptyList()) }
     var open by remember { mutableStateOf<ReceiptDto?>(null) }
     LaunchedEffect(refreshKey, reconnect) {
-        (apiCall { ApiClient.agreements.receipts() } as? ApiResult.Ok)?.data?.let { all -> list = all.filter { it.project?.uuid == projectUuid } }
+        (apiCall { ApiClient.agreements.receipts(project = projectUuid) } as? ApiResult.Ok)?.data?.let { list = it }
     }
     if (list.isEmpty()) return
     Card {

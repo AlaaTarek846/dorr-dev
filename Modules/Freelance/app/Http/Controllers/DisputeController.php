@@ -77,7 +77,7 @@ class DisputeController extends Controller
         [$me, $side, $project] = $this->context($request, $uuid);
         $file = $this->disputes->file($this->disputes->forParty($project, $dispute, $me, $side), $media);
 
-        return tap(response()->download($file->getPath(), $file->file_name, ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
+        return tap(response()->download($file->getPath(), \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($file), ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
     }
 
     /** @return array<string, mixed> */

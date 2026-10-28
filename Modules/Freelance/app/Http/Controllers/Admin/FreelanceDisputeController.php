@@ -32,7 +32,7 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
     {
         return AdminPermissionMiddleware::fromActionMethodMap('freelance-disputes', [
             ['view', ['index', 'show', 'file', 'timeline', 'exportTimeline', 'deliveryFile']],
-            ['update', ['decide']],
+            ['update', ['decide', 'classify']],
         ]);
     }
 
@@ -42,9 +42,10 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
         $f = $request->validate([
             'status' => ['nullable', Rule::in([Dispute::OPEN, Dispute::DECIDED, Dispute::APPEALED, Dispute::RESOLVED])],
             'country_id' => ['nullable', 'integer'],
+            'category' => ['nullable', Rule::in(Dispute::CATEGORIES)],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
-        $base = Dispute::query()->when(isset($f['country_id']), fn ($q) => $q->whereHas('project', fn ($p) => $p->where('country_id', $f['country_id'])));
+        $base = Dispute::query()->when(isset($f['category']), fn ($q) => $q->where('category', $f['category']))->when(isset($f['country_id']), fn ($q) => $q->whereHas('project', fn ($p) => $p->where('country_id', $f['country_id'])));
         $page = (clone $base)->when(isset($f['status']), fn ($q) => $q->where('status', $f['status']))
             ->with(['project', 'milestone', 'agreement'])
             // What needs a decision first: open and appealed, the oldest at the top.
@@ -53,7 +54,7 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
         $counts = (clone $base)->select('status', DB::raw('count(*) as n'))->groupBy('status')->pluck('n', 'status');
 
         return ApiResponse::success($page->getCollection()->map(fn (Dispute $d) => [
-            'uuid' => $d->uuid, 'status' => $d->status, 'reason' => $d->reason, 'reason_label' => __('freelance.dispute_reasons.'.$d->reason), 'opened_by' => $d->opened_by,
+            'uuid' => $d->uuid, 'status' => $d->status, 'reason' => $d->reason, 'reason_label' => __('freelance.dispute_reasons.'.$d->reason), 'category' => $d->category, 'suggested_category' => $d->suggestedCategory(), 'opened_by' => $d->opened_by,
             'project' => ['uuid' => $d->project?->uuid, 'title' => $d->project?->title],
             'milestone' => ['title' => $d->milestone?->title, 'amount_minor' => $d->milestone?->amount_minor],
             'currency' => $d->agreement?->currency_code,
@@ -84,6 +85,7 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
             'chat' => $room === null ? [] : $room->messages()->orderBy('id')->limit(300)->get()
                 ->map(fn ($msg) => ['from' => $msg->sender_type, 'body' => $msg->deleted_at ? null : $msg->body, 'kind' => $msg->kind, 'at' => $msg->created_at?->toIso8601String()])->all(),
             'decided_by_admin_id' => $d->decided_by_admin_id,
+            'category' => $d->category, 'suggested_category' => $d->suggestedCategory(),
             // FL-406: everything both sides agreed to on this project.
             'trail' => app(\Modules\Freelance\Services\Projects\ApprovalTrail::class)->list((int) $d->project_id, [(int) $d->agreement_id], 'admin'),
         ], __('api.retrieved'));
@@ -99,7 +101,21 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
         ]);
         $d = Dispute::query()->where('uuid', $uuid)->firstOrFail();
         $bp = isset($data['freelancer_percent']) ? (int) round(((float) $data['freelancer_percent']) * 100) : null;
+        $before = ['status' => $d->status];
         $this->disputes->decide($d, (int) $request->user('admin_api')->getKey(), $data['decision'], $bp, $data['note']);
+        app(\App\Services\General\AuditLogger::class)->record('freelance.dispute.decided', $d, $before, ['status' => $d->refresh()->status, 'decision' => $data['decision'], 'freelancer_bp' => $bp]);
+
+        return $this->show($uuid);
+    }
+
+    /** POST freelance-disputes/{uuid}/classify {category} (FL-803) — staff's label for the problem; it can be changed and is logged. */
+    public function classify(Request $request, string $uuid): JsonResponse
+    {
+        $data = $request->validate(['category' => ['required', Rule::in(Dispute::CATEGORIES)]]);
+        $d = Dispute::query()->where('uuid', $uuid)->firstOrFail();
+        $before = ['category' => $d->category];
+        $d->forceFill(['category' => $data['category']])->save();
+        app(\App\Services\General\AuditLogger::class)->record('freelance.dispute.classified', $d, $before, ['category' => $d->category]);
 
         return $this->show($uuid);
     }
@@ -152,6 +168,6 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
     {
         $file = $this->disputes->file(Dispute::query()->where('uuid', $uuid)->firstOrFail(), $media);
 
-        return tap(response()->download($file->getPath(), $file->file_name, ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
+        return tap(response()->download($file->getPath(), \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($file), ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
     }
 }
