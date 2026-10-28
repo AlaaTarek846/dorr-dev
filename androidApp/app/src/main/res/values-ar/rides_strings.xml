@@ -653,4 +653,35 @@
     <string name="cx_keep">لا، كمّل الرحلة</string>
     <string name="rd_popular_near">أماكن مشهورة قريبة منك</string>
     <string name="rd_chat_subtitle">الكابتن · رحلة %1$s</string>
+    <!-- Block 06: دُرر AI في الرحلات -->
+    <string name="rd_ai_title">دُرر يفهم مقصدك</string>
+    <string name="rd_ai_sub">قول أو اكتب مشوارك بكلامك</string>
+    <string name="rd_ai_sheet_sub">اكتب أو اتكلم — وإنت بتأكد المكان على الخريطة</string>
+    <string name="rd_ai_hint">مثلاً: ودّيني المطار بكرة الساعة ٨ الصبح، اتنين، كاش</string>
+    <string name="rd_ai_send">افهم مشواري</string>
+    <string name="rd_ai_listening">قول رايح فين…</string>
+    <string name="rd_ai_locked">باقة دُرر AI</string>
+    <string name="rd_ai_plan_needed">مساعد الحجز من أدوات دُرر AI. اشترك في باقة عشان تستخدمه.</string>
+    <string name="rd_ai_no_voice">الكتابة بالصوت مش متاحة على الموبايل ده. اكتبها بإيدك.</string>
+    <string name="rd_ai_understood">فهمت:</string>
+    <string name="rd_ai_pick_place">اختار المكان — هتأكده على الخريطة</string>
+    <string name="rd_ai_chip_passengers">%1$d ركاب</string>
+    <string name="rd_ai_pay_cash">كاش</string>
+    <string name="rd_ai_pay_wallet">المحفظة</string>
+    <string name="rd_ai_pay_card">بطاقة</string>
+    <string name="rd_ai_saved">محفوظ</string>
+    <string name="rd_ai_on_map">من الخريطة</string>
+    <string name="rd_ai_suggested">مقترح لك</string>
+    <string name="rd_comfort_title">راحتي</string>
+    <string name="rd_comfort_sub">إزاي تحب رحلتك — طلبات مش ضمانات</string>
+    <string name="rd_comfort_none">مفيش تفضيلات — اضغط واختار</string>
+    <string name="rd_comfort_quiet">رحلة هادئة</string>
+    <string name="rd_comfort_quiet_sub">من غير أحاديث مش ضرورية</string>
+    <string name="rd_comfort_ac">التكييف</string>
+    <string name="rd_comfort_music">الموسيقى</string>
+    <string name="rd_comfort_notes">ملاحظات للكابتن</string>
+    <string name="rd_comfort_save">احفظ تفضيلاتي</string>
+    <string name="rd_comfort_unable">الكابتن: «%1$s» مش ممكن — %2$s</string>
+    <string name="rd_finishing">الكابتن بيخلّص رحلة قريبة منك وجايلك بعدها على طول — حوالي %1$s</string>
+    <string name="rd_late_risk">الكابتن ممكن يتأخر حوالي %1$d دقيقة — %2$s. هنبلغك بأي جديد.</string>
 </resources>

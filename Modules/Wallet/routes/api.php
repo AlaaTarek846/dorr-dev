@@ -14,4 +14,5 @@ require __DIR__.'/admin.php';
 require __DIR__.'/mobile.php';
 require __DIR__.'/provider.php';
 require __DIR__.'/driver.php';
+require __DIR__.'/freelancer.php';
 require __DIR__.'/public.php';

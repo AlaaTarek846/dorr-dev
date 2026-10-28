@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_settings">Settings</string>
+    <string name="account_settings_sub">Language, about and account</string>
+    <string name="home_wallet_balance">Wallet balance</string>
+    <string name="home_wallet_topup">Top up +</string>
+    <string name="account_verified">Verified</string>
+    <string name="stat_completeness">Profile complete</string>
+    <string name="stat_works">Works</string>
+    <string name="stat_skills">Skills</string>
+</resources>

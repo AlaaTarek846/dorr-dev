@@ -1,11 +1,9 @@
 package com.dorr.app.ui.screens.chat
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,7 +25,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Edit
@@ -36,15 +39,10 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -65,7 +63,6 @@ import com.dorr.app.R
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.StoryGroupDto
 import com.dorr.app.ui.theme.CairoFontFamily
-import kotlinx.coroutines.delay
 
 // ------------------------------------------------------------------------------- text story look
 
@@ -123,7 +120,7 @@ fun StoryRing(count: Int, seenCount: Int, size: Dp, uploading: Boolean = false, 
             val stroke = 2.6.dp.toPx()
             val inset = stroke / 2
             val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
-            val brand = Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red))
+            val brand = Brush.sweepGradient(listOf(Ch.Red, Ch.RedDeep, Ch.Red.shade(0.45f), Ch.Red))
             if (uploading) {
                 rotate(angle) { drawArc(brand, 0f, 100f, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round)) }
                 return@Canvas
@@ -135,7 +132,7 @@ fun StoryRing(count: Int, seenCount: Int, size: Dp, uploading: Boolean = false, 
                 val seen = i < seenCount
                 val start = -90f + i * sweep + gap / 2
                 if (seen) {
-                    drawArc(Color(0xFFD1D5DB), start, sweep - gap, false, Offset(inset, inset), arcSize, style = Stroke(stroke * 0.8f, cap = StrokeCap.Round))
+                    drawArc(Ch.Soft, start, sweep - gap, false, Offset(inset, inset), arcSize, style = Stroke(stroke * 0.8f, cap = StrokeCap.Round))
                 } else {
                     rotate(angle) {
                         drawArc(brand, start - angle, sweep - gap, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
@@ -157,27 +154,31 @@ fun StoryRing(count: Int, seenCount: Int, size: Dp, uploading: Boolean = false, 
 @Composable
 fun StoriesBar(onAdd: () -> Unit) {
     val host = LocalChat.current
-    val feed = host.stories ?: return
-    val mine = feed.mine
-    val people = feed.recent
-    if (people.isEmpty() && mine == null && !host.storyUploading) {
-        // Nothing to watch yet: just the add button, so the row doesn't eat space.
-        LazyRow(contentPadding = PaddingValues(horizontal = 14.dp)) { item { MyStatus(null, host.storyUploading, 0, onAdd) } }
-        return
-    }
+    val feed = host.stories
+    val mine = feed?.mine
+    val people = feed?.recent.orEmpty()
+    val muted = feed?.muted.orEmpty()
 
+    val listState = rememberLazyListState()
+    LaunchedEffect(listState, people.size, muted.size, feed?.hasMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+            .collect { (last, total) ->
+                if (last != null && total > 0 && last >= total - 2) host.loadMoreStories()
+            }
+    }
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        state = listState,
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        item(key = "mine") { MyStatus(mine, host.storyUploading, 0, onAdd) }
+        item(key = "mine") { MyStatus(mine, host.storyUploading, onAdd) }
         itemsIndexed(people, key = { _, g -> g.owner?.key ?: g.lastAt.orEmpty() }) { i, group ->
             PersonStory(group, i + 1) { host.openStories(people, i) }
         }
-        if (feed.muted.isNotEmpty()) {
-            itemsIndexed(feed.muted, key = { _, g -> "muted-" + (g.owner?.key ?: "") }) { i, group ->
+        if (muted.isNotEmpty()) {
+            itemsIndexed(muted, key = { _, g -> "muted-" + (g.owner?.key ?: "") }) { i, group ->
                 Box(Modifier.graphicsLayer { alpha = 0.55f }) {
-                    PersonStory(group, people.size + i + 1) { host.openStories(feed.muted, i) }
+                    PersonStory(group, people.size + i + 1) { host.openStories(muted, i) }
                 }
             }
         }
@@ -186,37 +187,32 @@ fun StoriesBar(onAdd: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, index: Int, onAdd: () -> Unit) {
+private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, onAdd: () -> Unit) {
     val host = LocalChat.current
     val me = AuthSession.user
     val count = mine?.stories?.size ?: 0
-    val plus = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(250)
-        plus.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 400f))
-    }
     Column(
-        Modifier.width(74.dp).chStagger(index)
+        Modifier.width(64.dp)
             .combinedClickable(onClick = { if (count > 0) host.openStories(listOf(mine!!), 0) else onAdd() }, onLongClick = onAdd),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
             // My stories show like anyone's: a coloured arc per story, and my latest one inside
             // the circle (not my initials), so posting two statuses is visible at a glance.
-            StoryRing(count, seenCount = 0, size = 68.dp, uploading = uploading) {
+            StoryRing(count, seenCount = 0, size = 58.dp, uploading = uploading) {
                 val latest = mine?.stories?.lastOrNull()
-                if (latest != null) StoryThumb(latest, size = 58.dp)
-                else ChAvatar(null, me?.name, myKey(), size = 58.dp)
+                if (latest != null) StoryThumb(latest, size = 50.dp)
+                else ChAvatar(null, me?.name, myKey(), size = 50.dp)
             }
             if (count > 1) Text(
                 "$count", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.align(Alignment.TopEnd).clip(CircleShape).background(Ch.Ink.copy(alpha = 0.75f)).padding(horizontal = 6.dp, vertical = 1.dp),
+                modifier = Modifier.align(Alignment.TopEnd).clip(CircleShape).background(Ch.Red).padding(horizontal = 6.dp, vertical = 1.dp),
             )
             Box(
-                Modifier.align(Alignment.BottomEnd).scale(plus.value).size(24.dp).clip(CircleShape).background(Ch.HeaderBrush).border(2.dp, Color.White, CircleShape)
+                Modifier.align(Alignment.BottomEnd).size(20.dp).clip(CircleShape).background(Ch.HeaderBrush).border(2.dp, Color.White, CircleShape)
                     .clickable(onClick = onAdd),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+            ) { Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
         }
         Spacer(Modifier.height(4.dp))
         Text(
@@ -225,7 +221,7 @@ private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, index: Int, onAdd
                 count > 0 -> timeAgo(mine?.stories?.lastOrNull()?.createdAt).ifEmpty { stringResource(R.string.st_my_status) }
                 else -> stringResource(R.string.st_my_status)
             },
-            color = Ch.Ink, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+            color = Ch.Ink, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
 }
@@ -234,13 +230,13 @@ private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, index: Int, onAdd
 private fun PersonStory(group: StoryGroupDto, index: Int, onClick: () -> Unit) {
     val owner = group.owner
     val seen = group.stories.count { it.seen }
-    Column(Modifier.width(74.dp).chStagger(index).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
-        StoryRing(group.stories.size, seen, size = 68.dp) {
-            ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 58.dp)
+    Column(Modifier.width(64.dp).chStagger(index).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        StoryRing(group.stories.size, seen, size = 58.dp) {
+            ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 50.dp)
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            owner?.name.orEmpty(), color = if (group.allSeen) Ch.Mut else Ch.Ink, fontSize = 11.5.sp,
+            owner?.name.orEmpty(), color = if (group.allSeen) Ch.Mut else Ch.Ink, fontSize = 10.5.sp,
             fontWeight = if (group.allSeen) FontWeight.Normal else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
@@ -274,34 +270,36 @@ internal fun StoryThumb(story: com.dorr.app.network.StoryDto, size: Dp) {
     }
 }
 
-/** "Text", "Photo or video" or "Voice" — the ways to post. */
+/** "Text", "Photo or video" or "Voice" — the ways to post. Same sheet language as ChoiceSheet. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun StoryAddSheet(onDismiss: () -> Unit, onText: () -> Unit, onMedia: () -> Unit, onVoice: () -> Unit) {
-    com.dorr.app.ui.locale.LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
+    val options = listOf(
+        Triple(Icons.Rounded.Edit, stringResource(R.string.st_text), onText),
+        Triple(Icons.Rounded.PhotoCamera, stringResource(R.string.st_photo_video), onMedia),
+        Triple(Icons.Rounded.Mic, stringResource(R.string.bk_voice_status), onVoice),
+    )
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.st_add_status), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(16.dp))
-            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                AddTile(Icons.Rounded.Edit, stringResource(R.string.st_text), StoryLook.brush("sunset"), 0, Modifier.weight(1f)) { onDismiss(); onText() }
-                AddTile(Icons.Rounded.PhotoCamera, stringResource(R.string.st_photo_video), StoryLook.brush("dorr"), 1, Modifier.weight(1f)) { onDismiss(); onMedia() }
-                AddTile(Icons.Rounded.Mic, stringResource(R.string.bk_voice_status), StoryLook.brush("ocean"), 2, Modifier.weight(1f)) { onDismiss(); onVoice() }
+            Spacer(Modifier.height(14.dp))
+            options.forEach { (icon, label, action) ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+                        .background(Ch.SurfaceMuted)
+                        .clickable { action(); onDismiss() }
+                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(label, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onDismiss).padding(15.dp), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.ch_cancel), color = Ch.Mut, fontWeight = FontWeight.Bold)
             }
         }
-    }
-}
-
-@Composable
-private fun AddTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, brush: Brush, index: Int, modifier: Modifier, onClick: () -> Unit) {
-    var pressed by remember { mutableStateOf(false) }
-    Column(
-        modifier.chStagger(index).height(120.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp)).background(brush).clickable(onClick = onClick).padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
-        }
-        Text(label, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
     }
 }
 

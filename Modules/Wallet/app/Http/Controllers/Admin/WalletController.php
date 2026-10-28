@@ -39,7 +39,7 @@ class WalletController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         return $this->wallets->list($request->validate([
-            'owner_type' => ['nullable', 'in:user,provider'],
+            'owner_type' => ['nullable', 'in:user,provider,freelancer'],
             'owner_id' => ['nullable', 'integer'],
             'country_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:100'],

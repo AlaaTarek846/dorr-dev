@@ -42,7 +42,7 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | PUT | `messages/{m}/reaction` | `emoji` (null removes it) | One reaction per person |
 | GET | `messages/{m}/reactions` | | Who reacted with what |
 | PUT | `messages/{m}/star` | `starred` | |
-| GET | `messages/starred`, `conversations/{c}/starred` | | |
+| GET | `messages/starred`, `conversations/{c}/starred` | `page`, `per_page` (default 15, max 50) | `pagination.has_more_pages` |
 | PUT | `messages/{m}/read-later` | `on` (bool) | "Read later": my own list, apart from stars. The message carries `is_read_later` |
 | GET | `messages/read-later` | | My list across every chat, oldest first (up to 200) |
 | PUT | `messages/{m}/follow-up` | `on` (bool) | "Needs a reply" (spec 118): on my follow-up list until I answer. In a one-to-one chat anything I send afterwards answers it; in a group only a reply to it does. The message carries `is_follow_up` |
@@ -149,13 +149,14 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `contacts` | `registered`, `favorites` | |
+| GET | `contacts` | `registered`, `favorites`, `q` (name or phone), `page`, `per_page` (default 15, max 50) | Without `page` the full list. With `page`, `pagination.has_more_pages` |
 | POST | `contacts/sync` | `contacts[] {name, phone}` (≤2000), `full` | Numbers are normalised to E.164 using the request's country. Returns the contacts who are registered |
 | POST / PATCH / DELETE | `contacts`, `contacts/{id}` | `name`, `phone`, `is_favorite` | |
 | POST | `contacts/lookup` | `phone`, `country_code?` | The number can be written with or without the country code (`+966…`, `00966…`, `966…`), with or without the trunk `0`, and with spaces. Numbers without a code are read in `country_code`, or else in the country of my own phone. It must be a **whole** number: exactly the country's `phone_length` digits, starting with `phone_starts_with`. Otherwise it's `422 chat_invalid_phone` (with `data.phone_length`, `dial_code`), and no search is made. 404 when the number isn't registered. Throttled to 20 per minute. `POST contacts` (manual add) uses the same rule |
 | GET / POST | `contacts/qr`, `contacts/qr/reset`, `contacts/qr/resolve` | `payload` | `dorr://chat/{token}` |
 | GET / PATCH | `privacy` | `last_seen`, `profile_photo`, `who_can_message`, `who_can_add_to_groups`, `who_can_call` (everyone\|contacts\|nobody), `read_receipts`, `block_screenshots`, `notification_privacy` (all\|name\|none) | What a chat push shows: `all` = name + text, `name` = name + "New message", `none` = "Dorr" + "New message". The old switch `notification_preview` (bool) is still accepted (true → all, false → none) and still returned |
-| GET / POST | `blocks`, `blocks/remove` | `participant_id` | |
+| GET | `blocks` | `q` (name or phone), `page`, `per_page` (default 15, max 50) | `pagination.has_more_pages`. Search matches the account or the name/number I saved |
+| POST | `blocks`, `blocks/remove` | `participant_id` | Answers with the full remaining list |
 | POST | `presence` | `online` | Send it on foreground, then every ~60s. It expires after 90s |
 | CRUD | `folders`, `folders/{id}/conversations` (PUT `conversations[]`) | | Limited by `max_folders` |
 
@@ -163,7 +164,7 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET | `stories` | | `{mine, recent, muted}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first |
+| GET | `stories` | `page`, `per_page` | `{mine, recent, muted, has_more}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first. `per_page` default 15; later pages append more people on the bar |
 | POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `public`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours`. `public`: also on the home page for everyone, up to `public_stories_free` running (`chat_public_story_limit` with `data.max`; `chat_public_stories_disabled` when the admin turned them off) |
 | GET | `stories/public` | `page`, `per_page` | The home page: `{enabled, quota: {free, used}, mine, dorr, people[], has_more}`. With `per_page` (the app uses 10) the people come a page at a time (later pages: `mine` and `dorr` null); without it, everyone at once. `dorr` is Dorr's own stories as one group (`owner.type` = `dorr`, stories with `is_dorr`, `link_url`, `link_label`). `people` = everyone's public stories, the unseen first (most viewed + reacted first), the seen at the back; muted and blocked people left out. **`owner.phone` is null** unless I saved them or a direct chat between us was accepted |
 | POST | `stories/dorr/{id}/view` | | One of Dorr's stories watched (counted once per person) |
@@ -323,6 +324,29 @@ For the accounts in `config('chat.business_participants')` (users and providers 
 
 Translate, voice to text, summary and suggested replies, through the AI module's provider (`Services\ChatAiService`). Each is **one tap by the person** — nothing is ever sent to an AI provider by itself. Only chats I'm in, only messages I can see, never a view-once message (`chat_ai_view_once`). Translations and transcripts are cached per message (30 days), summaries for 10 minutes. The admin switch is `ai_enabled` in chat settings.
 
+**Same system as DORR AI (2026-10-14):** every AI tool here runs through `Modules\AI\Services\AiTaskRunner` — the admin's AI settings apply exactly as in the DORR AI chat: routing policy and per-country provider/model flags, fallback and circuit breaker, safety rules, the speech-to-text model registered in the Model Registry, and each call logged in `ai_requests` with its `source` (`chat.translate`, `chat.summary`…). Extra errors: `chat_ai_blocked` (403, the admin blocked this account from AI) and `chat_ai_message_blocked` (422, an admin safety rule blocked the text).
+
+**DORR AI plan (2026-10-15, ADR-013):** every AI tool here needs a DORR AI plan — an active subscription or the admin's free trial — exactly like the DORR AI chat, and uses up its usage window. Refusal: `chat_ai_plan_{reason}` (402; `reason` ∈ no_plan, trial_ended, subscription_suspended, cooldown, limit_reached, blocked; `data.reason`, `data.cooldown_seconds_left`). `GET ai` adds `plan {allowed, reason}` (read-only — opening the chat starts no trial) and `image_generate`, `image_edit`.
+
+**DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat (2026-10-20):**
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `conversations/{c}/ai/search` | `q` (2–100) | `{terms[], messages[], matches{message id → word}}` — DORR AI widens the query (synonyms, dialect, the other language), then the chat's own search runs for each word: only messages I can see in this chat. One AI call (cached a day per query). Throttled 20/min |
+| POST | `conversations/{c}/ai/capsule` | `messages?[]` | `{capsule{goal, decisions, facts, files, open_tasks, done}, text, messages}` — a summary of the picked (or latest) messages to carry the work on elsewhere. Nothing is sent: the app shows `text`, I edit it and send it to the chats I choose (ordinary text messages). Throttled 10/min |
+| GET | `ai/images` | | Every image message marked `meta.ai_generated` in my chats (by anyone), newest first, only what I can see — each with its `conversation_id` to open it there |
+
+**Memory:** the chat's assistant and suggested replies read my DORR AI memory (the same one as the DORR AI chat — `AiMemoryService`, managed at `/api/user/v1/ai-chat/memories`); an assistant question starting «افتكر إن…» / "remember that…" saves to it. `GET ai` adds `search_meaning`, `memory`, `capsule`, `ai_images`.
+
+**Images (spec 50, 51):**
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `ai/image/quota` | | Today's AI images on my plan before I start (read-only, nothing counted) → `{allowed, reason, limit (null = unlimited), used, remaining, styles[]}`; `reason`: `no_plan` · `trial_ended` · `subscription_suspended` · `blocked` · `not_in_plan` · `daily_limit_reached` |
+| POST | `conversations/{c}/ai/image` | `prompt` (≤1000), `style?` (`realistic` · `illustration` · `anime` · `3d` · `oil` · `minimal`) | A new image → `{draft, url, kind: generate}` — a preview only I see (kept a day). Counts against the plan's daily images: `chat_ai_image_not_in_plan` (402), `chat_ai_image_daily_limit` (429, `data.limit`). Throttled 10/min |
+| POST | `messages/{m}/ai/edit-image` | `prompt` | An image message I can see, changed as described → `{draft, url, kind: edit}` (`chat_ai_not_image`) |
+| POST | `conversations/{c}/ai/image/send` | `draft`, `body?`, `uuid?` | Sends my draft to that chat as an image message with `meta.ai_generated = true` (and `meta.ai_kind`) — used by the AI-images gallery; the apps show no label on the image. Only its maker, only that chat, once (`chat_ai_draft_not_found`) |
+
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `ai` | | `{enabled, translate, summarize, smart_replies, transcribe, ask, commitments}` — the app shows the buttons from this. `transcribe` needs a provider that takes audio (OpenAI or Groq Whisper, or Google Gemini; Anthropic can't) |
@@ -348,10 +372,10 @@ Same rules: one explicit tap each, only what that tap covers goes to the AI, res
 | POST | `messages/{m}/tasks` | `timezone?` | **38.** `{tasks[{text, due_at}]}` — suggestions; saved only with `POST tasks` |
 | POST | `conversations/{c}/note` | `messages[]` | **39.** A short note `{title, points}` saved into "Notes (you)" as my own message; returns it in `message` |
 | POST | `conversations/{c}/dates` | `messages?[]`, `timezone?` | **40.** `{dates[{title, at, all_day, message_id}]}` (UTC, past dropped) — "Remind me" then calls `PUT messages/{m}/reminder` |
-| POST | `ai/important` | `conversation_id?` | **41.** `{items[{message_id, conversation_id, chat, sender, excerpt, level: high\|medium, why}], messages, chats}` — one chat (its unread, else its latest), or across my unread chats |
+| POST | `ai/important` | `conversation_id?`, `page?`, `per_page?` | **41.** `{items[{message_id, conversation_id, chat, sender, excerpt, level: high\|medium, why}], messages, chats, has_more}` — one chat (its unread, else its latest), or across my unread chats. AI ranks at most 50; the list pages (`per_page` default 15, max 50). The ranked list is kept 2 minutes so later pages stay in the same order |
 | POST | `conversations/{c}/related-files` | | **48.** `{files[{message_id, type, name, url, why}]}` — only the latest messages and the files' names / captions go to the AI |
 | POST | `ai/today` | `timezone?` | **49.** `{summary[], highlights[{…, text}], messages, chats}` — today in my zone, across my chats |
-| GET | `tasks?status=done` | | My open tasks (due first), or the done ones |
+| GET | `tasks?status=done&page=&per_page=` | | My open tasks (due first), or the done ones. Pages of 15 (`per_page` default 15, max 50); `pagination.has_more_pages` |
 | POST | `tasks` | `tasks[{text, due_at?}]` (≤ 20), `message_id?` | Up to 500 open (`chat_task_limit`) |
 | PATCH / DELETE | `tasks/{id}` | `text?`, `due_at?` (a new time notifies again), `done?` | Only mine (`chat_task_not_found`) |
 
@@ -442,7 +466,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 |---|---|---|---|
 | 1 | POST / PATCH | `folders` · `folders/{id}` | also `color` (#RRGGBB), `emoji` |
 | 24 | GET / POST / PATCH / DELETE | `star-folders` (+ `/{id}`) | `{name, emoji?, color?}`; up to 30. `GET` gives `{unsorted_count, folders[{id, name, emoji, color, count}]}`. Deleting one keeps its messages starred |
-| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}` |
+| 24 | PUT | `messages/{m}/star` | `{starred, folder_id?}` · `GET messages/starred?folder={id\|none}&q=&page=&per_page=15`. `q` matches chat name, phone, or message text. Each row has `star_folder_id` (null = unsorted Favourites) |
 | 20 + 21 | GET | `conversations/{c}/messages/search?q=&types[]=` | `q` optional when `types` given; types: text, image, video, voice, document, link, location, poll, contact, sticker, money. Matches the words or, in voice notes **I** transcribed, what was said (`chat_message_transcripts`, per participant) |
 | 17 + 18 | GET | `conversations/{c}/gallery` | also `date` (Y-m-d, from that day back), `file_kind` (pdf, word, excel, slides, archive, other — by type or extension), `min_size` / `max_size` (bytes), `sort=size` (biggest first, one page) |
 | 25 | PUT / DELETE | `conversations/{c}/lock-pin` | `{pin (4–8 digits), current_pin?}` / `{pin}`. Setting one locks the chat. The conversation carries `has_lock_pin` |
@@ -450,8 +474,8 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 | 81 | GET / PUT | `username` | `{username\|null}`: starts with a letter, then letters, digits and `_` (3–32), unique among people **and** channel handles (`chat_username_invalid` / `_taken`). Profiles carry `username` |
 | 81 | GET | `users/by-username?u=@name` | The profile, with `phone: null` |
 | 114 | GET | `conversations?filter=priority` | Unread mentions, urgent messages and replies I owe first, then unread direct chats (muted ones only for a mention or something urgent). Each row has `priority: [mention\|urgent\|owed\|direct]` |
-| 123 | GET | `catch-up?since=ISO` | Default 24 h, at most 7 days: `{mentions, replies, urgent, owed, missed_calls, reminders, decisions, unread_chats}`. Never reads locked chats or locked / hidden circles |
-| 66 | GET | `conversations/{c}/money` | `{items[{message_id, type, amount_minor, currency, status, is_mine, note, created_at}], totals{sent_minor, received_minor, i_owe_minor, owed_to_me_minor, currency}}` |
+| 123 | GET | `catch-up?since=ISO&q=&page=&per_page=` | Default 24 h, at most 7 days: `{mentions, replies, urgent, owed, missed_calls, reminders, decisions, unread_chats, has_more}`. `q` matches chat name or phone. Each message bucket is at most 15. `unread_chats` pages (`per_page` default 15, max 50); `has_more` is for that list. Never reads locked chats or locked / hidden circles |
+| 66 | GET | `conversations/{c}/money?page=&per_page=` | `{items[{message_id, type, amount_minor, currency, status, is_mine, note, created_at}], totals{sent_minor, received_minor, i_owe_minor, owed_to_me_minor, currency}, has_more}`. Default `per_page` 15 (max 50). Totals are for the whole chat. |
 | 153 | POST | `messages/{m}/decision` | also `description?`, `deadline_at?` |
 | 153 | GET | `decisions/{id}` | The room: the decision plus `can_decide` and `arguments[{id, stance, option_id, text, by, is_mine}]` |
 | 153 | POST / DELETE | `decisions/{id}/arguments` · `/{argument}` | `{stance: pro\|con\|note, text, option_id?}`, members only and while open / before the deadline (`chat_decision_closed`). Deleting: my own, or anyone's for an admin |
@@ -576,7 +600,7 @@ Numbers are the WhatsApp list in the spec's backlog. Test: `ChatBacklogTest` (8)
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `storage` | Totals: `total_bytes`, `files`, `large` (> 5 MB), `forwarded`, and the biggest chats. |
-| GET | `storage/files` | `kind` = all · large · forwarded, optional `conversation_id`, `page`. Only messages I can still see. |
+| GET | `storage/files` | `kind` = all · large · forwarded, optional `conversation_id`, `page`, `per_page` (default 15, max 50). `has_more`. Only messages I can still see. |
 | POST | `storage/delete` | `messages[]` (≤ 500 uuids): deletes them for me only. Throttled 20/min. |
 | GET | `conversations/{c}/export` | A `.txt` of the chat, or with `media=1` a `.zip` with its files (up to 300 MB). Throttled 6/min. Error `chat_export_empty`. |
 
@@ -760,11 +784,11 @@ Each one is made from a message (or in a chat), posts its card (message types `c
 | POST | `messages/{m}/commitment` · `conversations/{c}/commitment` | `{title? (required without a message), assignee? (participant id; direct chat: the other one by default), due_at?, remind_minutes?: 0 · 15 · 30 · 60 · 120 · 1440}` | `201 {id, title, status: proposed \| accepted (taken on myself), due_at, remind_minutes, by, assignee{participant_id, key, name, avatar}, source{id, type, preview}}` |
 | POST | `commitments/{id}/respond` | `{accept}` — the one responsible | The commitment (`accepted` · `declined`) |
 | POST | `commitments/{id}/done` · `commitments/{id}/cancel` | — | done: the one responsible, after accepting · cancel: either side, while open |
-| GET | `commitments` | `scope`: mine · theirs · all, `open` (default 1) | The list, with `conversation{id, type, name}` |
+| GET | `commitments` | `scope`: mine · theirs · all, `open` (default 1), `page`, `per_page` (default 15, max 50), `q?` (title, chat name, person name/phone) | The list, with `conversation{id, type, name}` · `pagination.has_more_pages` |
 | GET | `commitments/{id}` | — | The commitment + `log` |
 | POST | `messages/{m}/handoff` | `{to_participant_id}` (a member here: the card is here) or `{to_user_id}` (the message is forwarded to our direct chat under the forwarding rules, the card answers it there), `note?` | `201 {id, note, status: pending, from, to, source}` |
 | POST | `handoffs/{id}/{accept\|decline\|done\|cancel}` | — | accept / decline / done: the one it was handed to · cancel: the sender, while pending |
-| GET | `handoffs` | `scope`: received · sent, `open` | The list |
+| GET | `handoffs` | `scope`: received · sent, `open`, `page`, `per_page` (default 15, max 50), `q?` (note, chat name, person name/phone) | The list · `pagination.has_more_pages` |
 | POST | `conversations/{c}/agreements` | `{title, terms[{label, value}] (1–12), parties?[] (a group: who must agree, me included), source? (message id)}` | `201 {id, title, terms, version: 1, status: proposed, by, parties[{…, decision, at}], source, record_only: true}` — proposing is agreeing |
 | POST | `agreements/{id}/answer` | `{accept, version}` | `agreed` once every party accepted this version (a system line tells the chat), `declined` on a no |
 | PUT | `agreements/{id}` | `{title?, terms[]}` — a party | A new `version`; every approval starts over (the one who changed it agrees) |
@@ -777,7 +801,7 @@ Each one is made from a message (or in a chat), posts its card (message types `c
 | GET | `attention` | — | `{attention{contacts, strangers, groups, mentions, channels, money, urgent: now \| digest \| later}, digest_minutes, context{key, until}\|null, contexts[{key, attention, disclosure: all\|name\|none\|null, calls: everyone\|through\|nobody, custom}], always_through[{key, name, avatar}], call_hours{from, to, days, timezone}\|null, who_can_call, who_can_urgent, quiet{schedule, scope, on}, sources}` |
 | PUT | `attention` | `{attention?, digest_minutes?: 15·30·60·120·240, always_through?[participant keys], call_hours?\|null, contexts?{key: {attention?, disclosure?, calls?}}}` | The same |
 | PUT | `attention/context` | `{context: home·work·meeting·travel·private\|null, minutes?}` (no minutes: until I change it) | The same |
-| GET | `life-inbox` | `timezone` | `{reply[], pay[], approve[], follow[], appointments[], message_requests, counts{…}, total}` — each item `{kind, id?, title, by, due_at?, amount_minor?, currency?, message_id?, conversation_id, chat, at, late?}`. Kinds: needs_reply · mention · money_request · bill_split · commitment · handoff · agreement · join_request · decision · my_commitment · my_handoff · waiting_for · appointment · task. Only chats an overview may read |
+| GET | `life-inbox` | `timezone`, `section?` (reply · pay · approve · follow · appointments), `page`, `per_page` (default 15, max 50), `q?` (title, who, chat name, location) | `{reply[], pay[], approve[], follow[], appointments[], message_requests, counts{…}, total}` · with `section`, only that list is filled (a page) and `pagination.has_more_pages`. Each item `{kind, id?, title, by, due_at?, amount_minor?, currency?, message_id?, conversation_id, chat, at, late?}`. Kinds: needs_reply · mention · money_request · bill_split · commitment · handoff · agreement · join_request · decision · my_commitment · my_handoff · waiting_for · appointment · task. Only chats an overview may read |
 
 **How a message notifies (ChatPushNotifier + AttentionPolicy):** a chat I muted stays muted (urgent excepted) → people in `always_through` get through everything else → quiet time (spec 115) → my attention for the source, shifted by my active context: `now` notifies, `digest` waits for the summary (`chat:attention-digest`, every `digest_minutes` from the first one waiting, never in quiet time), `later` sends only a counter update (`hidden = 1`) → the context's `disclosure` makes the notification show less (the stricter level wins). Calls: outside `call_hours`, or in a context whose `calls` isn't `everyone`, a call doesn't ring (it shows as missed); `always_through` always rings. Nothing here changes what anyone may send — that stays `who_can_message` / `who_can_call` / `who_can_urgent`.
 

@@ -77,6 +77,12 @@ export default [
                 meta: { middleware: [providerAuth] },
             },
             {
+                path: 'ai-ar',
+                name: 'provider.ai-ar',
+                component: page('ai-ar/index'),
+                meta: { middleware: [providerAuth] },
+            },
+            {
                 path: 'profile',
                 name: 'provider.profile',
                 component: page('profile/index'),

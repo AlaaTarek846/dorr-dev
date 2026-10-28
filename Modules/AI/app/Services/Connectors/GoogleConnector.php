@@ -168,23 +168,36 @@ class GoogleConnector extends AbstractHttpConnector implements TranscribesAudio
         return str_contains(strtolower($modelKey), 'veo') ? [4, 6, 8] : [];
     }
 
-    /** @return array{success: bool, message: string, job_id: ?string} */
-    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    /**
+     * The most reference images (subject/asset) one Veo request may carry.
+     */
+    public const VIDEO_MAX_REFERENCE_IMAGES = 3;
+
+    /**
+     * Supported $options (see AiConnector::startVideo()): image,
+     * reference_images, aspect_ratio, resolution, person_generation.
+     * Keys the model cannot use are the provider's call to reject; this method
+     * only forwards what the caller explicitly asked for.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array{success: bool, message: string, job_id: ?string}
+     */
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds, array $options = []): array
     {
         if (! $provider->hasApiKey()) {
             return ['success' => false, 'message' => __('ai.api_key_missing'), 'job_id' => null];
         }
 
         try {
+            $payload = $this->videoPayload($prompt, $seconds, $options);
+
+            if ($payload === null) {
+                return ['success' => false, 'message' => __('ai.video_reference_invalid'), 'job_id' => null];
+            }
+
             $response = $this->client()
                 ->withHeaders(['x-goog-api-key' => (string) $provider->api_key])
-                ->post($this->baseUrl($provider).'/models/'.rawurlencode($modelKey).':predictLongRunning', [
-                    'instances' => [['prompt' => $prompt]],
-                    'parameters' => [
-                        'aspectRatio' => (string) config('ai.video.aspect_ratio', '16:9'),
-                        'durationSeconds' => (string) $seconds,
-                    ],
-                ]);
+                ->post($this->baseUrl($provider).'/models/'.rawurlencode($modelKey).':predictLongRunning', $payload);
 
             if (! $response->successful()) {
                 return ['success' => false, 'message' => $this->errorMessageFromResponse($response), 'job_id' => null];
@@ -202,6 +215,81 @@ class GoogleConnector extends AbstractHttpConnector implements TranscribesAudio
         } catch (\Throwable $exception) {
             return ['success' => false, 'message' => __('ai.unexpected_error', ['message' => $exception->getMessage()]), 'job_id' => null];
         }
+    }
+
+    /**
+     * Request body for models/{id}:predictLongRunning.
+     *
+     * Returns null when an image was supplied but is unusable, so a broken
+     * reference never silently turns into a text-only video that no longer
+     * looks like the person who asked for it.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>|null
+     */
+    public function videoPayload(string $prompt, int $seconds, array $options = []): ?array
+    {
+        $instance = ['prompt' => $prompt];
+
+        if (isset($options['image'])) {
+            $image = $this->videoImagePart($options['image']);
+
+            if ($image === null) {
+                return null;
+            }
+
+            $instance['image'] = $image;
+        }
+
+        $references = [];
+
+        foreach (array_slice(array_values((array) ($options['reference_images'] ?? [])), 0, self::VIDEO_MAX_REFERENCE_IMAGES) as $reference) {
+            $part = $this->videoImagePart($reference);
+
+            if ($part === null) {
+                return null;
+            }
+
+            $references[] = ['image' => $part, 'referenceType' => 'asset'];
+        }
+
+        if ($references !== []) {
+            $instance['referenceImages'] = $references;
+        }
+
+        $parameters = [
+            'aspectRatio' => (string) ($options['aspect_ratio'] ?? config('ai.video.aspect_ratio', '16:9')),
+            'durationSeconds' => (string) $seconds,
+        ];
+
+        if (! empty($options['resolution'])) {
+            $parameters['resolution'] = (string) $options['resolution'];
+        }
+
+        if (! empty($options['person_generation'])) {
+            $parameters['personGeneration'] = (string) $options['person_generation'];
+        }
+
+        return ['instances' => [$instance], 'parameters' => $parameters];
+    }
+
+    /**
+     * @return array{bytesBase64Encoded: string, mimeType: string}|null
+     */
+    protected function videoImagePart(mixed $image): ?array
+    {
+        if (! is_array($image)) {
+            return null;
+        }
+
+        $mime = (string) ($image['mime'] ?? '');
+        $base64 = isset($image['base64']) ? (string) $image['base64'] : (isset($image['bytes']) ? base64_encode((string) $image['bytes']) : '');
+
+        if ($base64 === '' || ! in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return null;
+        }
+
+        return ['bytesBase64Encoded' => $base64, 'mimeType' => $mime];
     }
 
     /** @return array{success: bool, message: string, state: string, progress: ?int} */

@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\AI\Console\Commands\EnforceAiDataRetention;
 use Modules\AI\Console\Commands\FailStaleAiSiteVersions;
+use Modules\AI\Console\Commands\PurgeAiArData;
+use Modules\AI\Console\Commands\ReleaseAiArOrders;
+use Modules\AI\Console\Commands\PurgeAiWorldData;
 use Modules\AI\Console\Commands\ManageAiLearnedIntents;
 use Modules\AI\Console\Commands\NormalizeAiModels;
 use Modules\AI\Console\Commands\ProcessAiSiteHostings;
@@ -24,6 +27,12 @@ use Modules\AI\Services\Indexing\DatabaseIndexStore;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 use Nwidart\Modules\Support\ModuleServiceProvider;
+use Modules\AI\Services\World\Contracts\LocationProviderInterface;
+use Modules\AI\Services\World\Identity\RekognitionVerifier;
+use Modules\AI\Services\World\Identity\SimilarityVerifierInterface;
+use Modules\AI\Services\World\Video\GatewayWorldVideoProvider;
+use Modules\AI\Services\World\Video\WorldVideoProvider;
+use Modules\AI\Services\World\Location\GooglePlacesProvider;
 
 class AIServiceProvider extends ModuleServiceProvider
 {
@@ -50,6 +59,9 @@ class AIServiceProvider extends ModuleServiceProvider
         ProcessAiSubscriptionRenewals::class,
         ProcessAiSiteHostings::class,
         FailStaleAiSiteVersions::class,
+        PurgeAiWorldData::class,
+        PurgeAiArData::class,
+        ReleaseAiArOrders::class,
         ManageAiLearnedIntents::class,
     ];
 
@@ -78,6 +90,10 @@ class AIServiceProvider extends ModuleServiceProvider
 
         $this->app->bind(AiTokenCounterInterface::class, AiHeuristicTokenCounter::class);
         $this->app->bind(AiIndexStoreInterface::class, DatabaseIndexStore::class);
+        // DORR AI WORLD: the maps provider is swappable by rebinding this interface.
+        $this->app->bind(LocationProviderInterface::class, GooglePlacesProvider::class);
+        $this->app->bind(WorldVideoProvider::class, GatewayWorldVideoProvider::class);
+        $this->app->bind(SimilarityVerifierInterface::class, RekognitionVerifier::class);
     }
 
     public function boot(): void
@@ -199,6 +215,9 @@ class AIServiceProvider extends ModuleServiceProvider
         // Site hosting: same reasoning - renewal, grace and suspension follow the clock.
         // A build/edit whose worker died must not leave the site "generating" forever.
         $schedule->command('ai:fail-stale-sites')->everyFiveMinutes();
+        $schedule->command('ai:purge-world')->daily()->onOneServer();
+        $schedule->command('ai:purge-ar')->daily()->onOneServer();
+        $schedule->command('ai:release-ar-orders')->hourly()->onOneServer();
 
         $schedule->command('ai:process-site-hostings')
             ->hourly()

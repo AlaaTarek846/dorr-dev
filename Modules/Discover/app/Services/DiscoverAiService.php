@@ -43,7 +43,7 @@ class DiscoverAiService
                 .'Reply with JSON only: {"city_id": <id or null>, "categories": [<keys>], "from": "YYYY-MM-DD" or null, "to": "YYYY-MM-DD" or null, "free": true | false, "family": true | false, "q": "<one word to look for, or null>"}. '
                 .'Only what the request says: resolve "this weekend" (Friday and Saturday), "tomorrow", "next week" from today. Never name or invent an event.'],
             ['role' => 'user', 'content' => Str::limit($text, 500)],
-        ]));
+        ], 'discover.ask'));
 
         $filters = [];
         $cityId = (int) ($answer['city_id'] ?? 0);

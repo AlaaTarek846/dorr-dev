@@ -448,7 +448,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 // Never silent: a vote that didn't count says why (it used to just spring back).
                 android.util.Log.w("DorrChat", "vote failed", e)
                 com.dorr.app.CrashReports.record(e)
-                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network), error = true)
             }
         }
     }

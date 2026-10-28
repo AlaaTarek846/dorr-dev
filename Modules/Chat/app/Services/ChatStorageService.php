@@ -66,14 +66,14 @@ class ChatStorageService
      *
      * @return array{items: list<array<string, mixed>>, has_more: bool}
      */
-    public function list(Model $me, string $kind, ?string $conversationUuid, int $page): array
+    public function list(Model $me, string $kind, ?string $conversationUuid, int $page, int $perPage = 15): array
     {
         $query = $this->perMessage($me)
             ->when($conversationUuid, fn (Builder $q) => $q->where('m.conversation_id', ChatConversation::query()->where('uuid', $conversationUuid)->value('id') ?? 0))
             ->when($kind === 'forwarded', fn (Builder $q) => $q->where('m.is_forwarded', true))
             ->when($kind === 'large', fn (Builder $q) => $q->having('bytes', '>=', self::LARGE_BYTES))
             ->orderByDesc('bytes')->orderByDesc('m.id');
-        $per = 40;
+        $per = max(1, min($perPage, 50));
         $rows = $query->offset(($page - 1) * $per)->limit($per + 1)->get();
         $messages = ChatMessage::query()->with(['media', 'conversation.group'])->whereIn('id', $rows->take($per)->pluck('id'))->get()->keyBy('id');
 
@@ -83,9 +83,10 @@ class ChatStorageService
                 $first = $message?->getMedia(ChatMessage::ATTACHMENTS)->sortBy('order_column')->first();
                 $poster = $message?->getFirstMedia(ChatMessage::THUMBNAIL);
 
-                return $message ? [
+                $conversation = $message?->conversation;
+                return $message && $conversation ? [
                     'message_id' => $message->uuid,
-                    'conversation_id' => $message->conversation->uuid,
+                    'conversation_id' => $conversation->uuid,
                     'chat' => $this->titleOf($me, $message->conversation),
                     'type' => $message->type->value,
                     'bytes' => (int) $row->bytes,

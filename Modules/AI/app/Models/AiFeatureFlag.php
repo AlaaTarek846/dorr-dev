@@ -13,6 +13,12 @@ class AiFeatureFlag extends Model
 
     public const TARGET_TOOL = 'tool';
 
+    /** A whole DORR AI service switched off (by country / domain) — its key is in `tool_key` (spec "Feature Flag مستقل"). */
+    public const TARGET_SERVICE = 'service';
+
+    /** The DORR AI chat itself, as a TARGET_SERVICE key. */
+    public const SERVICE_AI_CHAT = 'ai_chat';
+
     /**
      * @var list<string>
      */

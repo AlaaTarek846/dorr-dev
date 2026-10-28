@@ -142,10 +142,17 @@ internal fun AiConversationPage(
     onOpenVoice: () -> Unit,
     onOpenSubscription: () -> Unit,
     onOpenSettings: () -> Unit,
+    // A search result opens the conversation at its message (spec 138), once.
+    focusMessageId: Int? = null,
+    // A DORR AI home starter: the composer already holds its opening words (and, for "analyse a
+    // file", the attachment sheet is open) — the person finishes the sentence and sends.
+    initialInput: String? = null,
+    openAttachments: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var pendingFocus by remember(conversationId, focusMessageId) { mutableStateOf(focusMessageId) }
 
     val bg = if (night) Ai.bgDark else Ai.bgLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
@@ -158,12 +165,12 @@ internal fun AiConversationPage(
     var loadError by remember(conversationId) { mutableStateOf<String?>(null) }
     var usage by remember(conversationId) { mutableStateOf<AiUsageDto?>(null) }
 
-    var input by rememberSaveable(conversationId) { mutableStateOf("") }
+    var input by rememberSaveable(conversationId) { mutableStateOf(initialInput.orEmpty()) }
     var pendingAttachment by remember(conversationId) { mutableStateOf<LocalFile?>(null) }
     var sending by remember(conversationId) { mutableStateOf(false) }
     var sendError by remember(conversationId) { mutableStateOf<String?>(null) }
     var idempotencyKey by remember(conversationId) { mutableStateOf(UUID.randomUUID().toString()) }
-    var attachSheet by remember { mutableStateOf(false) }
+    var attachSheet by remember(conversationId) { mutableStateOf(openAttachments) }
     // Which attachment (if any) is open in the full-screen image
     // viewer below - null means closed. Scoped per-conversation like the
     // other UI state here so switching conversations never leaves a
@@ -219,7 +226,14 @@ internal fun AiConversationPage(
     LaunchedEffect(conversationId) { load() }
 
     LaunchedEffect(messages.size, sending) {
-        if (messages.isNotEmpty() || sending) runCatching { listState.animateScrollToItem(0) }
+        // The list is reversed (newest = item 0): a searched-for message is at its distance from the end.
+        val focusIndex = pendingFocus?.let { id -> messages.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
+        if (focusIndex != null && !sending) {
+            runCatching { listState.scrollToItem(messages.size - 1 - focusIndex) }
+            pendingFocus = null
+        } else if (messages.isNotEmpty() || sending) {
+            runCatching { listState.animateScrollToItem(0) }
+        }
     }
 
     val sendFailedLabel = stringResource(R.string.ai_send_failed)
@@ -432,6 +446,9 @@ internal fun AiConversationPage(
                 )
             }
         }
+
+        // Context carried over from earlier chats (spec 130): shown, readable and deletable.
+        AiCapsuleBanner(conversationId = conversationId, night = night)
 
         // ---------------------------------------------------------------- messages
         Box(Modifier.weight(1f).fillMaxWidth()) {

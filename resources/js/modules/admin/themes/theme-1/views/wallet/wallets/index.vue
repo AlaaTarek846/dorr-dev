@@ -392,6 +392,7 @@ function resetAdjust() {
 const ownerOptions = computed(() => [
     { value: 'user', label: t('wallet.owner.user') },
     { value: 'provider', label: t('wallet.owner.provider') },
+    { value: 'freelancer', label: t('wallet.owner.freelancer') },
 ]);
 const bucketOptions = computed(() => [
     { value: 'withdrawable', label: t('wallet.bucket.withdrawable') },

@@ -10,7 +10,7 @@ use Modules\Rides\Support\Geo;
 /**
  * Where the ride is heading now and how far it still is (rides_tasks D-129): from the captain's last
  * position to the next point — the pickup before the trip, then each stop left, then the destination.
- * No map call: the straight line × `gps_gap.straight_factor_bp`, at `eta.speed_kmh`. Both apps show it,
+ * No map call: the straight line × `gps_gap.straight_factor_bp`, at the speed {@see LearnedEta} gives. Both apps show it,
  * so they never disagree.
  */
 final class RideProgress
@@ -50,7 +50,8 @@ final class RideProgress
 
         $factor = (int) $ride->policy('gps_gap.straight_factor_bp', 13000);
         $distance = (int) round(Geo::metres((float) $presence->lat, (float) $presence->lng, $next[0], $next[1]) * $factor / 10000);
-        $speed = max(1, (int) $ride->policy('eta.speed_kmh', config('rides.policy_defaults')['eta.speed_kmh'] ?? 30));
+        // AI-03: the city's own speed at this hour, learned from its trips (the policy's speed until there are enough).
+        $speed = LearnedEta::speedKmh($ride);
 
         return [
             'to' => $next[2],

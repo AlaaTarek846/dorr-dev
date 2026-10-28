@@ -65,6 +65,10 @@ class RideResource extends JsonResource
             'payment_change' => RidePaymentChangeService::options($this->resource),
             // D-129: how far the captain still is (to the pickup, then to the next stop / the destination).
             'progress' => RideProgress::of($this->resource),
+            // Block 06: the captain is finishing a ride nearby and comes right after it (about this long).
+            'driver_finishing' => \Modules\Rides\Services\Dispatch\NextTrip::present($this->resource),
+            // Block 06 — a booking's captain may be late: by about how much and why (never a promise).
+            'late_risk' => \Modules\Rides\Services\Scheduling\LateRisk::present($this->resource),
             // A card ride waiting for payment: the app opens its payment screen on this checkout.
             'checkout_id' => $this->status === RideStatus::AwaitingPayment ? $this->snapshot('checkout_uuid') : null,
             'pin' => $this->status->hasDriver() && $this->status !== RideStatus::InProgress ? $this->pin : null,
@@ -143,6 +147,8 @@ class RideResource extends JsonResource
             // D-60, D-61: how many ride and the pickup note — on the request card and the ride.
             'passengers' => $ride->passengers,
             'pickup_note' => $ride->pickup_note,
+            // «راحتي» (Block 06): how the rider likes the trip — requests, not guarantees — and what the captain couldn't do.
+            'comfort' => \Modules\Rides\Services\Comfort\ComfortPreferences::present($ride),
             // R-233..R-237, R-NEW-06, D-59, D-390: Wait & Save / priority, child seats, a pet, a service animal, bags.
             'options' => \Modules\Rides\Services\Pricing\TripAddons::present($ride->snapshot('options')),
             // R-13: booked for someone else — who to pick up, by first name only (never their number).

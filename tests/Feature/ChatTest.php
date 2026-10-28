@@ -204,6 +204,46 @@ class ChatTest extends TestCase
         $this->sendText($this->alice, $conversation['id'], 'Hi again')->assertCreated();
     }
 
+    public function test_blocked_contacts_page_by_name_or_phone(): void
+    {
+        $this->as($this->bob);
+        foreach (range(1, 16) as $i) {
+            $u = $this->makeUser('Blocked'.$i, '+96650001'.str_pad((string) $i, 4, '0', STR_PAD_LEFT));
+            $this->postJson('/api/mobile/v1/chat/blocks', ['participant_id' => $u->id], $this->headers())->assertOk();
+        }
+        $this->postJson('/api/mobile/v1/chat/blocks', ['participant_id' => $this->alice->id], $this->headers())->assertOk();
+
+        $first = $this->getJson('/api/mobile/v1/chat/blocks?page=1&per_page=15', $this->headers())->assertOk();
+        $first->assertJsonCount(15, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/blocks?page=2&per_page=15', $this->headers())
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', false);
+
+        $this->getJson('/api/mobile/v1/chat/blocks?q=Alice', $this->headers())->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.profile.name', 'Alice');
+        $this->getJson('/api/mobile/v1/chat/blocks?q=500000001', $this->headers())->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.profile.phone', '+966500000001');
+    }
+
+    public function test_contacts_page_by_name_or_phone(): void
+    {
+        $this->as($this->bob);
+        $this->saveContact($this->bob, $this->alice);
+        foreach (range(1, 16) as $i) {
+            $u = $this->makeUser('Paged'.$i, '+96650003'.str_pad((string) $i, 4, '0', STR_PAD_LEFT));
+            $this->saveContact($this->bob, $u);
+        }
+
+        $first = $this->getJson('/api/mobile/v1/chat/contacts?registered=1&page=1&per_page=15', $this->headers())->assertOk();
+        $first->assertJsonCount(15, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/contacts?registered=1&page=2&per_page=15', $this->headers())
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', false);
+
+        $this->getJson('/api/mobile/v1/chat/contacts?registered=1&page=1&q=Alice', $this->headers())->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Alice');
+        $this->getJson('/api/mobile/v1/chat/contacts?registered=1&page=1&q=500000001', $this->headers())->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.phone', '+966500000001');
+    }
+
     public function test_contacts_only_privacy_refuses_strangers(): void
     {
         $this->as($this->bob);

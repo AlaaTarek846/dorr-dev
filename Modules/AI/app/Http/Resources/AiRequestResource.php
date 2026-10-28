@@ -33,6 +33,8 @@ class AiRequestResource extends JsonResource
                 'key' => $this->provider->key,
                 'name' => $this->provider->name,
             ] : null),
+            // null = the DORR AI chat; otherwise the tool that asked (chat.translate, discover.ask…).
+            'source' => $this->source,
             'model_key' => $this->model_key,
             'prompt' => $this->prompt,
             'correlation_id' => $this->correlation_id,

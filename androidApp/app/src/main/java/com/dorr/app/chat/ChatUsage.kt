@@ -60,7 +60,33 @@ object ChatUsage {
 
     fun reset() {
         pending.clear()
-        prefs?.edit()?.clear()?.putLong(SINCE, System.currentTimeMillis())?.apply()
+        prefs?.edit()?.clear()?.putLong(SINCE, System.currentTimeMillis())?.putBoolean("cleared", true)?.apply()
+    }
+
+    /** Sample numbers so the usage page isn't empty the first time. Skip after I reset. */
+    fun seedDemoIfEmpty() {
+        val p = prefs ?: return
+        if (p.getBoolean("cleared", false)) return
+        val snap = snapshot()
+        if ((snap[SENT] ?: 0L) + (snap[RECEIVED] ?: 0L) + (snap[CALLS_OUT] ?: 0L) > 0L) return
+        p.edit()
+            .putLong(SINCE, System.currentTimeMillis() - 5L * 24 * 60 * 60 * 1000)
+            .putLong(SENT, 186)
+            .putLong(RECEIVED, 540)
+            .putLong(dataKey("msg", true, true), 1_150_000)
+            .putLong(dataKey("msg", false, true), 4_820_000)
+            .putLong(dataKey("msg", true, false), 3_400_000)
+            .putLong(dataKey("msg", false, false), 12_600_000)
+            .putLong(dataKey("media", true, true), 18_500_000)
+            .putLong(dataKey("media", false, true), 96_000_000)
+            .putLong(dataKey("media", true, false), 42_000_000)
+            .putLong(dataKey("media", false, false), 210_000_000)
+            .putLong(CALLS_OUT, 9)
+            .putLong(CALLS_IN, 6)
+            .putLong(CALL_SECONDS, 4_860)
+            .putLong(callDataKey(true), 28_000_000)
+            .putLong(callDataKey(false), 74_000_000)
+            .apply()
     }
 
     fun add(key: String, amount: Long) {

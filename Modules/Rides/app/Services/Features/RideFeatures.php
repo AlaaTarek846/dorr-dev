@@ -30,6 +30,9 @@ class RideFeatures
         'loyalty',
         // O-26c, O-26b: services of their own inside rides (no category).
         'find_driver', 'driving_lessons',
+        // Block 06: DORR AI in rides — the rider's booking assistant («دُرر يفهم مقصدك», AI-09), «راحتي»,
+        // the captain's next trip, and DORR Driver AI (with the demand forecast).
+        'ai_booking', 'comfort', 'next_trip', 'driver_ai',
     ];
 
     public static function categoryFeature(string $slug): string

@@ -23,6 +23,9 @@ class DispatchTick extends Command
         $changes->expireDue();
         $checks->tick();
         $waiting->tick();
+        // Block 06: a booking whose captain may be late — the rider hears early (AI-10 / AI-17 alongside).
+        app(\Modules\Rides\Services\Scheduling\LateRisk::class)->tick();
+        app(\Modules\Rides\Services\Ai\CancelRisk::class)->tick();
         $started = $scheduled->tick();
         if ($started > 0) {
             $this->info("{$started} scheduled ride(s) started.");

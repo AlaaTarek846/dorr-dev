@@ -64,44 +64,66 @@ class ChatOverviewService
     /**
      * @return array<string, mixed>
      */
-    public function catchUp(Model $me, ?string $since): array
+    public function catchUp(Model $me, ?string $since, int $page = 1, int $perPage = 15, ?string $q = null): array
     {
         $from = $since ? CarbonImmutable::parse($since)->utc() : now()->subDay()->toImmutable();
         $from = $from->max(now()->subDays(7)->toImmutable());
+        $page = max(1, $page);
+        $perPage = min(max(1, $perPage), 50);
         $mine = $this->visibleParticipants($me);
+        $titles = $this->titles($me, $mine);
+        $search = trim((string) $q);
+        if ($search !== '') {
+            $keep = $this->conversationIdsMatching($titles, $search);
+            $mine = $mine->filter(fn ($p) => isset($keep[$p->conversation_id]))->values();
+        }
         $ids = $mine->pluck('id');
         $byConversation = $mine->keyBy('conversation_id');
+        if ($mine->isEmpty()) {
+            return [
+                'since' => $from->toIso8601String(),
+                'mentions' => [],
+                'replies' => [],
+                'urgent' => [],
+                'owed' => [],
+                'missed_calls' => [],
+                'reminders' => [],
+                'decisions' => [],
+                'unread_chats' => [],
+                'has_more' => false,
+            ];
+        }
 
         $base = fn () => ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))->where('created_at', '>=', $from)
             ->whereNull('deleted_for_everyone_at')->whereNotNull('sender_type')->where('view_once', false)
             ->whereNot(fn ($q) => $q->where('sender_type', ParticipantType::aliasFor($me))->where('sender_id', $me->getKey()));
 
         $mentions = $base()->whereNotNull('mentions')->latest('id')->limit(300)->get()
-            ->filter(fn (ChatMessage $m) => in_array((int) ($byConversation[$m->conversation_id]->id ?? 0), array_map('intval', (array) $m->mentions), true))->take(20);
+            ->filter(fn (ChatMessage $m) => in_array((int) ($byConversation[$m->conversation_id]->id ?? 0), array_map('intval', (array) $m->mentions), true))->take(15);
         $myMessages = ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))
             ->where('sender_type', ParticipantType::aliasFor($me))->where('sender_id', $me->getKey())->select('id');
-        $replies = $base()->whereIn('reply_to_id', $myMessages)->latest('id')->limit(20)->get();
-        $urgent = $base()->where('is_urgent', true)->latest('id')->limit(10)->get();
+        $replies = $base()->whereIn('reply_to_id', $myMessages)->latest('id')->limit(15)->get();
+        $urgent = $base()->where('is_urgent', true)->latest('id')->limit(15)->get();
 
         $owed = ChatMessage::query()->whereIn('id', DB::table('chat_message_user_states')->whereIn('participant_id', $ids)->whereNotNull('follow_up_at')->pluck('message_id'))
-            ->whereNull('deleted_for_everyone_at')->latest('id')->limit(20)->get();
+            ->whereNull('deleted_for_everyone_at')->latest('id')->limit(15)->get();
 
         $missedCalls = DB::table('chat_call_participants as cp')->join('chat_calls as c', 'c.id', '=', 'cp.call_id')
             ->whereIn('cp.participant_id', $ids)->where('cp.status', 'missed')->where('c.created_at', '>=', $from)
-            ->orderByDesc('c.id')->limit(20)->get(['c.uuid', 'c.type', 'c.conversation_id', 'c.initiator_participant_id', 'c.created_at']);
+            ->orderByDesc('c.id')->limit(15)->get(['c.uuid', 'c.type', 'c.conversation_id', 'c.initiator_participant_id', 'c.created_at']);
 
         $reminders = DB::table('chat_message_reminders as r')->join('chat_messages as m', 'm.id', '=', 'r.message_id')
             ->whereIn('r.participant_id', $ids)->whereNotNull('r.sent_at')->where('r.sent_at', '>=', $from)
-            ->orderByDesc('r.sent_at')->limit(20)->get(['r.note', 'r.sent_at', 'm.id as message_id']);
+            ->orderByDesc('r.sent_at')->limit(15)->get(['r.note', 'r.sent_at', 'm.id as message_id']);
 
         $decisions = ChatGroupDecision::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))->where('status', 'open')
-            ->where('created_at', '>=', $from)->latest('id')->limit(10)->get();
+            ->where('created_at', '>=', $from)->latest('id')->limit(15)->get();
 
-        $unread = $mine->filter(fn ($p) => $p->unread_count > 0)->sortByDesc('unread_count')->take(8);
+        $unreadSorted = $mine->filter(fn ($p) => $p->unread_count > 0)->sortByDesc('unread_count')->values();
+        $unread = $unreadSorted->forPage($page, $perPage);
 
         $all = $mentions->concat($replies)->concat($urgent)->concat($owed);
         $this->directory->prime($me, $all->map(fn ($m) => [$m->sender_type, $m->sender_id]));
-        $titles = $this->titles($me, $mine);
         $ref = fn (ChatMessage $m) => [
             'message_id' => $m->uuid,
             'conversation_id' => $titles[$m->conversation_id]['id'] ?? null,
@@ -131,6 +153,7 @@ class ChatOverviewService
                 'deadline_at' => $d->deadline_at?->toIso8601String(),
             ])->values()->all(),
             'unread_chats' => $unread->map(fn ($p) => ['conversation_id' => $titles[$p->conversation_id]['id'] ?? null, 'chat' => $titles[$p->conversation_id]['title'] ?? null, 'unread' => $p->unread_count, 'mention' => (bool) $p->has_unread_mention])->values()->all(),
+            'has_more' => $unreadSorted->count() > $page * $perPage,
         ];
     }
 
@@ -151,7 +174,7 @@ class ChatOverviewService
 
     /**
      * @param  Collection<int, ChatParticipant>  $mine
-     * @return array<int, array{id: string, title: ?string}>
+     * @return array<int, array{id: string, title: ?string, phone: ?string}>
      */
     private function titles(Model $me, Collection $mine): array
     {
@@ -161,27 +184,63 @@ class ChatOverviewService
             ->where(fn ($q) => $q->where('participant_type', '!=', $myType)->orWhere('participant_id', '!=', $me->getKey()))->get()->keyBy('conversation_id');
         $this->directory->prime($me, $others->map(fn ($o) => [$o->participant_type, $o->participant_id]));
 
-        return $mine->filter(fn ($p) => $p->conversation)->mapWithKeys(fn ($p) => [$p->conversation_id => [
-            'id' => $p->conversation->uuid,
-            'title' => $p->conversation->isGroup() ? $p->conversation->group?->name
-                : ($p->conversation->isSelf() ? __('chat.self_title') : (($o = $others[$p->conversation_id] ?? null) ? ($this->directory->profile($me, $o->participant_type, $o->participant_id)['name'] ?? null) : null)),
-        ]])->all();
+        return $mine->filter(fn ($p) => $p->conversation)->mapWithKeys(function ($p) use ($me, $others) {
+            $peer = (! $p->conversation->isGroup() && ! $p->conversation->isSelf())
+                ? ($others[$p->conversation_id] ?? null)
+                : null;
+            $profile = $peer ? $this->directory->profile($me, $peer->participant_type, $peer->participant_id) : null;
+
+            return [$p->conversation_id => [
+                'id' => $p->conversation->uuid,
+                'title' => $p->conversation->isGroup() ? $p->conversation->group?->name
+                    : ($p->conversation->isSelf() ? __('chat.self_title') : ($profile['name'] ?? null)),
+                'phone' => $profile['phone'] ?? null,
+            ]];
+        })->all();
+    }
+
+    /**
+     * @param  array<int, array{id: string, title: ?string, phone: ?string}>  $titles
+     * @return array<int, true>
+     */
+    private function conversationIdsMatching(array $titles, string $q): array
+    {
+        $needle = mb_strtolower($q);
+        $digits = preg_replace('/\D+/', '', $q) ?? '';
+        $keep = [];
+        foreach ($titles as $cid => $info) {
+            $title = mb_strtolower((string) ($info['title'] ?? ''));
+            $phone = preg_replace('/\D+/', '', (string) ($info['phone'] ?? '')) ?? '';
+            if ($needle !== '' && str_contains($title, $needle)) {
+                $keep[$cid] = true;
+
+                continue;
+            }
+            if ($digits !== '' && $phone !== '' && str_contains($phone, $digits)) {
+                $keep[$cid] = true;
+            }
+        }
+
+        return $keep;
     }
 
     // ------------------------------------------------------------------ 66
 
     /**
      * The money in this chat, as I see it: transfers, requests and splits (newest first), and
-     * what I sent, received and still owe / am owed.
+     * what I sent, received and still owe / am owed. The ledger pages 15 at a time; totals are
+     * for the whole chat.
      *
      * @return array<string, mixed>
      */
-    public function money(Model $me, ChatConversation $conversation): array
+    public function money(Model $me, ChatConversation $conversation, int $page = 1, int $perPage = 15): array
     {
+        $page = max(1, $page);
+        $perPage = min(max(1, $perPage), 50);
         $participant = $this->conversations->participantOf($me, $conversation);
         $rows = $this->messages->visibleTo($participant, $conversation->messages()->getQuery())
             ->whereIn('type', [MessageType::WalletTransfer->value, MessageType::MoneyRequest->value, MessageType::BillSplit->value])
-            ->whereNull('deleted_for_everyone_at')->orderByDesc('id')->limit(100)->get();
+            ->whereNull('deleted_for_everyone_at')->orderByDesc('id')->get();
 
         $totals = ['sent_minor' => 0, 'received_minor' => 0, 'i_owe_minor' => 0, 'owed_to_me_minor' => 0];
         $currency = null;
@@ -215,9 +274,13 @@ class ChatOverviewService
                 'note' => $m->body ? Str::limit(ChatPushNotifier::plain((string) $m->body), 80) : null,
                 'created_at' => $m->created_at?->toIso8601String(),
             ];
-        })->values()->all();
+        })->values();
 
-        return ['items' => $items, 'totals' => $totals + ['currency' => $currency]];
+        return [
+            'items' => $items->forPage($page, $perPage)->values()->all(),
+            'totals' => $totals + ['currency' => $currency],
+            'has_more' => $items->count() > $page * $perPage,
+        ];
     }
 
     // ------------------------------------------------------------------ 127

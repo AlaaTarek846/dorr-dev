@@ -27,6 +27,26 @@
                         </div>
                     </WalletSection>
 
+                    <!-- AI-12: DORR AI's first reading, for the team only — a suggestion, the decision stays ours. -->
+                    <WalletSection :title="t('rides.cases.ai_title')" icon="ri-sparkling-2-line" class="mb-3">
+                        <template v-if="c.ai_triage">
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <span v-if="c.ai_triage.priority" class="badge" :class="{ urgent: 'bg-danger', high: 'bg-warning', normal: 'bg-info-transparent', low: 'bg-light text-dark' }[c.ai_triage.priority]">{{ t('rides.cases.ai_priority') }}: {{ t('rides.cases.ai_priorities.' + c.ai_triage.priority) }}</span>
+                                <span v-if="c.ai_triage.route" class="badge bg-primary-transparent">{{ t('rides.cases.ai_route') }}: {{ t('rides.cases.ai_routes.' + c.ai_triage.route) }}</span>
+                                <span v-if="c.ai_triage.category" class="badge bg-secondary-transparent">{{ c.ai_triage.category }}</span>
+                            </div>
+                            <p v-if="c.ai_triage.summary" class="fs-13 mb-2">{{ c.ai_triage.summary }}</p>
+                            <ul v-if="c.ai_triage.points?.length" class="fs-12 text-muted mb-2 ps-3">
+                                <li v-for="(p, i) in c.ai_triage.points" :key="i">{{ p }}</li>
+                            </ul>
+                            <div class="fs-11 text-muted">{{ t('rides.cases.ai_note') }} · {{ formatDate(c.ai_triage.at) }}</div>
+                        </template>
+                        <div v-else class="text-muted fs-13">{{ t('rides.cases.ai_none') }}</div>
+                        <button v-if="canUpdate" type="button" class="btn btn-sm btn-outline-primary mt-2" :disabled="busy" @click="triage">
+                            <i class="ri-sparkling-2-line me-1"></i>{{ t(c.ai_triage ? 'rides.cases.ai_again' : 'rides.cases.ai_read') }}
+                        </button>
+                    </WalletSection>
+
                     <WalletSection v-if="c.evidence" :title="t('rides.cases.evidence')" icon="ri-map-pin-time-line" class="mb-3">
                         <div class="fs-12 text-muted mb-2">{{ t('rides.cases.evidence_frozen', { at: formatDate(c.evidence.captured_at) }) }}</div>
                         <div v-for="(e, i) in c.evidence.timeline" :key="i" class="d-flex align-items-center gap-2 fs-13 mb-1">
@@ -177,6 +197,7 @@ async function run(action, ok) {
 }
 
 const setStatus = (status) => run(() => adminAxios.post(`${base()}/status`, { status }));
+const triage = () => run(() => adminAxios.post(`${base()}/ai-triage`));
 
 async function send() {
     if (await run(() => adminAxios.post(`${base()}/messages`, { body: reply.value, internal: internal.value }))) {

@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/freelance",
+    "description": "DORR freelance: freelancers, projects, offers, milestones and held payments between wallets.",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Freelance\\": "app/",
+            "Modules\\Freelance\\Database\\Factories\\": "database/factories/",
+            "Modules\\Freelance\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Freelance\\Tests\\": "tests/"
+        }
+    }
+}

@@ -4,6 +4,7 @@ namespace Modules\Chat\Services;
 
 use App\Support\LocaleResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +17,7 @@ use Modules\Chat\Models\ChatHandoff;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Support\ParticipantDirectory;
+use Modules\Chat\Support\ParticipantType;
 
 /**
  * Daily intelligence, batch A (spec 148, 149, 152, 154):
@@ -112,21 +114,25 @@ class LifeService
     }
 
     /**
-     * My commitments: on me (`mine`), the ones I asked others for (`theirs`).
+     * My commitments: on me (`mine`), the ones I asked others for (`theirs`). Pages of 15.
      *
-     * @return list<array<string, mixed>>
+     * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function commitments(Model $me, string $scope, bool $open): array
+    public function commitments(Model $me, string $scope, bool $open, int $page = 1, int $perPage = 15, ?string $q = null): LengthAwarePaginator
     {
         $ids = ChatParticipant::query()->of($me)->pluck('id');
-        $rows = ChatCommitment::query()->with(['conversation.group', 'source', 'createdBy', 'assignee'])
+        $search = trim((string) $q);
+        $paginator = ChatCommitment::query()->with(['conversation.group', 'source', 'createdBy', 'assignee'])
             ->when($scope === 'mine', fn ($q) => $q->whereIn('assignee_participant_id', $ids))
             ->when($scope === 'theirs', fn ($q) => $q->whereIn('created_by_participant_id', $ids)->whereNotIn('assignee_participant_id', $ids))
             ->when($scope === 'all', fn ($q) => $q->where(fn ($w) => $w->whereIn('assignee_participant_id', $ids)->orWhereIn('created_by_participant_id', $ids)))
             ->when($open, fn ($q) => $q->whereIn('status', ChatCommitment::OPEN))
-            ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')->orderBy('due_at')->orderByDesc('id')->limit(200)->get();
+            ->when($search !== '', fn ($query) => $this->applySearch($query, $me, $search, 'title', ['created_by_participant_id', 'assignee_participant_id']))
+            ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')->orderBy('due_at')->orderByDesc('id')
+            ->paginate(max(1, min($perPage, 50)), ['*'], 'page', max(1, $page));
+        $paginator->setCollection($paginator->getCollection()->map(fn ($c) => $this->commitmentMeta($me, $c) + ['conversation' => $this->conversationRef($c->conversation)])->values());
 
-        return $rows->map(fn ($c) => $this->commitmentMeta($me, $c) + ['conversation' => $this->conversationRef($c->conversation)])->values()->all();
+        return $paginator;
     }
 
     /** Accepted ones whose reminder time came (the reminders command). */
@@ -223,16 +229,24 @@ class LifeService
         return $h->refresh();
     }
 
-    /** @return list<array<string, mixed>> handed to me (`received`) or by me (`sent`) */
-    public function handoffs(Model $me, string $scope, bool $open): array
+    /**
+     * Handed to me (`received`) or by me (`sent`). Pages of 15.
+     *
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function handoffs(Model $me, string $scope, bool $open, int $page = 1, int $perPage = 15, ?string $q = null): LengthAwarePaginator
     {
         $ids = ChatParticipant::query()->of($me)->pluck('id');
-
-        return ChatHandoff::query()->with(['conversation.group', 'source', 'from', 'to'])
+        $search = trim((string) $q);
+        $paginator = ChatHandoff::query()->with(['conversation.group', 'source', 'from', 'to'])
             ->whereIn($scope === 'sent' ? 'from_participant_id' : 'to_participant_id', $ids)
             ->when($open, fn ($q) => $q->whereIn('status', ChatHandoff::OPEN))
-            ->orderByDesc('id')->limit(200)->get()
-            ->map(fn ($h) => $this->handoffMeta($me, $h) + ['conversation' => $this->conversationRef($h->conversation)])->values()->all();
+            ->when($search !== '', fn ($query) => $this->applySearch($query, $me, $search, 'note', ['from_participant_id', 'to_participant_id']))
+            ->orderByDesc('id')
+            ->paginate(max(1, min($perPage, 50)), ['*'], 'page', max(1, $page));
+        $paginator->setCollection($paginator->getCollection()->map(fn ($h) => $this->handoffMeta($me, $h) + ['conversation' => $this->conversationRef($h->conversation)])->values());
+
+        return $paginator;
     }
 
     // ------------------------------------------------------------------ agreements (154)
@@ -431,6 +445,87 @@ class LifeService
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** Title/note, the source line, the chat name, or the other person's name/phone. */
+    private function applySearch($query, Model $me, string $search, string $textColumn, array $peopleColumns): void
+    {
+        $like = '%'.addcslashes($search, '%_\\').'%';
+        $chats = $this->conversationIdsMatching($me, $search);
+        $people = $this->participantIdsMatching($me, $search);
+        $query->where(function ($w) use ($like, $chats, $people, $textColumn, $peopleColumns) {
+            $w->where($textColumn, 'like', $like)
+                ->orWhereHas('source', fn ($s) => $s->where('body', 'like', $like));
+            if ($chats !== []) {
+                $w->orWhereIn('conversation_id', $chats);
+            }
+            if ($people !== []) {
+                foreach ($peopleColumns as $col) {
+                    $w->orWhereIn($col, $people);
+                }
+            }
+        });
+    }
+
+    /** @return list<int> */
+    private function conversationIdsMatching(Model $me, string $q): array
+    {
+        $needle = mb_strtolower($q);
+        $digits = preg_replace('/\D+/', '', $q) ?? '';
+        $mine = ChatParticipant::query()->of($me)->whereNull('left_at')->with('conversation.group')->get();
+        $myType = ParticipantType::aliasFor($me);
+        $direct = $mine->filter(fn ($p) => $p->conversation && ! $p->conversation->isGroup())->pluck('conversation_id');
+        $others = ChatParticipant::query()->whereIn('conversation_id', $direct)
+            ->where(fn ($w) => $w->where('participant_type', '!=', $myType)->orWhere('participant_id', '!=', $me->getKey()))
+            ->get()->keyBy('conversation_id');
+        $this->directory->prime($me, $others->map(fn ($o) => [$o->participant_type, $o->participant_id]));
+        $keep = [];
+        foreach ($mine as $p) {
+            if ($p->conversation === null) {
+                continue;
+            }
+            $peer = (! $p->conversation->isGroup() && ! $p->conversation->isSelf()) ? ($others[$p->conversation_id] ?? null) : null;
+            $profile = $peer ? $this->directory->profile($me, $peer->participant_type, $peer->participant_id) : null;
+            $title = mb_strtolower((string) ($p->conversation->isGroup() ? $p->conversation->group?->name
+                : ($p->conversation->isSelf() ? __('chat.self_title') : ($profile['name'] ?? $profile['account_name'] ?? ''))));
+            $phone = preg_replace('/\D+/', '', (string) ($profile['phone'] ?? '')) ?? '';
+            if ($needle !== '' && str_contains($title, $needle)) {
+                $keep[] = $p->conversation_id;
+
+                continue;
+            }
+            if ($digits !== '' && $phone !== '' && str_contains($phone, $digits)) {
+                $keep[] = $p->conversation_id;
+            }
+        }
+
+        return $keep;
+    }
+
+    /** @return list<int> */
+    private function participantIdsMatching(Model $me, string $q): array
+    {
+        $needle = mb_strtolower($q);
+        $digits = preg_replace('/\D+/', '', $q) ?? '';
+        $mineConv = ChatParticipant::query()->of($me)->whereNull('left_at')->pluck('conversation_id');
+        $others = ChatParticipant::query()->whereIn('conversation_id', $mineConv)->get();
+        $this->directory->prime($me, $others->map(fn ($o) => [$o->participant_type, $o->participant_id]));
+        $keep = [];
+        foreach ($others as $p) {
+            $profile = $this->directory->profile($me, $p->participant_type, $p->participant_id);
+            $name = mb_strtolower((string) ($profile['name'] ?? $profile['account_name'] ?? ''));
+            $phone = preg_replace('/\D+/', '', (string) ($profile['phone'] ?? '')) ?? '';
+            if ($needle !== '' && $name !== '' && str_contains($name, $needle)) {
+                $keep[] = $p->id;
+
+                continue;
+            }
+            if ($digits !== '' && $phone !== '' && str_contains($phone, $digits)) {
+                $keep[] = $p->id;
+            }
+        }
+
+        return $keep;
+    }
 
     private function assertUsable(ChatConversation $conversation, ?ChatMessage $source): void
     {

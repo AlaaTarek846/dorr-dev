@@ -171,6 +171,19 @@ fun PreferencesScreen(onBack: () -> Unit) {
                 }
             }
 
+            // Block 06: a next trip near where my ride ends, offered quietly before it ends — only where the country has it.
+            if (p.nextTrips.available) {
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.pf_next_trips), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.pf_next_trips_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        }
+                        DorrToggle(p.nextTrips.enabled) { on -> save(JsonObject().apply { addProperty("next_trips", on) }) }
+                    }
+                }
+            }
+
             // D-34..D-37: Auto-Accept — only where the country has it on.
             if (auto.available) {
                 Card {

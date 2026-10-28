@@ -9,6 +9,7 @@ use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideActiveLock;
 use Modules\Rides\Models\RideOffer;
 use Modules\Rides\Services\Bidding\BidBoard;
+use Modules\Rides\Services\Dispatch\NextTrip;
 use Modules\Rides\Services\Pricing\RidePromotions;
 use Modules\Wallet\Enums\CheckoutStatus;
 use Modules\Wallet\Models\Checkout;
@@ -29,6 +30,8 @@ class RideCloser
     {
         BidBoard::closeRide($ride);
         RideActiveLock::query()->where('ride_id', $ride->id)->delete();
+        // Block 06: the captain's next trip, waiting for this ride to end, is now their ride.
+        app(NextTrip::class)->promoteAfter($ride);
         RideOffer::query()->where('ride_id', $ride->id)->where('status', 'sent')->update(['status' => 'withdrawn', 'responded_at' => now()]);
         // A coupon spent on a ride that never took place comes back to the rider (R-45).
         $this->promotions->release($ride);
@@ -53,7 +56,13 @@ class RideCloser
     /** The driver stepped back before arriving: only their lock goes, the ride searches again. */
     public function releaseDriver(Ride $ride, Driver $driver): void
     {
-        RideActiveLock::query()->whereKey(RideActiveLock::forDriver($driver->id))->where('ride_id', $ride->id)->delete();
-        $this->presence->rideEnded($driver);
+        RideActiveLock::query()->whereIn('lock_key', [RideActiveLock::forDriver($driver->id), NextTrip::lockKey($driver->id)])
+            ->where('ride_id', $ride->id)->delete();
+        // Stepping back from a next trip while still driving the ride before it: the captain is still on that ride.
+        $stillOn = Ride::query()->where('driver_id', $driver->id)->where('id', '!=', $ride->id)
+            ->whereIn('status', [RideStatus::Accepted->value, RideStatus::Arrived->value, RideStatus::InProgress->value])->exists();
+        if (! $stillOn) {
+            $this->presence->rideEnded($driver);
+        }
     }
 }

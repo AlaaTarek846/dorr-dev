@@ -43,7 +43,7 @@ Broadcast::channel('ai-conversation.{conversationId}', function ($user, int $con
 |
 */
 
-Broadcast::routes(['middleware' => ['auth:admin_api,user_api,provider_api,driver_api']]);
+Broadcast::routes(['middleware' => ['auth:admin_api,user_api,provider_api,driver_api,freelance_api']]);
 
 Broadcast::channel('App.Models.Admin.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
@@ -72,3 +72,20 @@ Broadcast::channel('rides.{uuid}', function ($person, string $uuid) {
         ? (int) $ride->driver_id === (int) $person->id
         : $person instanceof \Modules\User\Models\User && (int) $ride->user_id === (int) $person->id;
 }, ['guards' => ['user_api', 'driver_api']]);
+
+// A client-freelancer room (Modules/Freelance, FL-006): only its two people listen.
+Broadcast::channel('freelance-chat.{uuid}', function ($person, string $uuid) {
+    $room = \Modules\Freelance\Models\FreelanceConversation::query()->where('uuid', $uuid)->first(['client_id', 'freelancer_id']);
+    if ($room === null) {
+        return false;
+    }
+
+    return $person instanceof \Modules\Freelance\Models\Freelancer
+        ? (int) $room->freelancer_id === (int) $person->id
+        : $person instanceof \Modules\User\Models\User && (int) $room->client_id === (int) $person->id;
+}, ['guards' => ['user_api', 'freelance_api']]);
+
+// The freelancer's own channel: every live notification reaches them here (Modules/Freelance, FL-007).
+Broadcast::channel('Modules.Freelance.Models.Freelancer.{id}', function ($freelancer, $id) {
+    return (int) $freelancer->id === (int) $id;
+}, ['guards' => ['freelance_api']]);

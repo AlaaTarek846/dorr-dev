@@ -207,6 +207,72 @@ class AiChatUsageGuard
     }
 
     /**
+     * Whether the owner could use AI right now, read-only — for showing or locking AI buttons
+     * (the chat's AI tools) without starting a trial or a usage window the way evaluate() does.
+     * The time window and cooldown are only known for sure on use (evaluate()).
+     *
+     * @return array{allowed: bool, reason: ?string, plan_name: ?string, is_trial: bool}
+     */
+    public function preview(Authenticatable $owner): array
+    {
+        $ownerType = $owner->getMorphClass();
+        $ownerId = $owner->getAuthIdentifier();
+        $trial = AiTrialControl::query()->where('owner_type', $ownerType)->where('owner_id', $ownerId)->first();
+        $answer = fn (bool $allowed, ?string $reason, ?AiPlan $plan = null) => [
+            'allowed' => $allowed, 'reason' => $reason, 'plan_name' => $plan?->name, 'is_trial' => (bool) ($plan?->is_trial ?? false),
+        ];
+
+        if ($trial?->abuse_status === AiTrialControl::ABUSE_BLOCKED) {
+            return $answer(false, self::REASON_BLOCKED);
+        }
+
+        $subscriptions = AiSubscription::query()->where('owner_type', $ownerType)->where('owner_id', $ownerId);
+        $active = (clone $subscriptions)->where('status', AiSubscription::STATUS_ACTIVE)
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->with('plan')->latest('id')->first();
+
+        if ($active !== null) {
+            return $answer(true, null, $active->plan);
+        }
+
+        if ((clone $subscriptions)->where('status', AiSubscription::STATUS_SUSPENDED)->exists()) {
+            return $answer(false, self::REASON_SUBSCRIPTION_SUSPENDED);
+        }
+
+        if ($trial !== null && $trial->trial_status !== AiTrialControl::TRIAL_ELIGIBLE) {
+            return $answer(false, self::REASON_TRIAL_ENDED);
+        }
+
+        // Never used yet: allowed exactly when evaluate() would start the free trial plan.
+        $trialPlan = AiPlan::query()->where('is_trial', true)->where('is_active', true)->orderBy('sort_order')->first();
+
+        return $trialPlan !== null ? $answer(true, null, $trialPlan) : $answer(false, self::REASON_NO_PLAN);
+    }
+
+    /**
+     * The plan the owner is on right now, read-only: their active subscription's plan, or — never
+     * used yet — the free trial plan evaluate() would start. Null when there is none.
+     */
+    public function currentPlan(Authenticatable $owner): ?AiPlan
+    {
+        $active = AiSubscription::query()
+            ->where('owner_type', $owner->getMorphClass())->where('owner_id', $owner->getAuthIdentifier())
+            ->where('status', AiSubscription::STATUS_ACTIVE)
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->with('plan')->latest('id')->first();
+
+        if ($active !== null) {
+            return $active->plan;
+        }
+
+        $preview = $this->preview($owner);
+
+        return $preview['allowed'] && $preview['is_trial']
+            ? AiPlan::query()->where('is_trial', true)->where('is_active', true)->orderBy('sort_order')->first()
+            : null;
+    }
+
+    /**
      * Called once a message has actually been processed, so the reported
      * remaining time reflects the extra seconds this turn just consumed
      * without waiting for the *next* evaluate() call to notice.

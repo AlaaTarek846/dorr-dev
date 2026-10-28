@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="availability_title">Availability and rates</string>
+    <string name="availability_sub">Pause, guide price, hours and time off</string>
+    <string name="availability_accepting">Taking new requests</string>
+    <string name="availability_accepting_sub">Turn off to pause new offers for a while</string>
+    <string name="availability_back_on">Back on (optional)</string>
+    <string name="availability_pause_reason">Note (only you see it)</string>
+    <string name="availability_rate">Guide price</string>
+    <string name="availability_rate_none">Not set</string>
+    <string name="availability_rate_hourly">Per hour</string>
+    <string name="availability_rate_fixed">Fixed</string>
+    <string name="availability_rate_from">From (%1$s)</string>
+    <string name="availability_rate_to">To (%1$s)</string>
+    <string name="availability_rate_invalid">Enter a price, and make the top one no lower than the bottom one.</string>
+    <string name="availability_hours">Weekly hours</string>
+    <string name="availability_hours_invalid">Hours must look like 09:00, and end after they start.</string>
+    <string name="availability_time_off">Time off</string>
+    <string name="availability_time_off_none">No time off marked.</string>
+    <string name="availability_from">From</string>
+    <string name="availability_to">To</string>
+    <string name="availability_add_time_off">Add time off</string>
+    <string name="availability_paused_banner">You are not taking new offers right now.</string>
+    <string name="day_sun">Sunday</string>
+    <string name="day_mon">Monday</string>
+    <string name="day_tue">Tuesday</string>
+    <string name="day_wed">Wednesday</string>
+    <string name="day_thu">Thursday</string>
+    <string name="day_fri">Friday</string>
+    <string name="day_sat">Saturday</string>
+</resources>

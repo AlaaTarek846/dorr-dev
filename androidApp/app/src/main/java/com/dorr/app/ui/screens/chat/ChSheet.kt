@@ -4,12 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -32,23 +29,18 @@ import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
-import com.dorr.app.ui.components.DorrLogo
 import kotlinx.coroutines.launch
 
 /*
  * The header and navigation rule, shared with DORR AI (spec, part 1 · "قاعدة الهيدر والملاحة"):
  * the chat's main screen has no back arrow; every inner screen has back at the start (pointing
- * the right way in RTL) with the DORR logo beside it; bottom sheets close with ×.
+ * the right way in RTL); bottom sheets close with ×.
  */
 
-/** Back, with the DORR logo beside it — the start of every inner chat screen's header (on the brand gradient). */
+/** Back at the start of every inner chat screen's header (on the brand gradient). */
 @Composable
-internal fun ChBack(onBack: () -> Unit, size: Dp = 40.dp, logoWidth: Dp = 58.dp) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack, size = size, onClick = onBack)
-        Spacer(Modifier.width(8.dp))
-        DorrLogo(logoWidth, onDark = true)
-    }
+internal fun ChBack(onBack: () -> Unit, size: Dp = 40.dp) {
+    GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack, size = size, onClick = onBack)
 }
 
 /** Every chat bottom sheet: Material's sheet, with a × beside the drag handle that closes it. */
@@ -57,7 +49,7 @@ internal fun ChBack(onBack: () -> Unit, size: Dp = 40.dp, logoWidth: Dp = 58.dp)
 internal fun ChSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberModalBottomSheetState(),
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
     containerColor: Color = BottomSheetDefaults.ContainerColor,
     content: @Composable ColumnScope.() -> Unit,

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_settings">الإعدادات</string>
+    <string name="account_settings_sub">اللغة وعن التطبيق والحساب</string>
+    <string name="home_wallet_balance">رصيد المحفظة</string>
+    <string name="home_wallet_topup">شحن +</string>
+    <string name="account_verified">موثّق</string>
+    <string name="stat_completeness">اكتمال الملف</string>
+    <string name="stat_works">الأعمال</string>
+    <string name="stat_skills">المهارات</string>
+</resources>

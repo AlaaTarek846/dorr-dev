@@ -68,6 +68,8 @@ class RideNotifier
             'amount' => $this->money((int) $offer->driver_net_minor, $ride),
         ], [
             'type' => 'ride_offer',
+            // Block 06: a next trip, offered while the captain is still driving — the app shows it quietly.
+            'next_trip' => \Modules\Rides\Services\Dispatch\NextTrip::drivingNow((int) $offer->driver_id) !== null,
             'offer_uuid' => $offer->uuid,
             'ride_uuid' => $ride->uuid,
             'expires_at' => $offer->expires_at->toIso8601String(),

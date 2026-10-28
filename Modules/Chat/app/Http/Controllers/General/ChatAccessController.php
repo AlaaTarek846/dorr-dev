@@ -98,7 +98,10 @@ class ChatAccessController extends Controller
     /** PUT username — `{username|null}`: letters, digits and _ (3–32), unique among people and channels. */
     public function setUsername(Request $request)
     {
-        $data = $request->validate(['username' => ['present', 'nullable', 'string', 'max:40']]);
+        $data = $request->validate(
+            ['username' => ['present', 'nullable', 'string', 'max:40']],
+            ['username.present' => __('chat.errors.username_required')],
+        );
         $me = $request->user();
         if (! $me instanceof User) {
             throw new ChatException('username_unavailable', 422);

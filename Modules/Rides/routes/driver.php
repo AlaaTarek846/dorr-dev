@@ -67,6 +67,11 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::get('places/suggest', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'suggest'])->middleware('throttle:90,1');
         // O-58: where requests come from (the last hour, ~1 km cells) — the captain's map shows the hot areas.
         Route::get('demand-heat', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'heat']);
+        // Block 06: hot zones and areas short of captains now; the forecast and booked-ahead demand on a DORR AI plan.
+        Route::get('demand', [\Modules\Rides\Http\Controllers\Driver\DriverAiController::class, 'demand']);
+        // DORR Driver AI (D-394): where to work, clashes with my bookings, my daily goal — and asking it.
+        Route::get('ai/assistant', [\Modules\Rides\Http\Controllers\Driver\DriverAiController::class, 'assistant']);
+        Route::post('ai/ask', [\Modules\Rides\Http\Controllers\Driver\DriverAiController::class, 'ask'])->middleware('throttle:20,1');
         // O-30: With Me — «I'm going there, take riders on my way».
         Route::get('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'show']);
         Route::post('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'open']);
@@ -183,6 +188,8 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
             Route::post('{uuid}/contacts/share', [RideSafetyController::class, 'shareWithContacts'])->whereUuid('uuid');
             Route::post('{uuid}/block', [RideSafetyController::class, 'block'])->whereUuid('uuid');
             Route::post('{uuid}/report', [RideSafetyController::class, 'report'])->whereUuid('uuid');
+            // «راحتي»: one of the rider's requests can't be done here (and why) — the rider is told.
+            Route::post('{uuid}/comfort/unable', [\Modules\Rides\Http\Controllers\Driver\DriverAiController::class, 'comfortUnable'])->whereUuid('uuid');
             Route::post('{uuid}/safety-checks/{check}', [RideSafetyController::class, 'answerCheck'])->whereUuid(['uuid', 'check']);
             // The rider's new destination / stop: accept or decline (D-131..133).
             Route::post('{uuid}/changes/{change}/accept', [RideChangeController::class, 'accept'])->whereUuid(['uuid', 'change']);

@@ -302,6 +302,7 @@ const statusFilterOptions = computed(() => [
 const ownerFilterOptions = computed(() => [
     { value: 'user', label: t('wallet.owner.user') },
     { value: 'provider', label: t('wallet.owner.provider') },
+    { value: 'freelancer', label: t('wallet.owner.freelancer') },
 ]);
 const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('online-transactions', {
     defaults: { search: '', status: null, owner_type: null, from: '', to: '' },

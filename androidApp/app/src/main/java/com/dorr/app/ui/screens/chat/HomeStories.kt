@@ -78,7 +78,7 @@ class HomeStoriesState(val host: ChatHost) {
     var loadingMore by mutableStateOf(false)
     private var page = 1
 
-    /** The first ten people (and mine / Dorr's). Pages already scrolled in stay, after the fresh first ten. */
+    /** The first 15 people (and mine / Dorr's). Pages already scrolled in stay, after the fresh first 15. */
     suspend fun refresh() {
         val fresh = runCatching { ApiClient.chat.publicStories(chatAuth(), page = 1, perPage = PAGE).data }.getOrNull() ?: return
         val keys = fresh.people.map { it.owner?.key }.toSet()
@@ -87,7 +87,7 @@ class HomeStoriesState(val host: ChatHost) {
         page = (feed?.people.orEmpty().size + PAGE - 1) / PAGE
     }
 
-    /** The next ten, when the row is scrolled to its end. */
+    /** The next 15, when the row is scrolled to its end. */
     suspend fun loadMore() {
         val current = feed ?: return
         if (loadingMore || !current.hasMore) return
@@ -110,7 +110,7 @@ class HomeStoriesState(val host: ChatHost) {
     }
 
     private companion object {
-        const val PAGE = 10
+        const val PAGE = 15
     }
 
     /** Everything the circles open, in their order — so the viewer pages from one to the next. */

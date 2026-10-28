@@ -122,7 +122,7 @@ class AiDomainPipelineService
         return $lines === [] ? null : implode("\n", $lines);
     }
 
-    protected function mentionsJurisdiction(string $content): bool
+    public function mentionsJurisdiction(string $content): bool
     {
         $lower = mb_strtolower($content);
 

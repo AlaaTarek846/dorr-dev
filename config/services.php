@@ -72,6 +72,9 @@ return [
         // The driver app may be its own OneSignal app (its own app id and REST key); left empty it shares the one above.
         'driver_app_id' => env('ONESIGNAL_DRIVER_APP_ID'),
         'driver_rest_api_key' => env('ONESIGNAL_DRIVER_REST_API_KEY'),
+        // The freelancer app likewise (FL-007).
+        'freelance_app_id' => env('ONESIGNAL_FREELANCE_APP_ID'),
+        'freelance_rest_api_key' => env('ONESIGNAL_FREELANCE_REST_API_KEY'),
     ],
 
 ];

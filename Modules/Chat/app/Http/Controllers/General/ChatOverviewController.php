@@ -13,18 +13,39 @@ class ChatOverviewController extends Controller
 {
     public function __construct(private readonly ChatOverviewService $overview) {}
 
-    /** GET catch-up?since=ISO — default the last 24 hours, at most 7 days. */
+    /** GET catch-up?since=ISO&q=&page=&per_page= — default the last 24 hours, at most 7 days. Unread chats page 15. */
     public function catchUp(Request $request)
     {
-        $data = $request->validate(['since' => ['nullable', 'date']]);
+        $data = $request->validate([
+            'since' => ['nullable', 'date'],
+            'q' => ['nullable', 'string', 'max:80'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
 
-        return ApiResponse::success($this->overview->catchUp($request->user(), $data['since'] ?? null), __('api.retrieved'));
+        return ApiResponse::success($this->overview->catchUp(
+            $request->user(),
+            $data['since'] ?? null,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? 15),
+            $data['q'] ?? null,
+        ), __('api.retrieved'));
     }
 
-    /** GET conversations/{c}/money */
+    /** GET conversations/{c}/money?page=&per_page= */
     public function money(Request $request, ChatConversation $conversation)
     {
-        return ApiResponse::success($this->overview->money($request->user(), $conversation), __('api.retrieved'));
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return ApiResponse::success($this->overview->money(
+            $request->user(),
+            $conversation,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? 15),
+        ), __('api.retrieved'));
     }
 
     /** GET privacy/center */

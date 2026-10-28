@@ -171,9 +171,10 @@ class AiGateway
     }
 
     /**
+     * @param  array<string, mixed>  $options  See AiConnector::startVideo() (image, reference_images, aspect_ratio, resolution, person_generation)
      * @return array{success: bool, message: string, job_id: ?string}
      */
-    public function startVideo(AiProvider $provider, string $prompt, int $seconds, ?AiRequest $context = null): array
+    public function startVideo(AiProvider $provider, string $prompt, int $seconds, ?AiRequest $context = null, array $options = []): array
     {
         $rule = $this->dataRuleFor($provider);
 
@@ -186,7 +187,7 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->startVideo($provider, (string) $provider->model, $prompt, $seconds);
+        $result = $this->connectorFor($provider)->startVideo($provider, (string) $provider->model, $prompt, $seconds, $options);
         $this->logCall($provider, $context, $startedAt, $result);
 
         return $result;

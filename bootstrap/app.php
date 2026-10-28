@@ -29,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'remember-locale' => \App\Http\Middleware\RememberLocale::class,
             'country' => ResolveCountryContext::class,
             'ensure-phone-verified' => EnsurePhoneVerified::class,
+            'freelance.feature' => \Modules\Freelance\Http\Middleware\EnsureFreelanceFeature::class,
+            'freelance.verified' => \Modules\Freelance\Http\Middleware\EnsureFreelancerVerified::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,

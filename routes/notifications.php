@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\Route;
 /*
 |--------------------------------------------------------------------------
 | Notifications for mobile accounts — /api/mobile/v1 (users), /api/provider/v1 (providers),
-| /api/driver/v1 (drivers: the ride requests reach a closed app through these devices)
+| /api/driver/v1 (drivers: the ride requests reach a closed app through these devices),
+| /api/freelance/v1 (freelancers: FL-007)
 |--------------------------------------------------------------------------
 |
 | The same five endpoints for both audiences; the guard decides whose notifications they are.
@@ -17,6 +18,7 @@ $audiences = [
     'mobile/v1' => ['auth:user_api', 'ensure-phone-verified:user_api'],
     'provider/v1' => ['auth:provider_api'],
     'driver/v1' => ['auth:driver_api', 'ensure-phone-verified:driver_api'],
+    'freelance/v1' => ['auth:freelance_api', 'ensure-phone-verified:freelance_api'],
 ];
 
 foreach ($audiences as $prefix => $auth) {
@@ -29,11 +31,12 @@ foreach ($audiences as $prefix => $auth) {
             Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name("{$name}.notifications.read-all");
             Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name("{$name}.notifications.read");
             Route::delete('notifications/read', [NotificationController::class, 'clearRead'])->name("{$name}.notifications.clear-read");
+            // Before `{id}`, or «devices» is taken for an id.
+            Route::delete('notifications/devices', [NotificationController::class, 'unregisterDevice'])->name("{$name}.notifications.devices.destroy");
             Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name("{$name}.notifications.destroy");
 
             // Push: the phone registers / forgets its OneSignal player id.
             Route::post('notifications/devices', [NotificationController::class, 'registerDevice'])->name("{$name}.notifications.devices.store");
-            Route::delete('notifications/devices', [NotificationController::class, 'unregisterDevice'])->name("{$name}.notifications.devices.destroy");
         });
     });
 }

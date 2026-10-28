@@ -1,0 +1,11 @@
+{
+    "name": "Freelance",
+    "alias": "freelance",
+    "description": "DORR freelance: freelancers, projects, offers, milestones and held payments between wallets (docs/freelance_tasks.md).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Freelance\\Providers\\FreelanceServiceProvider"
+    ],
+    "files": []
+}

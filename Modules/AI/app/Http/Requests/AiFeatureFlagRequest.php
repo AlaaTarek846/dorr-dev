@@ -26,6 +26,7 @@ class AiFeatureFlagRequest extends FormRequest
                 AiFeatureFlag::TARGET_PROVIDER,
                 AiFeatureFlag::TARGET_MODEL,
                 AiFeatureFlag::TARGET_TOOL,
+                AiFeatureFlag::TARGET_SERVICE,
             ])],
             'provider_id' => ['nullable', 'integer', 'exists:ai_providers,id'],
             'model_key' => ['nullable', 'string', 'max:150'],

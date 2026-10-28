@@ -296,6 +296,10 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                 Text(stringResource(R.string.offer_dropoff), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 Text(t.destination?.address ?: stringResource(R.string.offer_open_destination), fontWeight = FontWeight.SemiBold)
                 RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" }, t.beneficiary?.name, t.pickupPoint, t.dropoffPoint, t.fromCircle, t.options)
+                // «راحتي»: the rider's requests, and "can't do this" (with why) — the rider is told.
+                TripComfortCard(t) { trip = it }
+                // Block 06: the next trip taken while driving this one / this trip waits for the one before it.
+                NextTripCard(t)
                 Spacer(Modifier.height(8.dp))
                 Row {
                     Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))

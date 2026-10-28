@@ -177,6 +177,6 @@ class AiUserSubscriptionController extends Controller
 
     protected function owner(Request $request): Authenticatable
     {
-        return $request->user('user_api') ?? $request->user('provider_api');
+        return $request->user('user_api') ?? $request->user('provider_api') ?? $request->user('driver_api');
     }
 }

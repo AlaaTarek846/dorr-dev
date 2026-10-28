@@ -165,6 +165,26 @@ class SupportAutoReplyTest extends TestCase
         $this->assertContains('support_ticket_auto_title', $this->user->notifications->pluck('data.title')->all());
     }
 
+    public function test_the_faq_answer_runs_on_the_dorr_ai_system_and_is_free(): void
+    {
+        $this->answerWithFaq('Open your wallet, tap Top up and pick a payment method.');
+
+        $ticket = $this->open('Top up', 'How can I put money in my wallet?');
+
+        $this->assertSame(['ack', 'faq'], $this->autoKinds($ticket));
+        // Logged as the customer's, under its own source, like every DORR AI call…
+        $request = \Modules\AI\Models\AiRequest::query()->sole();
+        $this->assertSame(['support.faq', $this->user->id, \Modules\AI\Models\AiRequest::STATUS_COMPLETED], [$request->source, (int) $request->owner_id, $request->status]);
+        // …and free: no AI plan is started and nothing touches the wallet.
+        $this->assertSame(0, \Modules\AI\Models\AiSubscription::query()->count());
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('wallet_transactions')->count());
+
+        // The admin blocked this customer from AI: the ticket simply waits for a person.
+        \Modules\AI\Models\AiTrialControl::query()->create(['owner_type' => $this->user->getMorphClass(), 'owner_id' => $this->user->id, 'trial_status' => 'eligible', 'abuse_status' => \Modules\AI\Models\AiTrialControl::ABUSE_BLOCKED]);
+        $second = $this->open('Top up again', 'How can I put money in my wallet?');
+        $this->assertSame(['ack'], $this->autoKinds($second));
+    }
+
     public function test_no_faq_answer_when_none_fits_or_the_ai_is_off_or_unavailable(): void
     {
         $this->aiReply = json_encode(['faq_id' => null, 'answer' => null]);

@@ -85,7 +85,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -1090,7 +1089,6 @@ private fun AddressEditor(
             Spacer(Modifier.height(16.dp))
 
             // Set as default Card
-            val night = settingsNight()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1118,13 +1116,7 @@ private fun AddressEditor(
                     Switch(
                         checked = isDefault,
                         onCheckedChange = { isDefault = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = settingsAccent(),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = if (night) Color(0xFF3A3F48) else Color(0xFFE2E8F0),
-                            uncheckedBorderColor = Color.Transparent,
-                        ),
+                        colors = settingsSwitchColors(),
                     )
                 }
             }

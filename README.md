@@ -91,6 +91,7 @@ Professional documentation system for developers and AI assistants:
 | Discover (events) | [docs/modules/discover/README.md](./docs/modules/discover/README.md) |
 | Sports | [docs/modules/sports/README.md](./docs/modules/sports/README.md) |
 | Driver (account + `driverApp/`) | [docs/modules/driver/README.md](./docs/modules/driver/README.md) |
+| Freelance (`Modules/Freelance` + `freelanceApp/`) | [docs/modules/freelance/README.md](./docs/modules/freelance/README.md) · app: [APP.md](./docs/modules/freelance/APP.md) |
 | Rides | [docs/modules/rides/README.md](./docs/modules/rides/README.md) |
 | Android app | [docs/modules/android/README.md](./docs/modules/android/README.md) |
 

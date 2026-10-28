@@ -175,7 +175,11 @@ interface ChatApi {
     suspend fun clearStatus(@Header("Authorization") auth: String): ApiEnvelope<PrivacyDto>
 
     @GET("mobile/v1/chat/messages/starred")
-    suspend fun starred(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+    suspend fun starred(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<MessageDto>>
 
     @POST("mobile/v1/chat/messages/{id}/pin")
     suspend fun pin(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Int>): ApiEnvelope<List<MessageDto>>
@@ -470,7 +474,13 @@ interface ChatApi {
     // ------------------------------------------------------------------ contacts, privacy, presence
 
     @GET("mobile/v1/chat/contacts")
-    suspend fun contacts(@Header("Authorization") auth: String, @Query("registered") registered: Int = 0): ApiEnvelope<List<ContactDto>>
+    suspend fun contacts(
+        @Header("Authorization") auth: String,
+        @Query("registered") registered: Int = 0,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+    ): ApiEnvelope<List<ContactDto>>
 
     @POST("mobile/v1/chat/contacts/sync")
     suspend fun syncContacts(@Header("Authorization") auth: String, @Body body: ContactSyncRequest): ApiEnvelope<List<ContactDto>>
@@ -512,7 +522,12 @@ interface ChatApi {
     suspend fun privacySummary(@Header("Authorization") auth: String, @Query("from") from: String): ApiEnvelope<PrivacySummaryDto>
 
     @GET("mobile/v1/chat/blocks")
-    suspend fun blocks(@Header("Authorization") auth: String): ApiEnvelope<List<BlockDto>>
+    suspend fun blocks(
+        @Header("Authorization") auth: String,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<BlockDto>>
 
     @POST("mobile/v1/chat/blocks")
     suspend fun block(@Header("Authorization") auth: String, @Body body: Map<String, Int>): ApiEnvelope<List<BlockDto>>
@@ -543,7 +558,11 @@ interface ChatApi {
     // ------------------------------------------------------------------ stories
 
     @GET("mobile/v1/chat/stories")
-    suspend fun stories(@Header("Authorization") auth: String): ApiEnvelope<StoryFeedDto>
+    suspend fun stories(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<StoryFeedDto>
 
     @Multipart
     @POST("mobile/v1/chat/stories")
@@ -857,6 +876,7 @@ data class ConversationDto(
     /** My privacy circle for this chat (spec 98) — only I know. */
     val circle: ConversationCircleDto? = null,
     @SerializedName("is_muted") val isMuted: Boolean,
+    @SerializedName("muted_until") val mutedUntil: String? = null,
     @SerializedName("disappearing_seconds") val disappearingSeconds: Int?,
     val theme: ConversationThemeDto? = null,
     // Only on the single-chat screen:
@@ -969,6 +989,8 @@ data class MessageDto(
     @SerializedName("expires_at") val expiresAt: String?,
     val reactions: ReactionsDto = ReactionsDto(),
     @SerializedName("is_starred") val isStarred: Boolean = false,
+    /** Favourites folder; null = unsorted «Favourites». */
+    @SerializedName("star_folder_id") val starFolderId: Int? = null,
     /** On my "read later" list. */
     @SerializedName("is_read_later") val isReadLater: Boolean = false,
     /** A surprise greeting card (spec 165) not opened yet: no words, no files until `meta.card.reveal_at`. */
@@ -1204,6 +1226,22 @@ data class AiCapabilitiesDto(
     val important: Boolean = false,
     @SerializedName("related_files") val relatedFiles: Boolean = false,
     val today: Boolean = false,
+    // Images with DORR AI (spec 50, 51).
+    @SerializedName("image_generate") val imageGenerate: Boolean = false,
+    @SerializedName("image_edit") val imageEdit: Boolean = false,
+    // DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat.
+    @SerializedName("search_meaning") val searchMeaning: Boolean = false,
+    val memory: Boolean = false,
+    val capsule: Boolean = false,
+    @SerializedName("ai_images") val aiImages: Boolean = false,
+    /** The DORR AI plan (2026-10-15): when not allowed the tools stay, a tap offers the subscription. */
+    val plan: AiPlanStateDto? = null,
+)
+
+data class AiPlanStateDto(
+    val allowed: Boolean = false,
+    /** no_plan · trial_ended · subscription_suspended · cooldown · limit_reached · blocked */
+    val reason: String? = null,
 )
 
 data class AiTextDto(val text: String, val to: String? = null)
@@ -1397,7 +1435,12 @@ data class StoryGroupDto(
     @SerializedName("block_screenshots") val blockScreenshots: Boolean = false,
 )
 
-data class StoryFeedDto(val mine: StoryGroupDto?, val recent: List<StoryGroupDto> = emptyList(), val muted: List<StoryGroupDto> = emptyList())
+data class StoryFeedDto(
+    val mine: StoryGroupDto?,
+    val recent: List<StoryGroupDto> = emptyList(),
+    val muted: List<StoryGroupDto> = emptyList(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class StoryViewerDto(val viewer: ProfileDto?, @SerializedName("viewed_at") val viewedAt: String?, val reaction: String?)
 

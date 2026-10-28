@@ -60,6 +60,28 @@ return [
     | Per-plan limits (videos a day, max seconds) live on ai_plans; these are
     | only the technical knobs. Needs a running queue worker.
     */
+    'world' => [
+        // DORR AI WORLD. The key is server-side only; the apps never receive it.
+        'google_maps_key' => env('GOOGLE_MAPS_API_KEY'),
+        'places_timeout' => (int) env('AI_WORLD_PLACES_TIMEOUT', 10),
+        'search_cache_ttl' => (int) env('AI_WORLD_SEARCH_CACHE_TTL', 86400),
+        // Interactive 3D stays off until the 3D tiles phase is built and licensed.
+        'tiles_enabled' => (bool) env('AI_WORLD_TILES_ENABLED', false),
+        'durations' => [4, 6, 8],
+        // Burn a visible "AI" label into the finished video (needs an FFmpeg with drawtext). If that step fails the
+        // video is still delivered without it, with the AI flag + metadata comment. Set the font file for your OS.
+        'burn_label' => (bool) env('AI_WORLD_BURN_LABEL', true),
+        'label_font' => env('AI_WORLD_LABEL_FONT', 'C\\:/Windows/Fonts/arialbd.ttf'),
+        'max_photo_bytes' => (int) env('AI_WORLD_MAX_PHOTO_BYTES', 8 * 1024 * 1024),
+        // AWS Rekognition (face similarity). Leave the keys empty to turn the identity check off.
+        'aws' => [
+            'key' => env('AI_WORLD_AWS_KEY'),
+            'secret' => env('AI_WORLD_AWS_SECRET'),
+            'region' => env('AI_WORLD_AWS_REGION', 'eu-west-1'),
+            'timeout' => (int) env('AI_WORLD_AWS_TIMEOUT', 20),
+        ],
+    ],
+
     'video' => [
         'enabled' => (bool) env('AI_VIDEO_ENABLED', true),
         'size' => env('AI_VIDEO_SIZE', '1280x720'),

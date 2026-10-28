@@ -123,6 +123,8 @@ import com.dorr.app.network.LiveLocationDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.network.PollOptionVotersDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.CairoFontFamily
 import com.google.gson.JsonObject
 import kotlinx.coroutines.delay
@@ -806,7 +808,7 @@ internal fun SheetField(value: String, hint: String, bold: Boolean = false, icon
 @Composable
 fun ChSwitch(on: Boolean) {
     val x by animateFloatAsState(if (on) 1f else 0f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "switch")
-    val track by animateColorAsState(if (on) Ch.Red else Ch.Line, label = "switchTrack")
+    val track by animateColorAsState(if (on) settingsAccent() else if (settingsNight()) Color(0xFF3A3F48) else Ch.Line, label = "switchTrack")
     Box(Modifier.size(width = 46.dp, height = 28.dp).clip(RoundedCornerShape(14.dp)).background(track).padding(3.dp)) {
         Box(Modifier.graphicsLayer { translationX = x * 18.dp.toPx() }.size(22.dp).shadow(3.dp, CircleShape).clip(CircleShape).background(Color.White))
     }

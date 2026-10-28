@@ -17,6 +17,9 @@ class AiConversationContext extends Model
 
     public const TYPE_MEMORY = 'memory';
 
+    /** Carried over from other conversations by "continue in a new chat" (spec 123) — JSON, see AiContextContinuationService. */
+    public const TYPE_CAPSULE = 'context_capsule';
+
     public const TYPE_EXTERNAL = 'external';
 
     /**

@@ -49,6 +49,8 @@ use Modules\AI\Http\Controllers\AiSiteAdminProjectController;
 use Modules\AI\Http\Controllers\AiSiteDownloadSettingController;
 use Modules\AI\Http\Controllers\AiSiteHostingPlanController;
 use Modules\AI\Http\Controllers\AiSiteOfferController;
+use Modules\AI\Http\Controllers\Ar\AiArAdminController;
+use Modules\AI\Http\Controllers\World\AiWorldAdminController;
 use Modules\AI\Http\Controllers\AiSiteServiceRequestAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
@@ -458,4 +460,38 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::get('{id}/messages', [AiSiteServiceRequestAdminController::class, 'messages'])->whereNumber('id');
     Route::post('{id}/messages', [AiSiteServiceRequestAdminController::class, 'sendMessage'])->whereNumber('id');
     Route::get('{id}/files/{index}', [AiSiteServiceRequestAdminController::class, 'file'])->whereNumber(['id', 'index']);
+});
+
+// DORR AI WORLD ops console: settings, country modes, prices, projects with internal costs, reports.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-world')->group(function () {
+    Route::get('stats', [AiWorldAdminController::class, 'stats']);
+    Route::get('settings', [AiWorldAdminController::class, 'settings']);
+    Route::put('settings', [AiWorldAdminController::class, 'updateSettings']);
+    Route::get('country-modes', [AiWorldAdminController::class, 'countryModes']);
+    Route::put('country-modes', [AiWorldAdminController::class, 'updateCountryModes']);
+    Route::get('prices', [AiWorldAdminController::class, 'prices']);
+    Route::put('prices', [AiWorldAdminController::class, 'syncPrices']);
+    Route::get('projects', [AiWorldAdminController::class, 'projects']);
+    Route::get('projects/{id}', [AiWorldAdminController::class, 'project'])->whereNumber('id');
+    Route::get('reports', [AiWorldAdminController::class, 'reports']);
+    Route::put('reports/{id}', [AiWorldAdminController::class, 'updateReport'])->whereNumber('id');
+});
+
+// DORR AR engine ops console: settings, model library (licences, versions), tested devices.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-ar')->group(function () {
+    Route::get('settings', [AiArAdminController::class, 'settings']);
+    Route::put('settings', [AiArAdminController::class, 'updateSettings']);
+    Route::get('assets', [AiArAdminController::class, 'assets']);
+    Route::post('assets', [AiArAdminController::class, 'storeAsset']);
+    Route::put('assets/{id}', [AiArAdminController::class, 'updateAsset'])->whereNumber('id');
+    Route::post('assets/{id}/versions', [AiArAdminController::class, 'addVersion'])->whereNumber('id');
+    Route::post('assets/{id}/activate', [AiArAdminController::class, 'activate'])->whereNumber('id');
+    Route::post('assets/{id}/publish', [AiArAdminController::class, 'publish'])->whereNumber('id');
+    Route::post('assets/{id}/reject', [AiArAdminController::class, 'reject'])->whereNumber('id');
+    Route::get('reviews', [AiArAdminController::class, 'reviews']);
+    Route::get('orders', [AiArAdminController::class, 'orders']);
+    Route::post('orders/{id}/resolve', [AiArAdminController::class, 'resolveOrder'])->whereNumber('id');
+    Route::get('devices', [AiArAdminController::class, 'devices']);
+    Route::post('devices', [AiArAdminController::class, 'storeDevice']);
+    Route::delete('devices/{id}', [AiArAdminController::class, 'destroyDevice'])->whereNumber('id');
 });

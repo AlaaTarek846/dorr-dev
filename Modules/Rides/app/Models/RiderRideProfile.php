@@ -17,6 +17,6 @@ class RiderRideProfile extends Model
 
     protected function casts(): array
     {
-        return ['rating_avg' => 'float', 'rating_count' => 'integer', 'trips_count' => 'integer', 'cancels_count' => 'integer', 'no_show_count' => 'integer', 'last_trip_at' => 'datetime'];
+        return ['rating_avg' => 'float', 'rating_count' => 'integer', 'trips_count' => 'integer', 'cancels_count' => 'integer', 'no_show_count' => 'integer', 'last_trip_at' => 'datetime', 'comfort' => 'array'];
     }
 }

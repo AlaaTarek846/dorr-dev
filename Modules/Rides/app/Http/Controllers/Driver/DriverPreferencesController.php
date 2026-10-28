@@ -30,6 +30,8 @@ class DriverPreferencesController extends Controller
             'pickup_radius_m' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'pet_friendly' => ['sometimes', 'boolean'],
             'child_seats' => ['sometimes', 'integer', 'min:0', 'max:3'],
+            'next_trips' => ['sometimes', 'boolean'],
+            'daily_goal_minor' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000000'],
             'auto_accept' => ['sometimes', 'array'],
             'auto_accept.enabled' => ['sometimes', 'boolean'],
             'auto_accept.max_pickup_m' => ['sometimes', 'nullable', 'integer', 'min:1'],

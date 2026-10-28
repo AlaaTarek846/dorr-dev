@@ -15,6 +15,15 @@ data class AiStatusDto(
     // Phase 11 (doc S32): server-authoritative file limits for the
     // attachment picker - never hardcode a different limit client-side.
     @SerializedName("file_limits") val fileLimits: AiFileLimitsDto? = null,
+    /** The person's plan, read-only — the DORR AI home's plan chip. */
+    val plan: AiPlanPreviewDto? = null,
+)
+
+data class AiPlanPreviewDto(
+    val allowed: Boolean = false,
+    val reason: String? = null,
+    @SerializedName("plan_name") val planName: String? = null,
+    @SerializedName("is_trial") val isTrial: Boolean = false,
 )
 
 data class AiFileLimitsDto(

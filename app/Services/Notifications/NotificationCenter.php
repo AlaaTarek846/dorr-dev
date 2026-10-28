@@ -189,7 +189,11 @@ class NotificationCenter
             $headings = $this->inEveryLanguage($title, $variables);
             $contents = $this->inEveryLanguage($body, $variables);
 
-            $audience = $receiver instanceof \Modules\Driver\Models\Driver ? 'driver' : 'default';
+            $audience = match (true) {
+                $receiver instanceof \Modules\Driver\Models\Driver => 'driver',
+                $receiver instanceof \Modules\Freelance\Models\Freelancer => 'freelance',
+                default => 'default',
+            };
             $send = fn () => sendPushNotification(message: $contents, playerIds: $playerIds, title: $headings, data: $data, options: $options, audience: $audience);
 
             // The HTTP call to OneSignal happens after the response is sent, so a slow push service never slows down

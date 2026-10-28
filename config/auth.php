@@ -2,6 +2,7 @@
 
 use Modules\Admin\Models\Admin;
 use Modules\Driver\Models\Driver;
+use Modules\Freelance\Models\Freelancer;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
@@ -62,6 +63,11 @@ return [
             'driver' => 'sanctum',
             'provider' => 'drivers',
         ],
+        // The freelancer («محترف», Modules/Freelance) — their own account, like a driver.
+        'freelance_api' => [
+            'driver' => 'sanctum',
+            'provider' => 'freelancers',
+        ],
     ],
 
     /*
@@ -97,6 +103,10 @@ return [
         'drivers' => [
             'driver' => 'eloquent',
             'model' => Driver::class,
+        ],
+        'freelancers' => [
+            'driver' => 'eloquent',
+            'model' => Freelancer::class,
         ],
 
         // 'users' => [

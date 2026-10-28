@@ -197,6 +197,31 @@ object ChatRealtime {
         }.onFailure { Log.w(TAG, "Ride channel $uuid failed", it) }
     }
 
+    /** A freelance room (`private-freelance-chat.{uuid}`) while its page is open: `freelance.message` / `freelance.read` arrive on [events]. */
+    fun watchFreelanceRoom(uuid: String) {
+        pusher?.let { client ->
+            runCatching {
+                if (client.getPrivateChannel("private-freelance-chat.$uuid") != null) return
+                client.subscribePrivate("private-freelance-chat.$uuid", object : PrivateChannelEventListener {
+                    override fun onEvent(event: PusherEvent) {
+                        val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                        _events.tryEmit(ChatEvent(event.eventName, data))
+                    }
+
+                    override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                    override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                        Log.w(TAG, "Freelance room auth failed: $message", e)
+                    }
+                }, "freelance.message", "freelance.read")
+            }.onFailure { Log.w(TAG, "Freelance room $uuid failed", it) }
+        }
+    }
+
+    fun unwatchFreelanceRoom(uuid: String) {
+        runCatching { pusher?.unsubscribe("private-freelance-chat.$uuid") }
+    }
+
     fun unwatchPublic(channel: String) {
         if (publicChannels.remove(channel) != null) runCatching { pusher?.unsubscribe(channel) }
     }

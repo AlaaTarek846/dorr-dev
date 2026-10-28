@@ -1,0 +1,13 @@
+<resources>
+    <string name="are_title">AR editor</string>
+    <string name="are_pick_model">Pick a model, then tap a surface to place it</string>
+    <string name="are_items">%1$d placed</string>
+    <string name="are_undo">Undo last</string>
+    <string name="are_save">Save design</string>
+    <string name="are_saved">Design saved</string>
+    <string name="are_failed">Could not complete: %1$s</string>
+    <string name="are_no_ar">This phone cannot run AR. Use a phone that supports ARCore.</string>
+    <string name="are_camera">Camera permission is needed to place models.</string>
+    <string name="are_hint">Drag to move, twist to rotate, pinch to resize.</string>
+    <string name="are_loading">Loading…</string>
+</resources>

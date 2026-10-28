@@ -28,7 +28,7 @@ class RideCaseController extends Controller implements HasMiddleware
     {
         return AdminPermissionMiddleware::fromActionMethodMap('ride-cases', [
             ['view', ['index', 'show', 'options']],
-            ['update', ['status', 'message', 'file', 'decide']],
+            ['update', ['status', 'message', 'file', 'decide', 'triage']],
         ]);
     }
 
@@ -66,6 +66,16 @@ class RideCaseController extends Controller implements HasMiddleware
 
             return array_intersect_key($row, array_flip(['id', 'uuid', 'number', 'kind', 'kind_label', 'category', 'category_label', 'status', 'status_label', 'priority', 'ride', 'disputed_minor', 'currency', 'reporter', 'assigned_to', 'created_at']));
         })->values(), __('api.retrieved'));
+    }
+
+    /** AI-12: (re)read the case with DORR AI now — e.g. when AI was off when it was opened. */
+    public function triage(RideCase $case, RideCases $cases, \Modules\Rides\Services\Cases\CaseTriage $triage): JsonResponse
+    {
+        if ($triage->run($case) === null) {
+            throw new \Modules\Rides\Exceptions\RidesException('ai_unavailable', 503);
+        }
+
+        return ApiResponse::success($cases->present($case->refresh(), 'admin'), __('api.updated'));
     }
 
     public function show(RideCase $case, RideCases $cases): JsonResponse

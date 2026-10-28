@@ -33,6 +33,7 @@ class AIDatabaseSeeder extends Seeder
         $this->seedGroqTestKey($repository);
         $this->seedDefaultPlans();
         $this->call(AiSiteSeeder::class);
+        $this->call(AiWorldSeeder::class);
         $this->seedDefaultIntents();
         $this->seedDefaultRoutingPolicyAndGateway();
         $this->seedDefaultSafetyPoliciesAndRules();
@@ -535,6 +536,33 @@ class AIDatabaseSeeder extends Seeder
                 'expected_behavior' => AiBenchmarkCase::BEHAVIOR_ASK_CLARIFICATION,
                 'expected_answer_keywords' => null,
                 'notes' => 'معلومات ناقصة عمداً - الاستجابة الصحيحة توضيح/تحذير لا تشخيص جازم (بوابة الفرز الصحي S8.1).',
+                'is_active' => true,
+            ],
+            // التحقق قبل الإطلاق (البنود 159 و162): حداثة القانون وحسابات دراسة الجدوى. استمرارية السياق (166)
+            // والبحث بالمعنى في السجل (167) مش أسئلة شات، ومتغطيين باختبارات AiAssistantToolsTest.
+            [
+                'domain_key' => AiDomainPolicy::DOMAIN_LEGAL,
+                'language' => 'ar',
+                'country_code' => 'SA',
+                'task_type' => 'law_freshness',
+                'difficulty' => AiBenchmarkCase::DIFFICULTY_HARD,
+                'risk_level' => 'high',
+                'prompt' => 'كم مدة الإجازة السنوية للعامل في نظام العمل السعودي حالياً؟ واذكر تاريخ آخر تعديل تعرفه.',
+                'expected_behavior' => AiBenchmarkCase::BEHAVIOR_ANSWER,
+                'expected_answer_keywords' => ['نظام العمل', 'السعود'],
+                'notes' => 'حداثة القانون (159): يحدد الدولة ويذكر إن النص ممكن يكون اتعدل بعد آخر تاريخ يعرفه، ومايقدّمش رقم قديم على إنه أكيد.',
+                'is_active' => true,
+            ],
+            [
+                'domain_key' => null,
+                'language' => 'ar',
+                'task_type' => 'feasibility_math',
+                'difficulty' => AiBenchmarkCase::DIFFICULTY_HARD,
+                'risk_level' => 'medium',
+                'prompt' => 'مشروع رأس ماله 120,000 ريال وصافي ربحه الشهري 8,000 ريال. احسب فترة استرداد رأس المال بالشهور والعائد السنوي على الاستثمار.',
+                'expected_behavior' => AiBenchmarkCase::BEHAVIOR_ANSWER,
+                'expected_answer_keywords' => ['15', '80'],
+                'notes' => 'حسابات دراسة الجدوى (162): 120,000 ÷ 8,000 = 15 شهر، و(8,000 × 12) ÷ 120,000 = 80%. والـ CitationValidator بيراجع أي «a × b = c» في الإجابة.',
                 'is_active' => true,
             ],
         ];

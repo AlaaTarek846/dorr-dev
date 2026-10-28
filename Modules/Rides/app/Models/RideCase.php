@@ -33,6 +33,7 @@ class RideCase extends Model
             'kind' => CaseKind::class,
             'status' => CaseStatus::class,
             'evidence' => 'array',
+            'ai_triage' => 'array',
             'decision' => 'array',
             'disputed_minor' => 'integer',
             'decided_at' => 'datetime',

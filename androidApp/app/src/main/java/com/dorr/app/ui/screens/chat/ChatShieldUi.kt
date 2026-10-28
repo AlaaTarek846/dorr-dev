@@ -3,10 +3,8 @@ package com.dorr.app.ui.screens.chat
 import android.app.Activity
 import android.os.Build
 import android.view.WindowManager
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,13 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -105,20 +107,26 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
     var quiet by remember { mutableStateOf(false) }
     val mode = privacy.privacyMode
     val networkError = stringResource(R.string.ch_error_network)
+    val savedToast = stringResource(R.string.ch_saved)
 
     fun call(block: suspend () -> Unit) = scope.launch {
-        try { block() } catch (e: Exception) { host.showToast(e.apiFailure().message ?: networkError) }
+        try {
+            block()
+            host.showToast(savedToast)
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: networkError)
+        }
     }
 
-    Card {
-        ToggleRow(
-            Icons.Rounded.Shield, stringResource(R.string.ch_privacy_mode), mode?.on == true,
-            subtitle = when {
-                mode?.until != null -> stringResource(R.string.ch_privacy_mode_until, scheduleLabel(mode.until))
-                mode?.on == true -> stringResource(R.string.ch_privacy_mode_by_schedule)
-                else -> stringResource(R.string.ch_privacy_mode_sub)
-            },
-        ) { on ->
+    PrivacySettingsRow(
+        Icons.Rounded.Shield, stringResource(R.string.ch_privacy_mode),
+        subtitle = when {
+            mode?.until != null -> stringResource(R.string.ch_privacy_mode_until, scheduleLabel(mode.until))
+            mode?.on == true -> stringResource(R.string.ch_privacy_mode_by_schedule)
+            else -> stringResource(R.string.ch_privacy_mode_sub)
+        },
+        checked = mode?.on == true,
+        onChecked = { on ->
             if (on) durations = true
             else call {
                 val off = ApiClient.chat.privacyModeOff(chatAuth()).data ?: return@call
@@ -127,23 +135,20 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
                 onChanged(off.settings)
                 onSummary(off.summary)
             }
-        }
-        SettingRow(
-            Icons.Rounded.Bedtime, stringResource(R.string.ch_privacy_schedule),
-            value = mode?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
-        ) { schedule = true }
-        // Smart quiet (spec 115): not-urgent messages wait for one summary.
-        SettingRow(
-            Icons.Rounded.Bedtime, stringResource(R.string.ch_quiet),
-            value = privacy.quiet?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
-        ) { quiet = true }
-    }
-    Card {
-        ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_safe_view), ChatShield.safeView, subtitle = stringResource(R.string.ch_safe_view_sub)) { ChatShield.setSafeView(context, it) }
-        ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_hide_recents), ChatShield.hideInRecents, subtitle = stringResource(R.string.ch_hide_recents_sub)) { ChatShield.setHideInRecents(context, it) }
-        ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_blur_media), ChatShield.blurMedia, subtitle = stringResource(R.string.ch_blur_media_sub)) { ChatShield.setBlurMedia(context, it) }
-        SettingRow(Icons.Rounded.Lock, stringResource(R.string.ch_rehide), value = rehideLabel(ChatShield.rehideSeconds)) { rehide = true }
-    }
+        },
+    )
+    PrivacySettingsRow(
+        Icons.Rounded.Bedtime, stringResource(R.string.ch_privacy_schedule),
+        value = mode?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
+    ) { schedule = true }
+    PrivacySettingsRow(
+        Icons.Rounded.Bedtime, stringResource(R.string.ch_quiet),
+        value = privacy.quiet?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
+    ) { quiet = true }
+    PrivacySettingsRow(Icons.Rounded.Lock, stringResource(R.string.ch_safe_view), subtitle = stringResource(R.string.ch_safe_view_sub), checked = ChatShield.safeView, onChecked = { ChatShield.setSafeView(context, it) })
+    PrivacySettingsRow(Icons.Rounded.Lock, stringResource(R.string.ch_hide_recents), subtitle = stringResource(R.string.ch_hide_recents_sub), checked = ChatShield.hideInRecents, onChecked = { ChatShield.setHideInRecents(context, it) })
+    PrivacySettingsRow(Icons.Rounded.Lock, stringResource(R.string.ch_blur_media), subtitle = stringResource(R.string.ch_blur_media_sub), checked = ChatShield.blurMedia, onChecked = { ChatShield.setBlurMedia(context, it) })
+    PrivacySettingsRow(Icons.Rounded.Lock, stringResource(R.string.ch_rehide), value = rehideLabel(ChatShield.rehideSeconds), last = true) { rehide = true }
 
     if (durations) ChoiceSheet(
         stringResource(R.string.ch_privacy_mode),
@@ -163,11 +168,16 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
     )
     if (schedule) PrivacyScheduleSheet(privacy, onDismiss = { schedule = false }) { body -> call { ApiClient.chat.updatePrivacyJson(chatAuth(), body).data?.let(onChanged) } }
     if (quiet) PrivacyScheduleSheet(privacy, onDismiss = { quiet = false }, quiet = true) { body -> call { ApiClient.chat.updatePrivacyJson(chatAuth(), body).data?.let(onChanged) } }
-    if (rehide) ChoiceSheet(
-        stringResource(R.string.ch_rehide),
-        listOf(0, 30, 60, 300).map { s -> ((if (s == ChatShield.rehideSeconds) "✓  " else "") + rehideLabel(s)) to { ChatShield.setRehideSeconds(context, s); Unit } },
-        onDismiss = { rehide = false },
-    )
+    if (rehide) {
+        val choices = listOf(0, 30, 60, 300)
+        ChoiceSheet(
+            stringResource(R.string.ch_rehide),
+            choices.map { s -> rehideLabel(s) to { ChatShield.setRehideSeconds(context, s); Unit } },
+            radios = true,
+            selected = choices.indexOf(ChatShield.rehideSeconds).takeIf { it >= 0 } ?: 0,
+            onDismiss = { rehide = false },
+        )
+    }
 }
 
 @Composable
@@ -197,24 +207,50 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, qui
             Text(stringResource(if (quiet) R.string.ch_quiet else R.string.ch_privacy_schedule), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(if (quiet) R.string.ch_quiet_sub else R.string.ch_privacy_schedule_sub), color = Ch.Mut, fontSize = 13.sp)
             Spacer(Modifier.height(14.dp))
+            SheetSection(Icons.Rounded.AccessTime, stringResource(R.string.ch_schedule_time))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TimeBox(stringResource(R.string.ch_from), from, Modifier.weight(1f)) { picking = true }
                 Spacer(Modifier.width(10.dp))
                 TimeBox(stringResource(R.string.ch_to), to, Modifier.weight(1f)) { picking = false }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (0..6).forEach { d ->
-                    val on = d in days
-                    val bg by animateColorAsState(if (on) Ch.Red else Ch.SurfaceMuted, label = "day")
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(bg).clickable { if (on) days.remove(d) else days.add(d) }, contentAlignment = Alignment.Center) {
-                        Text(DayOfWeek.of(if (d == 0) 7 else d).getDisplayName(TextStyle.NARROW, com.dorr.app.network.AppLocale.java()), color = if (on) Color.White else Ch.Ink, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(16.dp))
+            SheetSection(Icons.Rounded.DateRange, stringResource(R.string.ch_weekdays))
+            Text(stringResource(R.string.ch_weekdays_pick), color = Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+            val locale = com.dorr.app.network.AppLocale.java()
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                (0..6).chunked(3).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        pair.forEach { d ->
+                            val on = d in days
+                            val name = DayOfWeek.of(if (d == 0) 7 else d).getDisplayName(TextStyle.FULL, locale)
+                            Row(
+                                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).clickable {
+                                    if (on) { if (days.size > 1) days.remove(d) } else days.add(d)
+                                }.padding(horizontal = 12.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                                Icon(
+                                    if (on) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                                    null,
+                                    tint = if (on) Ch.Red else Ch.Soft,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                        }
+                        repeat(3 - pair.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
             if (quiet) {
                 Spacer(Modifier.height(8.dp))
-                ToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.ch_quiet_groups_only), groupsOnly) { groupsOnly = it }
+                PrivacySettingsRow(
+                    Icons.Rounded.Bedtime,
+                    stringResource(R.string.ch_quiet_groups_only),
+                    last = true,
+                    checked = groupsOnly,
+                    onChecked = { groupsOnly = it },
+                )
             }
             Spacer(Modifier.height(18.dp))
             ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = days.isNotEmpty()) {
@@ -252,10 +288,25 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, qui
 }
 
 @Composable
+private fun SheetSection(icon: ImageVector, title: String) {
+    Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(title, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+    }
+}
+
+@Composable
 private fun TimeBox(label: String, time: String, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(12.dp)) {
-        Text(label, color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(time, color = Ch.Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+    Row(
+        modifier.clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Ch.Mut, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.Rounded.AccessTime, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+        Text(" : ", color = Ch.Mut, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(time, color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
     }
 }
 
