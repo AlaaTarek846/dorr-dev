@@ -844,6 +844,7 @@ const chatAdminItems = [
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
     { route: 'admin.chat.moments', permission: 'chat-moments.view', icon: 'ri-cake-2-line', label: 'chat.moments.title' },
     { route: 'admin.chat.dorr-stories', permission: 'chat-dorr-stories.view', icon: 'ri-donut-chart-line', label: 'chat.dorr_stories.title' },
+    { route: 'admin.chat.groups', permission: 'chat-groups.view', icon: 'ri-team-line', label: 'chat.groups.title' },
     { route: 'admin.chat.channels', permission: 'chat-channels.view', icon: 'ri-verified-badge-line', label: 'chat.channels.title' },
     { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
     { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
@@ -852,6 +853,12 @@ const chatAdminItems = [
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+    // Account verification (docs/verification_tasks.md).
+    { route: 'admin.chat.verification.requests', permission: 'chat-verification-requests.view', icon: 'ri-shield-user-line', label: 'chat.verification.requests.title' },
+    { route: 'admin.chat.verification.badges', permission: 'chat-verification-badges.view', icon: 'ri-verified-badge-line', label: 'chat.verification.badges.title' },
+    { route: 'admin.chat.verification.documents', permission: 'chat-verification-settings.view', icon: 'ri-file-shield-2-line', label: 'chat.verification.documents.title' },
+    { route: 'admin.chat.verification.settings', permission: 'chat-verification-settings.view', icon: 'ri-shield-check-line', label: 'chat.verification.settings.title' },
+    { route: 'admin.chat.verification.audit', permission: 'chat-verification-audit.view', icon: 'ri-history-line', label: 'chat.verification.audit.title' },
 ];
 
 const showChatAdminSection = computed(
@@ -873,6 +880,7 @@ const ridesItems = [
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.loyalty', permission: 'ride-loyalty.view', icon: 'ri-vip-crown-2-line', label: 'rides.loyalty.title' },
+    { route: 'admin.rides.driver_services', permission: 'driver-services.view', icon: 'ri-apps-2-line', label: 'rides.driver_services.title' },
     { route: 'admin.rides.ranks', permission: 'driver-ranks.view', icon: 'ri-medal-line', label: 'rides.ranks.title' },
     { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
 ];

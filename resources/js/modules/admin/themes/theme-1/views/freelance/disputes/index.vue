@@ -85,7 +85,7 @@
                     <div>
                         <div class="fw-semibold">{{ current.project.title }}</div>
                         <div class="text-muted fs-12">{{ current.milestone?.title }} · <span dir="ltr">{{ money(current.milestone?.amount_minor) }} {{ current.currency }}</span></div>
-                        <div class="text-muted fs-12">{{ t('freelance.disputes.client') }}: {{ current.client.name }} · {{ t('freelance.disputes.freelancer') }}: {{ current.freelancer.name }}</div>
+                        <div class="text-muted fs-12">{{ t('freelance.disputes.client') }}: <UserName :user="current.client">{{ current.client.name }}</UserName> · {{ t('freelance.disputes.freelancer') }}: {{ current.freelancer.name }}</div>
                     </div>
                     <span class="badge ms-auto" :class="statusBadge(current.status)">{{ t(`freelance.disputes.status.${current.status}`) }}</span>
                 </div>
@@ -229,6 +229,7 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatCatalogDate } from '../../../../../../../utils/catalog';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // The disputes desk (FL-705): appealed and open cases first. A case shows everything both sides said and showed, the part with its
 // delivery and history, the agreement and the chat. The decision moves the held money — back to the client, to the freelancer, or a

@@ -59,7 +59,7 @@
                                             </span>
                                             <div>
                                                 <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click.stop="open(row.id)">
-                                                    {{ row.owner?.name || `#${row.owner?.id}` }}
+                                                    <UserName :user="row.owner">{{ row.owner?.name || `#${row.owner?.id}` }}</UserName>
                                                 </button>
                                                 <span class="d-block text-muted fs-11" dir="ltr">{{ row.owner?.phone }}</span>
                                             </div>
@@ -101,7 +101,7 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
-                            {{ detail.owner?.name }}
+                            <UserName :user="detail.owner">{{ detail.owner?.name }}</UserName>
                             <div v-if="detail.owner?.phone" class="fs-12 fw-normal text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
                         </WalletInfoTile>
                     </div>
@@ -194,6 +194,7 @@ import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery'
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatDateTime } from '../../../../../../../utils/walletMoney';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();

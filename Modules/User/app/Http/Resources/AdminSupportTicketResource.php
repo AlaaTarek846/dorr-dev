@@ -37,6 +37,7 @@ class AdminSupportTicketResource extends JsonResource
                     'id' => $this->user->id,
                     'name' => $this->user->name,
                     'phone' => $this->user->phone,
+                    'is_verified' => \App\Support\AccountBadge::verified($this->user),
                 ]),
             },
             'admin' => $this->whenLoaded('admin', fn () => $this->admin === null ? null : [

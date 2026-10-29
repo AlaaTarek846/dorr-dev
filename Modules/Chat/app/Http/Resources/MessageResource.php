@@ -131,6 +131,8 @@ class MessageResource extends JsonResource
     private function poll(ChatMessage $m): array
     {
         $summary = $this->context->polls[$m->id] ?? ['counts' => [], 'voters' => 0];
+        // A survey (GR-030): the results are for its maker and the managers only.
+        $hidden = ! \Modules\Chat\Support\SurveyAccess::canSeeResults($this->context->me, $this->context->conversation, $m);
 
         return [
             'question' => $m->body,
@@ -138,10 +140,14 @@ class MessageResource extends JsonResource
             'options' => collect((array) data_get($m->meta, 'options'))->map(fn ($o) => [
                 'id' => (int) $o['id'],
                 'text' => (string) $o['text'],
-                'votes' => (int) ($summary['counts'][(int) $o['id']] ?? 0),
+                'votes' => $hidden ? null : (int) ($summary['counts'][(int) $o['id']] ?? 0),
             ])->values()->all(),
             'my_votes' => $this->context->myVotes[$m->id] ?? [],
-            'voters' => $summary['voters'],
+            'voters' => $hidden ? null : $summary['voters'],
+            'is_survey' => \Modules\Chat\Support\SurveyAccess::isSurvey($m),
+            // GR-045: numbers for everyone, never who voted for what.
+            'is_anonymous' => (bool) data_get($m->meta, 'anonymous'),
+            'results_hidden' => $hidden,
         ];
     }
 

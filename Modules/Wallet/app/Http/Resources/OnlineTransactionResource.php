@@ -51,6 +51,7 @@ class OnlineTransactionResource extends JsonResource
             'owner' => $this->when($this->relationLoaded('logs'), fn () => ($owner = $this->owner()) === null ? null : [
                 'id' => $owner->getKey(),
                 'name' => $owner->name ?? null,
+                'is_verified' => \App\Support\AccountBadge::verified($owner),
                 'phone' => $owner->phone ?? null,
             ]),
             'logs' => $this->whenLoaded('logs', fn () => $this->logs->map(fn ($log) => [

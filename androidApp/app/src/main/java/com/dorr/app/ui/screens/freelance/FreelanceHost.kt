@@ -567,7 +567,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                             Box(Modifier.padding(top = 6.dp).size(7.dp).clip(RoundedCornerShape(50)).background(settingsAccent()))
                             Column {
                                 Text(eventLabel(e.type), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("‎${e.at?.take(16)?.replace('T', ' ').orEmpty()}", color = settingsMut(), fontSize = 11.5.sp)
+                                // The phone's own time zone (khaled1), in the new timeline layout (dev-test).
+                                Text("‎${com.dorr.app.ui.screens.rides.localDateTime(e.at)}", color = settingsMut(), fontSize = 11.5.sp)
                             }
                         }
                     }

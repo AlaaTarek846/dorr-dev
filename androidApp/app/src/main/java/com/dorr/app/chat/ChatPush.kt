@@ -31,6 +31,8 @@ sealed interface ChatDeepLink {
     data object Moments : ChatDeepLink
     /** One of my tasks is due (spec 38). */
     data object Tasks : ChatDeepLink
+    /** As a parent: my child's link was approved / removed, or a parents' meeting (GR-018, 027). */
+    data object ParentChildren : ChatDeepLink
     /** A DORR Calendar reminder (spec 204). */
     data object Calendar : ChatDeepLink
     /** DORR Discover: an event I'm interested in changed, or one I shouldn't miss. */
@@ -41,6 +43,8 @@ sealed interface ChatDeepLink {
     data class Support(val ticketId: Int) : ChatDeepLink
     /** A security alert (failed sign-ins, many codes asked for, a new device): Settings → Security. */
     data object Security : ChatDeepLink
+    /** Account verification: my request moved, or its badge changed (Account → Verification). */
+    data object Verification : ChatDeepLink
     /** A "click to chat" link (dorr://chat/{token}?text=…) opened from outside the app. */
     data class ChatLink(val payload: String) : ChatDeepLink
     /** A group / channel invite (dorr://chat/join/{code}, from the /j/{code} web page). */
@@ -150,6 +154,7 @@ object ChatPush {
                         data.optString("event") == "chat.call_link.joined" && data.optString("token").isNotBlank() -> ChatDeepLink.CallLink(data.optString("token"))
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         data.optString("type") == "security" -> ChatDeepLink.Security
+                        data.optString("type") == "chat_verification" -> ChatDeepLink.Verification
                         data.optString("event").startsWith("freelance.") -> ChatDeepLink.Freelance(
                             com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(
                                 data.optString("event"),
@@ -163,6 +168,7 @@ object ChatPush {
                         com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) } != null ->
                             com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) }!!.let { (k, u) -> ChatDeepLink.Service(k, u) }
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
+                        data.optString("event") == "chat.group.parent" -> ChatDeepLink.ParentChildren
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
                         data.optString("type") == "sports" -> ChatDeepLink.Sports(data.optString("match_id").takeIf { it.isNotBlank() && it != "null" })
                         data.optString("type") == "discover" -> ChatDeepLink.Discover(data.optString("event_id").takeIf { it.isNotBlank() && it != "null" })

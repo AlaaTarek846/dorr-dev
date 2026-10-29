@@ -368,6 +368,87 @@ Both apps show the request's state from the ride (`change_request`): the rider a
 - **Notifications** (`marine.booked`, `marine.confirmed`, `marine.canceled`, `marine.booking_canceled`, `marine.extension_asked/approved/declined`) are the only live signal. Open pages reload once on them.
 - **Not yet:** an admin page and photos of the boat.
 
+## The captain's account (D-5, D-6, D-210..D-344)
+- **Ranks** (`Services/Drivers/DriverRanks`, `driver_ranks`, `driver_rank_states`, `driver_performance_notes`):
+  - A captain is «new» for `ranks.probation_days` after activation, then takes the highest rank whose thresholds they meet. The thresholds are rows in the admin, not code.
+  - The numbers cover the last `ranks.window_days`: trips, rating, cleanliness and behaviour scores, on time (`ranks.on_time_grace_s`), completion, the captain's cancellations, and warnings.
+  - Going up happens at once. Going down first sends a warning, then waits `ranks.grace_days`.
+  - A category can ask for a rank (`eligibility.min_rank` → `driver_rank`).
+  - The captain can appeal a warning within `ranks.appeal_window_days`, and the admin answers it.
+  - The sweep `rides:driver-ranks` runs daily at 03:30.
+  - API: `GET driver/v1/rank`, `POST rank/notes/{note}/appeal`. Admin: `driver-ranks*` (permission `driver-ranks`).
+- **Payouts** (`DriverPayouts`, registered on `WithdrawalGuards` for `driver`):
+  - Withdrawals need an activated (KYC) account.
+  - A new or changed payout account waits `wallet.driver_new_method_hold_hours`.
+  - An account in someone else's name needs `acknowledge_third_party`, where `wallet.driver_third_party_payout` allows it.
+  - An IBAN abroad is refused until the captain asks for international payouts (`payouts/international`) and the admin approves.
+  - Emergency freeze: `emergency/freeze/request|confirm` works without signing in. It blocks withdrawals and signs the captain out everywhere; the admin unfreezes.
+  - Monthly statements: `invoices`, `invoices/{month}`.
+- **Support & lost items:**
+  - Captains open tickets on the same support desk (`support_tickets.driver_id`, `category`, `reference`) at `driver/v1/support/*`. The help centre filters by `audience`.
+  - Lost items (`ride_lost_items`): the rider reports within `lost_items.report_days`. The captain answers found / not found with a hand-over plan, they chat without phone numbers, and the hand-over is recorded with a photo.
+- **Settings** (`DriverAccount`):
+  - Alerts (sound, vibration, voice) and trusted wallet devices.
+  - Changing the phone number needs the wallet PIN plus a code to the new number.
+  - The terms are shown with their version and acceptance (`driver_consents`). With `drivers.require_terms`, newer terms keep the captain offline (`terms_pending`).
+  - Closing the account checks for blockers first (balance, debt, a pending withdrawal, a running trip, pending earnings, an open case).
+  - Notifications can be deleted one by one, or all the read ones (`DELETE notifications/read`).
+- **Exceptional states** (`DriverServiceStatus`, `GET driver/v1/service-status`):
+  - Maintenance (`ops.driver_maintenance` → `maintenance`).
+  - Financial safe mode (`ops.financial_safe_mode` → `423 rides_financial_safe_mode` on withdrawals and payout accounts).
+  - The service off in the city (`service_off_here`), and the captain's categories paused there.
+  - Emergency review: a rider's open SOS keeps the captain offline for up to `safety.review_hold_hours` (`emergency_review`).
+  - The last withdrawal: pending / unknown (past `wallet.payout_sla_hours`) / paid / failed.
+  - The app reads this on open, on reconnect and on `driver.*` events, never on a timer.
+
+## Owner notes, fifth round (O-72..O-83)
+- **Arriving soon** (`Notifications/ArrivingSoon`): sent once per ride, when the captain on the way is within `notify.driver_arriving_s` of the pickup (180 by default, 0 = off).
+  - It runs on the captain's location uploads; nothing asks on a timer.
+  - It records the ride event `driver_arriving` and sends `ride.arriving_soon` to the rider.
+- **Live thresholds:** `Ride::livePolicy()` reads `arrival.radius_m` and `arrival.destination_radius_m` from the dashboard now, not from the booking's snapshot.
+  - Prices still come from the snapshot.
+  - `rides_not_at_pickup` returns `distance_m` and `radius_m`; the captain app shows them in a dialog.
+- **For Her:**
+  - A category's `eligibility.rider_gender` hides it from the quote for riders of another gender.
+  - `eligibility.driver_gender` hides it from those captains' preferences.
+  - Gender is now a required profile field in captain onboarding.
+- **Dispatch without waiting for the scheduler:**
+  - Going online fires `DriverCameOnline`. `DispatchEngine::nudgeNear` then runs a round for every searching or bidding request within 50 km that has no open card.
+  - A free captain's location upload runs the rounds that are due, at most once every 5 s per captain.
+  - Offers (bidding) requests return to a captain after `bids.resend_after_s` (120 s by default) instead of `search.refuse_cooldown_s`.
+- **Favourite captains** (`GET mobile/v1/rides/circle?lat&lng`): each favourite comes with `available` (online, GPS on, fresh, not on a ride, may work) and `distance_km` (to 0.1 km). The available ones come first, nearest first.
+- **Time zone:** times written into texts (bus, marine, hire, lessons, the payment page, reminders) use `rides.default_timezone`, never the server's UTC.
+
+## Owner notes, sixth round (O-84..O-88)
+- **Find a driver, the price:** `GET hire/quote` goes through `DriverHireService::preview`. It falls back to the unit that has a price and moves the count into its range, and answers with `unit`, `quantity` and `units`. Only when neither an hour nor a day has a price does it refuse. The request itself still uses the strict `quote()`.
+- **What each vehicle does** (`Services/Drivers/VehicleKinds`): a car does rides, With Me, scheduled rides, the airport, find a driver and lessons; a motorcycle does rides; a bus does bus trips; a boat or yacht does the sea; no vehicle does find a driver and lessons. A minibus counts as both a car and a bus.
+  - `DriverEligibility::categoryProblem` returns `vehicle_kind` first, whatever the category's own rules say.
+  - The preferences list only that vehicle's categories.
+  - Find a driver and lessons refuse other vehicles (`rides_service_not_for_vehicle`).
+  - `GET driver/v1/work-services` returns the captain's kinds and services, and the captain app shows only those.
+- **By the hour only** (category flag `hourly_only`, set on the motorcycle by migration `2026_11_05_100000`):
+  - The quote prices such a category by the hour, at `hourly.min_hours` until the rider picks.
+  - The destination is optional, even with `open_destination` off.
+  - `hourly_offer.only` tells the app to hide «by distance».
+- **Equipped captains nearby:** a quote asking for a pet or child seats carries `equipped_nearby`, the online captains around who take them (`TripAddons::equippedNearby`). The rider app shows the count, or a warning when it is 0. With Wait & Save it says when the search starts.
+- **Rider identity:** with no name or gender, the rides service opens with a window that can't be dismissed until both are saved (`PUT profile/identity`).
+- Customer-facing Arabic (app strings, `lang/ar`) is Modern Standard Arabic.
+
+## Captain services (O-89; `Services/Drivers/DriverServices`)
+- **What it decides:** which services each kind of vehicle may work in, per country. The kinds are car (sedan, SUV, van), motorcycle, minibus, bus, boat, yacht, and none.
+  - The tables are `driver_service_rules` and `driver_services`.
+  - A country with no rows uses `DriverServices::DEFAULTS`, which is how things worked before.
+- **The captain's switch:** within what is open to them, the captain switches services on or off (`driver_service_choices`, on by default).
+- **Where it is enforced:**
+  - Ride categories, through `DriverEligibility::categoryProblem`, which gives `vehicle_kind` or `service_switched_off`. A category maps to a service: `bus` for seat pricing, `marine` for time pricing, `hourly` when the category is by the hour only in that country, and `rides` otherwise (With Me is a passenger-rides category).
+  - Also scheduled rides, the airport queue, bus trips, the sea, driver on demand and lessons.
+  - The category's own rules (body types…) still apply on top.
+- **By distance or by the hour per country:** `hourly.mode` in the rules (`category` / `hourly` / `distance`), else the category's `hourly_only` flag.
+- **API:**
+  - Captain: `GET driver/v1/work-services` returns `{kind, services: [{key, name, description, icon, color, coming_soon, on}]}`. `PUT driver/v1/work-services/{key} {on}` switches one.
+  - Admin (permission `driver-services`): `driver-services` CRUD, and `GET|PUT driver-service-rules?country_id` with `matrix: {service: {kind: bool}}`.
+- **Captain app:** the home screen's Services button opens `ServicesSheet`.
+
 ## Ride chat (`RideChatService`, `ride_messages`)
 Rider ↔ driver, text and ready-made messages (`lang/*/rides.php → quick`), open only while a driver is on the ride; when it ends nobody can write (`409 rides_chat_closed`) but the conversation stays for the admin. Live on `rides.{uuid}` as `ride.message`, plus a push to the other side; a `client_id` makes a re-send land once. API: `GET|POST mobile/v1/rides/{uuid}/messages` and `driver/v1/rides/{uuid}/messages` (`{open, quick_replies, messages}`).
 
@@ -438,6 +519,13 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - A yacht hire: booked by the hour, an overlapping hire refused, more time asked and approved (charged then), boarded by QR, and the captain paid less the `marine` commission.
 - Find a driver: the quote, a request paid upfront, a second open request refused, the rider's phone hidden until a captain accepts, then arrived → started → completed and the captain paid less `hire.commission_bp`.
 - Driving lessons: a pack bought, a lesson booked and confirmed, «done» refused before its time and then paid per lesson, and the lessons not taken refunded on quit.
+
+`RidesDriverRanksTest` (5) covers the captain's account:
+- ranks: probation → up → a warning → down after the grace period → an appeal;
+- payouts: third-party, international, KYC, the hold on a new account, the monthly statement and the emergency freeze;
+- support tickets and lost items;
+- settings: alerts, deleting notifications, changing the phone number, the terms and closing the account;
+- the exceptional states: maintenance, the financial safe mode, a pending / late withdrawal and the emergency review.
 
 `RidesFlowTest::test_a_request_goes_to_several_captains_at_once_and_the_first_to_accept_takes_it` checks O-36: one request goes to several captains, and the other cards are withdrawn once one accepts. The older order-by-turn tests (nearest first, step back, favourite first) set `search.batch_size` to 1. The airport queue always offers one captain at a time.
 

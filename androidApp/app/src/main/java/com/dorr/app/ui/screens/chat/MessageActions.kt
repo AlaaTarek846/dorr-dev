@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.ShortText
 import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.AddTask
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Redeem
 import androidx.compose.material.icons.rounded.Inventory2
@@ -224,6 +225,11 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                 if (aiText && !focused.isMine && ChatAi.understand) ActionRow(Icons.Rounded.Psychology, stringResource(R.string.ct_understand)) { state.aiTool = "understand" to dto; close() }
                 if (aiText && ChatAi.simplify && dto.body.orEmpty().length > 220) ActionRow(Icons.Rounded.ShortText, stringResource(R.string.ct_simplify)) { state.aiTool = "simplify" to dto; close() }
                 if (aiText && ChatAi.tasks) ActionRow(Icons.Rounded.TaskAlt, stringResource(R.string.ct_make_tasks)) { state.aiTool = "tasks" to dto; close() }
+                // A work group (or one of its projects): make this message a team task (GR-038).
+                val g = state.conversation?.group
+                if (aiText && !dto.isDeleted && (g?.kind == "work" || g?.space?.type == "project")) {
+                    ActionRow(Icons.Rounded.AddTask, stringResource(R.string.gt_make_task)) { state.groupTaskFrom = dto; close() }
+                }
                 // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
                 if (ChatAi.imageEdit && dto.type == "image" && !dto.viewOnce && !dto.sealed && !dto.isDeleted) ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_image_edit_title)) { state.aiTool = "edit_image" to dto; close() }
                 if (aiText && ChatAi.notes) ActionRow(Icons.Rounded.Description, stringResource(R.string.ct_make_note)) { state.aiNote(listOf(dto.id), noteSaved); close() }

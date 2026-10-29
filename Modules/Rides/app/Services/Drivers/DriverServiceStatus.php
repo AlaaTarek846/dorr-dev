@@ -36,10 +36,10 @@ class DriverServiceStatus
         return $driver->country_id !== null && $this->policies->for((int) $driver->country_id, $driver->city_id)->bool('ops.financial_safe_mode');
     }
 
-    /** D-336: the rides service is switched off where the captain works. */
+    /** D-336: the admin switched the rides service off where the captain works. */
     public function serviceOff(Driver $driver): bool
     {
-        return $driver->country_id !== null && ! $this->features->allows((int) $driver->country_id, $driver->city_id, RideFeatures::SERVICE);
+        return $driver->country_id !== null && $this->features->switchedOff((int) $driver->country_id, $driver->city_id, RideFeatures::SERVICE);
     }
 
     /**
@@ -99,7 +99,7 @@ class DriverServiceStatus
 
         return RideCategory::query()->orderBy('sort_order')->get()
             ->filter(fn (RideCategory $c) => $gate->wants($driver, $c))
-            ->filter(fn (RideCategory $c) => ! $c->status || ! $this->features->allows((int) $driver->country_id, $driver->city_id, RideFeatures::categoryFeature($c->slug)))
+            ->filter(fn (RideCategory $c) => ! $c->status || $this->features->switchedOff((int) $driver->country_id, $driver->city_id, RideFeatures::categoryFeature($c->slug)))
             ->map(fn (RideCategory $c) => ['slug' => $c->slug, 'name' => $c->translatedName() ?? $c->slug])
             ->values()->all();
     }

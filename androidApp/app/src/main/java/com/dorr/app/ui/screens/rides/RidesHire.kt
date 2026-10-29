@@ -178,8 +178,13 @@ private fun HireForm(rides: RidesState, onBack: () -> Unit, onHistory: () -> Uni
         val p = pickup ?: return@LaunchedEffect
         delay(250)
         runCatching { ApiClient.hire.quote(ridesAuth(), p.lat, p.lng, unit, quantity).data }
-            .onSuccess { quote = it; error = null }
-            .onFailure { error = it.apiFailure().message }
+            .onSuccess { q ->
+                quote = q; error = null
+                // O-84: the server moved the choice into what is offered — follow it (this re-prices once).
+                q?.unit?.let { if (it != unit) unit = it }
+                q?.quantity?.let { if (it != quantity) quantity = it }
+            }
+            .onFailure { quote = null; error = it.apiFailure().message }
     }
     val limits = quote?.limits
     val range = if (unit == "day") 1..(limits?.maxDays ?: 7) else (limits?.minHours ?: 1)..(limits?.maxHours ?: 12)
@@ -222,7 +227,9 @@ private fun HireForm(rides: RidesState, onBack: () -> Unit, onHistory: () -> Uni
                     }
                 }
                 HireCard {
-                    Segmented(listOf("hour" to R.string.hire_by_hours, "day" to R.string.hire_by_days), unit) { unit = it }
+                    // O-84: only the units with a price in this country.
+                    val offered = listOf("hour" to R.string.hire_by_hours, "day" to R.string.hire_by_days).filter { quote?.units.isNullOrEmpty() || it.first in quote!!.units }
+                    if (offered.size > 1) Segmented(offered, unit) { unit = it }
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -247,8 +254,20 @@ private fun HireForm(rides: RidesState, onBack: () -> Unit, onHistory: () -> Uni
                     com.dorr.app.ui.components.DorrTextField(value = note, onValueChange = { note = it.take(255) }, placeholder = stringResource(R.string.hire_note_hint), icon = Icons.Rounded.Notes, modifier = Modifier.fillMaxWidth())
                 }
                 limits?.takeIf { it.overtimePerMinMinor > 0 }?.let { Text(stringResource(R.string.hire_overtime, money(it.overtimePerMinMinor, quote?.currency)), color = settingsMut(), fontSize = 12.sp) }
-                error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
             }
+        }
+        // O-84: why the button is off, right above it — never a grey button without a word.
+        val why = when {
+            busy -> null
+            pickup == null -> stringResource(R.string.hire_need_place)
+            error != null -> error
+            quote == null -> stringResource(R.string.hire_pricing)
+            !now && start == null -> stringResource(R.string.hire_need_time)
+            else -> null
+        }
+        why?.let {
+            Text(it, color = if (error != null && pickup != null) AppColors.danger else settingsMut(), fontSize = 12.5.sp,
+                modifier = Modifier.fillMaxWidth().background(settingsCard()).padding(horizontal = 16.dp, vertical = 6.dp))
         }
         Row(Modifier.fillMaxWidth().shadow(18.dp).background(settingsCard()).navigationBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

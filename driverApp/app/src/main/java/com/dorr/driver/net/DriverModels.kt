@@ -220,7 +220,13 @@ data class BidCardDto(
 
 data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null, val polyline: String? = null)
 
-data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
+/** [isVerified]: the rider's account verification tick (Dorr account verification, AV-028). */
+data class RiderDto(
+    val name: String? = null,
+    val rating: Double? = null,
+    @SerializedName("trips_count") val tripsCount: Int = 0,
+    @SerializedName("is_verified") val isVerified: Boolean = false,
+)
 
 data class BeneficiaryDto(val name: String? = null)
 
@@ -564,6 +570,8 @@ data class NextTripDto(
     val uuid: String,
     val number: String? = null,
     val rider: String? = null,
+    /** The next trip's rider is a verified Dorr account. */
+    @SerializedName("rider_verified") val riderVerified: Boolean = false,
     val pickup: PlaceDto? = null,
     @SerializedName("earning_minor") val earningMinor: Long? = null,
 )
@@ -860,7 +868,9 @@ data class DriverRideItemDto(
     @SerializedName("completed_at") val completedAt: String? = null,
 )
 
-data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList())
+data class DriverRideListMetaDto(@SerializedName("current_page") val currentPage: Int = 1, @SerializedName("last_page") val lastPage: Int = 1, val total: Int = 0)
+
+data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList(), val meta: DriverRideListMetaDto? = null)
 
 // ---------------------------------------------------------------- rank and performance (D-239..D-259)
 
@@ -1020,3 +1030,41 @@ data class LegalDocDto(
     val content: String? = null,
     @SerializedName("needs_acceptance") val needsAcceptance: Boolean = false,
 )
+
+// ---------------------------------------------------------------- exceptional states (D-329..D-344)
+
+data class PausedCategoryDto(val slug: String, val name: String = "")
+
+data class EmergencyReviewDto(@SerializedName("ride_number") val rideNumber: String? = null, val since: String? = null, val until: String? = null)
+
+data class LastWithdrawalDto(
+    val id: Long,
+    val state: String = "pending",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    val reason: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class ServiceStatusDto(
+    val maintenance: Boolean = false,
+    @SerializedName("maintenance_message") val maintenanceMessage: String? = null,
+    @SerializedName("safe_mode") val safeMode: Boolean = false,
+    @SerializedName("service_on") val serviceOn: Boolean = true,
+    @SerializedName("paused_categories") val pausedCategories: List<PausedCategoryDto> = emptyList(),
+    @SerializedName("emergency_review") val emergencyReview: EmergencyReviewDto? = null,
+    @SerializedName("last_withdrawal") val lastWithdrawal: LastWithdrawalDto? = null,
+)
+
+/** O-89: one service the captain's vehicle can work in here — drawn by the dashboard, with the captain's switch. */
+data class WorkServiceDto(
+    val key: String,
+    val name: String? = null,
+    val description: String? = null,
+    val icon: String? = null,
+    val color: String = "#1E88E5",
+    @SerializedName("coming_soon") val comingSoon: Boolean = false,
+    val on: Boolean = true,
+)
+
+/** O-89: the captain's kind of vehicle (car / motorcycle / minibus / bus / boat / yacht / none) and its services. */
+data class WorkServicesDto(val kind: String = "car", val services: List<WorkServiceDto> = emptyList())

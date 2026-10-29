@@ -15,8 +15,9 @@ class AuditLogger
     /**
      * @param  array<string, mixed>|null  $before
      * @param  array<string, mixed>|null  $after
+     * @param  string|null  $reason  why, as the staff wrote it (a rejection, a suspension…)
      */
-    public function record(string $action, ?Model $subject = null, ?array $before = null, ?array $after = null, ?Model $actor = null): AuditLog
+    public function record(string $action, ?Model $subject = null, ?array $before = null, ?array $after = null, ?Model $actor = null, ?string $reason = null): AuditLog
     {
         $actor ??= request()?->user('admin_api');
 
@@ -28,6 +29,7 @@ class AuditLogger
             'subject_id' => $subject?->getKey(),
             'before' => $before,
             'after' => $after,
+            'reason' => $reason,
             'ip' => app()->runningInConsole() ? null : request()?->ip(),
         ]);
     }

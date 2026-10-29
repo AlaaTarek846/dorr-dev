@@ -50,7 +50,7 @@
                                     <span class="text-muted fs-11">{{ row.specialty || '—' }} · {{ countryName(row.country_id) }}</span>
                                 </td>
                                 <td>
-                                    <span class="d-block">{{ row.client_name || '—' }}</span>
+                                    <span class="d-block"><UserName :user="{ name: row.client_name, is_verified: row.client_verified }">{{ row.client_name || '—' }}</UserName></span>
                                     <span class="text-muted fs-11" dir="ltr">{{ row.client_phone }}</span>
                                 </td>
                                 <td dir="ltr">{{ budgetText(row.budget) }}</td>
@@ -83,7 +83,7 @@
             <div v-if="current">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <div>
-                        <div class="fw-semibold">{{ current.client?.name || '—' }}</div>
+                        <div class="fw-semibold"><UserName :user="current.client">{{ current.client?.name || '—' }}</UserName></div>
                         <div class="text-muted fs-12"><span dir="ltr">{{ current.client?.phone }}</span> · {{ countryName(current.country_id) }}</div>
                     </div>
                     <span class="badge ms-auto" :class="statusBadge(current.status)">{{ t(`freelance.projects.status.${current.status}`) }}</span>
@@ -187,6 +187,7 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatCatalogDate } from '../../../../../../../utils/catalog';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // Reviewing the clients' projects (FL-203): the oldest waiting first. A project can be fixed while it waits, then published, sent
 // back for changes, or rejected (a reason is always given; a rejected project can still be edited and sent again by its client).

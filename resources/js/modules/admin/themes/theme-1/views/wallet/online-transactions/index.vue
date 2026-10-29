@@ -155,7 +155,7 @@
                 <div class="row g-3">
                     <div class="col-md-4">
                         <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
-                            {{ detail.owner?.name || `#${detail.owner_id}` }}
+                            <UserName :user="detail.owner">{{ detail.owner?.name || `#${detail.owner_id}` }}</UserName>
                             <div v-if="detail.owner?.phone" class="fs-12 fw-normal text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
                         </WalletInfoTile>
                     </div>
@@ -289,6 +289,7 @@ import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery'
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, formatDateTime } from '../../../../../../../utils/walletMoney';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();

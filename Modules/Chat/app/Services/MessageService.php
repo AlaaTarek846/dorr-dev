@@ -30,6 +30,7 @@ use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
+use Modules\Chat\Support\GroupMedia;
 use Modules\Chat\Support\ParticipantType;
 use Modules\Chat\Support\SharedMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -276,7 +277,7 @@ class MessageService
             if (($thumbnail = $data['thumbnail_file'] ?? null) instanceof UploadedFile && $type === MessageType::Video) {
                 $thumbnail = WebpUploadConverter::convert($thumbnail);
                 $extension = strtolower($thumbnail->getClientOriginalExtension() ?: $thumbnail->extension() ?: 'jpg');
-                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL);
+                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL, GroupMedia::diskFor($conversation));
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
@@ -1117,6 +1118,8 @@ class MessageService
             if (($conversation->isChannel() || $conversation->group->only_admins_send) && ! $participant->isAdmin()) {
                 throw ChatException::adminsOnly();
             }
+            // Archived, or a term / project that closed (docs/groups_tasks.md GR-006, GR-007).
+            GroupLifecycleService::assertWritable($conversation);
 
             $this->assertNotTooSoon($participant, $conversation);
 
@@ -1272,7 +1275,8 @@ class MessageService
                 // A photo's size and tiny preview (data saver shows it before the download).
                 ->withCustomProperties(ImagePreview::of($file))
                 ->setOrder($i + 1)
-                ->toMediaCollection(ChatMessage::ATTACHMENTS);
+                // Educational / work groups: the private disk, read through signed links only (GR-008).
+                ->toMediaCollection(ChatMessage::ATTACHMENTS, GroupMedia::diskFor($message->conversation));
         }
     }
 

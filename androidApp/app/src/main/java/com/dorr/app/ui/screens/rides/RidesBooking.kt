@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.TwoWheeler
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -122,6 +123,28 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
             WhenChips(state)
         }
 
+        // O-86: the motorcycle is hired by the hour — no destination needed, even where open rides are off.
+        if (!state.feature("open_destination") && state.features?.categories?.get("motorcycle") == true) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable {
+                    state.openDestination = true
+                    state.destination = null
+                    state.stops.clear()
+                    loadQuotes(state)
+                }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(36.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.TwoWheeler, null, tint = settingsAccent(), modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(stringResource(R.string.rd_moto_hourly), color = settingsInk(), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.rd_moto_hourly_hint), color = settingsMut(), fontSize = 12.sp)
+                }
+            }
+        }
         if (state.feature("open_destination")) {
             Spacer(Modifier.height(10.dp))
             Row(

@@ -68,8 +68,10 @@ class RideTripService
         }
 
         $distance = (int) round(Geo::metres($lat, $lng, $ride->origin_lat, $ride->origin_lng));
-        if ($distance > (int) $ride->policy('arrival.radius_m', 100)) {
-            throw new RidesException('not_at_pickup', 422, ['distance' => $distance], ['distance_m' => $distance]);
+        $radius = (int) $ride->livePolicy('arrival.radius_m', 100);
+        if ($distance > $radius) {
+            // O-76: the app shows it as a dialog — how far, and within how much "arrived" works.
+            throw new RidesException('not_at_pickup', 422, ['distance' => $distance, 'radius' => $radius], ['distance_m' => $distance, 'radius_m' => $radius]);
         }
 
         $ride = $this->machine->move($ride, RideStatus::Arrived, 'arrived', 'driver', $driver->id, ['arrived_at' => now()], ['lat' => $lat, 'lng' => $lng], ['distance_m' => $distance], $key);
@@ -354,7 +356,7 @@ class RideTripService
         }
         $distance = (int) round(Geo::metres($lat, $lng, (float) $ride->destination_lat, (float) $ride->destination_lng));
 
-        return $distance > (int) $ride->policy('arrival.destination_radius_m', 500) ? $distance : 0;
+        return $distance > (int) $ride->livePolicy('arrival.destination_radius_m', 500) ? $distance : 0;
     }
 
     /** An offers (bidding) ride: its price was agreed by both sides, so it is never worked out again. */

@@ -349,6 +349,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 if (isSearching) ConversationSearchBar(searchQuery, onChange = { searchQuery = it }) { searching = false; searchQuery = "" }
                 else ConversationHeader(c, state, onSearch = { searching = true }, onAi = { aiMenu = true })
             }
+            // Educational / work groups: "General" and the terms / projects I'm in (GR-007).
+            if (!searching) GroupSpaceTabs(c)
             BackHandler(searching) { searching = false; searchQuery = ""; searchKinds = emptySet() }
             androidx.compose.animation.AnimatedVisibility(searching) {
                 Column {
@@ -469,6 +471,12 @@ fun ConversationPage(route: ChRoute.Conversation) {
             "dates" -> AiDatesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
             "files" -> AiRelatedFilesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
         }
+        // GR-038: a message made into a work-group task (in its main group; in the project when it came from one).
+        state.groupTaskFrom?.let { m ->
+            val g = state.conversation?.group
+            val main = g?.space?.parentId ?: state.conversation?.id
+            if (main != null) TaskFromMessageSheet(main, g?.space?.id, m) { state.groupTaskFrom = null }
+        }
         state.aiTool?.let { (kind, m) ->
             val closeTool = { state.aiTool = null }
             when (kind) {
@@ -570,14 +578,15 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                     ChAvatar(c?.avatar, c?.title, peerKey ?: state.id, size = 34.dp, isGroup = c?.isGroup == true, online = presence?.online == true)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(
+                        com.dorr.app.ui.components.VerifiedName(
                             c?.title.orEmpty(),
+                            // A verified channel, or a verified person (account verification).
+                            verified = c?.group?.isVerified == true || c?.peer?.isVerified == true,
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = CairoFontFamily,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            tickTint = Color.White,
                         )
                         val subtitle = when {
                             activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
@@ -766,6 +775,8 @@ private fun BottomArea(c: ConversationDto?, state: ConversationState) {
         // A follower: mute and share instead of a composer.
         c.isChannel && !c.canSend -> ChannelFollowerBar(c) { state.conversation = it }
         c.blockedMe == true || c.status == "rejected" -> NoticeBar(stringResource(R.string.ch_cant_send), null) {}
+        // Archived, or a term / project that closed (GR-006, GR-007).
+        c.group?.readOnly == true -> NoticeBar(stringResource(R.string.ch_group_read_only_bar), null) {}
         !c.canSend -> NoticeBar(stringResource(R.string.ch_only_admins), null) {}
         else -> Composer(state)
     }

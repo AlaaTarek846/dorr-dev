@@ -36,6 +36,7 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Driver app | `driverApp/` (separate Gradle project) → `/api/driver/v1/*` (guard: `driver_api`, `Modules/Driver`) — a driver is **not** a Provider |
 | Freelancer app | `freelanceApp/` (separate Gradle project, `com.dorr.freelance`, shares `driverApp/core`) → `/api/freelance/v1/*` (guard: `freelance_api`, `Modules/Freelance`) — guide [docs/modules/freelance/APP.md](docs/modules/freelance/APP.md) |
 | Rides | `Modules/Rides` — plan [docs/rides-plan.md](docs/rides-plan.md), tables [docs/rides-structure.md](docs/rides-structure.md), **tasks [docs/rides_tasks.md](docs/rides_tasks.md)** (reserve a task with your name before starting; tick it when done) |
+| Group types (chat) | Educational + work groups = the existing chat group with a `kind` and extra features, inside `Modules/Chat` — **tasks [docs/groups_tasks.md](docs/groups_tasks.md)** (draft; open decisions first; reserve a task before starting) |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
 | Modules | `Modules/Admin`, `User`, `AI`, `Provider`, `Driver`, `Rides`, … |
 | API envelope | `App\Support\Api\ApiResponse` |

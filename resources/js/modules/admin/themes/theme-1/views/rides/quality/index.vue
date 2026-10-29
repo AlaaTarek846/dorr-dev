@@ -81,7 +81,7 @@
                                 <td><span class="badge" :class="r.risk_score >= 60 ? 'bg-danger' : 'bg-warning'">{{ r.risk_score }}</span></td>
                                 <td class="text-wrap"><span v-for="f in r.flags" :key="f.code" class="badge bg-danger-transparent me-1 mb-1">{{ f.label }}</span></td>
                                 <td>{{ r.driver?.name || '—' }}</td>
-                                <td>{{ r.rider?.name || '—' }}</td>
+                                <td><UserName :user="r.rider">{{ r.rider?.name || '—' }}</UserName></td>
                             </tr>
                         </tbody>
                     </table>
@@ -97,6 +97,7 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // Block 06 — why captains arrive late and riders rate low (AI-19), DORR AI's reading of it on request, and the
 // rides with fraud signs (AI-06). Loads on open and when the period changes.

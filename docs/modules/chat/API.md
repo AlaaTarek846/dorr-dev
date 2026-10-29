@@ -124,7 +124,7 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `groups` | `name`, `description`, `avatar`, `members[]` (user ids), `disappearing_seconds` | Returns `not_added` for people whose privacy said no |
+| POST | `groups` | `name`, `description`, `avatar`, `members[]` (user ids), `disappearing_seconds`, `kind` (`normal` default \| `education` \| `work`) | Returns `not_added` for people whose privacy said no. `kind` is fixed once made (`group.kind`). An educational / work group needs its kind on where I am (`features.education_groups` / `work_groups`: admin switch + rules per country and city) — else `403 chat_group_kind_disabled` — and fewer than `max_owned_kind_groups` of that kind owned by me (0 = no limit) — else `422 chat_group_limit_reached`. See docs/groups_tasks.md |
 | POST | `groups/{c}` | `name`, `description`, `avatar`, `remove_avatar` | Admins only when `only_admins_edit_info` is on |
 | PATCH | `groups/{c}/settings` | `only_admins_send`, `only_admins_edit_info`, `only_admins_add_members`, `approve_joins`, `slow_mode_seconds` (0\|10\|30\|60\|300\|900\|3600), `banned_words[]` (≤200, each ≤50 chars) | Admins only. Slow mode and banned words are for groups (ignored on a channel) |
 | GET / POST | `groups/{c}/members` | `members[]` | Limited by `max_group_members` |
@@ -137,6 +137,166 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 | GET / POST | `invites/{token}`, `invites/{token}/join`, `invites/{token}/join/cancel` | | Someone who joins doesn't see earlier history. The preview carries `approve_joins` and `request_status`. An expired link answers `410 chat_invite_expired` |
 
 **Moderation.** With `slow_mode_seconds` on, a member (not an admin) who sent less than that long ago gets `429 chat_slow_mode` with `data.retry_after` (seconds left); turning it on or off leaves a system line (`slow_mode_on` with `seconds`, `slow_mode_off`). A member's text, caption, poll option or edit containing a banned word is refused with `422 chat_banned_word` (admins are exempt). Matching ignores case, tashkeel and tatweel, treats أ/إ/آ/ا, ى/ي and ة/ه as the same letter, allows any spacing inside a phrase, and never matches inside another word (`Support\BannedWords`). `group.banned_words` is only returned to admins (`null` for members); `group.slow_mode_seconds` is returned to everyone.
+
+**Hidden members (paid once, 2026-10-27).** `GET groups/hidden-members` answers what it costs where I am: `{available, amount_minor, currency_code, currency_symbol, decimal_places}` (`available: false` when the admin switched it off or gave the country no price). An admin of a group buys it on the payment screen: `POST wallet/checkouts {purpose: chat_group_hidden_members, reference: {group_id}}` — right after `POST groups` (the app's «إخفاء الأعضاء» switch) or later from the group's settings. A failed or cancelled payment leaves an ordinary group. Once paid (`group.members_hidden: true`, system line `group_members_hidden`, `chat.conversation.updated`) it is never switched off. Then, for anyone the viewer knows **only** from such groups (not a saved contact, no private chat or ordinary group together), every `profile` in every response has `phone: null`, `username: null`, `is_hidden: true` and a name that never falls back to the number (`chat.hidden_member_name`); `conversations/direct` with them answers `403 chat_hidden_member` (calls go through that chat, so they're closed too). Names still show in the chat. Not for channels (`chat_group_only`); a second purchase is `409 chat_members_already_hidden`; not sold here `422 chat_hidden_members_unavailable`. Done in `ParticipantDirectory::isHiddenFrom()`.
+
+**Join mode (GR-003, 2026-10-27).** `PATCH groups/{c}/settings {join_mode: direct|approval|request}` (admins). `approve_joins` follows it (on for approval and request); an app that only sends `approve_joins` still works (`true` → approval, `false` → direct). With `request`, `invites/{token}/join` takes an optional `reason` (≤300) that the admins see as `reason` in `join-requests`. The invite preview and `group` carry `join_mode`. Approving someone whose account was stopped since asking answers `404 chat_user_not_found` (no way in).
+
+**Roles and permissions — educational and work groups only (GR-004, 2026-10-27).** A new educational group starts with the template roles teacher (its maker), assistant, grader, moderator, student (default) and parent. A work group starts with manager (its maker), supervisor, moderator and member (default). Everyone added or joining gets the default role, and someone who leaves and comes back starts again from it. The owner holds every permission. Anyone else holds the union of their roles' permissions (`GroupPermissions`), which also come back with the conversation as `group.my_permissions` (`null` in an ordinary group). No permission is given to one person directly.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `groups/{c}/roles` | Any member: `{roles[{id, template, name, permissions[], is_default, members_count}], permissions[{key, name}] (this kind's catalogue), my_permissions[]}`. Ordinary group: `422 chat_group_kind_required` |
+| POST | `groups/{c}/roles` | `{name, permissions[]}` — needs `roles.manage` |
+| PATCH | `groups/{c}/roles/{role}` | `{name?, permissions?}` (a template's own name back with `name: null`) |
+| DELETE | `groups/{c}/roles/{role}` | `409 chat_role_in_use` while someone holds it; `409 chat_role_is_default` for the default role |
+| PUT | `groups/{c}/members/{participant}/roles` | `{roles: [ids]}` replaces what they hold in the whole group; the owner can't be given roles |
+
+- **Nobody hands out more than they hold:** making, editing, deleting, giving or taking a role all need `roles.manage`. Everyone but the owner may only touch permissions they hold themselves, or the server answers `403 chat_group_permission_denied`.
+- **Errors:** a permission outside the kind's catalogue is `422 chat_permission_unknown`.
+- **Members list:** `groups/{c}/members` adds `roles` (ids) for each member.
+- **Audit log:** every change is recorded in `chat_group_audit_log` (`role_created`, `role_updated`, `role_deleted`, `member_roles_changed`; GR-010).
+- **Realtime:** members hear `chat.conversation.updated`.
+
+**Hand-over, archive, delete — educational and work groups only (GR-005, GR-006, 2026-10-28).** Ordinary groups keep the old behaviour.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `groups/{c}/owner` | `{participant_id}`. In an educational / work group this is an **offer**: nothing changes until the member answers. `group.ownership_offer {from_participant_id, to_participant_id, for_me}` is only sent to those two. The member gets a push and `chat.group.ownership_offer` |
+| POST | `groups/{c}/owner/accept`, `…/decline` | The member it's for. On accept they own the group and the old owner stays as an admin. `404 chat_ownership_offer_not_found` if there's no offer for me |
+| DELETE | `groups/{c}/owner` | The owner takes the offer back |
+| POST | `groups/{c}/leave` | The owner of a group that still has members: `409 chat_owner_must_transfer` |
+| POST | `groups/{c}/archive` | `{archived: bool}`, owner only. While archived, `group.read_only` is true and `can_send` is false. Sending answers `423 chat_group_read_only`, and nobody joins or is added |
+| DELETE | `groups/{c}` | Gone for everyone, but kept with its members (and its terms / projects) for `chat_settings.group_restore_days` (30) |
+| GET | `groups/deleted` | My deleted groups that can still come back: `[{id, name, kind, deleted_at, purge_after}]` |
+| POST | `groups/{c}/restore` | Owner, before `purge_after`. Otherwise `404 chat_group_not_restorable` |
+
+`chat:purge-deleted-groups` (daily) deletes them for good after `purge_after`. Every step goes into `chat_group_audit_log`.
+
+**Terms, subgroups and projects (GR-007, decision D2).** Each one is its own group chat inside an educational group (`term`, `subgroup`) or a work group (`project`). Its members are members of the main group. The space's chat has `group.space {id, type, is_closed, parent_id, parent_name}`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `groups/{c}/spaces` | The spaces I'm in, or all of them for `spaces.manage`: `[{id, conversation_id, type, name, starts_on, ends_on, is_closed, is_member, members_count}]` |
+| POST | `groups/{c}/spaces` | `{type, name, starts_on?, ends_on?, members[]}` (participant ids in the main group). Needs `spaces.manage`. The main group's owner owns the space, and its maker runs it |
+| POST | `groups/{c}/spaces/{space}/members` | `{members[]}` from the main group. Later joiners don't see earlier messages |
+| DELETE | `groups/{c}/spaces/{space}/members/{participant}` | Out of the space, still in the group |
+| POST | `groups/{c}/spaces/{space}/close` | `{closed: bool}`: read only, or open again |
+
+Nobody gets into a space by themselves:
+- New members of the main group aren't added.
+- A space has no invite link.
+- Its own `groups/{c}/members` refuses with `422 chat_space_members_from_group`.
+
+Leaving the main group, or being removed from it, takes you out of every space in it at once.
+
+**Files, announcements, notices, activity log — educational and work groups (GR-008..010, 2026-10-28).**
+
+- **Files:**
+  - Files sent to an educational or work group (or its terms and projects) are kept on the private disk, never at a public `/storage` address.
+  - Their `url`, wherever it appears, is `GET /api/mobile/v1/chat/media/{uuid}?v=user:7&expires=…&signature=…`. The link is signed for that viewer and lasts one to two hours (the same link all hour). It needs no token header, and Range requests work.
+  - Every download checks again that the viewer is an active member of a chat that wasn't deleted and that the message is still there. Otherwise it's `404`, so a saved link stops working the moment access is lost.
+  - A tampered link answers `403`.
+  - This is done in `GroupMedia` and in `ProtectedMediaUrlGenerator` (`config/media-library.php`).
+  - Ordinary groups keep public files.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET / POST | `groups/{c}/announcements` | GET gives the latest 50 (messages). POST `{body}` needs `announcements.post` and makes a text message with `meta.announcement: true`, pinned for 30 days. The chat's own push and mute apply |
+| GET / PUT | `groups/{c}/notification-prefs` | `{types[], muted[]}`. PUT `{prefs: {ownership|spaces|roles: bool}}` (true = pushed). The live `chat.group.notice` event always arrives; only the push is skipped (`GroupNotifier`) |
+| GET | `groups/{c}/audit-log?page=` | Needs `audit.view`. 30 a page: `{items[{id, action, text, actor, subject, before, after, created_at}], has_more}` |
+
+The log records:
+- roles and hand-overs;
+- archive, delete and restore;
+- terms and projects;
+- members added, removed or leaving;
+- join decisions;
+- settings changes;
+- announcements.
+
+**Tasks — work groups only (GR-032..036, 2026-10-28).** `{task}` is a uuid. Any other group answers `422 chat_work_group_only`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `groups/{c}/tasks` | `?status=open|review|done|cancelled|all&mine=1&space_id=&page=`, 15 a page: `{tasks[], has_more}`. A project's tasks are only listed for its members |
+| POST | `groups/{c}/tasks` | `{title, description?, assignee_participant_id?, priority: low|normal|high|urgent, due_at?, needs_approval?, requires_proof?, repeat?: daily|weekly|monthly, repeat_until?, space_id?, items[]?}`. Needs `tasks.create`; giving it to someone else also needs `tasks.assign`. A project task's assignee must be in the project. `repeat` needs `due_at` |
+| GET / PATCH / DELETE | `groups/{c}/tasks/{task}` | Edit or cancel: its maker or `tasks.assign`. Reassigning needs `tasks.assign`. DELETE cancels it (kept) |
+| POST | `…/{task}/status` | `{status: in_progress|done}`, by its assignee (`tasks.work`) or `tasks.assign`. `done` goes to `in_review` when it `needs_approval`. With `requires_proof` and no file or note: `422 chat_task_proof_required` |
+| POST | `…/{task}/proof` | Multipart `files[]` (≤5 in all) and/or `note`. Files are on the private disk with signed links, like GR-008 |
+| POST / PATCH / DELETE | `…/{task}/items`, `…/items/{item}` | Add or remove: maker or `tasks.assign`. Tick `{done}`: the assignee |
+| POST | `…/{task}/review` | `{approve, note?}`. Needs `tasks.approve`, and the task must be `in_review`. Sending it back needs a note and returns it to `in_progress` with `review_note` |
+
+- **Task fields:** `{id, title, description, status, priority, due_at, is_late, needs_approval, requires_proof, assignee{participant_id, profile}, created_by, space, items[], items_done, proof{note, files[]}, review_note, repeat, repeat_until, can{edit, work, review}, …}`.
+- **Repeating tasks:** `chat:spawn-recurring-tasks` (every 15 minutes) makes the next task of a series once its due time comes, until `repeat_until`.
+- **Projects (GR-037):** a project's tasks are `GET groups/{c}/tasks?space_id=` and `POST {…, space_id}`. Its files are its own chat's gallery.
+- **A task from a message (GR-038):** `POST groups/{c}/tasks {…, source_message_id}` takes a message of this group, or of a project I'm in, that I can read (otherwise `404`). The task's `source` is `{available: true, message_id, conversation_id, excerpt}` only for someone who can still read that message; for anyone else, or once it's deleted, it's `{available: false}` and the task stays. The app's sheet can ask DORR AI (`messages/{m}/tasks`) for a title and due time first, as a suggestion.
+- **Follow-up (GR-039):**
+  - `GET groups/{c}/tasks/report` needs `reports.view` and gives `{totals{open, in_review, late, done_week}, members[{participant_id, profile, open, late, done_week}], late[]}`.
+  - `GET groups/{c}/tasks/export` gives a CSV (UTF-8 with BOM, opens in Excel). Both only cover the tasks the viewer can see, and the export goes into the activity log.
+  - `chat:remind-group-tasks` (every 5 minutes) pushes `task_due` to the assignee once, within the hour before it's due (again if the due time changes).
+- **Live updates:** `chat.group.task {conversation_id, task_id}`.
+- **Pushes** (`GroupNotifier` type `tasks`): task assigned, submitted for review (to the approvers), approved or sent back.
+
+**Educational groups — the classroom (GR-011..017, 2026-10-28).** Every item is for the whole group (`space_id` null) or for one term or subgroup. A student only sees the group's items and their own spaces'. Whoever manages that kind of item sees all of them. Files are on the private disk with signed links (GR-008), and each kind of owner decides who may open them (`ProtectedMediaOwner`). Any other kind of group answers `422 chat_education_group_only`. Students are the members holding a role that hands in homework but doesn't set it, never the owner (`GroupStudents`).
+
+| Area | Endpoints | Rules |
+|---|---|---|
+| Terms (GR-012) | `POST groups/{c}/spaces/{s}/next-term {name, starts_on?, ends_on?, members[]}` · `GET …/spaces/{s}/members` | The old term closes (read only). Only the chosen members move; chats and grades stay. Needs `spaces.manage` |
+| Lessons (GR-013) | `GET/POST groups/{c}/lessons` (`?q=&space_id=&page=`, multipart `files[]`) · `GET/POST(update)/DELETE …/lessons/{l}` · `POST …/lessons/{l}/messages {message_id}` | `lessons.manage`. A search never shows a lesson outside your scope. A chat message's words and files can be added to a lesson |
+| Homework (GR-014) | `GET/POST groups/{c}/assignments` · `GET/POST/DELETE …/{a}` · `POST …/{a}/submit` (multipart `body?, files[], team[]`) · `GET …/{a}/submissions` · `POST …/{a}/grades {participant_id, score, feedback?}` | Set by `assignments.manage`; handed in under `assignments.submit` (again = `version`+1, the last one counts; `is_late` after the due time). A team hand-in can't overlap with another (`409 chat_already_in_team_submission`). `grading` gives each student their own grade (≤ `max_score`). A student sees only `my_submission` and `my_grade` |
+| Tests (GR-015) | `GET/POST groups/{c}/quizzes` · `GET/PATCH/DELETE …/{q}` · `POST …/{q}/start` · `POST …/{q}/submit {answers: {question_id: answer}}` · `GET …/{q}/attempts` · `POST …/{q}/attempts/{id}/mark {marks, feedback?}` | `quizzes.manage` builds the test (`questions[]` and/or `bank_ids[]`) and publishes it with `is_published`. Questions are locked once someone starts (`409`). Each student gets one attempt (`409 chat_quiz_already_taken`), with an optional time limit plus 2 minutes of grace. Choice and true/false are marked at once; written answers wait for `grading`. Right answers only show to managers, and to a student after handing in when `results_visible` is on and marking is done |
+| Question bank (GR-016) | `GET/POST groups/{c}/question-bank` (`?subject=&unit=&difficulty=`) · `DELETE …/{id}` | `quizzes.manage` |
+| Sessions (GR-017) | `GET/POST groups/{c}/sessions` (`?when=upcoming|past`) · `GET/DELETE …/{s}` · `POST …/{s}/attendance {entries[{participant_id, status: present|absent|late|excused, note?}]}` · `GET groups/{c}/attendance?participant_id=` | `attendance.manage` takes attendance, and every change goes into the activity log with the old value. A student sees `my_status` and their own report only. `chat:remind-group-sessions` reminds students 30 minutes before |
+
+- **Live updates:** `chat.group.education {conversation_id, what, id}`.
+- **Pushes** (`GroupNotifier` types `assignments`, `quizzes`, `sessions`, `grades`): new homework or test, a new session or one about to start, a grade ready.
+
+**Classroom extras and help requests (GR-021..031 without AI, GR-041, 2026-10-28).**
+
+| Endpoint | What |
+|---|---|
+| `GET groups/{c}/bag` | GR-021, mine only: `{to_hand_in[], lessons[], grades[], tests[], reading[], stars, certificates[]}` |
+| `GET groups/{c}/quizzes/schedule` | GR-022, the coming tests. `chat:remind-group-sessions` also pushes `quiz_soon` once, within the hour before a test opens |
+| `GET groups/{c}/quizzes/{q}/leaderboard` | GR-024, only when the test has `is_competition: true` (set on create or PATCH). The one place students see each other's points |
+| `GET/POST groups/{c}/stars` | GR-025. POST `{participant_id, reason?}` needs `lessons.manage`, gives one star per student per week, and posts the system line `star_of_week` |
+| `GET/POST groups/{c}/reading` · `POST …/reading/{item}/progress {status: reading|done, pages_read?, note?}` | GR-026. A student keeps their own progress; teachers see `class {students, reading, done}` |
+| `GET/POST groups/{c}/certificates` | GR-028. POST `{participant_id, title, reason?}` needs `lessons.manage` and makes a landscape Arabic PDF (dompdf + Cairo) on the private disk. Only the student and the teachers can open it |
+| `POST groups/{c}/surveys {question, options[], multiple?}` | GR-030, needs `announcements.post`. A poll with `meta.survey`. Its counts, voters and the `chat.poll.updated` numbers only reach its maker and `reports.view` / `lessons.manage`. Everyone else gets `poll.results_hidden: true`, and `messages/{m}/votes` answers `403 chat_survey_results_hidden` |
+| `GET/POST groups/{c}/help` · `POST …/help/{h}/answer {answer}` · `POST …/help/{h}/close` | GR-031 / GR-041, both kinds. `{question, to_participant_id?}`: to one person, or to the helpers (in a class the teachers, in a work group the whole team). Only the asker, the person asked and the helpers see it. Only the asker closes it |
+
+**Work group extras, polls and tools switched off (GR-040, 042..046 without AI, GR-051, 2026-10-29).** Work groups only (`422 chat_work_group_only`), except polls.
+
+| Endpoint | What |
+|---|---|
+| `GET groups/{c}/shifts?from=YYYY-MM-DD&mine=1` · `POST` `{participant_id, title?, starts_at, ends_at}` · `DELETE …/shifts/{s}` | GR-040. A week from `from` (today by default). Setting / deleting needs `shifts.manage`. Each shift has `can {manage, handover, ask_swap, answer_swap}` |
+| `POST …/shifts/{s}/handover {note}` | The shift's own member only; whoever has the next shift is told (`shift_handover`) |
+| `POST …/shifts/{s}/swap {with_participant_id\|null}` · `POST …/shifts/{s}/swap/answer {accept}` | Ask another member to take my future shift (null takes the ask back). It changes hands only when that member accepts. Audited as `shift_swapped` |
+| `GET/POST groups/{c}/goals` · `POST …/goals/{g}/points {participant_id, points (−1000..1000), note?}` | GR-042, team competitions. Creating and giving points needs `tasks.approve`. Everyone sees `leaderboard[{rank, member, points}]` |
+| `GET groups/{c}/badges?participant_id=` · `POST {participant_id, title, emoji?, reason?}` | GR-043, giving needs `tasks.approve`, and the member gets a push (`badge_given`) |
+| `GET groups/{c}/ideas?status=` · `POST {title, body?}` · `POST …/ideas/{i}/vote` · `POST …/ideas/{i}/status {status, note?}` | GR-044. Anyone proposes and votes once; voting again takes the vote back. `new\|under_review\|accepted\|rejected\|done` is set by `tasks.approve`, and the proposer is told |
+| `GET groups/{c}/meetings?when=upcoming\|past` · `POST {title, starts_at, agenda?, space_id?}` | GR-046 without AI. Creating needs `tasks.assign`; the members (of the project, if `space_id`) are told, and reminded 30 minutes before by `chat:remind-group-sessions` |
+| `POST …/meetings/{m}/minutes {agenda?, minutes?}` · `POST …/meetings/{m}/tasks {items[{title, assignee_participant_id?, due_at?}]}` | Its maker or `tasks.assign`. Each line becomes a task of the group (or the project), following the usual task rules |
+| `POST groups/{c}/polls {question, options[], multiple?, anonymous?}` | GR-045, both kinds. Anonymous (`meta.anonymous`): everyone sees the counts, nobody sees who voted for what, not even its maker. `messages/{m}/votes` answers `403 chat_poll_anonymous` and the live event carries no voter |
+
+- **Live updates:** `chat.group.work {conversation_id, what: shift|goal|badge|idea|meeting}`.
+- **Pushes** (`GroupNotifier` types `shifts`, `ideas`, `meetings`; badges go under `grades`).
+**Parents in educational groups (GR-018, 019, 020, 027 — decision D8, 2026-10-29).** A parent is an ordinary DORR account and **never a member of the class chat**. The link goes like this: the student makes a code, the parent enters it, and a teacher (`parents.link`) approves. The parent then sees that one child only, worked out as the child sees it. Every parent request checks again that the child is still a member and a student, and that the `parents` tool is on. When the child leaves, the link is over. The old `parent` role and the `parent.follow` permission are gone.
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST groups/{c}/parents/code` · `GET groups/{c}/parents/mine` | A student (`assignments.submit` without `assignments.manage`) | A code for 7 days; a new one replaces the unused one. At most 4 parents per student (`422 chat_parent_link_limit`). `mine` shows who is linked to me |
+| `GET groups/{c}/parents?status=pending\|approved` · `POST …/parents/{link}/decide {approve}` · `DELETE …/parents/{link}` · `PATCH …/parents/settings {messaging}` | `parents.link` | The queue and the linked parents (`{messaging, links[{id, status, student, parent}]}`). Every decision is audited, and the parent is told by push and `chat.group.parent` |
+| `POST parent/link {code}` | The parent | Waits for a teacher (`chat_parent_code_invalid`, `chat_parent_self`, `chat_parent_already_linked`). The teachers get `GroupNotifier` type `parents` |
+| `GET parent/children` · `GET parent/children/{link}` · `DELETE parent/children/{link}` | The parent | The child's page: `homework[]`, `grades[]` (released only), `tests[]`, `stars`, `attendance {counts, sessions}`, `sessions[]` (upcoming), `announcements[]`, plus `messaging` and `teachers[]` |
+| `POST parent/children/{link}/message {teacher_participant_id}` | The parent | Opens a private chat with a teacher (`lessons.manage`), only while `parents_can_message` is on (`403 chat_parent_messaging_off`) → `{conversation_id}` |
+| `GET/POST groups/{c}/parent-meetings` `{title, starts_at, mode: group\|slots, slot_minutes?, slots?, note?}` · `DELETE …/{m}` | `parents.link` | GR-027. The call is a LiveKit call link of the teacher's; without calls in the country, the meeting stands without one. Approved parents are told. The teacher sees who booked each slot |
+| `GET parent/children/{link}/meetings` · `POST …/meetings/{m}/book {slot_at}` · `DELETE …/meetings/{m}/book` | The parent | One slot per child and one parent per slot (`409 chat_parent_slot_taken`). `call {token}` (join with `call-links/{token}/join`) goes to everyone for a `group` meeting, and to parents holding a slot for a `slots` one. `chat:remind-group-sessions` reminds 30 minutes before |
+
+- **Live updates:** `chat.group.parent {conversation_id, what}`, sent to the parent's account (they aren't members) and to the teachers.
+- **GR-020:** `ChatGroupParentsTest` checks that nothing of another student reaches a parent, a classmate or a stranger.
+
+- **Tools switched off (GR-051):** `chat_settings.group_tools_disabled[]`. Every route of a tool that is off answers `403 chat_group_tool_disabled`, and its data is kept. The tools are `lessons, assignments, quizzes, sessions, bag, stars, reading, certificates, surveys, parents, tasks, shifts, competitions, badges, ideas, meetings, announcements, help, polls, spaces`.
 
 **Joining by link with `approve_joins` on** leaves a request instead of a membership: `invites/{token}/join` answers `202` with `status: pending`, the conversation reports `group.pending_join_requests` to admins, and the queue is answered with:
 
@@ -770,9 +930,54 @@ How it fits together:
 | GET | `/api/admin/v1/chat-portals?search=&listed=` · PATCH `chat-portals/{id}/status` `{status}` | `chat-portals.view` / `.update` |
 | GET / POST / DELETE | `/api/admin/v1/chat-dorr-stories` (+ `/{id}`, POST `/{id}` to update, `/{id}/status`) — multipart `type`, `body`, `style[background]`, `link_url`, `link_label`, `starts_at`, `ends_at`, `status`, `sort_order`, `file` | `chat-dorr-stories.*` |
 | PUT | `/api/admin/v1/chat-settings` — also `public_stories_enabled`, `public_stories_free` (0–20) | `chat-settings.update` |
+| PUT | `/api/admin/v1/chat-settings` — also `education_groups_enabled`, `work_groups_enabled`, `max_owned_kind_groups` (0–1000, 0 = no limit), `group_restore_days` (1–365) | `chat-settings.update` |
+| PUT | `/api/admin/v1/chat-settings` — also `hidden_members_enabled`, `hidden_members_prices[] {country_id, amount_minor ≥ 1}` (hidden members in a group, paid once; a country without a price doesn't get it) | `chat-settings.update` |
 | GET | `/api/admin/v1/chat-channels?search=&verified=` · PATCH `chat-channels/{id}/verify` `{verified}` | `chat-channels.view` / `.update` |
+| PUT | `/api/admin/v1/chat-settings` — also `group_tools_disabled[]` (GR-051). GET also answers `group_tools {education[], work[], both[]}` | `chat-settings.update` |
+| GET | `/api/admin/v1/chat-groups?search=&kind=education\|work&status=active\|archived\|disabled\|deleted` (GR-050) · `chat-groups/stats` (GR-053: per kind, archived, disabled, deleted, active this week, open tasks, homework, tests, pending reports) · `chat-groups/templates` (GR-052: the role templates and every permission) | `chat-groups.view` |
+| GET | `/api/admin/v1/chat-groups/{uuid}` (members with phone and roles, roles, spaces) · `chat-groups/{uuid}/audit-log` | `chat-groups.view`. Opening either is itself recorded on the group's activity log (`admin_viewed`, actor `admin`) |
+| PATCH | `/api/admin/v1/chat-groups/{uuid}/disable {disabled}` (read only for everyone; the owner can't undo it, nor escape it by archiving or deleting and restoring) · POST `chat-groups/{uuid}/restore` (a deleted group before it is purged, with its spaces) | `chat-groups.update`, recorded (`admin_disabled`, `admin_enabled`, `admin_restored`). In the app's log they show as «إدارة دُرر» (`actor.is_admin`) |
 
 Only one theme can be the default: saving one as default clears the others, and a default theme is always active. Deleting a theme sends the chats that used it back to the default.
+
+---
+
+## Account verification (docs/verification_tasks.md)
+
+The full design is in [VERIFICATION.md](VERIFICATION.md). Batch 0 (the foundation) covers these endpoints:
+
+**The app** (under the chat prefix):
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `verification/options` | `{tracks: [{track: paid\|celebrity, available, documents: [{id, code, name, instructions, is_required, needs_back_side}]}]}`. `available` checks the admin's switch for the track first, then the country and city rules (`ChatFeatures`, features `verification_paid` / `verification_celebrity`). Both tracks are off until the admin opens them |
+| GET | `verification/badge` | My badge: `{status, type, is_verified, active_from, expires_at, reason}`, or `data: null` when the account was never verified |
+| GET | `verification/request` | The account's latest request, open or closed, or `data: null`. Fields: `uuid`, `track`, `status`, `is_open`, `next_step` (wait_review · complete · pay · agreement · publish_ad · upload_proof · wait_final · wait_staff · done · rejected · closed), `deadline_at` and `deadline_owner` (admin\|user), `deadline_paused`, `identity_checked`, `completion_reason`, `completion_document_type_ids[]`, `decision_reason`, `can_cancel`, `can_complete`, `documents[] {id, type, status, review_note, files{front,back}: {name, mime, size, path}}`, `history[] {status, by, at}` |
+| POST | `verification/request` (multipart) | `track`, `full_name`, `contact_phone?`, `contact_email?`, `notes?`, and `documents[{type_id}][front]` plus `[back]` when the type needs it (jpg/png/webp/pdf, at most `chat.verification.max_file_kb`, default 8 MB). Errors: `403 chat_verification_track_unavailable`, `422 chat_verification_documents_missing` with `data.document_type_ids`, and `409 chat_verification_request_open` (one open request per account, guaranteed by a unique `open_key`). Throttled to 10 per minute |
+| POST | `verification/request/{uuid}/complete` (multipart) | Only while `needs_completion`. Takes `note?`, contact changes, and `documents[…]`. The documents the staff asked for are required. The request goes back to review with a new deadline |
+| POST | `verification/request/{uuid}/cancel` | `reason?`. Any open status except `final_review` (`409 chat_verification_cancel_too_late`) |
+| GET | `verification/request/{uuid}/documents/{document}/{side}` | One of the account's own files (private disk, `no-store`). The path comes from `documents[].files.*.path` with the API prefix |
+
+**The dashboard** (`/api/admin/v1/chat-verification/*`). Every route checks its permission through `EnsureVerificationPermission`. When it refuses, it answers 403 and writes `chat_verification.denied` to `audit_logs` with `{permission, method, path}`:
+
+| Method | Path | Permission |
+|---|---|---|
+| GET / PUT | `settings` — deadlines, the activation timing of each track, renewal reminders `renewal_reminder_days[]`, exemption defaults, ad and proof periods, refunds, appeals, `referral_requires_phone_verification`. Only the fields that changed go to the audit log, with their before and after values | `chat-verification-settings.view` / `.update` |
+| GET | `document-types` → `{items[], tracks[]}` | `chat-verification-settings.view` |
+| POST · PUT `/{id}` · PATCH `/{id}/status` · DELETE `/{id}` | `document-types` — `code`, `tracks[]` (paid\|celebrity), `is_required`, `needs_back_side`, `status`, `sort_order`, `name{ar,en}`, `instructions{ar,en}`. Delete is a soft delete | `chat-verification-settings.update` |
+| GET | `audit?action=&admin_id=&subject_type=&subject_id=&from=&to=` — `audit_logs` rows whose action starts with `chat_verification.` (shown without the prefix), with `actor`, `before`, `after`, `reason`, `ip`. `pagination.actions` lists the actions used so far | `chat-verification-audit.view` |
+| GET | `notifications?event=&audience=user\|admin&status=sent\|failed&subject_type=&subject_id=` — every notification a verification event sent | `chat-verification-audit.view` |
+| GET | `requests?status=open\|<status>&track=&search=&overdue=1` — nearest deadline first. `pagination.counts` has the count for each status | `chat-verification-requests.view` |
+| GET | `requests/{uuid}` — the request with `user`, `documents`, `history[] {from, to, actor_type, actor_id, reason, at}`, and `actions[]`: the buttons this member of staff can use now | `…requests.view` |
+| GET | `requests/{uuid}/documents/{document}/{side}` — the file, inline and `no-store` | `…requests.view` |
+| POST | `requests/{uuid}/start-review` · `documents/{id}/review {accepted, note}` (turning a document down needs a note) · `identity-check` (every required document accepted, else `422 chat_verification_documents_not_accepted`) · `request-completion {reason, document_type_ids[]}` · `deadline {until, reason}` · `deadline/pause {reason}` · `deadline/resume {reason?}` · `resume {until, reason}` (from on hold, back to the previous status) | `…requests.review` |
+| POST | `requests/{uuid}/early-activate {status: temporary\|active, reason}` — only after the identity check, else `422 chat_verification_identity_not_checked` | `…requests.early-activate` |
+| POST | `requests/{uuid}/activation-timing {timing, reason}` — when this request's badge turns on | `…badges.update` |
+| GET | `badges?status=&type=&search=` · `badges/{user_id}` (with `history[]` and `actions[]`) | `chat-verification-badges.view` |
+| POST | `badges/{user_id}/change {type?, expires_at?, reason}` · `suspend {reason}` · `reactivate {reason}` · `withdraw {reason}` | `chat-verification-badges.update` |
+| POST | `requests/{uuid}/approve {reason?}` → `preliminary_approved` (only after the identity check: `422 chat_verification_identity_not_checked`) · `reject {reason}` · `expire {reason}` (from on hold) · `cancel {reason}` | `…requests.approve` |
+
+Notifications: `VerificationNotifier::notify($event, $account, $subject, $vars)` covers 42 events. Each one goes to the account (in-app, real-time and push) and to the staff who hold the event's permission (in-app and real-time, no push), and is logged in `chat_verification_notifications` after the transaction commits. The ✔ next to a name: every profile in chat responses has `is_verified`, and so do the other modules' resources that show a Dorr account's name. When it changes, `account.verification.changed {participant, user_id, is_verified}` goes to the account and to its direct-chat peers. Every verification event goes out under one real-time name, `chat.verification.updated`, and the payload has `type: chat_verification`, `verification_event`, `subject_type` and `subject_id`.
 
 ---
 

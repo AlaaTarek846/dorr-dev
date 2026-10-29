@@ -21,6 +21,9 @@ class ChatDatabaseSeeder extends Seeder
         // Categories for channels and merchant portals, each with its icon.
         $this->call(ChatCategorySeeder::class);
 
+        // Account verification: its settings row and the documents each track asks for.
+        $this->call(ChatVerificationSeeder::class);
+
         if (! ChatReportType::query()->exists()) {
             $reasons = [
                 ['Spam or advertising', 'رسايل مزعجة أو إعلانات'],

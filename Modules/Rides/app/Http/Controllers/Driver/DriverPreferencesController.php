@@ -49,4 +49,18 @@ class DriverPreferencesController extends Controller
         /** @var Driver */
         return $request->user();
     }
+
+    /** O-89: the services open to this captain's vehicle in their country, drawn, each with their switch. */
+    public function services(Request $request, \Modules\Rides\Services\Drivers\DriverServices $services): JsonResponse
+    {
+        return ApiResponse::success($services->present($request->user()), __('api.retrieved'));
+    }
+
+    /** O-89: the captain switches a service on or off (only one open to their vehicle). */
+    public function chooseService(Request $request, string $key, \Modules\Rides\Services\Drivers\DriverServices $services): JsonResponse
+    {
+        $data = $request->validate(['on' => ['required', 'boolean']]);
+
+        return ApiResponse::success($services->choose($request->user(), $key, (bool) $data['on']), __('api.updated'));
+    }
 }

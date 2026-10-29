@@ -1060,7 +1060,7 @@ private fun CommunityMemberCard(m: MemberDto, index: Int, canManage: Boolean, on
         ChAvatar(m.profile?.avatar, m.profile?.name, m.profile?.key, size = 46.dp, online = host.presence[m.profile?.key]?.online == true)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            com.dorr.app.ui.components.VerifiedName(name, verified = m.profile?.isVerified == true, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             if (!phone.isNullOrBlank()) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Text(ltrNumber(phone), color = Ch.Mut, fontSize = 12.5.sp)

@@ -63,6 +63,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Chat educational & work groups (2026-10-29):** every non-AI task of `docs/groups_tasks.md` is done, the parents included (D8: an ordinary account linked to the child with the teacher's approval, never a member of the class chat). Admin page `admin.chat.groups` (`chat-groups.view/update`), tool switches in chat settings. The Android work and parent screens have not been built with Gradle yet. The AI tasks are still open: GR-023, 029, 046 (summary), 047, 048, 054.
+- **Chat group kinds (2026-10-27):** GR-001/002 of `docs/groups_tasks.md` — ordinary / educational / work, fixed at creation, switch + limit in chat settings, Android picker. The rest of the educational and work tools follow that file.
+- **Chat hidden members (2026-10-27):** paid group setting (once, never switched off) — numbers hidden from each other, no private chats from the group, names shown. Price per country in admin chat settings; Android switch on «جروب جديد» and in the group settings. `ParticipantDirectory::isHiddenFrom()`.
 - **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
 - **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
 - **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.

@@ -275,6 +275,11 @@ class ConversationService
             return $this->participantOf($me, $existing);
         }
 
+        // Known only from a hidden-members group: no private chat from there (paid group setting).
+        if (app(ParticipantDirectory::class)->isHiddenFrom($me, ParticipantType::key($other))) {
+            throw new ChatException('hidden_member', 403);
+        }
+
         $needsRequest = $this->privacy->assertCanMessage($me, $other);
 
         return DB::transaction(function () use ($me, $other, $key, $needsRequest) {
@@ -357,6 +362,8 @@ class ConversationService
         // In a community's group: in the community too (its announcements — WhatsApp list 93).
         if ($conversation->isGroup() && ! $conversation->isChannel()) {
             app(CommunityService::class)->joinedGroup($conversation, $account);
+            // An educational / work group: they start with its default role (GR-004).
+            app(GroupRoleService::class)->joined($conversation, $row);
         }
 
         return $row;

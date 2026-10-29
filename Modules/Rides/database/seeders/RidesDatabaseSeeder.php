@@ -68,6 +68,8 @@ class RidesDatabaseSeeder extends Seeder
                     'surge_allowed' => ! in_array($slug, ['motorcycle', 'offers'], true),
                     'open_destination_allowed' => $slug === 'economy',
                     'multi_stop_allowed' => in_array($slug, ['economy', 'vip', 'family', 'ladies'], true),
+                    // O-86: a motorcycle is hired by the hour; the destination is optional.
+                    'hourly_only' => $slug === 'motorcycle',
                     'requires_schedule' => $slug === 'bus',
                 ],
                 'color' => $color,

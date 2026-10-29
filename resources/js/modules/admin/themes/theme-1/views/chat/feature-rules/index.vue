@@ -109,7 +109,7 @@ const { can } = usePermission();
 const { showSuccess, showError } = useToast();
 
 const canUpdate = computed(() => can('chat-settings.update'));
-const icons = { calls: 'ri-phone-line', voice_rooms: 'ri-mic-line', live: 'ri-live-line', stories: 'ri-donut-chart-line', ai: 'ri-sparkling-line' };
+const icons = { calls: 'ri-phone-line', voice_rooms: 'ri-mic-line', live: 'ri-live-line', stories: 'ri-donut-chart-line', ai: 'ri-sparkling-line', verification_paid: 'ri-shield-check-line', verification_celebrity: 'ri-star-line' };
 
 const rows = ref([]);
 const loading = ref(false);

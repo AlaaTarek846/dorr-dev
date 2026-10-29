@@ -63,7 +63,7 @@
                                         <span class="avatar avatar-md avatar-rounded bg-primary-transparent fw-semibold">
                                             <img v-if="r.rider?.avatar" :src="r.rider.avatar" alt=""><template v-else>{{ initials(r.rider?.name) }}</template>
                                         </span>
-                                        <div><div class="fw-semibold">{{ r.rider?.name || '—' }}</div><div class="fs-11 text-muted" dir="ltr">{{ r.rider?.phone }}</div></div>
+                                        <div><div class="fw-semibold"><UserName :user="r.rider">{{ r.rider?.name || '—' }}</UserName></div><div class="fs-11 text-muted" dir="ltr">{{ r.rider?.phone }}</div></div>
                                     </div>
                                 </td>
                                 <td>
@@ -120,6 +120,7 @@ import useWalletList from '../../../../../../../composables/useWalletList';
 import DriversMapModal from './maps/DriversMapModal.vue';
 import HeatMapModal from './maps/HeatMapModal.vue';
 import RideRouteModal from './maps/RideRouteModal.vue';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // Every ride; the Wasl queue is this list with "Wasl: failed / pending" (opened from the sidebar's queue link).
 const { t, locale } = useI18n();

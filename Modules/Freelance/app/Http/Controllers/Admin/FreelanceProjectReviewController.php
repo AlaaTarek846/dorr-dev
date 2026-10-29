@@ -178,6 +178,7 @@ class FreelanceProjectReviewController extends Controller implements HasMiddlewa
             'specialty' => $p->specialty?->translatedName(),
             'budget' => ['type' => $p->budget_type, 'min_minor' => $p->budget_min_minor, 'max_minor' => $p->budget_type === 'range' ? $p->budget_max_minor : null, 'currency' => $p->currency_code],
             'client_name' => $p->client?->name,
+            'client_verified' => \App\Support\AccountBadge::verified($p->client),
             'client_phone' => $p->client?->phone,
             'submitted_at' => $p->submitted_at?->toIso8601String(),
         ];
@@ -199,7 +200,7 @@ class FreelanceProjectReviewController extends Controller implements HasMiddlewa
             'attachments' => $project['attachments'],
             'status_reason' => $project['status_reason'],
             'missing' => $this->projects->missing($p),
-            'client' => $p->client === null ? null : ['id' => $p->client->id, 'name' => $p->client->name, 'phone' => $p->client->phone, 'country_id' => $p->client->country_id],
+            'client' => $p->client === null ? null : ['id' => $p->client->id, 'name' => $p->client->name, 'is_verified' => \App\Support\AccountBadge::verified($p->client), 'phone' => $p->client->phone, 'country_id' => $p->client->country_id],
             'can_decide' => $p->status === Status::PendingReview,
             'offers' => $this->window->present($p, false) + ['reopen_count' => $p->reopen_count, 'count' => \Modules\Freelance\Models\FreelanceOffer::query()->where('project_id', $p->id)->where('status', '!=', 'withdrawn')->count()],
             'timeline' => $p->events->sortBy('id')->map(fn ($e) => ['type' => $e->type, 'from' => $e->from_status, 'to' => $e->to_status, 'actor' => $e->actor_type, 'reason' => $e->payload['reason'] ?? null, 'at' => $e->created_at?->toIso8601String()])->values()->all(),

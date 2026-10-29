@@ -211,6 +211,13 @@ class DriverPreferences
 
         return RideCategory::query()->with('translations')->where('status', true)->orderBy('sort_order')->get()
             ->filter(fn (RideCategory $c) => $countryId !== null && $this->features->allows($countryId, null, RideFeatures::categoryFeature($c->slug)))
+            // O-89: only the categories of services open to the captain's vehicle in their country.
+            ->filter(fn (RideCategory $c) => in_array(app(DriverServices::class)->serviceOfCategory($c, $countryId), app(DriverServices::class)->available($driver), true))
+            // O-85: nor a category whose own vehicle types leave this vehicle out (no Motorcycle for a car).
+            ->filter(fn (RideCategory $c) => $vehicle === null || empty(((array) $c->eligibility)['body_types'])
+                || in_array($vehicle->body_type instanceof \BackedEnum ? $vehicle->body_type->value : $vehicle->body_type, (array) ((array) $c->eligibility)['body_types'], true))
+            // O-73: a category for women captains (For Her) isn't offered to a man at all.
+            ->filter(fn (RideCategory $c) => empty(((array) $c->eligibility)['driver_gender']) || $driver->gender?->value === ((array) $c->eligibility)['driver_gender'])
             ->map(fn (RideCategory $c) => [
                 'slug' => $c->slug,
                 'name' => $c->translated('name'),

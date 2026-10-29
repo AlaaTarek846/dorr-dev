@@ -110,6 +110,8 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
     var trip by remember { mutableStateOf<TripDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // O-76: «Arrived» pressed too far from the pickup — shown as a dialog, not a line at the bottom.
+    var notAtPickup by remember { mutableStateOf<com.dorr.core.network.ApiError?>(null) }
     var pinOpen by remember { mutableStateOf(false) }
     var chatOpen by remember { mutableStateOf(false) }
     var cancelOpen by remember { mutableStateOf(false) }
@@ -148,7 +150,7 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
         val call = current.call
         when {
             call != null && call.status == "ringing" && call.caller == "user" ->
-                RideCallSession.incoming(callContext, current.uuid, call.uuid, current.rider?.name.orEmpty(), end = { r, c -> com.dorr.core.network.apiCall { DriverBackend.api.endCall(r, c) } })
+                RideCallSession.incoming(callContext, current.uuid, call.uuid, current.rider?.name.orEmpty(), end = { r, c -> com.dorr.core.network.apiCall { DriverBackend.api.endCall(r, c) } }, peerVerified = current.rider?.isVerified == true)
             call == null && RideCallSession.rideUuid == current.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
         }
     }
@@ -171,7 +173,7 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
             if (here == null) { error = context.getString(R.string.home_permissions); busy = false; return@launch }
             when (val result = call(JsonObject().apply { addProperty("lat", here.first); addProperty("lng", here.second) }.toString())) {
                 is ApiResult.Ok -> trip = result.data
-                is ApiResult.Failed -> error = result.error.displayMessage
+                is ApiResult.Failed -> if (result.error.errorCode == "rides_not_at_pickup") notAtPickup = result.error else error = result.error.displayMessage
                 is ApiResult.Offline -> error = context.getString(R.string.error_offline)
             }
             busy = false
@@ -253,7 +255,11 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(t.rider?.name.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.rider?.name.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                            // The rider's account verification tick (AV-028).
+                            RiderTick(t.rider?.isVerified == true)
+                        }
                         Text(t.rider?.rating?.let { stringResource(R.string.trip_rider_rating, String.format("%.1f", it)) } ?: stringResource(R.string.offer_new_rider), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                     if (t.status != "completed") {
@@ -314,8 +320,8 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, DorrBrand.navy.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
                         .clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${nav.lat},${nav.lng}&mode=d")).setPackage("com.google.android.apps.maps")
-                            runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(nav.googleMapsUrl))) }
+                            // D-341: never stuck without a way there.
+                            openNavigation(context, nav.lat, nav.lng, nav.googleMapsUrl)
                         }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -425,6 +431,16 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
         confirmButton = { TextButton(onClick = { endConfirm = false; endRide(early = false) }) { Text(stringResource(R.string.trip_end)) } },
         dismissButton = { TextButton(onClick = { endConfirm = false }) { Text(stringResource(R.string.offer_decline)) } },
     )
+    notAtPickup?.let { e ->
+        val data = (e.data as? com.google.gson.JsonObject)
+        NotAtPickupDialog(
+            distanceM = data?.get("distance_m")?.takeIf { !it.isJsonNull }?.asInt,
+            radiusM = data?.get("radius_m")?.takeIf { !it.isJsonNull }?.asInt,
+            message = e.displayMessage,
+            pickupLat = t.origin?.lat, pickupLng = t.origin?.lng,
+            onClose = { notAtPickup = null },
+        )
+    }
     earlyEnd?.let { message ->
         AlertDialog(
             onDismissRequest = { earlyEnd = null },
@@ -518,6 +534,11 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
         Text(stringResource(R.string.trip_done), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         Text(stringResource(R.string.trip_total, money(t.finalTotalMinor, t.currency)), fontSize = 15.sp)
         Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold)
+        // D-337: paid by card / wallet but not confirmed yet, or failed.
+        when (t.paymentStatus) {
+            "pending", "awaiting_topup", "held" -> if (t.paymentMethod != "cash") Text(stringResource(R.string.ss_pay_pending), color = DorrBrand.orange, fontSize = 13.sp)
+            "failed" -> Text(stringResource(R.string.ss_pay_failed), color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+        }
         t.tipMinor?.let {
             Spacer(Modifier.height(10.dp))
             TipBanner(it, t.currency)
@@ -550,7 +571,10 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
     }
     if (!rated) {
         Card {
-            Text(stringResource(R.string.trip_rate, t.rider?.name.orEmpty()), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.trip_rate, t.rider?.name.orEmpty()), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                RiderTick(t.rider?.isVerified == true)
+            }
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center) {
                 (1..5).forEach { i -> Icon(if (i <= stars) Icons.Filled.Star else Icons.Filled.StarBorder, null, tint = if (i <= stars) DorrBrand.warning else Color.Gray, modifier = Modifier.size(40.dp).clickable { stars = i }) }
             }
@@ -666,6 +690,7 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     TripChatScreen(
         title = t.rider?.name.orEmpty(),
+        titleVerified = t.rider?.isVerified == true,
         subtitle = stringResource(R.string.trip_chat_subtitle, t.number.orEmpty()),
         messages = messages, quick = quick, open = open,
         onSend = { body, key -> send(body, key) },

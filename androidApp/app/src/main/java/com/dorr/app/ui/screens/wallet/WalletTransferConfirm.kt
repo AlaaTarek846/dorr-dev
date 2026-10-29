@@ -236,7 +236,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
                     contentAlignment = Alignment.Center,
                 ) { Text(initial, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold) }
             }
-            Text(who.nameMasked, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+            com.dorr.app.ui.components.VerifiedName(who.nameMasked, verified = who.isVerified, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, modifier = Modifier.padding(top = 12.dp), tickSize = 18.dp)
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(
                     Modifier.padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFF3F4F6)).padding(horizontal = 14.dp, vertical = 8.dp),

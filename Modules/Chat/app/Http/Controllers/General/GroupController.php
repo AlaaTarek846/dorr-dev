@@ -7,10 +7,12 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Modules\Chat\Enums\GroupKind;
 use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Http\Requests\CreateGroupRequest;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroupJoinRequest;
+use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Services\ConversationService;
 use Modules\Chat\Services\GroupService;
 use Modules\Chat\Support\BannedWords;
@@ -37,12 +39,31 @@ class GroupController extends Controller
             $this->accounts($request->validated('members')),
             $request->file('avatar'),
             $request->validated('disappearing_seconds'),
+            GroupKind::tryFrom((string) $request->validated('kind')) ?? GroupKind::Normal,
         );
 
         return ApiResponse::created([
             'conversation' => $this->conversations->resource($me, $result['participant']),
             'not_added' => $result['not_added'],
         ], __('api.created'));
+    }
+
+    /**
+     * GET groups/hidden-members — what hiding a group's members costs where I am (paid once through
+     * wallet/checkouts, purpose `chat_group_hidden_members`). `available` false: not sold here.
+     */
+    public function hiddenMembersPrice()
+    {
+        $country = currentCountry();
+        $amount = $country === null ? null : ChatSetting::current()->hiddenMembersPriceIn($country->id);
+
+        return ApiResponse::success([
+            'available' => $amount !== null,
+            'amount_minor' => $amount,
+            'currency_code' => $amount === null ? null : $country->currency?->code,
+            'currency_symbol' => $amount === null ? null : $country->currency?->symbol,
+            'decimal_places' => $amount === null ? null : (int) ($country->currency?->decimal_places ?? 2),
+        ], __('api.retrieved'));
     }
 
     public function update(Request $request, ChatConversation $conversation)
@@ -67,6 +88,8 @@ class GroupController extends Controller
             'only_admins_edit_info' => ['sometimes', 'boolean'],
             'only_admins_add_members' => ['sometimes', 'boolean'],
             'approve_joins' => ['sometimes', 'boolean'],
+            // direct | approval | request (the person may say why) — wins over approve_joins.
+            'join_mode' => ['sometimes', Rule::in(\Modules\Chat\Models\ChatGroup::JOIN_MODES)],
             // Channels only: listed in Discover or not.
             'is_public' => ['sometimes', 'boolean'],
             // Groups: members wait between messages (admins don't), and words that aren't allowed.
@@ -163,8 +186,9 @@ class GroupController extends Controller
      */
     public function join(Request $request, string $token)
     {
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:300']]);
         $me = $request->user();
-        $result = $this->groups->join($me, $token);
+        $result = $this->groups->join($me, $token, $data['reason'] ?? null);
 
         if ($result instanceof ChatGroupJoinRequest) {
             return ApiResponse::success(['status' => 'pending', 'request_id' => $result->id], __('chat.join_requested'), 202);

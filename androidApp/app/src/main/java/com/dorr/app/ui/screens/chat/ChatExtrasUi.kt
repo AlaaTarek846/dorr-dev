@@ -606,6 +606,8 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
     var preview by remember { mutableStateOf<InvitePreviewDto?>(null) }
     var failed by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // join_mode request: they may say why (kept for the admins).
+    var reason by remember { mutableStateOf("") }
     val sent = stringResource(R.string.ch_join_request_sent)
     LaunchedEffect(token) {
         try {
@@ -648,6 +650,10 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                             Text(stringResource(R.string.ch_join_needs_approval), color = Color(0xFFB45309), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                    if (p.joinMode == "request" && !p.isMember && p.requestStatus == null) {
+                        Spacer(Modifier.height(14.dp))
+                        ChField(reason, { reason = it.take(300) }, stringResource(R.string.ch_join_reason_hint), singleLine = false, minLines = 2)
+                    }
                     Spacer(Modifier.height(20.dp))
                     AnimatedContent(p.requestStatus to p.isMember, label = "joinState") { (status, member) ->
                         when {
@@ -679,7 +685,7 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                                 busy = true
                                 host.scope.launch {
                                     try {
-                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token).data?.takeIf { it.isJsonObject }?.asJsonObject
+                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token, mapOf("reason" to reason.trim().ifBlank { null })).data?.takeIf { it.isJsonObject }?.asJsonObject
                                         if (result?.get("status")?.asString == "pending") {
                                             preview = p.copy(requestStatus = "pending")
                                         } else {
@@ -767,6 +773,7 @@ fun JoinRequestsSheet(conversationId: String, onDismiss: () -> Unit, onChanged: 
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(r.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1)
+                                r.reason?.takeIf { it.isNotBlank() }?.let { Text("“$it”", color = Ch.Ink, fontSize = 12.5.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                                 Text(listTime(r.requestedAt), color = Ch.Mut, fontSize = 12.sp)
                             }
                             RoundIcon(Icons.Rounded.Close, Ch.Danger.copy(alpha = 0.12f), Ch.Danger) { decide(r, false) }

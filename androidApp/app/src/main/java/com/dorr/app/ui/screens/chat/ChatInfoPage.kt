@@ -72,6 +72,24 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.MilitaryTech
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material.icons.rounded.AddReaction
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.IosShare
@@ -167,6 +185,10 @@ fun ChatInfoPage(id: String) {
     }
 
     val conversation = c
+    // Hidden members (paid): its price, for the admins of a group that doesn't have it yet.
+    val hidePrice = if (conversation?.isGroup == true && !conversation.isChannel && conversation.isAdmin && conversation.group?.membersHidden != true) {
+        rememberHiddenMembersPrice()?.label()
+    } else null
     val canEditInfo = conversation?.group != null && conversation.isMember && (conversation.isAdmin || conversation.group?.onlyAdminsEditInfo != true)
     val shownMembers = if (q.isBlank()) members else members.filter { hit(it.profile?.name) }
     val shownGallery = if (q.isBlank()) gallery else gallery.filter { m -> hit(m.body, m.attachments.firstOrNull()?.name) }
@@ -199,7 +221,7 @@ fun ChatInfoPage(id: String) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
-                            if (conversation?.isChannel == true && conversation.group?.isVerified == true) {
+                            if ((conversation?.isChannel == true && conversation.group?.isVerified == true) || conversation?.peer?.isVerified == true) {
                                 Spacer(Modifier.width(6.dp))
                                 VerifiedBadge(18.dp, tint = Color.White)
                             }
@@ -218,6 +240,7 @@ fun ChatInfoPage(id: String) {
                             },
                             color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp,
                         )
+                        if (conversation?.isGroup == true && !conversation.isChannel) GroupKindChip(conversation.group?.kind, Modifier.padding(top = 6.dp))
                         conversation?.group?.description?.takeIf { it.isNotBlank() }?.let {
                             Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
@@ -230,7 +253,7 @@ fun ChatInfoPage(id: String) {
                                     QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                     QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                 }
-                                if (conversation.isGroup && (conversation.isAdmin || !conversation.group!!.onlyAdminsAddMembers)) {
+                                if (conversation.isGroup && conversation.group?.space == null && (conversation.isAdmin || !conversation.group!!.onlyAdminsAddMembers)) {
                                     QuickAction(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members), 2) { host.push(ChRoute.NewGroup(addTo = id)) }
                                 }
                             }
@@ -239,9 +262,15 @@ fun ChatInfoPage(id: String) {
                 }
             }
 
+            // ------------------------------------------------------------ a hand-over waiting (GR-005)
+            if (conversation?.group?.ownershipOffer != null) item {
+                OwnershipOfferCard(conversation, members) { c = it }
+            }
+
             // ------------------------------------------------------------ members first
             if (conversation?.isGroup == true) {
-                val canAdd = conversation.isMember && (conversation.isAdmin || !(conversation.group?.onlyAdminsAddMembers ?: true))
+                // A term / project takes members from the main group (its own sheet), not from here (GR-007).
+                val canAdd = conversation.isMember && conversation.group?.space == null && (conversation.isAdmin || !(conversation.group?.onlyAdminsAddMembers ?: true))
                 val inviteContacts = context.getString(R.string.ch_channel_invite_contacts)
                 val addMembers = context.getString(R.string.ch_add_members)
                 if (conversation.isChannel && conversation.isAdmin && hit(inviteContacts)) item {
@@ -263,6 +292,15 @@ fun ChatInfoPage(id: String) {
                             color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
                         )
                         HorizontalDivider(Modifier.weight(1f).padding(start = 10.dp), color = Ch.Line, thickness = 1.dp)
+                    }
+                    // Everyone sees why there are no numbers here.
+                    if (conversation.group?.membersHidden == true) Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ch.Red.copy(alpha = 0.06f)).padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.VisibilityOff, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.ch_hidden_members_info), color = Ch.Mut, fontSize = 12.sp, lineHeight = 16.sp)
                     }
                 }
                 itemsIndexed(shownMembers.take(6), key = { _, m -> m.participantId }) { i, m ->
@@ -444,13 +482,67 @@ fun ChatInfoPage(id: String) {
                 }
             }
 
+            // ------------------------------------------------------------ educational / work group tools
+            if (conversation?.isGroup == true && !conversation.isChannel && conversation.isMember && conversation.group?.kind != "normal" && hitRes(R.string.ch_group_roles, R.string.ch_spaces_education, R.string.ch_spaces_work)) item {
+                InfoLabel(R.string.ch_group_tools)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                    // Educational groups: the classroom — lessons, homework, tests, sessions (GR-011..017).
+                    if (conversation.group?.kind == "education") {
+                        SettingRow(Icons.Rounded.School, stringResource(R.string.cl_title)) { host.push(ChRoute.Classroom(id)) }
+                        // Parents (GR-018, 027): the teacher's queue and meetings; a student's code for their parent.
+                        val perms = conversation.group?.myPermissions.orEmpty()
+                        if ("parents.link" in perms) SettingRow(Icons.Rounded.FamilyRestroom, stringResource(R.string.pa_parents)) { sheet = "parents" }
+                        if ("assignments.submit" in perms && "assignments.manage" !in perms) SettingRow(Icons.Rounded.Link, stringResource(R.string.pa_link_my_parent)) { sheet = "myParents" }
+                    }
+                    // Work groups: the tasks page and the team by role (GR-032, GR-033).
+                    if (conversation.group?.kind == "work") {
+                        SettingRow(Icons.Rounded.TaskAlt, stringResource(R.string.gt_title)) { host.push(ChRoute.GroupTasks(id)) }
+                        SettingRow(Icons.Rounded.Groups, stringResource(R.string.gt_team)) { sheet = "team" }
+                        // Shifts, competitions, badges, ideas, meetings (GR-040, 042..044, 046).
+                        SettingRow(Icons.Rounded.Schedule, stringResource(R.string.wk_shifts)) { sheet = "shifts" }
+                        SettingRow(Icons.Rounded.EmojiEvents, stringResource(R.string.wk_goals)) { sheet = "goals" }
+                        SettingRow(Icons.Rounded.MilitaryTech, stringResource(R.string.wk_badges)) { sheet = "badges" }
+                        SettingRow(Icons.Rounded.Lightbulb, stringResource(R.string.wk_ideas)) { sheet = "ideas" }
+                        SettingRow(Icons.Rounded.Event, stringResource(R.string.wk_meetings)) { sheet = "meetings" }
+                    }
+                    // Everyone sees the roles; with roles.manage they're edited there (GR-004).
+                    SettingRow(Icons.Rounded.Badge, stringResource(R.string.ch_group_roles)) { sheet = "roles" }
+                    // Terms and subgroups / projects: chats of their own inside the group (GR-007).
+                    SettingRow(Icons.Rounded.Forum, stringResource(if (conversation.group?.kind == "work") R.string.ch_spaces_work else R.string.ch_spaces_education)) { sheet = "spaces" }
+                    // Announcements, my notices, the activity log (GR-008..010).
+                    SettingRow(Icons.Rounded.Campaign, stringResource(R.string.ch_announcements)) { sheet = "announcements" }
+                    SettingRow(Icons.Rounded.HelpOutline, stringResource(R.string.cx_help)) { sheet = "help" }
+                    // A poll, anonymous if I like (GR-045).
+                    SettingRow(Icons.Rounded.Poll, stringResource(R.string.wk_poll)) { sheet = "poll" }
+                    SettingRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_group_notices), lined = conversation.group?.myPermissions?.contains("audit.view") == true) { sheet = "notices" }
+                    if (conversation.group?.myPermissions?.contains("audit.view") == true) {
+                        SettingRow(Icons.Rounded.History, stringResource(R.string.ch_audit_log), lined = false) { sheet = "audit" }
+                    }
+                }
+            }
+            // A term / project: back to the group it's in — and a project's own tasks (GR-037).
+            conversation?.group?.space?.let { space ->
+                item {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        if (space.type == "project" && space.parentId != null) {
+                            SettingRow(Icons.Rounded.TaskAlt, stringResource(R.string.gt_project_tasks, conversation.title.orEmpty())) {
+                                host.push(ChRoute.GroupTasks(space.parentId, space.id, conversation.title))
+                            }
+                        }
+                        SettingRow(Icons.Rounded.Forum, stringResource(R.string.ch_space_in_group, space.parentName.orEmpty()), lined = false) {
+                            space.parentId?.let { host.push(ChRoute.Conversation(it)) }
+                        }
+                    }
+                }
+            }
+
             // ------------------------------------------------------------ group
             if (conversation?.isGroup == true) {
                 if (conversation.isAdmin && hitRes(
                     R.string.ch_settings, R.string.ch_invite_link, R.string.ch_channel_public,
                     R.string.ch_channel_handle, R.string.ch_channel_category, R.string.bk_channel_stats,
                     R.string.bk_channel_reactions, R.string.ch_channel_verify, R.string.ch_unfollow,
-                    R.string.ch_approve_joins,
+                    R.string.ch_join_mode, R.string.ch_hidden_members, R.string.ch_group_roles,
                 )) item {
                     InfoLabel(R.string.ch_settings)
                     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
@@ -479,9 +571,20 @@ fun ChatInfoPage(id: String) {
                             // Moderation: members wait between messages; some words aren't allowed.
                             SettingRow(Icons.Rounded.HourglassBottom, stringResource(R.string.ch_slow_mode), value = slowModeLabel(g.slowModeSeconds)) { sheet = "slow" }
                             SettingRow(Icons.Rounded.Block, stringResource(R.string.ch_banned_words), value = g.bannedWords?.size?.takeIf { it > 0 }?.toString()) { sheet = "banned" }
+                            // Paid once and never switched off: tapping it opens the payment screen.
+                            if (g.membersHidden || hidePrice != null) SettingRow(
+                                Icons.Rounded.VisibilityOff, stringResource(R.string.ch_hidden_members),
+                                value = if (g.membersHidden) stringResource(R.string.ch_hidden_members_on) else hidePrice, opens = !g.membersHidden,
+                            ) {
+                                if (!g.membersHidden) HiddenMembers.pay(id) {
+                                    host.showToast(context.getString(R.string.ch_hidden_members_done))
+                                    scope.launch { reload() }
+                                }
+                            }
                         }
                         GroupToggle(stringResource(R.string.ch_only_admins_edit), g.onlyAdminsEditInfo) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_edit_info" to it)).data }.getOrNull()?.let { c = it } } }
-                        GroupToggle(stringResource(R.string.ch_approve_joins), g.approveJoins) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("approve_joins" to it)).data }.getOrNull()?.let { c = it } } }
+                        // How people join: directly, after an admin's yes, or by a request saying why (GR-003).
+                        SettingRow(Icons.Rounded.HowToReg, stringResource(R.string.ch_join_mode), value = joinModeLabel(g.joinMode)) { sheet = "joinMode" }
                         // Who's waiting, with a badge that pops when someone new asks.
                         androidx.compose.animation.AnimatedVisibility(g.approveJoins || g.pendingJoinRequests > 0) {
                             SettingRow(
@@ -505,6 +608,18 @@ fun ChatInfoPage(id: String) {
                     // Nobody to report in my own notes.
                     if (!conversation.isSelf) SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
                     SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true, opens = false) { sheet = "clear" }
+                    // Educational / work groups: the owner archives it (read only) or opens it again (GR-006).
+                    if (conversation.isGroup && conversation.group?.kind != "normal" && conversation.myRole == "owner" && conversation.isMember) SettingRow(
+                        if (conversation.group?.archivedAt != null) Icons.Rounded.Unarchive else Icons.Rounded.Archive,
+                        stringResource(if (conversation.group?.archivedAt != null) R.string.ch_group_unarchive else R.string.ch_group_archive), opens = false,
+                    ) {
+                        val archive = conversation.group?.archivedAt == null
+                        scope.launch {
+                            runCatching { ApiClient.chat.archiveGroup(chatAuth(), id, mapOf("archived" to archive)).data }
+                                .onSuccess { fresh -> fresh?.let { c = it; host.upsert(it) } }
+                                .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+                        }
+                    }
                     // The owner can delete the whole group / channel for everyone.
                     if (conversation.isGroup && conversation.myRole == "owner" && conversation.isMember) SettingRow(
                         Icons.Rounded.DeleteForever,
@@ -554,6 +669,36 @@ fun ChatInfoPage(id: String) {
         "reactions" -> c?.let { current -> ChannelReactionsSheet(id, current.group?.allowedReactions, onDismiss = { sheet = null }) { fresh -> c = fresh } }
         "folder" -> c?.let { current -> FolderPickerSheet(current) { sheet = null } }
         "invite" -> c?.let { current -> InviteLinkSheet(current) { sheet = null } }
+        "roles" -> GroupRolesSheet(id) { sheet = null }
+        "team" -> TeamSheet(id, members) { sheet = null }
+        "help" -> HelpRequestsSheet(id, members) { sheet = null }
+        "shifts" -> WorkShiftsSheet(id, members, canManage = c?.group?.myPermissions?.contains("shifts.manage") == true) { sheet = null }
+        "goals" -> WorkGoalsSheet(id, members, canGive = c?.group?.myPermissions?.contains("tasks.approve") == true) { sheet = null }
+        "badges" -> WorkBadgesSheet(id, members, canGive = c?.group?.myPermissions?.contains("tasks.approve") == true) { sheet = null }
+        "ideas" -> WorkIdeasSheet(id, canDecide = c?.group?.myPermissions?.contains("tasks.approve") == true) { sheet = null }
+        "meetings" -> WorkMeetingsSheet(id, members, canCreate = c?.group?.myPermissions?.contains("tasks.assign") == true) { sheet = null }
+        "poll" -> GroupPollSheet(id) { sheet = null }
+        "parents" -> GroupParentsSheet(id) { sheet = null }
+        "myParents" -> MyParentsSheet(id) { sheet = null }
+        "announcements" -> AnnouncementsSheet(id, canPost = c?.group?.myPermissions?.contains("announcements.post") == true) { sheet = null }
+        "notices" -> GroupNoticesSheet(id) { sheet = null }
+        "audit" -> AuditLogSheet(id) { sheet = null }
+        "spaces" -> GroupSpacesSheet(
+            id, c?.group?.kind, canManage = c?.group?.myPermissions?.contains("spaces.manage") == true, members = members,
+        ) { sheet = null }
+        "joinMode" -> c?.group?.let { g ->
+            val modes = listOf("direct", "approval", "request")
+            ChoiceSheet(
+                stringResource(R.string.ch_join_mode),
+                modes.map { mode ->
+                    joinModeLabel(mode) to {
+                        scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("join_mode" to mode)).data }.getOrNull()?.let { c = it; host.upsert(it) } }
+                        Unit
+                    }
+                },
+                radios = true, selected = modes.indexOf(g.joinMode).coerceAtLeast(0),
+            ) { sheet = null }
+        }
         "tone" -> ChoiceSheet(
             stringResource(R.string.ch_tone),
             listOf(
@@ -657,7 +802,8 @@ fun ChatInfoPage(id: String) {
             ConfirmDialog(
                 icon = Icons.Rounded.DeleteForever,
                 title = label,
-                message = stringResource(R.string.ch_confirm_delete_all),
+                // Educational / work groups can be brought back for a while (GR-006).
+                message = stringResource(if (c?.group?.kind != null && c?.group?.kind != "normal") R.string.ch_confirm_delete_restorable else R.string.ch_confirm_delete_all),
                 confirmLabel = label,
                 onConfirm = {
                     sheet = null
@@ -755,6 +901,8 @@ fun ChatInfoPage(id: String) {
             onMembers = { members = it },
             onConversation = { c = it },
             onDismiss = { memberSheet = null },
+            canManageRoles = c?.group?.myPermissions?.contains("roles.manage") == true,
+            handOverAsks = c?.group?.kind != null && c?.group?.kind != "normal",
         )
     }
 }
@@ -769,6 +917,15 @@ private fun muteChoiceIndex(c: ConversationDto?): Int? {
         else -> 0
     }
 }
+
+@Composable
+private fun joinModeLabel(mode: String?): String = stringResource(
+    when (mode) {
+        "approval" -> R.string.ch_join_mode_approval
+        "request" -> R.string.ch_join_mode_request
+        else -> R.string.ch_join_mode_direct
+    },
+)
 
 @Composable
 private fun muteChoiceLabel(c: ConversationDto?): String? = when (muteChoiceIndex(c)) {

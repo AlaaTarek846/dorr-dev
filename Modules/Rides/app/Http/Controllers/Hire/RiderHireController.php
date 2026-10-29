@@ -26,12 +26,16 @@ class RiderHireController extends Controller
             'unit' => ['required', Rule::in(['hour', 'day'])],
             'quantity' => ['required', 'integer', 'min:1', 'max:60'],
         ]);
-        $q = $this->hires->quote($this->rider($request), (float) $data['lat'], (float) $data['lng'], $data['unit'], (int) $data['quantity']);
+        $q = $this->hires->preview($this->rider($request), (float) $data['lat'], (float) $data['lng'], $data['unit'], (int) $data['quantity']);
         $currency = $q['country']->currency;
 
         return ApiResponse::success([
             'amount_minor' => $q['amount_minor'],
             'limits' => $q['limits'],
+            // O-84: what was priced (the unit / count may have been moved into what the country offers).
+            'unit' => $q['unit'],
+            'quantity' => $q['quantity'],
+            'units' => $q['units'],
             'currency' => $currency === null ? null : ['code' => $currency->code, 'symbol' => $currency->symbol, 'decimal_places' => (int) ($currency->decimal_places ?? 2)],
         ], __('api.retrieved'));
     }
