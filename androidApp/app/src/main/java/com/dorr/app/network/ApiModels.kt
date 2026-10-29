@@ -18,6 +18,7 @@ data class ApiEnvelope<T>(
 data class PaginationDto(
     @SerializedName("current_page") val currentPage: Int,
     @SerializedName("has_more_pages") val hasMorePages: Boolean,
+    val total: Int? = null,
 )
 
 /** Pulls a human-readable message out of an API error body (422 and friends).

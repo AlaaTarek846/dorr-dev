@@ -295,13 +295,13 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             if (count == 0) {
-                Text(
+            Text(
                     stringResource(R.string.cal_home_free),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = mut,
                 )
-                Text(
+            Text(
                     dayTitle(today?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -408,8 +408,8 @@ fun CalendarScreen(onExit: () -> Unit, onOpenMoments: () -> Unit = {}) {
                 CalPage.Search -> CalendarSearch(onBack = { page = CalPage.Main }, onOpenMoments = onOpenMoments, onEdit = { item -> page = CalPage.Editor(item, editorDay(item)) })
                 is CalPage.Editor -> EventEditorScreen(existing = p.existing, day = p.day, onBack = { page = CalPage.Main })
             }
+            }
         }
-    }
     }
 }
 
@@ -565,7 +565,7 @@ private fun Tabs(tab: CalTab, onPick: (CalTab) -> Unit, onDark: Boolean = false)
                             .background(accent),
                     )
                 }
-                Text(
+            Text(
                     stringResource(label),
                     color = if (on) Color.White else if (onDark) Color.White.copy(alpha = 0.55f) else Wa.Mut,
                     fontSize = 11.sp,
@@ -618,10 +618,10 @@ private fun TodayTab(filter: String, onFilter: (String) -> Unit, onOpen: (CalIte
             ItemRow(
                 item, Modifier.padding(bottom = 8.dp).waRise(i),
                 onToggle = if (item.type == "task") ({
-                    scope.launch {
+                        scope.launch {
                         runCatching { ApiClient.aiTools.updateTask(calAuth(), item.ref, JsonObject().apply { addProperty("done", !item.done) }) }
-                        CalendarStore.changed()
-                    }
+                            CalendarStore.changed()
+                        }
                 }) else null,
             ) { onOpen(item) }
         }
@@ -664,7 +664,7 @@ internal fun DayEmpty(filtered: Boolean, modifier: Modifier = Modifier) {
 @Composable
 internal fun DayHeader(date: LocalDate, modifier: Modifier = Modifier, topPadding: androidx.compose.ui.unit.Dp = 0.dp, onDark: Boolean = false) {
     Row(modifier.fillMaxWidth().padding(top = topPadding, bottom = if (onDark) 0.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
+            Text(
             dayTitle(date),
             color = if (onDark) Color.White else Wa.Ink,
             fontSize = if (onDark) 15.sp else 20.sp,
@@ -702,8 +702,8 @@ internal fun ItemRow(item: CalItemDto, modifier: Modifier = Modifier, onToggle: 
         Box(Modifier.width(3.5.dp).fillMaxHeight().background(color))
         Row(
             Modifier.weight(1f).heightIn(min = 52.dp).padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
             Column(Modifier.width(54.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 // In search results there is no day heading above the card, so the card says its day.
                 if (showDate) item.date?.let { d -> runCatching { LocalDate.parse(d) }.getOrNull() }?.let { day ->
@@ -718,15 +718,15 @@ internal fun ItemRow(item: CalItemDto, modifier: Modifier = Modifier, onToggle: 
             }
             Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(28.dp).background(Wa.Line))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Text(
+            Text(
                     listOfNotNull(item.emoji, item.title).joinToString(" "), color = if (item.done) Wa.Soft else Wa.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                val sub = listOfNotNull(
-                    if (item.overdue) stringResource(R.string.cal_overdue) else null,
-                    item.originTime?.let { stringResource(R.string.cal_origin_time, it, item.timezone.orEmpty().substringAfterLast('/').replace('_', ' ')) },
-                    item.location,
-                    item.turns?.let { stringResource(R.string.mo_turns, it) },
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            val sub = listOfNotNull(
+                if (item.overdue) stringResource(R.string.cal_overdue) else null,
+                item.originTime?.let { stringResource(R.string.cal_origin_time, it, item.timezone.orEmpty().substringAfterLast('/').replace('_', ' ')) },
+                item.location,
+                item.turns?.let { stringResource(R.string.mo_turns, it) },
                     when (item.type) {
                         "task" -> stringResource(R.string.cal_kind_task)
                         "reminder" -> stringResource(R.string.cal_kind_reminder)
@@ -747,14 +747,14 @@ internal fun ItemRow(item: CalItemDto, modifier: Modifier = Modifier, onToggle: 
                         Text(sub.joinToString("  ·  "), color = if (item.overdue) Wa.Danger else Wa.Mut, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            }
-            if (onToggle != null) {
-                val tick by animateFloatAsState(if (item.done) 1f else 0.9f, spring(dampingRatio = 0.4f), label = "tick")
-                Icon(
-                    if (item.done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (item.done) Color(0xFF16A34A) else Wa.Soft,
+        }
+        if (onToggle != null) {
+            val tick by animateFloatAsState(if (item.done) 1f else 0.9f, spring(dampingRatio = 0.4f), label = "tick")
+            Icon(
+                if (item.done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (item.done) Color(0xFF16A34A) else Wa.Soft,
                     modifier = Modifier.padding(start = 4.dp, end = 6.dp).size(22.dp).scale(tick).clip(CircleShape).clickable(onClick = onToggle),
-                )
-            } else {
+            )
+        } else {
                 Spacer(Modifier.width(8.dp))
             }
             Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
@@ -964,7 +964,7 @@ private fun WeekStrip(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(
+        Text(
                             weekdayLetter(d.dayOfWeek),
                             color = when {
                                 on -> Color.White.copy(alpha = 0.9f)
@@ -1020,7 +1020,7 @@ private fun MonthCard(
             .padding(horizontal = 6.dp, vertical = 8.dp),
     ) {
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-            days.take(7).forEach { d ->
+        days.take(7).forEach { d ->
                 Text(
                     weekdayLetter(d.dayOfWeek),
                     color = if (onDark) Color.White.copy(alpha = 0.4f) else Wa.Mut,
@@ -1031,10 +1031,10 @@ private fun MonthCard(
                 )
             }
         }
-        days.chunked(7).forEach { week ->
+    days.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
-                week.forEach { d ->
-                    DayCell(
+            week.forEach { d ->
+                DayCell(
                         d,
                         selected = d == selected,
                         today = d == LocalDate.now(),
@@ -1043,10 +1043,10 @@ private fun MonthCard(
                         tall = false,
                         onDark = onDark,
                         modifier = Modifier.weight(1f),
-                    ) { onSelect(d) }
-                }
+                ) { onSelect(d) }
             }
         }
+    }
     }
 }
 
@@ -1095,8 +1095,8 @@ private fun DayCell(
                 .then(if (selected) Modifier.background(Wa.HeroBrush) else Modifier.background(mark))
                 .then(if (today && !selected) Modifier.border(1.5.dp, if (onDark) Color.White.copy(alpha = 0.7f) else Wa.Red, CircleShape) else Modifier),
             contentAlignment = Alignment.Center,
-        ) {
-            Text(
+    ) {
+        Text(
                 dayNumber(day),
                 fontSize = 13.sp,
                 fontWeight = if (today || selected) FontWeight.ExtraBold else FontWeight.Medium,

@@ -63,6 +63,13 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
+- **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
+- **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.
+- **Chat communities demo (2026-10-28):** `ChatCommunitiesDemoSeeder` — creator, member-only, hop-in / ask-to-join groups, long names, fillers for page 2, plus three groups outside a community for «إضافة مجموعات موجودة».
+- **Android calls log (2026-10-28):** one card for overlay / fullscreen / create link / link log (count on the left); call list has icon + title on the right and the count on the left; pages of 15.
+- **Android business tools (2026-10-28):** privacy-style settings card; each row opens a sheet.
+- **Android calls + business tools (2026-10-28):** settings header (`SubHeader` + pink wash).
 - **Android manage storage (2026-10-27):** summary card; select-all on the open chip; delete confirms then a toast. Files page 15.
 - **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` — large, forwarded, and per-chat files for last `mobile-app` login.
 - **Android usage stats hero (2026-10-27):** memory well, calendar on the since date, mobile/Wi-Fi glass split like the wallet.
