@@ -314,10 +314,8 @@ class DriverHireService
         if ($status !== DriverStatus::Active->value) {
             throw new RidesException('hire_driver_not_active', 403);
         }
-        // O-85: a bus / boat / motorcycle captain doesn't take "drive my car" jobs.
-        if (! app(\Modules\Rides\Services\Drivers\VehicleKinds::class)->offers($driver, 'hire')) {
-            throw new RidesException('service_not_for_vehicle', 403);
-        }
+        // O-89: only where the dashboard opened «driver on demand» to this captain's vehicle, and they switched it on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'hire');
     }
 
     /** The online captains near the pickup hear about it at once (push + real time) — no app asks on a timer. */
@@ -330,9 +328,9 @@ class DriverHireService
             ->whereBetween('lat', [$minLat, $maxLat])->whereBetween('lng', [$minLng, $maxLng])
             ->when($except, fn ($q, $id) => $q->where('driver_id', '!=', $id))
             ->limit(50)->pluck('driver_id');
-        $kinds = app(\Modules\Rides\Services\Drivers\VehicleKinds::class);
+        $services = app(\Modules\Rides\Services\Drivers\DriverServices::class);
         $drivers = Driver::query()->whereIn('id', $ids)->where('status', DriverStatus::Active->value)->get()
-            ->filter(fn (Driver $d) => $kinds->offers($d, 'hire'))->values();
+            ->filter(fn (Driver $d) => $services->offers($d, 'hire'))->values();
         if ($drivers->isNotEmpty()) {
             $this->notifications->send($drivers->all(), 'hire.new', 'hire_new_title', 'hire_new_body', [
                 'address' => $hire->pickup_address, 'length' => $hire->quantity.($hire->unit === 'day' ? 'd' : 'h'),

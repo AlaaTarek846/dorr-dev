@@ -185,6 +185,11 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
                 if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
+            // As a parent (GR-018, 027): my children.
+            if (link == com.dorr.app.chat.ChatDeepLink.ParentChildren) {
+                if (host.current != ChRoute.ParentChildren) host.push(ChRoute.ParentChildren)
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
         }
     }
 
@@ -304,6 +309,7 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.MyStatus -> MyStatusPage()
         ChRoute.ChatSettings -> ChatSettingsPage()
         ChRoute.Privacy -> PrivacyPage()
+        ChRoute.BlockedContacts -> BlockedContactsPage()
         ChRoute.Business -> BusinessPage()
         ChRoute.Starred -> StarredPage()
         ChRoute.ReadLater -> FollowUpsPage()
@@ -314,14 +320,21 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.StoryPrivacy -> StoryPrivacyPage()
         is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
         is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+        is ChRoute.GroupTasks -> GroupTasksPage(route.conversationId, route.spaceId, route.spaceName)
+        is ChRoute.Classroom -> ClassroomPage(route.conversationId)
+        is ChRoute.ParentChildren -> ParentChildrenPage()
+        is ChRoute.ParentChild -> ParentChildPage(route.linkId, route.title)
         ChRoute.Broadcasts -> BroadcastsPage()
         is ChRoute.Broadcast -> BroadcastPage(route.id)
         ChRoute.Tasks -> TasksPage()
         ChRoute.CatchUp -> CatchUpPage()
+        ChRoute.Important -> ImportantPage()
+        ChRoute.Today -> TodayPage()
         ChRoute.PrivacyCenter -> PrivacyCenterPage()
         is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
         ChRoute.Commitments -> CommitmentsPage()
         ChRoute.CommRules -> CommRulesPage()
+        is ChRoute.ContextRules -> ContextRulesPage(route.key)
         ChRoute.LifeInbox -> LifeInboxPage()
         ChRoute.DataPerformance -> DataPerformancePage()
         ChRoute.Usage -> UsagePage()

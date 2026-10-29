@@ -99,7 +99,7 @@ internal fun auth() = "Bearer ${AuthSession.token.orEmpty()}"
 internal fun money(minor: Long?): String = minor?.let { String.format(Locale.US, "%d.%02d", it / 100, it % 100) }.orEmpty()
 
 /** Minor units from what the client typed ("1500", "1500.5"), or null. */
-private fun parseMoney(text: String): Long? {
+internal fun parseMoney(text: String): Long? {
     val clean = text.trim().replace(',', '.')
     if (!Regex("""^\d{1,9}(\.\d{1,2})?$""").matches(clean)) return null
     val parts = clean.split('.')
@@ -116,14 +116,18 @@ internal fun Throwable.message(fallback: String): String = serverMessage() ?: fa
  */
 @Composable
 fun FreelanceHost(onExit: () -> Unit) {
-    // "list", "new", "edit:<uuid>", "show:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>"
+    // "list", "new", "edit:<uuid>", "show:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
     var page by rememberSaveable { mutableStateOf("list") }
     var listVersion by remember { mutableStateOf(0) }
     val parts = page.split(':')
     fun back(): String = when (parts[0]) {
         "edit", "offers" -> "show:" + parts[1]
         "offer", "compare" -> "offers:" + parts[1]
+        "chat" -> "offer:" + parts[1] + ":" + parts[2]
         "freelancer" -> "offer:" + parts[1] + ":" + parts[2]
+        "favorites" -> "list"
+        "agreement", "invites" -> "show:" + parts[1]
+        "dispute", "dispute-new" -> "agreement:" + parts[1]
         else -> "list"
     }
     BackHandler {
@@ -142,19 +146,27 @@ fun FreelanceHost(onExit: () -> Unit) {
                 onGone = { page = "list"; listVersion++ },
                 onOffers = { page = "offers:" + page.removePrefix("show:") },
                 onOpenOffer = { page = "offer:" + page.removePrefix("show:") + ":" + it },
+                onAgreement = { page = "agreement:" + page.removePrefix("show:") },
+                onInvitations = { page = "invites:" + page.removePrefix("show:") },
             )
+            parts[0] == "invites" -> InvitationsPage(parts[1], onBack = { page = back() }, onOpenOffer = { page = "offer:${parts[1]}:$it" }, onMadePublic = { listVersion++; page = "show:${parts[1]}" })
             parts[0] == "offers" -> OffersPage(parts[1], onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" }, onCompare = { page = "compare:${parts[1]}:" + it.joinToString(",") })
             parts[0] == "compare" -> ComparePage(parts[1], parts[2].split(','), onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" })
-            parts[0] == "offer" -> OfferPage(parts[1], parts[2], onBack = { page = back() }, onProfile = { page = "freelancer:${parts[1]}:${parts[2]}" }, onChosen = { listVersion++ })
+            parts[0] == "offer" -> OfferPage(parts[1], parts[2], onBack = { page = back() }, onProfile = { page = "freelancer:${parts[1]}:${parts[2]}" }, onChat = { page = "chat:${parts[1]}:${parts[2]}:$it" }, onChosen = { listVersion++; page = "agreement:${parts[1]}" })
+            parts[0] == "agreement" -> AgreementPage(parts[1], onBack = { page = back() }, onEnded = { listVersion++ }, onDispute = { m, d -> page = if (d != null) "dispute:${parts[1]}:$d" else "dispute-new:${parts[1]}:$m" })
+            parts[0] == "dispute" -> DisputePage(parts[1], null, parts[2], onBack = { page = back() }, onOpened = {})
+            parts[0] == "dispute-new" -> DisputePage(parts[1], parts[2], null, onBack = { page = back() }, onOpened = { page = "dispute:${parts[1]}:$it" })
+            parts[0] == "favorites" -> FavoritesPage(onBack = { page = "list" })
+            parts[0] == "chat" -> ChatPage(parts[3], onBack = { page = back() })
             parts[0] == "freelancer" -> FreelancerProfilePage(parts[1], parts[2], onBack = { page = back() })
-            else -> ProjectList(version = listVersion, onExit = onExit, onNew = { page = "new" }, onOpen = { page = "show:$it" })
+            else -> ProjectList(version = listVersion, onExit = onExit, onNew = { page = "new" }, onOpen = { page = "show:$it" }, onFavorites = { page = "favorites" })
         }
     }
 }
 
 // ---------------------------------------------------------------- my projects
 
-private val FILTERS = listOf(null, "draft", "pending_review", "changes_requested", "published", "awarded", "rejected", "cancelled")
+private val FILTERS = listOf(null, "draft", "pending_review", "changes_requested", "published", "awarded", "in_progress", "rejected", "cancelled")
 
 @Composable
 private fun filterLabel(status: String?): String = when (status) {
@@ -170,6 +182,7 @@ private fun statusLabel(status: String): String = when (status) {
     "rejected" -> stringResource(R.string.fl_status_rejected)
     "published" -> stringResource(R.string.fl_status_published)
     "awarded" -> stringResource(R.string.fl_status_awarded)
+    "in_progress" -> stringResource(R.string.fl_status_in_progress)
     "closed" -> stringResource(R.string.fl_status_closed)
     else -> stringResource(R.string.fl_status_cancelled)
 }
@@ -177,6 +190,7 @@ private fun statusLabel(status: String): String = when (status) {
 private fun statusColor(status: String): Color = when (status) {
     "published" -> Color(0xFF16A34A)
     "awarded" -> Color(0xFF7C3AED)
+    "in_progress" -> Color(0xFF0EA5E9)
     "pending_review" -> Color(0xFFD97706)
     "changes_requested" -> Color(0xFF2563EB)
     "rejected", "cancelled" -> Color(0xFFDC2626)
@@ -203,7 +217,7 @@ internal fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit) {
+private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit, onFavorites: () -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -237,6 +251,7 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FILTERS.forEach { f -> Chip(filterLabel(f), selected = filter == f) { filter = f } }
         }
+        Box(Modifier.padding(horizontal = 16.dp)) { TextAction("♥  " + stringResource(R.string.fl_favorites)) { onFavorites() } }
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
@@ -289,7 +304,7 @@ private fun budgetText(p: FreelanceProjectDto): String? {
 // ---------------------------------------------------------------- one project
 
 @Composable
-private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit) {
+private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -358,6 +373,26 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                 Field(stringResource(R.string.fl_budget), budgetText(p))
                 Field(stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) })
                 Field(stringResource(R.string.fl_visibility), stringResource(if (p.visibility == "private") R.string.fl_private else R.string.fl_public))
+                if (p.questions.isNotEmpty()) Field(stringResource(R.string.fl_questions), p.questions.mapIndexed { i, q -> "${i + 1}. $q" }.joinToString("\n"))
+            }
+            // FL-401: the agreement with the chosen freelancer.
+            p.agreement?.let { ag ->
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Label(stringResource(R.string.fl_agreement))
+                        Spacer(Modifier.weight(1f))
+                        Text(agreementStatusLabel(ag.status), color = agreementStatusColor(ag.status), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextAction(stringResource(if (ag.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open)) { onAgreement() }
+                }
+            }
+            // FL-205: a private project is filled by invitation.
+            p.invitations?.takeIf { p.status == "published" }?.let { inv ->
+                Card {
+                    Label(stringResource(R.string.fl_inv_title))
+                    Text(stringResource(R.string.fl_inv_summary, inv.sent, inv.accepted, inv.declined), color = settingsMut(), fontSize = 13.sp)
+                    TextAction(stringResource(if (inv.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see)) { onInvitations() }
+                }
             }
             if (p.status == "published" || p.status == "awarded") Card {
                 Label(stringResource(R.string.fl_offers) + if (p.offers.count > 0) " (${p.offers.count})" else "")
@@ -447,6 +482,8 @@ private fun eventLabel(type: String): String = when (type) {
     "project.offers_closed" -> stringResource(R.string.fl_ev_offers_closed)
     "project.offers_reopened" -> stringResource(R.string.fl_ev_offers_reopened)
     "project.awarded" -> stringResource(R.string.fl_ev_awarded)
+    "project.started" -> stringResource(R.string.fl_ev_started)
+    "project.reopened" -> stringResource(R.string.fl_ev_reopened)
     "project.published" -> stringResource(R.string.fl_status_published)
     "project.rejected" -> stringResource(R.string.fl_status_rejected)
     "project.changes_requested" -> stringResource(R.string.fl_status_changes_requested)
@@ -500,6 +537,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     var budgetMax by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableStateOf("") }
     var visibility by rememberSaveable { mutableStateOf("public") }
+    val questions = remember { mutableStateListOf<String>() }
     var attachments by remember { mutableStateOf(emptyList<com.dorr.app.network.FreelanceAttachmentDto>()) }
     var rules by remember { mutableStateOf<FreelanceBudgetRulesDto?>(null) }
     var pickSpecialty by remember { mutableStateOf(false) }
@@ -520,6 +558,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 budgetMax = money(p.budget.maxMinor)
                 duration = p.durationDays?.toString().orEmpty()
                 visibility = p.visibility
+                questions.clear(); questions.addAll(p.questions)
                 attachments = p.attachments
             }
             loaded = true
@@ -547,6 +586,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
             budgetMaxMinor = max,
             durationDays = duration.toIntOrNull(),
             visibility = visibility,
+            questions = questions.map { it.trim() }.filter { it.isNotEmpty() },
         )
     }
 
@@ -644,6 +684,18 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                     Chip(stringResource(R.string.fl_private), visibility == "private") { visibility = "private" }
                 }
                 Text(stringResource(if (visibility == "private") R.string.fl_private_hint else R.string.fl_public_hint), color = settingsMut(), fontSize = 12.sp)
+            }
+            // FL-307: questions every freelancer answers with their offer.
+            Card {
+                Label(stringResource(R.string.fl_questions))
+                Text(stringResource(R.string.fl_questions_hint), color = settingsMut(), fontSize = 12.sp)
+                questions.forEachIndexed { i, q ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DorrTextField(q, { questions[i] = it.take(300) }, placeholder = stringResource(R.string.fl_question_n, i + 1), modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.Close, stringResource(R.string.fl_remove), tint = settingsMut(), modifier = Modifier.size(30.dp).clip(RoundedCornerShape(50)).clickable { questions.removeAt(i) }.padding(6.dp))
+                    }
+                }
+                if (questions.size < 5) TextAction(stringResource(R.string.fl_add_question)) { questions.add("") }
             }
             Card {
                 Label(stringResource(R.string.fl_files))

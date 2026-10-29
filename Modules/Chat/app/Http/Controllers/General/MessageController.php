@@ -165,6 +165,7 @@ class MessageController extends Controller
     {
         $q = $request->validate([
             'folder' => ['nullable', 'string', 'max:32'],
+            'q' => ['nullable', 'string', 'max:80'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
@@ -175,6 +176,7 @@ class MessageController extends Controller
             $folder === 'none' ? 'none' : (is_numeric($folder) ? (int) $folder : null),
             (int) ($q['page'] ?? 1),
             (int) ($q['per_page'] ?? 15),
+            $q['q'] ?? null,
         );
 
         return ApiResponse::success($page->getCollection()->values()->all(), __('api.retrieved'), 200, ApiPaginator::meta($page));

@@ -366,6 +366,7 @@ data class TransferRecipientDto(
     val via: String,
     /** Already masked by the server: first letter of each word, the rest asterisks. */
     @SerializedName("name_masked") val nameMasked: String,
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     /** Full phone, only when looked up by phone. */
     val phone: String? = null,
     /** Only when looked up by wallet number. */

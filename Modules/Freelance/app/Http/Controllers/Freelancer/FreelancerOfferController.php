@@ -43,7 +43,9 @@ class FreelancerOfferController extends Controller
             'duration_days' => ['required', 'integer', 'min:1', 'max:'.(int) config('freelance.projects.max_duration_days', 365)],
             'details' => ['required', 'string', 'min:'.(int) config('freelance.offers.details_min', 30), 'max:'.(int) config('freelance.offers.details_max', 3000)],
             'files' => ['nullable', 'array', 'max:'.(int) config('freelance.offers.max_attachments', 5)],
-            'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb', 20480), 'mimes:'.implode(',', (array) config('freelance.projects.attachment_types'))],
+            'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb', 20480), 'mimes:'.implode(',', (array) config('freelance.projects.attachment_types')), new \Modules\Freelance\Rules\CleanUpload],
+            'answers' => ['nullable', 'array', 'max:10'],
+            'answers.*' => ['nullable', 'string', 'max:1000'],
         ]);
         $me = $this->me($request);
         $offer = $this->offers->send($me, $this->projects->find($me, $uuid), $data, $request->file('files', []));
@@ -76,6 +78,8 @@ class FreelancerOfferController extends Controller
             'price_minor' => ['sometimes', 'integer', 'min:1', 'max:100000000000'],
             'duration_days' => ['sometimes', 'integer', 'min:1', 'max:'.(int) config('freelance.projects.max_duration_days', 365)],
             'details' => ['sometimes', 'string', 'min:'.(int) config('freelance.offers.details_min', 30), 'max:'.(int) config('freelance.offers.details_max', 3000)],
+            'answers' => ['sometimes', 'array', 'max:10'],
+            'answers.*' => ['nullable', 'string', 'max:1000'],
         ]);
         $me = $this->me($request);
 

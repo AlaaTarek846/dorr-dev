@@ -24,9 +24,16 @@ interface LifeApi {
     @POST("mobile/v1/chat/conversations/{id}/commitment")
     suspend fun commit(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<LifeCommitmentDto>
 
-    /** `scope`: mine · theirs · all */
+    /** `scope`: mine · theirs · all. Pages of 15. */
     @GET("mobile/v1/chat/commitments")
-    suspend fun commitments(@Header("Authorization") auth: String, @Query("scope") scope: String, @Query("open") open: Int = 1): ApiEnvelope<List<LifeCommitmentDto>>
+    suspend fun commitments(
+        @Header("Authorization") auth: String,
+        @Query("scope") scope: String,
+        @Query("open") open: Int = 1,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<List<LifeCommitmentDto>>
 
     @GET("mobile/v1/chat/commitments/{id}")
     suspend fun commitment(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<LifeCommitmentDto>
@@ -49,9 +56,16 @@ interface LifeApi {
     @POST("mobile/v1/chat/handoffs/{id}/{action}")
     suspend fun moveHandoff(@Header("Authorization") auth: String, @Path("id") id: String, @Path("action") action: String): ApiEnvelope<HandoffDto>
 
-    /** `scope`: received · sent */
+    /** `scope`: received · sent. Pages of 15. */
     @GET("mobile/v1/chat/handoffs")
-    suspend fun handoffs(@Header("Authorization") auth: String, @Query("scope") scope: String, @Query("open") open: Int = 1): ApiEnvelope<List<HandoffDto>>
+    suspend fun handoffs(
+        @Header("Authorization") auth: String,
+        @Query("scope") scope: String,
+        @Query("open") open: Int = 1,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<List<HandoffDto>>
 
     /** `{title, terms[{label, value}], parties?[], source? (message id)}` */
     @POST("mobile/v1/chat/conversations/{id}/agreements")
@@ -84,9 +98,16 @@ interface LifeApi {
     @PUT("mobile/v1/chat/attention/context")
     suspend fun setContext(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<AttentionDto>
 
-    /** What needs something from me (spec 147): reply · pay · approve · follow · appointments. */
+    /** What needs something from me (spec 147): reply · pay · approve · follow · appointments. Pages of 15. */
     @GET("mobile/v1/chat/life-inbox")
-    suspend fun lifeInbox(@Header("Authorization") auth: String, @Query("timezone") timezone: String): ApiEnvelope<LifeInboxDto>
+    suspend fun lifeInbox(
+        @Header("Authorization") auth: String,
+        @Query("timezone") timezone: String,
+        @Query("section") section: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<LifeInboxDto>
 }
 
 /**
@@ -113,12 +134,22 @@ data class LifeItemDto(
     val location: String? = null,
 )
 
+data class LifeInboxCountsDto(
+    val reply: Int = 0,
+    val pay: Int = 0,
+    val approve: Int = 0,
+    val follow: Int = 0,
+    val appointments: Int = 0,
+    @SerializedName("message_requests") val messageRequests: Int = 0,
+)
+
 data class LifeInboxDto(
     val reply: List<LifeItemDto> = emptyList(),
     val pay: List<LifeItemDto> = emptyList(),
     val approve: List<LifeItemDto> = emptyList(),
     val follow: List<LifeItemDto> = emptyList(),
     val appointments: List<LifeItemDto> = emptyList(),
+    val counts: LifeInboxCountsDto? = null,
     @SerializedName("message_requests") val messageRequests: Int = 0,
     val total: Int = 0,
 )

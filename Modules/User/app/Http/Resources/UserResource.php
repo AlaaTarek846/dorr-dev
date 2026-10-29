@@ -15,6 +15,8 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            // The account verification ✔ (AV-026).
+            'is_verified' => \App\Support\AccountBadge::verified($this->resource),
             'email' => $this->email,
             'phone' => $this->phone,
             'gender' => $this->gender?->value ?? $this->gender,

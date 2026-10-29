@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -133,6 +134,8 @@ fun HomeScreen(
     var permissionsOk by remember { mutableStateOf(granted(Manifest.permission.ACCESS_FINE_LOCATION)) }
 
     var states by remember { mutableStateOf<com.dorr.driver.net.ServiceStatusDto?>(null) }
+    var servicesOpen by remember { mutableStateOf(false) }
+    if (servicesOpen) ServicesSheet(onClose = { servicesOpen = false })
     LaunchedEffect(reload, rideTick) {
         (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
         (apiCall { DriverBackend.api.serviceStatus() } as? ApiResult.Ok)?.let { states = it.data }
@@ -484,6 +487,8 @@ fun HomeScreen(
                             Text(String.format("%.1f", it), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
                         }
                     }
+                    // O-89: my services — what my vehicle can work in here, each with its switch.
+                    RoundIconButton(Icons.Rounded.Apps, stringResource(R.string.sv_title), onClick = { servicesOpen = true })
                     NotificationBell(onClick = onOpenNotifications)
                 }
                 Row(

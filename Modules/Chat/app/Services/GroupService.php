@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Enums\ConversationType;
+use Modules\Chat\Enums\GroupKind;
 use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatGroupAuditLog;
 use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
@@ -47,15 +49,16 @@ class GroupService
      * @param  list<Model>  $members
      * @return array{participant: ChatParticipant, not_added: list<string>}
      */
-    public function create(Model $me, string $name, ?string $description, array $members, ?UploadedFile $avatar = null, ?int $disappearingSeconds = null): array
+    public function create(Model $me, string $name, ?string $description, array $members, ?UploadedFile $avatar = null, ?int $disappearingSeconds = null, GroupKind $kind = GroupKind::Normal): array
     {
         $max = ChatSetting::current()->max_group_members;
 
         if (count($members) + 1 > $max) {
             throw ChatException::groupFull($max);
         }
+        $this->assertCanCreateKind($me, $kind);
 
-        return DB::transaction(function () use ($me, $name, $description, $members, $avatar, $disappearingSeconds) {
+        return DB::transaction(function () use ($me, $name, $description, $members, $avatar, $disappearingSeconds, $kind) {
             $conversation = ChatConversation::query()->create([
                 'type' => ConversationType::Group,
                 'status' => ConversationStatus::Accepted,
@@ -70,13 +73,22 @@ class GroupService
                 'name' => $name,
                 'description' => $description,
                 'invite_token' => Str::random(24),
+                'kind' => $kind,
             ]);
 
             if ($avatar !== null) {
                 $group->setSingleMedia('avatar', $avatar);
             }
 
+            // Educational / work: the template roles first, so everyone added gets the default one (GR-004).
+            if ($kind !== GroupKind::Normal) {
+                app(GroupRoleService::class)->seed($conversation, $kind);
+            }
+
             $mine = $this->conversations->addParticipant($conversation, $me, ParticipantRole::Owner);
+            if ($kind !== GroupKind::Normal) {
+                app(GroupRoleService::class)->makeLeader($conversation, $mine);
+            }
             $this->messages->system($conversation, $me, 'group_created', [], ['name' => $name]);
 
             // Founding members see the group from its first line.
@@ -84,6 +96,37 @@ class GroupService
 
             return ['participant' => $mine->refresh(), 'not_added' => $result['not_added']];
         });
+    }
+
+    /**
+     * An educational or work group (GR-002): its kind is on where I am (the admin's switch and the
+     * rules per country and city), and I don't own the most allowed yet. Teacher verification for
+     * educational groups is postponed (docs/groups_tasks.md D4).
+     */
+    private function assertCanCreateKind(Model $me, GroupKind $kind): void
+    {
+        if ($kind === GroupKind::Normal) {
+            return;
+        }
+
+        if (! app(ChatFeatures::class)->allows($me, (string) $kind->feature())) {
+            throw new ChatException('group_kind_disabled', 403);
+        }
+
+        $max = (int) ChatSetting::current()->max_owned_kind_groups;
+        if ($max <= 0) {
+            return;
+        }
+
+        $owned = ChatGroup::query()->where('kind', $kind->value)
+            ->whereHas('conversation', fn ($q) => $q->where('type', ConversationType::Group->value))
+            ->whereIn('conversation_id', ChatParticipant::query()->of($me)->whereNull('left_at')
+                ->where('role', ParticipantRole::Owner->value)->select('conversation_id'))
+            ->count();
+
+        if ($owned >= $max) {
+            throw new ChatException('group_limit_reached', 422, ['max' => $max]);
+        }
     }
 
     public function updateInfo(Model $me, ChatConversation $conversation, array $data, ?UploadedFile $avatar, bool $removeAvatar = false): ChatGroup
@@ -130,7 +173,13 @@ class GroupService
         $group = $conversation->group;
 
         DB::transaction(function () use ($me, $conversation, $group, $data) {
-            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'is_public', 'slow_mode_seconds', 'banned_words']));
+            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'join_mode', 'is_public', 'slow_mode_seconds', 'banned_words']));
+            // The join mode and approve_joins move together (older apps only send approve_joins).
+            if (array_key_exists('join_mode', $data)) {
+                $data['approve_joins'] = $data['join_mode'] !== 'direct';
+            } elseif (array_key_exists('approve_joins', $data)) {
+                $data['join_mode'] = $data['approve_joins'] ? ($group->join_mode === 'request' ? 'request' : 'approval') : 'direct';
+            }
             if (CommunityService::isAnnouncement($conversation)) {
                 // A community's announcements: only its admins ever write (WhatsApp list 94).
                 unset($data['only_admins_send'], $data['only_admins_add_members']);
@@ -146,8 +195,12 @@ class GroupService
             }
             $before = $group->only_admins_send;
             $approveBefore = $group->approve_joins;
+            $settingsBefore = $group->only(array_keys($data));
             $slowBefore = (int) $group->slow_mode_seconds;
             $group->update($data);
+            if ($data !== []) {
+                ChatGroupAuditLog::recordIfKept($conversation, $me, 'settings_changed', null, $settingsBefore, $group->only(array_keys($data)));
+            }
 
             if (array_key_exists('slow_mode_seconds', $data) && (int) $data['slow_mode_seconds'] !== $slowBefore) {
                 $seconds = (int) $data['slow_mode_seconds'];
@@ -165,6 +218,43 @@ class GroupService
         });
 
         return $group->refresh();
+    }
+
+    /**
+     * Before paying for hidden members: a group (a channel's followers are hidden already), I'm
+     * one of its admins, and it isn't hidden yet. Returns the group to sell.
+     */
+    public function assertCanHideMembers(Model $me, ChatConversation $conversation): ChatGroup
+    {
+        if ($conversation->isChannel()) {
+            throw ChatException::groupOnly();
+        }
+        $this->assertAdmin($me, $conversation);
+
+        if ($conversation->group->membersHidden()) {
+            throw new ChatException('members_already_hidden', 409);
+        }
+
+        return $conversation->group;
+    }
+
+    /**
+     * Paid: the members' numbers are hidden from each other from now on (ParticipantDirectory),
+     * and nobody can start a private chat with someone they only know from here. One way — the
+     * members were told, so it is never switched off. Runs inside the payment's transaction.
+     */
+    public function hideMembers(?Model $payer, ChatConversation $conversation): void
+    {
+        /** @var ChatGroup $group */
+        $group = ChatGroup::query()->lockForUpdate()->findOrFail($conversation->group->id);
+
+        if ($group->membersHidden()) {
+            return;
+        }
+
+        $group->update(['members_hidden_at' => now()]);
+        $this->messages->system($conversation, $payer, 'group_members_hidden');
+        $this->changed($conversation);
     }
 
     /**
@@ -186,10 +276,14 @@ class GroupService
             ->values();
 
         $directory->prime($me, $rows->map(fn ($p) => [$p->participant_type, $p->participant_id]));
+        // Educational / work groups: the roles each one holds in the whole group (GR-004).
+        $kindRoles = ($conversation->group?->kind ?? GroupKind::Normal) !== GroupKind::Normal
+            ? app(GroupRoleService::class)->rolesOf($rows->pluck('id')) : null;
 
         return $rows->map(fn (ChatParticipant $p) => [
             'participant_id' => $p->id,
             'role' => $p->role->value,
+            'roles' => $kindRoles === null ? null : ($kindRoles[$p->id] ?? []),
             'joined_at' => $p->joined_at?->toIso8601String(),
             'profile' => $directory->profile($me, $p->participant_type, $p->participant_id),
         ])->all();
@@ -211,6 +305,9 @@ class GroupService
         if ($conversation->group->only_admins_add_members && ! $participant->isAdmin()) {
             throw ChatException::adminsOnly();
         }
+        // A term / project takes members of the main group, from its own screen (GR-007).
+        GroupSpaceService::assertNotSpace($conversation);
+        GroupLifecycleService::assertWritable($conversation);
 
         return DB::transaction(fn () => $this->addAccounts($me, $conversation, $accounts));
     }
@@ -227,6 +324,9 @@ class GroupService
         DB::transaction(function () use ($me, $conversation, $target) {
             $target->update(['left_at' => now(), 'role' => ParticipantRole::Member, 'pinned_at' => null]);
             $this->messages->system($conversation, $me, 'member_removed', [$target->key()]);
+            ChatGroupAuditLog::recordIfKept($conversation, $me, 'member_removed', 'participant:'.$target->id);
+            // Out of the main group = out of its terms / projects (GR-007).
+            app(GroupSpaceService::class)->leftParent($conversation, $target);
             $this->changed($conversation, [$target]);
         });
     }
@@ -272,6 +372,12 @@ class GroupService
         if ($target->id === $mine->id) {
             return $mine;
         }
+        // Educational / work groups: an offer the member accepts or declines (GR-005).
+        if (GroupLifecycleService::isKindGroup($conversation)) {
+            app(GroupLifecycleService::class)->offerOwnership($me, $conversation, $mine, $target);
+
+            return $mine;
+        }
 
         DB::transaction(function () use ($me, $conversation, $mine, $target) {
             $target->update(['role' => ParticipantRole::Owner]);
@@ -294,6 +400,12 @@ class GroupService
         if (CommunityService::isAnnouncement($conversation)) {
             throw new ChatException('community_delete_instead', 422);
         }
+        // Educational / work groups: can be brought back for a while (GR-006).
+        if (GroupLifecycleService::isKindGroup($conversation)) {
+            app(GroupLifecycleService::class)->softDelete($me, $conversation);
+
+            return;
+        }
         $everyone = $conversation->activeParticipants()->get();
 
         DB::transaction(function () use ($conversation) {
@@ -314,11 +426,14 @@ class GroupService
         if ($participant->role === ParticipantRole::Owner && CommunityService::isAnnouncement($conversation)) {
             throw new ChatException('community_creator_stays', 422);
         }
+        app(GroupLifecycleService::class)->assertOwnerMayLeave($conversation, $participant);
 
         DB::transaction(function () use ($me, $conversation, $participant) {
             $wasOwner = $participant->role === ParticipantRole::Owner;
             $wasStaff = $participant->isAdmin();
             $participant->update(['left_at' => now(), 'role' => ParticipantRole::Member, 'pinned_at' => null]);
+            app(GroupSpaceService::class)->leftParent($conversation, $participant);
+            ChatGroupAuditLog::recordIfKept($conversation, $me, 'member_left', 'participant:'.$participant->id);
             // A follower unfollowing a channel is not news; in a group everyone sees who left.
             if (! $conversation->isChannel() || $wasStaff) {
                 $this->messages->system($conversation, $me, 'member_left');
@@ -353,6 +468,7 @@ class GroupService
     public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false, ?int $expiresInHours = null): array
     {
         $this->assertAdmin($me, $conversation);
+        GroupSpaceService::assertNotSpace($conversation);
         $group = $conversation->group;
 
         if ($reset || $group->invite_token === null || $group->invite_expires_at?->isPast()) {
@@ -395,6 +511,8 @@ class GroupService
             'is_member' => $conversation->activeParticipants()->of($me)->exists(),
             // The admins approve new members: "Join" becomes "Ask to join".
             'approve_joins' => $group->approve_joins,
+            // request: "Ask to join" with a box for why.
+            'join_mode' => $group->join_mode ?? ($group->approve_joins ? 'approval' : 'direct'),
             'request_status' => ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->by($me)->pending()->exists() ? 'pending' : null,
         ];
     }
@@ -403,9 +521,9 @@ class GroupService
      * Join through the invite link — or, when the admins approve new members, ask to join
      * (returns the pending request; asking twice keeps the one request).
      */
-    public function join(Model $me, string $token): ChatParticipant|ChatGroupJoinRequest
+    public function join(Model $me, string $token, ?string $reason = null): ChatParticipant|ChatGroupJoinRequest
     {
-        return $this->enter($me, $this->groupByInvite($token), 'member_joined_via_link');
+        return $this->enter($me, $this->groupByInvite($token), 'member_joined_via_link', $reason);
     }
 
     /**
@@ -417,7 +535,10 @@ class GroupService
         return $this->enter($me, $conversation->group, 'member_joined_via_community');
     }
 
-    private function enter(Model $me, ChatGroup $group, string $event): ChatParticipant|ChatGroupJoinRequest
+    /**
+     * @param  ?string  $reason  why they want in — kept only when the group asks for it (join_mode request)
+     */
+    private function enter(Model $me, ChatGroup $group, string $event, ?string $reason = null): ChatParticipant|ChatGroupJoinRequest
     {
         $conversation = $group->conversation;
 
@@ -425,6 +546,8 @@ class GroupService
         if ($existing !== null) {
             return $existing;
         }
+        GroupSpaceService::assertNotSpace($conversation);
+        GroupLifecycleService::assertWritable($conversation);
 
         // A channel has followers, not members: no group size limit.
         if (! $conversation->isChannel()) {
@@ -437,6 +560,7 @@ class GroupService
                     'conversation_id' => $conversation->id,
                     'requester_type' => ParticipantType::aliasFor($me),
                     'requester_id' => $me->getKey(),
+                    'reason' => $group->join_mode === 'request' && filled($reason) ? trim((string) $reason) : null,
                 ]);
 
             if ($request->wasRecentlyCreated) {
@@ -486,6 +610,7 @@ class GroupService
         return $rows->map(fn (ChatGroupJoinRequest $r) => [
             'id' => $r->id,
             'profile' => $directory->profile($me, $r->requester_type, $r->requester_id),
+            'reason' => $r->reason,
             'requested_at' => $r->created_at?->toIso8601String(),
         ])->all();
     }
@@ -502,6 +627,11 @@ class GroupService
 
         if ($approve) {
             $this->assertRoom($conversation);
+            // Asked while allowed, but not any more (the account was stopped): no way in (SC-002).
+            $status = $requester->getAttribute('status');
+            if (($status instanceof \BackedEnum ? $status->value : ($status ?? 'active')) !== 'active') {
+                throw ChatException::userNotFound();
+            }
         }
 
         DB::transaction(function () use ($me, $conversation, $request, $requester, $admin, $approve) {
@@ -510,6 +640,7 @@ class GroupService
                 'decided_by_participant_id' => $admin->id,
                 'decided_at' => now(),
             ]);
+            ChatGroupAuditLog::recordIfKept($conversation, $me, $approve ? 'join_approved' : 'join_rejected', null, null, ['requester' => $request->requester_type.':'.$request->requester_id]);
 
             if ($approve && ! $conversation->activeParticipants()->of($requester)->exists()) {
                 $this->conversations->addParticipant($conversation, $requester, ParticipantRole::Member, (int) $conversation->last_message_id ?: null);
@@ -590,6 +721,7 @@ class GroupService
 
         if ($added !== []) {
             $this->messages->system($conversation, $me, 'members_added', $added);
+            ChatGroupAuditLog::recordIfKept($conversation, $me, 'members_added', null, null, ['members' => $added]);
             $this->changed($conversation);
         }
 

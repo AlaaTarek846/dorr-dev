@@ -4,6 +4,7 @@ namespace Modules\Chat\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Modules\Chat\Enums\GroupKind;
 
 class CreateGroupRequest extends FormRequest
 {
@@ -25,6 +26,8 @@ class CreateGroupRequest extends FormRequest
             'members' => ['required', 'array', 'min:1', 'max:1024'],
             'members.*' => ['integer', 'distinct'],
             'disappearing_seconds' => ['nullable', Rule::in([86400, 604800, 7776000])],
+            // normal (default) | education | work — fixed once the group exists.
+            'kind' => ['nullable', Rule::enum(GroupKind::class)],
         ];
     }
 }

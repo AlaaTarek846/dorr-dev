@@ -150,7 +150,7 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
         val call = current.call
         when {
             call != null && call.status == "ringing" && call.caller == "user" ->
-                RideCallSession.incoming(callContext, current.uuid, call.uuid, current.rider?.name.orEmpty(), end = { r, c -> com.dorr.core.network.apiCall { DriverBackend.api.endCall(r, c) } })
+                RideCallSession.incoming(callContext, current.uuid, call.uuid, current.rider?.name.orEmpty(), end = { r, c -> com.dorr.core.network.apiCall { DriverBackend.api.endCall(r, c) } }, peerVerified = current.rider?.isVerified == true)
             call == null && RideCallSession.rideUuid == current.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
         }
     }
@@ -255,7 +255,11 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(t.rider?.name.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.rider?.name.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                            // The rider's account verification tick (AV-028).
+                            RiderTick(t.rider?.isVerified == true)
+                        }
                         Text(t.rider?.rating?.let { stringResource(R.string.trip_rider_rating, String.format("%.1f", it)) } ?: stringResource(R.string.offer_new_rider), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                     if (t.status != "completed") {
@@ -567,7 +571,10 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
     }
     if (!rated) {
         Card {
-            Text(stringResource(R.string.trip_rate, t.rider?.name.orEmpty()), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.trip_rate, t.rider?.name.orEmpty()), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                RiderTick(t.rider?.isVerified == true)
+            }
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center) {
                 (1..5).forEach { i -> Icon(if (i <= stars) Icons.Filled.Star else Icons.Filled.StarBorder, null, tint = if (i <= stars) DorrBrand.warning else Color.Gray, modifier = Modifier.size(40.dp).clickable { stars = i }) }
             }
@@ -683,6 +690,7 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     TripChatScreen(
         title = t.rider?.name.orEmpty(),
+        titleVerified = t.rider?.isVerified == true,
         subtitle = stringResource(R.string.trip_chat_subtitle, t.number.orEmpty()),
         messages = messages, quick = quick, open = open,
         onSend = { body, key -> send(body, key) },

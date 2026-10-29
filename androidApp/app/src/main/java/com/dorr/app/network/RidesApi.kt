@@ -350,6 +350,8 @@ data class RideQuoteDto(
     @SerializedName("hourly_offer") val hourlyOffer: RideHourlyOfferDto? = null,
     /** R-233..R-237, R-NEW-06: the add-ons on offer here with their prices, and the ones priced in. */
     @SerializedName("addons_offer") val addonsOffer: RideAddonsOfferDto? = null,
+    /** O-88: online captains around who take the pet / child seats asked for (null = nothing needs equipment). */
+    @SerializedName("equipped_nearby") val equippedNearby: Int? = null,
     val options: List<RideAddonDto> = emptyList(),
 )
 

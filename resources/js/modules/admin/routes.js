@@ -585,6 +585,43 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-settings.view' },
             },
             {
+                // Account verification (docs/verification_tasks.md).
+                path: 'chat/verification/requests',
+                name: 'admin.chat.verification.requests',
+                component: page('chat/verification/requests/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-requests.view' },
+            },
+            {
+                path: 'chat/verification/requests/:uuid',
+                name: 'admin.chat.verification.request',
+                component: page('chat/verification/requests/show'),
+                meta: { middleware: [auth], permission: 'chat-verification-requests.view' },
+            },
+            {
+                path: 'chat/verification/badges',
+                name: 'admin.chat.verification.badges',
+                component: page('chat/verification/badges/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-badges.view' },
+            },
+            {
+                path: 'chat/verification/settings',
+                name: 'admin.chat.verification.settings',
+                component: page('chat/verification/settings/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-settings.view' },
+            },
+            {
+                path: 'chat/verification/documents',
+                name: 'admin.chat.verification.documents',
+                component: page('chat/verification/documents/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-settings.view' },
+            },
+            {
+                path: 'chat/verification/audit',
+                name: 'admin.chat.verification.audit',
+                component: page('chat/verification/audit/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-audit.view' },
+            },
+            {
                 path: 'chat/feature-rules',
                 name: 'admin.chat.feature-rules',
                 component: page('chat/feature-rules/index'),
@@ -688,6 +725,12 @@ export default [
                 meta: { middleware: [auth], permission: 'wasl-logs.view' },
             },
             {
+                path: 'rides/driver-services',
+                name: 'admin.rides.driver_services',
+                component: page('rides/services/index'),
+                meta: { middleware: [auth], permission: 'driver-services.view' },
+            },
+            {
                 path: 'rides/ranks',
                 name: 'admin.rides.ranks',
                 component: page('rides/ranks/index'),
@@ -710,6 +753,18 @@ export default [
                 name: 'admin.freelance.policies',
                 component: page('freelance/policies/index'),
                 meta: { middleware: [auth], permission: 'freelance-policies.view' },
+            },
+            {
+                path: 'freelance/reports',
+                name: 'admin.freelance.reports',
+                component: page('freelance/reports/index'),
+                meta: { middleware: [auth], permission: 'freelance-reports.view' },
+            },
+            {
+                path: 'freelance/disputes',
+                name: 'admin.freelance.disputes',
+                component: page('freelance/disputes/index'),
+                meta: { middleware: [auth], permission: 'freelance-disputes.view' },
             },
             {
                 path: 'freelance/projects',
@@ -848,6 +903,12 @@ export default [
                 name: 'admin.chat.portals',
                 component: page('chat/portals/index'),
                 meta: { middleware: [auth], permission: 'chat-portals.view' },
+            },
+            {
+                path: 'chat/groups',
+                name: 'admin.chat.groups',
+                component: page('chat/groups/index'),
+                meta: { middleware: [auth], permission: 'chat-groups.view' },
             },
             {
                 path: 'chat/channels',

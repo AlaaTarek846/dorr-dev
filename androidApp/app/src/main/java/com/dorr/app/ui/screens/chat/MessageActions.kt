@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.ShortText
 import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.AddTask
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Redeem
 import androidx.compose.material.icons.rounded.Inventory2
@@ -82,7 +83,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -221,6 +225,11 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                 if (aiText && !focused.isMine && ChatAi.understand) ActionRow(Icons.Rounded.Psychology, stringResource(R.string.ct_understand)) { state.aiTool = "understand" to dto; close() }
                 if (aiText && ChatAi.simplify && dto.body.orEmpty().length > 220) ActionRow(Icons.Rounded.ShortText, stringResource(R.string.ct_simplify)) { state.aiTool = "simplify" to dto; close() }
                 if (aiText && ChatAi.tasks) ActionRow(Icons.Rounded.TaskAlt, stringResource(R.string.ct_make_tasks)) { state.aiTool = "tasks" to dto; close() }
+                // A work group (or one of its projects): make this message a team task (GR-038).
+                val g = state.conversation?.group
+                if (aiText && !dto.isDeleted && (g?.kind == "work" || g?.space?.type == "project")) {
+                    ActionRow(Icons.Rounded.AddTask, stringResource(R.string.gt_make_task)) { state.groupTaskFrom = dto; close() }
+                }
                 // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
                 if (ChatAi.imageEdit && dto.type == "image" && !dto.viewOnce && !dto.sealed && !dto.isDeleted) ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_image_edit_title)) { state.aiTool = "edit_image" to dto; close() }
                 if (aiText && ChatAi.notes) ActionRow(Icons.Rounded.Description, stringResource(R.string.ct_make_note)) { state.aiNote(listOf(dto.id), noteSaved); close() }
@@ -320,7 +329,7 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
 /** A small sheet of choices (delete for me / for everyone, pin duration, mute duration…). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, radios: Boolean = false, selected: Int? = null, onDismiss: () -> Unit) {
+internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, radios: Boolean = false, selected: Int? = null, values: List<String?>? = null, onDismiss: () -> Unit) {
     var picked by remember { mutableStateOf(selected) }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
@@ -335,7 +344,21 @@ internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>,
                         .padding(horizontal = 16.dp, vertical = 15.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(label, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    val hint = values?.getOrNull(i)
+                    Text(
+                        buildAnnotatedString {
+                            append(label)
+                            if (!hint.isNullOrBlank()) {
+                                withStyle(SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Ch.Mut)) {
+                                    append(" ($hint)")
+                                }
+                            }
+                        },
+                        color = if (danger) Ch.Danger else Ch.Ink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        modifier = Modifier.weight(1f),
+                    )
                     if (radios) {
                         val on = picked == i
                         Icon(

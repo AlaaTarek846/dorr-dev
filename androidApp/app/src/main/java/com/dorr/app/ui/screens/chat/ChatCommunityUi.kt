@@ -449,7 +449,7 @@ private fun CommunityMembersSheet(c: CommunityDto, onDismiss: () -> Unit, onChan
                         ) {
                             ChAvatar(m.profile?.avatar, m.profile?.name, m.profile?.key, size = 40.dp)
                             Spacer(Modifier.width(10.dp))
-                            Text(if (m.profile?.isMe == true) stringResource(R.string.ch_you) else m.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            com.dorr.app.ui.components.VerifiedName(if (m.profile?.isMe == true) stringResource(R.string.ch_you) else m.profile?.name.orEmpty(), verified = m.profile?.isVerified == true, color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
                             when (m.role) {
                                 "owner" -> RoleTag(stringResource(R.string.cm_creator))
                                 "admin" -> RoleTag(stringResource(R.string.cm_admin))

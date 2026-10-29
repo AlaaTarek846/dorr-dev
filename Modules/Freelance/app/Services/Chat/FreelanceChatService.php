@@ -15,7 +15,9 @@ use Modules\Freelance\Events\FreelanceMessagesRead;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceConversation;
 use Modules\Freelance\Models\FreelanceMessage;
+use Modules\Freelance\Enums\FreelanceProjectStatus;
 use Modules\Freelance\Models\Freelancer;
+use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\User\Models\User;
 use Throwable;
@@ -37,6 +39,7 @@ class FreelanceChatService
     public function __construct(
         private readonly NotificationCenter $notifications,
         private readonly FreelanceFeatures $features,
+        private readonly ContactGuard $guard,
     ) {}
 
     // -------------------------------------------------------------- rooms
@@ -91,6 +94,17 @@ class FreelanceChatService
         return $countryId !== null && $this->features->allows($countryId, 'chat');
     }
 
+    /** Phone numbers, emails and links are kept out while the project is before its agreement. */
+    public function guarded(FreelanceConversation $conversation): bool
+    {
+        if ($conversation->context_type !== OfferChat::CONTEXT) {
+            return false;
+        }
+        $status = Project::query()->whereKey($conversation->context_id)->first(['id', 'status'])?->status;
+
+        return $status instanceof FreelanceProjectStatus && $status->preContract();
+    }
+
     // -------------------------------------------------------------- messages
 
     /** @return Collection<int, FreelanceMessage> newest first; `before` is the id to continue from */
@@ -115,6 +129,10 @@ class FreelanceChatService
         $text = trim((string) $body);
         if ($text === '' && $file === null) {
             throw new FreelanceException('chat_empty', 422);
+        }
+        // Before the agreement, no way to reach each other outside Dorr (FL-308).
+        if ($text !== '' && $this->guarded($conversation) && ($kind = $this->guard->find($text)) !== null) {
+            throw new FreelanceException('chat_contact_blocked', 422, [], ['kind' => $kind]);
         }
 
         try {
@@ -259,6 +277,10 @@ class FreelanceChatService
             'context' => ['type' => $conversation->context_type, 'id' => $conversation->context_id],
             'status' => $conversation->status,
             'can_write' => $this->canWrite($conversation),
+            'guarded' => $this->guarded($conversation),
+            'project' => $conversation->context_type === OfferChat::CONTEXT
+                ? Project::query()->whereKey($conversation->context_id)->first(['uuid', 'title'])?->only(['uuid', 'title'])
+                : null,
             'peer' => [
                 'name' => $peer?->name,
                 'avatar_url' => $peer !== null && method_exists($peer, 'getSingleMediaUrl') ? ($peer->getSingleMediaUrl('avatar') ?: null) : null,

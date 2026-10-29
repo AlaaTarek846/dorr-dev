@@ -42,6 +42,7 @@ final class HirePresenter
             ],
             'rider' => $forRider ? null : [
                 'name' => $hire->user?->name,
+                'is_verified' => \App\Support\AccountBadge::verified($hire->user),
                 'phone' => $live ? $hire->user?->phone : null,
             ],
         ];

@@ -242,6 +242,11 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],
             ],
+            // Educational and work groups (docs/groups_tasks.md GR-050..053).
+            'chat-groups' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
             'chat-dorr-stories' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete'],
@@ -249,6 +254,36 @@ class AdminPermissionSeeder extends Seeder
             'chat-moments' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
+            ],
+            // Account verification (docs/verification_tasks.md AV-004): reviewing a request is kept apart from
+            // approving it; early activation, badges, exemptions and prices each need their own permission.
+            'chat-verification-requests' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'review', 'approve', 'early-activate'],
+            ],
+            'chat-verification-badges' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-exemptions' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-verification-impersonation' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-audit' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
             ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
@@ -290,6 +325,7 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.
             'ride-settings' => [
                 'module_name' => 'passenger_ride',
@@ -304,6 +340,7 @@ class AdminPermissionSeeder extends Seeder
             'ride-lists' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-loyalty' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'driver-ranks' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'driver-services' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).

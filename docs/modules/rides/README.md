@@ -419,6 +419,36 @@ Both apps show the request's state from the ride (`change_request`): the rider a
 - **Favourite captains** (`GET mobile/v1/rides/circle?lat&lng`): each favourite comes with `available` (online, GPS on, fresh, not on a ride, may work) and `distance_km` (to 0.1 km). The available ones come first, nearest first.
 - **Time zone:** times written into texts (bus, marine, hire, lessons, the payment page, reminders) use `rides.default_timezone`, never the server's UTC.
 
+## Owner notes, sixth round (O-84..O-88)
+- **Find a driver, the price:** `GET hire/quote` goes through `DriverHireService::preview`. It falls back to the unit that has a price and moves the count into its range, and answers with `unit`, `quantity` and `units`. Only when neither an hour nor a day has a price does it refuse. The request itself still uses the strict `quote()`.
+- **What each vehicle does** (`Services/Drivers/VehicleKinds`): a car does rides, With Me, scheduled rides, the airport, find a driver and lessons; a motorcycle does rides; a bus does bus trips; a boat or yacht does the sea; no vehicle does find a driver and lessons. A minibus counts as both a car and a bus.
+  - `DriverEligibility::categoryProblem` returns `vehicle_kind` first, whatever the category's own rules say.
+  - The preferences list only that vehicle's categories.
+  - Find a driver and lessons refuse other vehicles (`rides_service_not_for_vehicle`).
+  - `GET driver/v1/work-services` returns the captain's kinds and services, and the captain app shows only those.
+- **By the hour only** (category flag `hourly_only`, set on the motorcycle by migration `2026_11_05_100000`):
+  - The quote prices such a category by the hour, at `hourly.min_hours` until the rider picks.
+  - The destination is optional, even with `open_destination` off.
+  - `hourly_offer.only` tells the app to hide «by distance».
+- **Equipped captains nearby:** a quote asking for a pet or child seats carries `equipped_nearby`, the online captains around who take them (`TripAddons::equippedNearby`). The rider app shows the count, or a warning when it is 0. With Wait & Save it says when the search starts.
+- **Rider identity:** with no name or gender, the rides service opens with a window that can't be dismissed until both are saved (`PUT profile/identity`).
+- Customer-facing Arabic (app strings, `lang/ar`) is Modern Standard Arabic.
+
+## Captain services (O-89; `Services/Drivers/DriverServices`)
+- **What it decides:** which services each kind of vehicle may work in, per country. The kinds are car (sedan, SUV, van), motorcycle, minibus, bus, boat, yacht, and none.
+  - The tables are `driver_service_rules` and `driver_services`.
+  - A country with no rows uses `DriverServices::DEFAULTS`, which is how things worked before.
+- **The captain's switch:** within what is open to them, the captain switches services on or off (`driver_service_choices`, on by default).
+- **Where it is enforced:**
+  - Ride categories, through `DriverEligibility::categoryProblem`, which gives `vehicle_kind` or `service_switched_off`. A category maps to a service: `bus` for seat pricing, `marine` for time pricing, `hourly` when the category is by the hour only in that country, and `rides` otherwise (With Me is a passenger-rides category).
+  - Also scheduled rides, the airport queue, bus trips, the sea, driver on demand and lessons.
+  - The category's own rules (body types…) still apply on top.
+- **By distance or by the hour per country:** `hourly.mode` in the rules (`category` / `hourly` / `distance`), else the category's `hourly_only` flag.
+- **API:**
+  - Captain: `GET driver/v1/work-services` returns `{kind, services: [{key, name, description, icon, color, coming_soon, on}]}`. `PUT driver/v1/work-services/{key} {on}` switches one.
+  - Admin (permission `driver-services`): `driver-services` CRUD, and `GET|PUT driver-service-rules?country_id` with `matrix: {service: {kind: bool}}`.
+- **Captain app:** the home screen's Services button opens `ServicesSheet`.
+
 ## Ride chat (`RideChatService`, `ride_messages`)
 Rider ↔ driver, text and ready-made messages (`lang/*/rides.php → quick`), open only while a driver is on the ride; when it ends nobody can write (`409 rides_chat_closed`) but the conversation stays for the admin. Live on `rides.{uuid}` as `ride.message`, plus a push to the other side; a `client_id` makes a re-send land once. API: `GET|POST mobile/v1/rides/{uuid}/messages` and `driver/v1/rides/{uuid}/messages` (`{open, quick_replies, messages}`).
 

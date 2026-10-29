@@ -23,6 +23,19 @@ interface OffersApi {
     @GET("${ApiClient.FREELANCE}projects/{uuid}/offer-preview")
     suspend fun preview(@Path("uuid") uuid: String, @Query("price_minor") priceMinor: Long? = null): Response<ApiEnvelope<OfferPreviewDto>>
 
+    /** FL-304: what to fix (error) or think about (warning) before sending. */
+    @POST("${ApiClient.FREELANCE}projects/{uuid}/offer-check")
+    suspend fun check(@Path("uuid") uuid: String, @Body body: OfferCheckRequest): Response<ApiEnvelope<OfferChecksDto>>
+
+    @GET("${ApiClient.FREELANCE}offer-templates")
+    suspend fun templates(): Response<ApiEnvelope<List<OfferTemplateDto>>>
+
+    @POST("${ApiClient.FREELANCE}offer-templates")
+    suspend fun saveTemplate(@Body body: OfferTemplateRequest): Response<ApiEnvelope<OfferTemplateDto>>
+
+    @retrofit2.http.DELETE("${ApiClient.FREELANCE}offer-templates/{id}")
+    suspend fun deleteTemplate(@Path("id") id: Int): Response<ApiEnvelope<Map<String, Boolean>>>
+
     @GET("${ApiClient.FREELANCE}projects/{uuid}/my-offer")
     suspend fun mine(@Path("uuid") uuid: String): Response<ApiEnvelope<MyOfferDto>>
 
@@ -65,6 +78,22 @@ data class OfferBreakdownDto(
     val currency: String = "",
 )
 
+data class OfferCheckRequest(
+    @SerializedName("price_minor") val priceMinor: Long?,
+    @SerializedName("duration_days") val durationDays: Int?,
+    val details: String,
+    val files: Int,
+)
+
+data class OfferChecksDto(val checks: List<OfferCheckDto> = emptyList())
+
+/** level: `error` (the server will refuse it) or `warning` (advice). */
+data class OfferCheckDto(val code: String = "", val level: String = "warning", val message: String = "")
+
+data class OfferTemplateDto(val id: Int, val title: String = "", val details: String = "")
+
+data class OfferTemplateRequest(val title: String, val details: String)
+
 data class MyOfferDto(val offer: OfferDto? = null)
 
 data class OfferDto(
@@ -74,6 +103,7 @@ data class OfferDto(
     val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val details: String = "",
+    val answers: List<OfferAnswerDto> = emptyList(),
     @SerializedName("commission_minor") val commissionMinor: Long = 0,
     @SerializedName("net_minor") val netMinor: Long = 0,
     val attachments: List<OfferFileDto> = emptyList(),
@@ -83,8 +113,14 @@ data class OfferDto(
     /** Why the client turned it down, when they said. */
     @SerializedName("status_reason") val statusReason: String? = null,
     val timeline: List<OfferEventDto> = emptyList(),
+    /** The client's room about this offer (FL-308): null until they open it. */
+    val chat: OfferChatDto? = null,
+    /** FL-401: the agreement the client sent on it. */
+    val agreement: OfferAgreementDto? = null,
     @SerializedName("created_at") val createdAt: String? = null,
 )
+
+data class OfferAnswerDto(val question: String = "", val answer: String? = null)
 
 data class OfferEventDto(val type: String = "", val to: String? = null, val at: String? = null)
 

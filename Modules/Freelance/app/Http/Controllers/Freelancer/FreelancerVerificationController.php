@@ -28,8 +28,8 @@ class FreelancerVerificationController extends Controller
             'document_type_id' => ['required', 'integer'],
             'number' => ['nullable', 'string', 'max:64'],
             'expires_on' => ['nullable', 'date', 'after:today'],
-            'front' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.(int) config('freelance.verification.max_file_kb', 8192)],
-            'back' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.(int) config('freelance.verification.max_file_kb', 8192)],
+            'front' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.(int) config('freelance.verification.max_file_kb', 8192), new \Modules\Freelance\Rules\CleanUpload],
+            'back' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:'.(int) config('freelance.verification.max_file_kb', 8192), new \Modules\Freelance\Rules\CleanUpload],
         ]);
         $doc = $this->verification->upload($this->me($request), (int) $data['document_type_id'], $data, $request->file('front'), $request->file('back'));
 

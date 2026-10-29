@@ -22,16 +22,23 @@ class ChatStorageController extends Controller
         return ApiResponse::success($this->storage->overview($request->user()), __('api.retrieved'));
     }
 
-    /** `kind` all · large · forwarded, `conversation_id?`, `page` */
+    /** `kind` all · large · forwarded, `conversation_id?`, `page`, `per_page` (default 15). */
     public function files(Request $request)
     {
         $data = $request->validate([
             'kind' => ['sometimes', Rule::in(['all', 'large', 'forwarded'])],
             'conversation_id' => ['sometimes', 'nullable', 'uuid'],
             'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ]);
 
-        return ApiResponse::success($this->storage->list($request->user(), $data['kind'] ?? 'all', $data['conversation_id'] ?? null, (int) ($data['page'] ?? 1)), __('api.retrieved'));
+        return ApiResponse::success($this->storage->list(
+            $request->user(),
+            $data['kind'] ?? 'all',
+            $data['conversation_id'] ?? null,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? 15),
+        ), __('api.retrieved'));
     }
 
     /** `{messages[]}` — deleted for me only, in whichever chats they are. */

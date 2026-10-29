@@ -3,8 +3,12 @@
 namespace Modules\Chat\Support;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Chat\Enums\ConversationType;
 use Modules\Chat\Enums\PrivacyAudience;
 use Modules\Chat\Models\ChatContact;
+use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPrivacySetting;
 
 /**
@@ -13,6 +17,10 @@ use Modules\Chat\Models\ChatPrivacySetting;
  *
  * The name shown is the one the *viewer* saved in their contacts when there is one (like
  * WhatsApp), and the photo respects the owner's `profile_photo` privacy.
+ *
+ * Hidden members (a paid group setting): someone the viewer only knows from such groups — not in
+ * their contacts, no private chat or ordinary group together — shows without a number or
+ * @username, everywhere, and can't be messaged privately (isHiddenFrom()).
  *
  * Bound as a scoped singleton: prime() everything a response needs, then profile() reads from
  * memory while the resources are built.
@@ -30,6 +38,9 @@ class ParticipantDirectory
 
     /** @var array<string, array<string, bool>> owner key => (viewer key => true) */
     private array $ownerHasViewer = [];
+
+    /** @var array<string, array<string, true>> viewer key => (account key => true): known only from hidden-members groups */
+    private array $hidden = [];
 
     /**
      * @param  iterable<array{0: string, 1: int|string}>  $keys  [alias, id] pairs
@@ -86,10 +97,11 @@ class ParticipantDirectory
         $viewerKey = ParticipantType::key($viewer);
         $contact = $this->contacts[$viewerKey][$key] ?? null;
         $isMe = $key === $viewerKey;
+        $hidden = ! $isMe && $this->isHiddenFrom($viewer, $key);
 
         if ($account === null) {
             // A deleted account keeps its messages; it just has no name any more.
-            return ['type' => $type, 'id' => (int) $id, 'key' => $key, 'name' => $contact?->name, 'phone' => null, 'avatar' => null, 'is_contact' => $contact !== null, 'is_me' => false, 'is_deleted' => true];
+            return ['type' => $type, 'id' => (int) $id, 'key' => $key, 'name' => $contact?->name, 'phone' => null, 'avatar' => null, 'is_contact' => $contact !== null, 'is_me' => false, 'is_deleted' => true, 'is_verified' => false];
         }
 
         return [
@@ -97,11 +109,15 @@ class ParticipantDirectory
             'id' => (int) $id,
             'key' => $key,
             // My contact's name for them; else the name they chose; else their number.
-            'name' => $contact?->name ?: (filled($account->name ?? null) ? $account->name : ($account->phone ?? null)),
+            'name' => $contact?->name ?: (filled($account->name ?? null) ? $account->name : ($hidden ? __('chat.hidden_member_name') : ($account->phone ?? null))),
             'account_name' => $account->name ?? null,
+            // The account verification ✔ next to the name (AV-026) — the same answer on every screen.
+            'is_verified' => VerifiedAccounts::hasKey($type, $id),
             // A @username lets people find them without a phone number (spec 81).
-            'username' => $account->chat_username ?? null,
-            'phone' => $account->phone ?? null,
+            'username' => $hidden ? null : ($account->chat_username ?? null),
+            'phone' => $hidden ? null : ($account->phone ?? null),
+            // Known only from a hidden-members group: no number, no private chat (the app hides the buttons).
+            'is_hidden' => $hidden,
             'avatar' => $isMe || $this->mayView($key, $viewerKey, 'profile_photo') ? $this->avatarOf($account) : null,
             'is_contact' => $contact !== null,
             'is_me' => $isMe,
@@ -132,6 +148,25 @@ class ParticipantDirectory
         };
     }
 
+    /**
+     * Whether the viewer knows this account only from hidden-members groups — then its number
+     * stays hidden and a private chat can't be started (ConversationService::openDirect).
+     */
+    public function isHiddenFrom(Model $viewer, string $key): bool
+    {
+        $viewerKey = ParticipantType::key($viewer);
+
+        if ($key === $viewerKey) {
+            return false;
+        }
+
+        if (! isset($this->hidden[$viewerKey])) {
+            $this->primeHidden($viewer);
+        }
+
+        return isset($this->hidden[$viewerKey][$key]);
+    }
+
     public function privacyOf(string $key): ?ChatPrivacySetting
     {
         return $this->privacy[$key] ?? null;
@@ -145,6 +180,49 @@ class ParticipantDirectory
     private function avatarOf(Model $account): ?string
     {
         return method_exists($account, 'getSingleMediaUrl') ? ($account->getSingleMediaUrl('avatar') ?: null) : null;
+    }
+
+    /**
+     * Everyone in the viewer's hidden-members groups, less those the viewer knows another way: a
+     * saved contact, or a private chat or ordinary group together. One query when the viewer is in
+     * no such group (nearly always).
+     */
+    private function primeHidden(Model $viewer): void
+    {
+        $viewerKey = ParticipantType::key($viewer);
+        $this->hidden[$viewerKey] = [];
+
+        $mine = ChatParticipant::query()->of($viewer)->select('conversation_id');
+        $hiddenGroups = ChatGroup::query()->whereNotNull('members_hidden_at')->whereIn('conversation_id', $mine)->pluck('conversation_id');
+
+        if ($hiddenGroups->isEmpty()) {
+            return;
+        }
+
+        $others = [];
+        ChatParticipant::query()->whereIn('conversation_id', $hiddenGroups)->get(['participant_type', 'participant_id'])
+            ->each(function (ChatParticipant $p) use (&$others) {
+                $others["{$p->participant_type}:{$p->participant_id}"] = (int) $p->participant_id;
+            });
+        unset($others[$viewerKey]);
+
+        if ($others === []) {
+            return;
+        }
+
+        // Met another way: a private chat or an ordinary group (a channel shows nobody's number).
+        $open = ChatConversation::query()->whereIn('type', [ConversationType::Direct->value, ConversationType::Group->value])
+            ->whereNotIn('id', $hiddenGroups)->whereIn('id', $mine)->select('id');
+        ChatParticipant::query()->whereIn('conversation_id', $open)->whereIn('participant_id', array_unique(array_values($others)))
+            ->get(['participant_type', 'participant_id'])
+            ->each(function (ChatParticipant $p) use (&$others) {
+                unset($others["{$p->participant_type}:{$p->participant_id}"]);
+            });
+
+        $this->primeContacts($viewer);
+        $others = array_diff_key($others, $this->contacts[$viewerKey] ?? []);
+
+        $this->hidden[$viewerKey] = array_fill_keys(array_keys($others), true);
     }
 
     private function primeContacts(Model $viewer): void

@@ -101,6 +101,8 @@ return [
         'hire_driver_busy' => 'You already have a job at that time.',
         'hire_taken' => 'Another captain took this request.',
         'service_not_for_vehicle' => 'This service is not available for your kind of vehicle.',
+        'service_switched_off' => 'You switched this service off. Switch it on from «Services» on the home screen.',
+        'service_coming_soon' => 'This service is coming soon.',
         'hire_driver_not_active' => 'Your account must be active to take jobs.',
         'lessons_no_country' => 'Set your country first.',
         'lessons_not_found' => 'We couldn\'t find this.',

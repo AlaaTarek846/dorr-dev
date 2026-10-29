@@ -24,6 +24,7 @@ class WalletResource extends JsonResource
             'owner_id' => $this->owner_id,
             'owner' => $owner === null ? null : [
                 'name' => $owner->name ?? null,
+                'is_verified' => \App\Support\AccountBadge::verified($owner),
                 'phone' => $owner->phone ?? null,
                 'email' => $owner->email ?? null,
             ],

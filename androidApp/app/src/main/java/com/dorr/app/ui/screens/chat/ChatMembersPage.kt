@@ -23,11 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.AddModerator
+import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.PersonRemove
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -151,6 +153,8 @@ fun GroupMembersPage(id: String) {
             onMembers = { members = it },
             onConversation = { conversation = it },
             onDismiss = { memberSheet = null },
+            canManageRoles = conversation?.group?.myPermissions?.contains("roles.manage") == true,
+            handOverAsks = conversation?.group?.kind != null && conversation?.group?.kind != "normal",
         )
     }
 }
@@ -172,7 +176,7 @@ internal fun GroupMemberRow(m: MemberDto, index: Int, isAdmin: Boolean, carded: 
             ChAvatar(m.profile?.avatar, m.profile?.name, m.profile?.key, size = if (carded) 46.dp else 40.dp, online = host.presence[m.profile?.key]?.online == true)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                com.dorr.app.ui.components.VerifiedName(name, verified = m.profile?.isVerified == true, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 if (carded && !phone.isNullOrBlank()) {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                         Text(ltrNumber(phone), color = Ch.Mut, fontSize = 12.5.sp)
@@ -200,6 +204,10 @@ internal fun MemberActionsSheet(
     onMembers: (List<MemberDto>) -> Unit,
     onConversation: (ConversationDto) -> Unit,
     onDismiss: () -> Unit,
+    // Educational / work groups: I hold `roles.manage` (GR-004).
+    canManageRoles: Boolean = false,
+    // Educational / work groups: "make owner" sends an offer the member answers (GR-005).
+    handOverAsks: Boolean = false,
 ) {
     val host = LocalChat.current
     val startCall = rememberCallStarter()
@@ -209,10 +217,20 @@ internal fun MemberActionsSheet(
     val who = profile?.name.orEmpty()
     val isAdmin = member.role == "admin"
     val networkError = stringResource(R.string.ch_error_network)
-    val ownerDone = stringResource(R.string.ch_member_now_owner, who)
+    val ownerDone = stringResource(if (handOverAsks) R.string.ch_owner_offer_sent else R.string.ch_member_now_owner, who)
     val roleDone = stringResource(if (isAdmin) R.string.ch_member_admin_dismissed else R.string.ch_member_now_admin, who)
     val removedDone = stringResource(R.string.ch_member_removed, who)
     var confirmRemove by remember { mutableStateOf(false) }
+    var rolesOpen by remember { mutableStateOf(false) }
+
+    if (rolesOpen) {
+        MemberRolesSheet(
+            groupId, member,
+            onSaved = { host.scope.launch { runCatching { ApiClient.chat.members(chatAuth(), groupId).data }.getOrNull()?.let(onMembers) } },
+            onDismiss = { rolesOpen = false; onDismiss() },
+        )
+        return
+    }
 
     if (confirmRemove) {
         ConfirmDialog(
@@ -231,6 +249,7 @@ internal fun MemberActionsSheet(
     }
 
     val adminRows = listOfNotNull(
+        if (canManageRoles && member.role != "owner" && profile?.isMe != true) MemberAdminAction(Icons.Rounded.Badge, stringResource(R.string.ch_member_roles)) { rolesOpen = true } else null,
         if (myRole == "owner") MemberAdminAction(Icons.Rounded.WorkspacePremium, stringResource(R.string.ch_make_owner)) {
             runMemberAction(host, onDismiss, ownerDone, networkError) {
                 ApiClient.chat.transferOwnership(chatAuth(), groupId, mapOf("participant_id" to member.participantId)).data?.let {
@@ -277,14 +296,24 @@ internal fun MemberActionsSheet(
         ) {
             ChAvatar(profile?.avatar, name, profile?.key, size = 82.dp, online = host.presence[profile?.key]?.online == true)
             Spacer(Modifier.height(10.dp))
-            Text(name, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            com.dorr.app.ui.components.VerifiedName(name, verified = profile?.isVerified == true, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, tickSize = 16.dp)
             if (!phone.isNullOrBlank()) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Text(ltrNumber(phone), color = Ch.Mut, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(20.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (profile?.isHidden == true) {
+                // A hidden-members group: no number, no private chat or call from here.
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.VisibilityOff, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(R.string.ch_hidden_member_note), color = Ch.Mut, fontSize = 12.5.sp, lineHeight = 17.sp)
+                }
+            } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 MemberQuickIcon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.ch_message)) { openDirectThen(null) }
                 MemberQuickIcon(Icons.Rounded.Call, stringResource(R.string.ch_call)) { openDirectThen(false) }
                 MemberQuickIcon(Icons.Rounded.Videocam, stringResource(R.string.ch_video)) { openDirectThen(true) }

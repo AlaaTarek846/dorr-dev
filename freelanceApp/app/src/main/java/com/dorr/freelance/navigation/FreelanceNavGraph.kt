@@ -22,7 +22,10 @@ import com.dorr.freelance.net.Session
 import com.dorr.freelance.net.Welcome
 import com.dorr.freelance.ui.components.AppShell
 import com.dorr.freelance.ui.components.ShellState
+import com.dorr.freelance.ui.screens.AgreementScreen
+import com.dorr.freelance.ui.screens.DisputeScreen
 import com.dorr.freelance.ui.screens.AvailabilityScreen
+import com.dorr.freelance.ui.screens.ChatScreen
 import com.dorr.freelance.ui.screens.CertificatesScreen
 import com.dorr.freelance.ui.screens.ExperiencesScreen
 import com.dorr.freelance.ui.screens.MainActions
@@ -33,6 +36,7 @@ import com.dorr.freelance.ui.screens.PortfolioTab
 import com.dorr.freelance.ui.screens.ProjectDetailScreen
 import com.dorr.freelance.ui.screens.OfferFormScreen
 import com.dorr.freelance.ui.screens.EditOfferScreen
+import com.dorr.freelance.ui.screens.InvitationsScreen
 import com.dorr.freelance.ui.screens.MyOffersScreen
 import com.dorr.freelance.ui.screens.LoginScreen
 import com.dorr.freelance.ui.screens.OtpScreen
@@ -67,6 +71,11 @@ object Routes {
     const val OFFER_FORM = "offer/{uuid}"
     const val OFFER_EDIT = "offer-edit/{uuid}"
     const val MY_OFFERS = "offers"
+    const val INVITATIONS = "invitations"
+    const val CHAT = "chat/{uuid}"
+    const val AGREEMENT = "agreement/{uuid}"
+    const val DISPUTE = "dispute/{uuid}/{dispute}"
+    const val DISPUTE_NEW = "dispute-new/{uuid}/{milestone}"
     const val CERTIFICATES = "certificates"
     const val VERIFICATION = "verification"
     const val NOTIFICATIONS = "notifications"
@@ -74,6 +83,10 @@ object Routes {
     const val PORTFOLIO_ITEM = "portfolio/{id}"
 
     fun project(uuid: String) = "project/$uuid"
+
+    fun chat(uuid: String) = "chat/$uuid"
+
+    fun agreement(uuid: String) = "agreement/$uuid"
 
     fun offerForm(uuid: String) = "offer/$uuid"
 
@@ -190,6 +203,7 @@ fun FreelanceNavGraph() {
                     openPortfolio = { nav.navigate(Routes.PORTFOLIO) },
                     openProject = { uuid -> nav.navigate(Routes.project(uuid)) },
                     openMyOffers = { nav.navigate(Routes.MY_OFFERS) },
+                    openInvitations = { nav.navigate(Routes.INVITATIONS) },
                     openCertificates = { nav.navigate(Routes.CERTIFICATES) },
                     openVerification = { nav.navigate(Routes.VERIFICATION) },
                     openPortfolioItem = { id -> nav.navigate(Routes.portfolioItem(id)) },
@@ -203,7 +217,21 @@ fun FreelanceNavGraph() {
         composable(Routes.PORTFOLIO) { shell(true) { PortfolioTab(onOpenItem = { id -> nav.navigate(Routes.portfolioItem(id)) }) } }
         composable(Routes.PROJECT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             val uuid = entry.arguments?.getString("uuid").orEmpty()
-            shell(true) { ProjectDetailScreen(uuid = uuid, onBack = { nav.popBackStack() }, onOffer = { nav.navigate(Routes.offerForm(uuid)) }, onEditOffer = { nav.navigate(Routes.offerEdit(uuid)) }) }
+            shell(true) { ProjectDetailScreen(uuid = uuid, onBack = { nav.popBackStack() }, onOffer = { nav.navigate(Routes.offerForm(uuid)) }, onEditOffer = { nav.navigate(Routes.offerEdit(uuid)) }, onChat = { room -> nav.navigate(Routes.chat(room)) }, onAgreement = { nav.navigate(Routes.agreement(uuid)) }) }
+        }
+        composable(Routes.AGREEMENT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            val p = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) { AgreementScreen(projectUuid = p, onBack = { nav.popBackStack() }, onDispute = { m, d -> nav.navigate(if (d != null) "dispute/$p/$d" else "dispute-new/$p/$m") }) }
+        }
+        composable(Routes.DISPUTE, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("dispute") { type = NavType.StringType })) { entry ->
+            shell(true) { DisputeScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), milestoneUuid = null, disputeUuid = entry.arguments?.getString("dispute"), onBack = { nav.popBackStack() }, onOpened = {}) }
+        }
+        composable(Routes.DISPUTE_NEW, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("milestone") { type = NavType.StringType })) { entry ->
+            val p = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) { DisputeScreen(projectUuid = p, milestoneUuid = entry.arguments?.getString("milestone"), disputeUuid = null, onBack = { nav.popBackStack() }, onOpened = { d -> nav.popBackStack(); nav.navigate("dispute/$p/$d") }) }
+        }
+        composable(Routes.CHAT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(false) { ChatScreen(conversationUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.OFFER_FORM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }) }
@@ -211,6 +239,7 @@ fun FreelanceNavGraph() {
         composable(Routes.OFFER_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             shell(true) { EditOfferScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
         }
+        composable(Routes.INVITATIONS) { shell(true) { InvitationsScreen(onBack = { nav.popBackStack() }, onOpenProject = { uuid -> nav.navigate(Routes.project(uuid)) }) } }
         composable(Routes.MY_OFFERS) { shell(true) { MyOffersScreen(onBack = { nav.popBackStack() }, onOpenProject = { uuid -> nav.navigate(Routes.project(uuid)) }) } }
         composable(Routes.AVAILABILITY) { shell(true) { AvailabilityScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.EXPERIENCES) { shell(true) { ExperiencesScreen(onBack = { nav.popBackStack() }) } }

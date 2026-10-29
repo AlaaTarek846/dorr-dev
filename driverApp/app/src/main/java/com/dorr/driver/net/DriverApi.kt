@@ -429,6 +429,9 @@ interface DriverApi {
     @GET("driver/v1/work-services")
     suspend fun workServices(): Response<ApiEnvelope<WorkServicesDto>>
 
+    @PUT("driver/v1/work-services/{key}")
+    suspend fun chooseWorkService(@Path("key") key: String, @Body body: JsonObject): Response<ApiEnvelope<WorkServicesDto>>
+
     /** D-329..D-344: maintenance, safe mode, switched-off service / categories, emergency review, the last withdrawal. */
     @GET("driver/v1/service-status")
     suspend fun serviceStatus(): Response<ApiEnvelope<ServiceStatusDto>>

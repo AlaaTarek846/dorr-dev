@@ -220,7 +220,13 @@ data class BidCardDto(
 
 data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null, val polyline: String? = null)
 
-data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
+/** [isVerified]: the rider's account verification tick (Dorr account verification, AV-028). */
+data class RiderDto(
+    val name: String? = null,
+    val rating: Double? = null,
+    @SerializedName("trips_count") val tripsCount: Int = 0,
+    @SerializedName("is_verified") val isVerified: Boolean = false,
+)
 
 data class BeneficiaryDto(val name: String? = null)
 
@@ -564,6 +570,8 @@ data class NextTripDto(
     val uuid: String,
     val number: String? = null,
     val rider: String? = null,
+    /** The next trip's rider is a verified Dorr account. */
+    @SerializedName("rider_verified") val riderVerified: Boolean = false,
     val pickup: PlaceDto? = null,
     @SerializedName("earning_minor") val earningMinor: Long? = null,
 )
@@ -1047,5 +1055,16 @@ data class ServiceStatusDto(
     @SerializedName("last_withdrawal") val lastWithdrawal: LastWithdrawalDto? = null,
 )
 
-/** O-85: the captain's kinds of vehicle (car / motorcycle / bus / marine / none) and the services they open. */
-data class WorkServicesDto(val kinds: List<String> = emptyList(), val services: List<String> = emptyList())
+/** O-89: one service the captain's vehicle can work in here — drawn by the dashboard, with the captain's switch. */
+data class WorkServiceDto(
+    val key: String,
+    val name: String? = null,
+    val description: String? = null,
+    val icon: String? = null,
+    val color: String = "#1E88E5",
+    @SerializedName("coming_soon") val comingSoon: Boolean = false,
+    val on: Boolean = true,
+)
+
+/** O-89: the captain's kind of vehicle (car / motorcycle / minibus / bus / boat / yacht / none) and its services. */
+data class WorkServicesDto(val kind: String = "car", val services: List<WorkServiceDto> = emptyList())

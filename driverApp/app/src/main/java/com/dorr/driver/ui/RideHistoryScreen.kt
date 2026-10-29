@@ -159,7 +159,10 @@ private fun RideDetails(uuid: String) {
             Spacer(Modifier.width(8.dp))
             StatusChip(trip.status)
         }
-        Text(listOfNotNull(trip.category?.name, trip.rider?.name).joinToString(" · "), color = Pal.mut, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(listOfNotNull(trip.category?.name, trip.rider?.name).joinToString(" · "), color = Pal.mut, fontSize = 13.sp, modifier = Modifier.weight(1f, fill = false))
+            RiderTick(trip.rider?.isVerified == true, 13.dp)
+        }
         Column(Modifier.fillMaxWidth().surface(RoundedCornerShape(16.dp), 2.dp).padding(12.dp)) {
             PlaceLine(Icons.Rounded.TripOrigin, trip.origin?.address, Pal.success)
             trip.stops.forEach { s -> PlaceLine(Icons.Rounded.Place, s.address, Pal.warning) }

@@ -5,7 +5,7 @@
                 <div class="d-flex align-items-center gap-3 min-w-0">
                     <span class="avatar avatar-lg avatar-rounded bg-primary-transparent"><i class="ri-user-line text-primary fs-5"></i></span>
                     <div class="min-w-0">
-                        <div class="fw-semibold text-truncate">{{ ticket.user?.name || ticket.user?.phone }}</div>
+                        <div class="fw-semibold text-truncate"><UserName :user="ticket.user">{{ ticket.user?.name || ticket.user?.phone }}</UserName></div>
                         <div v-if="ticket.user?.name" class="text-muted fs-12" dir="ltr">{{ ticket.user?.phone }}</div>
                         <div v-if="ticket.admin" class="text-muted fs-12">
                             <i class="ri-customer-service-2-line me-1"></i>{{ t('support.assigned_to', { name: ticket.admin.name }) }}
@@ -149,6 +149,7 @@ import useSupportRealtime from '../../../../../../composables/useSupportRealtime
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 import { formatDateTime } from '../../../../../../utils/walletMoney';
 import { statusClass, SUPPORT_STATUSES } from './supportStatus';
+import UserName from '../../../../../../components/ui/UserName.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

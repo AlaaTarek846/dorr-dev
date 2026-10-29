@@ -273,13 +273,15 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
             // Cards with their own lists (moments, matches, polls…) can't be measured by their content width: compose forbids it for lazy lists.
             Column(if (dto.type in CardsWithLists) Modifier else Modifier.width(IntrinsicSize.Max)) {
                 if (isGroup && !mine && firstInRun && dto.sender != null) {
-                    Text(
-                        dto.sender.name.orEmpty(), color = Ch.colorFor(dto.sender.key), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp), maxLines = 1,
+                    com.dorr.app.ui.components.VerifiedName(
+                        dto.sender.name.orEmpty(), verified = dto.sender.isVerified, color = Ch.colorFor(dto.sender.key), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp), tickSize = 12.dp,
                     )
                 }
                 if (dto.isForwarded && !dto.isDeleted) ForwardedLabel(dto.forwardedManyTimes, mine)
                 if (dto.isUrgent && !dto.isDeleted) UrgentLabel()
+                // An announcement in an educational / work group (GR-008).
+                if (!dto.isDeleted && dto.meta?.get("announcement")?.takeIf { it.isJsonPrimitive }?.asBoolean == true) AnnouncementLabel()
                 // A business's welcome / away message, sent by itself.
                 if (!dto.isDeleted && dto.meta?.get("auto_reply")?.takeIf { it.isJsonPrimitive } != null) AutoReplyLabel(mine)
                 dto.replyTo?.let { if (!dto.isDeleted) ReplyQuote(it, mine) { it.id?.let(actions.onJumpTo) } }
@@ -312,6 +314,13 @@ private val FailedRed get() = Ch.Danger
 private fun UrgentLabel() {
     Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Danger).padding(horizontal = 7.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("🚨 " + stringResource(R.string.ch_urgent), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun AnnouncementLabel() {
+    Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF59E0B)).padding(horizontal = 7.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("📢 " + stringResource(R.string.ch_announcement), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 

@@ -334,10 +334,8 @@ class DrivingLessonService
         if ($status !== DriverStatus::Active->value) {
             throw new RidesException('hire_driver_not_active', 403);
         }
-        // O-85: lessons are taught by car captains (or captains without a vehicle).
-        if (! app(\Modules\Rides\Services\Drivers\VehicleKinds::class)->offers($driver, 'lessons')) {
-            throw new RidesException('service_not_for_vehicle', 403);
-        }
+        // O-89: only where the dashboard opened lessons to this captain's vehicle, and they switched it on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'lessons');
     }
 
     private function assertOwner(Driver $driver, int $ownerId): void

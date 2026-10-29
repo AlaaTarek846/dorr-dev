@@ -51,6 +51,8 @@ class MarineService
 
     public function boatOf(Driver $driver): Vehicle
     {
+        // O-89: the sea only where the dashboard opened it to this vehicle, and the captain switched it on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'marine');
         return Vehicle::query()->where('driver_id', $driver->id)->where('status', VehicleStatus::Approved->value)
             ->whereIn('body_type', [VehicleBodyType::Boat->value, VehicleBodyType::Yacht->value])
             ->orderByDesc('is_active')->first() ?? throw new RidesException('marine_no_boat', 422);

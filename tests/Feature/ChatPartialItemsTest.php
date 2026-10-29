@@ -73,8 +73,10 @@ class ChatPartialItemsTest extends TestCase
         $this->putJson("/api/mobile/v1/chat/messages/{$recipe}/star", ['starred' => true, 'folder_id' => $folder], $this->headers())->assertOk();
         $this->putJson("/api/mobile/v1/chat/messages/{$plain}/star", ['starred' => true], $this->headers())->assertOk();
 
-        $this->getJson("/api/mobile/v1/chat/messages/starred?folder={$folder}", $this->headers())->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $recipe);
-        $this->getJson('/api/mobile/v1/chat/messages/starred?folder=none', $this->headers())->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $plain);
+        $this->getJson("/api/mobile/v1/chat/messages/starred?folder={$folder}", $this->headers())->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $recipe)->assertJsonPath('data.0.star_folder_id', $folder);
+        $this->getJson('/api/mobile/v1/chat/messages/starred?folder=none', $this->headers())->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $plain)->assertJsonPath('data.0.star_folder_id', null);
+        $this->getJson('/api/mobile/v1/chat/messages/starred?q=Grandma', $this->headers())->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $recipe);
+        $this->getJson('/api/mobile/v1/chat/messages/starred?q=Bob', $this->headers())->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/mobile/v1/chat/star-folders', $this->headers())->assertJsonPath('data.folders.0.count', 1)->assertJsonPath('data.unsorted_count', 1);
 
         // Someone else's folder can't be used.
@@ -161,6 +163,9 @@ class ChatPartialItemsTest extends TestCase
     {
         $this->as($this->alice);
         $this->putJson('/api/mobile/v1/chat/username', ['username' => '@Alice_Dorr'], $this->headers())->assertOk()->assertJsonPath('data.username', 'alice_dorr');
+        $this->putJson('/api/mobile/v1/chat/username', ['username' => ''], $this->headers())->assertOk()->assertJsonPath('data.username', null);
+        $this->putJson('/api/mobile/v1/chat/username', ['username' => 'alice_dorr'], $this->headers())->assertOk();
+        $this->putJson('/api/mobile/v1/chat/username', ['username' => null], $this->headers())->assertOk()->assertJsonPath('data.username', null);
         $this->putJson('/api/mobile/v1/chat/username', ['username' => '1bad'], $this->headers())->assertStatus(422)->assertJsonPath('error_code', 'chat_username_invalid');
 
         $this->as($this->bob);
@@ -186,7 +191,26 @@ class ChatPartialItemsTest extends TestCase
 
         $this->getJson('/api/mobile/v1/chat/catch-up', $this->headers())->assertOk()
             ->assertJsonPath('data.replies.0.chat', 'Bob')
-            ->assertJsonPath('data.replies.0.excerpt', 'Yes, here');
+            ->assertJsonPath('data.replies.0.excerpt', 'Yes, here')
+            ->assertJsonPath('data.has_more', false);
+
+        $this->getJson('/api/mobile/v1/chat/catch-up?page=1&per_page=1', $this->headers())
+            ->assertOk()
+            ->assertJsonCount(1, 'data.unread_chats')
+            ->assertJsonPath('data.has_more', true);
+        $this->getJson('/api/mobile/v1/chat/catch-up?page=2&per_page=1', $this->headers())
+            ->assertOk()
+            ->assertJsonCount(1, 'data.unread_chats')
+            ->assertJsonPath('data.has_more', false);
+
+        $this->getJson('/api/mobile/v1/chat/catch-up?q=Bob', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.replies.0.chat', 'Bob')
+            ->assertJsonCount(1, 'data.unread_chats');
+        $this->getJson('/api/mobile/v1/chat/catch-up?q=500000003', $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.unread_chats.0.chat', 'Carol')
+            ->assertJsonCount(0, 'data.replies');
 
         $this->getJson("/api/mobile/v1/chat/conversations/{$withBob}/money", $this->headers())->assertOk()
             ->assertJsonPath('data.items.0.type', 'money_request')

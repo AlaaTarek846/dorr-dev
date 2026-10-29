@@ -54,7 +54,7 @@ class FreelanceChatController extends Controller
     {
         $data = $request->validate([
             'body' => ['nullable', 'string', 'max:'.FreelanceChatService::BODY_MAX],
-            'file' => ['nullable', 'file', 'max:'.(int) config('freelance.upload_max_kb'), 'mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar'],
+            'file' => ['nullable', 'file', 'max:'.(int) config('freelance.upload_max_kb'), 'mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip', new \Modules\Freelance\Rules\CleanUpload],
             'client_id' => ['nullable', 'string', 'max:64'],
         ]);
         $me = $this->me($request);

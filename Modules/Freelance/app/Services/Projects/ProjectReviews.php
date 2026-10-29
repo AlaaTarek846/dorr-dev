@@ -79,6 +79,7 @@ class ProjectReviews
         return [
             'title' => $project->title,
             'description' => $project->description,
+            'questions' => array_values((array) $project->questions),
             'specialty_id' => $project->freelance_specialty_id,
             'skills' => $project->skills()->pluck('freelance_skills.id')->sort()->values()->all(),
             'budget_type' => $project->budget_type,

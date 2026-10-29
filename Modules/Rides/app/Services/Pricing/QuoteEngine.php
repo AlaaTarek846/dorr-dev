@@ -68,6 +68,8 @@ class QuoteEngine
         // R-233..R-237, R-NEW-06: the add-ons asked for, each switched on here.
         $options = TripAddons::normalize($trip['options'] ?? null);
         TripAddons::assertAllowed($this->features, $country->id, $cityId, $options);
+        // O-88: the rider sees how many equipped captains are around before asking for a pet / child seat.
+        $equipped = TripAddons::equippedNearby($options, (float) $origin['lat'], (float) $origin['lng'], $this->policies->for($country->id, $cityId)->int('search.max_radius_m') ?: 50000);
 
         // R-16..R-18: in an airport / pickup-only zone the trip starts (and may end) at an approved point,
         // and the zone's own policy (waiting, no-show…) applies to the pickup.
@@ -111,7 +113,7 @@ class QuoteEngine
             ->filter(fn (RideCategory $c) => $this->features->allows($country->id, $cityId, RideFeatures::categoryFeature($c->slug)))
             // O-73: a category for one gender of rider (For Her) never shows to anyone else.
             ->filter(fn (RideCategory $c) => empty(((array) $c->eligibility)['rider_gender']) || $rider->gender?->value === ((array) $c->eligibility)['rider_gender'])
-            ->filter(fn (RideCategory $c) => ! $open || $hours !== null || $c->flag('hourly_only') || ($openAllowed && $c->flag('open_destination_allowed')))
+            ->filter(fn (RideCategory $c) => ! $open || $hours !== null || $this->hourlyOnly($c, $country->id, $cityId) || ($openAllowed && $c->flag('open_destination_allowed')))
             ->filter(fn (RideCategory $c) => $hours === null || $c->pricing_strategy !== PricingStrategy::Bid)
             ->filter(fn (RideCategory $c) => $stops === [] || $c->flag('multi_stop_allowed'))
             // Bidding (§9) needs a destination to price, and its own switch.
@@ -125,14 +127,15 @@ class QuoteEngine
         }
 
         $refusals = [];
-        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours, $options, &$refusals) {
+        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours, $options, $equipped, &$refusals) {
             $policy = $this->policies->for($country->id, $cityId, $zone?->id, $category->id);
             $hourly = null;
             // O-86: a category by the hour only is always priced by the hour — at its fewest hours until the rider picks.
-            $hoursHere = $hours ?? ($category->flag('hourly_only') ? max(1, $policy->int('hourly.min_hours')) : null);
+            $hourlyOnly = $this->hourlyOnly($category, $country->id, $cityId);
+            $hoursHere = $hours ?? ($hourlyOnly ? max(1, $policy->int('hourly.min_hours')) : null);
             if ($hoursHere !== null) {
                 // Only the categories the admin opened by the hour, with a price (by the hour only = opened).
-                if ((! $policy->bool('hourly.enabled') && ! $category->flag('hourly_only')) || $policy->int('hourly.hour_price_minor') <= 0) {
+                if ((! $policy->bool('hourly.enabled') && ! $hourlyOnly) || $policy->int('hourly.hour_price_minor') <= 0) {
                     return null;
                 }
                 $hours = $hoursHere;
@@ -226,6 +229,7 @@ class QuoteEngine
                     // R-233..R-237: what the rider added (matching, the captain's card) and what's on offer here.
                     'options' => $options === [] ? null : $options,
                     'addons_offer' => TripAddons::offer($this->features, $country->id, $cityId, $policy->all()),
+                    'equipped_nearby' => $equipped,
                     // The coupon only stays when it gave something here (a minimum it didn't reach = no coupon).
                     'extras' => ($breakdown?->discount ?? 0) > 0 ? $extras : array_diff_key($extras, ['coupon' => true]),
                     'coupon' => $coupon === null ? null : [
@@ -281,6 +285,12 @@ class QuoteEngine
     }
 
     /** ±15% around a price, rounded to whole currency units (100 minor). */
+    /** O-89: by the hour only in this country (rules: `hourly.mode`), else the category's own switch. */
+    private function hourlyOnly(RideCategory $category, int $countryId, ?int $cityId): bool
+    {
+        return app(\Modules\Rides\Services\Drivers\DriverServices::class)->hourlyOnly($category, $countryId, $cityId);
+    }
+
     private static function spread(int $total, int $direction): int
     {
         $value = $total + $direction * intdiv($total * self::ESTIMATE_SPREAD_BP, 10000);

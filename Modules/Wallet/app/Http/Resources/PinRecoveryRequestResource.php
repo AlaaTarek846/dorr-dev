@@ -28,6 +28,7 @@ class PinRecoveryRequestResource extends JsonResource
                 'type' => $this->owner_type,
                 'id' => $this->owner_id,
                 'name' => $owner?->name,
+                'is_verified' => \App\Support\AccountBadge::verified($owner),
                 'phone' => $owner?->phone,
                 'email' => $owner?->email,
             ],

@@ -183,8 +183,8 @@ class RidesOwnerNotesFiveTest extends TestCase
         $this->fund($this->rider, 50000);
         $this->book(collect($this->quote()->json('data'))->firstWhere('category.slug', 'economy'), 'wallet')->assertCreated();
         $this->assertSame([$car->id], RideOffer::query()->pluck('driver_id')->all());
-        $this->asDriver($bus)->getJson('/api/driver/v1/work-services')->assertOk()->assertJsonPath('data.services', ['bus']);
-        $this->asDriver($car)->getJson('/api/driver/v1/work-services')->assertOk()->assertJsonPath('data.services', ['rides', 'with_me', 'scheduled', 'airport', 'hire', 'lessons']);
+        $this->assertSame(['bus'], array_column($this->asDriver($bus)->getJson('/api/driver/v1/work-services')->assertOk()->json('data.services'), 'key'));
+        $this->assertSame(['rides', 'hourly', 'scheduled', 'airport', 'hire', 'lessons'], array_column($this->asDriver($car)->getJson('/api/driver/v1/work-services')->assertOk()->json('data.services'), 'key'));
         // …and a car captain isn't even offered Motorcycle in his preferences.
         $this->assertNotContains('motorcycle', collect($this->asDriver($car)->getJson('/api/driver/v1/preferences')->assertOk()->json('data.categories'))->pluck('slug')->all());
 

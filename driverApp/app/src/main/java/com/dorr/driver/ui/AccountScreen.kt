@@ -119,7 +119,7 @@ fun AccountScreen(
 
     LaunchedEffect(Unit) {
         (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
-        (apiCall { DriverBackend.api.workServices() } as? ApiResult.Ok)?.let { services = it.data.services.toSet() }
+        (apiCall { DriverBackend.api.workServices() } as? ApiResult.Ok)?.let { r -> services = r.data.services.filter { it.on }.map { it.key }.toSet() }
         (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { earnings = it.data }
         (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
     }
@@ -166,7 +166,7 @@ fun AccountScreen(
                     RowDivider()
                     // O-85: each service only for the vehicle that does it (a car: rides, With Me, airport, hire,
                     // lessons; a motorcycle: rides; a bus: bus trips; a boat: the sea; no vehicle: hire and lessons).
-                    if (offers("rides")) {
+                    if (offers("rides") || offers("hourly")) {
                         ListRow(Icons.Rounded.Tune, stringResource(R.string.pf_title), subtitle = stringResource(R.string.pf_home_hint), onClick = onOpenPreferences)
                         RowDivider()
                     }
@@ -175,7 +175,8 @@ fun AccountScreen(
                         RowDivider()
                     }
                     // O-30: «أنا معك» — riders on my way.
-                    if (offers("with_me")) {
+                    // «With Me» is a category of passenger rides.
+                    if (offers("rides")) {
                         ListRow(Icons.Rounded.Groups, stringResource(R.string.wm_title), subtitle = stringResource(R.string.wm_home_hint), tint = Pal.success, onClick = onOpenWithMe)
                         RowDivider()
                     }

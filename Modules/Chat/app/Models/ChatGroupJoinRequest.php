@@ -20,7 +20,7 @@ class ChatGroupJoinRequest extends Model
 
     public const CANCELLED = 'cancelled';
 
-    protected $fillable = ['conversation_id', 'requester_type', 'requester_id', 'status', 'decided_by_participant_id', 'decided_at'];
+    protected $fillable = ['conversation_id', 'requester_type', 'requester_id', 'reason', 'status', 'decided_by_participant_id', 'decided_at'];
 
     protected function casts(): array
     {

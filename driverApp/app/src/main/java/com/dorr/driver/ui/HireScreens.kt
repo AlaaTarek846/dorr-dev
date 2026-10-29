@@ -148,6 +148,7 @@ fun HireJobsScreen(onBack: () -> Unit) {
                         j.rider?.phone?.let { phone ->
                             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Chip("📞 " + (j.rider?.name ?: stringResource(R.string.hj_rider)), tint = Pal.success) { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } }
+                                RiderTick(j.rider?.isVerified == true, 16.dp)
                                 Chip("🧭 " + stringResource(R.string.hj_navigate), tint = Mint) {
                                     openNavigation(context, j.pickup.lat, j.pickup.lng)
                                 }

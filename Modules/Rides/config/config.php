@@ -184,6 +184,7 @@ return [
         'payment.await_s' => 900,                         // a card ride not paid within 15 minutes expires
         'search.refuse_cooldown_s' => 300,                // Jawad
         'bids.resend_after_s' => 120,                     // O-75: an Offers request goes back to a captain who let it go after this
+        'hourly.mode' => 'category',                      // O-89: category (its «by the hour only» switch) / hourly / distance — per country & category
         'notify.driver_arriving_s' => 180,                // O-72: the rider is told when the captain is this far (in time) from the pickup (0 = off)
 
         'driver.stale_after_s' => 900,                    // Jawad: 15 minutes

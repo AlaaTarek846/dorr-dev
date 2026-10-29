@@ -154,6 +154,7 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
+                com.dorr.app.chat.ChatDeepLink.ParentChildren -> { walletOpen = false; chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Service -> {
                     walletOpen = false
                     chatOpen = false
@@ -179,7 +180,8 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Support,
-                com.dorr.app.chat.ChatDeepLink.Security -> {
+                com.dorr.app.chat.ChatDeepLink.Security,
+                com.dorr.app.chat.ChatDeepLink.Verification -> {
                     walletOpen = false
                     chatOpen = false
                     currentTab = 3
@@ -478,6 +480,8 @@ fun MainScreen(
 
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
+    // The wallet top-up opened from elsewhere (FL-501: not enough to fund a part).
+    com.dorr.app.ui.screens.wallet.TopupOverlay()
 
     // The goal moment and match banners, over anything (197, 198).
     com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsCelebrationHost() }

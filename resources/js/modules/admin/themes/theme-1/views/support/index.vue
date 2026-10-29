@@ -102,7 +102,7 @@
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="avatar avatar-sm avatar-rounded bg-primary-transparent"><i class="ri-user-line text-primary"></i></span>
                                             <div>
-                                                <span class="fw-semibold d-block">{{ row.user?.name || row.user?.phone || `#${row.user?.id}` }}</span>
+                                                <span class="fw-semibold d-block"><UserName :user="row.user">{{ row.user?.name || row.user?.phone || `#${row.user?.id}` }}</UserName></span>
                                                 <span v-if="row.user?.name" class="d-block text-muted fs-11" dir="ltr">{{ row.user?.phone }}</span>
                                             </div>
                                         </div>
@@ -158,6 +158,7 @@ import useWalletList from '../../../../../../composables/useWalletList';
 import { formatDateTime } from '../../../../../../utils/walletMoney';
 import ConversationModal from './ConversationModal.vue';
 import { statusClass } from './supportStatus';
+import UserName from '../../../../../../components/ui/UserName.vue';
 
 const { t, locale } = useI18n();
 const { showSuccess, showError } = useToast();

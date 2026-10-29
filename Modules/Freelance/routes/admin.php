@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Freelance\Http\Controllers\Admin\FreelanceDisputeController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceDocumentTypeController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceFeatureRuleController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceProjectReviewController;
+use Modules\Freelance\Http\Controllers\Admin\FreelanceReportController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceVerificationController;
 use Modules\Freelance\Http\Controllers\Admin\FreelancePolicyController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceSkillController;
@@ -34,6 +36,20 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('freelance-verifications/{uuid}', [FreelanceVerificationController::class, 'show'])->whereUuid('uuid');
         Route::post('freelance-verifications/{uuid}/decide', [FreelanceVerificationController::class, 'decide'])->whereUuid('uuid');
 
+        // The project money and its reconciliation (FL-512).
+        Route::get('freelance-reports/summary', [FreelanceReportController::class, 'summary']);
+        Route::get('freelance-reports/reconcile', [FreelanceReportController::class, 'reconcile']);
+
+        // The disputes desk (FL-705).
+        Route::get('freelance-disputes', [FreelanceDisputeController::class, 'index']);
+        Route::get('freelance-disputes/{uuid}', [FreelanceDisputeController::class, 'show'])->whereUuid('uuid');
+        // FL-606: the evidence timeline of a case, its CSV, and the delivered files of the disputed part.
+        Route::get('freelance-disputes/{uuid}/timeline', [FreelanceDisputeController::class, 'timeline'])->whereUuid('uuid');
+        Route::get('freelance-disputes/{uuid}/timeline/export', [FreelanceDisputeController::class, 'exportTimeline'])->whereUuid('uuid');
+        Route::get('freelance-disputes/{uuid}/deliveries/{delivery}/files/{media}', [FreelanceDisputeController::class, 'deliveryFile'])->whereUuid(['uuid', 'delivery'])->whereNumber('media');
+        Route::post('freelance-disputes/{uuid}/decide', [FreelanceDisputeController::class, 'decide'])->whereUuid('uuid');
+        Route::get('freelance-disputes/{uuid}/files/{media}', [FreelanceDisputeController::class, 'file'])->whereUuid('uuid')->whereNumber('media');
+
         // Reviewing the clients' projects (FL-203): the queue, one project with its files, a fix, and the decision.
         Route::get('freelance-projects/options', [FreelanceProjectReviewController::class, 'options']);
         Route::get('freelance-projects', [FreelanceProjectReviewController::class, 'index']);
@@ -44,6 +60,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-projects/{uuid}/offers/reopen', [FreelanceProjectReviewController::class, 'reopenOffers'])->whereUuid('uuid');
         Route::post('freelance-projects/{uuid}/offers/close', [FreelanceProjectReviewController::class, 'closeOffers'])->whereUuid('uuid');
         Route::post('freelance-projects/{uuid}/reject', [FreelanceProjectReviewController::class, 'reject'])->whereUuid('uuid');
+        Route::get('freelance-projects/{uuid}/trail', [FreelanceProjectReviewController::class, 'trail'])->whereUuid('uuid');
         Route::get('freelance-projects/{uuid}/attachments/{media}', [FreelanceProjectReviewController::class, 'attachment'])->whereUuid('uuid')->whereNumber('media');
 
         // Prices & rules (FL-008): one scope at a time, a preview, and copying between countries.

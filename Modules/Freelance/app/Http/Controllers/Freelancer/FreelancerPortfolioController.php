@@ -56,7 +56,7 @@ class FreelancerPortfolioController extends Controller
     /** POST profile/portfolio/{id}/images (multipart: image) */
     public function addImage(Request $request, int $item): JsonResponse
     {
-        $request->validate(['image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000']]);
+        $request->validate(['image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:min_width=200,min_height=200,max_width=8000,max_height=8000', new \Modules\Freelance\Rules\CleanUpload]]);
         $model = $this->mine($request, $item);
         $this->portfolio->addImage($model, $request->file('image'));
 

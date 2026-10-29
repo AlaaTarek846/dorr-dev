@@ -159,7 +159,17 @@ import kotlinx.coroutines.delay
 
 /** The frame of every secondary chat page: the calendar header (title size, icon well, spacing). */
 @Composable
-internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
+internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, settingsHeader: Boolean = false, content: @Composable () -> Unit) {
+    if (settingsHeader) {
+        Box(Modifier.fillMaxSize()) {
+            PinkBackdrop(Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize()) {
+                SubHeader(title, onBack)
+                Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().background(Ch.Bg)) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             DarkHeroPanel {
@@ -658,6 +668,12 @@ fun NewGroupPage(addTo: String?) {
     var description by remember { mutableStateOf("") }
     var avatar by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Hidden members (paid): offered only where it's sold; paid right after the group exists.
+    var hideMembers by remember { mutableStateOf(false) }
+    // Ordinary, educational or work (fixed once made); only the kinds switched on where I am.
+    var kind by remember { mutableStateOf(GroupKind.Normal) }
+    val kinds = GroupKind.available()
+    val hidePrice = if (addTo == null) rememberHiddenMembersPrice()?.label() else null
 
     var inGroupIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
@@ -713,6 +729,7 @@ fun NewGroupPage(addTo: String?) {
                     "description" to description.trim().toRequestBody("text/plain".toMediaTypeOrNull()),
                 )
                 ids.forEachIndexed { i, id -> fields["members[$i]"] = id.toString().toRequestBody("text/plain".toMediaTypeOrNull()) }
+                fields["kind"] = kind.value.toRequestBody("text/plain".toMediaTypeOrNull())
                 val part = avatar?.let { copyToCache(context, it, "avatar.jpg") }?.let { f ->
                     MultipartBody.Part.createFormData("avatar", f.name, f.file.asRequestBody(f.mime.toMediaTypeOrNull()))
                 }
@@ -721,6 +738,10 @@ fun NewGroupPage(addTo: String?) {
                     host.upsert(created.conversation)
                     if (created.notAdded.isNotEmpty()) host.showToast(context.getString(R.string.ch_not_added, created.notAdded.size))
                     host.replace(ChRoute.Conversation(created.conversation.id, created.conversation))
+                    // A failed or cancelled payment just leaves an ordinary group (on later from its settings).
+                    if (hideMembers && hidePrice != null) {
+                        HiddenMembers.pay(created.conversation.id) { host.showToast(context.getString(R.string.ch_hidden_members_done)) }
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -812,6 +833,8 @@ fun NewGroupPage(addTo: String?) {
                 }
             } else {
                 Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // The details scroll (kind, hidden members…); the button stays at the bottom.
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier.size(112.dp).shadow(16.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f)).clip(CircleShape).background(Ch.HeaderBrush)
                             .clickable { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -821,12 +844,21 @@ fun NewGroupPage(addTo: String?) {
                         else Icon(Icons.Rounded.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(38.dp))
                     }
                     Spacer(Modifier.height(22.dp))
+                    if (kinds.size > 1) {
+                        GroupKindPicker(kinds, kind) { kind = it }
+                        Spacer(Modifier.height(14.dp))
+                    }
                     GroupField(name, stringResource(R.string.ch_group_name_hint), Icons.Rounded.Groups) { name = it.take(100) }
                     Spacer(Modifier.height(10.dp))
                     GroupField(description, stringResource(R.string.ch_group_desc_hint), Icons.Rounded.Notes, multiline = true) { description = it.take(500) }
+                    hidePrice?.let { price ->
+                        Spacer(Modifier.height(12.dp))
+                        HiddenMembersChoice(price, hideMembers) { hideMembers = it }
+                    }
                     Spacer(Modifier.height(18.dp))
                     Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontSize = 13.sp)
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(12.dp))
+                    }
                     ChPrimaryButton(stringResource(R.string.ch_create_group), modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.GroupAdd, enabled = name.isNotBlank() && !busy) { submit() }
                 }
             }

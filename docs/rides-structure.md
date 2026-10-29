@@ -1161,6 +1161,14 @@ ride_policies → countries / (city) / ride_zones / ride_categories ; ride_tax_r
 | `drivers.closed_at` / `closed_reason` | إغلاق الحساب من الكابتن (الحالة بتبقى Blocked بسبب `closed_by_driver`) |
 | `support_tickets.driver_id` / `category` / `reference` (و`user_id` بقى nullable)، `support_messages.driver_id`، `support_help_nodes.audience` | تذاكر الكباتن على نفس لوحة الدعم، ومركز مساعدة بجمهور (all/user/driver) |
 
+### خدمات الكابتن (O-89)
+
+| الجدول | فيه إيه |
+|---|---|
+| `driver_services` | الخدمة: `key` فريد، والاسم والوصف `{ar, en}`، والأيقونة، واللون، والترتيب، و`coming_soon`، و`status` |
+| `driver_service_rules` | في الدولة دي، نوع المركبة ده (`car` / `motorcycle` / `minibus` / `bus` / `boat` / `yacht` / `none`) بيشتغل في الخدمة دي (`enabled`) — فريد على (خدمة، دولة، نوع) |
+| `driver_service_choices` | سويتش الكابتن لكل خدمة (`driver_id` + `driver_service_id`، والافتراضي شغال) |
+
 المفاتيح في `ride_policies`: `ranks.*`، و`wallet.driver_new_method_hold_hours`، و`wallet.driver_third_party_payout`، و`wallet.payout_sla_hours`، و`lost_items.report_days`، و`drivers.require_terms`، و`ops.driver_maintenance` (+ `ops.driver_maintenance_message`)، و`ops.financial_safe_mode`، و`safety.review_hold_hours`. الحالات الاستثنائية للكابتن بترجع من `GET driver/v1/service-status`.
 
 ## 16. ترتيب الـ Migrations

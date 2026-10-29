@@ -97,7 +97,7 @@ class FreelancerOffersTest extends TestCase
             ->assertJsonPath('data.blocked', null)->assertJsonPath('data.breakdown.commission_minor', 35000)->assertJsonPath('data.breakdown.net_minor', 315000)
             ->assertJsonPath('data.quota.limit', 10)->assertJsonPath('data.quota.left', 10);
 
-        $uuid = $this->post(self::API."/{$p->uuid}/offers", $this->offer(['files' => [UploadedFile::fake()->create('plan.pdf', 30, 'application/pdf')]]), ['Accept' => 'application/json'])
+        $uuid = $this->post(self::API."/{$p->uuid}/offers", $this->offer(['files' => [UploadedFile::fake()->createWithContent('plan.pdf', "%PDF-1.4\n%%EOF")]]), ['Accept' => 'application/json'])
             ->assertCreated()->assertJsonPath('data.status', 'submitted')->assertJsonPath('data.net_minor', 315000)->assertJsonPath('data.currency', 'SAR')
             ->assertJsonCount(1, 'data.attachments')->json('data.uuid');
 
@@ -218,7 +218,7 @@ class FreelancerOffersTest extends TestCase
     public function test_nobody_else_sees_the_offer_or_its_files(): void
     {
         $p = $this->project();
-        $uuid = $this->post(self::API."/{$p->uuid}/offers", $this->offer(['files' => [UploadedFile::fake()->create('plan.pdf', 10, 'application/pdf')]]), ['Accept' => 'application/json'])->assertCreated()->json('data.uuid');
+        $uuid = $this->post(self::API."/{$p->uuid}/offers", $this->offer(['files' => [UploadedFile::fake()->createWithContent('plan.pdf', "%PDF-1.4\n%%EOF")]]), ['Accept' => 'application/json'])->assertCreated()->json('data.uuid');
         $media = FreelanceOffer::query()->where('uuid', $uuid)->first()->getMedia('attachments')->first()->id;
 
         $this->freelancer('+966500000095');

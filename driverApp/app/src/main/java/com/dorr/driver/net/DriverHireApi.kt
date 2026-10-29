@@ -28,7 +28,7 @@ interface DriverHireApi {
     suspend fun release(@Path("uuid") uuid: String): Response<ApiEnvelope<HireJobDto>>
 }
 
-data class HireRiderDto(val name: String? = null, val phone: String? = null)
+data class HireRiderDto(val name: String? = null, val phone: String? = null, @SerializedName("is_verified") val isVerified: Boolean = false)
 
 data class HireJobDto(
     val uuid: String,

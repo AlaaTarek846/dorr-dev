@@ -161,7 +161,8 @@ return [
      * When urls to files get generated, this class will be called. Use the default
      * if your files are stored locally above the site root or on s3.
      */
-    'url_generator' => DefaultUrlGenerator::class,
+    // Chat files of educational / work groups get signed, per-viewer links (docs/groups_tasks.md GR-008).
+    'url_generator' => App\Support\Media\ProtectedMediaUrlGenerator::class,
 
     /*
      * Moves media on updating to keep path consistent. Enable it only with a custom

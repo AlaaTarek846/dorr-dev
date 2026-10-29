@@ -92,6 +92,7 @@ final class BusPresenter
             ->map(fn (BusBooking $b) => [
                 'booking_uuid' => $b->uuid,
                 'name' => $b->user?->name,
+                'is_verified' => \App\Support\AccountBadge::verified($b->user),
                 'phone' => $b->user?->phone,
                 'trip_type' => $b->trip_type,
                 'seats' => $b->seatRows->map(fn ($s) => ['leg' => $s->leg, 'seat' => $s->seat_no, 'boarded' => $s->boarded_at !== null])->values(),
