@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,9 +21,18 @@ class CommunityController extends Controller
 {
     public function __construct(private readonly CommunityService $communities) {}
 
+    /** GET communities?page=&per_page=&q= — mine, newest first. Pages of 15. */
     public function index(Request $request)
     {
-        return ApiResponse::success($this->communities->mine($request->user()), __('api.retrieved'));
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+        $q = isset($data['q']) ? trim((string) $data['q']) : null;
+        $page = $this->communities->mine($request->user(), (int) ($data['per_page'] ?? 15), $q === '' ? null : $q);
+
+        return ApiResponse::success($page->getCollection()->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     /** `{name, description?, groups?: [conversation ids I run], avatar?}` (multipart for the photo). */

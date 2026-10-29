@@ -286,7 +286,7 @@ fun CommRulesPage() {
                 fontSize = 12.5.sp,
                 modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp, bottom = 10.dp),
             )
-            val hours = d.callHours
+                val hours = d.callHours
             val hoursOn = hours?.from != null
             Column(
                 Modifier
