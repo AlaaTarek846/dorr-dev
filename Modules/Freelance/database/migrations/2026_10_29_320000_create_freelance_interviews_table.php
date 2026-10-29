@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('client_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('freelancer_id')->constrained('freelancers')->cascadeOnDelete();
             $table->string('proposed_by', 12)->comment('client / freelancer');
-            $table->timestamp('starts_at');
+            $table->dateTime('starts_at');
             $table->unsignedSmallInteger('duration_minutes')->default(15);
             $table->string('note', 300)->nullable();
             $table->string('status', 12)->default('proposed')->comment('proposed · confirmed · declined · cancelled · superseded');
