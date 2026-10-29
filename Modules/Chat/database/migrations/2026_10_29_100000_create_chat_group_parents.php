@@ -47,7 +47,7 @@ return new class extends Migration
             $table->foreignId('conversation_id')->constrained('chat_conversations')->cascadeOnDelete();
             $table->string('title', 200);
             $table->text('note')->nullable();
-            $table->timestamp('starts_at');
+            $table->dateTime('starts_at');
             $table->string('mode', 10)->default('group')->comment('group: one call for every parent | slots: each parent books a time');
             $table->unsignedSmallInteger('slot_minutes')->nullable();
             $table->unsignedSmallInteger('slots')->nullable();
@@ -63,7 +63,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('meeting_id')->constrained('chat_group_parent_meetings')->cascadeOnDelete();
             $table->foreignId('link_id')->constrained('chat_group_parent_links')->cascadeOnDelete();
-            $table->timestamp('slot_at');
+            $table->dateTime('slot_at');
             $table->timestamp('reminded_at')->nullable();
             $table->timestamps();
 

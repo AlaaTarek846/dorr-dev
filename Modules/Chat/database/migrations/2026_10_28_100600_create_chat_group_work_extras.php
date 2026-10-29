@@ -24,8 +24,8 @@ return new class extends Migration
             $table->foreignId('conversation_id')->constrained('chat_conversations')->cascadeOnDelete();
             $table->foreignId('participant_id')->constrained('chat_participants')->cascadeOnDelete()->comment('Whose shift');
             $table->string('title', 150)->nullable()->comment('Morning, the till, the warehouse…');
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at');
             $table->text('handover_note')->nullable()->comment('For whoever comes next');
             $table->timestamp('handed_over_at')->nullable();
             $table->foreignId('swap_with_participant_id')->nullable()->constrained('chat_participants')->nullOnDelete()->comment('A swap asked for, waiting for that member');
@@ -97,7 +97,7 @@ return new class extends Migration
             $table->foreignId('conversation_id')->constrained('chat_conversations')->cascadeOnDelete();
             $table->foreignId('space_id')->nullable()->constrained('chat_group_spaces')->cascadeOnDelete();
             $table->string('title', 200);
-            $table->timestamp('starts_at');
+            $table->dateTime('starts_at');
             $table->text('agenda')->nullable();
             $table->text('minutes')->nullable();
             $table->foreignId('minutes_by_participant_id')->nullable()->constrained('chat_participants')->nullOnDelete();
