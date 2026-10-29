@@ -1,5 +1,13 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +37,7 @@ class MainActions(
     val openPortfolio: () -> Unit,
     val openProject: (String) -> Unit,
     val openMyOffers: () -> Unit,
+    val openOffer: (String) -> Unit,
     val openInvitations: () -> Unit,
     val openCertificates: () -> Unit,
     val openVerification: () -> Unit,
@@ -74,12 +83,27 @@ fun MainScreen(actions: MainActions) {
     val tab = ShellState.tab
     BackHandler(enabled = tab != 0) { ShellState.tab = 0 }
 
-    AppShell(onSelectTab = { ShellState.tab = it }, onOpenWallet = actions.openWallet, onOpenNotifications = actions.openNotifications) {
-        when (tab) {
-            0 -> HomeScreen(actions, failed, onOpenPortfolio = actions.openPortfolio, onOpenProfileTab = { ShellState.tab = 2 })
-            1 -> ProjectsTab(onOpenProject = actions.openProject, onOpenMyOffers = actions.openMyOffers, onOpenInvitations = actions.openInvitations)
-            2 -> ProfileHubScreen(actions)
-            else -> AccountScreen(actions)
+    AppShell(showHeader = tab == 0, onSelectTab = { ShellState.tab = it }, onOpenWallet = actions.openWallet, onOpenNotifications = actions.openNotifications, onOpenInvitations = actions.openInvitations) {
+        // A tab slides in from the side it sits on, with a fade, like the pages do.
+        AnimatedContent(
+            targetState = tab,
+            label = "mainTab",
+            transitionSpec = {
+                val sign = if (targetState > initialState) 1 else -1
+                ContentTransform(
+                    slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { sign * it / 6 } + fadeIn(tween(260)),
+                    slideOutHorizontally(tween(280, easing = FastOutSlowInEasing)) { -sign * it / 6 } + fadeOut(tween(200)),
+                    sizeTransform = null,
+                )
+            },
+        ) { shownTab ->
+            when (shownTab) {
+                0 -> HomeScreen(actions, failed, onOpenPortfolio = actions.openPortfolio, onOpenProfileTab = { ShellState.tab = 4 })
+                1 -> ProjectsTab(onBack = { ShellState.tab = 0 }, onOpenProject = actions.openProject)
+                2 -> MyOffersScreen(onBack = { ShellState.tab = 0 }, onOpenProject = actions.openOffer, asTab = true)
+                3 -> MyWorkTab(onBack = { ShellState.tab = 0 }, onOpenProject = actions.openProject)
+                else -> AccountScreen(actions)
+            }
         }
     }
 }

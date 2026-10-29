@@ -3,6 +3,7 @@
 namespace Modules\Freelance\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,9 @@ class ClientFavoriteController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return ApiResponse::success($this->favorites->list($request->user('user_api')), __('api.retrieved'));
+        $page = ApiPaginator::slice($this->favorites->list($request->user('user_api')));
+
+        return ApiResponse::fromPaginator($page, $page->getCollection()->values(), __('api.retrieved'));
     }
 
     public function store(Request $request, string $uuid): JsonResponse

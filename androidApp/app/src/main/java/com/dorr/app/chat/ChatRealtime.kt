@@ -153,7 +153,14 @@ object ChatRealtime {
                 }
             }
 
-            client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
+            val userChannel = client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
+            // A freelance notice (`freelance.dispute.decided`, `freelance.delivery.submitted`…) means a screen on show may be stale:
+            // one reload, no timer. (Chat messages have their own channel and events.)
+            userChannel.bindGlobal { event ->
+                if (event.eventName.startsWith("freelance.") && event.eventName != "freelance.message" && event.eventName != "freelance.read") {
+                    com.dorr.app.network.RefreshCoordinator.noticeArrived()
+                }
+            }
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
             watchedRides.forEach { subscribeRide(client, it) }
         }

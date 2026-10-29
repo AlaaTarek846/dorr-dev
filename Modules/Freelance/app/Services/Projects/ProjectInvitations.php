@@ -2,7 +2,9 @@
 
 namespace Modules\Freelance\Services\Projects;
 
+use App\Services\Notifications\NotificationCenter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\Freelance\Enums\FreelanceProjectStatus as Status;
 use Modules\Freelance\Enums\FreelancerStatus;
@@ -30,6 +32,7 @@ class ProjectInvitations
         private readonly FreelancePolicies $policies,
         private readonly FreelancerGate $gate,
         private readonly FreelanceNotifier $notifier,
+        private readonly ProjectMatching $matching,
     ) {}
 
     // ----------------------------------------------------------------- the client
@@ -77,7 +80,9 @@ class ProjectInvitations
      */
     public function invitable(Project $project, ?string $q, bool $all): array
     {
-        $taken = Invitation::query()->where('project_id', $project->id)->whereIn('status', [Invitation::SENT, Invitation::ACCEPTED, Invitation::DECLINED])->pluck('freelancer_id');
+        // Someone who already sent an offer on it needs no invitation.
+        $taken = Invitation::query()->where('project_id', $project->id)->whereIn('status', [Invitation::SENT, Invitation::ACCEPTED, Invitation::DECLINED])->pluck('freelancer_id')
+            ->merge(Offer::query()->where('project_id', $project->id)->pluck('freelancer_id'))->unique()->values();
 
         return Freelancer::query()
             ->where('status', FreelancerStatus::Verified->value)->where('country_id', $project->country_id)->whereNotIn('id', $taken)
@@ -95,6 +100,7 @@ class ProjectInvitations
     public function invite(Project $project, User $client, array $uuids): array
     {
         abort_unless((int) $project->client_id === (int) $client->id, 404);
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($client, 'work');
         $invited = [];
         $skipped = [];
         DB::transaction(function () use ($project, $client, $uuids, &$invited, &$skipped) {
@@ -103,10 +109,16 @@ class ProjectInvitations
             $max = $this->max($p);
             $live = Invitation::query()->where('project_id', $p->id)->whereIn('status', Invitation::LIVE)->count();
             $found = Freelancer::query()->whereIn('uuid', array_unique($uuids))->get()->keyBy('uuid');
+            $offered = Offer::query()->where('project_id', $p->id)->pluck('freelancer_id')->all();
             foreach (array_unique($uuids) as $uuid) {
                 $f = $found[$uuid] ?? null;
                 if ($f === null || (int) $f->country_id !== (int) $p->country_id || $f->status !== FreelancerStatus::Verified) {
                     $skipped[] = ['uuid' => $uuid, 'reason' => 'not_found'];
+
+                    continue;
+                }
+                if (in_array($f->id, $offered, true)) {
+                    $skipped[] = ['uuid' => $uuid, 'reason' => 'already_offered'];
 
                     continue;
                 }
@@ -160,7 +172,7 @@ class ProjectInvitations
     {
         abort_unless((int) $project->client_id === (int) $client->id, 404);
 
-        return DB::transaction(function () use ($project, $client) {
+        $public = DB::transaction(function () use ($project, $client) {
             $p = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             if ($p->visibility !== 'private' || $p->status !== Status::Published) {
                 throw new FreelanceException('invitation_project_public', 422);
@@ -179,6 +191,10 @@ class ProjectInvitations
 
             return $p;
         });
+        // FL-208: now that anyone may offer, the freelancers it suits hear of it.
+        NotificationCenter::later(fn () => $this->matching->alert($public));
+
+        return $public;
     }
 
     // -------------------------------------------------------------- the freelancer
@@ -204,14 +220,20 @@ class ProjectInvitations
             ->update(['status' => Invitation::ACCEPTED, 'responded_at' => now()]);
     }
 
-    /** @return list<array<string, mixed>> my invitations (not the taken-back ones), newest first */
+    /** @return list<array<string, mixed>> my invitations (not the taken-back ones), newest first — the first page */
     public function forFreelancer(Freelancer $freelancer): array
     {
-        $rows = Invitation::query()->where('freelancer_id', $freelancer->id)->whereIn('status', [Invitation::SENT, Invitation::ACCEPTED, Invitation::DECLINED])
-            ->with(['project.specialty.translations', 'project.skills.translations'])->orderByDesc('id')->limit(50)->get();
-        $offered = app(FreelancerProjects::class)->offeredIds($freelancer, $rows->pluck('project')->filter());
+        return $this->pageFor($freelancer, 50)->getCollection()->all();
+    }
 
-        return $rows->filter(fn (Invitation $i) => $i->project !== null)->map(function (Invitation $i) use ($offered, $freelancer) {
+    /** @return LengthAwarePaginator<int, array<string, mixed>> one page of my invitations (not the taken-back ones, or only those with `$status`), newest first */
+    public function pageFor(Freelancer $freelancer, int $perPage, ?string $status = null): LengthAwarePaginator
+    {
+        $page = Invitation::query()->where('freelancer_id', $freelancer->id)->whereIn('status', $status !== null ? [$status] : [Invitation::SENT, Invitation::ACCEPTED, Invitation::DECLINED])
+            ->whereHas('project')->with(['project.specialty.translations', 'project.skills.translations'])->orderByDesc('id')->paginate($perPage);
+        $offered = app(FreelancerProjects::class)->offeredIds($freelancer, $page->getCollection()->pluck('project')->filter());
+
+        return $page->setCollection($page->getCollection()->map(function (Invitation $i) use ($offered) {
             $open = $i->project->status === Status::Published && $this->window->accepting($i->project);
             $live = in_array($i->status, Invitation::LIVE, true) && $open;
 
@@ -224,7 +246,7 @@ class ProjectInvitations
                 'invited_at' => $i->invited_at?->toIso8601String(),
                 'can' => ['accept' => $i->status === Invitation::SENT && $open, 'decline' => $i->status === Invitation::SENT && $open, 'offer' => $live && ! isset($offered[$i->project_id])],
             ];
-        })->values()->all();
+        })->values());
     }
 
     /** Yes or no. A verified account is needed (FL-110); saying yes also needs a freelancer who takes work now. */

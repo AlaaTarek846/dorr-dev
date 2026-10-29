@@ -314,6 +314,48 @@ class FreelanceMilestoneCancellationTest extends TestCase
         $this->assertSame(1, $this->sara->notifications()->where('data->event', 'freelance.project.cancelled')->count());
     }
 
+    public function test_a_call_off_keeps_its_stated_reason_and_who_it_points_at_for_staff_and_changes_nothing_else(): void
+    {
+        [$one, $two] = $this->activeInTwo();
+        $this->asClient();
+        $this->topUp(500000);
+        $this->fundCall($one)->assertOk();
+        $this->c($one, 'cancel', ['reason' => 'The scope moved', 'reason_code' => 'scope_changed'])->assertOk();
+        $this->fundCall($two)->assertOk();
+        $this->asFreelancer($this->sara);
+        $this->f($two, 'withdraw', ['note' => 'Booked up for weeks', 'reason_code' => 'force_majeure'])->assertOk();
+        $this->asClient();
+        $this->c($two, 'cancel', ['reason_code' => 'nonsense'])->assertStatus(422);
+
+        $rows = \Modules\Freelance\Models\FreelanceCancellationReason::query()->orderBy('id')->get();
+        $this->assertSame(['scope_changed', 'force_majeure'], $rows->pluck('reason_code')->all());
+        $this->assertSame(['client', 'none'], $rows->pluck('responsibility')->all());
+        $this->assertSame(['client', 'freelancer'], $rows->pluck('actor_type')->all());
+        $this->assertSame(500000, (int) $this->wallet($this->client)->fresh()->availableMinor(\Modules\Wallet\Enums\WalletBucket::Withdrawable), 'no money effect');
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $admin = \Modules\Admin\Models\Admin::create(['name' => 'Staff', 'email' => 'staff@example.com', 'password' => 'secret123', 'status' => 'active']);
+        \Spatie\Permission\Models\Permission::findOrCreate('freelance-reports.view', 'admin_api');
+        $admin->givePermissionTo('freelance-reports.view');
+        $this->app['auth']->forgetGuards();
+        Sanctum::actingAs($admin, [], 'admin_api');
+        $this->getJson('/api/admin/v1/freelance-reports/cancel-reasons')->assertOk()
+            ->assertJsonPath('data.total', 2)
+            ->assertJsonPath('data.by_responsibility.0.key', 'client')->assertJsonPath('data.by_responsibility.0.count', 1)
+            ->assertJsonPath('data.rows.0.reason_code', 'force_majeure');
+        $this->getJson('/api/admin/v1/freelance-reports/cancel-reasons?responsibility=client')->assertOk()->assertJsonCount(1, 'data.rows');
+    }
+
+    public function test_cancelling_a_project_without_a_reason_code_is_kept_for_review(): void
+    {
+        $this->activeInTwo();
+        $this->asClient();
+        $this->postJson(self::CLIENT."/{$this->project->uuid}/cancel", ['reason_code' => 'client_unresponsive', 'reason' => 'x'])->assertOk();
+        $row = \Modules\Freelance\Models\FreelanceCancellationReason::query()->firstOrFail();
+        $this->assertNull($row->milestone_id);
+        $this->assertSame('client', $row->responsibility);
+    }
+
     public function test_free_rounds_of_changes_are_limited(): void
     {
         [$one] = $this->activeInTwo();

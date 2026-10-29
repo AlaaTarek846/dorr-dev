@@ -6,6 +6,7 @@ use App\Enums\VerificationType;
 use App\Models\Country;
 use App\Models\NotificationDevice;
 use App\Services\Auth\VerificationCodeService;
+use App\Services\Security\AccountSessionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -26,6 +27,7 @@ class FreelancerAuthService
     public function __construct(
         private readonly VerificationCodeService $verificationCodes,
         private readonly FreelanceFeatures $features,
+        private readonly AccountSessionService $sessions,
     ) {}
 
     /** @return array{freelancer: Freelancer, is_new: bool} */
@@ -83,11 +85,12 @@ class FreelancerAuthService
             }
 
             $platform = $device['platform'] ?? null;
-            $newToken = $freelancer->createToken((string) config('freelance.token_name', 'freelance').($platform ? ':'.$platform : ''));
+            // The shared device sessions and security log (Settings > Security), like the DORR app.
+            [$plainToken, $session] = $this->sessions->signIn($freelancer, (string) config('freelance.token_name', 'freelance').($platform ? ':'.$platform : ''));
 
             FreelancerDevice::query()->create([
                 'freelancer_id' => $freelancer->id,
-                'token_id' => $newToken->accessToken->id,
+                'token_id' => $session->token_id,
                 'device_id' => $deviceId ?: null,
                 'device_name' => $device['device_name'] ?? null,
                 'platform' => $platform,
@@ -96,7 +99,7 @@ class FreelancerAuthService
                 'last_active_at' => now(),
             ]);
 
-            return $newToken->plainTextToken;
+            return $plainToken;
         });
 
         return ['freelancer' => $freelancer->fresh(), 'token' => $token];
@@ -106,6 +109,7 @@ class FreelancerAuthService
     {
         $token = $freelancer->currentAccessToken();
         if ($token instanceof PersonalAccessToken) {
+            $this->sessions->signOutCurrent($freelancer);
             $this->endDevices($freelancer->devices()->where('token_id', $token->id)->get());
             $token->delete();
         }

@@ -3,6 +3,7 @@
 namespace Modules\Freelance\Services\Projects;
 
 use App\Services\General\AuditLogger;
+use App\Services\Notifications\NotificationCenter;
 use Modules\Freelance\Enums\FreelanceProjectStatus as Status;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceProject as Project;
@@ -22,6 +23,7 @@ class ProjectReviews
         private readonly FreelanceNotifier $notifier,
         private readonly AuditLogger $audit,
         private readonly ProjectOffersWindow $window,
+        private readonly ProjectMatching $matching,
     ) {}
 
     /** The reviewer fixes a typo or a number in a project that is still in the queue; the change is on record. */
@@ -46,6 +48,8 @@ class ProjectReviews
         $moved = $this->machine->move($project, Status::Published, 'project.published', 'admin', $adminId, ['published_at' => now(), 'status_reason' => null, 'offers_deadline_at' => $this->window->deadlineFor($project), 'offers_closed_at' => null, 'offers_close_reason' => null]);
         $this->audit->record('freelance_project.published', $moved, null, ['status' => 'published']);
         $this->notifier->notify($moved->client, 'project.published', ['project' => (string) $moved->title], ['project' => $moved->uuid]);
+        // FL-208: the freelancers it suits hear of it once the answer has gone back to the admin.
+        NotificationCenter::later(fn () => $this->matching->alert($moved));
 
         return $moved;
     }

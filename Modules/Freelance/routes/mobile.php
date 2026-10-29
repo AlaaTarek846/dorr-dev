@@ -14,6 +14,7 @@ use Modules\Freelance\Http\Controllers\FreelanceCatalogController;
 use Modules\Freelance\Http\Controllers\FreelanceChatController;
 use Modules\Freelance\Http\Controllers\MilestoneDeliveryController;
 use Modules\Freelance\Http\Controllers\FreelanceInterviewController;
+use Modules\Freelance\Http\Controllers\ProgressReportController;
 use Modules\Freelance\Http\Controllers\FreelanceConfigController;
 use Modules\Freelance\Http\Controllers\PortfolioViewController;
 
@@ -22,6 +23,9 @@ use Modules\Freelance\Http\Controllers\PortfolioViewController;
 Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:60,1', 'remember-locale'])->group(function () {
         Route::get('config', [FreelanceConfigController::class, 'show']);
+        // FL-708: my warnings, limits and suspensions, and appealing one.
+        Route::get('sanctions', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'index']);
+        Route::post('sanctions/{uuid}/appeal', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'appeal'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-sanction-appeal');
         Route::get('freelancers/{uuid}/portfolio', [PortfolioViewController::class, 'show'])->whereUuid('uuid')->middleware('freelance.feature:freelance');
 
         // The catalogs the apps pick from (FL-101): the specialty tree, in the request's language.
@@ -38,6 +42,11 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::delete('{uuid}', [ClientProjectController::class, 'destroy'])->whereUuid('uuid');
             Route::post('{uuid}/submit', [ClientProjectController::class, 'submit'])->whereUuid('uuid');
             Route::post('{uuid}/withdraw', [ClientProjectController::class, 'withdraw'])->whereUuid('uuid');
+            // FL-209 / FL-210: ask again with a copy, the last look before sending, the most the client will pay.
+            Route::post('{uuid}/duplicate', [ClientProjectController::class, 'duplicate'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-project-create');
+            Route::get('{uuid}/preview', [ClientProjectController::class, 'preview'])->whereUuid('uuid');
+            Route::put('{uuid}/cost-cap', [ClientProjectController::class, 'costCap'])->whereUuid('uuid');
+            Route::delete('{uuid}/cost-cap', [ClientProjectController::class, 'removeCostCap'])->whereUuid('uuid');
             // FL-205: invitations to a private project.
             Route::middleware('freelance.feature:invitations')->group(function () {
                 Route::get('{uuid}/invitations', [ClientInvitationController::class, 'index'])->whereUuid('uuid');
@@ -68,10 +77,17 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             // FL-701: rating each other after the project.
             Route::get('{uuid}/review', [ReviewController::class, 'show'])->whereUuid('uuid');
             Route::post('{uuid}/review', [ReviewController::class, 'store'])->whereUuid('uuid')->middleware('freelance.feature:ratings');
+            // FL-706: object to the rating about me. FL-702: the short satisfaction survey.
+            Route::post('{uuid}/review/objection', [ReviewController::class, 'object'])->whereUuid('uuid')->middleware(['freelance.feature:ratings', 'throttle:10,1,freelance-objection']);
+            Route::get('{uuid}/survey', [ReviewController::class, 'survey'])->whereUuid('uuid');
+            Route::post('{uuid}/survey', [ReviewController::class, 'answerSurvey'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-survey');
             // FL-404 / FL-405: changes to an active agreement.
             // FL-406: the record of approvals.
             Route::get('{uuid}/agreement/trail', [ApprovalTrailController::class, 'index'])->whereUuid('uuid');
             Route::get('{uuid}/agreement/changes', [ChangeRequestController::class, 'index'])->whereUuid('uuid');
+            // FL-605: optional progress reports (the freelancer sends, the two read).
+            Route::get('{uuid}/reports', [ProgressReportController::class, 'index'])->whereUuid('uuid');
+            Route::post('{uuid}/reports', [ProgressReportController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-report');
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
             Route::post('{uuid}/agreement/send', [ClientAgreementController::class, 'send'])->whereUuid('uuid');
@@ -114,6 +130,8 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::post('conversations/{uuid}/interviews', [FreelanceInterviewController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-interview');
             Route::post('conversations/{uuid}/interviews/{interview}/{action}', [FreelanceInterviewController::class, 'respond'])->whereUuid(['uuid', 'interview'])->whereIn('action', ['confirm', 'decline', 'cancel']);
             Route::delete('messages/{message}', [FreelanceChatController::class, 'destroy'])->whereNumber('message');
+            // FL-709: report the other person's message.
+            Route::post('messages/{message}/report', [\Modules\Freelance\Http\Controllers\MessageReportController::class, 'store'])->whereNumber('message')->middleware('throttle:20,1,freelance-message-report');
         });
     });
 });

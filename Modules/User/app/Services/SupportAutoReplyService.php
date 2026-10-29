@@ -137,6 +137,7 @@ class SupportAutoReplyService
             $message = $ticket->messages()->create([
                 'user_id' => $ticket->user_id,
                 'driver_id' => $ticket->driver_id,
+                'freelancer_id' => $ticket->freelancer_id,
                 'sender' => SupportMessage::SENDER_SYSTEM,
                 'body' => $body,
                 'is_auto' => true,

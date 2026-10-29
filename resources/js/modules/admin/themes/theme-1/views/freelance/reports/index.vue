@@ -94,6 +94,58 @@
                 </div>
             </div>
         </div>
+
+        <!-- Why work was called off (FL-607): the reason as the one who did it stated it, and who that points at. Information only: nothing is charged for it. -->
+        <div class="card custom-card">
+            <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
+                <div class="card-title">
+                    {{ t('freelance.reports.cancel.title') }}
+                    <span v-if="cancels" class="badge bg-light text-default ms-2">{{ cancels.total }}</span>
+                </div>
+                <select v-model="responsibility" class="form-select form-select-sm w-auto ms-auto" @change="loadCancels">
+                    <option value="">{{ t('freelance.reports.cancel.all') }}</option>
+                    <option v-for="r in responsibilities" :key="r" :value="r">{{ t(`freelance.reports.cancel.resp.${r}`) }}</option>
+                </select>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light border fs-12">{{ t('freelance.reports.cancel.hint') }}</div>
+                <div v-if="cancels" class="d-flex flex-wrap gap-2 mb-3">
+                    <span v-for="r in cancels.by_responsibility" :key="r.key" class="badge fs-12" :class="r.count ? 'bg-primary-transparent' : 'bg-light text-muted'">
+                        {{ t(`freelance.reports.cancel.resp.${r.key}`) }}: {{ r.count }}
+                    </span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table text-nowrap mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">{{ t('freelance.reports.cancel.what') }}</th>
+                            <th>{{ t('freelance.reports.cancel.by') }}</th>
+                            <th>{{ t('freelance.reports.cancel.reason') }}</th>
+                            <th>{{ t('freelance.reports.cancel.points_at') }}</th>
+                            <th class="pe-4">{{ t('freelance.reports.cancel.when') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <TableSkeleton v-if="loadingCancels" :rows="3" :layout="['two-lines', 'text', 'two-lines', 'text', 'text']" />
+                        <tr v-else-if="!cancels?.rows?.length"><td colspan="5" class="text-center text-muted py-4">{{ t('freelance.reports.cancel.empty') }}</td></tr>
+                        <tr v-for="r in cancels?.rows ?? []" v-else :key="r.id">
+                            <td class="ps-4">
+                                <span class="d-block fw-semibold">{{ r.project?.title }}</span>
+                                <span class="text-muted fs-11">{{ r.milestone ? r.milestone.title : t('freelance.reports.cancel.whole') }}</span>
+                            </td>
+                            <td>{{ t(`freelance.reports.cancel.side.${r.by}`) }}</td>
+                            <td>
+                                <span class="d-block">{{ t(`freelance.reports.cancel.codes.${r.reason_code}`) }}</span>
+                                <span v-if="r.note" class="text-muted fs-11 text-wrap">{{ r.note }}</span>
+                            </td>
+                            <td><span class="badge" :class="r.responsibility === 'review' ? 'bg-warning-transparent' : 'bg-info-transparent'">{{ t(`freelance.reports.cancel.resp.${r.responsibility}`) }}</span></td>
+                            <td class="pe-4 fs-12" dir="ltr">{{ (r.created_at || '').slice(0, 16).replace('T', ' ') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -112,13 +164,17 @@ const endpoint = '/api/admin/v1/freelance-reports';
 const columns = ['held', 'funded', 'paid', 'refunded', 'earned', 'pending_earnings', 'client_fees', 'commissions'];
 
 const today = new Date();
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const from = ref(iso(new Date(today.getFullYear(), today.getMonth(), 1)));
 const to = ref(iso(today));
 const rows = ref([]);
 const loading = ref(false);
 const check = ref(null);
 const checking = ref(false);
+const responsibilities = ['client', 'freelancer', 'shared', 'none', 'review'];
+const responsibility = ref('');
+const cancels = ref(null);
+const loadingCancels = ref(false);
 const money = (minor) => (minor == null ? '—' : (minor / 100).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
 async function load() {
@@ -126,10 +182,23 @@ async function load() {
     try {
         const { data } = await adminAxios.get(`${endpoint}/summary`, { params: { from: from.value || undefined, to: to.value || undefined } });
         rows.value = data.data?.countries ?? [];
+        loadCancels();
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         loading.value = false;
+    }
+}
+
+async function loadCancels() {
+    loadingCancels.value = true;
+    try {
+        const { data } = await adminAxios.get(`${endpoint}/cancel-reasons`, { params: { from: from.value || undefined, to: to.value || undefined, responsibility: responsibility.value || undefined } });
+        cancels.value = data.data ?? null;
+    } catch (error) {
+        showError(extractApiErrorMessage(error, t('toast.error')));
+    } finally {
+        loadingCancels.value = false;
     }
 }
 

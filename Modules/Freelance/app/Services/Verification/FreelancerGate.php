@@ -52,6 +52,8 @@ class FreelancerGate
     public function assertCanOffer(Freelancer $freelancer): void
     {
         $this->assertCanApply($freelancer);
+        // FL-708: a work limit or a suspension stops new offers and saying yes to invitations; agreed work goes on.
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($freelancer, 'work');
         app(FreelancerAvailabilityService::class)->assertCanReceiveOffers($freelancer);
     }
 

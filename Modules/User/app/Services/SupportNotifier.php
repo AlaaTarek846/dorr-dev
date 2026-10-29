@@ -30,7 +30,7 @@ class SupportNotifier
     /** A customer opened a new ticket: the support team hears about it. */
     public function ticketOpened(SupportTicket $ticket): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toAdmins(SupportRealtimeEvent::TICKET_CREATED, $admins, ['ticket' => $this->forAdmin($ticket)]);
@@ -48,7 +48,7 @@ class SupportNotifier
     /** The customer wrote in a ticket: the agent who has it (or, unassigned, every agent) is told. */
     public function customerReplied(SupportTicket $ticket, SupportMessage $message): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
         $audience = $ticket->admin !== null ? collect([$ticket->admin]) : $admins;
 
@@ -68,7 +68,7 @@ class SupportNotifier
     /** An agent answered: the customer gets a push and the live message. */
     public function agentReplied(SupportTicket $ticket, SupportMessage $message): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
 
         $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
         $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
@@ -88,7 +88,7 @@ class SupportNotifier
      */
     public function statusChanged(SupportTicket $ticket, string $by): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
@@ -127,7 +127,7 @@ class SupportNotifier
      */
     public function autoReplied(SupportTicket $ticket, SupportMessage $message, bool $push = false): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
 
         $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
         $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
@@ -147,7 +147,7 @@ class SupportNotifier
     /** The customer read the automatic answer and still wants a person: the support team is told. */
     public function customerWantsAgent(SupportTicket $ticket): void
     {
-        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'freelancer', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
@@ -167,15 +167,15 @@ class SupportNotifier
      * A customer ended the app's guided help with "I need an agent" (a ticket usually follows): the support team
      * is told on the dashboard (in-app list + live toast) which topic they got stuck on.
      */
-    public function helpAskedForAgent(User $user, ?string $topic): void
+    public function helpAskedForAgent(\Illuminate\Database\Eloquent\Model $user, ?string $topic): void
     {
         $this->center->send(
             $this->supportAdmins(),
             'support.help.agent',
             'support_help_agent_title',
             'support_help_agent_body',
-            ['name' => (string) ($user->name ?: $user->phone ?: '#'.$user->id), 'topic' => $topic ?: '-'],
-            ['type' => 'support_help', 'user_id' => $user->id],
+            ['name' => (string) ($user->name ?: $user->phone ?: '#'.$user->getKey()), 'topic' => $topic ?: '-'],
+            ['type' => 'support_help', 'user_id' => $user instanceof User ? $user->id : null],
             push: false,
         );
     }
@@ -246,6 +246,6 @@ class SupportNotifier
 
     private function customerName(SupportTicket $ticket): string
     {
-        return (string) ($ticket->owner?->name ?: $ticket->owner?->phone ?: '#'.($ticket->user_id ?? $ticket->driver_id));
+        return (string) ($ticket->owner?->name ?: $ticket->owner?->phone ?: '#'.($ticket->user_id ?? $ticket->driver_id ?? $ticket->freelancer_id));
     }
 }
