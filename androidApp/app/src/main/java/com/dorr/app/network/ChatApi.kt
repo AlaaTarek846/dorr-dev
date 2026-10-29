@@ -345,7 +345,12 @@ interface ChatApi {
 
     // Communities (WhatsApp list 93–98).
     @GET("mobile/v1/chat/communities")
-    suspend fun communities(@Header("Authorization") auth: String): ApiEnvelope<List<CommunityDto>>
+    suspend fun communities(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<List<CommunityDto>>
 
     @POST("mobile/v1/chat/communities")
     suspend fun createCommunity(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<CommunityDto>
@@ -723,7 +728,11 @@ interface ChatApi {
     // ------------------------------------------------------------------ calls
 
     @GET("mobile/v1/chat/calls")
-    suspend fun calls(@Header("Authorization") auth: String): ApiEnvelope<List<CallDto>>
+    suspend fun calls(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<CallDto>>
 
     @POST("mobile/v1/chat/conversations/{id}/calls")
     suspend fun startCall(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<CallSessionDto>
@@ -733,7 +742,11 @@ interface ChatApi {
 
     // Call links (WhatsApp list 72).
     @GET("mobile/v1/chat/call-links")
-    suspend fun callLinks(@Header("Authorization") auth: String): ApiEnvelope<List<CallLinkDto>>
+    suspend fun callLinks(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<CallLinkDto>>
 
     @POST("mobile/v1/chat/call-links")
     suspend fun createCallLink(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<CallLinkDto>

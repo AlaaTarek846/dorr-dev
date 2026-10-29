@@ -1,25 +1,21 @@
 package com.dorr.app.ui.screens.chat
 
 import android.content.Context
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +39,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dorr.app.R
 import com.dorr.app.chat.CallPermissions
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsSurface
 
 /*
  * Calls over other apps and the lock screen, like Messenger: "display over other apps" (the
@@ -63,15 +62,23 @@ private fun rememberResumeTick(): Int {
     return tick
 }
 
-/** On the calls page while something is missing. */
+/** On the calls page: overlay permission (while missing) and call-link rows in one card. */
 @Composable
 internal fun CallPermissionCard() {
     val context = LocalContext.current
     val tick = rememberResumeTick()
     val missing = remember(tick) { CallPermissions.missing(context) }
-    if (!missing) return
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(14.dp)) {
-        PermissionBody(context, tick)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (missing) PermissionIntro()
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            if (missing) PermissionRows(context, tick, last = false)
+            CallLinksCard()
+        }
     }
 }
 
@@ -90,7 +97,9 @@ internal fun CallPermissionPrompt() {
     }
     ChSheet(onDismissRequest = { close() }, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            PermissionBody(context, tick)
+            PermissionIntro()
+            Spacer(Modifier.height(12.dp))
+            PermissionRows(context, tick, wrap = true)
             Spacer(Modifier.height(8.dp))
             Text(
                 stringResource(R.string.cpm_later), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 14.sp,
@@ -101,39 +110,59 @@ internal fun CallPermissionPrompt() {
 }
 
 @Composable
-private fun PermissionBody(context: Context, tick: Int) {
-    val overlay = remember(tick) { CallPermissions.canOverlay(context) }
-    val fullScreen = remember(tick) { CallPermissions.canFullScreen(context) }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconBadge(Icons.Rounded.PhoneInTalk, Color(0xFF16A34A))
-        Spacer(Modifier.width(12.dp))
-        Text(stringResource(R.string.cpm_title), color = Ch.Ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-    }
-    Text(stringResource(R.string.cpm_text), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp, bottom = 10.dp))
-    PermissionRow(Icons.Rounded.Layers, stringResource(R.string.cpm_overlay), overlay) { CallPermissions.openOverlay(context) }
-    if (android.os.Build.VERSION.SDK_INT >= 34) {
-        PermissionRow(Icons.Rounded.ScreenLockPortrait, stringResource(R.string.cpm_full_screen), fullScreen) { CallPermissions.openFullScreen(context) }
+private fun PermissionIntro() {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(Icons.Rounded.PhoneInTalk, Color(0xFF16A34A))
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.cpm_title), color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        Text(
+            stringResource(R.string.cpm_text),
+            color = settingsMut(),
+            fontSize = 12.5.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
 @Composable
-private fun PermissionRow(icon: ImageVector, title: String, done: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted)
-            .clickable(enabled = !done, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(10.dp))
-        Text(title, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        if (done) {
-            Icon(Icons.Rounded.CheckCircle, null, tint = Ch.Success, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(R.string.cpm_done), color = Ch.Success, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-        } else {
-            Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Ch.Red))
+private fun PermissionRows(context: Context, tick: Int, wrap: Boolean = false, last: Boolean = true) {
+    val overlay = remember(tick) { CallPermissions.canOverlay(context) }
+    val fullScreen = remember(tick) { CallPermissions.canFullScreen(context) }
+    val showFullScreen = android.os.Build.VERSION.SDK_INT >= 34
+    val rows = @Composable {
+        PermissionSettingsRow(Icons.Rounded.Layers, stringResource(R.string.cpm_overlay), overlay, last = if (showFullScreen) false else last) {
+            CallPermissions.openOverlay(context)
+        }
+        if (showFullScreen) {
+            PermissionSettingsRow(Icons.Rounded.ScreenLockPortrait, stringResource(R.string.cpm_full_screen), fullScreen, last = last) {
+                CallPermissions.openFullScreen(context)
+            }
         }
     }
+    if (wrap) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) { rows() }
+    } else {
+        rows()
+    }
+}
+
+@Composable
+private fun PermissionSettingsRow(icon: ImageVector, title: String, done: Boolean, last: Boolean, onAsk: () -> Unit) {
+    PrivacySettingsRow(
+        icon,
+        title,
+        value = if (done) stringResource(R.string.cpm_done) else null,
+        last = last,
+        onClick = if (done) null else onAsk,
+    )
 }
 
 private const val PREFS = "dorr_calls"

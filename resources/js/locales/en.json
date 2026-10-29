@@ -482,7 +482,8 @@
             "audiences": {
                 "all": "Riders and captains",
                 "user": "Riders only",
-                "driver": "Captains only"
+                "driver": "Captains only",
+                "freelancer": "Freelancers only"
             },
             "title": "Quick chat",
             "search": "Search topics",
@@ -4531,6 +4532,264 @@
         }
     },
     "freelance": {
+        "oversight": {
+            "title": "Work overview",
+            "hint": "Every project, offer and agreement, with the number in each status. Read only: decisions are taken on their own pages (review, disputes, sanctions).",
+            "search": "Project title or ID",
+            "project": "Project",
+            "client": "Client",
+            "budget": "Budget",
+            "offers": "Offers",
+            "freelancer": "Freelancer",
+            "price": "Price",
+            "duration": "Duration",
+            "parties": "Client / Freelancer",
+            "parts": "Parts approved",
+            "created": "Created",
+            "started": "Started",
+            "days": "{n} days",
+            "empty_title": "Nothing here",
+            "empty": "No records match this filter.",
+            "tabs": {
+                "projects": "Projects",
+                "offers": "Offers",
+                "agreements": "Agreements"
+            },
+            "visibility": {
+                "public": "Public",
+                "invited": "By invitation",
+                "private": "Private"
+            },
+            "status": {
+                "draft": "Draft",
+                "pending_review": "Waiting for review",
+                "changes_requested": "Changes requested",
+                "rejected": "Rejected",
+                "published": "Published",
+                "awarded": "Awarded",
+                "in_progress": "In progress",
+                "closed": "Closed",
+                "cancelled": "Cancelled",
+                "submitted": "Submitted",
+                "viewed": "Viewed",
+                "shortlisted": "Shortlisted",
+                "accepted": "Accepted",
+                "withdrawn": "Withdrawn",
+                "pending_approval": "Waiting for approval",
+                "active": "Active",
+                "completed": "Completed",
+                "declined": "Declined",
+                "expired": "Expired",
+                "sent": "Sent",
+                "unfunded": "Not funded",
+                "funded": "Funded",
+                "delivered": "Delivered",
+                "revision": "Revision",
+                "approved": "Approved",
+                "disputed": "Disputed"
+            }
+        },
+        "late": {
+            "title": "Late work",
+            "hint": "Parts past their days, deliveries waiting for the client, agreements nobody answered, disputes past their response time and projects waiting for review. A daily alert tells the staff who watch the projects.",
+            "checked": "Checked {date}",
+            "what": "What is late",
+            "since": "Since",
+            "late_by": "Waiting",
+            "days": "{n} days",
+            "empty_title": "Nothing is late",
+            "empty": "All work is on time.",
+            "groups": {
+                "parts_late": "Parts past their days",
+                "deliveries_waiting": "Deliveries waiting",
+                "agreements_unanswered": "Agreements unanswered",
+                "disputes_overdue": "Disputes overdue",
+                "projects_waiting_review": "Projects waiting for review"
+            }
+        },
+        "countries": {
+            "title": "Countries",
+            "hint": "Where the service is open: the freelance switch of each country, and whether the Service control page closed it there. The apps follow this result.",
+            "availability": "Service control", "search": "Country code or currency",
+            "currency": "Currency",
+            "features": "Features",
+            "projects": "Projects",
+            "open": "Open",
+            "off": "Off",
+            "closed_by_availability": "Closed in Service control",
+            "empty_title": "No countries",
+            "empty": "No country matches this filter."
+        },
+        "support": {
+            "title": "Support",
+            "hint": "The freelancers' tickets and any ticket linked to a project or a dispute. Reading, assigning and replying stay on the Support page; here a ticket is linked to the work it is about.",
+            "search": "Ticket number or title",
+            "ticket": "Ticket",
+            "from": "From",
+            "linked_to": "Linked to",
+            "link": "Link to work",
+            "link_title": "Link ticket #{n}",
+            "kind": {
+                "project": "Project",
+                "dispute": "Dispute",
+                "none": "No link"
+            },
+            "uuid_project": "Project ID",
+            "uuid_dispute": "Dispute ID",
+            "uuid_hint": "The ID shown on the project or dispute page.",
+            "clear_hint": "The link of this ticket will be removed.",
+            "empty_title": "No tickets",
+            "empty": "No freelance tickets match this filter."
+        },
+        "insights": {
+            "title": "Operations and improvement",
+            "hint": "How the work is going and why people leave, for a period. The money is on the Reports page. Information only.",
+            "tabs": {
+                "operations": "Operations",
+                "improvement": "Improvement"
+            },
+            "none": "No data in this period",
+            "hours": "{n} h",
+            "tiles": {
+                "projects": "New projects",
+                "started": "Started work",
+                "completed": "Completed",
+                "disputes": "Disputes",
+                "first_offer": "Time to first offer",
+                "hire": "Time to hire"
+            },
+            "breakdowns": {
+                "projects": "Projects by status",
+                "offers": "Offers by status",
+                "agreements": "Agreements by status",
+                "milestones": "Parts by status",
+                "disputes": "Disputes by category"
+            },
+            "milestone": {
+                "unfunded": "Not funded",
+                "funded": "Funded",
+                "in_progress": "In progress",
+                "delivered": "Delivered",
+                "revision": "Revision",
+                "approved": "Approved",
+                "disputed": "Disputed",
+                "cancelled": "Cancelled"
+            },
+            "cancel_by": {
+                "client": "Why clients called work off",
+                "freelancer": "Why freelancers called work off"
+            },
+            "unhappy": {
+                "client": "Clients not satisfied",
+                "freelancer": "Freelancers not satisfied"
+            },
+            "turned_down": {
+                "offers": "Offers turned down",
+                "invitations": "Invitations turned down",
+                "projects": "Projects ended without work"
+            }
+        },
+        "risk": {
+            "title": "Risk",
+            "hint": "Accounts the quality rules put at medium or high risk, with the reasons. It only shows: a warning, limit or suspension is issued on the Sanctions page, and a report is decided on Message reports.",
+            "freelancers_high": "Freelancers at high risk",
+            "clients_high": "Clients at high risk",
+            "medium": "At medium risk",
+            "open_reports": "Open reports",
+            "active_sanctions": "Active sanctions",
+            "account": "Account",
+            "level": "Risk",
+            "score": "Score",
+            "why": "Why",
+            "now": "Right now",
+            "any_level": "Any risk",
+            "empty_title": "Nobody at risk",
+            "empty": "No account matches this filter.",
+            "side": {
+                "freelancer": "Freelancer",
+                "client": "Client"
+            },
+            "levels": {
+                "high": "High",
+                "medium": "Medium"
+            },
+            "sanctions_now": "{n} active sanctions",
+            "reports_now": "{n} open reports against",
+            "reasons": {
+                "reports_upheld": "Reports upheld",
+                "disputes_lost": "Disputes lost",
+                "suspensions": "Suspensions",
+                "sanctions": "Sanctions",
+                "cancel_rate": "Cancel rate",
+                "account_status": "Account suspended or blocked",
+                "not_verified": "Not verified"
+            }
+        },
+        "audit": {
+            "title": "Audit log",
+            "hint": "What staff did in Freelance, newest first, with who did it and the values before and after. Read only.",
+            "action": "Action",
+            "who": "Who",
+            "on": "On",
+            "when": "When",
+            "details": "Details",
+            "before": "Before",
+            "after": "After",
+            "system": "System",
+            "all_areas": "All areas",
+            "empty_title": "No records",
+            "empty": "Nothing was logged for this filter.",
+            "areas": {
+                "freelance_dispute": "Disputes",
+                "freelance_message_report": "Message reports",
+                "freelance_review_objection": "Rating objections",
+                "freelance_support": "Support",
+                "freelance_sanction": "Sanctions",
+                "freelance_project": "Projects",
+                "freelancer": "Freelancers",
+                "freelance_policy": "Policies",
+                "freelance_feature_rule": "Switches",
+                "freelance_document_type": "Document types"
+            },
+            "actions": {
+                "freelance_dispute_classified": "Dispute classified",
+                "freelance_dispute_decided": "Dispute decided",
+                "freelance_dispute_timeline_exported": "Dispute timeline exported",
+                "freelance_dispute_timeline_viewed": "Dispute timeline viewed",
+                "freelance_message_report_decided": "Message report decided",
+                "freelance_review_objection_decided": "Rating objection decided",
+                "freelance_sanction_appeal_decided": "Sanction appeal decided",
+                "freelance_sanction_issued": "Sanction issued",
+                "freelance_sanction_lifted": "Sanction lifted",
+                "freelance_support_linked": "Ticket linked",
+                "freelance_document_type_created": "Document type created",
+                "freelance_document_type_updated": "Document type updated",
+                "freelance_document_type_status": "Document type status changed",
+                "freelance_document_type_deleted": "Document type deleted",
+                "freelance_feature_rule_saved": "Switch saved",
+                "freelance_feature_rule_copied": "Switches copied",
+                "freelance_policy_saved": "Policy saved",
+                "freelance_policy_reset": "Policy reset",
+                "freelance_project_edited": "Project edited",
+                "freelance_project_published": "Project published",
+                "freelancer_status_changed": "Freelancer status changed",
+                "freelancer_portfolio_hidden": "Portfolio item hidden",
+                "freelancer_portfolio_unhidden": "Portfolio item shown",
+                "freelancer_verification_submitted": "Verification submitted"
+            }
+        },
+        "disputeCategory": {
+            "title": "Kind of problem (set by staff)",
+            "all": "All kinds",
+            "none": "Not set",
+            "suggested": "Suggested from the reason given: {name}",
+            "payment": "Payment",
+            "delivery": "Delivery",
+            "quality": "Quality",
+            "conduct": "Conduct",
+            "scope": "Scope",
+            "other": "Other"
+        },
         "document_types": {
             "title": "Verification documents",
             "hint": "The identity documents freelancers upload to be verified, and where each is required: the country, and from whom (citizens, residents or everyone). A type that is switched off is required from nobody; a type already uploaded cannot be deleted.",
@@ -4698,6 +4957,27 @@
             }
         },
         "overview": {
+            "intro": "What needs a person now, the work in progress, and a door to every page of the Freelance service.",
+            "needs_you": "Needs you now",
+            "work_now": "Work in progress",
+            "no_access_title": "Nothing to show",
+            "no_access": "Your role can not open the pages these numbers come from.",
+            "tiles": {
+                "pending_review": "Projects waiting for review",
+                "late": "Late items",
+                "disputes": "Disputes to decide",
+                "tickets": "Open tickets",
+                "reports": "Open message reports",
+                "risk": "Accounts at high risk",
+                "in_progress": "Projects in progress",
+                "agreements_active": "Active agreements"
+            },
+            "areas": {
+                "work": "Work",
+                "people": "People and safety",
+                "reports": "Reports and records",
+                "setup": "Setup"
+            },
             "title": "Freelance",
             "heading": "The freelance service is ready",
             "hint": "Freelancers, projects and offers will appear here as they are built."
@@ -4719,6 +4999,8 @@
             "reorder_hint": "Choose a level, then drag the handle to reorder. Changes are saved automatically."
         },
         "switches": {
+            "on": "On",
+            "off": "Off",
             "title": "Switches",
             "hint": "Turn the freelance service and each feature on or off per country. No rule = off, and nothing works while 'The whole freelance service' is off.",
             "feature": "Feature",
@@ -4794,6 +5076,7 @@
                 "project.submitted": "Sent for review",
                 "project.resubmitted": "Sent again",
                 "project.withdrawn": "Taken back",
+                "project.cost_cap_set": "Cost limit changed",
                 "project.published": "Published",
                 "project.rejected": "Rejected",
                 "project.changes_requested": "Changes requested",
@@ -4816,6 +5099,236 @@
             "offers_count": "{n} offer(s)",
             "offers_closed_max_offers": "Full: the most offers it takes",
             "offers_closed_chosen": "The client chose an offer"
+        },
+        "freelancers": {
+            "title": "Freelancers",
+            "search": "Name, phone or email",
+            "city": "City",
+            "freelancer": "Freelancer",
+            "country": "Country",
+            "specialties": "Specialties",
+            "offers": "Offers",
+            "open": "Open",
+            "profile": "Profile",
+            "skills": "Skills",
+            "years": "Years of experience",
+            "verification": "Verification",
+            "documents": "{n} document(s)",
+            "no_verification": "No request yet.",
+            "open_verifications": "Open the verification desk",
+            "wallet": "Wallet",
+            "held": "held",
+            "portfolio": "Portfolio",
+            "hidden": "Hidden",
+            "hide": "Hide",
+            "unhide": "Restore",
+            "hide_reason": "Why is it hidden? (the owner is told)",
+            "projects": "Projects (active / completed)",
+            "audit": "What staff did to this account",
+            "no_audit": "Nothing yet.",
+            "change_status": "Change the account status",
+            "reason": "Reason (needed to suspend or block)",
+            "save": "Save",
+            "saved": "Saved.",
+            "status": {
+                "registered": "Registered",
+                "profile_ready": "Profile ready",
+                "verification_submitted": "Verification submitted",
+                "verified": "Verified",
+                "verification_rejected": "Verification rejected",
+                "changes_requested": "Changes requested",
+                "suspended": "Suspended",
+                "blocked": "Blocked"
+            }
+        },
+        "sanctions": {
+            "title": "Warnings & restrictions",
+            "hint": "Nothing here happens by itself: a person issues each one with a reason. Limits and suspensions never touch money or the work already agreed (wallets, deliveries, approvals and disputes go on). The account holder is told and may appeal once within 14 days; another member of staff decides it.",
+            "tabs": {
+                "active": "Active",
+                "appeals": "Appeals",
+                "lifted": "Lifted",
+                "expired": "Ended",
+                "all": "All", "clients": "Clients and risk"
+            },
+            "all_types": "All types",
+            "all_sides": "Clients and freelancers",
+            "all_risks": "Any risk",
+            "search": "Name or phone",
+            "issue": "Issue a warning or restriction",
+            "pick": "Who is it for?",
+            "empty": "Nothing here.",
+            "types": {
+                "warning": "Warning",
+                "chat_limit": "Chat limit",
+                "work_limit": "Limit on new work",
+                "suspension": "Suspension"
+            },
+            "type_hints": {
+                "warning": "A notice only; it limits nothing and stays 90 days.",
+                "chat_limit": "Can read, can't send messages or propose interviews. 1–30 days.",
+                "work_limit": "No new offers, projects, hiring or invitations; agreed work goes on. 1–30 days.",
+                "suspension": "Both limits until lifted (or until the days you set). Needs the suspend permission."
+            },
+            "states": {
+                "active": "Active",
+                "lifted": "Lifted",
+                "expired": "Ended"
+            },
+            "sides": {
+                "freelancer": "Freelancer",
+                "client": "Client"
+            },
+            "sources": {
+                "manual": "Staff decision",
+                "message_report": "Reported message",
+                "review_objection": "Rating objection",
+                "dispute": "Dispute"
+            },
+            "source_ref": "Reference (optional)",
+            "days": "Days",
+            "days_optional": "Days (empty = until lifted)",
+            "reason": "The reason the person will read (at least a few words)",
+            "send": "Issue",
+            "issued": "Issued. The person was told and can appeal.",
+            "saved": "Saved.",
+            "history": "Warnings and restrictions",
+            "by": "by {name}",
+            "lift": "Lift",
+            "lift_note": "Lifted",
+            "note": "A note (optional)",
+            "decide_appeal": "Decide the appeal",
+            "save": "Save",
+            "appeal": "Appeal",
+            "appeal_hint": "Only someone other than the person who issued it may decide.",
+            "new_end": "New end",
+            "appeal_states": {
+                "open": "Waiting",
+                "upheld": "Keep it",
+                "reduced": "Shorten it",
+                "lifted": "Lift it"
+            },
+            "blocks": {
+                "chat": "Chat",
+                "work": "New work"
+            },
+            "allowed": "allowed",
+            "until": "stopped until {date}",
+            "until_lifted": "stopped until lifted",
+            "quality": "Quality & risk",
+            "no_data": "Not enough finished work for a score yet.",
+            "risk": {
+                "low": "Low risk",
+                "medium": "Medium risk",
+                "high": "High risk"
+            },
+            "reasons": {
+                "reports_upheld": "{n} reported message(s) upheld in 90 days",
+                "disputes_lost": "{n} dispute(s) lost in 90 days",
+                "suspensions": "Suspended before ({n})",
+                "sanctions": "{n} warning(s) or restriction(s) in 90 days",
+                "cancel_rate": "{n}% of started projects ended early by them",
+                "account_status": "The account is suspended or blocked",
+                "not_verified": "Not verified yet"
+            },
+            "inputs": "Rating {rating} · on time {on_time}% · completed {completion}% · disputes lost {disputes} · reports upheld {reports} · cancelled by them {cancels}%"
+        },
+        "reviews": {
+            "title": "Ratings & satisfaction",
+            "tabs": {
+                "objections": "Objections to ratings",
+                "satisfaction": "Satisfaction"
+            },
+            "hint": "The person a rating is about may object to it once. Deciding here only changes that rating (hide its comment, or take it out of the numbers); it never touches an account.",
+            "rating": "Rating",
+            "objection": "Objection",
+            "people": "People",
+            "decision": "Decision",
+            "empty": "Nothing here.",
+            "rater": "Rated by",
+            "about": "About",
+            "review": "Review",
+            "note": "A note (optional)",
+            "save": "Save",
+            "saved": "Saved.",
+            "side": {
+                "client": "Client",
+                "freelancer": "Freelancer"
+            },
+            "status": {
+                "open": "Open",
+                "rejected": "Kept",
+                "comment_hidden": "Comment hidden",
+                "rating_removed": "Rating removed"
+            },
+            "reasons": {
+                "abusive": "Abusive words",
+                "false": "Something untrue",
+                "unfair": "Unfair",
+                "other": "Other"
+            },
+            "decisions": {
+                "reject": "Keep the rating",
+                "reject_hint": "The objection is not accepted; nothing changes.",
+                "hide_comment": "Hide the comment",
+                "hide_comment_hint": "The stars stay and count; the words are hidden.",
+                "remove_rating": "Remove the rating",
+                "remove_rating_hint": "It leaves the numbers and the profile."
+            },
+            "answers": "Answers",
+            "average": "Average",
+            "not_satisfied": "Not satisfied (3 or less)",
+            "why": "Why people were not satisfied",
+            "reason": "Reason",
+            "latest": "Latest answers of unsatisfied people",
+            "survey_reasons": {
+                "quality": "Quality of the work",
+                "late": "Late",
+                "communication": "Communication",
+                "price": "Price",
+                "scope": "Scope changes",
+                "payment": "Payment",
+                "platform": "The platform",
+                "other": "Other"
+            }
+        },
+        "messageReports": {
+            "title": "Reported messages",
+            "hint": "Messages a client or freelancer reported in a chat. The text is the one at the time of the report. Deciding here only records the review (and can hide the message); it never restricts an account.",
+            "message": "Message",
+            "reason": "Reason",
+            "people": "People",
+            "when": "When",
+            "decision": "Decision",
+            "empty": "Nothing here.",
+            "hidden": "Hidden from the room",
+            "was_hidden": "Message hidden",
+            "by": "Reported by",
+            "against": "About",
+            "decide": "Review",
+            "dismiss": "Dismiss (no problem)",
+            "uphold": "Uphold (it breaks the rules)",
+            "hide": "Hide the message from the room",
+            "note": "A note (optional)",
+            "save": "Save",
+            "saved": "Saved.",
+            "status": {
+                "open": "Open",
+                "upheld": "Upheld",
+                "dismissed": "Dismissed"
+            },
+            "side": {
+                "client": "Client",
+                "freelancer": "Freelancer"
+            },
+            "reasons": {
+                "abuse": "Abusive language",
+                "harassment": "Harassment",
+                "blackmail": "Threats or blackmail",
+                "contact_info": "Sharing contact details",
+                "spam": "Spam",
+                "other": "Something else"
+            }
         },
         "disputes": {
             "title": "Disputes",
@@ -4916,6 +5429,29 @@
                 "active": "{n} active",
                 "completed": "{n} completed",
                 "disputes": "{n} disputes open"
+            },
+            "cancel": {
+                "title": "Why work was called off",
+                "hint": "As stated by whoever called it off. For review only - nothing is charged or refused because of it. \"Needs review\" means they chose Other.",
+                "all": "All",
+                "what": "Project / part",
+                "by": "Called off by",
+                "reason": "Reason",
+                "points_at": "Points at",
+                "when": "When",
+                "whole": "The whole project",
+                "empty": "Nothing in this period.",
+                "side": { "client": "Client", "freelancer": "Freelancer" },
+                "resp": { "client": "Client", "freelancer": "Freelancer", "shared": "Both", "none": "No one (force majeure)", "review": "Needs review" },
+                "codes": {
+                    "scope_changed": "Scope or budget changed",
+                    "client_unresponsive": "Client not responding",
+                    "not_delivered": "Work not delivered / late",
+                    "quality": "Quality problem",
+                    "mutual": "Mutual agreement",
+                    "force_majeure": "Force majeure",
+                    "other": "Other"
+                }
             },
             "reconcile": "Reconciliation",
             "check": "Check now",

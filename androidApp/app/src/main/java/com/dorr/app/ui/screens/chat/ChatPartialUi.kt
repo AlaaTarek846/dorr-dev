@@ -450,7 +450,7 @@ fun FavouritesPage() {
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
-                        itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
+                    itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
                             StarredMessageCard(
                                 m = m,
                                 index = i,
@@ -658,8 +658,8 @@ fun MediaFilterRow(files: Boolean, date: String?, fileKind: String?, bigOnly: Bo
             onDismissRequest = { picking = false },
             confirmButton = {
                 locale.Provide {
-                    TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
-                        Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
+                TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
+                    Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
                     }
                 }
             },
@@ -936,7 +936,7 @@ fun CatchUpPage() {
                             }
                     }
                     LazyColumn(state = listState, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        if (empty) {
+            if (empty) {
                             item(key = "catch-empty") {
                                 Text(
                                     stringResource(R.string.cp_caught_up),
@@ -952,7 +952,7 @@ fun CatchUpPage() {
                             catchUpRefs(mentionsTitle, Icons.Rounded.AlternateEmail, Ch.Red, d.mentions, open)
                             catchUpRefs(repliesTitle, Icons.Rounded.Reply, Color(0xFF2563EB), d.replies, open)
                             catchUpRefs(owedTitle, Icons.Rounded.Psychology, Color(0xFFD97706), d.owed, open)
-                            if (d.missedCalls.isNotEmpty()) {
+            if (d.missedCalls.isNotEmpty()) {
                                 item(key = "catch-calls-title") { SectionTitle(stringResource(R.string.cp_sec_calls), Icons.Rounded.CallMissed, Ch.Danger) }
                                 items(d.missedCalls, key = { "call-${it.id}" }) { c ->
                                     RefCard(
@@ -963,7 +963,7 @@ fun CatchUpPage() {
                                 }
                             }
                             catchUpRefs(remindersTitle, Icons.Rounded.NotificationsActive, Color(0xFF7C3AED), d.reminders, open)
-                            if (d.decisions.isNotEmpty()) {
+            if (d.decisions.isNotEmpty()) {
                                 item(key = "catch-decisions-title") { SectionTitle(stringResource(R.string.cp_sec_decisions), Icons.Rounded.Gavel, Color(0xFF16A34A)) }
                                 items(d.decisions, key = { "dec-${it.id}" }) { x ->
                                     RefCard(x.chat.orEmpty(), x.title, x.deadlineAt) { host.push(ChRoute.DecisionRoom(x.id)) }
@@ -1229,16 +1229,16 @@ private fun MoneyHistoryRow(m: MoneyItemDto, onClick: () -> Unit) {
         Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Rounded.Payments, null, tint = if (m.isMine) Ch.Red else Color(0xFF16A34A), modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.Payments, null, tint = if (m.isMine) Ch.Red else Color(0xFF16A34A), modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
             Text(
                 stringResource(when (m.type) { "money_request" -> R.string.cp_t_request; "bill_split" -> R.string.cp_t_split; else -> if (m.isMine) R.string.cp_t_sent else R.string.cp_t_received }),
                 color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold,
             )
-            Text(listOfNotNull(m.note, m.status, listTime(m.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Text(formatMinor(m.amountMinor, m.currency), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(listOfNotNull(m.note, m.status, listTime(m.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text(formatMinor(m.amountMinor, m.currency), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -1259,7 +1259,7 @@ private fun Total(icon: ImageVector, label: String, value: String, tint: Color, 
                 }
             }
             val title = @Composable {
-                Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             if (iconAtStart) {
                 well()
@@ -1412,37 +1412,37 @@ fun PrivacyCenterPage() {
             CenterTopic(
                 Icons.Rounded.Visibility, stringResource(R.string.cp_pc_who_sees),
                 listOf(
-                    stringResource(R.string.cp_pc_last_seen) to audience(d.whoSees["last_seen"]),
-                    stringResource(R.string.cp_pc_photo) to audience(d.whoSees["profile_photo"]),
-                    stringResource(R.string.cp_pc_status) to audience(d.whoSees["status"]),
-                    stringResource(R.string.cp_pc_receipts) to stringResource(if (d.whoSees["read_receipts"] == false) R.string.ch_off else R.string.cp_on),
+                stringResource(R.string.cp_pc_last_seen) to audience(d.whoSees["last_seen"]),
+                stringResource(R.string.cp_pc_photo) to audience(d.whoSees["profile_photo"]),
+                stringResource(R.string.cp_pc_status) to audience(d.whoSees["status"]),
+                stringResource(R.string.cp_pc_receipts) to stringResource(if (d.whoSees["read_receipts"] == false) R.string.ch_off else R.string.cp_on),
                 ),
             ) { host.push(ChRoute.Privacy) },
             CenterTopic(
                 Icons.Rounded.Shield, stringResource(R.string.cp_pc_who_can),
                 listOf(
-                    stringResource(R.string.cp_pc_message) to audience(d.whoCan["message"]),
-                    stringResource(R.string.cp_pc_groups) to audience(d.whoCan["add_to_groups"]),
-                    stringResource(R.string.cp_pc_call) to audience(d.whoCan["call"]),
-                    stringResource(R.string.cp_pc_urgent) to audience(d.whoCan["urgent"]),
+                stringResource(R.string.cp_pc_message) to audience(d.whoCan["message"]),
+                stringResource(R.string.cp_pc_groups) to audience(d.whoCan["add_to_groups"]),
+                stringResource(R.string.cp_pc_call) to audience(d.whoCan["call"]),
+                stringResource(R.string.cp_pc_urgent) to audience(d.whoCan["urgent"]),
                 ),
             ) { host.push(ChRoute.Privacy) },
             CenterTopic(
                 Icons.Rounded.NotificationsActive, stringResource(R.string.cp_pc_notifications),
                 listOf(
-                    stringResource(R.string.cp_pc_preview) to d.notifications,
-                    stringResource(R.string.cp_pc_privacy_mode) to stringResource(if (d.privacyMode["on"] == true) R.string.cp_on else if (d.privacyMode["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
-                    stringResource(R.string.cp_pc_quiet) to stringResource(if (d.quiet["on"] == true) R.string.cp_on else if (d.quiet["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
-                    stringResource(R.string.cp_pc_screenshots) to stringResource(if (d.blockScreenshots) R.string.cp_blocked_word else R.string.cp_allowed),
+                stringResource(R.string.cp_pc_preview) to d.notifications,
+                stringResource(R.string.cp_pc_privacy_mode) to stringResource(if (d.privacyMode["on"] == true) R.string.cp_on else if (d.privacyMode["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
+                stringResource(R.string.cp_pc_quiet) to stringResource(if (d.quiet["on"] == true) R.string.cp_on else if (d.quiet["scheduled"] == true) R.string.cp_scheduled else R.string.ch_off),
+                stringResource(R.string.cp_pc_screenshots) to stringResource(if (d.blockScreenshots) R.string.cp_blocked_word else R.string.cp_allowed),
                 ),
             ) { host.push(ChRoute.Privacy) },
             CenterTopic(
                 Icons.Rounded.Lock, stringResource(R.string.cp_pc_chats),
                 listOf(
-                    stringResource(R.string.cp_pc_circles) to "${d.circles["count"] ?: 0} (${stringResource(R.string.cp_pc_locked_n, d.circles["locked"] ?: 0)})",
-                    stringResource(R.string.cp_pc_locked_chats) to "${d.lockedChats}",
-                    stringResource(R.string.cp_pc_pin_chats) to "${d.pinLockedChats}",
-                    stringResource(R.string.cp_pc_blocked) to "${d.blocked}",
+                stringResource(R.string.cp_pc_circles) to "${d.circles["count"] ?: 0} (${stringResource(R.string.cp_pc_locked_n, d.circles["locked"] ?: 0)})",
+                stringResource(R.string.cp_pc_locked_chats) to "${d.lockedChats}",
+                stringResource(R.string.cp_pc_pin_chats) to "${d.pinLockedChats}",
+                stringResource(R.string.cp_pc_blocked) to "${d.blocked}",
                 ),
             ) { host.filter = "locked"; host.pop() },
             CenterTopic(

@@ -1,5 +1,9 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -78,20 +83,30 @@ internal fun ChatPage(roomUuid: String, onBack: () -> Unit) {
     // Newest first, as the server gives them (the list is drawn from the bottom).
     val messages = remember { mutableStateListOf<FreelanceChatMessageDto>() }
     var hasMore by remember { mutableStateOf(false) }
+    var loadingOlder by remember { mutableStateOf(false) }
+    var olderFailed by remember { mutableStateOf(false) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var interviews by remember { mutableStateOf<List<FreelanceInterviewDto>>(emptyList()) }
+    // FL-709: the message being reported (long press on the other person's).
+    var reporting by remember { mutableStateOf<Int?>(null) }
+    var reportNotice by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
         try {
             room = ApiClient.freelance.chatRoom(auth(), roomUuid).data
             runCatching { ApiClient.freelance.interviews(auth(), roomUuid).data }.getOrNull()?.let { interviews = it }
             val list = ApiClient.freelance.chatMessages(auth(), roomUuid).data.orEmpty()
+            // The newest page replaces what is shown; the older messages I scrolled up to stay under it.
+            val oldest = list.lastOrNull()?.id
+            val older = if (oldest == null) emptyList() else messages.filter { it.id < oldest }
             messages.clear()
             messages.addAll(list)
-            hasMore = list.size >= 40
+            messages.addAll(older)
+            if (older.isEmpty()) hasMore = list.size >= 40
             error = null
             if (list.any { it.mine == false && it.readAt == null }) runCatching { ApiClient.freelance.chatRead(auth(), roomUuid) }
         } catch (e: CancellationException) {
@@ -102,6 +117,30 @@ internal fun ChatPage(roomUuid: String, onBack: () -> Unit) {
         loaded = true
     }
     LaunchedEffect(roomUuid, reconnect) { load() }
+
+    // Older messages come by themselves when I scroll up to the oldest one loaded (nothing on a timer).
+    suspend fun loadOlder() {
+        if (loadingOlder || !hasMore) return
+        val before = messages.lastOrNull()?.id ?: return
+        loadingOlder = true
+        olderFailed = false
+        val more = runCatching { ApiClient.freelance.chatMessages(auth(), roomUuid, before = before).data.orEmpty() }.getOrNull()
+        if (more != null) {
+            messages.addAll(more.filter { n -> messages.none { it.id == n.id } })
+            hasMore = more.size >= 40
+        } else olderFailed = true
+        loadingOlder = false
+    }
+    val nearOldest by remember {
+        androidx.compose.runtime.derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 4
+        }
+    }
+    LaunchedEffect(nearOldest, messages.size, hasMore, olderFailed, loaded) {
+        if (loaded && nearOldest && hasMore && !loadingOlder && !olderFailed) loadOlder()
+    }
     // The room's own channel while the page is open.
     DisposableEffect(roomUuid) {
         ChatRealtime.watchFreelanceRoom(roomUuid)
@@ -130,34 +169,40 @@ internal fun ChatPage(roomUuid: String, onBack: () -> Unit) {
         }
     }
 
+    reporting?.let { id -> ReportMessageDialog(id, onDone = { reportNotice = it; reporting = null }, onDismiss = { reporting = null }) }
+
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.matchParentSize())
         Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
             SubHeader(room?.peer?.name ?: stringResource(R.string.fl_chat_title), onBack)
-            room?.project?.title?.let { Text(it, color = settingsMut(), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp)) }
-            if (room?.guarded == true) Text(stringResource(R.string.fl_chat_guard_hint), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (!loaded && error == null) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.align(Alignment.Center).size(26.dp))
-                else LazyColumn(Modifier.fillMaxSize(), reverseLayout = true, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(messages, key = { it.id }) { m -> ChatBubble(m) }
-                    if (hasMore) item {
-                        Text(
-                            stringResource(R.string.fl_chat_earlier), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                scope.launch {
-                                    val before = messages.lastOrNull()?.id ?: return@launch
-                                    runCatching { ApiClient.freelance.chatMessages(auth(), roomUuid, before = before).data.orEmpty() }.getOrNull()?.let { more ->
-                                        messages.addAll(more.filter { n -> messages.none { it.id == n.id } })
-                                        hasMore = more.size >= 40
-                                    }
-                                }
-                            }.padding(12.dp),
-                        )
-                    }
-                    if (loaded && messages.isEmpty()) item { Text(stringResource(R.string.fl_chat_empty), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(24.dp)) }
+            room?.project?.title?.let { t ->
+                Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Work, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))
+                    Text(t, color = settingsInk(), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }
-            error?.let { Text(it, color = ChatRed, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp)) }
+            if (room?.guarded == true) FlNotice(stringResource(R.string.fl_chat_guard_hint), Icons.Rounded.Shield, Color(0xFFD97706), Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (!loaded && error == null) Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.width(220.dp).height(48.dp), RoundedCornerShape(16.dp))
+                    com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.align(Alignment.End).width(180.dp).height(40.dp), RoundedCornerShape(16.dp))
+                    com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.width(250.dp).height(56.dp), RoundedCornerShape(16.dp))
+                }
+                else LazyColumn(Modifier.fillMaxSize(), state = listState, reverseLayout = true, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(messages, key = { it.id }) { m -> ChatBubble(m) { reporting = m.id } }
+                    if (hasMore) item {
+                        if (olderFailed) Text(
+                            stringResource(R.string.fl_error_generic), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth().clickable { olderFailed = false }.padding(12.dp),
+                        ) else Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    if (loaded && messages.isEmpty()) item { com.dorr.app.ui.screens.wallet.WaEmpty(Icons.Rounded.Forum, com.dorr.app.ui.screens.wallet.Tone.Blue, stringResource(R.string.fl_chat_title), stringResource(R.string.fl_chat_empty)) }
+                }
+            }
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, ChatRed, Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
+            reportNotice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A), Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
             if (room != null) InterviewPanel(roomUuid, room?.canWrite == true, interviews, onChanged = { scope.launch { load() } }, onError = { error = it })
             if (room?.canWrite == true) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DorrTextField(value = input, onValueChange = { if (it.length <= 2000) input = it }, modifier = Modifier.weight(1f), placeholder = stringResource(R.string.fl_chat_hint), singleLine = false)
@@ -171,7 +216,7 @@ internal fun ChatPage(roomUuid: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ChatBubble(m: FreelanceChatMessageDto) {
+private fun ChatBubble(m: FreelanceChatMessageDto, onReport: () -> Unit) {
     if (m.kind == "system") {
         InterviewSystemLine(m.body.orEmpty())
         return
@@ -191,6 +236,19 @@ private fun ChatBubble(m: FreelanceChatMessageDto) {
             }
             Text(text, color = if (mine) Color.White else settingsInk(), fontSize = 14.sp, lineHeight = 20.sp)
             chatTime(m.createdAt)?.let { Text("‎$it", color = if (mine) Color.White.copy(alpha = 0.8f) else settingsMut(), fontSize = 10.sp) }
+        }
+        // FL-709: the three dots beside the other person's message open a small menu (report).
+        if (!mine && m.kind != "deleted") {
+            var menuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            Box {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Default.MoreVert, contentDescription = null, tint = settingsMut(),
+                    modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable { menuOpen = true }.padding(6.dp),
+                )
+                androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.fl_rm_title)) }, onClick = { menuOpen = false; onReport() })
+                }
+            }
         }
     }
 }

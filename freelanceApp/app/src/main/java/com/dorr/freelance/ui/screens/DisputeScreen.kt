@@ -1,5 +1,9 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Gavel
+import com.dorr.freelance.ui.components.SkeletonDetail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -102,20 +106,18 @@ fun DisputeScreen(projectUuid: String, milestoneUuid: String?, disputeUuid: Stri
     Page(title = stringResource(R.string.dp_title), onBack = onBack) {
         val d = dispute
         if (disputeUuid == null) {
-            Card {
-                FieldLabel(stringResource(R.string.dp_open_title))
-                Text(stringResource(R.string.dp_open_note), color = settingsMut(), fontSize = 12.sp)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    REASONS.forEach { r ->
-                        val on = reason == r
-                        Text(
-                            reasonLabel(r), color = if (on) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(if (on) settingsAccent() else settingsAccent().copy(alpha = 0.08f)).clickable { reason = r }.padding(horizontal = 12.dp, vertical = 6.dp),
-                        )
-                    }
+            com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Gavel, stringResource(R.string.dp_open), stringResource(R.string.dp_open_note))
+            FieldLabel(stringResource(R.string.dp_reason_label))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                REASONS.forEach { r ->
+                    val on = reason == r
+                    Text(
+                        reasonLabel(r), color = if (on) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(if (on) settingsAccent() else settingsAccent().copy(alpha = 0.08f)).clickable { reason = r }.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
                 }
-                DorrTextField(text, { text = it.take(3000) }, placeholder = stringResource(R.string.dp_details_hint), singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
             }
+            DorrTextField(text, { text = it.take(3000) }, label = stringResource(R.string.dp_details_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
             ErrorBanner(error, Modifier.fillMaxWidth())
             SettingsPrimaryButton(text = stringResource(R.string.dp_open), loading = busy, enabled = reason != null && text.trim().length >= 20 && milestoneUuid != null, onClick = {
                 call({ apiCall { ApiClient.agreements.openDispute(projectUuid, milestoneUuid!!, DisputeOpenRequest(reason!!, text.trim())) } }) { onOpened(it.uuid) }
@@ -123,7 +125,7 @@ fun DisputeScreen(projectUuid: String, milestoneUuid: String?, disputeUuid: Stri
             return@Page
         }
         if (d == null) {
-            if (error == null) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+            if (error == null) SkeletonDetail()
             ErrorBanner(error, Modifier.fillMaxWidth())
             return@Page
         }
@@ -159,7 +161,7 @@ fun DisputeScreen(projectUuid: String, milestoneUuid: String?, disputeUuid: Stri
                 }
             }
             if (d.can.evidence) {
-                DorrTextField(text, { text = it.take(3000) }, placeholder = stringResource(R.string.dp_add_hint), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+                DorrTextField(text, { text = it.take(3000) }, label = stringResource(R.string.dp_add_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
                 Text(stringResource(R.string.dp_add), color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(enabled = !busy && text.trim().length >= 5) {
                     call({ apiCall { ApiClient.agreements.disputeEvidence(projectUuid, d.uuid, TextRequest(body = text.trim())) } }) { dispute = it; text = "" }
                 }.padding(vertical = 6.dp))
@@ -170,7 +172,7 @@ fun DisputeScreen(projectUuid: String, milestoneUuid: String?, disputeUuid: Stri
             if (!appealing) Text(stringResource(R.string.dp_appeal), color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { appealing = true; text = "" }.padding(vertical = 8.dp))
             else Card {
                 Text(stringResource(R.string.dp_appeal_note), color = settingsMut(), fontSize = 12.sp)
-                DorrTextField(text, { text = it.take(2000) }, placeholder = stringResource(R.string.dp_appeal_hint), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+                DorrTextField(text, { text = it.take(2000) }, label = stringResource(R.string.dp_appeal_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
                 SettingsPrimaryButton(text = stringResource(R.string.dp_appeal_send), loading = busy, enabled = text.trim().length >= 20, onClick = {
                     call({ apiCall { ApiClient.agreements.appealDispute(projectUuid, d.uuid, TextRequest(reason = text.trim())) } }) { dispute = it; appealing = false; text = "" }
                 })

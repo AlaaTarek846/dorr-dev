@@ -51,6 +51,8 @@ sealed interface ChatDeepLink {
     data class Join(val token: String) : ChatDeepLink
     /** A call link (WhatsApp list 72): who made it, then "Join". */
     data class CallLink(val token: String) : ChatDeepLink
+    /** A freelance notification (an offer, the agreement, a dispute…): the Freelance screen it belongs to — a page of the Freelance host. */
+    data class Freelance(val page: String) : ChatDeepLink
 }
 
 /**
@@ -153,6 +155,14 @@ object ChatPush {
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         data.optString("type") == "security" -> ChatDeepLink.Security
                         data.optString("type") == "chat_verification" -> ChatDeepLink.Verification
+                        data.optString("event").startsWith("freelance.") -> ChatDeepLink.Freelance(
+                            com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(
+                                data.optString("event"),
+                                data.optString("project").takeIf { it.isNotBlank() && it != "null" },
+                                data.optString("offer").takeIf { it.isNotBlank() && it != "null" },
+                                data.optString("dispute").takeIf { it.isNotBlank() && it != "null" },
+                            ),
+                        )
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "ride" && data.optString("ride_uuid").isNotBlank() -> ChatDeepLink.Ride(data.optString("ride_uuid"))
                         com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) } != null ->

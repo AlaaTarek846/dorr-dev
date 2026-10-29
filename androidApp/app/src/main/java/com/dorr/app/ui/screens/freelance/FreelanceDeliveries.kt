@@ -1,5 +1,17 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import com.dorr.app.ui.screens.profile.settingsSurface
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -194,22 +206,15 @@ private suspend fun openDelivered(context: Context, f: FreelanceDeliveryFileDto)
 @Composable
 private fun ChecklistEditor(initial: List<String>, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
     val lines = remember { mutableStateListOf<String>().also { it.addAll(initial.ifEmpty { listOf("") }) } }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.fl_ck_set)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(R.string.fl_ck_editor_hint), color = settingsMut(), fontSize = 12.sp)
-                lines.forEachIndexed { i, text ->
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        DorrTextField(text, { lines[i] = it.take(200) }, placeholder = stringResource(R.string.fl_ck_line), modifier = Modifier.weight(1f))
-                        Text("✕", color = Color(0xFFDC2626), fontSize = 16.sp, modifier = Modifier.clickable { lines.removeAt(i) }.padding(10.dp))
-                    }
-                }
-                if (lines.size < MAX_CHECKS) Text(stringResource(R.string.fl_ck_add), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { lines.add("") }.padding(vertical = 4.dp))
+    FlSheet(Icons.Rounded.Checklist, stringResource(R.string.fl_ck_set), stringResource(R.string.fl_ck_editor_hint), onDismiss = onDismiss) {
+        lines.forEachIndexed { i, text ->
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DorrTextField(text, { lines[i] = it.take(200) }, placeholder = stringResource(R.string.fl_ck_line), icon = Icons.Rounded.CheckCircle, modifier = Modifier.weight(1f))
+                Icon(Icons.Rounded.Close, null, tint = Color(0xFFDC2626), modifier = Modifier.size(34.dp).clickable { lines.removeAt(i) }.padding(7.dp))
             }
-        },
-        confirmButton = { TextButton(onClick = { onSave(lines.map { it.trim() }.filter { it.isNotEmpty() }) }) { Text(stringResource(R.string.fl_ck_save), color = settingsAccent()) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
-    )
+        }
+        if (lines.size < MAX_CHECKS) FlAction(stringResource(R.string.fl_ck_add), Icons.Rounded.Add) { lines.add("") }
+        FlAction(stringResource(R.string.fl_ck_save), Icons.Rounded.Save, FlTone.Primary) { onSave(lines.map { it.trim() }.filter { it.isNotEmpty() }) }
+        FlAction(stringResource(R.string.common_cancel), null, onClick = onDismiss)
+    }
 }

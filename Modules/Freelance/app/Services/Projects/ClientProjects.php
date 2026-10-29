@@ -5,14 +5,20 @@ namespace Modules\Freelance\Services\Projects;
 use App\Models\Country;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Freelance\Enums\FreelanceMilestoneStatus as PartStatus;
 use Modules\Freelance\Enums\FreelanceProjectStatus as Status;
 use Modules\Freelance\Exceptions\FreelanceException;
+use Modules\Freelance\Models\FreelanceAgreement as Agreement;
+use Modules\Freelance\Models\FreelanceMilestone as Milestone;
+use Modules\Freelance\Models\FreelanceOffer;
 use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Models\FreelanceProjectEvent;
 use Modules\Freelance\Models\FreelanceSkill;
 use Modules\Freelance\Models\FreelanceSpecialty;
 use Modules\Freelance\Services\Features\FreelanceCountry;
+use Modules\Freelance\Services\Offers\ClientOfferViews;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\User\Models\User;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -50,12 +56,7 @@ class ClientProjects
     /** @param  array<string, mixed>  $data */
     public function create(User $client, array $data): Project
     {
-        $countryId = FreelanceCountry::of($client) ?? throw new FreelanceException('not_available', 403);
-        $max = (int) config('freelance.projects.max_open', 20);
-        $open = Project::query()->where('client_id', $client->id)->whereNotIn('status', [Status::Closed->value, Status::Cancelled->value])->count();
-        if ($open >= $max) {
-            throw new FreelanceException('project_limit', 422, ['max' => $max], ['max' => $max]);
-        }
+        $countryId = $this->roomFor($client);
 
         return DB::transaction(function () use ($client, $countryId, $data) {
             $project = Project::query()->create($this->fields($data) + [
@@ -71,6 +72,158 @@ class ClientProjects
 
             return $project->load(['specialty.translations', 'skills.translations', 'media', 'events']);
         });
+    }
+
+    /** The client's country, once they have room for one more open project. */
+    private function roomFor(User $client): int
+    {
+        $countryId = FreelanceCountry::of($client) ?? throw new FreelanceException('not_available', 403);
+        $max = (int) config('freelance.projects.max_open', 20);
+        $open = Project::query()->where('client_id', $client->id)->whereNotIn('status', [Status::Closed->value, Status::Cancelled->value])->count();
+        if ($open >= $max) {
+            throw new FreelanceException('project_limit', 422, ['max' => $max], ['max' => $max]);
+        }
+
+        return $countryId;
+    }
+
+    /**
+     * FL-209: asks for a project again — a new draft with the same text, skills, budget, time, questions and files, to change and send.
+     * An old project is a fine starting point whatever became of it; nothing else comes along (no offers, invitations or agreement).
+     */
+    public function duplicate(Project $source, User $client): Project
+    {
+        $countryId = $this->roomFor($client);
+
+        return DB::transaction(function () use ($source, $client, $countryId) {
+            $copy = Project::query()->create([
+                'client_id' => $client->id,
+                'country_id' => $countryId,
+                'currency_code' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
+                'status' => Status::Draft,
+                'title' => $source->title,
+                'description' => $source->description,
+                'questions' => $source->questions,
+                'freelance_specialty_id' => $source->freelance_specialty_id,
+                'budget_type' => $source->budget_type,
+                'budget_min_minor' => $source->budget_min_minor,
+                'budget_max_minor' => $source->budget_max_minor,
+                'max_cost_minor' => $source->max_cost_minor,
+                'duration_days' => $source->duration_days,
+                'visibility' => $source->visibility,
+            ]);
+            // A skill switched off since is left out (the form asks for another one).
+            $copy->skills()->sync($source->skills()->where('freelance_skills.status', FreelanceSkill::ACTIVE)->pluck('freelance_skills.id')->all());
+            foreach ($source->getMedia('attachments') as $file) {
+                $file->copy($copy, 'attachments', Project::DISK);
+            }
+            $this->machine->record($copy, 'project.created', 'client', $client->id, ['copied_from' => $source->uuid], null, Status::Draft);
+
+            return $copy->load(['specialty.translations', 'skills.translations', 'media', 'events']);
+        });
+    }
+
+    /**
+     * FL-210: the most the client will pay in all (client fee included), set or lifted while the work hasn't started. An offer or an
+     * agreement that costs more is refused (see [assertWithinCostCap]).
+     */
+    public function setCostCap(Project $project, ?int $maxMinor): Project
+    {
+        if (! $this->canSetCostCap($project)) {
+            throw new FreelanceException('project_invalid_state', 409, ['status' => __('freelance.project_statuses.'.$project->status->value)], ['status' => $project->status->value]);
+        }
+        $project->update(['max_cost_minor' => $maxMinor]);
+        $this->machine->record($project, 'project.cost_cap_set', 'client', $project->client_id, ['max_minor' => $maxMinor], $project->status, $project->status);
+
+        return $project->load(['specialty.translations', 'skills.translations', 'media', 'events']);
+    }
+
+    /** Before the work starts: while it is written, being reviewed or sent back, taking offers, or waiting for the agreement. */
+    private function canSetCostCap(Project $project): bool
+    {
+        return $project->status->editable() || in_array($project->status, [Status::PendingReview, Status::Published, Status::Awarded], true);
+    }
+
+    /** @throws FreelanceException when what the client would pay in all ($totalMinor, fee included) is over the limit they set */
+    public function assertWithinCostCap(Project $project, int $totalMinor): void
+    {
+        if ($project->max_cost_minor !== null && $totalMinor > (int) $project->max_cost_minor) {
+            throw new FreelanceException('project_cost_cap_exceeded', 422, [
+                'total' => $this->money($totalMinor, (string) $project->currency_code),
+                'cap' => $this->money((int) $project->max_cost_minor, (string) $project->currency_code),
+            ], ['total_minor' => $totalMinor, 'max_cost_minor' => (int) $project->max_cost_minor, 'currency' => $project->currency_code]);
+        }
+    }
+
+    /**
+     * FL-210: the last look before sending — the project as freelancers will read it, what is still missing or wrong (errors stop the
+     * sending) and what doesn't add up (warnings: the budget, the time and the cost limit don't agree).
+     *
+     * @return array{project: array<string, mixed>, issues: list<array{severity: string, code: string, field: string, message: string}>, can_submit: bool}
+     */
+    public function preview(Project $project): array
+    {
+        $issues = [];
+        $add = function (string $severity, string $code, string $field, array $replace = []) use (&$issues): void {
+            $issues[] = ['severity' => $severity, 'code' => $code, 'field' => $field, 'message' => __('freelance.preview_issues.'.$code, $replace)];
+        };
+
+        $missing = $this->missing($project);
+        foreach ($missing as $field) {
+            $add('error', 'missing_'.$field, $field);
+        }
+        // The same checks as sending: the first that fails is the one to show.
+        if ($missing === []) {
+            try {
+                $this->assertSkillsUsable($project);
+                $this->assertBudget($project);
+            } catch (FreelanceException $e) {
+                $issues[] = ['severity' => 'error', 'code' => $e->errorCode, 'field' => str_contains($e->errorCode, 'budget') ? 'budget' : 'skills', 'message' => $e->apiMessage()];
+            }
+        }
+
+        if ($project->budget_min_minor !== null) {
+            $low = (int) $project->budget_min_minor;
+            $high = $project->budget_type === 'range' && $project->budget_max_minor !== null ? (int) $project->budget_max_minor : $low;
+            $cfg = (array) config('freelance.projects.preview', []);
+            $currency = (string) $project->currency_code;
+            $ratio = (int) ($cfg['range_ratio'] ?? 5);
+
+            if ($high > $low && $low > 0 && $high > $low * $ratio) {
+                $add('warning', 'budget_range_wide', 'budget', ['times' => $ratio]);
+            }
+
+            if ($project->max_cost_minor !== null) {
+                $views = app(ClientOfferViews::class);
+                $cap = (int) $project->max_cost_minor;
+                $lowTotal = $views->cost($project, $low)['total_minor'];
+                $highTotal = $views->cost($project, $high)['total_minor'];
+                if ($cap < $lowTotal) {
+                    $add('error', 'cost_cap_below_budget', 'max_cost', ['cap' => $this->money($cap, $currency), 'budget' => $this->money($lowTotal, $currency)]);
+                } elseif ($high > $low && $cap < $highTotal) {
+                    $add('warning', 'cost_cap_below_budget_top', 'max_cost', ['cap' => $this->money($cap, $currency), 'budget' => $this->money($highTotal, $currency)]);
+                }
+            }
+
+            // The time against the money, judged by the country's own smallest budget: a big sum in a few days, or little for months.
+            $smallest = $this->budgetRules($project->country_id, $project->freelance_specialty_id)['min_minor'];
+            if ($smallest !== null && $smallest > 0 && $project->duration_days !== null) {
+                if ($project->duration_days <= (int) ($cfg['short_days'] ?? 3) && $low >= $smallest * (int) ($cfg['big_budget_times'] ?? 10)) {
+                    $add('warning', 'duration_short_big_budget', 'duration', ['days' => $project->duration_days]);
+                }
+                if ($project->duration_days >= (int) ($cfg['long_days'] ?? 180) && $high <= $smallest * (int) ($cfg['small_budget_times'] ?? 2)) {
+                    $add('warning', 'duration_long_small_budget', 'duration', ['days' => $project->duration_days]);
+                }
+            }
+        }
+
+        $project->loadMissing(['specialty.translations', 'skills.translations', 'media', 'events']);
+
+        return [
+            'project' => $this->present($project),
+            'issues' => $issues,
+            'can_submit' => $project->status->editable() && ! collect($issues)->contains('severity', 'error'),
+        ];
     }
 
     /**
@@ -123,6 +276,8 @@ class ClientProjects
     /** Sends a complete project for review (a draft, or one the reviewer sent back for changes). */
     public function submit(Project $project, User $client): Project
     {
+        // FL-708: a work limit or a suspension stops new projects; the ones already agreed go on.
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($client, 'work');
         $missing = $this->missing($project);
         if ($missing !== []) {
             throw new FreelanceException('project_incomplete', 422, ['fields' => implode(', ', array_map(fn ($f) => __('freelance.project_fields.'.$f), $missing))], ['fields' => $missing]);
@@ -159,12 +314,12 @@ class ClientProjects
         return \Modules\Freelance\Models\FreelanceMilestone::query()->where('project_id', $project->id)->whereIn('status', ['in_progress', 'revision', 'delivered', 'disputed'])->exists();
     }
 
-    public function cancel(Project $project, User $client, ?string $reason): Project
+    public function cancel(Project $project, User $client, ?string $reason, ?string $code = null): Project
     {
         // FL-501: money held for work can't be left behind — giving it back is FL-506.
         // FL-506: parts nobody started go back at once; one with work on it (started, delivered, in dispute) must be settled first.
         // All or nothing: the money goes back only if the project is really cancelled.
-        $cancelled = \Illuminate\Support\Facades\DB::transaction(function () use ($project, $client, $reason) {
+        $cancelled = \Illuminate\Support\Facades\DB::transaction(function () use ($project, $client, $reason, $code) {
             if ($this->hasWorkOn($project)) {
                 throw new FreelanceException('project_has_funded_work', 409);
             }
@@ -172,6 +327,7 @@ class ClientProjects
             $cancelled = $this->machine->move($project, Status::Cancelled, 'project.cancelled', 'client', $client->id, ['closed_at' => now()], $reason ? ['reason' => $reason] : []);
             app(\Modules\Freelance\Services\Chat\OfferChat::class)->freeze($cancelled);
             app(Agreements::class)->projectCancelled($cancelled);
+            app(CancelReasons::class)->record($cancelled, null, 'client', $client->id, $code, $reason);
 
             return $cancelled;
         });
@@ -229,6 +385,12 @@ class ClientProjects
     public function present(Project $project): array
     {
         $status = $project->status;
+        $agreement = app(Agreements::class)->current($project);
+        // The parts of the work, once there is an agreement in force (or done).
+        $parts = $agreement !== null && in_array($agreement->status, [Agreement::ACTIVE, Agreement::COMPLETED], true)
+            ? Milestone::query()->where('agreement_id', $agreement->id)->where('status', '!=', PartStatus::Cancelled->value)->orderBy('position')->get()
+            : new Collection;
+        $offerCount = FreelanceOffer::query()->where('project_id', $project->id)->where('status', '!=', 'withdrawn')->count();
 
         return [
             'uuid' => $project->uuid,
@@ -246,11 +408,13 @@ class ClientProjects
                 'max_minor' => $project->budget_type === 'range' ? $project->budget_max_minor : null,
                 'currency' => $project->currency_code,
             ],
+            // FL-210: the most the client pays in all, client fee included.
+            'max_cost_minor' => $project->max_cost_minor,
             'duration_days' => $project->duration_days,
             'visibility' => $project->visibility,
-            'attachments' => $project->getMedia('attachments')->map(fn (Media $m) => [
+            'attachments' =>$project->getMedia('attachments')->map(fn (Media $m) => [
                 'id' => $m->id,
-                'name' => $m->file_name,
+                'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($m),
                 'mime' => $m->mime_type,
                 'size' => $m->size,
                 'path' => "projects/{$project->uuid}/attachments/{$m->id}",
@@ -264,15 +428,38 @@ class ClientProjects
                     // In progress: only while no part has work on it (the funded ones go back).
                     || ($status === Status::InProgress && ! $this->hasWorkOn($project)),
                 'delete' => $status === Status::Draft,
+                'duplicate' => true,
+                'set_cost_cap' => $this->canSetCostCap($project),
             ],
+            // FL-211: where the work stands in numbers, and what is wanted from the client now.
+            'progress' => $parts->isEmpty() ? null : [
+                'total' => $parts->count(),
+                'approved' => $parts->where('status', PartStatus::Approved)->count(),
+                'in_review' => $parts->where('status', PartStatus::Delivered)->count(),
+                'price_minor' => (int) $agreement->price_minor,
+                'approved_minor' => (int) $parts->where('status', PartStatus::Approved)->sum('amount_minor'),
+            ],
+            'next_action' => $this->nextAction($project, $agreement, $parts, $offerCount),
+            // The parts with their state, on the project page only (the list stays light).
+            'milestones' => $project->relationLoaded('events') && $parts->isNotEmpty()
+                ? $parts->map(fn (Milestone $m) => [
+                    'uuid' => $m->uuid,
+                    'position' => $m->position,
+                    'title' => $m->title,
+                    'amount_minor' => $m->amount_minor,
+                    'duration_days' => $m->duration_days,
+                    'status' => $m->status->value,
+                    'status_label' => __('freelance.milestone_statuses.'.$m->status->value),
+                ])->values()->all()
+                : null,
             // FL-205: invitations to a private project.
             'invitations' => $project->visibility === 'private' ? app(ProjectInvitations::class)->summary($project) : null,
             // FL-401: the agreement with the chosen freelancer, when there is one.
-            'agreement' => ($a = app(Agreements::class)->current($project)) === null ? null : ['uuid' => $a->uuid, 'status' => $a->status],
+            'agreement' => $agreement === null ? null : ['uuid' => $agreement->uuid, 'status' => $agreement->status],
             'offers' => $this->window->present($project, true) + [
-                'count' => \Modules\Freelance\Models\FreelanceOffer::query()->where('project_id', $project->id)->where('status', '!=', 'withdrawn')->count(),
+                'count' => $offerCount,
                 // The offer the client chose (FL-309), for the project page.
-                'chosen' => \Modules\Freelance\Models\FreelanceOffer::query()->where('project_id', $project->id)->where('status', 'accepted')->value('uuid'),
+                'chosen' => FreelanceOffer::query()->where('project_id', $project->id)->where('status', 'accepted')->value('uuid'),
             ],
             'timeline' => $project->relationLoaded('events')
                 ? $project->events->sortBy('id')->map(fn (FreelanceProjectEvent $e) => [
@@ -286,6 +473,30 @@ class ClientProjects
             'submitted_at' => $project->submitted_at?->toIso8601String(),
             'published_at' => $project->published_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * What the client has to do next on this project, or null when it is the other side's turn (or nothing is due): finish_draft ·
+     * submit · fix_project · review_offers · send_agreement · dispute · review_delivery · fund_milestone.
+     *
+     * @param  Collection<int, Milestone>  $parts
+     */
+    private function nextAction(Project $project, ?Agreement $agreement, Collection $parts, int $offers): ?string
+    {
+        return match ($project->status) {
+            Status::Draft => $this->missing($project) === [] ? 'submit' : 'finish_draft',
+            Status::ChangesRequested, Status::Rejected => 'fix_project',
+            Status::Published => $offers > 0 ? 'review_offers' : null,
+            Status::Awarded => $agreement?->status === Agreement::DRAFT ? 'send_agreement' : null,
+            Status::InProgress => match (true) {
+                $parts->contains('status', PartStatus::Disputed) => 'dispute',
+                $parts->contains('status', PartStatus::Delivered) => 'review_delivery',
+                // Nothing is being worked on and a part waits for its money.
+                $parts->contains('status', PartStatus::Unfunded) && ! $parts->contains(fn (Milestone $m) => in_array($m->status, [PartStatus::Funded, PartStatus::InProgress, PartStatus::Revision], true)) => 'fund_milestone',
+                default => null,
+            },
+            default => null,
+        };
     }
 
     // -------------------------------------------------------------- helpers
@@ -315,7 +526,7 @@ class ClientProjects
             $q = array_values(array_filter(array_map(fn ($t) => trim(strip_tags((string) $t)), (array) ($data['questions'] ?? [])), fn ($t) => $t !== ''));
             $out['questions'] = $q === [] ? null : $q;
         }
-        foreach (['budget_min_minor', 'budget_max_minor', 'duration_days'] as $key) {
+        foreach (['budget_min_minor', 'budget_max_minor', 'max_cost_minor', 'duration_days'] as $key) {
             if (array_key_exists($key, $data)) {
                 $out[$key] = $data[$key] === null ? null : (int) $data[$key];
             }

@@ -1,5 +1,7 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Badge
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -330,10 +332,10 @@ private fun DocumentForm(type: DocTypeDto, onBack: () -> Unit, onUploaded: () ->
     }
 
     Page(title = type.name, onBack = onBack) {
-        Card {
-            type.instructions?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp) }
+        com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Badge, type.name, type.instructions.orEmpty())
+        com.dorr.freelance.ui.components.FormGroup {
             if (type.hasNumber) {
-                DorrTextField(number, { number = it.take(64) }, label = stringResource(R.string.doc_number), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.fillMaxWidth())
+                DorrTextField(number, { number = it.take(64) }, label = stringResource(R.string.doc_number), icon = Icons.Rounded.Badge, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.fillMaxWidth())
             }
             if (type.hasExpiry) DateField(expires, { expires = it }, label = stringResource(R.string.doc_expires), modifier = Modifier.fillMaxWidth())
         }

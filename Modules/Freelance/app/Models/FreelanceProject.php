@@ -31,7 +31,7 @@ class FreelanceProject extends Model implements HasMedia
 
     protected $fillable = [
         'uuid', 'client_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'questions', 'budget_type', 'budget_min_minor',
-        'budget_max_minor', 'currency_code', 'duration_days', 'visibility', 'status', 'status_reason', 'version',
+        'budget_max_minor', 'max_cost_minor', 'currency_code', 'duration_days', 'visibility', 'status', 'status_reason', 'version',
         'submitted_at', 'published_at', 'awarded_at', 'closed_at', 'offers_deadline_at', 'offers_closed_at', 'offers_close_reason', 'reopen_count',
     ];
 
@@ -47,6 +47,7 @@ class FreelanceProject extends Model implements HasMedia
             'questions' => 'array',
             'budget_min_minor' => 'integer',
             'budget_max_minor' => 'integer',
+            'max_cost_minor' => 'integer',
             'duration_days' => 'integer',
             'version' => 'integer',
             'submitted_at' => 'datetime',

@@ -13,6 +13,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.PartMap
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.http.Streaming
 import retrofit2.http.Url
 
@@ -20,6 +21,17 @@ import retrofit2.http.Url
 interface AgreementsApi {
     @GET("${ApiClient.FREELANCE}projects/{uuid}/agreement")
     suspend fun show(@Path("uuid") uuid: String): Response<ApiEnvelope<AgreementDto>>
+
+    /** My work: the projects I was chosen for, `group` = active, completed or closed. */
+    @GET("${ApiClient.FREELANCE}my-projects")
+    suspend fun myProjects(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15, @Query("group") group: String? = null): Response<ApiEnvelope<List<MyProjectDto>>>
+
+    /** FL-605: progress reports - the client's asking and what I sent. */
+    @GET("${ApiClient.FREELANCE}projects/{uuid}/reports")
+    suspend fun reports(@Path("uuid") uuid: String): Response<ApiEnvelope<ReportsDto>>
+
+    @POST("${ApiClient.FREELANCE}projects/{uuid}/reports")
+    suspend fun sendReport(@Path("uuid") uuid: String, @Body body: ReportRequest): Response<ApiEnvelope<ReportsDto>>
 
     @POST("${ApiClient.FREELANCE}projects/{uuid}/agreement/approve")
     suspend fun approve(@Path("uuid") uuid: String): Response<ApiEnvelope<AgreementDto>>
@@ -46,9 +58,19 @@ interface AgreementsApi {
     @POST("${ApiClient.FREELANCE}projects/{uuid}/review")
     suspend fun review(@Path("uuid") uuid: String, @Body body: ReviewRequest): Response<ApiEnvelope<ReviewDto>>
 
+    /** FL-706: object to the client's rating of me (once). FL-702: the satisfaction survey after the project. */
+    @POST("${ApiClient.FREELANCE}projects/{uuid}/review/objection")
+    suspend fun objectToReview(@Path("uuid") uuid: String, @Body body: ObjectionRequest): Response<ApiEnvelope<ReviewDto>>
+
+    @GET("${ApiClient.FREELANCE}projects/{uuid}/survey")
+    suspend fun survey(@Path("uuid") uuid: String): Response<ApiEnvelope<SurveyDto>>
+
+    @POST("${ApiClient.FREELANCE}projects/{uuid}/survey")
+    suspend fun answerSurvey(@Path("uuid") uuid: String, @Body body: SurveyRequest): Response<ApiEnvelope<SurveyDto>>
+
     /** FL-511: my receipts of the project money, newest first; one with its text to share. */
     @GET("${ApiClient.FREELANCE}receipts")
-    suspend fun receipts(): Response<ApiEnvelope<List<ReceiptDto>>>
+    suspend fun receipts(@Query("project") project: String? = null, @Query("per_page") perPage: Int = 50): Response<ApiEnvelope<List<ReceiptDto>>>
 
     @GET("${ApiClient.FREELANCE}receipts/{uuid}")
     suspend fun receipt(@Path("uuid") uuid: String): Response<ApiEnvelope<ReceiptDto>>
@@ -106,7 +128,22 @@ data class AgreementDto(
     /** FL-701: rating each other once it is completed. */
     val review: ReviewDto? = null,
     val can: AgreementCanDto = AgreementCanDto(),
+    /** FL-605: how often the client asked for a progress report, and whether the next one is late. */
+    val reports: ReportSummaryDto = ReportSummaryDto(),
 )
+
+data class ReportSummaryDto(
+    @SerializedName("every_days") val everyDays: Int? = null,
+    @SerializedName("next_due_at") val nextDueAt: String? = null,
+    @SerializedName("last_at") val lastAt: String? = null,
+    val late: Boolean = false,
+)
+
+data class ReportDto(val uuid: String = "", val note: String = "", val percent: Int? = null, @SerializedName("created_at") val createdAt: String? = null)
+
+data class ReportsDto(val summary: ReportSummaryDto = ReportSummaryDto(), val reports: List<ReportDto> = emptyList())
+
+data class ReportRequest(val note: String, val percent: Int? = null)
 
 /** One part of the agreement (FL-402) and what it leaves me. */
 data class MilestoneDto(
@@ -159,7 +196,7 @@ data class MilestoneCanDto(
     val dispute: Boolean = false,
 )
 
-data class MilestoneActionRequest(val note: String? = null)
+data class MilestoneActionRequest(val note: String? = null, @SerializedName("reason_code") val reasonCode: String? = null)
 
 data class AgreementMoneyDto(
     @SerializedName("price_minor") val priceMinor: Long = 0,
@@ -169,7 +206,7 @@ data class AgreementMoneyDto(
 
 data class AgreementTermsDto(@SerializedName("review_days") val reviewDays: Int? = null, @SerializedName("free_revisions") val freeRevisions: Int? = null)
 
-data class AgreementCanDto(val approve: Boolean = false, val decline: Boolean = false)
+data class AgreementCanDto(val approve: Boolean = false, val decline: Boolean = false, val report: Boolean = false)
 
 data class DeclineRequest(val reason: String?)
 
@@ -260,9 +297,37 @@ data class ReviewDto(
     val mine: RatingDto? = null,
     val theirs: RatingDto? = null,
     @SerializedName("theirs_waiting") val theirsWaiting: Boolean = false,
+    /** FL-706: I may object once to their rating of me; what became of it. */
+    @SerializedName("can_object") val canObject: Boolean? = null,
+    @SerializedName("object_until") val objectUntil: String? = null,
+    val objection: ObjectionDto? = null,
+    @SerializedName("objection_reasons") val objectionReasons: List<String>? = null,
 )
 
-data class RatingDto(val stars: Double = 0.0, val comment: String? = null, val scores: Map<String, Int> = emptyMap())
+data class RatingDto(
+    val stars: Double = 0.0,
+    val comment: String? = null,
+    val scores: Map<String, Int> = emptyMap(),
+    @SerializedName("comment_hidden") val commentHidden: Boolean? = null,
+    val removed: Boolean? = null,
+)
+
+data class ObjectionDto(val reason: String? = null, val note: String? = null, val status: String = "open", @SerializedName("decision_note") val decisionNote: String? = null)
+
+data class ObjectionRequest(val reason: String, val note: String)
+
+/** FL-702 */
+data class SurveyDto(
+    @SerializedName("can_answer") val canAnswer: Boolean? = null,
+    @SerializedName("answer_until") val answerUntil: String? = null,
+    val reasons: List<String>? = null,
+    @SerializedName("not_satisfied_max") val notSatisfiedMax: Int? = null,
+    val mine: SurveyMineDto? = null,
+)
+
+data class SurveyMineDto(val score: Int = 0, val reasons: List<String>? = null, val comment: String? = null)
+
+data class SurveyRequest(val score: Int, val reasons: List<String>, val comment: String?)
 
 data class ReviewRequest(val scores: Map<String, Int>, val comment: String?)
 
@@ -298,3 +363,17 @@ data class RefDto(val uuid: String? = null, val title: String? = null)
 
 /** FL-406: one step of the record of approvals. */
 data class TrailStepDto(val id: Long = 0, val action: String = "", val label: String = "", val actor: String = "", val mine: Boolean = false, val at: String? = null)
+
+data class MyProjectRef(val uuid: String? = null, val title: String? = null)
+
+data class MyProjectDto(
+    val uuid: String,
+    val status: String,
+    val project: MyProjectRef = MyProjectRef(),
+    @SerializedName("price_minor") val priceMinor: Long = 0,
+    val currency: String = "",
+    @SerializedName("duration_days") val durationDays: Int = 0,
+    @SerializedName("milestones_count") val milestonesCount: Int = 0,
+    @SerializedName("milestones_done") val milestonesDone: Int = 0,
+    @SerializedName("has_dispute") val hasDispute: Boolean = false,
+)

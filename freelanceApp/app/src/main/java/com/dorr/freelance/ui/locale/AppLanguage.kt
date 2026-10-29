@@ -4,60 +4,118 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.LocaleList
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.AppLocale
-import com.dorr.freelance.ui.theme.ProvideAppFont
+import com.dorr.freelance.net.AppLanguageDto
 import java.util.Locale
 
 /**
- * The app language, as in the DORR app (androidApp ui/locale) but with the two bundled languages only (ar, en): the
- * saved choice drives the app's strings, the RTL / LTR direction and the `X-Locale` header, without restarting the
- * activity.
+ * Persisted app language preference, as in the DORR app (androidApp ui/locale): the source of truth for both the
+ * X-Locale header (via [AppLocale.current]) and the app's own UI strings. ar/en ship in the APK; every other active
+ * language is downloaded from the server (the strings it has for the freelancer app; the rest stays English).
  */
 object AppLanguagePreferences {
     const val DEFAULT = "ar"
 
     private const val PREFS_NAME = "dorr_freelance_prefs"
     private const val KEY_LOCALE = "locale"
-    private val SUPPORTED = setOf("ar", "en")
 
     fun get(context: Context): String =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_LOCALE, DEFAULT)
-            ?.takeIf { it in SUPPORTED } ?: DEFAULT
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LOCALE, DEFAULT) ?: DEFAULT
 
     fun save(context: Context, code: String) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LOCALE, code).apply()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_LOCALE, code).apply()
     }
 }
 
-/** Handle the screens use to read or switch the language. */
-class AppLanguageState(val code: String, private val onSelect: (String) -> Unit) {
-    val isArabic: Boolean get() = code == "ar"
-    val isRtl: Boolean get() = isArabic
+/** ar/en ship in the APK (values-ar/, values/); every other language is downloaded. */
+private val BUNDLED_LANGUAGES = setOf("ar", "en")
 
+internal fun isBundledLanguage(code: String) = code.lowercase() in BUNDLED_LANGUAGES
+
+/** Handle exposed to screens so the pickers can switch the app language. */
+class AppLanguageState(
+    val code: String,
+    /** Layout direction of the current language — saved with a downloaded one, so it holds offline. */
+    val isRtl: Boolean,
+    private val onSelect: (String) -> Unit,
+    private val onStringsUpdated: () -> Unit,
+) {
     fun set(next: String) = onSelect(next.lowercase())
+    val isArabic: Boolean get() = code == "ar"
 
-    /** ar ⇄ en. */
+    /** ar ⇄ en — the sign-in page's one-tap switch; the settings page offers the whole list. */
     fun toggle() = set(if (isArabic) "en" else "ar")
+
+    /**
+     * Switches to [next]. A bundled language applies at once and drops any downloaded file; any
+     * other language is downloaded first and applied only once the download succeeded.
+     * Returns false when the download failed — the current language stays.
+     */
+    suspend fun choose(context: Context, next: String): Boolean {
+        val target = next.lowercase()
+        if (isBundledLanguage(target)) {
+            set(target)
+            DownloadedTranslations.clear(context)
+            return true
+        }
+        if (target == code && DownloadedTranslations.load(context, target) != null) return true
+        return when (DownloadedTranslations.download(context, target)) {
+            DownloadedTranslations.Result.Success -> {
+                if (target == code) onStringsUpdated() else set(target)
+                true
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * Keeps a downloaded current language in step with the server list ([languages] =
+     * GET translations/languages?platform=android): a newer `android_version` is downloaded and
+     * applied, and a language that is no longer offered (unpublished, disabled) falls back to en.
+     * An empty list means the request failed — the stored file keeps working.
+     */
+    suspend fun syncWith(context: Context, languages: List<AppLanguageDto>) {
+        if (isBundledLanguage(code) || languages.isEmpty()) return
+
+        val entry = languages.find { it.code.equals(code, ignoreCase = true) }
+        if (entry == null) {
+            fallBackToEnglish(context)
+            return
+        }
+
+        val stored = DownloadedTranslations.meta(context)
+        if (stored?.code == code && entry.androidVersion != null && stored.version == entry.androidVersion) return
+
+        when (DownloadedTranslations.download(context, code)) {
+            DownloadedTranslations.Result.Success -> onStringsUpdated()
+            DownloadedTranslations.Result.NotAvailable -> fallBackToEnglish(context)
+            DownloadedTranslations.Result.Failed -> Unit
+        }
+    }
+
+    private fun fallBackToEnglish(context: Context) {
+        set("en")
+        DownloadedTranslations.clear(context)
+    }
 }
 
 val LocalAppLanguage = staticCompositionLocalOf<AppLanguageState> {
@@ -65,38 +123,79 @@ val LocalAppLanguage = staticCompositionLocalOf<AppLanguageState> {
 }
 
 /**
- * Wraps the app in a locale-aware [Context] and recomposes every [LocalContext] / [LocalConfiguration] /
- * [LocalLayoutDirection] reader when the language changes, so stringResource and the direction follow the saved choice.
+ * Wraps the whole app content in a locale-aware [Context] and recomposes
+ * every [LocalContext]/[LocalConfiguration]/[LocalLayoutDirection] reader
+ * when the language changes — so stringResource, RTL/LTR flipping and
+ * isSystemInDarkTheme all follow the persisted preference without recreating
+ * the Activity (in-memory state like ThemeState and the nav graph survive).
  */
 @Composable
 fun LocalizedApp(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    var code by remember { mutableStateOf(AppLanguagePreferences.get(context)) }
+    var code by remember { mutableStateOf(initialLanguage(context)) }
+    // Bumped when the current downloaded language was replaced by a newer version.
+    var stringsRevision by remember { mutableIntStateOf(0) }
 
-    // The X-Locale header (read by the OkHttp interceptor) follows the saved choice, from the cold start on.
+    // Keep the X-Locale header (read by the OkHttp interceptor) in sync with
+    // the persisted choice — including on cold start from stored prefs.
     SideEffect { AppLocale.current = code }
 
-    // Rebuilt when the screen changes too (rotation, split screen), so LocalConfiguration carries the new size.
+    // Rebuilt when the screen changes too (rotation, split screen, unfolding — the activity isn't
+    // restarted for those), so LocalConfiguration below carries the new size.
     val screen = LocalConfiguration.current
-    val localizedContext = remember(code, screen) { context.forLocale(code) }
+    val localizedContext = remember(code, stringsRevision, screen) {
+        val downloaded = if (isBundledLanguage(code)) null else DownloadedTranslations.load(context, code)
+        context.forLocale(code, downloaded)
+    }
 
-    val state = AppLanguageState(code) { next ->
-        code = next
-        AppLanguagePreferences.save(context, next)
+    // A downloaded language carries its own direction; without that metadata, fall back to the
+    // direction Android's locale data (ICU) gives the locale-wrapped context.
+    val isRtl = when (code) {
+        "ar" -> true
+        "en" -> false
+        else -> DownloadedTranslations.meta(context)?.takeIf { it.code == code }?.direction?.let { it == "rtl" }
+            ?: (localizedContext.resources.configuration.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL)
+    }
+
+    val state = AppLanguageState(
+        code = code,
+        isRtl = isRtl,
+        onSelect = { next ->
+            code = next
+            AppLanguagePreferences.save(context, next)
+        },
+        onStringsUpdated = { stringsRevision++ },
+    )
+
+    // A downloaded language is checked against the server once per launch; offline, the stored
+    // file is used as it is.
+    LaunchedEffect(Unit) {
+        if (isBundledLanguage(code)) return@LaunchedEffect
+        val languages = runCatching { ApiClient.translations.list().body()?.data }.getOrNull() ?: return@LaunchedEffect
+        state.syncWith(context, languages)
     }
 
     CompositionLocalProvider(
-        // Compose UI 1.7 has no LocalResources — stringResource reads resources off LocalContext.
+        // Compose UI 1.7 (BOM 2024.09) has no LocalResources — stringResource reads
+        // resources off LocalContext, so swap in the locale-wrapped context instead.
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedContext.resources.configuration,
-        LocalLayoutDirection provides (if (state.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr),
+        LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr),
         LocalAppLanguage provides state,
     ) {
         content()
     }
 }
 
-/** Capture the locale-aware locals *outside* a Dialog / sheet, then [Provide] them inside the new window. */
+/** The saved language, or en when it is a downloaded one whose file is gone. */
+private fun initialLanguage(context: Context): String {
+    val saved = AppLanguagePreferences.get(context)
+    if (isBundledLanguage(saved) || DownloadedTranslations.load(context, saved) != null) return saved
+    AppLanguagePreferences.save(context, "en")
+    return "en"
+}
+
+/** Capture the locale-aware locals *outside* a Dialog/sheet, then [Provide] them inside the new window. */
 class AppLocaleFrame(
     val context: Context,
     val configuration: Configuration,
@@ -109,7 +208,7 @@ class AppLocaleFrame(
             LocalConfiguration provides configuration,
             LocalLayoutDirection provides layoutDirection,
         ) {
-            ProvideAppFont(content)
+            com.dorr.freelance.ui.theme.ProvideAppFont(content)
         }
     }
 }
@@ -121,7 +220,12 @@ fun rememberAppLocaleFrame(): AppLocaleFrame = AppLocaleFrame(
     LocalLayoutDirection.current,
 )
 
-/** A [Dialog] in the app's language (its window would otherwise keep the activity's own context — English strings). */
+/**
+ * [Dialog] content is composed in a separate window that keeps the Activity's
+ * default [Context], so [stringResource] would ignore [LocalizedApp] and fall
+ * back to `values/` (English). Capture the locale-aware locals from the caller
+ * and re-provide them inside the dialog.
+ */
 @Composable
 fun LocaleAwareDialog(
     onDismissRequest: () -> Unit,
@@ -134,38 +238,47 @@ fun LocaleAwareDialog(
     }
 }
 
-/** A bottom sheet in the app's language and font (its own window, like a dialog). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LocaleAwareBottomSheet(
-    onDismissRequest: () -> Unit,
-    containerColor: Color,
-    shape: Shape,
-    /** Open to full height at once (a tall form) instead of half-way first. */
-    fullHeight: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val frame = rememberAppLocaleFrame()
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        containerColor = containerColor,
-        shape = shape,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = fullHeight),
-    ) {
-        frame.Provide { content() }
+/**
+ * Wraps [context] in a [Context] whose resources resolve against [code]; with [downloaded] strings
+ * (a language not bundled in the APK) they are served through [DynamicResources].
+ *
+ * It must stay a [ContextWrapper] *around the Activity*: `createConfigurationContext` alone returns an unrelated
+ * context, and Compose finds the Activity's owners (activity-result registry, back-press dispatcher…) by
+ * unwrapping `LocalContext`. Without that, `rememberLauncherForActivityResult` throws on the first frame of any
+ * screen that picks a photo or opens the QR camera — the app just closes.
+ */
+private fun Context.forLocale(code: String, downloaded: Map<String, Any>?): Context {
+    val config = Configuration(resources.configuration).apply {
+        setLocales(LocaleList(Locale(code)))
+    }
+    val localized = createConfigurationContext(config)
+    val resources = downloaded?.let { DynamicResources(localized.resources, it, code) } ?: localized.resources
+    return object : ContextWrapper(this) {
+        override fun getResources() = resources
+        override fun getAssets() = localized.assets
     }
 }
 
 /**
- * Wraps [this] in a [Context] whose resources resolve against [code]. It stays a [ContextWrapper] *around the Activity*
- * so Compose still finds the Activity's owners (activity-result registry, back dispatcher) by unwrapping LocalContext —
- * a photo picker or camera launcher would crash otherwise.
+ * [ModalBottomSheet] content is composed in its own window, which — like a [Dialog] — keeps the Activity's
+ * default [Context]: `stringResource` would read `values/` (English) and country names would follow the phone's
+ * language, not the app's. Capture the locale-aware locals from the caller and re-provide them inside the sheet.
  */
-private fun Context.forLocale(code: String): Context {
-    val config = Configuration(resources.configuration).apply { setLocales(LocaleList(Locale(code))) }
-    val localized = createConfigurationContext(config)
-    return object : ContextWrapper(this) {
-        override fun getResources() = localized.resources
-        override fun getAssets() = localized.assets
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun LocaleAwareBottomSheet(
+    onDismissRequest: () -> Unit,
+    containerColor: androidx.compose.ui.graphics.Color,
+    shape: androidx.compose.ui.graphics.Shape,
+    /** Open to full height at once (a tall form) instead of half-way first. */
+    fullHeight: Boolean = false,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    val frame = rememberAppLocaleFrame()
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = fullHeight),
+    ) {
+        frame.Provide { content() }
     }
 }

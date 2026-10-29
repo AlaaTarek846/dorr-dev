@@ -120,6 +120,8 @@ class FreelanceInvitationsTest extends TestCase
         $mine = $this->getJson(self::FREELANCER.'/invitations')->assertOk()->json('data');
         $this->assertCount(1, $mine);
         $this->assertTrue($mine[0]['can']['offer']);
+        $this->getJson(self::FREELANCER.'/invitations?per_page=1&page=1')->assertOk()->assertJsonPath('pagination.total', 1)->assertJsonPath('pagination.has_more_pages', false)->assertJsonPath('pagination.per_page', 1);
+        $this->getJson(self::FREELANCER.'/invitations?per_page=1&page=2')->assertOk()->assertJsonCount(0, 'data');
 
         // Noor was not invited: the project doesn't exist for her.
         $this->asFreelancer($this->noor);
@@ -220,6 +222,33 @@ class FreelanceInvitationsTest extends TestCase
         // Taken back, a freelancer can be invited again - up to the limit.
         $this->invite([$this->sara])->assertCreated()->assertJsonPath('data.result.invited', 1);
         $this->invite([$this->noor])->assertStatus(422)->assertJsonPath('error_code', 'freelance_invitations_limit');
+    }
+
+    public function test_my_invitations_can_be_filtered_by_status(): void
+    {
+        $this->invite([$this->lina])->assertCreated();
+        $this->asFreelancer($this->lina);
+        $this->getJson(self::FREELANCER.'/invitations?status=sent')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson(self::FREELANCER.'/invitations?status=accepted')->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson(self::FREELANCER.'/invitations/'.$this->invitationOf($this->lina)->uuid.'/decline')->assertOk();
+        $this->getJson(self::FREELANCER.'/invitations?status=declined')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.status', 'declined');
+        $this->getJson(self::FREELANCER.'/invitations?status=sent')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(self::FREELANCER.'/invitations')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson(self::FREELANCER.'/invitations?status=bad')->assertStatus(422);
+    }
+
+    public function test_a_freelancer_who_already_offered_is_not_invited(): void
+    {
+        // She offered while the project was open to everyone; it is private again now (no invitation of hers exists).
+        $this->project->update(['visibility' => 'public']);
+        $this->offer($this->lina)->assertCreated();
+        $this->project->update(['visibility' => 'private']);
+
+        $this->asClient();
+        $this->assertNotContains($this->lina->uuid, array_column($this->getJson(self::CLIENT."/{$this->project->uuid}/invitees?all=1")->json('data'), 'uuid'));
+        $result = $this->invite([$this->lina, $this->noor])->assertCreated()->json('data.result');
+        $this->assertSame(1, $result['invited']);
+        $this->assertSame([['uuid' => $this->lina->uuid, 'reason' => 'already_offered']], $result['skipped']);
     }
 
     public function test_the_client_finds_freelancers_to_invite(): void

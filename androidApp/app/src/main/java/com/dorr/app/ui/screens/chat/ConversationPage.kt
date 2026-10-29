@@ -700,29 +700,16 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
         }
     }
     if (linkTypePicker) {
-        ChoiceSheet(
-            title = stringResource(R.string.cl_pick_type),
-            subtitle = stringResource(R.string.cl_create_sub),
-            options = listOf(
-                stringResource(R.string.cl_voice) to {
-                    scope.launch {
-                        try {
-                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "audio")).data
-                        } catch (e: Exception) {
-                            host.showToast(e.apiFailure().message ?: networkError, error = true)
-                        }
+        CallLinkTypeSheet(
+            onPick = { type ->
+                scope.launch {
+                    try {
+                        showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to type)).data
+                    } catch (e: Exception) {
+                        host.showToast(e.apiFailure().message ?: networkError, error = true)
                     }
-                },
-                stringResource(R.string.cl_video) to {
-                    scope.launch {
-                        try {
-                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "video")).data
-                        } catch (e: Exception) {
-                            host.showToast(e.apiFailure().message ?: networkError, error = true)
-                        }
-                    }
-                },
-            ),
+                }
+            },
             onDismiss = { linkTypePicker = false },
         )
     }

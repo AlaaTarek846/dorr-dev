@@ -91,6 +91,8 @@ private data class NotificationItem(
     val rideUuid: String? = null,
     /** A booked service's notification: its kind and booking. */
     val service: Pair<String, String?>? = null,
+    /** A freelance notification opens the Freelance page it belongs to (a page of the Freelance host). */
+    val freelancePage: String? = null,
 )
 
 private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (type) {
@@ -119,7 +121,9 @@ private fun NotificationDto.toItem(): NotificationItem {
     val minutes = runCatching { java.time.Duration.between(java.time.Instant.parse(createdAtIso), java.time.Instant.now()).toMinutes().toInt() }.getOrDefault(0)
     val ride = data?.get("ride_uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     val service = com.dorr.app.ui.screens.rides.ServiceLink.of(event) { k -> data?.get(k)?.takeIf { it.isJsonPrimitive }?.asString }
-    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null, rideUuid = ride, service = service)
+    fun text(k: String) = data?.get(k)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() && it != "null" }
+    val freelance = event?.takeIf { it.startsWith("freelance.") }?.let { com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(it, text("project"), text("offer"), text("dispute")) }
+    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null, rideUuid = ride, service = service, freelancePage = freelance)
 }
 
 @Composable
@@ -225,6 +229,8 @@ fun NotificationsScreen(onBack: () -> Unit) {
                             if (item.unread) scope.launch { runCatching { ApiClient.notifications.markRead("Bearer ${AuthSession.token.orEmpty()}", item.id) } }
                             item.rideUuid?.let { uuid -> selected = null; com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Ride(uuid)) }
                             item.service?.let { (kind, uuid) -> selected = null; com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Service(kind, uuid)) }
+                            // This list is its own screen over the main one: go back to it and it opens the screen the link names.
+                            item.freelancePage?.let { page -> selected = null; com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Freelance(page)); onBack() }
                         },
                     )
                 }

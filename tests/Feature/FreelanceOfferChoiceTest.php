@@ -231,4 +231,22 @@ class FreelanceOfferChoiceTest extends TestCase
         $this->getJson(self::CLIENT."/{$this->project->uuid}/offers")->assertNotFound();
         $this->getJson(self::CLIENT."/{$this->project->uuid}/offers/{$this->offer('omar')->uuid}/freelancer")->assertNotFound();
     }
+
+    public function test_the_offers_come_in_pages_in_the_same_order_whatever_the_sort(): void
+    {
+        $this->asClient();
+        foreach (['newest' => ['omar', 'lina', 'sara'], 'cheapest' => ['sara', 'omar', 'lina'], 'fastest' => ['lina', 'omar', 'sara'], 'completeness' => ['omar', 'lina', 'sara']] as $sort => $order) {
+            $names = [];
+            $first = $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?sort={$sort}&per_page=2")->assertOk()
+                ->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', true)->assertJsonPath('pagination.total', 3);
+            $second = $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?sort={$sort}&per_page=2&page=2")->assertOk()
+                ->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+            foreach (array_merge($first->json('data'), $second->json('data')) as $row) {
+                $names[] = strtolower($row['freelancer']['name']);
+            }
+            $this->assertSame($order, $names, "sort {$sort}");
+        }
+        // The status filter pages too.
+        $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?status=rejected&per_page=2")->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('pagination.total', 0);
+    }
 }

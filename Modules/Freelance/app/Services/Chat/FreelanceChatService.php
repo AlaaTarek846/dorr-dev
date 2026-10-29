@@ -121,6 +121,8 @@ class FreelanceChatService
     /** @return array<string, mixed> */
     public function send(FreelanceConversation $conversation, Model $sender, ?string $body, ?UploadedFile $file, ?string $clientId): array
     {
+        // FL-708: a chat limit or a suspension stops sending (reading goes on).
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($sender, 'chat');
         if (! $this->canWrite($conversation)) {
             throw new FreelanceException('chat_closed', 409);
         }
@@ -211,6 +213,14 @@ class FreelanceChatService
         $this->broadcast(new FreelanceMessageSent($conversation->uuid, self::present($message, null)));
     }
 
+    /** Staff take a reported message out of the room (FL-709): it stays as "deleted", like one its sender took back. */
+    public function hide(FreelanceMessage $message): void
+    {
+        $message->clearMediaCollection('attachment');
+        $message->forceFill(['body' => null, 'deleted_at' => now()])->save();
+        $this->broadcast(new FreelanceMessageSent($message->conversation->uuid, self::present($message, null)));
+    }
+
     // -------------------------------------------------------------- delivery
 
     private function deliver(FreelanceConversation $conversation, FreelanceMessage $message, string $side): void
@@ -256,7 +266,7 @@ class FreelanceChatService
             'body' => $deleted ? null : $message->body,
             'attachment' => $media === null ? null : [
                 'url' => $message->getSingleMediaOriginalUrl('attachment'),
-                'name' => $media->file_name,
+                'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($media),
                 'mime' => $media->mime_type,
                 'size' => $media->size,
             ],

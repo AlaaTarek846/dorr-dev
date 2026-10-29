@@ -1,5 +1,11 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Work
+import com.dorr.freelance.ui.components.SkeletonDetail
+import com.dorr.freelance.ui.components.SkeletonList
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -80,6 +86,7 @@ import com.dorr.freelance.ui.components.FieldLabel
 import com.dorr.freelance.ui.components.Page
 import com.dorr.freelance.ui.kit.RedToggle
 import com.dorr.freelance.ui.kit.SettingsPrimaryButton
+import com.dorr.freelance.ui.kit.SubHeader
 import com.dorr.freelance.ui.kit.SettingsScreenTitle
 import com.dorr.freelance.ui.kit.settingsAccent
 import com.dorr.freelance.ui.kit.settingsInk
@@ -99,7 +106,7 @@ private const val MAX_WORK_SKILLS = 10
 
 /** My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30. */
 @Composable
-fun PortfolioTab(onOpenItem: (Int) -> Unit) {
+fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
@@ -131,10 +138,11 @@ fun PortfolioTab(onOpenItem: (Int) -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.padding(top = 14.dp)) { SettingsScreenTitle(stringResource(R.string.portfolio_title)) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SubHeader(title = stringResource(R.string.portfolio_title), onBack = onBack)
+        Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.portfolio_hint), color = settingsMut(), fontSize = 12.sp)
-        if (!loaded && error == null) CircularProgressIndicator(color = settingsAccent(), modifier = Modifier.align(Alignment.CenterHorizontally))
+        if (!loaded && error == null) SkeletonList()
         if (loaded) {
             if (items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
             if (items.isEmpty()) Text(stringResource(R.string.portfolio_empty), color = settingsMut(), fontSize = 13.sp)
@@ -164,6 +172,7 @@ fun PortfolioTab(onOpenItem: (Int) -> Unit) {
             }
         }
         ErrorBanner(error, Modifier.fillMaxWidth())
+        }
     }
 }
 
@@ -334,16 +343,17 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     }
 
     Page(title = stringResource(if (currentId == 0) R.string.portfolio_add else R.string.common_edit), onBack = onBack) {
-        if (!loaded && error == null) CircularProgressIndicator(color = settingsAccent())
+        if (!loaded && error == null) SkeletonDetail()
         if (loaded) {
-            Card {
-                DorrTextField(title, { title = it }, label = stringResource(R.string.pf_title), modifier = Modifier.fillMaxWidth())
-                DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.pf_description), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+            com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Work, stringResource(R.string.pf_intro_title), stringResource(R.string.pf_intro))
+            com.dorr.freelance.ui.components.FormGroup {
+                DorrTextField(title, { title = it }, label = stringResource(R.string.pf_title), icon = Icons.Rounded.Work, modifier = Modifier.fillMaxWidth())
+                DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.pf_description), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
                 DateField(completed, { completed = it }, label = stringResource(R.string.pf_completed), modifier = Modifier.fillMaxWidth())
             }
 
             if (specialties.isNotEmpty()) {
-                Card {
+                com.dorr.freelance.ui.components.FormGroup {
                     FieldLabel(stringResource(R.string.pf_specialty))
                     ChipRow(
                         options = specialties.map { it.id.toString() to it.name },
@@ -353,7 +363,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
             if (mySkills.isNotEmpty()) {
-                Card {
+                com.dorr.freelance.ui.components.FormGroup {
                     FieldLabel(stringResource(R.string.pf_skills))
                     ChipRow(
                         options = mySkills.filter { !it.pending }.map { it.id.toString() to it.name },
@@ -366,7 +376,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 FieldLabel(stringResource(R.string.pf_visibility))
                 ChipRow(
                     options = listOf("private" to stringResource(R.string.vis_private), "clients_only" to stringResource(R.string.vis_clients), "public" to stringResource(R.string.vis_public)),
@@ -382,14 +392,14 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 DorrTextField(
-                    externalUrl, { externalUrl = it }, label = stringResource(R.string.pf_external), placeholder = "https://",
+                    externalUrl, { externalUrl = it }, label = stringResource(R.string.pf_external), icon = Icons.Rounded.Link, placeholder = "https://",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
                 )
                 DorrTextField(
-                    videoUrl, { videoUrl = it }, label = stringResource(R.string.pf_video), placeholder = "https://youtu.be/...",
+                    videoUrl, { videoUrl = it }, label = stringResource(R.string.pf_video), icon = Icons.Rounded.Videocam, placeholder = "https://youtu.be/...",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
                 )
@@ -397,7 +407,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 Text(stringResource(R.string.pf_video_hint), color = settingsMut(), fontSize = 11.sp)
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 FieldLabel(stringResource(R.string.pf_images) + " ($imageCount/$MAX_IMAGES)")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     existing.forEach { image ->

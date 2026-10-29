@@ -26,15 +26,20 @@ class AdminSupportTicketResource extends JsonResource
             // The customer asked for a person: no more automatic replies on this ticket.
             'auto_reply_stopped' => $this->auto_reply_stopped_at !== null,
             // D-285: a captain's ticket shows the captain where the rider would be.
-            'owner_type' => $this->driver_id !== null ? 'driver' : 'user',
+            'owner_type' => $this->driver_id !== null ? 'driver' : ($this->freelancer_id !== null ? 'freelancer' : 'user'),
             'category' => $this->category,
             'reference' => $this->reference,
-            'user' => $this->driver_id !== null ? ($this->driver === null ? null : ['id' => $this->driver->id, 'name' => $this->driver->name, 'phone' => $this->driver->phone, 'is_driver' => true]) : $this->whenLoaded('user', fn () => $this->user === null ? null : [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-                'phone' => $this->user->phone,
-                'is_verified' => \App\Support\AccountBadge::verified($this->user),
-            ]),
+            // D-285: a captain's (or a freelancer's) ticket shows them where the rider would be.
+            'user' => match (true) {
+                $this->freelancer_id !== null => $this->freelancer === null ? null : ['id' => $this->freelancer->id, 'name' => $this->freelancer->name, 'phone' => $this->freelancer->phone, 'is_freelancer' => true],
+                $this->driver_id !== null => $this->driver === null ? null : ['id' => $this->driver->id, 'name' => $this->driver->name, 'phone' => $this->driver->phone, 'is_driver' => true],
+                default => $this->whenLoaded('user', fn () => $this->user === null ? null : [
+                    'id' => $this->user->id,
+                    'name' => $this->user->name,
+                    'phone' => $this->user->phone,
+                    'is_verified' => \App\Support\AccountBadge::verified($this->user),
+                ]),
+            },
             'admin' => $this->whenLoaded('admin', fn () => $this->admin === null ? null : [
                 'id' => $this->admin->id,
                 'name' => $this->admin->name,

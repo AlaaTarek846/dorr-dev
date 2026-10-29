@@ -54,6 +54,7 @@ import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -162,6 +163,13 @@ fun MainScreen(
                     ridesOpen = true
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
+                is com.dorr.app.chat.ChatDeepLink.Freelance -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.freelance.FreelanceLink.show(link.page)
+                    freelanceOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
                 is com.dorr.app.chat.ChatDeepLink.Ride -> {
                     walletOpen = false
                     chatOpen = false
@@ -201,6 +209,9 @@ fun MainScreen(
     // so Android lets the location service start).
     val liveContext = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.app.chat.LiveLocationSharing.resume(liveContext) }
+    // After a cold start the saved user can still be filling in from the server: connect again once it has (start is idempotent).
+    val sessionVersion by com.dorr.app.network.AuthSession.sessionVersion.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(sessionVersion) { com.dorr.app.chat.ChatRealtime.start() }
     androidx.compose.runtime.DisposableEffect(lifecycle) {
         com.dorr.app.chat.ChatRealtime.start()
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->

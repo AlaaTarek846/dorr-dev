@@ -482,7 +482,8 @@
             "audiences": {
                 "all": "الركاب والكباتن",
                 "user": "الركاب بس",
-                "driver": "الكباتن بس"
+                "driver": "الكباتن بس",
+                "freelancer": "المحترفين بس"
             },
             "title": "المحادثة السريعة",
             "search": "ابحث في المواضيع",
@@ -4531,6 +4532,264 @@
         }
     },
     "freelance": {
+        "oversight": {
+            "title": "متابعة الشغل",
+            "hint": "كل المشاريع والعروض والاتفاقات، وعدد كل حالة. للقراءة بس: القرارات بتتاخد من صفحاتها (المراجعة، النزاعات، العقوبات).",
+            "search": "عنوان المشروع أو رقمه",
+            "project": "المشروع",
+            "client": "العميل",
+            "budget": "الميزانية",
+            "offers": "العروض",
+            "freelancer": "المحترف",
+            "price": "السعر",
+            "duration": "المدة",
+            "parties": "العميل / المحترف",
+            "parts": "الأجزاء المعتمدة",
+            "created": "تاريخ الإنشاء",
+            "started": "بدأ في",
+            "days": "{n} يوم",
+            "empty_title": "مفيش حاجة هنا",
+            "empty": "مفيش سجلات مطابقة للفلتر ده.",
+            "tabs": {
+                "projects": "المشاريع",
+                "offers": "العروض",
+                "agreements": "الاتفاقات"
+            },
+            "visibility": {
+                "public": "عام",
+                "invited": "بالدعوة",
+                "private": "خاص"
+            },
+            "status": {
+                "draft": "مسودة",
+                "pending_review": "مستني المراجعة",
+                "changes_requested": "مطلوب تعديل",
+                "rejected": "مرفوض",
+                "published": "منشور",
+                "awarded": "اتسند",
+                "in_progress": "شغال",
+                "closed": "مقفول",
+                "cancelled": "ملغي",
+                "submitted": "اتقدّم",
+                "viewed": "اتشاف",
+                "shortlisted": "في القايمة المختصرة",
+                "accepted": "مقبول",
+                "withdrawn": "اتسحب",
+                "pending_approval": "مستني الموافقة",
+                "active": "ساري",
+                "completed": "مكتمل",
+                "declined": "مرفوض من الطرف التاني",
+                "expired": "انتهى وقته",
+                "sent": "اتبعتت",
+                "unfunded": "مش ممول",
+                "funded": "ممول",
+                "delivered": "اتسلّم",
+                "revision": "تعديل",
+                "approved": "معتمد",
+                "disputed": "متنازع عليه"
+            }
+        },
+        "late": {
+            "title": "الشغل المتأخر",
+            "hint": "أجزاء عدّت مدتها، وتسليمات مستنية العميل، واتفاقات محدش رد عليها، ونزاعات عدّت وقت الرد، ومشاريع مستنية المراجعة. بيوصل تنبيه يومي للموظفين اللي بيتابعوا المشاريع.",
+            "checked": "اتفحص {date}",
+            "what": "إيه المتأخر",
+            "since": "من",
+            "late_by": "مستني بقاله",
+            "days": "{n} يوم",
+            "empty_title": "مفيش حاجة متأخرة",
+            "empty": "كل الشغل في معاده.",
+            "groups": {
+                "parts_late": "أجزاء عدّت مدتها",
+                "deliveries_waiting": "تسليمات مستنية",
+                "agreements_unanswered": "اتفاقات من غير رد",
+                "disputes_overdue": "نزاعات عدّى وقتها",
+                "projects_waiting_review": "مشاريع مستنية المراجعة"
+            }
+        },
+        "countries": {
+            "title": "الدول",
+            "hint": "الخدمة مفتوحة فين: مفتاح الفريلانس لكل دولة، وهل صفحة التحكم في الخدمات قفلتها هناك. التطبيقات بتمشي على النتيجة دي.",
+            "availability": "التحكم في الخدمات", "search": "كود الدولة أو العملة",
+            "currency": "العملة",
+            "features": "الخصائص",
+            "projects": "المشاريع",
+            "open": "مفتوحة",
+            "off": "مقفولة",
+            "closed_by_availability": "مقفولة من التحكم في الخدمات",
+            "empty_title": "مفيش دول",
+            "empty": "مفيش دولة مطابقة للفلتر ده."
+        },
+        "support": {
+            "title": "الدعم",
+            "hint": "تذاكر المحترفين وأي تذكرة مربوطة بمشروع أو نزاع. القراءة والتعيين والرد بيفضلوا في صفحة الدعم؛ هنا بتربط التذكرة بالشغل اللي بتخصه.",
+            "search": "رقم التذكرة أو عنوانها",
+            "ticket": "التذكرة",
+            "from": "من",
+            "linked_to": "مربوطة بـ",
+            "link": "ربط بالشغل",
+            "link_title": "ربط التذكرة #{n}",
+            "kind": {
+                "project": "مشروع",
+                "dispute": "نزاع",
+                "none": "من غير ربط"
+            },
+            "uuid_project": "رقم المشروع",
+            "uuid_dispute": "رقم النزاع",
+            "uuid_hint": "الرقم اللي ظاهر في صفحة المشروع أو النزاع.",
+            "clear_hint": "هيتشال الربط من التذكرة دي.",
+            "empty_title": "مفيش تذاكر",
+            "empty": "مفيش تذاكر فريلانس مطابقة للفلتر ده."
+        },
+        "insights": {
+            "title": "التشغيل والتحسين",
+            "hint": "الشغل ماشي إزاي وليه الناس بتمشي، في فترة معينة. الفلوس في صفحة التقارير. معلومات بس.",
+            "tabs": {
+                "operations": "التشغيل",
+                "improvement": "التحسين"
+            },
+            "none": "مفيش بيانات في الفترة دي",
+            "hours": "{n} ساعة",
+            "tiles": {
+                "projects": "مشاريع جديدة",
+                "started": "بدأ فيها شغل",
+                "completed": "مكتملة",
+                "disputes": "نزاعات",
+                "first_offer": "الوقت لأول عرض",
+                "hire": "الوقت للتعاقد"
+            },
+            "breakdowns": {
+                "projects": "المشاريع حسب الحالة",
+                "offers": "العروض حسب الحالة",
+                "agreements": "الاتفاقات حسب الحالة",
+                "milestones": "الأجزاء حسب الحالة",
+                "disputes": "النزاعات حسب النوع"
+            },
+            "milestone": {
+                "unfunded": "مش ممول",
+                "funded": "ممول",
+                "in_progress": "شغال",
+                "delivered": "اتسلّم",
+                "revision": "تعديل",
+                "approved": "معتمد",
+                "disputed": "متنازع عليه",
+                "cancelled": "ملغي"
+            },
+            "cancel_by": {
+                "client": "ليه العملاء بيلغوا الشغل",
+                "freelancer": "ليه المحترفين بيلغوا الشغل"
+            },
+            "unhappy": {
+                "client": "عملاء مش راضيين",
+                "freelancer": "محترفين مش راضيين"
+            },
+            "turned_down": {
+                "offers": "عروض اترفضت",
+                "invitations": "دعوات اترفضت",
+                "projects": "مشاريع خلصت من غير شغل"
+            }
+        },
+        "risk": {
+            "title": "المخاطر",
+            "hint": "الحسابات اللي قواعد الجودة حطتها في خطر متوسط أو عالي، مع الأسباب. بيعرض بس: الإنذار أو التقييد أو الإيقاف بيتعمل من صفحة العقوبات، والبلاغ بيتقرر من بلاغات الرسائل.",
+            "freelancers_high": "محترفين خطر عالي",
+            "clients_high": "عملاء خطر عالي",
+            "medium": "خطر متوسط",
+            "open_reports": "بلاغات مفتوحة",
+            "active_sanctions": "عقوبات سارية",
+            "account": "الحساب",
+            "level": "الخطر",
+            "score": "الدرجة",
+            "why": "السبب",
+            "now": "دلوقتي",
+            "any_level": "أي خطر",
+            "empty_title": "مفيش حد في خطر",
+            "empty": "مفيش حساب مطابق للفلتر ده.",
+            "side": {
+                "freelancer": "محترف",
+                "client": "عميل"
+            },
+            "levels": {
+                "high": "عالي",
+                "medium": "متوسط"
+            },
+            "sanctions_now": "{n} عقوبات سارية",
+            "reports_now": "{n} بلاغات مفتوحة ضده",
+            "reasons": {
+                "reports_upheld": "بلاغات اتأيدت",
+                "disputes_lost": "نزاعات خسرها",
+                "suspensions": "إيقافات",
+                "sanctions": "عقوبات",
+                "cancel_rate": "نسبة الإلغاء",
+                "account_status": "الحساب موقوف أو محظور",
+                "not_verified": "مش موثّق"
+            }
+        },
+        "audit": {
+            "title": "سجل الإجراءات",
+            "hint": "اللي عمله الموظفين في الفريلانس، الأحدث أولًا، مع مين عمله والقيم قبل وبعد. للقراءة بس.",
+            "action": "الإجراء",
+            "who": "مين",
+            "on": "على",
+            "when": "إمتى",
+            "details": "التفاصيل",
+            "before": "قبل",
+            "after": "بعد",
+            "system": "النظام",
+            "all_areas": "كل المجالات",
+            "empty_title": "مفيش سجلات",
+            "empty": "مفيش حاجة اتسجلت للفلتر ده.",
+            "areas": {
+                "freelance_dispute": "النزاعات",
+                "freelance_message_report": "بلاغات الرسائل",
+                "freelance_review_objection": "اعتراضات التقييم",
+                "freelance_support": "الدعم",
+                "freelance_sanction": "العقوبات",
+                "freelance_project": "المشاريع",
+                "freelancer": "المحترفون",
+                "freelance_policy": "السياسات",
+                "freelance_feature_rule": "المفاتيح",
+                "freelance_document_type": "أنواع المستندات"
+            },
+            "actions": {
+                "freelance_dispute_classified": "تصنيف نزاع",
+                "freelance_dispute_decided": "قرار في نزاع",
+                "freelance_dispute_timeline_exported": "تصدير خط زمني لنزاع",
+                "freelance_dispute_timeline_viewed": "عرض خط زمني لنزاع",
+                "freelance_message_report_decided": "قرار في بلاغ رسالة",
+                "freelance_review_objection_decided": "قرار في اعتراض تقييم",
+                "freelance_sanction_appeal_decided": "قرار في تظلم من عقوبة",
+                "freelance_sanction_issued": "إصدار عقوبة",
+                "freelance_sanction_lifted": "رفع عقوبة",
+                "freelance_support_linked": "ربط تذكرة",
+                "freelance_document_type_created": "إضافة نوع مستند",
+                "freelance_document_type_updated": "تعديل نوع مستند",
+                "freelance_document_type_status": "تغيير حالة نوع مستند",
+                "freelance_document_type_deleted": "حذف نوع مستند",
+                "freelance_feature_rule_saved": "حفظ مفتاح",
+                "freelance_feature_rule_copied": "نسخ مفاتيح",
+                "freelance_policy_saved": "حفظ سياسة",
+                "freelance_policy_reset": "إعادة سياسة",
+                "freelance_project_edited": "تعديل مشروع",
+                "freelance_project_published": "نشر مشروع",
+                "freelancer_status_changed": "تغيير حالة محترف",
+                "freelancer_portfolio_hidden": "إخفاء عمل من المعرض",
+                "freelancer_portfolio_unhidden": "إظهار عمل في المعرض",
+                "freelancer_verification_submitted": "تقديم توثيق"
+            }
+        },
+        "disputeCategory": {
+            "title": "نوع المشكلة (بيحدده الموظف)",
+            "all": "كل الأنواع",
+            "none": "مش محدد",
+            "suggested": "مقترح من السبب اللي اتقال: {name}",
+            "payment": "الدفع",
+            "delivery": "التسليم",
+            "quality": "الجودة",
+            "conduct": "السلوك",
+            "scope": "النطاق",
+            "other": "أخرى"
+        },
         "document_types": {
             "title": "مستندات التوثيق",
             "hint": "مستندات الهوية اللي المحترفين بيرفعوها عشان يتوثّقوا، والمطلوب منها في كل دولة ومن مين (مواطنين، مقيمين، أو الكل). النوع الموقوف مش مطلوب من حد، والنوع اللي اترفع منه مستندات ما يتحذفش.",
@@ -4698,6 +4957,27 @@
             }
         },
         "overview": {
+            "intro": "اللي محتاج حد دلوقتي، والشغل الشغال، وباب لكل صفحة في خدمة الفريلانس.",
+            "needs_you": "محتاج حد دلوقتي",
+            "work_now": "الشغل الشغال",
+            "no_access_title": "مفيش حاجة تتعرض",
+            "no_access": "دورك مش بيفتح الصفحات اللي الأرقام دي جاية منها.",
+            "tiles": {
+                "pending_review": "مشاريع مستنية المراجعة",
+                "late": "عناصر متأخرة",
+                "disputes": "نزاعات محتاجة قرار",
+                "tickets": "تذاكر مفتوحة",
+                "reports": "بلاغات رسائل مفتوحة",
+                "risk": "حسابات خطر عالي",
+                "in_progress": "مشاريع شغالة",
+                "agreements_active": "اتفاقات سارية"
+            },
+            "areas": {
+                "work": "الشغل",
+                "people": "الناس والأمان",
+                "reports": "التقارير والسجلات",
+                "setup": "الإعداد"
+            },
             "title": "العمل الحر",
             "heading": "خدمة العمل الحر جاهزة",
             "hint": "المحترفون والمشاريع والعروض هتظهر هنا كل ما نبنيها."
@@ -4719,6 +4999,8 @@
             "reorder_hint": "اختار المستوى، وبعدين اسحب المقبض لإعادة الترتيب. الحفظ تلقائي."
         },
         "switches": {
+            "on": "شغّال",
+            "off": "مقفول",
             "title": "مفاتيح الخصائص",
             "hint": "افتح أو اقفل خدمة العمل الحر وكل خاصية فيها لكل دولة. مفيش قاعدة = مقفول، ومفيش حاجة بتشتغل طول ما «خدمة العمل الحر كلها» مقفولة.",
             "feature": "الخاصية",
@@ -4794,6 +5076,7 @@
                 "project.submitted": "اتبعت للمراجعة",
                 "project.resubmitted": "اتبعت تاني",
                 "project.withdrawn": "اتسحب للتعديل",
+                "project.cost_cap_set": "اتغيّر الحد الأقصى للتكلفة",
                 "project.published": "اتنشر",
                 "project.rejected": "اتـرفض",
                 "project.changes_requested": "اتطلب تعديل",
@@ -4816,6 +5099,236 @@
             "offers_count": "{n} عرض",
             "offers_closed_max_offers": "اكتمل: وصل لأقصى عدد عروض",
             "offers_closed_chosen": "العميل اختار عرض"
+        },
+        "freelancers": {
+            "title": "المحترفون",
+            "search": "الاسم أو الجوال أو الإيميل",
+            "city": "المدينة",
+            "freelancer": "المحترف",
+            "country": "الدولة",
+            "specialties": "التخصصات",
+            "offers": "العروض",
+            "open": "فتح",
+            "profile": "الملف الشخصي",
+            "skills": "المهارات",
+            "years": "سنين الخبرة",
+            "verification": "التوثيق",
+            "documents": "{n} مستند",
+            "no_verification": "لسه مفيش طلب.",
+            "open_verifications": "افتح مكتب التوثيق",
+            "wallet": "المحفظة",
+            "held": "محجوز",
+            "portfolio": "معرض الأعمال",
+            "hidden": "مخفي",
+            "hide": "إخفاء",
+            "unhide": "إرجاع",
+            "hide_reason": "ليه اتخفى؟ (صاحبه هيتبلّغ)",
+            "projects": "المشاريع (شغالة / مكتملة)",
+            "audit": "اللي عملته الإدارة على الحساب",
+            "no_audit": "لسه مفيش.",
+            "change_status": "تغيير حالة الحساب",
+            "reason": "السبب (مطلوب للإيقاف أو الحظر)",
+            "save": "احفظ",
+            "saved": "اتحفظ.",
+            "status": {
+                "registered": "مسجّل",
+                "profile_ready": "الملف جاهز",
+                "verification_submitted": "التوثيق مقدّم",
+                "verified": "موثّق",
+                "verification_rejected": "التوثيق مرفوض",
+                "changes_requested": "مطلوب تعديل",
+                "suspended": "موقوف",
+                "blocked": "محظور"
+            }
+        },
+        "sanctions": {
+            "title": "الإنذارات والقيود",
+            "hint": "مفيش حاجة هنا بتحصل لوحدها: موظف بيصدر كل واحدة بسبب مكتوب. القيود والتعليق عمرها ما بتلمس الفلوس أو الشغل المتفق عليه (المحفظة والتسليم والموافقات والنزاعات مكمّلين). صاحب الحساب بيتبلّغ ويقدر يعترض مرة واحدة خلال 14 يوم، وموظف تاني هو اللي يقرر.",
+            "tabs": {
+                "active": "سارية",
+                "appeals": "اعتراضات",
+                "lifted": "اترفعت",
+                "expired": "خلصت",
+                "all": "الكل", "clients": "العملاء والمخاطر"
+            },
+            "all_types": "كل الأنواع",
+            "all_sides": "العملاء والمحترفين",
+            "all_risks": "أي مستوى مخاطر",
+            "search": "الاسم أو الجوال",
+            "issue": "إصدار إنذار أو قيد",
+            "pick": "لمين؟",
+            "empty": "مفيش حاجة هنا.",
+            "types": {
+                "warning": "إنذار",
+                "chat_limit": "قيد على الشات",
+                "work_limit": "قيد على الشغل الجديد",
+                "suspension": "تعليق"
+            },
+            "type_hints": {
+                "warning": "تنبيه بس، مبيقيدش حاجة، وبيفضل 90 يوم.",
+                "chat_limit": "يقرا ومايبعتش رسائل ولا يطلب مقابلات. من 1 لـ 30 يوم.",
+                "work_limit": "مفيش عروض أو مشاريع أو تعيين أو دعوات جديدة، والشغل المتفق عليه مكمّل. من 1 لـ 30 يوم.",
+                "suspension": "القيدين مع بعض لحد ما يترفع (أو لحد الأيام اللي تحددها). محتاج صلاحية التعليق."
+            },
+            "states": {
+                "active": "ساري",
+                "lifted": "اترفع",
+                "expired": "خلص"
+            },
+            "sides": {
+                "freelancer": "محترف",
+                "client": "عميل"
+            },
+            "sources": {
+                "manual": "قرار موظف",
+                "message_report": "رسالة مُبلَّغ عنها",
+                "review_objection": "اعتراض على تقييم",
+                "dispute": "نزاع"
+            },
+            "source_ref": "مرجع (اختياري)",
+            "days": "الأيام",
+            "days_optional": "الأيام (فاضي = لحد ما يترفع)",
+            "reason": "السبب اللي الشخص هيقراه (كلمتين على الأقل)",
+            "send": "إصدار",
+            "issued": "اتعمل. الشخص اتبلّغ ويقدر يعترض.",
+            "saved": "اتحفظ.",
+            "history": "الإنذارات والقيود",
+            "by": "بواسطة {name}",
+            "lift": "رفع",
+            "lift_note": "اترفع",
+            "note": "ملاحظة (اختياري)",
+            "decide_appeal": "قرار الاعتراض",
+            "save": "احفظ",
+            "appeal": "الاعتراض",
+            "appeal_hint": "لازم حد غير اللي أصدرها هو اللي يقرر.",
+            "new_end": "النهاية الجديدة",
+            "appeal_states": {
+                "open": "مستني",
+                "upheld": "تفضل",
+                "reduced": "تتقصّر",
+                "lifted": "تترفع"
+            },
+            "blocks": {
+                "chat": "الشات",
+                "work": "الشغل الجديد"
+            },
+            "allowed": "مسموح",
+            "until": "موقوف لحد {date}",
+            "until_lifted": "موقوف لحد ما يترفع",
+            "quality": "الجودة والمخاطر",
+            "no_data": "لسه مفيش شغل خلصان كفاية لحساب مؤشر.",
+            "risk": {
+                "low": "مخاطر منخفضة",
+                "medium": "مخاطر متوسطة",
+                "high": "مخاطر عالية"
+            },
+            "reasons": {
+                "reports_upheld": "{n} رسالة مُبلَّغ عنها اتأكدت في 90 يوم",
+                "disputes_lost": "خسر {n} نزاع في 90 يوم",
+                "suspensions": "اتعلّق قبل كده ({n})",
+                "sanctions": "{n} إنذار أو قيد في 90 يوم",
+                "cancel_rate": "{n}% من المشاريع اللي بدأت اتلغت بمسؤوليته",
+                "account_status": "الحساب موقوف أو محظور",
+                "not_verified": "لسه مش موثّق"
+            },
+            "inputs": "التقييم {rating} · في الميعاد {on_time}% · الإكمال {completion}% · نزاعات خسرها {disputes} · بلاغات اتأكدت {reports} · إلغاء بمسؤوليته {cancels}%"
+        },
+        "reviews": {
+            "title": "التقييمات والرضا",
+            "tabs": {
+                "objections": "الاعتراضات على التقييمات",
+                "satisfaction": "الرضا"
+            },
+            "hint": "اللي التقييم عنه يقدر يعترض مرة واحدة. القرار هنا بيغيّر التقييم ده بس (إخفاء تعليقه أو شيله من الأرقام) ومش بيمس أي حساب.",
+            "rating": "التقييم",
+            "objection": "الاعتراض",
+            "people": "الأطراف",
+            "decision": "القرار",
+            "empty": "مفيش حاجة هنا.",
+            "rater": "المقيِّم",
+            "about": "عن",
+            "review": "راجع",
+            "note": "ملاحظة (اختياري)",
+            "save": "احفظ",
+            "saved": "اتحفظ.",
+            "side": {
+                "client": "العميل",
+                "freelancer": "المحترف"
+            },
+            "status": {
+                "open": "مفتوح",
+                "rejected": "فضل زي ما هو",
+                "comment_hidden": "التعليق اتخفى",
+                "rating_removed": "التقييم اتشال"
+            },
+            "reasons": {
+                "abusive": "ألفاظ مسيئة",
+                "false": "كلام مش حقيقي",
+                "unfair": "مش عادل",
+                "other": "سبب تاني"
+            },
+            "decisions": {
+                "reject": "سيب التقييم",
+                "reject_hint": "الاعتراض مش مقبول ومفيش تغيير.",
+                "hide_comment": "اخفي التعليق",
+                "hide_comment_hint": "النجوم تفضل وتتحسب، والكلام يتخفى.",
+                "remove_rating": "شيل التقييم",
+                "remove_rating_hint": "بيخرج من الأرقام ومن الملف."
+            },
+            "answers": "الردود",
+            "average": "المتوسط",
+            "not_satisfied": "غير راضي (3 أو أقل)",
+            "why": "ليه الناس مش راضية",
+            "reason": "السبب",
+            "latest": "آخر ردود غير الراضين",
+            "survey_reasons": {
+                "quality": "جودة الشغل",
+                "late": "التأخير",
+                "communication": "التواصل",
+                "price": "السعر",
+                "scope": "تغيّر النطاق",
+                "payment": "الدفع",
+                "platform": "المنصة",
+                "other": "سبب تاني"
+            }
+        },
+        "messageReports": {
+            "title": "الرسائل المُبلَّغ عنها",
+            "hint": "رسائل بلّغ عنها عميل أو محترف من الشات. النص هو اللي كان وقت البلاغ. القرار هنا بيسجّل المراجعة بس (وممكن يخفي الرسالة) ومش بيقيّد أي حساب.",
+            "message": "الرسالة",
+            "reason": "السبب",
+            "people": "الأطراف",
+            "when": "التاريخ",
+            "decision": "القرار",
+            "empty": "مفيش حاجة هنا.",
+            "hidden": "مخفية من الشات",
+            "was_hidden": "اتخفت الرسالة",
+            "by": "المبلّغ",
+            "against": "عن",
+            "decide": "راجع",
+            "dismiss": "تجاهل (مفيش مشكلة)",
+            "uphold": "تأكيد (مخالفة)",
+            "hide": "اخفي الرسالة من الشات",
+            "note": "ملاحظة (اختياري)",
+            "save": "احفظ",
+            "saved": "اتحفظ.",
+            "status": {
+                "open": "مفتوح",
+                "upheld": "مؤكَّد",
+                "dismissed": "متجاهَل"
+            },
+            "side": {
+                "client": "العميل",
+                "freelancer": "المحترف"
+            },
+            "reasons": {
+                "abuse": "ألفاظ مسيئة",
+                "harassment": "تحرش",
+                "blackmail": "تهديد أو ابتزاز",
+                "contact_info": "مشاركة بيانات تواصل",
+                "spam": "رسائل مزعجة",
+                "other": "سبب تاني"
+            }
         },
         "disputes": {
             "title": "النزاعات",
@@ -4916,6 +5429,29 @@
                 "active": "{n} شغال",
                 "completed": "{n} خلص",
                 "disputes": "{n} نزاع مفتوح"
+            },
+            "cancel": {
+                "title": "أسباب إلغاء الشغل",
+                "hint": "زي ما قالها اللي ألغى. للمراجعة بس - مفيش أي خصم أو منع بسببها. \"محتاج مراجعة\" يعني اختار سبب تاني.",
+                "all": "الكل",
+                "what": "المشروع / الجزء",
+                "by": "اللي ألغى",
+                "reason": "السبب",
+                "points_at": "المسؤولية على",
+                "when": "التاريخ",
+                "whole": "المشروع كله",
+                "empty": "مفيش حاجة في الفترة دي.",
+                "side": { "client": "العميل", "freelancer": "المحترف" },
+                "resp": { "client": "العميل", "freelancer": "المحترف", "shared": "الاتنين", "none": "حد مفيش (قوة قاهرة)", "review": "محتاج مراجعة" },
+                "codes": {
+                    "scope_changed": "النطاق أو الميزانية اتغيّروا",
+                    "client_unresponsive": "العميل مش بيرد",
+                    "not_delivered": "الشغل ما اتسلّمش / اتأخر",
+                    "quality": "مشكلة في الجودة",
+                    "mutual": "اتفاق الطرفين",
+                    "force_majeure": "قوة قاهرة",
+                    "other": "سبب تاني"
+                }
             },
             "reconcile": "المطابقة",
             "check": "افحص دلوقتي",

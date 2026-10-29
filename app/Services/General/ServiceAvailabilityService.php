@@ -102,6 +102,8 @@ class ServiceAvailabilityService
             'region_id' => $region?->id,
         ]);
         $row->fill($changes)->save();
+        // The Freelance service reads the country's service switch (FL-804); let it see the change now.
+        \Illuminate\Support\Facades\Cache::forget('freelance:service-closed');
 
         // A region row that no longer sets anything is the same as no row.
         if ($region !== null && collect(ServiceAvailability::SWITCHES)->every(fn ($switch) => $row->{$switch} === null)) {

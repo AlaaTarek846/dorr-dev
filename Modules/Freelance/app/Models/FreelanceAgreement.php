@@ -28,7 +28,7 @@ class FreelanceAgreement extends Model
     protected $fillable = [
         'uuid', 'project_id', 'offer_id', 'client_id', 'freelancer_id', 'scope', 'includes', 'excludes', 'price_minor', 'currency_code',
         'duration_days', 'policy', 'money', 'status', 'version', 'sent_at', 'client_approved_at', 'freelancer_approved_at', 'activated_at',
-        'completed_at', 'expires_at', 'end_reason',
+        'completed_at', 'expires_at', 'end_reason', 'report_every_days', 'next_report_due_at', 'last_report_at', 'report_reminded_at', 'report_late_notified_at',
     ];
 
     protected static function booted(): void
@@ -52,6 +52,11 @@ class FreelanceAgreement extends Model
             'activated_at' => 'datetime',
             'completed_at' => 'datetime',
             'expires_at' => 'datetime',
+            'report_every_days' => 'integer',
+            'next_report_due_at' => 'datetime',
+            'last_report_at' => 'datetime',
+            'report_reminded_at' => 'datetime',
+            'report_late_notified_at' => 'datetime',
         ];
     }
 
@@ -64,6 +69,16 @@ class FreelanceAgreement extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(FreelanceProject::class, 'project_id');
+    }
+
+    public function milestones(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(FreelanceMilestone::class, 'agreement_id');
+    }
+
+    public function disputes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(FreelanceDispute::class, 'agreement_id');
     }
 
     public function offer(): BelongsTo
