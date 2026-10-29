@@ -55,7 +55,12 @@ interface AiToolsApi {
     suspend fun today(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<TodayDto>
 
     @GET("mobile/v1/chat/tasks")
-    suspend fun tasks(@Header("Authorization") auth: String, @Query("status") status: String? = null): ApiEnvelope<List<TaskDto>>
+    suspend fun tasks(
+        @Header("Authorization") auth: String,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+    ): ApiEnvelope<List<TaskDto>>
 
     /** `{tasks: [{text, due_at?}], message_id?}` */
     @POST("mobile/v1/chat/tasks")
@@ -67,7 +72,70 @@ interface AiToolsApi {
 
     @DELETE("mobile/v1/chat/tasks/{id}")
     suspend fun deleteTask(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    // DORR AI's search by meaning, continue-in-another-chat and AI-images gallery, in the chat.
+
+    /** This chat by what the words mean: `{terms, messages, matches{message id → word}}`. */
+    @GET("mobile/v1/chat/conversations/{id}/ai/search")
+    suspend fun searchByMeaning(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Query("q") q: String): ApiEnvelope<MeaningSearchDto>
+
+    /** `{messages?[]}` — a summary of this chat to carry on elsewhere (nothing is sent). */
+    @POST("mobile/v1/chat/conversations/{id}/ai/capsule")
+    suspend fun capsule(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<ChatCapsuleDto>
+
+    /** Every image made or changed with AI in my chats. */
+    @GET("mobile/v1/chat/ai/images")
+    suspend fun aiImages(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+
+    // Images with DORR AI (spec 50, 51): a draft only I see, counted against my AI plan's daily
+    // images, then sent as an ordinary image message marked `meta.ai_generated`.
+
+    /** Today's AI images on my plan, before I start (read-only). */
+    @GET("mobile/v1/chat/ai/image/quota")
+    suspend fun imageQuota(@Header("Authorization") auth: String): ApiEnvelope<AiImageQuotaDto>
+
+    /** `{prompt, style?}` — a new image from a description. */
+    @POST("mobile/v1/chat/conversations/{id}/ai/image")
+    suspend fun generateImage(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<AiImageDraftDto>
+
+    /** `{prompt}` — an image message, changed as described. */
+    @POST("mobile/v1/chat/messages/{id}/ai/edit-image")
+    suspend fun editImage(@Header("Authorization") auth: String, @Path("id") messageId: String, @Body body: JsonObject): ApiEnvelope<AiImageDraftDto>
+
+    /** `{draft, body?, uuid?}` */
+    @POST("mobile/v1/chat/conversations/{id}/ai/image/send")
+    suspend fun sendImage(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<MessageDto>
 }
+
+data class MeaningSearchDto(
+    val terms: List<String> = emptyList(),
+    val messages: List<MessageDto> = emptyList(),
+    /** Message id → the word that found it. */
+    val matches: Map<String, String> = emptyMap(),
+)
+
+data class ChatCapsuleDto(
+    val text: String = "",
+    val messages: Int = 0,
+)
+
+data class AiImageQuotaDto(
+    val allowed: Boolean = false,
+    /** no_plan · trial_ended · subscription_suspended · blocked · not_in_plan · daily_limit_reached */
+    val reason: String? = null,
+    /** null = unlimited. */
+    val limit: Int? = null,
+    val used: Int = 0,
+    val remaining: Int? = null,
+    val styles: List<String> = emptyList(),
+)
+
+data class AiImageDraftDto(
+    val draft: String,
+    val url: String,
+    /** "generate" | "edit". */
+    val kind: String = "generate",
+)
 
 /**
  * DORR AI safety (spec 350–362) for one answer: its domain (religion · law · medicine ·
@@ -143,7 +211,12 @@ data class AiMessageRefDto(
     val text: String? = null,
 )
 
-data class ImportantDto(val items: List<AiMessageRefDto> = emptyList(), val messages: Int = 0, val chats: Int = 0)
+data class ImportantDto(
+    val items: List<AiMessageRefDto> = emptyList(),
+    val messages: Int = 0,
+    val chats: Int = 0,
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class TodayDto(val summary: List<String> = emptyList(), val highlights: List<AiMessageRefDto> = emptyList(), val messages: Int = 0, val chats: Int = 0)
 

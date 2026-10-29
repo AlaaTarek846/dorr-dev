@@ -168,6 +168,7 @@ fun WalletScreen(onBack: (() -> Unit)?) {
     val context = LocalContext.current
     var cachedAt by remember { mutableStateOf<Long?>(null) }
     var payout by remember { mutableStateOf<com.dorr.driver.net.PayoutStatusDto?>(null) }
+    var states by remember { mutableStateOf<com.dorr.driver.net.ServiceStatusDto?>(null) }
     var intlOpen by remember { mutableStateOf(false) }
     var invoicesOpen by remember { mutableStateOf(false) }
     suspend fun loadWallet() {
@@ -176,6 +177,7 @@ fun WalletScreen(onBack: (() -> Unit)?) {
             else -> if (wallet == null) WalletCache.load(context)?.let { (w, at) -> wallet = w; cachedAt = at }
         }
         payout = (apiCall { DriverBackend.api.payoutStatus() } as? ApiResult.Ok)?.data ?: payout
+        states = (apiCall { DriverBackend.api.serviceStatus() } as? ApiResult.Ok)?.data ?: states
     }
     val list = rememberLazyListState()
     if (onBack != null) BackHandler(onBack = onBack)
@@ -221,6 +223,12 @@ fun WalletScreen(onBack: (() -> Unit)?) {
                 }
             }
             item(key = "payout") { PayoutBanners(payout, cachedAt, onInternational = { intlOpen = true }, onInvoices = { invoicesOpen = true }) }
+            // D-330, D-338..D-340: the safe mode and the last withdrawal's state.
+            item(key = "states") {
+                androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)) {
+                    WithdrawalStateBanners(states) { minor -> money(minor, null) }
+                }
+            }
             if (owing) {
                 item(key = "owing") { Banner(stringResource(R.string.wl_owing), Modifier.padding(horizontal = 16.dp).padding(top = 10.dp), kind = BannerKind.Warning) }
             }

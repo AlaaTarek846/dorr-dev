@@ -157,6 +157,11 @@ internal class RidesState {
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
+    /** Block 06: «دُرر يفهم مقصدك» is open; the category it understood (chosen once the prices come); AI-09's suggestion. */
+    var smartOpen by mutableStateOf(false)
+    var preferCategory by mutableStateOf<String?>(null)
+    var suggestion by mutableStateOf<com.dorr.app.network.RideAiSuggestDto?>(null)
+
     /** Booked ahead (R-12): the chosen pickup time; null = now. */
     var scheduledAt by mutableStateOf<java.time.ZonedDateTime?>(null)
     var scheduleOpen by mutableStateOf(false)
@@ -253,6 +258,8 @@ internal class RidesState {
         dropoffPointId = null
         decidedPickup = null
         decidedDropoff = null
+        preferCategory = null
+        suggestion = null
     }
 }
 
@@ -279,6 +286,8 @@ fun RidesHost(onExit: () -> Unit) {
     // O-48: allowed *and* switched on (the gate below asks for both); `located` = the real position is known.
     var locationOk by remember { mutableStateOf(locationReady(context)) }
     var located by remember { mutableStateOf(false) }
+    // O-87: no name or no gender yet — asked first, and the window stays until both are given.
+    RidesIdentityGate()
 
     // An active ride first: the app may have been closed in the middle of one.
     LaunchedEffect(Unit) {
@@ -429,6 +438,8 @@ fun RidesHost(onExit: () -> Unit) {
         }
 
         if (state.step == RideStep.Search && state.ride == null) PlaceSearchPage(state, camera)
+        // Block 06: «دُرر يفهم مقصدك» over the map or the search.
+        if (state.smartOpen && state.ride == null) SmartDestinationSheet(state, camera) { state.smartOpen = false }
 
         // O-18: the services first — unless a ride is already on (then straight to it).
         androidx.compose.animation.AnimatedVisibility(

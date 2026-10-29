@@ -171,7 +171,8 @@ class ScheduledRideService
     {
         $presence = DriverPresence::query()->find($driver->id);
         $vehicle = $this->eligibility->activeVehicle($driver);
-        if ($presence?->lat === null || $vehicle === null || $this->eligibility->reasonNotToWork($driver) !== null) {
+        if ($presence?->lat === null || $vehicle === null || $this->eligibility->reasonNotToWork($driver) !== null
+            || ! app(\Modules\Rides\Services\Drivers\DriverServices::class)->offers($driver, 'scheduled')) {
             return collect();
         }
         $radius = (int) (config('rides.policy_defaults')['search.max_radius_m'] ?? 50000);
@@ -201,6 +202,8 @@ class ScheduledRideService
     /** The captain takes a booked ride ahead of time (D-264). */
     public function reserve(Driver $driver, string $uuid, ?string $key = null): Ride
     {
+        // O-89: scheduled rides only where they are open to the captain's vehicle and switched on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'scheduled');
         $ride = DB::transaction(function () use ($driver, $uuid, $key) {
             $ride = Ride::query()->where('uuid', $uuid)->lockForUpdate()->first() ?? throw new RidesException('ride_not_found', 404);
             if ($ride->reserved_driver_id === $driver->id && $ride->status === RideStatus::Scheduled) {

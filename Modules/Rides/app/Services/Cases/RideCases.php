@@ -145,7 +145,7 @@ class RideCases
             throw new RidesException('case_already_open', 409);
         }
 
-        return DB::transaction(function () use ($party, $kind, $ride, $category, $in, $disputed) {
+        $case = DB::transaction(function () use ($party, $kind, $ride, $category, $in, $disputed) {
             $case = RideCase::query()->create([
                 'uuid' => (string) Str::uuid(),
                 'number' => $this->number(),
@@ -166,6 +166,15 @@ class RideCases
 
             return $case;
         });
+        // AI-12: DORR AI reads it for the team once the person has their answer (never holds them up).
+        $id = $case->id;
+        dispatch(function () use ($id) {
+            if (($fresh = RideCase::query()->find($id)) !== null) {
+                app(CaseTriage::class)->run($fresh);
+            }
+        })->afterResponse();
+
+        return $case;
     }
 
     /** @return array<string, mixed> */
@@ -218,10 +227,12 @@ class RideCases
                 'id' => $case->id,
                 'ride_id' => $case->ride_id,
                 'priority' => $case->priority,
-                'reporter' => ['type' => $case->reporter_type, 'id' => $case->reporter_id, 'name' => $reporter?->name, 'phone' => $reporter?->phone],
+                'reporter' => ['type' => $case->reporter_type, 'id' => $case->reporter_id, 'name' => $reporter?->name, 'is_verified' => \App\Support\AccountBadge::verified($reporter), 'phone' => $reporter?->phone],
                 'assigned_to' => $case->assignedTo?->name,
                 'decision_full' => $decision,
                 'decided_by' => $case->decidedBy?->name,
+                // AI-12: DORR AI's reading (a suggestion; the category, priority and decision stay the team's).
+                'ai_triage' => $case->ai_triage,
                 'appeal_note' => $case->appeal_note,
                 'events' => $case->events->map(fn (RideCaseEvent $e) => ['type' => $e->type, 'actor_type' => $e->actor_type, 'actor_id' => $e->actor_id, 'payload' => $e->payload, 'at' => $e->created_at?->toIso8601String()])->values()->all(),
             ];

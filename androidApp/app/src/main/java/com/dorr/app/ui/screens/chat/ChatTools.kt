@@ -324,15 +324,22 @@ private fun Field(value: String, hint: String, icon: ImageVector, multiline: Boo
     ChField(value, onChange, hint, icon = icon, singleLine = !multiline, fontSize = 15.sp)
 }
 
+internal val ChatThemeModes = listOf("system" to R.string.ch_theme_system, "light" to R.string.ch_theme_light, "dark" to R.string.ch_theme_dark)
+
+internal fun chatThemeLabel(mode: String): Int = ChatThemeModes.firstOrNull { it.first == mode }?.second ?: R.string.ch_theme_system
+
 /** Light / dark / same as the app. */
 @Composable
 fun ThemeSheet(onDismiss: () -> Unit) {
     val current = com.dorr.app.chat.ChatStore.themeMode
+    val selected = ChatThemeModes.indexOfFirst { it.first == current }.let { if (it < 0) 0 else it }
     ChoiceSheet(
         title = stringResource(R.string.ch_theme),
-        options = listOf("system" to R.string.ch_theme_system, "light" to R.string.ch_theme_light, "dark" to R.string.ch_theme_dark).map { (mode, label) ->
-            (if (mode == current) "✓  " else "") + stringResource(label) to { com.dorr.app.chat.ChatStore.setTheme(mode) }
+        options = ChatThemeModes.map { (mode, label) ->
+            stringResource(label) to { com.dorr.app.chat.ChatStore.setTheme(mode) }
         },
+        radios = true,
+        selected = selected,
         onDismiss = onDismiss,
     )
 }

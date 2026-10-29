@@ -61,6 +61,13 @@
                         </li>
                     </template>
 
+                    <li class="slide">
+                        <router-link :to="{ name: 'provider.ai-ar' }" class="side-menu__item">
+                            <i class="bx bx-cube side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('ai_ar_inbox.title') }}</span>
+                        </router-link>
+                    </li>
+
                     <li class="slide__category">
                         <span class="category-name">{{ t('profile.title') }}</span>
                     </li>

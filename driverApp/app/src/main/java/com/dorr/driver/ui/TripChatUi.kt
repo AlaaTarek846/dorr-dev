@@ -93,6 +93,8 @@ private object Ch {
 @Composable
 internal fun TripChatScreen(
     title: String,
+    /** The person on the other side is a verified Dorr account: the tick after their name. */
+    titleVerified: Boolean = false,
     subtitle: String,
     messages: List<MessageDto>,
     quick: List<QuickDto>,
@@ -120,7 +122,10 @@ internal fun TripChatScreen(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                        RiderTick(titleVerified, 15.dp, tint = Color.White)
+                    }
                     Text(subtitle, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1)
                 }
                 onCall?.let {

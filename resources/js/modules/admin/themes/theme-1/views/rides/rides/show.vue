@@ -17,7 +17,7 @@
             <div class="row g-3">
                 <div class="col-xl-4">
                     <WalletSection :title="t('rides.rides.people')" icon="ri-team-line" class="mb-3">
-                        <WalletInfoTile :label="t('rides.rides.rider')" icon="ri-user-line" class="mb-2">{{ ride.rider?.name || '—' }} <span class="text-muted fs-12" dir="ltr">{{ ride.rider?.phone }}</span></WalletInfoTile>
+                        <WalletInfoTile :label="t('rides.rides.rider')" icon="ri-user-line" class="mb-2"><UserName :user="ride.rider">{{ ride.rider?.name || '—' }}</UserName> <span class="text-muted fs-12" dir="ltr">{{ ride.rider?.phone }}</span></WalletInfoTile>
                         <WalletInfoTile v-if="ride.beneficiary" :label="t('rides.rides.beneficiary')" icon="ri-user-shared-line" class="mb-2">
                             {{ ride.beneficiary.name }} <span class="text-muted fs-12" dir="ltr">{{ ride.beneficiary.phone }}</span>
                             <div class="text-muted fs-12">{{ t('rides.rides.beneficiary_consent') }} · {{ formatDate(ride.beneficiary.consented_at) }}</div>
@@ -57,6 +57,27 @@
                             <span v-else class="text-muted">{{ t('rides.rides.not_reserved') }}</span>
                             <span v-if="ride.scheduled.reserved_at" class="text-muted fs-12"> · {{ formatDate(ride.scheduled.reserved_at) }}</span>
                         </WalletInfoTile>
+                    </WalletSection>
+
+                    <!-- Block 06: fraud signs (AI-06), cancel risk (AI-10), a booking's lateness warning, «راحتي», the next trip. -->
+                    <WalletSection v-if="ride.ai && (ride.ai.risk_score || ride.ai.cancel_risk || ride.ai.late_risk || ride.ai.comfort || ride.ai.after_ride_id)" :title="t('rides.rides.ai_title')" icon="ri-sparkling-2-line" class="mb-3">
+                        <div v-if="ride.ai.risk_score" class="mb-2">
+                            <span class="badge" :class="ride.ai.risk_score >= 60 ? 'bg-danger' : 'bg-warning'">{{ t('rides.rides.ai_risk') }}: {{ ride.ai.risk_score }}/100</span>
+                            <div v-for="f in ride.ai.risk_flags" :key="f.code" class="fs-12 mt-1"><i class="ri-error-warning-line text-danger me-1"></i>{{ f.label }} <span class="text-muted" dir="ltr">{{ JSON.stringify(f.detail) }}</span></div>
+                        </div>
+                        <div v-if="ride.ai.cancel_risk" class="fs-13 mb-2">{{ t('rides.rides.ai_cancel_risk') }}: <strong>{{ ride.ai.cancel_risk }}%</strong></div>
+                        <div v-if="ride.ai.late_risk && ride.ai.late_risk.reason" class="fs-13 mb-2">
+                            {{ t('rides.rides.ai_late') }}: {{ Math.ceil((ride.ai.late_risk.late_s || 0) / 60) }} {{ t('rides.cases.min') }} · {{ t('rides.rides.ai_late_reasons.' + ride.ai.late_risk.reason) }}
+                        </div>
+                        <div v-if="ride.ai.comfort" class="fs-13 mb-2">
+                            <div class="fw-semibold">{{ t('rides.rides.ai_comfort') }}</div>
+                            <span v-for="i in ride.ai.comfort.items" :key="i.item" class="badge bg-success-transparent me-1">{{ i.label }}</span>
+                            <div v-for="u in ride.ai.comfort.unable" :key="u.item" class="fs-12 text-warning mt-1">{{ u.label }} — {{ u.reason_label }}</div>
+                        </div>
+                        <div v-if="ride.ai.after_ride_id" class="fs-13">
+                            {{ t('rides.rides.ai_next_trip') }}
+                            <router-link :to="{ name: 'admin.rides.rides.show', params: { id: ride.ai.after_ride_id } }">#{{ ride.ai.after_ride_id }}</router-link>
+                        </div>
                     </WalletSection>
 
                     <WalletSection :title="t('rides.rides.trip')" icon="ri-route-line" class="mb-3">
@@ -208,6 +229,7 @@ import WalletPageHeader from '../../../../../../../components/wallet/WalletPageH
 import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // One ride's whole story: people, the trip, the money line by line, the timeline, offers, chat, Wasl.
 const { t, locale } = useI18n();

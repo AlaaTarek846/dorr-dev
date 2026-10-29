@@ -151,7 +151,11 @@ const Person = defineComponent({
     setup(props) {
         return () => (props.person
             ? h('div', { class: 'lh-sm mb-1' }, [
-                h('div', { class: 'fw-semibold fs-13' }, props.person.name || `#${props.person.id}`),
+                h('div', { class: 'fw-semibold fs-13' }, [
+                    props.person.name || `#${props.person.id}`,
+                    // The account verification ✔ (AV-029).
+                    props.person.is_verified ? h('i', { class: 'ri-verified-badge-fill text-primary ms-1', title: t('chat.verification.verified_badge') }) : null,
+                ]),
                 props.person.phone ? h('div', { class: 'fs-11 text-muted', dir: 'ltr' }, props.person.phone) : null,
             ])
             : h('span', { class: 'text-muted' }, '—'));

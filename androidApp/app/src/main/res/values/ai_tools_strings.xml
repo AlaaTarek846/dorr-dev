@@ -35,10 +35,14 @@
     <string name="ct_tasks_none">No tasks in this message.</string>
     <string name="ct_tasks_save">Save %1$d tasks</string>
     <string name="ct_tasks_saved">Added to My tasks ✅</string>
+    <string name="ct_tasks_deleted">Task deleted</string>
+    <string name="ct_tasks_due_set">Time saved</string>
+    <string name="ct_tasks_delete_title">Delete this task?</string>
+    <string name="ct_tasks_delete_msg">This task will be removed.</string>
     <string name="ct_tasks_add_hint">A new task…</string>
     <string name="ct_tasks_add">Add</string>
     <string name="ct_tasks_empty">Nothing to do — enjoy 🎉</string>
-    <string name="ct_tasks_done">Done</string>
+    <string name="ct_tasks_done">Completed</string>
     <string name="ct_dates">Dates in this chat</string>
     <string name="ct_dates_sub">Tap Remind me on the ones you want</string>
     <string name="ct_dates_none">No dates mentioned.</string>

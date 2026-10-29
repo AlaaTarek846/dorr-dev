@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notifications_mark_all_read">Mark all read</string>
+    <string name="notifications_empty_title">No notifications yet</string>
+    <string name="notifications_empty_body">New updates will show up here.</string>
+    <string name="notification_default_title">Notification</string>
+    <string name="notif_time_now">Just now</string>
+    <string name="notif_time_minutes_ago">%1$d min ago</string>
+    <string name="notif_time_hours_ago">%1$d h ago</string>
+    <string name="notif_time_yesterday">Yesterday</string>
+    <string name="notif_time_days_ago">%1$d days ago</string>
+    <string name="notif_time_weeks_ago">%1$d weeks ago</string>
+    <string name="support_ticket_more">Show more</string>
+    <string name="notif_open_project">Open the project</string>
+</resources>

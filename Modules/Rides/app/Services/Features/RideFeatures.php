@@ -30,6 +30,9 @@ class RideFeatures
         'loyalty',
         // O-26c, O-26b: services of their own inside rides (no category).
         'find_driver', 'driving_lessons',
+        // Block 06: DORR AI in rides — the rider's booking assistant («دُرر يفهم مقصدك», AI-09), «راحتي»,
+        // the captain's next trip, and DORR Driver AI (with the demand forecast).
+        'ai_booking', 'comfort', 'next_trip', 'driver_ai',
     ];
 
     public static function categoryFeature(string $slug): string
@@ -66,6 +69,19 @@ class RideFeatures
     public static function forget(): void
     {
         Cache::forget(self::CACHE);
+    }
+
+    /**
+     * D-335, D-336: a switch the admin turned off here (the city's rule first, else the country's) —
+     * unlike a place where it was never set up.
+     */
+    public function switchedOff(int $countryId, ?int $cityId, string $feature): bool
+    {
+        $rules = $this->rules()->where('feature', $feature)->where('country_id', $countryId);
+        $rule = ($cityId !== null ? $rules->first(fn (RideFeatureRule $r) => $r->city_id === $cityId) : null)
+            ?? $rules->first(fn (RideFeatureRule $r) => $r->city_id === null);
+
+        return $rule !== null && ! $rule->enabled;
     }
 
     private function rule(int $countryId, ?int $cityId, string $feature): bool

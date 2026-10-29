@@ -12,7 +12,7 @@ class SupportHelpFeedback extends Model
 {
     protected $table = 'support_help_feedback';
 
-    protected $fillable = ['support_help_node_id', 'user_id', 'solved'];
+    protected $fillable = ['support_help_node_id', 'user_id', 'freelancer_id', 'solved'];
 
     protected function casts(): array
     {

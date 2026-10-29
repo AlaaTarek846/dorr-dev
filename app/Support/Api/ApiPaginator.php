@@ -4,6 +4,7 @@ namespace App\Support\Api;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 
 class ApiPaginator
@@ -25,6 +26,27 @@ class ApiPaginator
             'from' => $paginator->firstItem(),
             'to' => $paginator->lastItem(),
         ];
+    }
+
+    /**
+     * Pages a list that is already built (a computed sort, two sources merged) the way a query's `paginate()` does, for the apps'
+     * endless scrolling: `page` and `per_page` (1–$max, $default when missing) are read from the request.
+     *
+     * @param  Collection<int, mixed>|array<int, mixed>  $rows
+     */
+    public static function slice(Collection|array $rows, int $default = 15, int $max = 50): Paginator
+    {
+        $rows = collect($rows)->values();
+        $perPage = min(max((int) request()->input('per_page', $default), 1), $max);
+        $page = max((int) request()->input('page', 1), 1);
+
+        return new Paginator($rows->forPage($page, $perPage)->values(), $rows->count(), $perPage, $page, ['path' => request()->url()]);
+    }
+
+    /** `per_page` of the request (1–$max, $default when missing) — for a query that is paged with `paginate()`. */
+    public static function perPage(int $default = 15, int $max = 50): int
+    {
+        return min(max((int) request()->input('per_page', $default), 1), $max);
     }
 
     /**

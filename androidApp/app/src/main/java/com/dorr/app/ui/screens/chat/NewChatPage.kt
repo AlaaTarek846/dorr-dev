@@ -25,6 +25,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,16 +36,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -54,6 +59,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.ui.graphics.graphicsLayer
@@ -80,9 +87,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -90,8 +99,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -116,10 +127,16 @@ import com.dorr.app.network.OpenDirectRequest
 import com.dorr.app.network.ProfileDto
 import com.dorr.app.network.QrDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.components.DarkHeroButton
+import com.dorr.app.ui.components.DarkHeroPanel
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.theme.CairoFontFamily
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -128,19 +145,50 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import androidx.compose.material.icons.rounded.Message
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
 
-/** The frame of every secondary chat page: brand header with back + title, content below. */
+/** The frame of every secondary chat page: the calendar header (title size, icon well, spacing). */
 @Composable
-internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, content: @Composable () -> Unit) {
+internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -> Unit = {}, settingsHeader: Boolean = false, content: @Composable () -> Unit) {
+    if (settingsHeader) {
+        Box(Modifier.fillMaxSize()) {
+            PinkBackdrop(Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize()) {
+                SubHeader(title, onBack)
+                Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+            }
+        }
+        return
+    }
     Column(Modifier.fillMaxSize().background(Ch.Bg)) {
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush)) {
-            Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                ChBack(onBack)
-                Spacer(Modifier.width(12.dp))
-                Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                actions()
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            DarkHeroPanel {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        title,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = CairoFontFamily,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        actions()
+                        DarkHeroButton(Icons.AutoMirrored.Rounded.ArrowBack, onBack, stringResource(R.string.common_back), flip = true)
+                    }
+                }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) { content() }
@@ -620,19 +668,46 @@ fun NewGroupPage(addTo: String?) {
     var description by remember { mutableStateOf("") }
     var avatar by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Hidden members (paid): offered only where it's sold; paid right after the group exists.
+    var hideMembers by remember { mutableStateOf(false) }
+    // Ordinary, educational or work (fixed once made); only the kinds switched on where I am.
+    var kind by remember { mutableStateOf(GroupKind.Normal) }
+    val kinds = GroupKind.available()
+    val hidePrice = if (addTo == null) rememberHiddenMembersPrice()?.label() else null
 
+    var inGroupIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
+    LaunchedEffect(addTo) {
+        inGroupIds = if (addTo == null) emptySet() else {
+            runCatching { ApiClient.chat.members(chatAuth(), addTo).data }.getOrNull().orEmpty().mapNotNull { it.profile?.id }.toSet()
+        }
+    }
     // People found by number join the list as if they were contacts (negative ids never clash).
     fun addFound(profile: ProfileDto) {
         val entry = ContactDto(-profile.id, profile.name ?: profile.phone.orEmpty(), profile.phone.orEmpty(), false, "lookup", true, profile)
         if (contacts.orEmpty().none { it.profile?.id == profile.id }) contacts = listOf(entry) + contacts.orEmpty()
         val existing = contacts.orEmpty().first { it.profile?.id == profile.id }
-        if (selected.none { it.id == existing.id }) selected.add(existing)
+        if (profile.id !in inGroupIds && selected.none { it.id == existing.id }) selected.add(existing)
     }
     val shown = contacts.orEmpty().filter { query.isBlank() || it.name.contains(query, true) || it.phone.filter(Char::isDigit).contains(query.filter(Char::isDigit).ifEmpty { "~" }) }
+    var visibleCount by remember { mutableIntStateOf(15) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(query) { visibleCount = 15 }
+    val paged = shown.take(visibleCount)
+    LaunchedEffect(listState, paged.size, shown.size) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3 && visibleCount < shown.size
+        }.distinctUntilChanged().filter { it }.collect {
+            visibleCount = (visibleCount + 15).coerceAtMost(shown.size)
+        }
+    }
     val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { avatar = it }
 
+    fun inGroup(c: ContactDto) = c.profile?.id != null && c.profile.id in inGroupIds
     fun toggle(c: ContactDto) {
+        if (inGroup(c)) return
         if (selected.any { it.id == c.id }) selected.removeAll { it.id == c.id } else selected.add(c)
     }
 
@@ -654,6 +729,7 @@ fun NewGroupPage(addTo: String?) {
                     "description" to description.trim().toRequestBody("text/plain".toMediaTypeOrNull()),
                 )
                 ids.forEachIndexed { i, id -> fields["members[$i]"] = id.toString().toRequestBody("text/plain".toMediaTypeOrNull()) }
+                fields["kind"] = kind.value.toRequestBody("text/plain".toMediaTypeOrNull())
                 val part = avatar?.let { copyToCache(context, it, "avatar.jpg") }?.let { f ->
                     MultipartBody.Part.createFormData("avatar", f.name, f.file.asRequestBody(f.mime.toMediaTypeOrNull()))
                 }
@@ -662,6 +738,10 @@ fun NewGroupPage(addTo: String?) {
                     host.upsert(created.conversation)
                     if (created.notAdded.isNotEmpty()) host.showToast(context.getString(R.string.ch_not_added, created.notAdded.size))
                     host.replace(ChRoute.Conversation(created.conversation.id, created.conversation))
+                    // A failed or cancelled payment just leaves an ordinary group (on later from its settings).
+                    if (hideMembers && hidePrice != null) {
+                        HiddenMembers.pay(created.conversation.id) { host.showToast(context.getString(R.string.ch_hidden_members_done)) }
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -670,17 +750,28 @@ fun NewGroupPage(addTo: String?) {
         busy = false
     }
 
-    ChPage(
-        title = stringResource(if (addTo != null) R.string.ch_add_members else R.string.ch_new_group),
-        onBack = { if (step == 1) step = 0 else host.pop() },
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(if (addTo != null) R.string.ch_add_members else R.string.ch_new_group)) {
+                if (step == 1) step = 0 else host.pop()
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
         AnimatedContent(targetState = step, label = "groupStep", transitionSpec = {
             (fadeIn(tween(250)) + expandHorizontally()) togetherWith (fadeOut(tween(200)) + shrinkHorizontally())
         }) { s ->
             if (s == 0) {
                 Box(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
-                        // Chosen people as chips that jump in and out.
+                        // Search + "add by number": always there, even with an empty address book.
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), modifier = Modifier.weight(1f), icon = Icons.Rounded.Search, clearable = true)
+                            Box(
+                                Modifier.size(46.dp).shadow(8.dp, RoundedCornerShape(16.dp), spotColor = Ch.Red.copy(alpha = 0.4f)).clip(RoundedCornerShape(16.dp)).background(Ch.HeaderBrush).clickable { byPhone = true },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Rounded.Dialpad, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+                        }
+                        // Newly picked people — not those already in the group.
                         AnimatedVisibility(selected.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                             LazyRow(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(selected, key = { it.id }) { c ->
@@ -695,14 +786,6 @@ fun NewGroupPage(addTo: String?) {
                                     }
                                 }
                             }
-                        }
-                        // Search + "add by number": always there, even with an empty address book.
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), modifier = Modifier.weight(1f), icon = Icons.Rounded.Search, clearable = true)
-                            Box(
-                                Modifier.size(46.dp).shadow(8.dp, RoundedCornerShape(16.dp), spotColor = Ch.Red.copy(alpha = 0.4f)).clip(RoundedCornerShape(16.dp)).background(Ch.HeaderBrush).clickable { byPhone = true },
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(Icons.Rounded.Dialpad, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
                         }
                         if (contacts?.isNotEmpty() == true) {
                             Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 4.dp))
@@ -722,9 +805,10 @@ fun NewGroupPage(addTo: String?) {
                                 }
                             })
                             shown.isEmpty() -> Text(stringResource(R.string.ch_no_results), color = Ch.Soft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(30.dp))
-                            else -> LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            itemsIndexed(shown, key = { _, c -> c.id }) { i, c ->
-                                val on = selected.any { it.id == c.id }
+                            else -> LazyColumn(state = listState, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            itemsIndexed(paged, key = { _, c -> c.id }) { i, c ->
+                                val already = inGroup(c)
+                                val on = already || selected.any { it.id == c.id }
                                 ContactRow(c, i, trailing = {
                                     AnimatedContent(on, label = "pick", transitionSpec = { scaleIn(spring(dampingRatio = 0.4f)) togetherWith scaleOut() }) { checked ->
                                         Icon(if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (checked) Ch.Red else Ch.Soft, modifier = Modifier.size(26.dp))
@@ -734,16 +818,23 @@ fun NewGroupPage(addTo: String?) {
                         }
                         }
                     }
-                    AnimatedVisibility(selected.isNotEmpty(), enter = scaleIn(spring(dampingRatio = 0.5f)) + fadeIn(), exit = scaleOut() + fadeOut(), modifier = Modifier.align(Alignment.BottomEnd).padding(22.dp)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = selected.isNotEmpty(),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                        enter = scaleIn(spring(dampingRatio = 0.5f)) + fadeIn(),
+                        exit = scaleOut() + fadeOut(),
+                    ) {
                         Box(
-                            Modifier.size(62.dp).shadow(18.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.6f)).clip(CircleShape).background(Ch.HeaderBrush)
+                            Modifier.size(46.dp).shadow(10.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.5f)).clip(CircleShape).background(Ch.HeaderBrush)
                                 .clickable(enabled = !busy) { if (addTo != null) submit() else step = 1 },
                             contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+                        ) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // The details scroll (kind, hidden members…); the button stays at the bottom.
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier.size(112.dp).shadow(16.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f)).clip(CircleShape).background(Ch.HeaderBrush)
                             .clickable { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -753,14 +844,25 @@ fun NewGroupPage(addTo: String?) {
                         else Icon(Icons.Rounded.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(38.dp))
                     }
                     Spacer(Modifier.height(22.dp))
+                    if (kinds.size > 1) {
+                        GroupKindPicker(kinds, kind) { kind = it }
+                        Spacer(Modifier.height(14.dp))
+                    }
                     GroupField(name, stringResource(R.string.ch_group_name_hint), Icons.Rounded.Groups) { name = it.take(100) }
                     Spacer(Modifier.height(10.dp))
                     GroupField(description, stringResource(R.string.ch_group_desc_hint), Icons.Rounded.Notes, multiline = true) { description = it.take(500) }
+                    hidePrice?.let { price ->
+                        Spacer(Modifier.height(12.dp))
+                        HiddenMembersChoice(price, hideMembers) { hideMembers = it }
+                    }
                     Spacer(Modifier.height(18.dp))
                     Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontSize = 13.sp)
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(12.dp))
+                    }
                     ChPrimaryButton(stringResource(R.string.ch_create_group), modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.GroupAdd, enabled = name.isNotBlank() && !busy) { submit() }
                 }
+            }
+        }
             }
         }
     }
@@ -809,6 +911,7 @@ private fun GroupField(value: String, hint: String, icon: ImageVector, multiline
 
 // =============================================================================== my QR
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun MyQrPage() {
     val host = LocalChat.current
@@ -817,80 +920,200 @@ fun MyQrPage() {
     // "Click to chat" (backlog 130): a message ready in the chat the link or QR opens.
     var ready by remember { mutableStateOf("") }
     var link by remember { mutableStateOf<com.dorr.app.network.ChatLinkDto?>(null) }
-    LaunchedEffect(ready, qr?.token) {
-        kotlinx.coroutines.delay(400)
-        link = runCatching { ApiClient.backlog.chatLink(chatAuth(), ready.trim().ifEmpty { null }).data }.getOrNull()
-    }
     val copied = stringResource(R.string.bk_copied)
     val context = LocalContext.current
     val resetDone = stringResource(R.string.ch_qr_reset_done)
-    LaunchedEffect(Unit) { qr = runCatching { ApiClient.chat.myQr(chatAuth()).data }.getOrNull() }
-    val spin = rememberInfiniteTransition(label = "qrRing")
-    val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "ring")
-    val me = com.dorr.app.network.AuthSession.user
+    LaunchedEffect(Unit) {
+        launch { qr = runCatching { ApiClient.chat.myQr(chatAuth()).data }.getOrNull() }
+        launch { link = runCatching { ApiClient.backlog.chatLink(chatAuth(), null).data }.getOrNull() }
+    }
+    LaunchedEffect(ready) {
+        if (ready.isBlank()) return@LaunchedEffect
+        kotlinx.coroutines.delay(400)
+        link = runCatching { ApiClient.backlog.chatLink(chatAuth(), ready.trim()).data }.getOrNull()
+    }
 
-    ChPage(stringResource(R.string.ch_my_qr_title), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(contentAlignment = Alignment.Center) {
-                // A slowly turning brand ring behind the card.
-                Box(Modifier.size(300.dp).rotate(angle).clip(RoundedCornerShape(44.dp)).background(Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red))))
-                Column(
-                    Modifier.size(290.dp).clip(RoundedCornerShape(40.dp)).background(Ch.Surface).padding(18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                ) {
-                    val payload = link?.payload ?: qr?.payload
-                    val bmp = remember(payload) { payload?.let { runCatching { qrImage(it) }.getOrNull() } }
-                    if (bmp != null) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(bmp.asImageBitmap(), null, modifier = Modifier.size(210.dp))
-                            ChAvatar(null, me?.name, myKey(), size = 46.dp, modifier = Modifier.border(3.dp, Color.White, CircleShape))
-                        }
-                    } else com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.size(210.dp), RoundedCornerShape(20.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text(me?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                }
-            }
-            Spacer(Modifier.height(26.dp))
-            Text(stringResource(R.string.ch_my_qr_sub), color = Ch.Mut, fontSize = 14.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(20.dp))
-            Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable {
-                    scope.launch {
-                        qr = runCatching { ApiClient.chat.resetQr(chatAuth()).data }.getOrNull() ?: qr
-                        host.showToast(resetDone)
-                    }
-                }.padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    val typing = WindowInsets.isImeVisible
+    val bringLink = remember { BringIntoViewRequester() }
+
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ch_my_qr_title)) { host.pop() }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(Icons.Rounded.Refresh, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.ch_reset_qr), color = Ch.Red, fontWeight = FontWeight.ExtraBold)
-            }
-
-            // ------------------------------------------------ click to chat (backlog 130)
-            Spacer(Modifier.height(22.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Ch.Surface).padding(16.dp)) {
-                Text(stringResource(R.string.bk_chat_link), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                Text(stringResource(R.string.bk_chat_link_sub), color = Ch.Mut, fontSize = 12.5.sp)
-                Spacer(Modifier.height(10.dp))
-                ChField(ready, { ready = it.take(500) }, stringResource(R.string.bk_chat_link_text), icon = Icons.Rounded.Message)
-                link?.let { l ->
-                    Text(l.link, color = Ch.Red, fontSize = 12.5.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
-                    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BkChip(stringResource(R.string.bk_copy_link), false) {
-                            (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                                .setPrimaryClip(android.content.ClipData.newPlainText("DORR", l.link))
-                            host.showToast(copied)
+            val payload = link?.payload ?: qr?.payload
+            val bmp = remember(payload) { payload?.let { runCatching { qrImage(it) }.getOrNull() } }
+            val card = RoundedCornerShape(28.dp)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .shadow(16.dp, card, ambientColor = Ch.Red.copy(alpha = 0.28f), spotColor = Ch.Red.copy(alpha = 0.36f))
+                    .clip(card)
+                    .background(Ch.HeaderBrush)
+                    .padding(top = if (typing) 12.dp else 18.dp, bottom = if (typing) 12.dp else 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier
+                        .widthIn(max = if (typing) 128.dp else 210.dp)
+                        .fillMaxWidth(if (typing) 0.38f else 0.6f)
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.White)
+                        .padding(if (typing) 6.dp else 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (bmp != null) {
+                        Image(bmp.asImageBitmap(), null, modifier = Modifier.fillMaxSize())
+                    } else {
+                        com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxSize(), RoundedCornerShape(12.dp))
+                    }
+                }
+                AnimatedVisibility(visible = !typing, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            stringResource(R.string.ch_my_qr_sub),
+                            color = Color.White,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 22.dp),
+                        )
+                        Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).height(18.dp)) {
+                            Canvas(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).align(Alignment.Center)) {
+                                drawLine(
+                                    Color.White.copy(alpha = 0.32f),
+                                    Offset(0f, size.height / 2),
+                                    Offset(size.width, size.height / 2),
+                                    strokeWidth = 1.5.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 7f)),
+                                )
+                            }
+                            Box(Modifier.size(18.dp).offset(x = (-9).dp).align(Alignment.CenterStart).clip(CircleShape).background(Ch.Bg))
+                            Box(Modifier.size(18.dp).offset(x = 9.dp).align(Alignment.CenterEnd).clip(CircleShape).background(Ch.Bg))
                         }
-                        BkChip(stringResource(R.string.bk_share_link), false) {
-                            runCatching {
-                                context.startActivity(android.content.Intent.createChooser(
-                                    android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, l.link), null,
-                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(Color.White.copy(alpha = 0.14f))
+                                    .clickable {
+                                        scope.launch {
+                                            qr = runCatching { ApiClient.chat.resetQr(chatAuth()).data }.getOrNull() ?: qr
+                                            host.showToast(resetDone)
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                Icon(Icons.Rounded.Refresh, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Text(stringResource(R.string.ch_reset_qr), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
                 }
+            }
+
+            // ------------------------------------------------ click to chat (backlog 130)
+            Spacer(Modifier.height(18.dp))
+            Column(Modifier.fillMaxWidth().bringIntoViewRequester(bringLink)) {
+                Text(stringResource(R.string.bk_chat_link), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(stringResource(R.string.bk_chat_link_sub), color = Ch.Mut, fontSize = 12.5.sp)
+                Spacer(Modifier.height(12.dp))
+                ChField(
+                    ready,
+                    { ready = it.take(500) },
+                    stringResource(R.string.bk_chat_link_text),
+                    icon = Icons.Rounded.Message,
+                    fieldModifier = Modifier.onFocusChanged { f ->
+                        if (f.isFocused) scope.launch {
+                            delay(120)
+                            bringLink.bringIntoView()
+                        }
+                    },
+                )
+                link?.let { l ->
+                    val shareLink = {
+                        runCatching {
+                            context.startActivity(android.content.Intent.createChooser(
+                                android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, l.link), null,
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                        Unit
+                    }
+                    val copyLink = {
+                        (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                            .setPrimaryClip(android.content.ClipData.newPlainText("DORR", l.link))
+                        host.showToast(copied)
+                    }
+                    val hostPart = l.link.substringAfter("://").substringBefore("/")
+                    val shortLink = if (hostPart.isBlank()) l.link else "…/$hostPart"
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Ch.Surface)
+                            .border(1.dp, Ch.Line, RoundedCornerShape(18.dp))
+                            .clickable { shareLink() }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(36.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Link, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.ch_conversation_link), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(shortLink, color = Ch.Red, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Ch.Red)
+                                .clickable { copyLink() }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(Icons.Rounded.ContentCopy, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.ch_copy_link), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        }
+                        Row(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(50))
+                                .background(Ch.Surface)
+                                .border(1.dp, Ch.Line, RoundedCornerShape(50))
+                                .clickable { shareLink() }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(Icons.Rounded.Share, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.ch_share_link), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
             }
         }
     }

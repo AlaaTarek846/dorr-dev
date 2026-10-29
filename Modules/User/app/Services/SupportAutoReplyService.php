@@ -90,7 +90,7 @@ class SupportAutoReplyService
                 return;
             }
 
-            $answer = $this->answerer->answer($question, $this->locale($ticket));
+            $answer = $this->answerer->answer($question, $this->locale($ticket), $ticket->user);
 
             if ($answer !== null) {
                 $this->post($ticket, SupportSetting::KIND_FAQ, $answer['answer'], push: true);
@@ -137,6 +137,7 @@ class SupportAutoReplyService
             $message = $ticket->messages()->create([
                 'user_id' => $ticket->user_id,
                 'driver_id' => $ticket->driver_id,
+                'freelancer_id' => $ticket->freelancer_id,
                 'sender' => SupportMessage::SENDER_SYSTEM,
                 'body' => $body,
                 'is_auto' => true,

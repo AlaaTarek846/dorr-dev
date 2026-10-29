@@ -35,17 +35,6 @@ class DriverEligibility implements DriverWorkGate
         if ($driver->status !== DriverStatus::Active) {
             return 'account_'.$driver->status->value;
         }
-        // D-329, D-336, D-344: maintenance, the service off where they work, an emergency review.
-        $states = app(DriverServiceStatus::class);
-        if ($states->maintenance($driver)) {
-            return 'maintenance';
-        }
-        if ($states->serviceOff($driver)) {
-            return 'service_off_here';
-        }
-        if ($states->emergencyReview($driver) !== null) {
-            return 'emergency_review';
-        }
 
         $service = $this->service();
         $serviceRow = $service ? $driver->serviceEligibility()->where('service_category_id', $service->id)->first() : null;
@@ -62,7 +51,20 @@ class DriverEligibility implements DriverWorkGate
             return $documents;
         }
 
-        return $this->regulatorProblem($driver, $vehicle) ?? (app(DrivingHours::class)->blocked($driver) ? 'driving_limit' : null) ?? $this->termsProblem($driver);
+        return $this->regulatorProblem($driver, $vehicle) ?? (app(DrivingHours::class)->blocked($driver) ? 'driving_limit' : null) ?? $this->stateProblem($driver) ?? $this->termsProblem($driver);
+    }
+
+    /** D-329, D-336, D-344 — after what the captain can fix themselves: maintenance, the service off where they work, an emergency review. */
+    private function stateProblem(Driver $driver): ?string
+    {
+        $states = app(DriverServiceStatus::class);
+
+        return match (true) {
+            $states->maintenance($driver) => 'maintenance',
+            $states->serviceOff($driver) => 'service_off_here',
+            $states->emergencyReview($driver) !== null => 'emergency_review',
+            default => null,
+        };
     }
 
     /** D-318: where the country asks for it, newer terms than the captain accepted keep them offline until they accept. */
@@ -89,6 +91,13 @@ class DriverEligibility implements DriverWorkGate
     /** May this driver, with this vehicle, take a ride in this category? Null = yes, else a reason code. */
     public function categoryProblem(Driver $driver, Vehicle $vehicle, RideCategory $category): ?string
     {
+        // O-89: the service this category belongs to must be open to the captain's vehicle in their country
+        // (the dashboard decides) and switched on by them; then the category's own rules.
+        $services = app(DriverServices::class);
+        $problem = $services->problem($driver, $services->serviceOfCategory($category, $driver->country_id === null ? null : (int) $driver->country_id));
+        if ($problem !== null) {
+            return $problem === 'service_switched_off' ? 'service_switched_off' : 'vehicle_kind';
+        }
         $row = DriverCategoryEligibility::query()->where('driver_id', $driver->id)->where('category_id', $category->id)->first();
         if ($row !== null && $row->admin_override) {
             return $row->status === 'eligible' ? null : 'category_'.$row->status;

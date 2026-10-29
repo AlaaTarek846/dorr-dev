@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,13 +39,16 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.EventNote
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Share
@@ -54,15 +56,14 @@ import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
@@ -94,11 +95,13 @@ import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import com.dorr.app.network.AppLocale
 import com.dorr.app.R
 import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.ConfirmDialog
 import com.dorr.app.ui.screens.profile.PinkIcon
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.profile.settingsSurface
+import com.dorr.app.ui.screens.profile.settingsSwitchColors
 import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.BusinessDayDto
@@ -209,7 +212,7 @@ fun BusinessPage() {
     var saving by remember { mutableStateOf(false) }
     var editingReply by remember { mutableStateOf<QuickReplyDto?>(null) }
     var newReply by remember { mutableStateOf(false) }
-    var pickingTime by remember { mutableStateOf<Pair<Int, Boolean>?>(null) } // day, isFrom
+    var panel by remember { mutableStateOf<BizPanel?>(null) }
     val saved = stringResource(R.string.ch_saved)
     val networkError = stringResource(R.string.ch_error_network)
 
@@ -237,24 +240,51 @@ fun BusinessPage() {
         loaded = true
     }
 
-    fun save() {
+    fun save(
+        nextAbout: String = about,
+        nextAddress: String = address,
+        nextEmail: String = email,
+        nextWebsite: String = website,
+        nextWelcomeOn: Boolean = welcomeOn,
+        nextWelcome: String = welcome,
+        nextAwayOn: Boolean = awayOn,
+        nextAway: String = away,
+        nextAwayMode: String = awayMode,
+        nextHours: List<BusinessDayDto>? = null,
+        then: (() -> Unit)? = null,
+    ) {
+        about = nextAbout
+        address = nextAddress
+        email = nextEmail
+        website = nextWebsite
+        welcomeOn = nextWelcomeOn
+        welcome = nextWelcome
+        awayOn = nextAwayOn
+        away = nextAway
+        awayMode = nextAwayMode
+        val hours = nextHours ?: days.toList()
+        if (nextHours != null) {
+            days.clear()
+            days.addAll(nextHours)
+        }
         saving = true
         scope.launch {
             try {
                 val body = Gson().toJsonTree(
                     mapOf(
-                        "welcome_enabled" to welcomeOn, "welcome_message" to welcome.trim(),
-                        "away_enabled" to awayOn, "away_message" to away.trim(), "away_mode" to awayMode,
-                        "about" to about.trim().ifEmpty { null }, "address" to address.trim().ifEmpty { null },
-                        "email" to email.trim().ifEmpty { null },
-                        "website" to website.trim().ifEmpty { null }?.let { if (it.startsWith("http")) it else "https://$it" },
-                        "hours" to days.toList(),
+                        "welcome_enabled" to nextWelcomeOn, "welcome_message" to nextWelcome.trim(),
+                        "away_enabled" to nextAwayOn, "away_message" to nextAway.trim(), "away_mode" to nextAwayMode,
+                        "about" to nextAbout.trim().ifEmpty { null }, "address" to nextAddress.trim().ifEmpty { null },
+                        "email" to nextEmail.trim().ifEmpty { null },
+                        "website" to nextWebsite.trim().ifEmpty { null }?.let { if (it.startsWith("http")) it else "https://$it" },
+                        "hours" to hours,
                         // The hours are in my own time zone.
                         "timezone" to ZoneId.systemDefault().id,
                     ),
                 ).asJsonObject
                 ApiClient.chat.updateBusiness(chatAuth(), body)
                 host.showToast(saved)
+                then?.invoke()
             } catch (e: Exception) {
                 host.showToast(e.apiFailure().message ?: networkError)
             }
@@ -262,7 +292,7 @@ fun BusinessPage() {
         }
     }
 
-    ChPage(stringResource(R.string.ch_business_title), onBack = { host.pop() }) {
+    ChPage(stringResource(R.string.ch_business_title), onBack = { host.pop() }, settingsHeader = true) {
         if (!loaded) {
             Box(Modifier.fillMaxSize().padding(14.dp)) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(360.dp), RoundedCornerShape(22.dp)) }
             return@ChPage
@@ -271,76 +301,222 @@ fun BusinessPage() {
             ChEmptyState(Icons.Rounded.Storefront, stringResource(R.string.ch_business_title), stringResource(R.string.ch_business_unavailable))
             return@ChPage
         }
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize().imePadding()) {
-            item { Text(stringResource(R.string.ch_business_intro), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 6.dp)) }
-
-            // ------------------------------------------------------------ the business card (backlog 111)
-            item { SectionTitle(stringResource(R.string.bk_business_card)) }
+        LazyColumn(
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().imePadding(),
+        ) {
             item {
-                Card {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChField(about, { about = it.take(500) }, stringResource(R.string.bk_business_about), icon = Icons.Rounded.Info)
-                        ChField(address, { address = it.take(300) }, stringResource(R.string.bk_business_address), icon = Icons.Rounded.Place)
-                        ChField(email, { email = it.take(150) }, stringResource(R.string.bk_business_email), icon = Icons.Rounded.Email)
-                        ChField(website, { website = it.take(255) }, stringResource(R.string.bk_business_website), icon = Icons.Rounded.Language)
-                    }
-                }
-            }
-
-            // ------------------------------------------------------------ message statistics (backlog 116)
-            item { SectionTitle(stringResource(R.string.bk_business_stats)) }
-            item { BusinessStatsCard() }
-
-            // ------------------------------------------------------------ opening hours
-            item { SectionTitle(stringResource(R.string.ch_business_hours)) }
-            item {
-                Card {
-                    days.forEachIndexed { i, day ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(dayName(i), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.width(86.dp))
-                            if (day.open) {
-                                TimeChip(day.from) { pickingTime = i to true }
-                                Text("–", color = Ch.Mut, modifier = Modifier.padding(horizontal = 6.dp))
-                                TimeChip(day.to) { pickingTime = i to false }
-                            } else {
-                                Text(stringResource(R.string.ch_business_closed), color = Ch.Soft, fontSize = 13.sp)
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Switch(day.open, { days[i] = day.copy(open = it) }, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red, checkedThumbColor = Color.White))
-                        }
-                    }
-                }
-            }
-
-            // ------------------------------------------------------------ welcome
-            item { SectionTitle(stringResource(R.string.ch_business_welcome)) }
-            item {
-                Card {
-                    ToggleRow(Icons.Rounded.WavingHand, stringResource(R.string.ch_business_welcome_on), welcomeOn, subtitle = stringResource(R.string.ch_business_welcome_sub)) { welcomeOn = it }
-                    ChField(welcome, { welcome = it.take(1000) }, stringResource(R.string.ch_business_welcome_hint), singleLine = false, minLines = 2, modifier = Modifier.padding(horizontal = 14.dp).padding(bottom = 14.dp))
-                }
-            }
-
-            // ------------------------------------------------------------ away
-            item { SectionTitle(stringResource(R.string.ch_business_away)) }
-            item {
-                Card {
-                    ToggleRow(Icons.Rounded.WbTwilight, stringResource(R.string.ch_business_away_on), awayOn, subtitle = stringResource(R.string.ch_business_away_sub)) { awayOn = it }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ModeChip(stringResource(R.string.ch_business_away_outside), awayMode == "outside_hours", Modifier.weight(1f)) { awayMode = "outside_hours" }
-                        ModeChip(stringResource(R.string.ch_business_away_always), awayMode == "always", Modifier.weight(1f)) { awayMode = "always" }
-                    }
-                    ChField(away, { away = it.take(1000) }, stringResource(R.string.ch_business_away_hint), singleLine = false, minLines = 2, modifier = Modifier.padding(14.dp))
-                }
-            }
-            item { ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !saving) { save() } }
-
-            // ------------------------------------------------------------ quick replies
-            item { SectionTitle(stringResource(R.string.ch_quick_replies)) }
-            item { Text(stringResource(R.string.ch_quick_replies_sub), color = Ch.Mut, fontSize = 12.5.sp, modifier = Modifier.padding(horizontal = 6.dp)) }
-            itemsIndexed(QuickReplies.list.orEmpty(), key = { _, r -> r.id }) { i, reply ->
                 Row(
-                    Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).clickable { editingReply = reply }.padding(12.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    PinkIcon(Icons.Rounded.Info)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stringResource(R.string.ch_business_intro),
+                        color = settingsMut(),
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.weight(1f).padding(top = 6.dp),
+                    )
+                }
+            }
+            item {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    PrivacySettingsRow(Icons.Rounded.Storefront, stringResource(R.string.bk_business_card)) { panel = BizPanel.Card }
+                    PrivacySettingsRow(Icons.Rounded.Insights, stringResource(R.string.bk_business_stats)) { panel = BizPanel.Stats }
+                    PrivacySettingsRow(Icons.Rounded.Schedule, stringResource(R.string.ch_business_hours)) { panel = BizPanel.Hours }
+                    PrivacySettingsRow(Icons.Rounded.WavingHand, stringResource(R.string.ch_business_welcome)) { panel = BizPanel.Welcome }
+                    PrivacySettingsRow(Icons.Rounded.WbTwilight, stringResource(R.string.ch_business_away)) { panel = BizPanel.Away }
+                    PrivacySettingsRow(Icons.Rounded.Bolt, stringResource(R.string.ch_quick_replies), last = true) { panel = BizPanel.Replies }
+                }
+            }
+        }
+    }
+
+    when (panel) {
+        BizPanel.Card -> BusinessCardSheet(
+            about = about, address = address, email = email, website = website, busy = saving,
+            onDismiss = { panel = null },
+            onSave = { a, d, e, w -> save(nextAbout = a, nextAddress = d, nextEmail = e, nextWebsite = w) { panel = null } },
+        )
+        BizPanel.Stats -> BusinessStatsSheet(onDismiss = { panel = null })
+        BizPanel.Hours -> HoursSheet(
+            days = days.toList(), busy = saving, onDismiss = { panel = null },
+            onSave = { next -> save(nextHours = next) { panel = null } },
+        )
+        BizPanel.Welcome -> WelcomeSheet(
+            on = welcomeOn, message = welcome, busy = saving, onDismiss = { panel = null },
+            onSave = { on, msg -> save(nextWelcomeOn = on, nextWelcome = msg) { panel = null } },
+        )
+        BizPanel.Away -> AwaySheet(
+            on = awayOn, message = away, mode = awayMode, busy = saving, onDismiss = { panel = null },
+            onSave = { on, msg, mode -> save(nextAwayOn = on, nextAway = msg, nextAwayMode = mode) { panel = null } },
+        )
+        BizPanel.Replies -> if (!newReply && editingReply == null) {
+            RepliesSheet(
+                onDismiss = { panel = null },
+                onNew = { newReply = true },
+                onEdit = { editingReply = it },
+            )
+        }
+        null -> {}
+    }
+    if (newReply || editingReply != null) {
+        QuickReplySheet(editingReply, onDismiss = { newReply = false; editingReply = null })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BusinessCardSheet(
+    about: String,
+    address: String,
+    email: String,
+    website: String,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String) -> Unit,
+) {
+    var draftAbout by remember { mutableStateOf(about) }
+    var draftAddress by remember { mutableStateOf(address) }
+    var draftEmail by remember { mutableStateOf(email) }
+    var draftWebsite by remember { mutableStateOf(website) }
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            Text(stringResource(R.string.bk_business_card), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(14.dp))
+            ChField(draftAbout, { draftAbout = it.take(500) }, stringResource(R.string.bk_business_about), icon = Icons.Rounded.Info, singleLine = false, minLines = 2)
+            Spacer(Modifier.height(10.dp))
+            ChField(draftAddress, { draftAddress = it.take(300) }, stringResource(R.string.bk_business_address), icon = Icons.Rounded.Place)
+            Spacer(Modifier.height(10.dp))
+            ChField(draftEmail, { draftEmail = it.take(150) }, stringResource(R.string.bk_business_email), icon = Icons.Rounded.Email)
+            Spacer(Modifier.height(10.dp))
+            ChField(draftWebsite, { draftWebsite = it.take(255) }, stringResource(R.string.bk_business_website), icon = Icons.Rounded.Language)
+            Spacer(Modifier.height(16.dp))
+            ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy) {
+                onSave(draftAbout, draftAddress, draftEmail, draftWebsite)
+            }
+        }
+    }
+}
+
+private enum class BizPanel { Card, Stats, Hours, Welcome, Away, Replies }
+
+@Composable
+private fun SheetTitle(text: String) {
+    Text(text, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BusinessStatsSheet(onDismiss: () -> Unit) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            SheetTitle(stringResource(R.string.bk_business_stats))
+            Spacer(Modifier.height(14.dp))
+            BusinessStatsCard()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HoursSheet(days: List<BusinessDayDto>, busy: Boolean, onDismiss: () -> Unit, onSave: (List<BusinessDayDto>) -> Unit) {
+    val draft = remember { mutableStateListOf<BusinessDayDto>().also { it.addAll(days.ifEmpty { List(7) { BusinessDayDto(false, "09:00", "17:00") } }) } }
+    var pickingTime by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            SheetTitle(stringResource(R.string.ch_business_hours))
+            Spacer(Modifier.height(14.dp))
+            draft.forEachIndexed { i, day ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(dayName(i), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.width(86.dp))
+                    if (day.open) {
+                        TimeChip(day.from) { pickingTime = i to true }
+                        Text("–", color = Ch.Mut, modifier = Modifier.padding(horizontal = 6.dp))
+                        TimeChip(day.to) { pickingTime = i to false }
+                    } else {
+                        Text(stringResource(R.string.ch_business_closed), color = Ch.Soft, fontSize = 13.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Switch(day.open, { draft[i] = day.copy(open = it) }, colors = settingsSwitchColors())
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy) { onSave(draft.toList()) }
+        }
+    }
+    pickingTime?.let { (day, isFrom) ->
+        val current = draft.getOrNull(day) ?: return@let
+        TimePickDialog(LocalTime.parse(if (isFrom) current.from else current.to), onDismiss = { pickingTime = null }) { time ->
+            val text = time.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
+            draft[day] = if (isFrom) current.copy(from = text) else current.copy(to = text)
+            pickingTime = null
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WelcomeSheet(on: Boolean, message: String, busy: Boolean, onDismiss: () -> Unit, onSave: (Boolean, String) -> Unit) {
+    var draftOn by remember { mutableStateOf(on) }
+    var draft by remember { mutableStateOf(message) }
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            SheetTitle(stringResource(R.string.ch_business_welcome))
+            Spacer(Modifier.height(14.dp))
+            ToggleRow(Icons.Rounded.WavingHand, stringResource(R.string.ch_business_welcome_on), draftOn, subtitle = stringResource(R.string.ch_business_welcome_sub)) { draftOn = it }
+            Spacer(Modifier.height(10.dp))
+            ChField(draft, { draft = it.take(1000) }, stringResource(R.string.ch_business_welcome_hint), icon = Icons.Rounded.ChatBubble, singleLine = false, minLines = 2)
+            Spacer(Modifier.height(16.dp))
+            ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy) { onSave(draftOn, draft) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AwaySheet(on: Boolean, message: String, mode: String, busy: Boolean, onDismiss: () -> Unit, onSave: (Boolean, String, String) -> Unit) {
+    var draftOn by remember { mutableStateOf(on) }
+    var draft by remember { mutableStateOf(message) }
+    var draftMode by remember { mutableStateOf(mode) }
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            SheetTitle(stringResource(R.string.ch_business_away))
+            Spacer(Modifier.height(14.dp))
+            ToggleRow(Icons.Rounded.WbTwilight, stringResource(R.string.ch_business_away_on), draftOn, subtitle = stringResource(R.string.ch_business_away_sub)) { draftOn = it }
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ModeChip(stringResource(R.string.ch_business_away_outside), draftMode == "outside_hours", Modifier.weight(1f)) { draftMode = "outside_hours" }
+                ModeChip(stringResource(R.string.ch_business_away_always), draftMode == "always", Modifier.weight(1f)) { draftMode = "always" }
+            }
+            Spacer(Modifier.height(10.dp))
+            ChField(draft, { draft = it.take(1000) }, stringResource(R.string.ch_business_away_hint), icon = Icons.Rounded.ChatBubble, singleLine = false, minLines = 2)
+            Spacer(Modifier.height(16.dp))
+            ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy) { onSave(draftOn, draft, draftMode) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RepliesSheet(onDismiss: () -> Unit, onNew: () -> Unit, onEdit: (QuickReplyDto) -> Unit) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            SheetTitle(stringResource(R.string.ch_quick_replies))
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.ch_quick_replies_sub), color = Ch.Mut, fontSize = 12.5.sp)
+            Spacer(Modifier.height(14.dp))
+            QuickReplies.list.orEmpty().forEachIndexed { i, reply ->
+                Row(
+                    Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted).clickable { onEdit(reply) }.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("/${reply.shortcut}", color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp)
@@ -348,36 +524,18 @@ fun BusinessPage() {
                     Text(reply.body, color = Ch.Ink, fontSize = 13.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Icon(Icons.Rounded.Edit, null, tint = Ch.Soft, modifier = Modifier.size(18.dp))
                 }
+                Spacer(Modifier.height(8.dp))
             }
-            item {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable { newReply = true }.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(Icons.Rounded.Add, null, tint = Ch.Red)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.ch_quick_reply_new), color = Ch.Red, fontWeight = FontWeight.ExtraBold)
-                }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable(onClick = onNew).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(Icons.Rounded.Add, null, tint = Ch.Red)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.ch_quick_reply_new), color = Ch.Red, fontWeight = FontWeight.ExtraBold)
             }
         }
     }
-
-    pickingTime?.let { (day, isFrom) ->
-        val current = days.getOrNull(day) ?: return@let
-        TimePickDialog(LocalTime.parse(if (isFrom) current.from else current.to), onDismiss = { pickingTime = null }) { time ->
-            val text = time.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
-            days[day] = if (isFrom) current.copy(from = text) else current.copy(to = text)
-            pickingTime = null
-        }
-    }
-    if (newReply || editingReply != null) {
-        QuickReplySheet(editingReply, onDismiss = { newReply = false; editingReply = null })
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(text, color = Ch.Mut, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
 }
 
 @Composable
@@ -410,14 +568,18 @@ private fun QuickReplySheet(reply: QuickReplyDto?, onDismiss: () -> Unit) {
     var shortcut by remember { mutableStateOf(reply?.shortcut.orEmpty()) }
     var body by remember { mutableStateOf(reply?.body.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val networkError = stringResource(R.string.ch_error_network)
+    val saved = stringResource(R.string.ch_saved)
+    val deleted = stringResource(R.string.ch_quick_reply_deleted)
 
-    fun done(action: suspend () -> Unit) {
+    fun done(toast: String, action: suspend () -> Unit) {
         busy = true
         scope.launch {
             try {
                 action()
                 QuickReplies.load(force = true)
+                host.showToast(toast)
                 onDismiss()
             } catch (e: Exception) {
                 host.showToast(e.apiFailure().message ?: networkError)
@@ -432,10 +594,10 @@ private fun QuickReplySheet(reply: QuickReplyDto?, onDismiss: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             ChField(shortcut, { shortcut = it.replace(" ", "").removePrefix("/").take(32) }, stringResource(R.string.ch_quick_reply_shortcut), icon = Icons.Rounded.Bolt)
             Spacer(Modifier.height(10.dp))
-            ChField(body, { body = it.take(4000) }, stringResource(R.string.ch_quick_reply_body), singleLine = false, minLines = 3)
+            ChField(body, { body = it.take(4000) }, stringResource(R.string.ch_quick_reply_body), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3)
             Spacer(Modifier.height(16.dp))
             ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy && shortcut.isNotBlank() && body.isNotBlank()) {
-                done {
+                done(saved) {
                     val fields = mapOf("shortcut" to shortcut, "body" to body.trim())
                     if (reply == null) ApiClient.chat.addQuickReply(chatAuth(), fields) else ApiClient.chat.updateQuickReply(chatAuth(), reply.id, fields)
                 }
@@ -443,15 +605,35 @@ private fun QuickReplySheet(reply: QuickReplyDto?, onDismiss: () -> Unit) {
             if (reply != null) {
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(enabled = !busy) { done { ApiClient.chat.deleteQuickReply(chatAuth(), reply.id) } }.padding(12.dp),
-                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Ch.Danger.copy(alpha = 0.14f))
+                        .clickable(enabled = !busy) { confirmDelete = true }
+                        .padding(horizontal = 26.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Rounded.Delete, null, tint = Ch.Danger, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.ch_delete), color = Ch.Danger, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.ch_delete), color = Ch.Danger, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                 }
             }
         }
+    }
+    if (confirmDelete && reply != null) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.ch_quick_reply_delete_title),
+            message = stringResource(R.string.ch_quick_reply_delete_sub),
+            confirmLabel = stringResource(R.string.ch_delete),
+            loading = busy,
+            onConfirm = {
+                confirmDelete = false
+                done(deleted) { ApiClient.chat.deleteQuickReply(chatAuth(), reply.id) }
+            },
+            onDismiss = { if (!busy) confirmDelete = false },
+        )
     }
 }
 
@@ -481,9 +663,29 @@ internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (
                     timeSelectorUnselectedContentColor = Ch.Ink,
                 ),
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) }
-                TextButton({ onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) }
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.ch_cancel),
+                    color = Ch.Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Ch.SurfaceMuted)
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+                Text(
+                    stringResource(R.string.ch_ok),
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Ch.Red)
+                        .clickable { onPick(LocalTime.of(state.hour, state.minute)) }
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                )
             }
         }
     }
@@ -512,17 +714,40 @@ private fun DateTimePickDialogs(onDismiss: () -> Unit, onPick: (ZonedDateTime) -
     if (date == null) {
         DatePickerDialog(
             onDismissRequest = onDismiss,
+            colors = DatePickerDefaults.colors(containerColor = Ch.Surface),
             confirmButton = {
                 locale.Provide {
-                    TextButton({ dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }) {
-                        Text(stringResource(R.string.ch_next), color = Ch.Red, fontWeight = FontWeight.Bold)
-                    }
+                    Text(
+                        stringResource(R.string.ch_next),
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .padding(start = 10.dp, end = 4.dp, bottom = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Ch.Red)
+                            .clickable { dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }
+                            .padding(horizontal = 18.dp, vertical = 10.dp),
+                    )
                 }
             },
             dismissButton = {
-                locale.Provide { TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } }
+                locale.Provide {
+                    Text(
+                        stringResource(R.string.ch_cancel),
+                        color = Ch.Ink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .padding(end = 10.dp, bottom = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Ch.SurfaceMuted)
+                            .clickable(onClick = onDismiss)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
+                }
             },
-        ) { locale.Provide { DatePicker(dateState) } }
+        ) { locale.Provide { DatePicker(dateState, colors = DatePickerDefaults.colors(containerColor = Ch.Surface)) } }
     } else {
         TimePickDialog(LocalTime.now(zone).plusHours(1).withMinute(0), onDismiss = onDismiss) { time ->
             val at = ZonedDateTime.of(date, time, zone)

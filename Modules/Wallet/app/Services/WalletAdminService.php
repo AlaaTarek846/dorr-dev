@@ -86,7 +86,7 @@ class WalletAdminService
     }
 
     /**
-     * Owners are polymorphic (user/provider), so search runs against each
+     * Owners are polymorphic (user/provider/freelancer), so search runs against each
      * owner table and matches wallets by (type, id).
      */
     private function searchOwners(Builder $query, string $term): void
@@ -101,7 +101,7 @@ class WalletAdminService
                 $outer->orWhere('wallet_number', 'like', "%{$digits}%");
             }
 
-            foreach (['user', 'provider'] as $alias) {
+            foreach (['user', 'provider', 'freelancer'] as $alias) {
                 $ids = OwnerType::modelClassFor($alias)::query()
                     ->where(fn (Builder $q) => $q->where('name', 'like', $like)->orWhere('phone', 'like', $like)->orWhere('email', 'like', $like))
                     ->select('id');

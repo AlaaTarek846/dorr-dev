@@ -27,7 +27,7 @@ interface RidesApi {
 
     /** R-INN-07 DORR Circle: my favourite captains, to choose from when booking. */
     @GET("mobile/v1/rides/circle")
-    suspend fun circle(@Header("Authorization") auth: String): ApiEnvelope<RideCircleDriversDto>
+    suspend fun circle(@Header("Authorization") auth: String, @Query("lat") lat: Double? = null, @Query("lng") lng: Double? = null): ApiEnvelope<RideCircleDriversDto>
 
     /** "Search all captains" once the circle had no one. */
     @POST("mobile/v1/rides/{uuid}/circle/widen")
@@ -211,12 +211,42 @@ interface RidesApi {
     /** `{price_minor}` higher than my current price. */
     @POST("mobile/v1/rides/{uuid}/raise")
     suspend fun raise(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideDto>
+
+    // Block 06 — DORR AI in rides.
+
+    /** «دُرر يفهم مقصدك»: is it here, and does my DORR AI plan allow it (the button is locked otherwise). */
+    @GET("mobile/v1/rides/ai/status")
+    suspend fun aiStatus(@Header("Authorization") auth: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<RideAiStatusDto>
+
+    /** `{text, lat?, lng?}` — the trip in my own words → places on the admin's map + what else I said. */
+    @POST("mobile/v1/rides/ai/understand")
+    suspend fun aiUnderstand(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<RideAiUnderstandDto>
+
+    /** AI-09 `{distance_m?, passengers?, categories?[]}` — the category I usually take for a trip like this. */
+    @POST("mobile/v1/rides/ai/suggest")
+    suspend fun aiSuggest(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<RideAiSuggestDto>
+
+    /** «راحتي»: my trip preferences and the choices. */
+    @GET("mobile/v1/rides/comfort")
+    suspend fun comfort(@Header("Authorization") auth: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<RideComfortScreenDto>
+
+    /** `{quiet, ac, music, notes[]}` */
+    @PUT("mobile/v1/rides/comfort")
+    suspend fun saveComfort(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<RideComfortScreenDto>
 }
 
 data class RideBidQuoteDto(
     @SerializedName("suggested_minor") val suggestedMinor: Long,
     @SerializedName("floor_minor") val floorMinor: Long,
     @SerializedName("step_minor") val stepMinor: Long = 100,
+    /** AI-05: the suggestion moved with demand around the pickup (null = the rate card as is). */
+    val smart: RideSmartPriceDto? = null,
+)
+
+data class RideSmartPriceDto(
+    @SerializedName("base_minor") val baseMinor: Long = 0,
+    @SerializedName("adjust_bp") val adjustBp: Int = 0,
+    val why: String? = null,
 )
 
 data class RideBiddingDto(
@@ -320,6 +350,8 @@ data class RideQuoteDto(
     @SerializedName("hourly_offer") val hourlyOffer: RideHourlyOfferDto? = null,
     /** R-233..R-237, R-NEW-06: the add-ons on offer here with their prices, and the ones priced in. */
     @SerializedName("addons_offer") val addonsOffer: RideAddonsOfferDto? = null,
+    /** O-88: online captains around who take the pet / child seats asked for (null = nothing needs equipment). */
+    @SerializedName("equipped_nearby") val equippedNearby: Int? = null,
     val options: List<RideAddonDto> = emptyList(),
 )
 
@@ -371,6 +403,8 @@ data class RideHourlyDto(
 )
 
 data class RideHourlyOfferDto(
+    /** O-86: by the hour only (motorcycles) — no «by distance». */
+    val only: Boolean = false,
     @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
     @SerializedName("min_hours") val minHours: Int = 1,
     @SerializedName("max_hours") val maxHours: Int = 8,
@@ -460,6 +494,9 @@ data class FavoriteDriverDto(
     val name: String? = null,
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     val rating: Double? = null,
+    /** O-81: on the booking sheet only — working and free right now, and how far from the pickup. */
+    val available: Boolean? = null,
+    @SerializedName("distance_km") val distanceKm: Double? = null,
 )
 
 /** "Are you OK?" waiting for an answer (R-222, R-223). */
@@ -656,6 +693,12 @@ data class RideDto(
     /** O-41: what the rider scores the captain on (speed, cleanliness…), each with its own stars. */
     @SerializedName("rating_criteria") val ratingCriteria: List<RatingCriterionDto> = emptyList(),
     val tip: RideTipDto? = null,
+    /** «راحتي»: what the rider asked for on this trip, and what the captain said can't be done. */
+    val comfort: RideComfortDto? = null,
+    /** Block 06: the captain is finishing a ride nearby and comes right after it. */
+    @SerializedName("driver_finishing") val driverFinishing: RideFinishingDto? = null,
+    /** Block 06: a booking's captain may be late — by about how much, and why. */
+    @SerializedName("late_risk") val lateRisk: RideLateRiskDto? = null,
 )
 
 data class RideHistoryItemDto(
@@ -761,4 +804,79 @@ data class RideCaseDto(
     @SerializedName("can_appeal") val canAppeal: Boolean = false,
     @SerializedName("appealed_at") val appealedAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
+)
+
+// Block 06 — DORR AI in rides.
+
+data class RideAiStatusDto(val available: Boolean = false, val allowed: Boolean = false, val reason: String? = null)
+
+data class RideAiUnderstoodDto(
+    val destination: String? = null,
+    val saved: String? = null,
+    val category: String? = null,
+    @SerializedName("category_name") val categoryName: String? = null,
+    /** ISO time with offset, for a ride later. */
+    val `when`: String? = null,
+    val passengers: Int? = null,
+    val payment: String? = null,
+    val note: String? = null,
+)
+
+data class RideAiPlaceDto(val name: String? = null, val address: String = "", val lat: Double, val lng: Double, val source: String? = null)
+
+data class RideAiUnderstandDto(
+    val understood: RideAiUnderstoodDto = RideAiUnderstoodDto(),
+    val clarify: String? = null,
+    val places: List<RideAiPlaceDto> = emptyList(),
+    @SerializedName("confirm_on_map") val confirmOnMap: Boolean = true,
+)
+
+data class RideAiSuggestDto(
+    val allowed: Boolean = false,
+    val reason: String? = null,
+    val category: String? = null,
+    val name: String? = null,
+    val confidence: Double? = null,
+    val why: String? = null,
+)
+
+data class RideComfortPrefsDto(val quiet: Boolean = false, val ac: String = "any", val music: String = "any", val notes: List<String> = emptyList())
+
+data class RideChoiceDto(val value: String, val label: String = "")
+
+data class RideComfortOptionsDto(val ac: List<RideChoiceDto> = emptyList(), val music: List<RideChoiceDto> = emptyList(), val notes: List<RideChoiceDto> = emptyList())
+
+data class RideComfortScreenDto(
+    val enabled: Boolean = false,
+    val prefs: RideComfortPrefsDto = RideComfortPrefsDto(),
+    val options: RideComfortOptionsDto = RideComfortOptionsDto(),
+    val disclaimer: String? = null,
+)
+
+data class RideComfortItemDto(val item: String, val label: String = "")
+
+data class RideComfortUnableDto(
+    val item: String? = null,
+    val label: String? = null,
+    val reason: String? = null,
+    @SerializedName("reason_label") val reasonLabel: String? = null,
+)
+
+data class RideComfortDto(
+    val quiet: Boolean = false,
+    val ac: String = "any",
+    val music: String = "any",
+    val notes: List<String> = emptyList(),
+    val items: List<RideComfortItemDto> = emptyList(),
+    val unable: List<RideComfortUnableDto> = emptyList(),
+    val disclaimer: String? = null,
+)
+
+data class RideFinishingDto(val finishing: Boolean = false, @SerializedName("eta_s") val etaS: Int = 0)
+
+data class RideLateRiskDto(
+    @SerializedName("late_s") val lateS: Int = 0,
+    val minutes: Int = 0,
+    val reason: String? = null,
+    @SerializedName("reason_label") val reasonLabel: String? = null,
 )

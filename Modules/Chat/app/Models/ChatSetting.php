@@ -16,6 +16,11 @@ class ChatSetting extends Model
 
     protected $fillable = [
         'max_group_members',
+        'education_groups_enabled',
+        'work_groups_enabled',
+        'max_owned_kind_groups',
+        'group_restore_days',
+        'group_tools_disabled',
         'max_file_size_mb',
         'edit_window_minutes',
         'delete_for_everyone_window_minutes',
@@ -29,6 +34,8 @@ class ChatSetting extends Model
         'stories_enabled',
         'public_stories_enabled',
         'public_stories_free',
+        'hidden_members_enabled',
+        'hidden_members_prices',
         'moments_enabled',
         'calendar_enabled',
         'calls_enabled',
@@ -42,6 +49,11 @@ class ChatSetting extends Model
     {
         return [
             'max_group_members' => 'integer',
+            'education_groups_enabled' => 'boolean',
+            'work_groups_enabled' => 'boolean',
+            'max_owned_kind_groups' => 'integer',
+            'group_restore_days' => 'integer',
+            'group_tools_disabled' => 'array',
             'max_file_size_mb' => 'integer',
             'edit_window_minutes' => 'integer',
             'delete_for_everyone_window_minutes' => 'integer',
@@ -55,6 +67,8 @@ class ChatSetting extends Model
             'stories_enabled' => 'boolean',
             'public_stories_enabled' => 'boolean',
             'public_stories_free' => 'integer',
+            'hidden_members_enabled' => 'boolean',
+            'hidden_members_prices' => 'array',
             'moments_enabled' => 'boolean',
             'calendar_enabled' => 'boolean',
             'calls_enabled' => 'boolean',
@@ -113,6 +127,22 @@ class ChatSetting extends Model
     public function publicStoriesFree(): int
     {
         return (int) ($this->public_stories_free ?? 1);
+    }
+
+    /**
+     * What hiding a group's members costs in this country (minor units), or null when it isn't
+     * sold here: switched off, or no price set for the country.
+     */
+    public function hiddenMembersPriceIn(int $countryId): ?int
+    {
+        if (! ($this->hidden_members_enabled ?? true)) {
+            return null;
+        }
+
+        $row = collect($this->hidden_members_prices ?? [])->firstWhere('country_id', $countryId);
+        $amount = (int) ($row['amount_minor'] ?? 0);
+
+        return $amount > 0 ? $amount : null;
     }
 
     public static function current(): self

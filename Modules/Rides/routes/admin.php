@@ -54,6 +54,8 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('ride-cases/{case}/messages', [RideCaseController::class, 'message'])->whereNumber('case');
         Route::post('ride-cases/{case}/files', [RideCaseController::class, 'file'])->whereNumber('case');
         Route::post('ride-cases/{case}/decide', [RideCaseController::class, 'decide'])->whereNumber('case');
+        // AI-12: DORR AI's reading of the case, again on request.
+        Route::post('ride-cases/{case}/ai-triage', [RideCaseController::class, 'triage'])->whereNumber('case')->middleware('throttle:20,1');
 
         Route::get('rides', [RideAdminController::class, 'index']);
         Route::get('rides/{ride}', [RideAdminController::class, 'show'])->whereNumber('ride');
@@ -69,6 +71,10 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('wasl-logs', [WaslLogController::class, 'index']);
         Route::get('wasl-logs/{waslLog}', [WaslLogController::class, 'show'])->whereNumber('waslLog');
 
+        // Block 06: service quality (AI-19, with DORR AI's reading on request) and rides with fraud signs (AI-06).
+        Route::get('rides-quality', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'quality']);
+        Route::post('rides-quality/explain', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'explain'])->middleware('throttle:10,1');
+        Route::get('rides-risk', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'risky']);
         // O-07, O-08: the rides page's maps — the heat map of requests and the captains on the map.
         Route::get('rides-map/heat', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'heatMap']);
         Route::get('rides-map/drivers', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'driversMap']);
@@ -78,6 +84,13 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('driver-payouts/{driver}/freeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'freeze'])->whereNumber('driver');
         Route::post('driver-payouts/{driver}/unfreeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'unfreeze'])->whereNumber('driver');
         // D-239..D-259: captain ranks — the ranks, one captain's record, appeals.
+        // O-89: captain services, and per country which kind of vehicle works in which.
+        Route::get('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'index']);
+        Route::post('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'store']);
+        Route::put('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'update'])->whereNumber('id');
+        Route::delete('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'destroy'])->whereNumber('id');
+        Route::get('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'rules']);
+        Route::put('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'saveRules']);
         Route::get('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'index']);
         Route::post('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'store']);
         Route::put('driver-ranks/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'update'])->whereNumber('id');

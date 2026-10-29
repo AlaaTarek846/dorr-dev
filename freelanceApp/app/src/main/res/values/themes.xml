@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns the real styling (ui/theme); this only sets the window chrome before Compose takes over. -->
+    <style name="Theme.DorrFreelance" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <!-- The first frame matches the Compose splash that follows. -->
+    <style name="Theme.DorrFreelance.Splash" parent="Theme.DorrFreelance">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

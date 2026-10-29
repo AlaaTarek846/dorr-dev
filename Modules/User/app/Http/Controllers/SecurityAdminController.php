@@ -69,7 +69,7 @@ class SecurityAdminController extends Controller implements HasMiddleware
 
         return ApiResponse::success(
             $paginator->getCollection()->map(fn (SecurityEvent $event) => SecurityPresenter::event($event, true) + [
-                'user' => ($u = $users->get($event->owner_id)) ? ['id' => $u->id, 'name' => $u->name, 'phone' => $u->phone] : null,
+                'user' => ($u = $users->get($event->owner_id)) ? ['id' => $u->id, 'name' => $u->name, 'is_verified' => \App\Support\AccountBadge::verified($u), 'phone' => $u->phone] : null,
             ])->values(),
             __('api.retrieved'),
             200,
@@ -83,7 +83,7 @@ class SecurityAdminController extends Controller implements HasMiddleware
         $user = User::query()->withTrashed()->find($row->owner_id, ['id', 'name', 'phone']);
 
         return ApiResponse::success(SecurityPresenter::event($row, true) + [
-            'user' => $user ? ['id' => $user->id, 'name' => $user->name, 'phone' => $user->phone] : null,
+            'user' => $user ? ['id' => $user->id, 'name' => $user->name, 'is_verified' => \App\Support\AccountBadge::verified($user), 'phone' => $user->phone] : null,
             'session' => $row->session ? SecurityPresenter::session($row->session, null, true) + ['user_agent' => $row->session->user_agent] : null,
         ], __('api.retrieved'));
     }

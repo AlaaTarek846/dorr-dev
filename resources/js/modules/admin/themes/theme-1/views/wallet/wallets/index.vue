@@ -69,7 +69,7 @@
                                             </span>
                                             <div>
                                                 <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click.stop="open(row)">
-                                                    {{ row.owner?.name || `#${row.owner_id}` }}
+                                                    <UserName :user="row.owner">{{ row.owner?.name || `#${row.owner_id}` }}</UserName>
                                                 </button>
                                                 <span class="d-block text-muted fs-11">
                                                     #{{ row.id }}
@@ -116,7 +116,7 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
-                            {{ wallet.owner?.name || `#${wallet.owner_id}` }}
+                            <UserName :user="wallet.owner">{{ wallet.owner?.name || `#${wallet.owner_id}` }}</UserName>
                             <div v-if="wallet.owner?.phone || wallet.owner?.email" class="fs-12 fw-normal text-muted" dir="ltr">{{ wallet.owner?.phone || wallet.owner?.email }}</div>
                         </WalletInfoTile>
                     </div>
@@ -332,6 +332,7 @@ import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery'
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, parseMajor } from '../../../../../../../utils/walletMoney';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();
@@ -392,6 +393,7 @@ function resetAdjust() {
 const ownerOptions = computed(() => [
     { value: 'user', label: t('wallet.owner.user') },
     { value: 'provider', label: t('wallet.owner.provider') },
+    { value: 'freelancer', label: t('wallet.owner.freelancer') },
 ]);
 const bucketOptions = computed(() => [
     { value: 'withdrawable', label: t('wallet.bucket.withdrawable') },

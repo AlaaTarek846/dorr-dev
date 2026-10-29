@@ -5,8 +5,10 @@ namespace Modules\Chat\Services;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Modules\Chat\Enums\VerificationTrack;
 use Modules\Chat\Models\ChatFeatureRule;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Models\Verification\ChatVerificationSetting;
 
 /**
  * Which chat features someone may use where they are (spec "أمان 2" and the shared requirement
@@ -35,6 +37,12 @@ final class ChatFeatures
             'calls', 'voice_rooms', 'live' => (bool) $settings->calls_enabled,
             'stories' => (bool) ($settings->stories_enabled ?? true),
             'ai' => $settings->aiEnabled(),
+            // Educational and work groups (docs/groups_tasks.md GR-001): on unless the admin switched them off.
+            'education_groups' => (bool) ($settings->education_groups_enabled ?? true),
+            'work_groups' => (bool) ($settings->work_groups_enabled ?? true),
+            // Account verification: each track has its own switch (off until the admin opens it).
+            'verification_paid' => ChatVerificationSetting::current()->trackEnabled(VerificationTrack::Paid),
+            'verification_celebrity' => ChatVerificationSetting::current()->trackEnabled(VerificationTrack::Celebrity),
             default => true,
         };
 

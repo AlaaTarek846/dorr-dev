@@ -1,6 +1,7 @@
 <?php
 
 use Modules\Driver\Models\Driver;
+use Modules\Freelance\Models\Freelancer;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
@@ -14,6 +15,7 @@ return [
         'user' => User::class,
         'provider' => Provider::class,
         'driver' => Driver::class,
+        'freelancer' => Freelancer::class,
     ],
 
     /*

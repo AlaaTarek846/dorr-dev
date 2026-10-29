@@ -50,6 +50,8 @@ class BusService
     /** The captain's bus: an approved, active vehicle with a bus / minibus body. */
     public function busOf(Driver $driver): Vehicle
     {
+        // O-89: bus trips only where the dashboard opened them to this vehicle, and the captain switched them on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'bus');
         $bus = Vehicle::query()->where('driver_id', $driver->id)->where('status', VehicleStatus::Approved->value)
             ->whereIn('body_type', [VehicleBodyType::Bus->value, VehicleBodyType::Minibus->value])
             ->orderByDesc('is_active')->first();
@@ -513,6 +515,6 @@ class BusService
 
     private function timeText(?CarbonInterface $at): string
     {
-        return $at?->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i') ?? '';
+        return $at?->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i') ?? '';
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -142,7 +143,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT, SECURITY,
+    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT, SECURITY, VERIFICATION,
 }
 
 private data class MenuEntry(
@@ -187,6 +188,11 @@ private fun ProfileScreenContent(
             // A tapped security alert: straight to the devices and the security log.
             if (link == com.dorr.app.chat.ChatDeepLink.Security) {
                 subScreen = ProfileSub.SECURITY
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+            // A tapped verification notification: my request.
+            if (link == com.dorr.app.chat.ChatDeepLink.Verification) {
+                subScreen = ProfileSub.VERIFICATION
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
         }
@@ -276,6 +282,7 @@ private fun ProfileScreenContent(
                 onOpenTerms = { subScreen = ProfileSub.TERMS },
             )
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.VERIFICATION -> com.dorr.app.ui.screens.profile.VerificationScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
@@ -312,6 +319,7 @@ private fun ProfileScreenContent(
                 onOpenInvite = { subScreen = ProfileSub.INVITE },
                 onOpenRate = { subScreen = ProfileSub.RATE },
                 onOpenSupport = { subScreen = ProfileSub.SUPPORT },
+                onOpenVerification = { subScreen = ProfileSub.VERIFICATION },
                 onOpenWallet = onOpenWallet,
                 onLogout = onLogout,
             )
@@ -434,6 +442,7 @@ private fun ProfileMenuScreen(
     onOpenInvite: () -> Unit,
     onOpenRate: () -> Unit,
     onOpenSupport: () -> Unit,
+    onOpenVerification: () -> Unit,
     onOpenWallet: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -444,6 +453,7 @@ private fun ProfileMenuScreen(
     val menuItems = listOf(
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = onOpenSettings),
+        MenuEntry(Icons.Rounded.VerifiedUser, R.string.verification_title, R.string.verification_menu_sub, onClick = onOpenVerification),
         MenuEntry(Icons.Rounded.LocationOn, R.string.account_places, R.string.account_places_sub, onClick = onOpenAddresses),
         MenuEntry(Icons.Rounded.Share, R.string.invite_title, R.string.invite_sub, onClick = onOpenInvite),
         MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = onOpenRate),
@@ -526,20 +536,10 @@ private fun ProfileMenuScreen(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(15.dp)
-                                .clip(CircleShape)
-                                .background(settingsAccent()),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Rounded.Check,
-                                contentDescription = stringResource(R.string.account_verified),
-                                tint = Color.White,
-                                modifier = Modifier.size(10.dp),
-                            )
+                        // The account verification ✔ — only for a verified account (it used to show for everyone).
+                        if (user?.isVerified == true) {
+                            Spacer(Modifier.width(2.dp))
+                            com.dorr.app.ui.components.VerifiedTick(16.dp)
                         }
                     }
                     user?.phone?.let { phone ->

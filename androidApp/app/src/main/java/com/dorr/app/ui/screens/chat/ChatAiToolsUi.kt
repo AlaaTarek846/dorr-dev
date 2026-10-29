@@ -15,8 +15,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
@@ -25,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -45,16 +49,20 @@ import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Engineering
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Spellcheck
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -64,15 +72,20 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -85,6 +98,7 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AskReferenceDto
 import com.dorr.app.network.AssistantAnswerDto
 import com.dorr.app.network.DateFoundDto
+import com.dorr.app.network.AiMessageRefDto
 import com.dorr.app.network.ImportantDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.network.RelatedFileDto
@@ -95,6 +109,13 @@ import com.dorr.app.network.TaskSuggestionDto
 import com.dorr.app.network.TodayDto
 import com.dorr.app.network.UnderstandDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.ConfirmDialog
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -169,6 +190,37 @@ private fun ErrorText(text: String?) {
 @Composable
 private fun Privacy() {
     Text(stringResource(R.string.ch_ai_privacy_note), color = Ch.Soft, fontSize = 11.5.sp, modifier = Modifier.padding(top = 10.dp))
+}
+
+/** Sparkle + count, and the AI privacy line next to it — same block the old sheet opened with. */
+@Composable
+private fun AiPageIntro(sub: String) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(sub, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.ch_ai_privacy_note),
+                color = settingsMut(),
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AiStack(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp), 8.dp), content = content)
+}
+
+@Composable
+private fun AiStackDivider() {
+    Box(Modifier.fillMaxWidth().padding(start = 14.dp).height(1.dp).background(settingsAccent().copy(alpha = 0.08f)))
 }
 
 @Composable
@@ -621,7 +673,174 @@ fun AiRelatedFilesSheet(conversationId: String, onDismiss: () -> Unit, onJump: (
 
 // =============================================================================== 41 important · 49 today
 
-/** What deserves attention — in this chat ([conversationId]) or across my unread chats. */
+private fun importantBody(conversationId: String? = null, page: Int = 1, perPage: Int = 15) = JsonObject().apply {
+    conversationId?.let { addProperty("conversation_id", it) }
+    addProperty("page", page)
+    addProperty("per_page", perPage)
+}
+
+/** Across unread chats: settings header, cards, pages of 15. */
+@Composable
+fun ImportantPage() {
+    val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var items by remember { mutableStateOf<List<AiMessageRefDto>?>(null) }
+    var messages by remember { mutableIntStateOf(0) }
+    var chats by remember { mutableIntStateOf(0) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val networkError = stringResource(R.string.ch_error_network)
+    val open: (String?, String?) -> Unit = { c, m -> if (c != null) { if (m != null) host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) } }
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        runCatching { ApiClient.aiTools.important(chatAuth(), importantBody(page = next, perPage = 15)).data }
+            .onSuccess { chunk ->
+                val fresh = chunk?.items.orEmpty()
+                items = if (reset) fresh else {
+                    val known = items.orEmpty().map { it.messageId }.toSet()
+                    items.orEmpty() + fresh.filter { it.messageId !in known }
+                }
+                if (reset) {
+                    messages = chunk?.messages ?: 0
+                    chats = chunk?.chats ?: 0
+                }
+                page = next
+                hasMore = chunk?.hasMore == true
+                error = null
+            }
+            .onFailure {
+                val fail = it.apiFailure()
+                if (reset && fail.httpStatus == 422) {
+                    items = emptyList()
+                    hasMore = false
+                    error = null
+                } else if (reset) {
+                    items = items ?: emptyList()
+                    error = fail.message ?: networkError
+                }
+            }
+        if (!reset) loadingMore = false
+    }
+    LaunchedEffect(Unit) { loadPage(reset = true) }
+
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ct_important)) { host.pop() }
+            val list = items
+            when {
+                error != null && list.isNullOrEmpty() -> Box(Modifier.weight(1f).fillMaxWidth().padding(20.dp)) { ErrorText(error) }
+                list == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                list.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth()) {
+                    ChEmptyState(Icons.Rounded.PriorityHigh, stringResource(R.string.ct_important), stringResource(R.string.ct_important_none), animated = true)
+                }
+                else -> {
+                    LaunchedEffect(listState, list.size, hasMore) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+                            .collect { (last, total) ->
+                                if (last != null && total > 0 && last >= total - 3) scope.launch { loadPage(reset = false) }
+                            }
+                    }
+                    LazyColumn(state = listState, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        item(key = "important-intro") {
+                            AiPageIntro(stringResource(R.string.ct_today_sub, messages, chats))
+                        }
+                        items(list, key = { it.messageId }) { item ->
+                            ImportantCard(item, showChat = true) { open(item.conversationId, item.messageId) }
+                        }
+                        if (loadingMore) {
+                            item(key = "important-more") {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = Ch.Red, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Today across my chats: a few lines, and the messages that matter. */
+@Composable
+fun TodayPage() {
+    val host = LocalChat.current
+    var result by remember { mutableStateOf<TodayDto?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val networkError = stringResource(R.string.ch_error_network)
+    LaunchedEffect(Unit) {
+        runCatching { ApiClient.aiTools.today(chatAuth(), JsonObject().apply { addProperty("timezone", zone()) }).data }
+            .onSuccess { result = it ?: TodayDto() }
+            .onFailure {
+                val fail = it.apiFailure()
+                if (fail.httpStatus == 422) result = TodayDto() else error = fail.message ?: networkError
+            }
+    }
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ct_today)) { host.pop() }
+            val r = result
+            when {
+                error != null -> Box(Modifier.weight(1f).fillMaxWidth().padding(20.dp)) { ErrorText(error) }
+                r == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                r.summary.isEmpty() && r.highlights.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth()) {
+                    ChEmptyState(Icons.Rounded.AutoAwesome, stringResource(R.string.ct_today), stringResource(R.string.ct_important_none), animated = true)
+                }
+                else -> LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    item(key = "today-intro") {
+                        AiPageIntro(stringResource(R.string.ct_today_sub, r.messages, r.chats))
+                    }
+                    if (r.summary.isNotEmpty()) {
+                        item(key = "today-summary") {
+                            AiStack {
+                                r.summary.forEachIndexed { i, p ->
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.Top) {
+                                        Box(Modifier.padding(top = 7.dp).size(6.dp).clip(CircleShape).background(Ch.Red))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(p, color = settingsInk(), fontSize = 14.sp, lineHeight = 20.sp)
+                                    }
+                                    if (i != r.summary.lastIndex) AiStackDivider()
+                                }
+                            }
+                        }
+                    }
+                    if (r.highlights.isNotEmpty()) {
+                        item(key = "today-hl") {
+                            Row(Modifier.padding(top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Visibility, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.ct_today_highlights), color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                        }
+                        items(r.highlights.size) { i ->
+                            val h = r.highlights[i]
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                                    .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                                    .clickable { h.conversationId?.let { c -> host.focusRequest = c to h.messageId; host.push(ChRoute.Conversation(c)) } }
+                                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                            ) {
+                                Text(listOfNotNull(h.chat, h.sender).joinToString(" · "), color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(h.text?.takeIf { it.isNotBlank() } ?: h.excerpt.orEmpty(), color = settingsInk(), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** What deserves attention in this chat (from the conversation menu). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiImportantSheet(conversationId: String?, onDismiss: () -> Unit, onOpen: (conversationId: String, messageId: String) -> Unit) {
@@ -629,7 +848,7 @@ fun AiImportantSheet(conversationId: String?, onDismiss: () -> Unit, onOpen: (co
     var error by remember { mutableStateOf<String?>(null) }
     val networkError = stringResource(R.string.ch_error_network)
     LaunchedEffect(conversationId) {
-        runCatching { ApiClient.aiTools.important(chatAuth(), JsonObject().apply { conversationId?.let { addProperty("conversation_id", it) } }).data }
+        runCatching { ApiClient.aiTools.important(chatAuth(), importantBody(conversationId)).data }
             .onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
@@ -642,18 +861,8 @@ fun AiImportantSheet(conversationId: String?, onDismiss: () -> Unit, onOpen: (co
                 r == null -> Loading()
                 r.items.isEmpty() -> Text(stringResource(R.string.ct_important_none), color = Ch.Soft, fontSize = 13.5.sp)
                 else -> r.items.forEach { item ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted)
-                            .clickable { (item.conversationId ?: conversationId)?.let { c -> onDismiss(); onOpen(c, item.messageId) } }.padding(12.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        Box(Modifier.padding(top = 5.dp).size(9.dp).clip(CircleShape).background(if (item.level == "high") Ch.Danger else Color(0xFFF59E0B)))
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(listOfNotNull(item.chat.takeIf { conversationId == null }, item.sender).joinToString(" · "), color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(item.excerpt.orEmpty(), color = Ch.Ink, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                            item.why?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp)) }
-                        }
+                    ImportantCard(item, showChat = conversationId == null) {
+                        (item.conversationId ?: conversationId)?.let { c -> onDismiss(); onOpen(c, item.messageId) }
                     }
                 }
             }
@@ -662,129 +871,259 @@ fun AiImportantSheet(conversationId: String?, onDismiss: () -> Unit, onOpen: (co
     }
 }
 
-/** Today across my chats: a few lines, and the messages that matter. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AiTodaySheet(onDismiss: () -> Unit, onOpen: (conversationId: String, messageId: String) -> Unit) {
-    var result by remember { mutableStateOf<TodayDto?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val networkError = stringResource(R.string.ch_error_network)
-    LaunchedEffect(Unit) {
-        runCatching { ApiClient.aiTools.today(chatAuth(), JsonObject().apply { addProperty("timezone", zone()) }).data }.onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
-    }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            AiHeader(stringResource(R.string.ct_today), result?.let { stringResource(R.string.ct_today_sub, it.messages, it.chats) })
-            Spacer(Modifier.height(12.dp))
-            val r = result
-            when {
-                error != null -> ErrorText(error)
-                r == null -> Loading()
-                else -> {
-                    r.summary.forEach { p ->
-                        Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.Top) {
-                            Box(Modifier.padding(top = 7.dp).size(6.dp).clip(CircleShape).background(Ch.Red))
-                            Spacer(Modifier.width(8.dp))
-                            Text(p, color = Ch.Ink, fontSize = 14.5.sp)
-                        }
-                    }
-                    if (r.highlights.isNotEmpty()) Text(stringResource(R.string.ct_today_highlights), color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-                    r.highlights.forEach { h ->
-                        Column(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted)
-                                .clickable { h.conversationId?.let { c -> onDismiss(); onOpen(c, h.messageId) } }.padding(12.dp),
-                        ) {
-                            Text(listOfNotNull(h.chat, h.sender).joinToString(" · "), color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(h.text?.takeIf { it.isNotBlank() } ?: h.excerpt.orEmpty(), color = Ch.Ink, fontSize = 14.sp)
-                        }
-                    }
-                }
+private fun ImportantCard(item: AiMessageRefDto, showChat: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).settingsSurface(RoundedCornerShape(18.dp), 8.dp).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(Modifier.padding(top = 5.dp).size(9.dp).clip(CircleShape).background(if (item.level == "high") Ch.Danger else Color(0xFFF59E0B)))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    listOfNotNull(item.chat.takeIf { showChat }, item.sender).joinToString(" · "),
+                    color = Ch.Red,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                item.createdAt?.let { Text(listTime(it), color = settingsMut(), fontSize = 11.sp) }
             }
-            Privacy()
+            Text(item.excerpt.orEmpty(), color = settingsInk(), fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            item.why?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp)) }
         }
     }
 }
 
 // =============================================================================== 38 my tasks
 
-/** My tasks: open ones (due first), add one by hand, tick off, and the done ones below. */
+/** My tasks: open ones (due first), add one by hand, tick off, and the done ones below. Pages of 15. */
 @Composable
 fun TasksPage() {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var open by remember { mutableStateOf<List<TaskDto>?>(null) }
     var done by remember { mutableStateOf<List<TaskDto>>(emptyList()) }
+    var openPage by remember { mutableIntStateOf(1) }
+    var donePage by remember { mutableIntStateOf(1) }
+    var openHasMore by remember { mutableStateOf(false) }
+    var doneHasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf("") }
     var dueFor by remember { mutableStateOf<TaskDto?>(null) }
+    var pendingDelete by remember { mutableStateOf<TaskDto?>(null) }
     val networkError = stringResource(R.string.ch_error_network)
+    val addedToast = stringResource(R.string.ct_tasks_saved)
+    val deletedToast = stringResource(R.string.ct_tasks_deleted)
+    val dueToast = stringResource(R.string.ct_tasks_due_set)
 
-    suspend fun load() {
-        open = runCatching { ApiClient.aiTools.tasks(chatAuth()).data.orEmpty() }.getOrElse { open ?: emptyList() }
-        done = runCatching { ApiClient.aiTools.tasks(chatAuth(), "done").data.orEmpty() }.getOrDefault(done)
+    suspend fun loadOpen(reset: Boolean) {
+        if (!reset && (loadingMore || !openHasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else openPage + 1
+        val envelope = runCatching { ApiClient.aiTools.tasks(chatAuth(), page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        open = if (reset) chunk else {
+            val known = open.orEmpty().map { it.id }.toSet()
+            open.orEmpty() + chunk.filter { it.id !in known }
+        }
+        openPage = next
+        openHasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
     }
-    fun update(task: TaskDto, body: JsonObject) {
-        scope.launch { runCatching { ApiClient.aiTools.updateTask(chatAuth(), task.id, body) }.onFailure { host.showToast(it.apiFailure().message ?: networkError) }; load() }
+    suspend fun loadDone(reset: Boolean) {
+        if (!reset && (loadingMore || !doneHasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else donePage + 1
+        val envelope = runCatching { ApiClient.aiTools.tasks(chatAuth(), "done", page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        done = if (reset) chunk else {
+            val known = done.map { it.id }.toSet()
+            done + chunk.filter { it.id !in known }
+        }
+        donePage = next
+        doneHasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
     }
-    LaunchedEffect(Unit) { load() }
-
-    ChPage(stringResource(R.string.ct_tasks), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { ChField(adding, { adding = it.take(300) }, stringResource(R.string.ct_tasks_add_hint), icon = Icons.Rounded.Add) }
-                Spacer(Modifier.width(8.dp))
-                ChPrimaryButton(stringResource(R.string.ct_tasks_add), enabled = adding.isNotBlank()) {
-                    val text = adding.trim()
-                    adding = ""
+    suspend fun reload() {
+        loadOpen(reset = true)
+        loadDone(reset = true)
+    }
+    fun update(task: TaskDto, body: JsonObject, ok: String? = null) {
+        scope.launch {
+            runCatching { ApiClient.aiTools.updateTask(chatAuth(), task.id, body) }
+                .onSuccess { if (!ok.isNullOrBlank()) host.showToast(ok) }
+                .onFailure { host.showToast(it.apiFailure().message ?: networkError, error = true) }
+            reload()
+        }
+    }
+    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(listState, open?.size, done.size, openHasMore, doneHasMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+            .collect { (last, total) ->
+                if (last != null && total > 0 && last >= total - 3) {
                     scope.launch {
-                        runCatching { ApiClient.aiTools.createTasks(chatAuth(), JsonObject().apply { add("tasks", JsonArray().apply { add(JsonObject().apply { addProperty("text", text) }) }) }) }
-                            .onFailure { host.showToast(it.apiFailure().message ?: networkError) }
-                        load()
+                        if (openHasMore) loadOpen(reset = false) else loadDone(reset = false)
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            val list = open
-            when {
-                list == null -> Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                list.isEmpty() -> Text(stringResource(R.string.ct_tasks_empty), color = Ch.Soft, fontSize = 14.sp, modifier = Modifier.padding(vertical = 20.dp))
-                else -> list.forEachIndexed { i, t -> TaskRow(t, Modifier.chStagger(i), onToggle = { update(t, JsonObject().apply { addProperty("done", true) }) }, onDue = { dueFor = t }, onOpen = {
-                    t.conversationId?.let { c -> t.messageId?.let { m -> host.focusRequest = c to m }; host.push(ChRoute.Conversation(c)) }
-                }, onDelete = { scope.launch { runCatching { ApiClient.aiTools.deleteTask(chatAuth(), t.id) }; load() } }) }
+    }
+
+    ChPage(stringResource(R.string.ct_tasks), onBack = { host.pop() }, settingsHeader = true) {
+        val list = open
+        LazyColumn(state = listState, contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+            item(key = "tasks-add") {
+                Row(Modifier.padding(top = 4.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { ChField(adding, { adding = it.take(300) }, stringResource(R.string.ct_tasks_add_hint), icon = Icons.Rounded.Add) }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.ct_tasks_add),
+                        color = Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier
+                            .graphicsLayer { alpha = if (adding.isBlank()) 0.5f else 1f }
+                            .shadow(10.dp, RoundedCornerShape(14.dp), spotColor = Ch.Red.copy(alpha = 0.45f))
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)))
+                            .clickable(enabled = adding.isNotBlank()) {
+                                val text = adding.trim()
+                                adding = ""
+                                scope.launch {
+                                    runCatching { ApiClient.aiTools.createTasks(chatAuth(), JsonObject().apply { add("tasks", JsonArray().apply { add(JsonObject().apply { addProperty("text", text) }) }) }) }
+                                        .onSuccess { host.showToast(addedToast); reload() }
+                                        .onFailure { host.showToast(it.apiFailure().message ?: networkError, error = true) }
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                    )
+                }
             }
-            if (done.isNotEmpty()) {
-                Text(stringResource(R.string.ct_tasks_done), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
-                done.take(50).forEach { t -> TaskRow(t, onToggle = { update(t, JsonObject().apply { addProperty("done", false) }) }, onDue = {}, onOpen = {}, onDelete = {
-                    scope.launch { runCatching { ApiClient.aiTools.deleteTask(chatAuth(), t.id) }; load() }
-                }) }
+            when {
+                list == null -> item(key = "tasks-load") {
+                    Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                }
+                list.isEmpty() && done.isEmpty() -> item(key = "tasks-empty") {
+                    Text(stringResource(R.string.ct_tasks_empty), color = Ch.Soft, fontSize = 14.sp, modifier = Modifier.padding(vertical = 20.dp))
+                }
+                else -> {
+                    items(list, key = { it.id }) { t ->
+                        TaskRow(t, onToggle = { update(t, JsonObject().apply { addProperty("done", true) }) }, onDue = { dueFor = t }, onOpen = {
+                            t.conversationId?.let { c -> t.messageId?.let { m -> host.focusRequest = c to m }; host.push(ChRoute.Conversation(c)) }
+                        }, onDelete = { pendingDelete = t })
+                    }
+                    if (done.isNotEmpty()) {
+                        item(key = "tasks-done-title") {
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.ct_tasks_done), color = settingsMut(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(10.dp))
+                                Box(Modifier.weight(1f).height(1.dp).background(Ch.Line.copy(alpha = 0.85f)))
+                            }
+                        }
+                        items(done, key = { "done-${it.id}" }) { t ->
+                            TaskRow(t, onToggle = { update(t, JsonObject().apply { addProperty("done", false) }) }, onDue = {}, onOpen = {}, onDelete = {
+                                pendingDelete = t
+                            })
+                        }
+                    }
+                }
+            }
+            if (loadingMore) {
+                item(key = "tasks-more") {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Ch.Red, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    }
+                }
             }
         }
     }
 
     dueFor?.let { t ->
         ScheduleSheet(onDismiss = { dueFor = null }) { at ->
-            update(t, JsonObject().apply { addProperty("due_at", at.toOffsetDateTime().toString()) })
+            update(t, JsonObject().apply { addProperty("due_at", at.toOffsetDateTime().toString()) }, dueToast)
             dueFor = null
         }
+    }
+    pendingDelete?.let { t ->
+        ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.ct_tasks_delete_title),
+            message = stringResource(R.string.ct_tasks_delete_msg),
+            confirmLabel = stringResource(R.string.ch_delete),
+            onConfirm = {
+                pendingDelete = null
+                scope.launch {
+                    runCatching { ApiClient.aiTools.deleteTask(chatAuth(), t.id) }
+                        .onSuccess { host.showToast(deletedToast); reload() }
+                        .onFailure { host.showToast(it.apiFailure().message ?: networkError, error = true) }
+                }
+            },
+            onDismiss = { pendingDelete = null },
+        )
     }
 }
 
 @Composable
 private fun TaskRow(t: TaskDto, modifier: Modifier = Modifier, onToggle: () -> Unit, onDue: () -> Unit, onOpen: () -> Unit, onDelete: () -> Unit) {
-    Row(
-        modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable(enabled = t.conversationId != null, onClick = onOpen).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    var open by remember(t.id) { mutableStateOf(false) }
+    Column(
+        modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Icon(
-            if (t.done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (t.done) Color(0xFF10B981) else Ch.Soft,
-            modifier = Modifier.size(24.dp).clip(CircleShape).clickable(onClick = onToggle),
-        )
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(t.text, color = if (t.done) Ch.Soft else Ch.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
-            t.dueAt?.let { Text("⏰ " + listTime(it) + " " + clockTime(it), color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (t.done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (t.done) Color(0xFF10B981) else Ch.Soft,
+                modifier = Modifier.size(24.dp).clip(CircleShape).clickable(onClick = onToggle),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                t.text,
+                color = if (t.done) Ch.Soft else Ch.Ink,
+                fontSize = 14.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = if (open) 8 else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).clickable(enabled = t.conversationId != null, onClick = onOpen),
+            )
+            Box(
+                Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Ch.SurfaceMuted).clickable { open = !open },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (open) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    null,
+                    tint = Ch.Mut,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
-        if (!t.done) Icon(Icons.Rounded.Alarm, null, tint = Ch.Mut, modifier = Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onDue))
-        Spacer(Modifier.width(10.dp))
-        Icon(Icons.Rounded.Delete, null, tint = Ch.Mut, modifier = Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onDelete))
+        Box(Modifier.fillMaxWidth().padding(top = 10.dp).height(1.dp).background(Ch.Line))
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            t.dueAt?.let {
+                Icon(Icons.Rounded.Schedule, null, tint = Ch.Red, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(taskDueStamp(it), color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.weight(1f))
+            if (!t.done) {
+                Box(
+                    Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Ch.SurfaceMuted).clickable(onClick = onDue),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Alarm, null, tint = Ch.Mut, modifier = Modifier.size(18.dp)) }
+                Spacer(Modifier.width(6.dp))
+            }
+            Box(
+                Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Ch.SurfaceMuted).clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Delete, null, tint = Ch.Mut, modifier = Modifier.size(18.dp)) }
+        }
     }
 }

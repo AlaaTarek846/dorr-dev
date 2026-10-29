@@ -11,6 +11,7 @@ use Modules\Rides\Enums\RidePaymentStatus;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RiderRideProfile;
+use Modules\Rides\Services\Dispatch\NextTrip;
 use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
 use Modules\Rides\Services\Safety\SafetyCheckService;
@@ -38,6 +39,7 @@ class DriverRideResource extends JsonResource
             ...RideResource::common($this->resource),
             'rider' => [
                 'name' => strtok((string) $this->rider?->name, ' ') ?: null,
+                'is_verified' => \App\Support\AccountBadge::verified($this->rider),
                 'rating' => $profile !== null && $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
                 'trips_count' => (int) ($profile?->trips_count ?? 0),
             ],
@@ -56,6 +58,10 @@ class DriverRideResource extends JsonResource
             'change_request' => ($change = RideChangeService::current($this->resource)) === null || $change->status !== 'pending' ? null : RideChangeService::present($change, 'driver'),
             // D-129: the time and distance left to the next point.
             'progress' => RideProgress::of($this->resource),
+            // Block 06: the next trip taken while driving this one (who, where, what it pays), and — on that trip —
+            // the ride it waits for.
+            'next_trip' => self::nextTrip($this->resource),
+            'waiting_for_ride' => ($before = NextTrip::waiting($this->resource)) === null ? null : ['uuid' => $before->uuid, 'number' => $before->number],
             'navigation' => $next === null ? null : [
                 'lat' => $next[0],
                 'lng' => $next[1],
@@ -92,6 +98,28 @@ class DriverRideResource extends JsonResource
                 : null,
             // O-41: what the captain scores the rider on.
             'rating_criteria' => $this->status === RideStatus::Completed ? RideRatingService::criteria($this->resource, RatingTarget::Rider) : [],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function nextTrip(\Modules\Rides\Models\Ride $ride): ?array
+    {
+        if ($ride->status !== RideStatus::InProgress || $ride->driver_id === null) {
+            return null;
+        }
+        $next = \Modules\Rides\Models\Ride::query()->where('after_ride_id', $ride->id)->where('driver_id', $ride->driver_id)
+            ->whereIn('status', [RideStatus::Accepted->value, RideStatus::Arrived->value])->latest('id')->first();
+        if ($next === null) {
+            return null;
+        }
+
+        return [
+            'uuid' => $next->uuid,
+            'number' => $next->number,
+            'rider' => strtok((string) $next->rider?->name, ' ') ?: null,
+            'rider_verified' => \App\Support\AccountBadge::verified($next->rider),
+            'pickup' => ['lat' => $next->origin_lat, 'lng' => $next->origin_lng, 'address' => $next->origin_address],
+            'earning_minor' => $next->driver_net_minor ?? $next->snapshot('breakdown.driver_net'),
         ];
     }
 

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.TwoWheeler
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -114,12 +115,36 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
         }
         // O-51: from → to as one card (the pickup's address on top, «Where to?» as the big target).
         RouteCard(state)
+        // Block 06: «دُرر يفهم مقصدك» — the trip in my own words (on a DORR AI plan).
+        SmartDestinationEntry(state) { state.smartOpen = true }
         if (state.feature("saved_places")) SavedPlacesRow(state)
         if (state.feature("scheduled")) {
             Spacer(Modifier.height(10.dp))
             WhenChips(state)
         }
 
+        // O-86: the motorcycle is hired by the hour — no destination needed, even where open rides are off.
+        if (!state.feature("open_destination") && state.features?.categories?.get("motorcycle") == true) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable {
+                    state.openDestination = true
+                    state.destination = null
+                    state.stops.clear()
+                    loadQuotes(state)
+                }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(36.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.TwoWheeler, null, tint = settingsAccent(), modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(stringResource(R.string.rd_moto_hourly), color = settingsInk(), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.rd_moto_hourly_hint), color = settingsMut(), fontSize = 12.sp)
+                }
+            }
+        }
         if (state.feature("open_destination")) {
             Spacer(Modifier.height(10.dp))
             Row(
@@ -206,6 +231,9 @@ internal fun PlaceSearchPage(state: RidesState, camera: DorrCamera) {
                     Text(stringResource(R.string.rd_add_stop), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
+        }
+        if (state.savingPlace == null && state.editing == "destination") Box(Modifier.padding(horizontal = 16.dp)) {
+            Column { SmartDestinationEntry(state) { state.smartOpen = true } }
         }
         Spacer(Modifier.height(10.dp))
         // The same pill field as the rest of the app, with a spinner while the suggestions load.
@@ -323,7 +351,10 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
                 state.quotes = list
                 state.addonsApplied = state.addons
                 // The same category stays chosen after a promo code re-prices the list.
-                state.selected = list.firstOrNull { it.category.slug == keep } ?: list.firstOrNull()
+                state.selected = list.firstOrNull { it.category.slug == keep }
+                    // Block 06: the category the rider asked DORR AI for.
+                    ?: state.preferCategory?.let { want -> list.firstOrNull { it.category.slug == want } }
+                    ?: list.firstOrNull()
                 state.riderPrice = state.selected?.bid?.suggestedMinor
                 if (state.selected?.category?.cashAllowed == false && state.payment == "cash") state.payment = "wallet"
             }
@@ -406,6 +437,8 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
         PickupPointsPanel(state)
         return
     }
+    // AI-09: the category I usually take for a trip like this (on a DORR AI plan).
+    SuggestionEffect(state)
 
     // The promo code, the price details and the cancellation rules make this sheet taller: it scrolls.
     PanelCard { Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
@@ -420,14 +453,17 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
         }
         state.quotes.forEachIndexed { index, quote ->
             Box(Modifier.staggerIn(index)) {
-                QuoteCard(quote, selected = quote.uuid == state.selected?.uuid, minute = minute, hour = hour) {
+                QuoteCard(quote, selected = quote.uuid == state.selected?.uuid, minute = minute, hour = hour, suggested = quote.category.slug == state.suggestion?.category) {
                     state.selected = quote
                     state.riderPrice = quote.bid?.suggestedMinor
                 }
             }
         }
+        state.suggestion?.why?.let { Text("✨ $it", color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp)) }
         state.selected?.bid?.let { bid ->
             BidPriceEditor(state.riderPrice ?: bid.suggestedMinor, bid.floorMinor, bid.suggestedMinor, bid.stepMinor, state.selected?.currency) { state.riderPrice = it }
+            // AI-05: why the suggestion moved from the rate card.
+            bid.smart?.why?.let { Text(it, color = AppColors.brandOrange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp)) }
         }
         // O-17: motorcycles (and any category the admin opens by the hour): by the distance or by the hour.
         state.selected?.takeIf { it.hourlyOffer != null }?.let { HourlyRow(state, it) }
@@ -445,6 +481,8 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
             if (state.feature("saved_places")) SaveDestinationRow(state)
             // D-60, D-61: how many ride and a note for the captain.
             TripDetailsRow(state)
+            // «راحتي»: how I like the trip — requests, not guarantees.
+            ComfortRow(state)
             // R-13: the ride is for someone else.
             if (state.feature("book_for_other")) BookForOtherRow(state)
             // R-INN-07: ask my favourite captains first.
@@ -483,7 +521,7 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
 }
 
 @Composable
-private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, hour: String, onClick: () -> Unit) {
+private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, hour: String, suggested: Boolean = false, onClick: () -> Unit) {
     val accent = settingsAccent()
     val edge by androidx.compose.animation.animateColorAsState(if (selected) accent else settingsInk().copy(alpha = 0.08f), androidx.compose.animation.core.tween(200), label = "quote-edge")
     val wash by androidx.compose.animation.animateColorAsState(if (selected) accent.copy(alpha = 0.06f) else Color.Transparent, androidx.compose.animation.core.tween(200), label = "quote-wash")
@@ -501,6 +539,7 @@ private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, ho
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(quote.category.name ?: quote.category.slug.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            if (suggested) SuggestedTag()
             val sub = listOfNotNull(
                 quote.route?.durationS?.let { minutesText(it, minute, hour) },
                 quote.route?.distanceM?.let { stringResource(R.string.rd_km, String.format("%.1f", it / 1000.0)) },

@@ -23,6 +23,12 @@
                             <div v-if="section.storage" class="fs-12 mt-2 mb-3" :class="form.call_recording_storage_ready ? 'text-success' : 'text-warning'">
                                 <i :class="form.call_recording_storage_ready ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'" class="me-1"></i>{{ t(form.call_recording_storage_ready ? 'chat.settings.recording_storage_ready' : 'chat.settings.recording_storage_missing') }}
                             </div>
+                            <div v-if="section.switches" class="d-flex flex-wrap gap-4 mb-3">
+                                <div v-for="key in section.switches" :key="key" class="form-check form-switch mb-0">
+                                    <input :id="`cs-${key}`" v-model="form[key]" class="form-check-input" type="checkbox" :disabled="!canUpdate">
+                                    <label class="form-check-label fs-13" :for="`cs-${key}`">{{ t(`chat.settings.${key}`) }}</label>
+                                </div>
+                            </div>
                             <div class="row g-3">
                                 <div v-for="f in section.fields" :key="f.key" class="col-sm-6">
                                     <label class="form-label fs-13">{{ t(`chat.settings.${f.key}`) }}</label>
@@ -49,6 +55,40 @@
                                     />
                                     <div v-if="errors[section.countries]" class="text-danger fs-12 mt-1">{{ errors[section.countries] }}</div>
                                     <div v-else class="text-muted fs-11 mt-1">{{ t(`chat.settings.hint_${section.countries}`) }}</div>
+                                </div>
+                                <div v-if="section.prices" class="col-12">
+                                    <label class="form-label fs-13">{{ t(`chat.settings.${section.prices}`) }}</label>
+                                    <div v-for="(row, i) in form[section.prices]" :key="i" class="row g-2 mb-2 align-items-center">
+                                        <div class="col-7">
+                                            <select v-model="row.country_id" class="form-select form-select-sm" :disabled="!canUpdate || !form[section.toggle]">
+                                                <option :value="null" disabled>{{ t('chat.settings.countries_placeholder') }}</option>
+                                                <option v-for="c in countries" :key="c.id" :value="c.id" :disabled="form[section.prices].some((p, j) => j !== i && p.country_id === c.id)">{{ c.name }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <input :value="row.amount_minor ? row.amount_minor / 100 : ''" type="number" min="0.01" step="0.01" dir="ltr" class="form-control form-control-sm" :placeholder="t('chat.settings.price')" :disabled="!canUpdate || !form[section.toggle]" @input="row.amount_minor = Math.round(Number($event.target.value || 0) * 100)">
+                                        </div>
+                                        <div class="col-1">
+                                            <button type="button" class="btn btn-sm btn-danger-light btn-icon" :disabled="!canUpdate" @click="form[section.prices].splice(i, 1)"><i class="ri-close-line"></i></button>
+                                        </div>
+                                    </div>
+                                    <button v-if="canUpdate" type="button" class="btn btn-sm btn-light" :disabled="!form[section.toggle]" @click="form[section.prices].push({ country_id: null, amount_minor: null })"><i class="ri-add-line me-1"></i>{{ t('chat.settings.add_country') }}</button>
+                                    <div v-if="pricesError(section.prices)" class="text-danger fs-12 mt-1">{{ pricesError(section.prices) }}</div>
+                                    <div v-else class="text-muted fs-11 mt-1">{{ t(`chat.settings.hint_${section.prices}`) }}</div>
+                                </div>
+                                <!-- GR-051: each extra tool of educational / work groups on or off for everyone -->
+                                <div v-if="section.tools && form.group_tools" class="col-12">
+                                    <label class="form-label fs-13">{{ t('chat.settings.group_tools') }}</label>
+                                    <div v-for="(tools, kind) in form.group_tools" :key="kind" class="mb-2">
+                                        <div class="fs-12 text-muted mb-1">{{ t(`chat.settings.group_tools_${kind}`) }}</div>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div v-for="tool in tools" :key="tool" class="form-check form-switch mb-0">
+                                                <input :id="`cs-tool-${tool}`" class="form-check-input" type="checkbox" :checked="!form.group_tools_disabled.includes(tool)" :disabled="!canUpdate" @change="toggleTool(tool)">
+                                                <label class="form-check-label fs-13" :for="`cs-tool-${tool}`">{{ t(`chat.settings.tool_${tool}`) }}</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted fs-11 mt-1">{{ t('chat.settings.hint_group_tools') }}</div>
                                 </div>
                             </div>
                         </div>
@@ -106,6 +146,18 @@ const sections = [
         ],
     },
     {
+        // Educational and work groups: each kind on/off, and how many one person may own (0 = no limit).
+        key: 'group_kinds',
+        icon: 'ri-graduation-cap-line',
+        note: true,
+        switches: ['education_groups_enabled', 'work_groups_enabled'],
+        tools: true,
+        fields: [
+            { key: 'max_owned_kind_groups', min: 0, max: 1000, hint: true },
+            { key: 'group_restore_days', min: 1, max: 365, unit: 'days', hint: true },
+        ],
+    },
+    {
         key: 'stories',
         icon: 'ri-donut-chart-line',
         toggle: 'stories_enabled',
@@ -123,6 +175,15 @@ const sections = [
         fields: [
             { key: 'public_stories_free', min: 0, max: 20, hint: true },
         ],
+    },
+    {
+        // Hidden members in a group (paid once): numbers hidden, no private chats from the group; priced per country.
+        key: 'hidden_members',
+        icon: 'ri-user-unfollow-line',
+        toggle: 'hidden_members_enabled',
+        note: true,
+        prices: 'hidden_members_prices',
+        fields: [],
     },
     {
         // DORR Moments: occasions, greeting cards and their effects (the chat keeps working when off).
@@ -186,15 +247,34 @@ const same = (a, b) => (Array.isArray(a) || Array.isArray(b)
 
 const dirty = computed(() => Object.keys(original.value).some((key) => !same(original.value[key], form[key])));
 
+/** A deep copy of the lists, so editing the form never touches the saved values. */
+const copyLists = (data) => ({
+    ...data,
+    calls_disabled_countries: [...(data.calls_disabled_countries ?? [])],
+    hidden_members_prices: (data.hidden_members_prices ?? []).map((row) => ({ ...row })),
+    group_tools_disabled: [...(data.group_tools_disabled ?? [])],
+});
+
+/** A tool switched off goes on the list; switched on comes off it. */
+function toggleTool(tool) {
+    const list = form.group_tools_disabled;
+    const i = list.indexOf(tool);
+    if (i === -1) list.push(tool); else list.splice(i, 1);
+}
+
 function fill(data) {
-    const copy = { ...data, calls_disabled_countries: [...(data.calls_disabled_countries ?? [])] };
-    original.value = copy;
-    Object.assign(form, { ...copy, calls_disabled_countries: [...copy.calls_disabled_countries] });
+    original.value = copyLists(data);
+    Object.assign(form, copyLists(original.value));
 }
 
 function reset() {
-    Object.assign(form, { ...original.value, calls_disabled_countries: [...(original.value.calls_disabled_countries ?? [])] });
+    Object.assign(form, copyLists(original.value));
     Object.keys(errors).forEach((key) => delete errors[key]);
+}
+
+/** The first error on the price list or on one of its rows. */
+function pricesError(key) {
+    return errors[key] ?? Object.entries(errors).find(([k]) => k.startsWith(`${key}.`))?.[1];
 }
 
 async function loadCountries() {
@@ -220,6 +300,10 @@ async function save() {
             body[key] = form[key];
         }
     });
+    delete body.group_tools;
+    if (body.hidden_members_prices) {
+        body.hidden_members_prices = body.hidden_members_prices.filter((row) => row.country_id && row.amount_minor > 0);
+    }
 
     try {
         const { data } = await adminAxios.put('/api/admin/v1/chat-settings', body);

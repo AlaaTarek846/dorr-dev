@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-19  
+**Last updated:** 2026-10-26  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -63,6 +63,54 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Chat educational & work groups (2026-10-29):** every non-AI task of `docs/groups_tasks.md` is done, the parents included (D8: an ordinary account linked to the child with the teacher's approval, never a member of the class chat). Admin page `admin.chat.groups` (`chat-groups.view/update`), tool switches in chat settings. The Android work and parent screens have not been built with Gradle yet. The AI tasks are still open: GR-023, 029, 046 (summary), 047, 048, 054.
+- **Chat group kinds (2026-10-27):** GR-001/002 of `docs/groups_tasks.md` — ordinary / educational / work, fixed at creation, switch + limit in chat settings, Android picker. The rest of the educational and work tools follow that file.
+- **Chat hidden members (2026-10-27):** paid group setting (once, never switched off) — numbers hidden from each other, no private chats from the group, names shown. Price per country in admin chat settings; Android switch on «جروب جديد» and in the group settings. `ParticipantDirectory::isHiddenFrom()`.
+- **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
+- **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
+- **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.
+- **Chat communities demo (2026-10-28):** `ChatCommunitiesDemoSeeder` — creator, member-only, hop-in / ask-to-join groups, long names, fillers for page 2, plus three groups outside a community for «إضافة مجموعات موجودة».
+- **Android calls log (2026-10-28):** one card for overlay / fullscreen / create link / link log (count on the left); call list has icon + title on the right and the count on the left; pages of 15.
+- **Android business tools (2026-10-28):** privacy-style settings card; each row opens a sheet.
+- **Android calls + business tools (2026-10-28):** settings header (`SubHeader` + pink wash).
+- **Android manage storage (2026-10-27):** summary card; select-all on the open chip; delete confirms then a toast. Files page 15.
+- **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` — large, forwarded, and per-chat files for last `mobile-app` login.
+- **Android usage stats hero (2026-10-27):** memory well, calendar on the since date, mobile/Wi-Fi glass split like the wallet.
+- **Android usage stats confirm (2026-10-27):** clear cache and reset stats use `ConfirmDialog` then a toast.
+- **Android data and performance (2026-10-27):** data/performance, manage storage, and usage stats use the settings header (`SubHeader` + pink wash).
+- **Android life inbox search (2026-10-27):** `q` on `GET life-inbox` (title, who, chat, location); pages of 15.
+- **Android life inbox requests (2026-10-27):** row uses `MarkChatUnread`; tap opens the requests list (`filter=requests`) with search, not Chat Settings.
+- **Android life inbox (2026-10-27):** chips in one row, first with data selected; pages of 15 (`section`/`page`/`per_page`).
+- **Chat life-inbox demo (2026-10-27):** `ChatLifeInboxDemoSeeder` — reply, pay, appointments for last `mobile-app` login.
+- **Android commitments search (2026-10-27):** `q` on commitments/handoffs (name, phone, title/note); pages of 15.
+- **Android commitments list (2026-10-26):** pages of 15; scroll loads more (`GET commitments` / `handoffs` `page`/`per_page`).
+- **Chat commitments demo (2026-10-26):** `ChatCommitmentsDemoSeeder` for last `mobile-app` login — open commitments + handoffs on «التزاماتي».
+- **Android my tasks (2026-10-26):** compact **إضافة**; lists page 15 (`GET tasks?page=&per_page=`).
+- **Android tasks / commitments / life inbox (2026-10-26):** settings header (`SubHeader` + pink wash).
+- **Android important + today (2026-10-26):** settings rows open `ChRoute.Important` / `ChRoute.Today` (pink header). Important pages 15 (`POST ai/important` `page`/`per_page`/`has_more`). In-chat important stays a sheet.
+- **Chat important demo (2026-10-26):** seeder targets the last `mobile-app` token (currently `+201113667448`); `POST ai/important` ranks unread picks (pages of 15).
+- **Android “what I missed” (2026-10-26):** settings header; compact time chips; search by name/phone; unread rows are cards with a badge; unread chats page 15 (`GET catch-up?q=&page=&per_page=`).
+- **Android starred messages (2026-10-26):** Favourites lists compact cards. Search at the top (name/phone/text). Star only on unsorted Favourites. Expand arrow; tap jumps to the message; pages of 15.
+- **Android current context (2026-10-26):** communication rules “Right now” is a row + choice sheet (then duration), not chips.
+- **Android context rules (2026-10-26):** one `ChRoute.ContextRules(key)` screen; list rows on communication rules push it.
+- **Android communication rules calls + on-phone (2026-10-26):** same card/rows as the sections above; RedToggle like Account notifications.
+- **Android always-get-through (2026-10-26):** privacy-style row with a count; picker checks the chosen people and loads contacts 15 at a time.
+- **Android communication rules (2026-10-26):** “What interrupts me” uses privacy-style rows + ChoiceSheet; title/description stay outside the card.
+- **Android locked chats empty (2026-10-25):** empty locked list uses `ChEmptyState` like blocked contacts (`ch_no_locked`).
+- **Android blocked contacts (2026-10-25):** Privacy and security → Blocked contacts (search name/phone, pages of 15). Removed from the privacy settings page.
+- **Android username delete (2026-10-25):** remove sends `username: ""` (Gson was dropping JSON null). Save/delete and privacy updates toast. API missing-username message is translated.
+- **Android privacy schedule sheet (2026-10-25):** time boxes have a clock icon; weekdays are named chips (multi-select) under **أيام الأسبوع**.
+- **Android chat privacy screen (2026-10-25):** Privacy matches Account → Notifications (one settings card, 13.5/11sp rows, PinkIcon + RedToggle). Blocked contacts stay a list under that card.
+- **Android channel unfollow (2026-10-25):** unfollow uses the same confirm dialog as clear chat, then pops back to the list.
+- **Android channels create (2026-10-22):** sticky **إنشاء قناة** at the bottom of Channels; filter beside search matches browse.
+- **Android channels filter (2026-10-22):** Channels search uses the browse Tune circle; the sheet is verification + category `FilterSelect`, Apply / Clear.
+- **Android chat money page (2026-10-20):** chat info → money is `ChRoute.ChatMoney` (settings header). Ledger pages 15 (`has_more`, Show more / المزيد). `GET conversations/{c}/money?page=&per_page=`.
+- **Android chat theme page (2026-10-20):** chat info → theme opens `ChRoute.ChatTheme` with the settings header (`SubHeader` + pink wash): live preview, admin swatches, custom photo and bubble colours, Apply / reset. Same conversation settings API as before.
+- **Android chat header call menu (2026-10-19):** videocam + chevron opens a dropdown from the bottom of the header: voice, video, send call link (`POST calls` / `POST call-links`).
+- **Starred messages pages of 15 (2026-10-19):** `GET chat/messages/starred?page=&per_page=15` with `has_more_pages`; the Android list loads the next 15 near the end.
+- **Android chat inner headers (2026-10-19):** `ChPage` and the conversation header match the calendar title bar (22sp Black Cairo, DarkHero 34/16 icons, back on the left in Arabic).
+- **Android chat overflow → Chat settings (2026-10-19):** three-dots menu is Starred / Locked chats / Communities / Settings. `ChRoute.ChatSettings` lists eight topics; each opens its own page (Account and profile → QR, status, followers / channels, and the other groups the same way).
+- **Android chat list + stories pages of 15 (2026-10-19):** conversations and the stories bar load 15, then the next 15 as you scroll (`per_page=15`, `has_more`).
 - **Admin → Discover → Organizers catalog UI (2026-10-18):** the list follows flags/users (breadcrumb, All/Pending/Verified/Rejected/Suspended counts, search, skeleton/empty, created-at, pagination, details modal, review without `window.prompt`). API extra is `status_counts`, not `pending_count`.
 - **Android Discover my interests (2026-10-19):** kinds page 15 with Show more (`GET discover/categories?page=&per_page=15`); saving a kind no longer reloads home (that froze the screen).
 - **Android Discover organizer (2026-10-19):** My events has a search field (`GET discover/organizer?q=`).

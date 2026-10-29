@@ -425,6 +425,17 @@ interface DriverApi {
     suspend fun lostItemReturned(@Path("uuid") uuid: String, @Part photo: MultipartBody.Part?): Response<ApiEnvelope<LostItemDto>>
 
     /** D-216..D-224: my payout safeguards; D-227, D-228: monthly statements. */
+    /** O-85: what this captain's vehicle can do — the app shows only these services. */
+    @GET("driver/v1/work-services")
+    suspend fun workServices(): Response<ApiEnvelope<WorkServicesDto>>
+
+    @PUT("driver/v1/work-services/{key}")
+    suspend fun chooseWorkService(@Path("key") key: String, @Body body: JsonObject): Response<ApiEnvelope<WorkServicesDto>>
+
+    /** D-329..D-344: maintenance, safe mode, switched-off service / categories, emergency review, the last withdrawal. */
+    @GET("driver/v1/service-status")
+    suspend fun serviceStatus(): Response<ApiEnvelope<ServiceStatusDto>>
+
     @GET("driver/v1/payouts/status")
     suspend fun payoutStatus(): Response<ApiEnvelope<PayoutStatusDto>>
 
@@ -493,6 +504,31 @@ interface DriverApi {
 
     @GET("driver/v1/earnings/report")
     suspend fun earningsReport(@Query("period") period: String, @Query("from") from: String? = null, @Query("to") to: String? = null): Response<ApiEnvelope<EarningsReportDto>>
+
+    // ---------------------------------------------------------------- Block 06: DORR AI for the captain
+
+    /** Hot zones now (everyone); the forecast and booked-ahead demand on a DORR AI plan. */
+    @GET("driver/v1/demand")
+    suspend fun demand(@Query("lat") lat: Double, @Query("lng") lng: Double): Response<ApiEnvelope<DemandDto>>
+
+    /** DORR Driver AI's cards: where to work, clashes with my bookings, my daily goal. */
+    @GET("driver/v1/ai/assistant")
+    suspend fun aiAssistant(@Query("lat") lat: Double?, @Query("lng") lng: Double?): Response<ApiEnvelope<DriverAiDto>>
+
+    /** `{question, lat?, lng?}` */
+    @POST("driver/v1/ai/ask")
+    suspend fun aiAsk(@Body body: JsonObject): Response<ApiEnvelope<DriverAiAnswerDto>>
+
+    /** «راحتي»: `{item, reason}` — one of the rider's requests can't be done here. */
+    @POST("driver/v1/rides/{uuid}/comfort/unable")
+    suspend fun comfortUnable(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TripDto>>
+
+    /** The same DORR AI plans as the DORR app, paid from my wallet with my PIN. */
+    @GET("driver/v1/ai-subscription/plans")
+    suspend fun aiPlans(): Response<ApiEnvelope<List<AiPlanDto>>>
+
+    @POST("driver/v1/ai-subscription/subscribe")
+    suspend fun aiSubscribe(@Header("X-Wallet-Pin") pin: String, @Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 }
 
 data class PhoneBody(

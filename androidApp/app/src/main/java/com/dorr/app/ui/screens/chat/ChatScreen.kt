@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Icon
@@ -98,7 +99,10 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     }
 
     // Which AI tools the server offers (the ✨ buttons only show for those).
-    LaunchedEffect(Unit) { ChatAi.load() }
+    LaunchedEffect(Unit) {
+        ChatAi.load()
+        host.refreshStories()
+    }
     // What's on where I am (country / city rules) — the city from the phone's approximate
     // location, asked for once after our own explanation.
     val featureContext = androidx.compose.ui.platform.LocalContext.current
@@ -179,6 +183,11 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             // A task whose time came (spec 38): my tasks.
             if (link == com.dorr.app.chat.ChatDeepLink.Tasks) {
                 if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+            // As a parent (GR-018, 027): my children.
+            if (link == com.dorr.app.chat.ChatDeepLink.ParentChildren) {
+                if (host.current != ChRoute.ParentChildren) host.push(ChRoute.ParentChildren)
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
         }
@@ -290,29 +299,43 @@ private fun ChatPage(route: ChRoute) {
         is ChRoute.Conversation -> ConversationPage(route)
         is ChRoute.Info -> ChatInfoPage(route.id)
         is ChRoute.Media -> ChatMediaPage(route)
+        is ChRoute.ChatTheme -> ChatThemePage(route.id)
+        is ChRoute.ChatMoney -> ChatMoneyPage(route.id)
+        is ChRoute.GroupMembers -> GroupMembersPage(route.id)
         ChRoute.NewChat -> NewChatPage()
         ChRoute.Channels -> ChannelsPage()
         is ChRoute.NewGroup -> NewGroupPage(route.addTo)
         ChRoute.MyQr -> MyQrPage()
+        ChRoute.MyStatus -> MyStatusPage()
+        ChRoute.ChatSettings -> ChatSettingsPage()
         ChRoute.Privacy -> PrivacyPage()
+        ChRoute.BlockedContacts -> BlockedContactsPage()
         ChRoute.Business -> BusinessPage()
         ChRoute.Starred -> StarredPage()
         ChRoute.ReadLater -> FollowUpsPage()
         ChRoute.Calls -> CallsPage()
         ChRoute.Communities -> CommunitiesPage()
         is ChRoute.Community -> CommunityPage(route.id)
+        is ChRoute.CommunityGroups -> CommunityGroupsPage(route.id, route.yours)
         is ChRoute.StoryComposer -> StoryComposerPage(route.media)
         ChRoute.StoryPrivacy -> StoryPrivacyPage()
         is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
         is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+        is ChRoute.GroupTasks -> GroupTasksPage(route.conversationId, route.spaceId, route.spaceName)
+        is ChRoute.Classroom -> ClassroomPage(route.conversationId)
+        is ChRoute.ParentChildren -> ParentChildrenPage()
+        is ChRoute.ParentChild -> ParentChildPage(route.linkId, route.title)
         ChRoute.Broadcasts -> BroadcastsPage()
         is ChRoute.Broadcast -> BroadcastPage(route.id)
         ChRoute.Tasks -> TasksPage()
         ChRoute.CatchUp -> CatchUpPage()
+        ChRoute.Important -> ImportantPage()
+        ChRoute.Today -> TodayPage()
         ChRoute.PrivacyCenter -> PrivacyCenterPage()
         is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
         ChRoute.Commitments -> CommitmentsPage()
         ChRoute.CommRules -> CommRulesPage()
+        is ChRoute.ContextRules -> ContextRulesPage(route.key)
         ChRoute.LifeInbox -> LifeInboxPage()
         ChRoute.DataPerformance -> DataPerformancePage()
         ChRoute.Usage -> UsagePage()
@@ -345,19 +368,34 @@ private fun OfflineBanner() {
 internal fun ChatToast(host: ChatHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
-    if (message != null) last = message
-    Box(Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.BottomCenter) {
+    var lastIsError by remember { mutableStateOf(false) }
+    if (message != null) {
+        last = message
+        lastIsError = host.toastError
+    }
+    // Same chip as the wallet: navy (or danger) and white type, above the composer so it stays readable at night.
+    Box(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 148.dp), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = message != null,
             enter = slideInVertically(spring(dampingRatio = 0.6f)) { it } + fadeIn() + scaleIn(initialScale = 0.9f),
             exit = slideOutVertically { it / 2 } + fadeOut() + scaleOut(targetScale = 0.9f),
         ) {
             Row(
-                Modifier.shadow(12.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Ink).padding(horizontal = 18.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+                Modifier
+                    .shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x33111928), spotColor = Color(0x44111928))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (lastIsError) Ch.Danger else Color(0xFF111928))
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text(last, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                Icon(
+                    if (lastIsError) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle,
+                    null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(last, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp)
             }
         }
     }

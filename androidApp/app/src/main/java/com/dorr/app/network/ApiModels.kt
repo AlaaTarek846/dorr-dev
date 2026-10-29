@@ -18,6 +18,7 @@ data class ApiEnvelope<T>(
 data class PaginationDto(
     @SerializedName("current_page") val currentPage: Int,
     @SerializedName("has_more_pages") val hasMorePages: Boolean,
+    val total: Int? = null,
 )
 
 /** Pulls a human-readable message out of an API error body (422 and friends).
@@ -132,6 +133,8 @@ data class AuthResultDto(
 data class UserDto(
     val id: Int,
     val name: String?,
+    /** The account verification ✔ (docs/verification_tasks.md AV-024). */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     val email: String?,
     val phone: String?,
     @SerializedName("phone_verified_at") val phoneVerifiedAt: String?,

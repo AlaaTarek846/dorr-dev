@@ -28,8 +28,10 @@ import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.SupportAgent
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
@@ -101,6 +103,8 @@ fun AccountScreen(
     onOpenRank: () -> Unit = {},
     onOpenSupport: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    onOpenDriverAi: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -109,9 +113,13 @@ fun AccountScreen(
     var presence by remember { mutableStateOf<PresenceDto?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     val unread by DriverLive.unread.collectAsState()
+    // O-85: only what the captain's vehicle can do (null until known = nothing service-specific shown).
+    var services by remember { mutableStateOf<Set<String>?>(null) }
+    fun offers(service: String) = services?.contains(service) == true
 
     LaunchedEffect(Unit) {
         (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
+        (apiCall { DriverBackend.api.workServices() } as? ApiResult.Ok)?.let { r -> services = r.data.services.filter { it.on }.map { it.key }.toSet() }
         (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { earnings = it.data }
         (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
     }
@@ -141,36 +149,61 @@ fun AccountScreen(
                 Column(Modifier.fillMaxWidth().surface().staggerIn(2)) {
                     ListRow(Icons.Rounded.AssignmentInd, stringResource(R.string.acct_signup), subtitle = stringResource(R.string.acct_signup_hint), onClick = onOpenSignup)
                     RowDivider()
+                    // O-78: my past rides and their details.
+                    ListRow(Icons.Rounded.History, stringResource(R.string.rh_title), subtitle = stringResource(R.string.rh_hint), onClick = onOpenHistory)
+                    RowDivider()
                     // D-304..D-318: settings and the account.
                     ListRow(Icons.Rounded.Settings, stringResource(R.string.st_title), subtitle = stringResource(R.string.st_home_hint), onClick = onOpenSettings)
                     RowDivider()
                     // D-285..D-297: support, the help centre and lost items.
                     ListRow(Icons.Rounded.SupportAgent, stringResource(R.string.sp_title), subtitle = stringResource(R.string.sp_home_hint), tint = Pal.accent, onClick = onOpenSupport)
                     RowDivider()
+                    // Block 06: DORR Driver AI — where the work is, clashes with my bookings, my daily goal.
+                    ListRow(Icons.Rounded.AutoAwesome, stringResource(R.string.dai_title), subtitle = stringResource(R.string.dai_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF6D5BFF), onClick = onOpenDriverAi)
+                    RowDivider()
                     // D-239..D-259: my rank and performance.
                     ListRow(Icons.Rounded.MilitaryTech, stringResource(R.string.rk_title), subtitle = stringResource(R.string.rk_home_hint), tint = Pal.warning, onClick = onOpenRank)
                     RowDivider()
-                    ListRow(Icons.Rounded.Tune, stringResource(R.string.pf_title), subtitle = stringResource(R.string.pf_home_hint), onClick = onOpenPreferences)
-                    RowDivider()
-                    ListRow(Icons.Rounded.Event, stringResource(R.string.sch_title), subtitle = stringResource(R.string.sch_home_hint), tint = Pal.orange, onClick = onOpenScheduled)
-                    RowDivider()
-                    // O-20, O-21: the captain's bus trips (a bus or minibus registered).
+                    // O-85: each service only for the vehicle that does it (a car: rides, With Me, airport, hire,
+                    // lessons; a motorcycle: rides; a bus: bus trips; a boat: the sea; no vehicle: hire and lessons).
+                    if (offers("rides") || offers("hourly")) {
+                        ListRow(Icons.Rounded.Tune, stringResource(R.string.pf_title), subtitle = stringResource(R.string.pf_home_hint), onClick = onOpenPreferences)
+                        RowDivider()
+                    }
+                    if (offers("scheduled")) {
+                        ListRow(Icons.Rounded.Event, stringResource(R.string.sch_title), subtitle = stringResource(R.string.sch_home_hint), tint = Pal.orange, onClick = onOpenScheduled)
+                        RowDivider()
+                    }
                     // O-30: «أنا معك» — riders on my way.
-                    ListRow(Icons.Rounded.Groups, stringResource(R.string.wm_title), subtitle = stringResource(R.string.wm_home_hint), tint = Pal.success, onClick = onOpenWithMe)
-                    RowDivider()
-                    ListRow(Icons.Rounded.DirectionsBus, stringResource(R.string.bus_my_trips), subtitle = stringResource(R.string.bus_home_hint), onClick = onOpenBus)
-                    RowDivider()
+                    // «With Me» is a category of passenger rides.
+                    if (offers("rides")) {
+                        ListRow(Icons.Rounded.Groups, stringResource(R.string.wm_title), subtitle = stringResource(R.string.wm_home_hint), tint = Pal.success, onClick = onOpenWithMe)
+                        RowDivider()
+                    }
+                    // O-20, O-21: the captain's bus trips (a bus or minibus registered).
+                    if (offers("bus")) {
+                        ListRow(Icons.Rounded.DirectionsBus, stringResource(R.string.bus_my_trips), subtitle = stringResource(R.string.bus_home_hint), onClick = onOpenBus)
+                        RowDivider()
+                    }
                     // O-26c: find a driver — drive a rider's own car, by the hour or the day.
-                    ListRow(Icons.Rounded.PersonSearch, stringResource(R.string.hj_title), subtitle = stringResource(R.string.hj_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF00897B), onClick = onOpenHire)
-                    RowDivider()
+                    if (offers("hire")) {
+                        ListRow(Icons.Rounded.PersonSearch, stringResource(R.string.hj_title), subtitle = stringResource(R.string.hj_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF00897B), onClick = onOpenHire)
+                        RowDivider()
+                    }
                     // O-26b: driving lessons — I teach: lesson packs and the lessons asked for.
-                    ListRow(Icons.Rounded.School, stringResource(R.string.tr_title), subtitle = stringResource(R.string.tr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF7B1FA2), onClick = onOpenLessons)
-                    RowDivider()
+                    if (offers("lessons")) {
+                        ListRow(Icons.Rounded.School, stringResource(R.string.tr_title), subtitle = stringResource(R.string.tr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF7B1FA2), onClick = onOpenLessons)
+                        RowDivider()
+                    }
                     // O-25: the captain's boat — sea trips and yacht hire (a boat or a yacht registered).
-                    ListRow(Icons.Rounded.DirectionsBoat, stringResource(R.string.mr_title), subtitle = stringResource(R.string.mr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF0288D1), onClick = onOpenMarine)
-                    RowDivider()
-                    ListRow(Icons.Rounded.Flight, stringResource(R.string.air_title), subtitle = stringResource(R.string.air_home_hint), onClick = onOpenAirport)
-                    RowDivider()
+                    if (offers("marine")) {
+                        ListRow(Icons.Rounded.DirectionsBoat, stringResource(R.string.mr_title), subtitle = stringResource(R.string.mr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF0288D1), onClick = onOpenMarine)
+                        RowDivider()
+                    }
+                    if (offers("airport")) {
+                        ListRow(Icons.Rounded.Flight, stringResource(R.string.air_title), subtitle = stringResource(R.string.air_home_hint), onClick = onOpenAirport)
+                        RowDivider()
+                    }
                     ListRow(Icons.Rounded.Gavel, stringResource(R.string.cs_title), subtitle = stringResource(R.string.cs_home_hint), tint = Pal.warning, onClick = onOpenCases)
                     RowDivider()
                     ListRow(Icons.Rounded.Shield, stringResource(R.string.sc_title), subtitle = stringResource(R.string.sc_home_hint), tint = Pal.danger, onClick = onOpenSafety)

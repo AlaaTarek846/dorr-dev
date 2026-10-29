@@ -119,6 +119,11 @@ object ApiClient {
                 AuthSession.clear()
                 AuthSession.onUnauthorized?.invoke()
             }
+            // An AI tool refused for want of a DORR AI plan (2026-10-15), wherever it was asked:
+            // one prompt offers the subscription (AiPlanGate). The body is peeked, not consumed.
+            if (response.code == 402 || response.code == 429) {
+                runCatching { com.dorr.app.ui.screens.aichat.AiPlanGate.inspect(response.peekBody(16_384).string()) }
+            }
             response
         }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
@@ -136,18 +141,25 @@ object ApiClient {
     val languages: LanguageApi by lazy { retrofit.create(LanguageApi::class.java) }
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
+    val freelance: FreelanceApi by lazy { retrofit.create(FreelanceApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    // Educational groups: lessons, homework, tests, attendance (docs/groups_tasks.md GR-011..017).
+    val classroom: ClassroomApi by lazy { retrofit.create(ClassroomApi::class.java) }
     val aiChat: AiChatApi by lazy { retrofit.create(AiChatApi::class.java) }
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
+    val aiAssistant: AiAssistantApi by lazy { retrofit.create(AiAssistantApi::class.java) }
+    val aiWorld: AiWorldApi by lazy { retrofit.create(AiWorldApi::class.java) }
+    val aiAr: AiArApi by lazy { retrofit.create(AiArApi::class.java) }
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val life: LifeApi by lazy { retrofit.create(LifeApi::class.java) }
     val backlog: BacklogApi by lazy { retrofit.create(BacklogApi::class.java) }
     val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
+    val verification: VerificationApi by lazy { retrofit.create(VerificationApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
     val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
     val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }

@@ -304,7 +304,7 @@ fun ChAvatar(
             Modifier
                 .fillMaxSize()
                 .then(
-                    if (ring) Modifier.border(2.5.dp, Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red)), CircleShape)
+                    if (ring) Modifier.border(2.5.dp, Brush.sweepGradient(listOf(Ch.Red, Ch.RedDeep, Ch.Red.shade(0.45f), Ch.Red)), CircleShape)
                     else Modifier,
                 ),
         ) {
@@ -531,6 +531,15 @@ internal fun listTime(iso: String?): String {
         ChronoUnit.DAYS.between(day, today) < 7 -> DateTimeFormatter.ofPattern("EEEE", AppLocale.java()).format(day)
         else -> DateTimeFormatter.ofPattern("d/M/yyyy", AppLocale.java()).format(day)
     }
+}
+
+/** "Monday 2026-11-30 00:00" in the phone's language. */
+internal fun taskDueStamp(iso: String?): String {
+    val instant = parseInstant(iso) ?: return ""
+    val zoned = instant.atZone(zone)
+    val day = DateTimeFormatter.ofPattern("EEEE", AppLocale.java()).format(zoned)
+    val rest = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(zone).format(instant)
+    return "$day $rest"
 }
 
 internal fun dayOf(iso: String?): LocalDate? = parseInstant(iso)?.atZone(zone)?.toLocalDate()

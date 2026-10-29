@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Chat\Http\Controllers\Admin\ChatCategoryController;
 use Modules\Chat\Http\Controllers\Admin\ChatDirectoryController;
+use Modules\Chat\Http\Controllers\Admin\ChatGroupAdminController;
 use Modules\Chat\Http\Controllers\Admin\ChatDorrStoryController;
 use Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController;
 use Modules\Chat\Http\Controllers\Admin\ChatMomentController;
@@ -82,8 +83,20 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('chat-channels', [ChatDirectoryController::class, 'channels']);
         Route::patch('chat-channels/{channel}/verify', [ChatDirectoryController::class, 'verify']);
 
+        // Educational and work groups (docs/groups_tasks.md GR-050..053).
+        Route::get('chat-groups', [ChatGroupAdminController::class, 'index']);
+        Route::get('chat-groups/stats', [ChatGroupAdminController::class, 'stats']);
+        Route::get('chat-groups/templates', [ChatGroupAdminController::class, 'templates']);
+        Route::get('chat-groups/{group}', [ChatGroupAdminController::class, 'show'])->whereUuid('group');
+        Route::get('chat-groups/{group}/audit-log', [ChatGroupAdminController::class, 'auditLog'])->whereUuid('group');
+        Route::patch('chat-groups/{group}/disable', [ChatGroupAdminController::class, 'disable'])->whereUuid('group');
+        Route::post('chat-groups/{group}/restore', [ChatGroupAdminController::class, 'restore'])->whereUuid('group');
+
         Route::get('chat-reports', [ChatReportController::class, 'index']);
         Route::get('chat-reports/{chat_report}', [ChatReportController::class, 'show']);
         Route::put('chat-reports/{chat_report}', [ChatReportController::class, 'update']);
+
+        // Account verification (docs/verification_tasks.md).
+        require __DIR__.'/verification_admin.php';
     });
 });

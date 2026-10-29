@@ -11,6 +11,7 @@ use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Services\CommunityService;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -131,6 +132,26 @@ class ChatCommunityTest extends TestCase
         $this->deleteJson("/api/mobile/v1/chat/communities/{$community}", [], $this->headers())->assertOk();
         $this->assertNull(ChatGroup::query()->where('name', 'Parents')->value('community_id'));
         $this->getJson("/api/mobile/v1/chat/communities/{$community}", $this->headers())->assertNotFound();
+    }
+
+    public function test_communities_page_fifteen_and_search(): void
+    {
+        $this->as($this->alice);
+        $communities = app(CommunityService::class);
+        for ($i = 0; $i < 16; $i++) {
+            $communities->create($this->alice, 'Place '.$i, $i === 3 ? 'needle park' : null, [], null);
+        }
+        $this->getJson('/api/mobile/v1/chat/communities?per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('pagination.per_page', 15)
+            ->assertJsonPath('pagination.total', 16)
+            ->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/communities?page=2&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('pagination.has_more_pages', false);
+        $this->getJson('/api/mobile/v1/chat/communities?q=needle', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Place 3');
     }
 
     public function test_up_to_20_admins_and_a_group_joins_only_one_community(): void

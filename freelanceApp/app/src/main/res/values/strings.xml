@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dorr Pro</string>
+    <string name="app_tagline">Powered by Dorr</string>
+    <string name="app_subtitle">For freelancers</string>
+
+    <string name="common_back">Back</string>
+    <string name="common_retry">Try again</string>
+    <string name="common_loading">Loading…</string>
+
+    <!-- No internet (the overlay over every screen). -->
+    <string name="offline_title">No internet connection</string>
+    <string name="offline_body">You seem to be offline. Check your Wi-Fi or mobile data to continue.</string>
+    <string name="offline_tip_network_title">Wi-Fi or mobile data</string>
+    <string name="offline_tip_network_body">Check that your connection is on</string>
+    <string name="offline_tip_airplane_title">Airplane mode</string>
+    <string name="offline_tip_airplane_body">Make sure airplane mode is off</string>
+    <string name="offline_still">Still offline. Check the connection and try again.</string>
+    <string name="offline_checking">Checking…</string>
+
+
+    <string name="language_switch">العربية</string>
+
+    <!-- Sign-in -->
+    <string name="login_title">Sign in to Dorr Pro</string>
+    <string name="login_subtitle">Enter your phone number and we will send a verification code</string>
+    <string name="login_cta">Send verification code</string>
+    <string name="login_country_code">Country code</string>
+    <string name="login_country_search">Search country</string>
+    <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
+    <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
+    <string name="login_error_generic">Something went wrong. Please try again.</string>
+    <string name="login_error_offline">No connection. Check your internet and try again.</string>
+
+    <!-- Verification code -->
+    <string name="otp_title">Verify your phone</string>
+    <string name="otp_subtitle">Enter the code sent to %1$s</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="otp_resend_in">Resend in %1$d seconds</string>
+    <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
+    <string name="otp_dev_hint">Test build: the code is 1234</string>
+
+    <!-- Home (a stand-in until the profile steps) -->
+    <string name="home_welcome">Welcome</string>
+    <string name="home_welcome_name">Welcome, %1$s</string>
+    <string name="home_no_name">Your profile is not filled in yet.</string>
+    <string name="home_status">Account status</string>
+    <string name="home_completeness">Profile completeness</string>
+    <string name="home_logout">Sign out</string>
+    <string name="home_loading_failed">We could not load your account.</string>
+    <string name="status_registered">Registered</string>
+    <string name="status_profile_ready">Profile ready</string>
+    <string name="status_verification_submitted">Under review</string>
+    <string name="status_verified">Verified</string>
+    <string name="status_verification_rejected">Verification rejected</string>
+    <string name="status_changes_requested">Changes requested</string>
+    <string name="status_suspended">Suspended</string>
+    <string name="status_reason_line">Reason: %1$s</string>
+    <string name="status_blocked">Blocked</string>
+
+    <!-- The welcome page (StartScreen). -->
+    <string name="start_title">Welcome to Dorr Pro</string>
+    <string name="start_body">Show your skills, get verified, and work with clients in your country.</string>
+    <string name="start_language">العربية</string>
+
+    <string name="start_cta">Get started</string>
+
+    <!-- Terms -->
+    <string name="terms_title">Terms of use</string>
+    <string name="terms_body">To use Dorr Pro you need to agree to the terms of use and the privacy policy (version %1$s).</string>
+    <string name="terms_accept">I agree</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Your profile</string>
+    <string name="profile_photo">Profile photo</string>
+    <string name="profile_photo_change">Change photo</string>
+    <string name="profile_photo_gallery">Gallery</string>
+    <string name="profile_photo_camera">Camera</string>
+    <string name="profile_photo_failed">We could not upload the photo. Try another one.</string>
+    <string name="profile_name">Full name</string>
+    <string name="profile_headline">Professional headline</string>
+    <string name="profile_headline_hint">e.g. Graphic designer</string>
+    <string name="profile_bio">About you</string>
+    <string name="profile_years">Years of experience</string>
+    <string name="profile_languages">Languages you speak with clients</string>
+    <string name="profile_country">Country</string>
+    <string name="profile_city">City</string>
+    <string name="profile_residency">Residency</string>
+    <string name="residency_citizen">Citizen</string>
+    <string name="residency_resident">Resident</string>
+    <string name="profile_gender">Gender</string>
+    <string name="gender_male">Male</string>
+    <string name="gender_female">Female</string>
+    <string name="profile_dob">Date of birth</string>
+    <string name="profile_dob_hint">YYYY-MM-DD</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_saved">Saved</string>
+    <string name="profile_email">Email</string>
+    <string name="profile_email_send">Send code</string>
+    <string name="profile_email_code">Code</string>
+    <string name="profile_email_confirm">Confirm email</string>
+    <string name="profile_email_verified">Email confirmed</string>
+    <string name="profile_email_sent">We sent a code to your email.</string>
+
+    <!-- Home: what is missing -->
+    <string name="home_edit_profile">Complete your profile</string>
+    <string name="home_missing_title">Still missing</string>
+    <string name="home_soon">Coming soon</string>
+    <string name="missing_name">Your name</string>
+    <string name="missing_avatar">A profile photo</string>
+    <string name="missing_headline">A headline</string>
+    <string name="missing_bio">About you (50+ characters)</string>
+    <string name="missing_email">A confirmed email</string>
+    <string name="missing_languages">Languages you speak</string>
+    <string name="missing_experience">Years of experience</string>
+    <string name="missing_specialties">Specialties</string>
+    <string name="missing_skills">Skills</string>
+    <string name="missing_work">Work history</string>
+    <string name="missing_portfolio">A portfolio work</string>
+    <string name="missing_terms">Agree to the terms</string>
+
+    <!-- Lists: common -->
+    <string name="common_ok">OK</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_add">Add</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_remove">Remove</string>
+    <string name="common_saved">Saved</string>
+    <string name="common_delete_confirm">Delete this item?</string>
+    <string name="common_empty">Nothing here yet.</string>
+    <string name="common_loading_failed">We could not load this page.</string>
+
+    <!-- Home entries -->
+    <string name="home_section_profile">Your profile</string>
+    <string name="home_open_specialties">Specialties</string>
+    <string name="home_open_skills">Skills</string>
+    <string name="home_open_experiences">Work history</string>
+    <string name="home_open_certificates">Certificates</string>
+
+    <!-- Specialties -->
+    <string name="specialties_title">Specialties</string>
+    <string name="specialties_hint">Pick up to %1$d specialties and star your main one.</string>
+    <string name="specialties_limit">You can pick up to %1$d specialties.</string>
+    <string name="specialties_primary">Main</string>
+    <string name="specialties_inactive">Stopped</string>
+
+    <!-- Skills -->
+    <string name="skills_title">Skills</string>
+    <string name="skills_mine">Your skills</string>
+    <string name="skills_search">Search skills</string>
+    <string name="skills_limit">You can list up to %1$d skills.</string>
+    <string name="skills_pending">Under review</string>
+    <string name="skills_suggest">Suggest "%1$s"</string>
+    <string name="skills_suggested">We added it for review.</string>
+    <string name="skills_level_beginner">Beginner</string>
+    <string name="skills_level_intermediate">Intermediate</string>
+    <string name="skills_level_advanced">Advanced</string>
+    <string name="skills_level_expert">Expert</string>
+
+    <!-- Experiences -->
+    <string name="experiences_title">Work history</string>
+    <string name="experiences_add">Add experience</string>
+    <string name="experience_title">Job title</string>
+    <string name="experience_company">Company</string>
+    <string name="experience_start">Start date</string>
+    <string name="experience_end">End date</string>
+    <string name="experience_current">I work here now</string>
+    <string name="experience_description">Description</string>
+    <string name="experience_now">Now</string>
+
+    <!-- Certificates -->
+    <string name="certificates_title">Certificates</string>
+    <string name="certificates_add">Add certificate</string>
+    <string name="certificate_title">Certificate name</string>
+    <string name="certificate_issuer">Issued by</string>
+    <string name="certificate_issued">Issue date</string>
+    <string name="certificate_expires">Expiry date</string>
+    <string name="certificate_url">Verification link</string>
+    <string name="certificate_proof">Proof (image or PDF)</string>
+    <string name="certificate_proof_pick">Choose a file</string>
+    <string name="certificate_proof_view">View proof</string>
+    <string name="certificate_proof_remove">Remove proof</string>
+    <string name="certificate_proof_large">The file is larger than 5 MB.</string>
+    <string name="certificate_proof_type">Choose a JPG, PNG or PDF file.</string>
+    <string name="certificate_expired">Expired</string>
+
+    <!-- Verification -->
+    <string name="home_open_verification">Account verification</string>
+    <string name="verification_title">Verify your account</string>
+    <string name="verification_required_docs">Required documents</string>
+    <string name="verification_other_docs">Other documents</string>
+    <string name="verification_none_required">No documents are required for your country yet.</string>
+    <string name="verification_submit">Submit for review</string>
+    <string name="verification_submitted_ok">Sent for review.</string>
+    <string name="verification_last_request">Last request</string>
+    <string name="verification_reason">Reason: %1$s</string>
+    <string name="verification_residency_hint">Choose whether you are a citizen or a resident in your profile first.</string>
+    <string name="verification_open_profile">Open profile</string>
+    <string name="verification_blocker_not_allowed">Your account cannot be sent now. Add your name and agree to the terms first.</string>
+    <string name="verification_blocker_residency">Choose citizen or resident in your profile.</string>
+    <string name="verification_blocker_missing">Missing: %1$s</string>
+    <string name="verification_blocker_expired">Expired: %1$s</string>
+    <string name="step_complete_profile">Complete your profile first.</string>
+    <string name="step_submit_verification">Verify your account to continue.</string>
+    <string name="step_under_review">Your documents are under review.</string>
+    <string name="step_fix_documents">Some documents need fixing.</string>
+    <string name="step_suspended">Your account is suspended.</string>
+    <string name="step_blocked">Your account is blocked.</string>
+    <string name="gate_title">Verification needed</string>
+    <string name="gate_open">Verify now</string>
+    <string name="doc_status_draft">Not sent yet</string>
+    <string name="doc_status_pending">Under review</string>
+    <string name="doc_status_approved">Approved</string>
+    <string name="doc_status_rejected">Rejected</string>
+    <string name="doc_status_expired">Expired</string>
+    <string name="doc_status_replaced">Replaced</string>
+    <string name="doc_missing">Not added</string>
+    <string name="doc_add">Add</string>
+    <string name="doc_replace">Replace</string>
+    <string name="doc_view_front">View front</string>
+    <string name="doc_view_back">View back</string>
+    <string name="doc_number">Document number</string>
+    <string name="doc_expires">Expiry date</string>
+    <string name="doc_front">Front side</string>
+    <string name="doc_back">Back side</string>
+    <string name="doc_choose">Gallery or file</string>
+    <string name="doc_camera">Camera</string>
+    <string name="doc_chosen">Chosen</string>
+    <string name="doc_upload">Upload</string>
+    <string name="doc_file_large">The file is larger than 8 MB.</string>
+    <string name="doc_file_type">Choose a JPG, PNG or PDF file.</string>
+    <string name="doc_delete_draft">Delete draft</string>
+    <string name="doc_type_label">Document: %1$s</string>
+
+    <!-- Tabs, account and portfolio (FL-105) -->
+    <string name="tab_home">Home</string>
+    <string name="tab_portfolio">My work</string>
+    <string name="tab_profile">My profile</string>
+    <string name="tab_account">Account</string>
+    <string name="account_default_user">Dorr freelancer</string>
+    <string name="home_quick_title">Shortcuts</string>
+    <string name="home_open_portfolio">Portfolio</string>
+    <string name="account_personal_data">Personal data</string>
+    <string name="account_personal_data_sub">Photo, name, about and contact</string>
+    <string name="hub_specialties_sub">What you work in</string>
+    <string name="hub_skills_sub">Your skills and their level</string>
+    <string name="hub_experiences_sub">Where you worked</string>
+    <string name="hub_certificates_sub">Your certificates and their proof</string>
+    <string name="hub_verification_sub">Documents and review status</string>
+    <string name="account_language">Language</string>
+    <string name="account_language_sub">Switch between Arabic and English</string>
+    <string name="account_about">About the app</string>
+    <string name="account_about_sub">Version and information</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_logout_sub">Leave this account on this phone</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_delete_sub">Removes your profile, works and files</string>
+    <string name="logout_confirm_message">Do you want to sign out?</string>
+    <string name="delete_confirm_message">Your account, your works and your files will be deleted. This cannot be undone.</string>
+    <string name="common_yes">Yes</string>
+    <string name="about_body">Dorr Pro for freelancers. Version %1$s.</string>
+    <string name="portfolio_title">My work</string>
+    <string name="portfolio_hint">Show your best work. Only a verified account is shown to others.</string>
+    <string name="portfolio_add">Add a work</string>
+    <string name="portfolio_empty">You have no works yet.</string>
+    <string name="portfolio_hidden">Hidden by the admin</string>
+    <string name="portfolio_verified_hint">Others see your works only after your account is verified.</string>
+    <string name="vis_private">Only me</string>
+    <string name="vis_clients">Clients</string>
+    <string name="vis_public">Everyone</string>
+    <string name="pf_title">Title</string>
+    <string name="pf_description">Description</string>
+    <string name="pf_completed">Completed on</string>
+    <string name="pf_specialty">Specialty</string>
+    <string name="pf_skills">Skills used</string>
+    <string name="pf_visibility">Who can see it</string>
+    <string name="pf_rights">I confirm I own the rights to this work</string>
+    <string name="pf_external">Outside link</string>
+    <string name="pf_video">Video link (YouTube or Vimeo)</string>
+    <string name="pf_video_hint">Only YouTube and Vimeo links are accepted.</string>
+    <string name="pf_video_saved">A video is saved. Paste a new link to replace it.</string>
+    <string name="pf_images">Images</string>
+
+    <!-- Notifications -->
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_empty">No notifications yet.</string>
+    <string name="notifications_read_all">Mark all as read</string>
+
+    <!-- Appearance, font and language settings (ported from the DORR app) -->
+    <string name="addr_clear_search">Clear search</string>
+    <string name="appearance_background">Background color</string>
+    <string name="appearance_custom">Custom colors are on.</string>
+    <string name="appearance_dark_colors">Dark colors</string>
+    <string name="appearance_failed">Could not save. Try again.</string>
+    <string name="appearance_font">Font</string>
+    <string name="appearance_font_choose">Choose font</string>
+    <string name="appearance_font_default">Default</string>
+    <string name="appearance_font_empty">No fonts match your search</string>
+    <string name="appearance_font_search">Search fonts</string>
+    <string name="appearance_font_sub">Choose app font</string>
+    <string name="appearance_light_colors">Light colors</string>
+    <string name="appearance_mode">Mode</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_system">System</string>
+    <string name="appearance_primary">Primary color</string>
+    <string name="appearance_reset">Reset colors</string>
+    <string name="appearance_save">Save</string>
+    <string name="appearance_saved">Saved</string>
+    <string name="appearance_separate_modes">Each mode is saved on its own. A mode you do not change keeps the default colors.</string>
+    <string name="appearance_sub">Colors and night mode</string>
+    <string name="appearance_text">Text color</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_using_defaults">Default colors are on.</string>
+    <string name="common_close">Close</string>
+    <string name="common_save">Save</string>
+    <string name="language_arabic">Arabic — العربية</string>
+    <string name="language_download_failed">Couldn\'t download this language. Check your connection and try again.</string>
+    <string name="language_english">English</string>
+    <string name="language_loading">Loading languages…</string>
+    <string name="language_title">Language</string>
+    <string name="wallet_history_more">Load more</string>
+
+    <!-- Rating, support, FAQs and contact (ported from the DORR app) -->
+    <string name="account_contact_us">Contact Us</string>
+    <string name="account_contact_us_sub">Phone, WhatsApp and email</string>
+    <string name="account_faqs">FAQs</string>
+    <string name="account_faqs_sub">Quick answers</string>
+    <string name="contact_email">Email</string>
+    <string name="contact_phone">Phone Call</string>
+    <string name="contact_title">Contact Us</string>
+    <string name="contact_whatsapp">WhatsApp</string>
+    <string name="content_error">Failed to load content</string>
+    <string name="content_loading">Loading…</string>
+    <string name="content_retry">Retry</string>
+    <string name="faq_empty">No FAQs available at the moment</string>
+    <string name="faq_empty_search">No questions match your search</string>
+    <string name="faq_search_hint">Search questions…</string>
+    <string name="faq_title">FAQs</string>
+    <string name="rate_already">Thanks — you can change your stars or comment anytime.</string>
+    <string name="rate_body">Stars and a short comment help us improve the app.</string>
+    <string name="rate_comment_hint">Optional — 5 to 300 characters</string>
+    <string name="rate_comment_label">Comment</string>
+    <string name="rate_comment_length">A comment must be 5 to 300 characters, or left empty</string>
+    <string name="rate_failed">Could not send your rating, try again</string>
+    <string name="rate_headline">How is Dorr for you?</string>
+    <string name="rate_hint">Tap a star to rate</string>
+    <string name="rate_label_1">Needs work</string>
+    <string name="rate_label_2">Could be better</string>
+    <string name="rate_label_3">It\'s okay</string>
+    <string name="rate_label_4">Really good</string>
+    <string name="rate_label_5">Excellent</string>
+    <string name="rate_pick_stars">Please choose a star rating</string>
+    <string name="rate_sub">Stars and a short comment</string>
+    <string name="rate_submit">Send rating</string>
+    <string name="rate_thanks">Thank you for your feedback</string>
+    <string name="rate_title">Rate the app</string>
+    <string name="rate_update">Update rating</string>
+    <string name="rate_updated">Rating updated</string>
+    <string name="support_agent_default">Support team</string>
+    <string name="support_attach">Attach a photo</string>
+    <string name="support_auto_ack">Received</string>
+    <string name="support_auto_away">Away</string>
+    <string name="support_auto_faq">From the FAQs</string>
+    <string name="support_auto_need_agent">I still need a person</string>
+    <string name="support_auto_reply">Automatic reply</string>
+    <string name="support_auto_solved">That solved it</string>
+    <string name="support_chat_failed">Could not send the message</string>
+    <string name="support_chat_hint">Write a message</string>
+    <string name="support_close">Close ticket</string>
+    <string name="support_close_message">You can reopen it later if you need more help.</string>
+    <string name="support_close_title">Close this ticket?</string>
+    <string name="support_conv_closed">This ticket is closed. Reopen it to write again.</string>
+    <string name="support_conv_empty">Your request is on its way. The support team will reply here.</string>
+    <string name="support_conv_resolved">Support marked this ticket as resolved. Reopen it if you still need help.</string>
+    <string name="support_help_final_question">Did this solve your problem?</string>
+    <string name="support_help_need_agent">I need an agent</string>
+    <string name="support_help_solved">That solved my problem</string>
+    <string name="support_help_solved_toast">Glad we could help!</string>
+    <string name="support_help_title">Quick chat</string>
+    <string name="support_load_earlier">Earlier messages</string>
+    <string name="support_photo">Photo</string>
+    <string name="support_quick_chat_sub">Get an answer in a few taps, and open a ticket only if you need an agent</string>
+    <string name="support_quick_chat_title">Quick chat</string>
+    <string name="support_reopen">Reopen ticket</string>
+    <string name="support_reply_toast">Support replied on ticket #%1$s</string>
+    <string name="support_status_closed">Closed</string>
+    <string name="support_status_opened">Open</string>
+    <string name="support_status_reopened">Reopened</string>
+    <string name="support_status_resolved">Resolved</string>
+    <string name="support_sub">Tickets and FAQs</string>
+    <string name="support_ticket_body">Problem details</string>
+    <string name="support_ticket_body_hint">What happened, and when?</string>
+    <string name="support_ticket_empty">No requests yet</string>
+    <string name="support_ticket_empty_sub">Open a ticket and we will follow up from here.</string>
+    <string name="support_ticket_failed">Could not send the request</string>
+    <string name="support_ticket_intro">Describe the issue. We will open a ticket and follow up from there.</string>
+    <string name="support_ticket_need_fields">Please add a title and a description</string>
+    <string name="support_ticket_new">Create a new request</string>
+    <string name="support_ticket_number">Ticket #%1$s</string>
+    <string name="support_ticket_photo">Photo (optional)</string>
+    <string name="support_ticket_photo_add">Add a screenshot</string>
+    <string name="support_ticket_send">Send request</string>
+    <string name="support_ticket_sent">Your support request was sent.</string>
+    <string name="support_ticket_sub">Open a ticket and follow the reply live</string>
+    <string name="support_ticket_subject">Request title</string>
+    <string name="support_ticket_subject_hint">Short title for the problem</string>
+    <string name="support_ticket_title">Support requests</string>
+    <string name="support_title">Support and help</string>
+
+    <!-- Policies, terms and notification settings (ported from the DORR app) -->
+    <string name="account_notifications">Notifications</string>
+    <string name="account_notifications_sub">Manage alerts</string>
+    <string name="account_legal">Policies &amp; Terms</string>
+    <string name="account_legal_sub">Privacy Policy and Terms &amp; Conditions</string>
+    <string name="account_privacy">Privacy Policy</string>
+    <string name="account_privacy_sub">How we handle your data</string>
+    <string name="account_terms">Terms &amp; Conditions</string>
+    <string name="account_terms_sub">The rules that govern our services</string>
+    <string name="notif_push_title">Push Notifications</string>
+    <string name="notif_push_desc">Get notified on this device</string>
+    <string name="notif_updates_title">Projects &amp; Offers</string>
+    <string name="notif_updates_desc">Offers, projects, deliveries and payments</string>
+    <string name="notif_promo_title">Offers &amp; Promotions</string>
+    <string name="notif_promo_desc">News and special offers</string>
+    <string name="notif_email_title">Email Notifications</string>
+    <string name="notif_email_desc">Also receive updates by email</string>
+    <string name="privacy_empty">Privacy policy is currently unavailable</string>
+    <string name="terms_empty">Terms &amp; Conditions are currently unavailable</string>
+    <string name="privacy_head">Your privacy matters</string>
+    <string name="terms_head">Terms &amp; Conditions</string>
+    <string name="login_terms_prefix">I agree to the </string>
+    <string name="login_terms_use">Terms of Use</string>
+    <string name="login_terms_mid"> and </string>
+    <string name="login_terms_privacy">Privacy Policy</string>
+
+    <!-- Settings → Security: devices and the security log -->
+    <string name="security_title">Security</string>
+    <string name="security_sub">Your devices and the security log</string>
+    <string name="security_devices">Signed-in devices</string>
+    <string name="security_this_device">This device</string>
+    <string name="security_sign_out">Sign out</string>
+    <string name="security_sign_out_confirm">Sign out of \"%1$s\" now? It will need to sign in again.</string>
+    <string name="security_sign_out_others">Sign out of all other devices</string>
+    <string name="security_sign_out_others_confirm">Every device except this one will be signed out now.</string>
+    <string name="security_signed_out">The device was signed out.</string>
+    <string name="security_last_active">Last active: %1$s</string>
+    <string name="security_log">Security log</string>
+    <string name="security_all">All</string>
+    <string name="security_warnings_only">Warnings</string>
+    <string name="security_log_empty">Nothing here yet.</string>
+    <string name="security_load_more">Load more</string>
+    <string name="security_load_failed">Couldn\'t load your security details. Pull down to try again.</string>
+
+    <string name="invite_title">Share with friends</string>
+    <string name="invite_sub">Invite friends to Dorr</string>
+    <string name="invite_headline">Share Dorr with your friends</string>
+    <string name="invite_step1_title">Share your code</string>
+    <string name="invite_step1_body">Send your invite code so friends can find Dorr and join you.</string>
+    <string name="invite_step2_title">Friends join Dorr</string>
+    <string name="invite_step2_body">They install the app and sign in with their phone.</string>
+    <string name="invite_step3_title">You stay connected</string>
+    <string name="invite_step3_body">Once they are in, you can chat and book services together.</string>
+    <string name="invite_code_label">Invite code</string>
+    <string name="invite_copy">Copy</string>
+    <string name="invite_copied">Invite code copied</string>
+    <string name="invite_share_now">Share now</string>
+    <string name="invite_share_body">Join me on Dorr. Use my invite code %1$s\n%2$s</string>
+    <string name="invite_code_failed">Could not load your invite code. Check the connection and try again.</string>
+    <string name="invite_code_retry">Try again</string>
+    <string name="account_profile_sub">Personal data, specialties, skills, work and verification</string>
+</resources>

@@ -53,6 +53,15 @@ private val Tabs = listOf(
 )
 private val TabRoutes = Tabs.map { it.route }.toSet()
 
+/** O-82: the bar shows everywhere except these; a screen opened from a tab keeps that tab lit. */
+private val NoBarRoutes = setOf("splash", "login", "signup", "trip")
+private fun tabOf(route: String?): String = when {
+    route == null -> "home"
+    route in TabRoutes -> route
+    route in setOf("notifications", "airport", "scheduled", "withme") -> "home"
+    else -> "account"
+}
+
 /** Between tabs, and in and out of the splash and sign-in, the screen fades; everything else slides in. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.fades(): Boolean {
     val from = initialState.destination.route
@@ -179,6 +188,7 @@ fun DriverNavHost() {
                         )
                     }
                     composable("home") {
+                        TermsGate()
                         HomeScreen(
                             onOpenSignup = { nav.navigate("signup") },
                             onOpenRide = { if (nav.currentDestination?.route != "trip") nav.navigate("trip") },
@@ -197,6 +207,7 @@ fun DriverNavHost() {
                         AccountScreen(
                             onOpenSignup = { nav.navigate("signup") },
                             onOpenPreferences = { nav.navigate("preferences") },
+                            onOpenDriverAi = { nav.navigate("driver_ai") },
                             onOpenScheduled = { nav.navigate("scheduled") },
                             onOpenAirport = { nav.navigate("airport") },
                             onOpenCases = { nav.navigate("cases") },
@@ -211,9 +222,11 @@ fun DriverNavHost() {
                             onOpenRank = { nav.navigate("rank") },
                             onOpenSupport = { nav.navigate("support") },
                             onOpenSettings = { nav.navigate("settings") },
+                            onOpenHistory = { nav.navigate("history") },
                         )
                     }
                     composable("rank") { RankScreen(onBack = { nav.popBackStack() }) }
+                    composable("history") { RideHistoryScreen(onBack = { nav.popBackStack() }) }
                     composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }, onClosed = { DriverBackend.session.clear(); nav.navigate("login") { popUpTo(0) { inclusive = true } } }) }
                     composable("support") { SupportScreen(onBack = { nav.popBackStack() }, onLostItems = { nav.navigate("lost") }) }
                     composable("lost") { LostItemsScreen(onBack = { nav.popBackStack() }) }
@@ -242,6 +255,8 @@ fun DriverNavHost() {
                     composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
                     composable("airport") { AirportScreen(onBack = { nav.popBackStack() }) }
                     composable("preferences") { PreferencesScreen(onBack = { nav.popBackStack() }) }
+                    // Block 06: DORR Driver AI and where the work is.
+                    composable("driver_ai") { DriverAiScreen(onBack = { nav.popBackStack() }) }
                     composable("cases") { CasesScreen(onBack = { nav.popBackStack() }) }
                     composable("scheduled") {
                         ScheduledScreen(onBack = { nav.popBackStack() }, onStarted = { nav.navigate("trip") { popUpTo("home") } })
@@ -249,13 +264,13 @@ fun DriverNavHost() {
                 }
             }
 
-            // The bottom bar belongs to the four tabs only; it slides away on every other screen.
+            // O-82: the bottom bar stays on every screen; it slides away only on the sign-in and the live trip.
             AnimatedVisibility(
-                visible = route in TabRoutes,
+                visible = route != null && route !in NoBarRoutes,
                 enter = slideInVertically(tween(260)) { it } + fadeIn(tween(200)),
                 exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(160)),
             ) {
-                DriverBottomBar(Tabs, selected = route.orEmpty(), onSelect = { goTab(it) })
+                DriverBottomBar(Tabs, selected = tabOf(route), onSelect = { goTab(it) })
             }
         }
 

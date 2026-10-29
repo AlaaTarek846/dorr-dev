@@ -175,7 +175,10 @@ fun WithMeScreen(onBack: () -> Unit, onOpenRide: (String) -> Unit) {
                         TileIcon(Icons.Rounded.Person, Pal.accent, 40.dp)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(r.rider?.name ?: "—", color = Pal.ink, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(r.rider?.name ?: "—", color = Pal.ink, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+                                RiderTick(r.rider?.isVerified == true, 14.dp)
+                            }
                             Text(r.destination?.address ?: "—", color = Pal.mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Text(statusText(r.status), color = Pal.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)

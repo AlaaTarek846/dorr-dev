@@ -198,6 +198,8 @@ class OnboardingController extends Controller
             'name' => blank($driver->name),
             'national_id' => blank($driver->national_id),
             'date_of_birth' => $driver->date_of_birth === null,
+            // O-74: For Her goes to women captains only — so it must be known.
+            'gender' => $driver->gender === null,
         ]));
         $missing = [
             ...$profileMissing,

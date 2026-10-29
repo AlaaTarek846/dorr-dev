@@ -45,7 +45,9 @@ class RideQuoteResource extends JsonResource
             // O-17: this quote is by the hour ({hours, hour_price_minor, overtime_per_min_minor}), or null.
             'hourly' => $this->policy_snapshot['hourly'] ?? null,
             // O-17: the category can also be booked by the hour — the app shows «by distance / by the hour».
-            'hourly_offer' => ($p = (array) ($this->policy_snapshot['policy'] ?? [])) !== [] && ! empty($p['hourly.enabled']) && (int) ($p['hourly.hour_price_minor'] ?? 0) > 0 ? [
+            'hourly_offer' => ($p = (array) ($this->policy_snapshot['policy'] ?? [])) !== [] && (! empty($p['hourly.enabled']) || $this->hourlyOnlyHere()) && (int) ($p['hourly.hour_price_minor'] ?? 0) > 0 ? [
+                // O-86: by the hour only — the app shows no «by distance».
+                'only' => $this->hourlyOnlyHere(),
                 'hour_price_minor' => (int) $p['hourly.hour_price_minor'],
                 'min_hours' => max(1, (int) ($p['hourly.min_hours'] ?? 1)),
                 'max_hours' => max(1, (int) ($p['hourly.max_hours'] ?? 8)),
@@ -53,6 +55,8 @@ class RideQuoteResource extends JsonResource
             ] : null,
             // R-233..R-237, R-NEW-06: the add-ons on offer here (with their prices) and the ones priced in.
             'addons_offer' => ($this->policy_snapshot['addons_offer'] ?? null) ?: null,
+            // O-88: online captains around who take the pet / child seats asked for (null = nothing needs equipment).
+            'equipped_nearby' => $this->policy_snapshot['equipped_nearby'] ?? null,
             'options' => \Modules\Rides\Services\Pricing\TripAddons::present($this->policy_snapshot['options'] ?? null),
             // R-16..R-18: the approved points this quote starts / ends at (the app shows them before confirming).
             'pickup_point' => PickupPoints::present($this->pickup_point),
@@ -67,6 +71,8 @@ class RideQuoteResource extends JsonResource
             'bid' => ($bid = $this->policy_snapshot['bid'] ?? null) === null ? null : [
                 'suggested_minor' => (int) $bid['suggested'],
                 'floor_minor' => (int) $bid['floor'],
+                // AI-05: how much the suggestion moved from the rate card, and why (null = not moved).
+                'smart' => empty($bid['adjust_bp']) ? null : ['base_minor' => (int) ($bid['base'] ?? $bid['suggested']), 'adjust_bp' => (int) $bid['adjust_bp'], 'why' => $bid['why'] ?? null],
                 // − / + move by the policy's first step (5 by default) — the rider can also type the price (O-43).
                 'step_minor' => (int) (((array) ($this->policy_snapshot['policy']['bids.counter_steps_minor'] ?? []))[0] ?? 500),
             ],
@@ -95,5 +101,12 @@ class RideQuoteResource extends JsonResource
             // R-179: the terms in force for booking a ride (the rides service's own, else the general ones).
             'terms' => once(fn () => app(RideTerms::class)->current()),
         ];
+    }
+
+    /** O-89: by the hour only in this quote's country (rules: `hourly.mode`), else the category's own switch. */
+    private function hourlyOnlyHere(): bool
+    {
+        return $this->category !== null
+            && app(\Modules\Rides\Services\Drivers\DriverServices::class)->hourlyOnly($this->category, (int) $this->country_id, $this->city_id);
     }
 }

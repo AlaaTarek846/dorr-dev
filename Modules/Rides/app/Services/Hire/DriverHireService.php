@@ -74,6 +74,27 @@ class DriverHireService
         return ['country' => $country, 'amount_minor' => $price * $quantity, 'limits' => $limits];
     }
 
+    /**
+     * O-84: the price screen never dead-ends — the unit falls back to the one that has a price, and the
+     * count is moved into its range; the answer says which unit and count it priced. Only when neither an
+     * hour nor a day has a price is it refused. (The request itself stays strict: `quote()`.)
+     *
+     * @return array<string, mixed>
+     */
+    public function preview(User $rider, float $lat, float $lng, string $unit, int $quantity): array
+    {
+        [, $policy] = $this->placeOf($rider, $lat, $lng);
+        $limits = $this->limits($policy);
+        $priced = array_values(array_filter(['hour', 'day'], fn (string $u) => $limits[$u.'_price_minor'] > 0));
+        if ($priced === []) {
+            throw new RidesException('hire_unit_unavailable', 422);
+        }
+        $unit = in_array($unit, $priced, true) ? $unit : $priced[0];
+        $quantity = $unit === 'day' ? max(1, min($limits['max_days'], $quantity)) : max($limits['min_hours'], min($limits['max_hours'], $quantity));
+
+        return $this->quote($rider, $lat, $lng, $unit, $quantity) + ['unit' => $unit, 'quantity' => $quantity, 'units' => $priced];
+    }
+
     /** @param array<string, mixed> $data */
     public function request(User $rider, array $data, ?string $key): DriverHire
     {
@@ -197,7 +218,7 @@ class DriverHireService
         }
         $hire->refresh();
         $this->notifications->send($hire->user, 'hire.accepted', 'hire_accepted_title', 'hire_accepted_body', [
-            'name' => $driver->name ?? '', 'time' => $hire->starts_at->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i'),
+            'name' => $driver->name ?? '', 'time' => $hire->starts_at->copy()->setTimezone((string) config('rides.default_timezone', 'Asia/Riyadh'))->format('Y-m-d H:i'),
         ], ['type' => 'hire', 'hire_uuid' => $hire->uuid]);
 
         return $hire;
@@ -293,6 +314,8 @@ class DriverHireService
         if ($status !== DriverStatus::Active->value) {
             throw new RidesException('hire_driver_not_active', 403);
         }
+        // O-89: only where the dashboard opened «driver on demand» to this captain's vehicle, and they switched it on.
+        app(\Modules\Rides\Services\Drivers\DriverServices::class)->assertOffers($driver, 'hire');
     }
 
     /** The online captains near the pickup hear about it at once (push + real time) — no app asks on a timer. */
@@ -305,7 +328,9 @@ class DriverHireService
             ->whereBetween('lat', [$minLat, $maxLat])->whereBetween('lng', [$minLng, $maxLng])
             ->when($except, fn ($q, $id) => $q->where('driver_id', '!=', $id))
             ->limit(50)->pluck('driver_id');
-        $drivers = Driver::query()->whereIn('id', $ids)->where('status', DriverStatus::Active->value)->get();
+        $services = app(\Modules\Rides\Services\Drivers\DriverServices::class);
+        $drivers = Driver::query()->whereIn('id', $ids)->where('status', DriverStatus::Active->value)->get()
+            ->filter(fn (Driver $d) => $services->offers($d, 'hire'))->values();
         if ($drivers->isNotEmpty()) {
             $this->notifications->send($drivers->all(), 'hire.new', 'hire_new_title', 'hire_new_body', [
                 'address' => $hire->pickup_address, 'length' => $hire->quantity.($hire->unit === 'day' ? 'd' : 'h'),

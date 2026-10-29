@@ -175,7 +175,11 @@ interface ChatApi {
     suspend fun clearStatus(@Header("Authorization") auth: String): ApiEnvelope<PrivacyDto>
 
     @GET("mobile/v1/chat/messages/starred")
-    suspend fun starred(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+    suspend fun starred(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<MessageDto>>
 
     @POST("mobile/v1/chat/messages/{id}/pin")
     suspend fun pin(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Int>): ApiEnvelope<List<MessageDto>>
@@ -278,7 +282,7 @@ interface ChatApi {
 
     /** 200 + the conversation, or 202 + `{status: pending}` when the admins approve new members. */
     @POST("mobile/v1/chat/invites/{token}/join")
-    suspend fun joinByInvite(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
+    suspend fun joinByInvite(@Header("Authorization") auth: String, @Path("token") token: String, @Body body: Map<String, String?> = emptyMap()): ApiEnvelope<JsonElement?>
 
     @POST("mobile/v1/chat/invites/{token}/cancel")
     suspend fun cancelJoin(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
@@ -316,6 +320,9 @@ interface ChatApi {
 
     // ------------------------------------------------------------------ groups
 
+    @GET("mobile/v1/chat/groups/hidden-members")
+    suspend fun hiddenMembersPrice(@Header("Authorization") auth: String): ApiEnvelope<HiddenMembersPriceDto>
+
     @Multipart
     @POST("mobile/v1/chat/groups")
     suspend fun createGroup(
@@ -338,7 +345,12 @@ interface ChatApi {
 
     // Communities (WhatsApp list 93–98).
     @GET("mobile/v1/chat/communities")
-    suspend fun communities(@Header("Authorization") auth: String): ApiEnvelope<List<CommunityDto>>
+    suspend fun communities(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<List<CommunityDto>>
 
     @POST("mobile/v1/chat/communities")
     suspend fun createCommunity(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<CommunityDto>
@@ -378,6 +390,117 @@ interface ChatApi {
 
     @POST("mobile/v1/chat/groups/{id}/members")
     suspend fun addMembers(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, List<Int>>): ApiEnvelope<JsonElement?>
+
+    // Educational / work groups: hand-over, archive, restore (GR-005, GR-006) and spaces (GR-007).
+    @POST("mobile/v1/chat/groups/{id}/owner/accept")
+    suspend fun acceptOwnership(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
+
+    @POST("mobile/v1/chat/groups/{id}/owner/decline")
+    suspend fun declineOwnership(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
+
+    @DELETE("mobile/v1/chat/groups/{id}/owner")
+    suspend fun cancelOwnership(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
+
+    @POST("mobile/v1/chat/groups/{id}/archive")
+    suspend fun archiveGroup(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<ConversationDto>
+
+    @GET("mobile/v1/chat/groups/deleted")
+    suspend fun deletedGroups(@Header("Authorization") auth: String): ApiEnvelope<List<DeletedGroupDto>>
+
+    @POST("mobile/v1/chat/groups/{id}/restore")
+    suspend fun restoreGroup(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
+
+    @GET("mobile/v1/chat/groups/{id}/spaces")
+    suspend fun groupSpaces(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<GroupSpaceDto>>
+
+    @POST("mobile/v1/chat/groups/{id}/spaces")
+    suspend fun createSpace(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<GroupSpaceDto>
+
+    @POST("mobile/v1/chat/groups/{id}/spaces/{space}/members")
+    suspend fun addSpaceMembers(@Header("Authorization") auth: String, @Path("id") id: String, @Path("space") space: Int, @Body body: Map<String, List<Int>>): ApiEnvelope<GroupSpaceDto>
+
+    @POST("mobile/v1/chat/groups/{id}/spaces/{space}/close")
+    suspend fun closeSpace(@Header("Authorization") auth: String, @Path("id") id: String, @Path("space") space: Int, @Body body: Map<String, Boolean>): ApiEnvelope<GroupSpaceDto>
+
+    // Educational / work groups: announcements, notice settings, activity log (GR-008..010).
+    @GET("mobile/v1/chat/groups/{id}/announcements")
+    suspend fun groupAnnouncements(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<MessageDto>>
+
+    @POST("mobile/v1/chat/groups/{id}/announcements")
+    suspend fun announce(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<MessageDto>
+
+    @GET("mobile/v1/chat/groups/{id}/notification-prefs")
+    suspend fun groupNoticePrefs(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<GroupNoticePrefsDto>
+
+    @PUT("mobile/v1/chat/groups/{id}/notification-prefs")
+    suspend fun setGroupNoticePrefs(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Map<String, Boolean>>): ApiEnvelope<GroupNoticePrefsDto>
+
+    @GET("mobile/v1/chat/groups/{id}/audit-log")
+    suspend fun groupAuditLog(@Header("Authorization") auth: String, @Path("id") id: String, @Query("page") page: Int): ApiEnvelope<GroupAuditPageDto>
+
+    // Work groups: tasks (GR-033..036).
+    @GET("mobile/v1/chat/groups/{id}/tasks")
+    suspend fun groupTasks(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("status") status: String,
+        @Query("mine") mine: Int?,
+        @Query("page") page: Int,
+        @Query("space_id") spaceId: Int? = null,
+    ): ApiEnvelope<GroupTaskPageDto>
+
+    /** GR-039: totals, each member's load, the late ones (`reports.view`). */
+    @GET("mobile/v1/chat/groups/{id}/tasks/report")
+    suspend fun groupTaskReport(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<GroupTaskReportDto>
+
+    /** GR-039: a CSV of the tasks I may see (opens in Excel). */
+    @retrofit2.http.Streaming
+    @GET("mobile/v1/chat/groups/{id}/tasks/export")
+    suspend fun exportGroupTasks(@Header("Authorization") auth: String, @Path("id") id: String): retrofit2.Response<okhttp3.ResponseBody>
+
+    @POST("mobile/v1/chat/groups/{id}/tasks")
+    suspend fun createGroupTask(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<GroupTaskDto>
+
+    @GET("mobile/v1/chat/groups/{id}/tasks/{task}")
+    suspend fun groupTask(@Header("Authorization") auth: String, @Path("id") id: String, @Path("task") task: String): ApiEnvelope<GroupTaskDto>
+
+    @DELETE("mobile/v1/chat/groups/{id}/tasks/{task}")
+    suspend fun cancelGroupTask(@Header("Authorization") auth: String, @Path("id") id: String, @Path("task") task: String): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/groups/{id}/tasks/{task}/status")
+    suspend fun setGroupTaskStatus(@Header("Authorization") auth: String, @Path("id") id: String, @Path("task") task: String, @Body body: Map<String, String>): ApiEnvelope<GroupTaskDto>
+
+    @POST("mobile/v1/chat/groups/{id}/tasks/{task}/review")
+    suspend fun reviewGroupTask(@Header("Authorization") auth: String, @Path("id") id: String, @Path("task") task: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<GroupTaskDto>
+
+    @Multipart
+    @POST("mobile/v1/chat/groups/{id}/tasks/{task}/proof")
+    suspend fun addGroupTaskProof(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Path("task") task: String,
+        @Part files: List<MultipartBody.Part>,
+        @Part("note") note: RequestBody?,
+    ): ApiEnvelope<GroupTaskDto>
+
+    @PATCH("mobile/v1/chat/groups/{id}/tasks/{task}/items/{item}")
+    suspend fun tickGroupTaskItem(@Header("Authorization") auth: String, @Path("id") id: String, @Path("task") task: String, @Path("item") item: Int, @Body body: Map<String, Boolean>): ApiEnvelope<GroupTaskDto>
+
+    // Educational / work groups: roles and permissions (docs/groups_tasks.md GR-004).
+    @GET("mobile/v1/chat/groups/{id}/roles")
+    suspend fun groupRoles(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<GroupRolesDto>
+
+    @POST("mobile/v1/chat/groups/{id}/roles")
+    suspend fun createGroupRole(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<GroupRoleDto>
+
+    @PATCH("mobile/v1/chat/groups/{id}/roles/{role}")
+    suspend fun updateGroupRole(@Header("Authorization") auth: String, @Path("id") id: String, @Path("role") role: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<GroupRoleDto>
+
+    @DELETE("mobile/v1/chat/groups/{id}/roles/{role}")
+    suspend fun deleteGroupRole(@Header("Authorization") auth: String, @Path("id") id: String, @Path("role") role: Int): ApiEnvelope<JsonElement?>
+
+    @PUT("mobile/v1/chat/groups/{id}/members/{participant}/roles")
+    suspend fun setMemberRoles(@Header("Authorization") auth: String, @Path("id") id: String, @Path("participant") participant: Int, @Body body: Map<String, List<Int>>): ApiEnvelope<JsonElement?>
 
     @DELETE("mobile/v1/chat/groups/{id}/members/{participant}")
     suspend fun removeMember(@Header("Authorization") auth: String, @Path("id") id: String, @Path("participant") participant: Int): ApiEnvelope<List<MemberDto>>
@@ -470,7 +593,13 @@ interface ChatApi {
     // ------------------------------------------------------------------ contacts, privacy, presence
 
     @GET("mobile/v1/chat/contacts")
-    suspend fun contacts(@Header("Authorization") auth: String, @Query("registered") registered: Int = 0): ApiEnvelope<List<ContactDto>>
+    suspend fun contacts(
+        @Header("Authorization") auth: String,
+        @Query("registered") registered: Int = 0,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+    ): ApiEnvelope<List<ContactDto>>
 
     @POST("mobile/v1/chat/contacts/sync")
     suspend fun syncContacts(@Header("Authorization") auth: String, @Body body: ContactSyncRequest): ApiEnvelope<List<ContactDto>>
@@ -512,7 +641,12 @@ interface ChatApi {
     suspend fun privacySummary(@Header("Authorization") auth: String, @Query("from") from: String): ApiEnvelope<PrivacySummaryDto>
 
     @GET("mobile/v1/chat/blocks")
-    suspend fun blocks(@Header("Authorization") auth: String): ApiEnvelope<List<BlockDto>>
+    suspend fun blocks(
+        @Header("Authorization") auth: String,
+        @Query("q") q: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<BlockDto>>
 
     @POST("mobile/v1/chat/blocks")
     suspend fun block(@Header("Authorization") auth: String, @Body body: Map<String, Int>): ApiEnvelope<List<BlockDto>>
@@ -543,7 +677,11 @@ interface ChatApi {
     // ------------------------------------------------------------------ stories
 
     @GET("mobile/v1/chat/stories")
-    suspend fun stories(@Header("Authorization") auth: String): ApiEnvelope<StoryFeedDto>
+    suspend fun stories(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<StoryFeedDto>
 
     @Multipart
     @POST("mobile/v1/chat/stories")
@@ -590,7 +728,11 @@ interface ChatApi {
     // ------------------------------------------------------------------ calls
 
     @GET("mobile/v1/chat/calls")
-    suspend fun calls(@Header("Authorization") auth: String): ApiEnvelope<List<CallDto>>
+    suspend fun calls(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<CallDto>>
 
     @POST("mobile/v1/chat/conversations/{id}/calls")
     suspend fun startCall(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<CallSessionDto>
@@ -600,7 +742,11 @@ interface ChatApi {
 
     // Call links (WhatsApp list 72).
     @GET("mobile/v1/chat/call-links")
-    suspend fun callLinks(@Header("Authorization") auth: String): ApiEnvelope<List<CallLinkDto>>
+    suspend fun callLinks(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<CallLinkDto>>
 
     @POST("mobile/v1/chat/call-links")
     suspend fun createCallLink(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<CallLinkDto>
@@ -683,6 +829,10 @@ data class ProfileDto(
     @SerializedName("is_contact") val isContact: Boolean = false,
     @SerializedName("is_me") val isMe: Boolean = false,
     @SerializedName("is_deleted") val isDeleted: Boolean = false,
+    /** Known to me only from a hidden-members group: no number, no private chat or call. */
+    @SerializedName("is_hidden") val isHidden: Boolean = false,
+    /** The account verification ✔ next to their name (docs/verification_tasks.md AV-027). */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     /** Their personal status ("🏖️ On holiday"), when its audience includes me. */
     val status: UserStatusDto? = null,
 )
@@ -706,6 +856,8 @@ data class ReminderDto(@SerializedName("remind_at") val remindAt: String, val no
 
 data class GroupInfoDto(
     val name: String,
+    /** normal | education | work — fixed once the group exists (docs/groups_tasks.md GR-001). */
+    val kind: String = "normal",
     val description: String?,
     val avatar: String?,
     @SerializedName("members_count") val membersCount: Int,
@@ -714,6 +866,17 @@ data class GroupInfoDto(
     @SerializedName("only_admins_add_members") val onlyAdminsAddMembers: Boolean,
     /** New members from the invite link wait for an admin. */
     @SerializedName("approve_joins") val approveJoins: Boolean = false,
+    /** direct | approval | request — how people join (GR-003). */
+    @SerializedName("join_mode") val joinMode: String = "direct",
+    /** Educational / work groups: what I may do here (GR-004); null in an ordinary group. */
+    @SerializedName("my_permissions") val myPermissions: List<String>? = null,
+    /** Read only: archived, or a term / project that closed (GR-006, GR-007). */
+    @SerializedName("archived_at") val archivedAt: String? = null,
+    @SerializedName("read_only") val readOnly: Boolean = false,
+    /** A hand-over waiting for the member's answer — only the owner and that member get it (GR-005). */
+    @SerializedName("ownership_offer") val ownershipOffer: OwnershipOfferDto? = null,
+    /** This chat is a term / subgroup / project inside that group (GR-007). */
+    val space: SpaceBadgeDto? = null,
     /** Admins only: how many are waiting. */
     @SerializedName("pending_join_requests") val pendingJoinRequests: Int = 0,
     /** Channels: @handle and whether it's listed in Discover. */
@@ -730,6 +893,151 @@ data class GroupInfoDto(
     @SerializedName("allowed_reactions") val allowedReactions: List<String>? = null,
     /** Part of a community (WhatsApp list 93). */
     val community: CommunityBadgeDto? = null,
+    /** Paid: members' numbers hidden from each other, no private chats from the group (one way). */
+    @SerializedName("members_hidden") val membersHidden: Boolean = false,
+)
+
+data class OwnershipOfferDto(
+    @SerializedName("from_participant_id") val fromParticipantId: Int,
+    @SerializedName("to_participant_id") val toParticipantId: Int,
+    @SerializedName("for_me") val forMe: Boolean = false,
+)
+
+data class SpaceBadgeDto(
+    val id: Int,
+    val type: String,
+    @SerializedName("is_closed") val isClosed: Boolean = false,
+    @SerializedName("parent_id") val parentId: String? = null,
+    @SerializedName("parent_name") val parentName: String? = null,
+)
+
+/** A term, subgroup or project inside an educational / work group (GR-007). */
+data class GroupSpaceDto(
+    val id: Int,
+    @SerializedName("conversation_id") val conversationId: String,
+    val type: String,
+    val name: String?,
+    @SerializedName("starts_on") val startsOn: String? = null,
+    @SerializedName("ends_on") val endsOn: String? = null,
+    @SerializedName("is_closed") val isClosed: Boolean = false,
+    @SerializedName("is_member") val isMember: Boolean = false,
+    @SerializedName("members_count") val membersCount: Int = 0,
+)
+
+/** A page of a work group's tasks (GR-033). */
+data class GroupTaskPageDto(val tasks: List<GroupTaskDto> = emptyList(), @SerializedName("has_more") val hasMore: Boolean = false)
+
+data class GroupTaskDto(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    /** new | in_progress | in_review | done | cancelled */
+    val status: String,
+    /** low | normal | high | urgent */
+    val priority: String = "normal",
+    @SerializedName("due_at") val dueAt: String? = null,
+    @SerializedName("is_late") val isLate: Boolean = false,
+    @SerializedName("needs_approval") val needsApproval: Boolean = false,
+    @SerializedName("requires_proof") val requiresProof: Boolean = false,
+    val assignee: TaskPersonDto? = null,
+    @SerializedName("created_by") val createdBy: TaskPersonDto? = null,
+    val space: TaskSpaceDto? = null,
+    val items: List<TaskItemDto> = emptyList(),
+    @SerializedName("items_done") val itemsDone: Int = 0,
+    val proof: TaskProofDto? = null,
+    @SerializedName("review_note") val reviewNote: String? = null,
+    /** GR-038: the message it was made from — its words only while I may still read it. */
+    val source: TaskSourceDto? = null,
+    val repeat: String? = null,
+    val can: TaskCanDto = TaskCanDto(),
+)
+
+data class TaskSourceDto(
+    val available: Boolean = false,
+    @SerializedName("message_id") val messageId: String? = null,
+    @SerializedName("conversation_id") val conversationId: String? = null,
+    val excerpt: String? = null,
+)
+
+data class GroupTaskReportDto(
+    val totals: TaskTotalsDto = TaskTotalsDto(),
+    val members: List<TaskMemberLoadDto> = emptyList(),
+    val late: List<LateTaskDto> = emptyList(),
+)
+
+data class TaskTotalsDto(val open: Int = 0, @SerializedName("in_review") val inReview: Int = 0, val late: Int = 0, @SerializedName("done_week") val doneWeek: Int = 0)
+
+data class TaskMemberLoadDto(
+    @SerializedName("participant_id") val participantId: Int,
+    val profile: ProfileDto? = null,
+    val open: Int = 0,
+    val late: Int = 0,
+    @SerializedName("done_week") val doneWeek: Int = 0,
+)
+
+data class LateTaskDto(val id: String, val title: String, val priority: String = "normal", @SerializedName("due_at") val dueAt: String? = null)
+
+data class TaskPersonDto(@SerializedName("participant_id") val participantId: Int, val profile: ProfileDto? = null)
+
+data class TaskSpaceDto(val id: Int, val name: String? = null)
+
+data class TaskItemDto(val id: Int, val text: String, val done: Boolean = false)
+
+data class TaskProofDto(val note: String? = null, val files: List<TaskFileDto> = emptyList())
+
+data class TaskFileDto(val id: String, val url: String, val name: String? = null, @SerializedName("mime_type") val mimeType: String? = null)
+
+data class TaskCanDto(val edit: Boolean = false, val work: Boolean = false, val review: Boolean = false)
+
+/** Which notices of this group I muted (GR-009). */
+data class GroupNoticePrefsDto(val types: List<String> = emptyList(), val muted: List<String> = emptyList())
+
+/** The activity log (GR-010), newest first. */
+data class GroupAuditPageDto(val items: List<GroupAuditItemDto> = emptyList(), @SerializedName("has_more") val hasMore: Boolean = false)
+
+data class GroupAuditItemDto(
+    val id: Int,
+    val action: String,
+    val text: String,
+    val actor: ProfileDto? = null,
+    val subject: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+/** One of my deleted groups that can still come back (GR-006). */
+data class DeletedGroupDto(
+    val id: String,
+    val name: String,
+    val kind: String? = null,
+    @SerializedName("deleted_at") val deletedAt: String? = null,
+    @SerializedName("purge_after") val purgeAfter: String? = null,
+)
+
+/** A group's roles, the permissions its kind has (with names), and mine (GR-004). */
+data class GroupRolesDto(
+    val roles: List<GroupRoleDto> = emptyList(),
+    val permissions: List<GroupPermissionDto> = emptyList(),
+    @SerializedName("my_permissions") val myPermissions: List<String> = emptyList(),
+)
+
+data class GroupRoleDto(
+    val id: Int,
+    val template: String? = null,
+    val name: String,
+    val permissions: List<String> = emptyList(),
+    @SerializedName("is_default") val isDefault: Boolean = false,
+    @SerializedName("members_count") val membersCount: Int = 0,
+)
+
+data class GroupPermissionDto(val key: String, val name: String)
+
+/** What hiding a group's members costs where I am (`available` false: not sold here). */
+data class HiddenMembersPriceDto(
+    val available: Boolean = false,
+    @SerializedName("amount_minor") val amountMinor: Long? = null,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
+    @SerializedName("decimal_places") val decimalPlaces: Int? = null,
 )
 
 data class CommunityBadgeDto(val id: String, val name: String, @SerializedName("is_announcement") val isAnnouncement: Boolean = false)
@@ -857,6 +1165,7 @@ data class ConversationDto(
     /** My privacy circle for this chat (spec 98) — only I know. */
     val circle: ConversationCircleDto? = null,
     @SerializedName("is_muted") val isMuted: Boolean,
+    @SerializedName("muted_until") val mutedUntil: String? = null,
     @SerializedName("disappearing_seconds") val disappearingSeconds: Int?,
     val theme: ConversationThemeDto? = null,
     // Only on the single-chat screen:
@@ -969,6 +1278,8 @@ data class MessageDto(
     @SerializedName("expires_at") val expiresAt: String?,
     val reactions: ReactionsDto = ReactionsDto(),
     @SerializedName("is_starred") val isStarred: Boolean = false,
+    /** Favourites folder; null = unsorted «Favourites». */
+    @SerializedName("star_folder_id") val starFolderId: Int? = null,
     /** On my "read later" list. */
     @SerializedName("is_read_later") val isReadLater: Boolean = false,
     /** A surprise greeting card (spec 165) not opened yet: no words, no files until `meta.card.reveal_at`. */
@@ -1087,10 +1398,12 @@ data class InvitePreviewDto(
     @SerializedName("members_count") val membersCount: Int,
     @SerializedName("is_member") val isMember: Boolean,
     @SerializedName("approve_joins") val approveJoins: Boolean = false,
+    /** direct | approval | request (a box for why — GR-003). */
+    @SerializedName("join_mode") val joinMode: String? = null,
     @SerializedName("request_status") val requestStatus: String? = null,
 )
 
-data class JoinRequestDto(val id: Int, val profile: ProfileDto?, @SerializedName("requested_at") val requestedAt: String?)
+data class JoinRequestDto(val id: Int, val profile: ProfileDto?, @SerializedName("requested_at") val requestedAt: String?, val reason: String? = null)
 
 data class MessagePageDto(
     val messages: List<MessageDto>,
@@ -1111,6 +1424,8 @@ data class MessageInfoDto(
 data class MemberDto(
     @SerializedName("participant_id") val participantId: Int,
     val role: String,
+    /** Educational / work groups: the role ids they hold in the whole group (GR-004). */
+    val roles: List<Int>? = null,
     @SerializedName("joined_at") val joinedAt: String?,
     val profile: ProfileDto?,
 )
@@ -1204,6 +1519,22 @@ data class AiCapabilitiesDto(
     val important: Boolean = false,
     @SerializedName("related_files") val relatedFiles: Boolean = false,
     val today: Boolean = false,
+    // Images with DORR AI (spec 50, 51).
+    @SerializedName("image_generate") val imageGenerate: Boolean = false,
+    @SerializedName("image_edit") val imageEdit: Boolean = false,
+    // DORR AI's search by meaning, memory, continue-in-another-chat and AI-images gallery, in the chat.
+    @SerializedName("search_meaning") val searchMeaning: Boolean = false,
+    val memory: Boolean = false,
+    val capsule: Boolean = false,
+    @SerializedName("ai_images") val aiImages: Boolean = false,
+    /** The DORR AI plan (2026-10-15): when not allowed the tools stay, a tap offers the subscription. */
+    val plan: AiPlanStateDto? = null,
+)
+
+data class AiPlanStateDto(
+    val allowed: Boolean = false,
+    /** no_plan · trial_ended · subscription_suspended · cooldown · limit_reached · blocked */
+    val reason: String? = null,
 )
 
 data class AiTextDto(val text: String, val to: String? = null)
@@ -1397,7 +1728,12 @@ data class StoryGroupDto(
     @SerializedName("block_screenshots") val blockScreenshots: Boolean = false,
 )
 
-data class StoryFeedDto(val mine: StoryGroupDto?, val recent: List<StoryGroupDto> = emptyList(), val muted: List<StoryGroupDto> = emptyList())
+data class StoryFeedDto(
+    val mine: StoryGroupDto?,
+    val recent: List<StoryGroupDto> = emptyList(),
+    val muted: List<StoryGroupDto> = emptyList(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class StoryViewerDto(val viewer: ProfileDto?, @SerializedName("viewed_at") val viewedAt: String?, val reaction: String?)
 

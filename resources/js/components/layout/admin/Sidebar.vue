@@ -50,6 +50,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showFreelanceSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.freelance') }}</span>
+                        </li>
+
+                        <li v-for="item in freelanceItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <li v-if="isAiVisible" class="slide__category">
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
                     </li>
@@ -84,6 +97,16 @@
                             <li class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-edit-packs.index' }" class="side-menu__item">
                                     {{ t('ai_site_offers.packs_title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-ar.index' }" class="side-menu__item">
+                                    {{ t('ai_ar.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-world.index' }" class="side-menu__item">
+                                    {{ t('ai_world.title') }}
                                 </router-link>
                             </li>
                             <li class="slide">
@@ -429,44 +452,6 @@
                         </ul>
                     </li>
 
-                    <template v-if="smsSectionReady && showSmsSection">
-                        <li class="slide__category">
-                            <span class="category-name">{{ t('sidebar.sms') }}</span>
-                        </li>
-
-                        <li class="slide has-sub">
-                            <a
-                                href="javascript:void(0);"
-                                class="side-menu__item"
-                                @click.prevent="toggleSubMenu"
-                            >
-                                <i class="ri-message-2-line side-menu__icon"></i>
-                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
-                                <i class="fe fe-chevron-right side-menu__angle"></i>
-                            </a>
-                            <ul class="slide-menu child1">
-                                <li class="slide side-menu__label1">
-                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
-                                </li>
-                                <li v-if="can('sms-providers.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.providers') }}
-                                    </router-link>
-                                </li>
-                                <li v-if="can('whatsapp.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.whatsapp') }}
-                                    </router-link>
-                                </li>
-                                <li v-if="can('otp-settings.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.otp') }}
-                                    </router-link>
-                                </li>
-                            </ul>
-                        </li>
-                    </template>
-
                     <template v-if="showSystemUsersSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.users') }}</span>
@@ -537,6 +522,44 @@
                     </template>
 
                     <template v-if="isGeneralVisible">
+                        <template v-if="smsSectionReady && showSmsSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.sms') }}</span>
+                        </li>
+
+                        <li class="slide has-sub">
+                            <a
+                                href="javascript:void(0);"
+                                class="side-menu__item"
+                                @click.prevent="toggleSubMenu"
+                            >
+                                <i class="ri-message-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                </li>
+                                <li v-if="can('sms-providers.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.providers') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('whatsapp.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.whatsapp') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('otp-settings.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.otp') }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
+
                         <template v-if="showServicesSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.services') }}</span>
@@ -821,6 +844,7 @@ const chatAdminItems = [
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
     { route: 'admin.chat.moments', permission: 'chat-moments.view', icon: 'ri-cake-2-line', label: 'chat.moments.title' },
     { route: 'admin.chat.dorr-stories', permission: 'chat-dorr-stories.view', icon: 'ri-donut-chart-line', label: 'chat.dorr_stories.title' },
+    { route: 'admin.chat.groups', permission: 'chat-groups.view', icon: 'ri-team-line', label: 'chat.groups.title' },
     { route: 'admin.chat.channels', permission: 'chat-channels.view', icon: 'ri-verified-badge-line', label: 'chat.channels.title' },
     { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
     { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
@@ -829,6 +853,12 @@ const chatAdminItems = [
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+    // Account verification (docs/verification_tasks.md).
+    { route: 'admin.chat.verification.requests', permission: 'chat-verification-requests.view', icon: 'ri-shield-user-line', label: 'chat.verification.requests.title' },
+    { route: 'admin.chat.verification.badges', permission: 'chat-verification-badges.view', icon: 'ri-verified-badge-line', label: 'chat.verification.badges.title' },
+    { route: 'admin.chat.verification.documents', permission: 'chat-verification-settings.view', icon: 'ri-file-shield-2-line', label: 'chat.verification.documents.title' },
+    { route: 'admin.chat.verification.settings', permission: 'chat-verification-settings.view', icon: 'ri-shield-check-line', label: 'chat.verification.settings.title' },
+    { route: 'admin.chat.verification.audit', permission: 'chat-verification-audit.view', icon: 'ri-history-line', label: 'chat.verification.audit.title' },
 ];
 
 const showChatAdminSection = computed(
@@ -846,12 +876,43 @@ const ridesItems = [
     { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
     { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
     { route: 'admin.rides.cases', permission: 'ride-cases.view', icon: 'ri-customer-service-2-line', label: 'rides.cases.title' },
+    { route: 'admin.rides.quality', permission: 'rides.view', icon: 'ri-sparkling-2-line', label: 'rides.quality.title' },
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.loyalty', permission: 'ride-loyalty.view', icon: 'ri-vip-crown-2-line', label: 'rides.loyalty.title' },
+    { route: 'admin.rides.driver_services', permission: 'driver-services.view', icon: 'ri-apps-2-line', label: 'rides.driver_services.title' },
     { route: 'admin.rides.ranks', permission: 'driver-ranks.view', icon: 'ri-medal-line', label: 'rides.ranks.title' },
     { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
 ];
+
+/** Freelance (Modules/Freelance), shown when the header service is the freelance one. */
+const freelanceItems = [
+    { route: 'admin.freelance.overview', permission: 'freelance-settings.view', icon: 'ri-briefcase-4-line', label: 'freelance.overview.title' },
+    { route: 'admin.freelance.switches', permission: 'freelance-feature-rules.view', icon: 'ri-toggle-line', label: 'freelance.switches.title' },
+    { route: 'admin.freelance.oversight', permission: 'freelance-projects.view', icon: 'ri-eye-line', label: 'freelance.oversight.title' },
+    { route: 'admin.freelance.late', permission: 'freelance-projects.view', icon: 'ri-timer-flash-line', label: 'freelance.late.title' },
+    { route: 'admin.freelance.countries', permission: 'freelance-projects.view', icon: 'ri-earth-line', label: 'freelance.countries.title' },
+    { route: 'admin.freelance.support', permission: 'freelance-support.view', icon: 'ri-customer-service-2-line', label: 'freelance.support.title' },
+    { route: 'admin.freelance.insights', permission: 'freelance-reports.view', icon: 'ri-line-chart-line', label: 'freelance.insights.title' },
+    { route: 'admin.freelance.risk', permission: 'freelance-risk.view', icon: 'ri-alarm-warning-line', label: 'freelance.risk.title' },
+    { route: 'admin.freelance.audit', permission: 'freelance-audit.view', icon: 'ri-history-line', label: 'freelance.audit.title' },
+    { route: 'admin.freelance.freelancers', permission: 'freelancers.view', icon: 'ri-user-star-line', label: 'freelance.freelancers.title' },
+    { route: 'admin.freelance.projects', permission: 'freelance-projects.view', icon: 'ri-survey-line', label: 'freelance.projects.title' },
+    { route: 'admin.freelance.disputes', permission: 'freelance-disputes.view', icon: 'ri-scales-3-line', label: 'freelance.disputes.title' },
+    { route: 'admin.freelance.sanctions', permission: 'freelance-sanctions.view', icon: 'ri-shield-user-line', label: 'freelance.sanctions.title' },
+    { route: 'admin.freelance.reviews', permission: 'freelance-reviews.view', icon: 'ri-star-smile-line', label: 'freelance.reviews.title' },
+    { route: 'admin.freelance.messageReports', permission: 'freelance-message-reports.view', icon: 'ri-flag-line', label: 'freelance.messageReports.title' },
+    { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
+    { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
+    { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+    { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
+    { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-node-tree', label: 'freelance.specialties.title' },
+    { route: 'admin.freelance.policies', permission: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
+];
+
+const showFreelanceSection = computed(
+    () => selectedModuleName.value === 'freelance' && freelanceItems.some((item) => can(item.permission)),
+);
 
 const showRidesSection = computed(
     () => selectedModuleName.value === 'passenger_ride' && ridesItems.some((item) => can(item.permission)),

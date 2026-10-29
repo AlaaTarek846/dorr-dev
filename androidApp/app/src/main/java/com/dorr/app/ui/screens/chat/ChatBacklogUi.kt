@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -22,15 +23,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.MarkChatRead
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Forward
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.SdCard
+import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -38,15 +50,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -63,6 +80,13 @@ import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.StorageDto
 import com.dorr.app.network.StorageFileDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.ConfirmDialog
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
@@ -103,6 +127,7 @@ internal fun ExportChatSheet(conversationId: String, onDismiss: () -> Unit) {
             stringResource(R.string.bk_export_text) to { run(false) },
             stringResource(R.string.bk_export_media) to { run(true) },
         ),
+        radios = true,
         onDismiss = onDismiss,
     )
 }
@@ -130,7 +155,7 @@ internal fun shareFile(context: Context, file: File, mime: String) {
 
 // =============================================================================== manage storage (46–48)
 
-/** My chats' files, biggest first: the large ones, the forwarded ones, all, or one chat's. */
+/** My chats' files, biggest first: the large ones, the forwarded ones, all, or one chat's. Pages of 15. */
 @Composable
 fun StoragePage(conversationId: String? = null, title: String? = null) {
     val host = LocalChat.current
@@ -138,41 +163,175 @@ fun StoragePage(conversationId: String? = null, title: String? = null) {
     var overview by remember { mutableStateOf<StorageDto?>(null) }
     var kind by remember { mutableStateOf(if (conversationId != null) "all" else "large") }
     var items by remember { mutableStateOf<List<StorageFileDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<String>() }
     var busy by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val deleted = stringResource(R.string.bk_storage_deleted)
+    val list = items.orEmpty()
+    val allOnList = list.isNotEmpty() && list.all { it.messageId in selected } && !hasMore
 
-    suspend fun load() {
-        if (conversationId == null) overview = runCatching { ApiClient.backlog.storage(chatAuth()).data }.getOrNull()
-        items = if (kind == "chats") null
-        else runCatching { ApiClient.backlog.storageFiles(chatAuth(), kind, conversationId).data?.items }.getOrNull().orEmpty()
+    suspend fun load(reset: Boolean) {
+        val forKind = kind
+        if (forKind == "chats") {
+            if (conversationId == null) overview = runCatching { ApiClient.backlog.storage(chatAuth()).data }.getOrNull()
+            items = null
+            page = 1
+            hasMore = false
+            loadingMore = false
+            return
+        }
+        if (!reset && (loadingMore || !hasMore || items == null)) return
+        if (!reset) loadingMore = true
+        if (reset) {
+            items = null
+            page = 1
+            hasMore = false
+            loadingMore = false
+            if (conversationId == null) overview = runCatching { ApiClient.backlog.storage(chatAuth()).data }.getOrNull()
+        }
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching { ApiClient.backlog.storageFiles(chatAuth(), forKind, conversationId, page = next, perPage = 15) }.getOrNull()
+        if (kind != forKind) return
+        val chunk = envelope?.data?.items.orEmpty()
+        items = if (reset) chunk else {
+            val known = items.orEmpty().map { it.messageId }.toSet()
+            items.orEmpty() + chunk.filter { it.messageId.isNotBlank() && it.messageId !in known }
+        }
+        page = next
+        hasMore = envelope?.data?.hasMore == true
+        if (!reset) loadingMore = false
     }
     LaunchedEffect(kind) {
         selected.clear()
-        load()
+        load(reset = true)
     }
 
-    ChPage(title ?: stringResource(R.string.bk_storage), onBack = { host.pop() }) {
+    if (confirmDelete) {
+        ConfirmDialog(
+            icon = Icons.Rounded.DeleteSweep,
+            title = stringResource(R.string.bk_storage_delete_title),
+            message = stringResource(R.string.bk_storage_delete_sub),
+            confirmLabel = stringResource(R.string.bk_storage_delete, selected.size),
+            loading = busy,
+            onConfirm = {
+                if (busy || selected.isEmpty()) return@ConfirmDialog
+                busy = true
+                scope.launch {
+                    runCatching {
+                        ApiClient.backlog.deleteStorage(chatAuth(), JsonObject().apply { add("messages", JsonArray().apply { selected.forEach { add(it) } }) })
+                    }.onSuccess { host.showToast(deleted) }.onFailure { host.showToast(it.apiFailure().message ?: "") }
+                    selected.clear()
+                    confirmDelete = false
+                    load(reset = true)
+                    busy = false
+                }
+            },
+            onDismiss = { if (!busy) confirmDelete = false },
+        )
+    }
+
+    ChPage(title ?: stringResource(R.string.bk_storage), onBack = { host.pop() }, settingsHeader = true) {
         Column(Modifier.fillMaxSize()) {
             overview?.let { o ->
-                Text(
-                    stringResource(R.string.bk_storage_total, usageBytes(o.totalBytes), o.files), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp),
-                )
-                Text(stringResource(R.string.bk_storage_sub), color = Ch.Mut, fontSize = 12.5.sp, modifier = Modifier.padding(horizontal = 16.dp))
+                Column(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                        .clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Ch.Red, Ch.RedDeep)))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.width(3.dp).height(12.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.9f)))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.bk_storage_used), color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            }
+                            Text(usageBytes(o.totalBytes), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 2.dp))
+                            Text(stringResource(R.string.bk_storage_files_count, o.files), color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+                        }
+                        Box(
+                            Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.14f)).border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.SdCard, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Box(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).height(1.dp).background(Color.White.copy(alpha = 0.22f)))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Info, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp).padding(top = 1.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(R.string.bk_storage_sub),
+                            color = Color.White.copy(alpha = 0.82f),
+                            fontSize = 11.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
             if (conversationId == null) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(
                         "large" to stringResource(R.string.bk_storage_large) + (overview?.large?.let { " ($it)" } ?: ""),
                         "forwarded" to stringResource(R.string.bk_storage_forwarded) + (overview?.forwarded?.let { " ($it)" } ?: ""),
                         "all" to stringResource(R.string.bk_storage_all),
                         "chats" to stringResource(R.string.bk_storage_chats),
-                    ).forEach { (key, label) -> BkChip(label, kind == key) { kind = key } }
+                    ).forEach { (tab, label) ->
+                        BkChip(label, kind == tab) {
+                            if (kind == tab) return@BkChip
+                            kind = tab
+                            items = null
+                            hasMore = false
+                            page = 1
+                            selected.clear()
+                        }
+                    }
+                }
+            }
+            if (kind != "chats" && !list.isEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp).clickable(enabled = !busy) {
+                        if (allOnList) selected.clear()
+                        else scope.launch {
+                            busy = true
+                            var pages = 0
+                            while (hasMore && pages < 40) {
+                                load(reset = false)
+                                pages++
+                            }
+                            selected.clear()
+                            selected.addAll(items.orEmpty().map { it.messageId }.filter { it.isNotBlank() }.take(500))
+                            busy = false
+                        }
+                    }.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (allOnList) stringResource(R.string.bk_storage_unselect) else stringResource(R.string.bk_storage_select_all),
+                        color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                    )
+                    if (selected.isNotEmpty() && !allOnList) {
+                        Text("${selected.size}", color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(end = 8.dp))
+                    }
+                    Icon(
+                        if (allOnList) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                        null,
+                        tint = if (allOnList) Ch.Red else Ch.Soft,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
+                    kind == "chats" && overview?.chats.isNullOrEmpty() -> ChEmptyState(
+                        Icons.Rounded.SdStorage,
+                        stringResource(R.string.bk_storage),
+                        stringResource(R.string.bk_storage_empty),
+                        animated = true,
+                    )
                     kind == "chats" -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(overview?.chats.orEmpty(), key = { it.conversationId }) { chat ->
                             Row(
@@ -191,52 +350,68 @@ fun StoragePage(conversationId: String? = null, title: String? = null) {
                         }
                     }
                     items == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                    items!!.isEmpty() -> Text(stringResource(R.string.bk_storage_empty), color = Ch.Soft, modifier = Modifier.align(Alignment.Center))
-                    else -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(items!!, key = { it.messageId }) { file ->
-                            val on = file.messageId in selected
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (on) Ch.Red.copy(alpha = 0.08f) else Ch.Surface)
-                                    .clickable { if (on) selected.remove(file.messageId) else selected.add(file.messageId) }.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
-                                    if (file.thumbnail != null) {
-                                        AsyncImage(ApiClient.mediaUrl(file.thumbnail), null, imageLoader = chatImages(LocalContext.current), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                    } else {
-                                        Icon(if (file.type == "video") Icons.Rounded.Videocam else Icons.Rounded.Description, null, tint = Ch.Mut)
+                    items.isNullOrEmpty() -> ChEmptyState(
+                        Icons.Rounded.SdStorage,
+                        stringResource(R.string.bk_storage),
+                        stringResource(R.string.bk_storage_empty),
+                        animated = true,
+                    )
+                    else -> key(kind) {
+                        val files = items.orEmpty()
+                        val listState = rememberLazyListState()
+                        LaunchedEffect(files.size, hasMore) {
+                            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+                                .collect { (last, total) ->
+                                    if (last != null && total > 0 && last >= total - 3) {
+                                        scope.launch { load(reset = false) }
                                     }
                                 }
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(file.name ?: file.type, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (file.forwarded) Icon(Icons.Rounded.Forward, null, tint = Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
-                                        Text(listOfNotNull(file.chat, listTime(file.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1)
-                                    }
-                                }
-                                Text(usageBytes(file.bytes), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) Ch.Red else Ch.Soft)
+                        }
+                        LazyColumn(state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            itemsIndexed(files, key = { i, file -> "${kind}-${file.messageId.ifBlank { "file" }}-$i" }) { _, file ->
+                                StorageFileRow(file, selected = file.messageId in selected, onToggle = {
+                                    if (file.messageId in selected) selected.remove(file.messageId) else if (file.messageId.isNotBlank()) selected.add(file.messageId)
+                                })
                             }
                         }
                     }
                 }
             }
             if (selected.isNotEmpty()) {
-                ChPrimaryButton(stringResource(R.string.bk_storage_delete, selected.size), Modifier.fillMaxWidth().padding(16.dp), enabled = !busy) {
-                    busy = true
-                    scope.launch {
-                        runCatching {
-                            ApiClient.backlog.deleteStorage(chatAuth(), JsonObject().apply { add("messages", JsonArray().apply { selected.forEach { add(it) } }) })
-                        }.onSuccess { host.showToast(deleted) }.onFailure { host.showToast(it.apiFailure().message ?: "") }
-                        selected.clear()
-                        load()
-                        busy = false
-                    }
+                ChPrimaryButton(stringResource(R.string.bk_storage_delete, selected.size), Modifier.fillMaxWidth().padding(16.dp), enabled = !busy, icon = Icons.Rounded.DeleteSweep) {
+                    confirmDelete = true
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StorageFileRow(file: StorageFileDto, selected: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (selected) Ch.Red.copy(alpha = 0.08f) else Ch.Surface)
+            .clickable(onClick = onToggle).padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+            val thumb = file.thumbnail
+            if (!thumb.isNullOrBlank()) {
+                AsyncImage(ApiClient.mediaUrl(thumb), null, imageLoader = chatImages(LocalContext.current), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else {
+                Icon(if (file.type == "video") Icons.Rounded.Videocam else Icons.Rounded.Description, null, tint = Ch.Mut)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(file.name ?: file.type, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (file.forwarded) Icon(Icons.Rounded.Forward, null, tint = Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                Text(listOfNotNull(file.chat, listTime(file.createdAt)).joinToString(" · "), color = Ch.Mut, fontSize = 12.sp, maxLines = 1)
+            }
+        }
+        Text(usageBytes(file.bytes), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+        Spacer(Modifier.width(8.dp))
+        Icon(if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (selected) Ch.Red else Ch.Soft)
     }
 }
 
@@ -373,22 +548,41 @@ internal fun BusinessStatsCard() {
     var days by remember { mutableStateOf(30) }
     var stats by remember { mutableStateOf<com.dorr.app.network.BusinessStatsDto?>(null) }
     LaunchedEffect(days) { stats = runCatching { ApiClient.backlog.businessStats(chatAuth(), days).data }.getOrNull() }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Ch.Surface).padding(12.dp)) {
+    val st = stats
+    Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(7, 30, 90).forEach { d -> BkChip(stringResource(R.string.bk_days, d), days == d) { days = d } }
         }
-        Spacer(Modifier.height(10.dp))
-        val st = stats
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile(stringResource(R.string.bk_stats_sent), st?.sent?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_delivered), st?.delivered?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_read), st?.read?.toString() ?: "…", Modifier.weight(1f))
+        Spacer(Modifier.height(12.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            BusinessStatRow(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.bk_stats_sent), st?.sent?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.DoneAll, stringResource(R.string.bk_stats_delivered), st?.delivered?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.MarkChatRead, stringResource(R.string.bk_stats_read), st?.read?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.Inbox, stringResource(R.string.bk_stats_received), st?.received?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.bk_stats_chats), st?.chats?.toString() ?: "…", last = true)
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile(stringResource(R.string.bk_stats_received), st?.received?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_chats), st?.chats?.toString() ?: "…", Modifier.weight(1f))
-        }
+    }
+}
+
+@Composable
+private fun BusinessStatRow(icon: ImageVector, title: String, value: String, last: Boolean = false) {
+    val dark = settingsNight()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, color = settingsInk())
+    }
+    if (!last) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
     }
 }
 

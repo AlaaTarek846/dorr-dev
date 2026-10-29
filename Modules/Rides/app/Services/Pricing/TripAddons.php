@@ -147,6 +147,30 @@ final class TripAddons
     }
 
     /**
+     * O-88: a pet / child seats go only to captains who said they take them — how many of those are
+     * online and free around the pickup now (null when nothing asked needs equipment).
+     *
+     * @param  array<string, mixed>  $options
+     */
+    public static function equippedNearby(array $options, float $lat, float $lng, int $radius): ?int
+    {
+        if (empty($options['pet']) && empty($options['child_seats'])) {
+            return null;
+        }
+        [$minLat, $maxLat, $minLng, $maxLng] = \Modules\Rides\Support\Geo::boxAround($lat, $lng, $radius);
+        $online = \Modules\Driver\Models\DriverPresence::query()
+            ->where('status', \Modules\Driver\Enums\PresenceStatus::Online->value)->where('gps_enabled', true)
+            ->where('last_seen_at', '>=', now()->subSeconds(900))
+            ->whereBetween('lat', [$minLat, $maxLat])->whereBetween('lng', [$minLng, $maxLng])
+            ->pluck('driver_id');
+
+        return \Modules\Rides\Models\DriverPreference::query()->whereIn('driver_id', $online)
+            ->when(! empty($options['pet']), fn ($q) => $q->where('pet_friendly', true))
+            ->when(! empty($options['child_seats']), fn ($q) => $q->where('child_seats', '>=', (int) $options['child_seats']))
+            ->count();
+    }
+
+    /**
      * The options as both apps show them (the captain's request card, the rider's ride).
      *
      * @return list<array{key: string, label: string, count?: int}>

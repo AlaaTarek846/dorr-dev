@@ -35,6 +35,12 @@ class Ride extends Model
     {
         return [
             'beneficiary' => 'array',
+            'comfort' => 'array',
+            'late_risk' => 'array',
+            'risk_flags' => 'array',
+            'cancel_risk' => 'integer',
+            'risk_score' => 'integer',
+            'after_ride_id' => 'integer',
             'pickup_point' => 'array',
             'circle_driver_ids' => 'array',
             'circle_asked_at' => 'datetime',
@@ -98,6 +104,16 @@ class Ride extends Model
     public function policy(string $key, mixed $default = null): mixed
     {
         return $this->confirmed_snapshot['policy'][$key] ?? $default;
+    }
+
+    /**
+     * O-77: an operational threshold (the arrival range…) as the dashboard has it now — not as it was when
+     * the ride was booked. Prices stay on the booking's snapshot; this is only for how the trip runs.
+     */
+    public function livePolicy(string $key, mixed $default = null): mixed
+    {
+        return app(\Modules\Rides\Services\Policy\RidePolicies::class)->for((int) $this->country_id, $this->city_id, null, $this->category_id)->get($key)
+            ?? $this->policy($key, $default);
     }
 
     /**
