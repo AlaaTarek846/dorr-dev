@@ -6,11 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * A phone (OneSignal player id) that can receive push notifications for an account.
+ * A phone (OneSignal player id) that can receive push notifications for an account. An iPhone also
+ * has its PushKit `voip_token`: ringing calls go to it through APNs (ApnsVoipPusher).
  */
 class NotificationDevice extends Model
 {
-    protected $fillable = ['owner_type', 'owner_id', 'player_id', 'device_id', 'platform', 'locale', 'last_seen_at'];
+    protected $fillable = ['owner_type', 'owner_id', 'player_id', 'voip_token', 'device_id', 'platform', 'locale', 'last_seen_at'];
 
     protected function casts(): array
     {
