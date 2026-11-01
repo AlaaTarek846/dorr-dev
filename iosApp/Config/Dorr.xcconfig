@@ -1,0 +1,23 @@
+// Shared build settings. The backend is each developer's own choice in Local.xcconfig
+// (not committed), the iOS twin of androidApp/local.properties `dorr.apiHost` / `dorr.apiScheme`:
+//
+//   DORR_API_HOST = my-tunnel.ngrok-free.dev
+//   DORR_API_SCHEME = https
+//
+// Copy Local.xcconfig.example to Local.xcconfig and edit it.
+
+DORR_API_HOST = unafraid-occupy-geography.ngrok-free.dev
+DORR_API_SCHEME = https
+
+// The Google Maps key for iOS (O-53 / O-72) — like Android's `dorr.mapsKey`, set it in Local.xcconfig:
+//   DORR_GOOGLE_MAPS_KEY = AIza...   (a key restricted to iOS apps, bundle com.dorr.app)
+// Without it, when the admin's map is Google the iPhone draws with Apple Maps instead of a blank map.
+DORR_GOOGLE_MAPS_KEY =
+
+// Same placeholder identity as Android; Local.xcconfig may change it (and set DEVELOPMENT_TEAM) for a real iPhone.
+PRODUCT_BUNDLE_IDENTIFIER = com.dorr.app
+// The app's id, for the app group it shares with the screen-share extension ("group.<id>") and the extension's own
+// id ("<id>.broadcast") — LiveKit finds both from the app's id. Change it together with the line above.
+DORR_APP_BUNDLE_ID = com.dorr.app
+
+#include? "Local.xcconfig"

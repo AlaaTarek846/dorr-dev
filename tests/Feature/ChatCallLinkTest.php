@@ -87,6 +87,22 @@ class ChatCallLinkTest extends TestCase
         $this->getJson("/api/mobile/v1/chat/call-links/{$token}", $this->headers())->assertNotFound();
     }
 
+    public function test_call_links_page_fifteen(): void
+    {
+        $this->as($this->alice);
+        for ($i = 0; $i < 16; $i++) {
+            $this->postJson('/api/mobile/v1/chat/call-links', ['type' => $i % 2 === 0 ? 'audio' : 'video'], $this->headers())->assertCreated();
+        }
+        $this->getJson('/api/mobile/v1/chat/call-links?per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('pagination.per_page', 15)
+            ->assertJsonPath('pagination.total', 16)
+            ->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/call-links?page=2&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('pagination.has_more_pages', false);
+    }
+
     private function as(User $user): void
     {
         Sanctum::actingAs($user, [], 'user_api');

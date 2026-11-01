@@ -523,8 +523,8 @@
 
                     <template v-if="isGeneralVisible">
                         <template v-if="smsSectionReady && showSmsSection">
-                            <li class="slide__category">
-                                <span class="category-name">{{ t('sidebar.sms') }}</span>
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.sms') }}</span>
                         </li>
 
                         <li class="slide has-sub">

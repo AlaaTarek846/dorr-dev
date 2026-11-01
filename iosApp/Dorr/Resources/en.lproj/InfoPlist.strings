@@ -1,0 +1,8 @@
+/* Permission prompts (hand-written: not part of the Android strings sync). */
+"NSFaceIDUsageDescription" = "Open your Dorr wallet with Face ID instead of typing the PIN.";
+"NSCameraUsageDescription" = "Scan a wallet QR code, take a selfie to unlock a frozen wallet, or place DORR AR models in your room.";
+"NSLocationWhenInUseUsageDescription" = "To show where you are on the map and set your pickup point.";
+"NSMicrophoneUsageDescription" = "To say where you're going instead of typing it, and to send voice notes to DORR AI.";
+"NSSpeechRecognitionUsageDescription" = "To turn what you say into text for DORR AI.";
+"NSPhotoLibraryAddUsageDescription" = "Save your wallet QR code to your photos.";
+"NSContactsUsageDescription" = "To show which of your contacts are on DORR so you can chat with them.";

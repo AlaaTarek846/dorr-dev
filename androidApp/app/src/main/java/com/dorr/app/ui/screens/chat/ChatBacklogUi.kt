@@ -30,7 +30,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.MarkChatRead
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Forward
@@ -58,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -74,9 +80,13 @@ import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.StorageDto
 import com.dorr.app.network.StorageFileDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.ConfirmDialog
+import com.dorr.app.ui.screens.profile.PinkIcon
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
@@ -538,22 +548,41 @@ internal fun BusinessStatsCard() {
     var days by remember { mutableStateOf(30) }
     var stats by remember { mutableStateOf<com.dorr.app.network.BusinessStatsDto?>(null) }
     LaunchedEffect(days) { stats = runCatching { ApiClient.backlog.businessStats(chatAuth(), days).data }.getOrNull() }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Ch.Surface).padding(12.dp)) {
+    val st = stats
+    Column(Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(7, 30, 90).forEach { d -> BkChip(stringResource(R.string.bk_days, d), days == d) { days = d } }
         }
-        Spacer(Modifier.height(10.dp))
-        val st = stats
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile(stringResource(R.string.bk_stats_sent), st?.sent?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_delivered), st?.delivered?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_read), st?.read?.toString() ?: "…", Modifier.weight(1f))
+        Spacer(Modifier.height(12.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            BusinessStatRow(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.bk_stats_sent), st?.sent?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.DoneAll, stringResource(R.string.bk_stats_delivered), st?.delivered?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.MarkChatRead, stringResource(R.string.bk_stats_read), st?.read?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.Inbox, stringResource(R.string.bk_stats_received), st?.received?.toString() ?: "…")
+            BusinessStatRow(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.bk_stats_chats), st?.chats?.toString() ?: "…", last = true)
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile(stringResource(R.string.bk_stats_received), st?.received?.toString() ?: "…", Modifier.weight(1f))
-            StatTile(stringResource(R.string.bk_stats_chats), st?.chats?.toString() ?: "…", Modifier.weight(1f))
-        }
+    }
+}
+
+@Composable
+private fun BusinessStatRow(icon: ImageVector, title: String, value: String, last: Boolean = false) {
+    val dark = settingsNight()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, color = settingsInk())
+    }
+    if (!last) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
     }
 }
 

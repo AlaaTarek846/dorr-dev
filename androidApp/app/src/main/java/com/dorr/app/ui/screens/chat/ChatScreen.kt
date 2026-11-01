@@ -311,6 +311,7 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.Calls -> CallsPage()
         ChRoute.Communities -> CommunitiesPage()
         is ChRoute.Community -> CommunityPage(route.id)
+        is ChRoute.CommunityGroups -> CommunityGroupsPage(route.id, route.yours)
         is ChRoute.StoryComposer -> StoryComposerPage(route.media)
         ChRoute.StoryPrivacy -> StoryPrivacyPage()
         is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)

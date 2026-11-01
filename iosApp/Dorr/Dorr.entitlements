@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push (OneSignal) and VoIP pushes for ringing calls (PushKit). -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Shared with the DorrBroadcast extension: the whole screen's frames reach the call through it. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.$(DORR_APP_BUNDLE_ID)</string>
+	</array>
+</dict>
+</plist>
