@@ -121,9 +121,11 @@ const AREAS = [
         { route: 'admin.freelance.switches', perm: 'freelance-feature-rules.view', icon: 'ri-toggle-line', label: 'freelance.switches.title' },
         { route: 'admin.freelance.countries', perm: 'freelance-projects.view', icon: 'ri-earth-line', label: 'freelance.countries.title' },
         { route: 'admin.freelance.policies', perm: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
+        { route: 'admin.freelance.plans', perm: 'freelance-plans.view', icon: 'ri-vip-crown-2-line', label: 'freelance.plans.title' },
         { route: 'admin.freelance.document-types', perm: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
         { route: 'admin.freelance.skills', perm: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
-        { route: 'admin.freelance.specialties', perm: 'freelance-catalogs.view', icon: 'ri-node-tree', label: 'freelance.specialties.title' },
+        { route: 'admin.freelance.skillTests', perm: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
+        { route: 'admin.freelance.specialties', perm: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },
     ] },
 ];
 const areas = computed(() => AREAS.map((a) => ({ ...a, links: a.links.filter((l) => can(l.perm)) })).filter((a) => a.links.length));

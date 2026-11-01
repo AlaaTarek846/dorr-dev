@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L08: اختبارات المهارات والشارات -->
+    <string name="skt_title">اختبارات المهارات</string>
+    <string name="skt_home_card">اختبارات المهارات</string>
+    <string name="skt_hero_none">أثبت مهاراتك</string>
+    <string name="skt_hero_count">%1$d شارة موثّقة</string>
+    <string name="skt_hero_sub">اجتاز اختبار قصير في مهارة والعميل هيشوف شارة موثّقة جنب اسمك.</string>
+    <string name="skt_off_title">الاختبارات مش متاحة</string>
+    <string name="skt_off_body">اختبارات المهارات مش مفتوحة في بلدك دلوقتي. جرّب تاني بعدين.</string>
+    <string name="skt_none_title">مفيش اختبار لمهاراتك لسه</string>
+    <string name="skt_none_body">أي مهارة بيتجهزلها اختبار بتظهر هنا. ضيف مهارات تانية لملفك عشان تشوف أكتر.</string>
+    <string name="skt_open_skills">روح لمهاراتي</string>
+    <string name="skt_meta">%1$d سؤال · %2$d دقيقة · النجاح من %3$d%%</string>
+    <string name="skt_badge_held">موثّقة · %1$d%%</string>
+    <string name="skt_badge_until">شارتك سارية لحد %1$s</string>
+    <string name="skt_badge_forever">شارتك من غير تاريخ انتهاء</string>
+    <string name="skt_in_progress">شغّال</string>
+    <string name="skt_retake_at">تقدر تعيد الاختبار يوم %1$s</string>
+    <string name="skt_start">ابدأ الاختبار</string>
+    <string name="skt_resume">كمّل الاختبار</string>
+    <string name="skt_question_of">سؤال %1$d من %2$d</string>
+    <string name="skt_prev">السابق</string>
+    <string name="skt_next">التالي</string>
+    <string name="skt_finish">إنهاء وإرسال</string>
+    <string name="skt_unanswered">%1$d أسئلة لسه من غير إجابة وهتتحسب غلط.</string>
+    <string name="skt_passed">مبروك، نجحت!</string>
+    <string name="skt_failed">مش المرة دي</string>
+    <string name="skt_expired">الوقت خلص</string>
+    <string name="skt_score_line">%1$d صح من %2$d · درجة النجاح %3$d%%</string>
+    <string name="skt_passed_body">شارة %1$s بقت على ملفك وبتظهر للعملاء.</string>
+    <string name="skt_done">تمام</string>
+</resources>

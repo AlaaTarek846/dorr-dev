@@ -29,12 +29,22 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.Quiz
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.WorkspacePremium
+import androidx.compose.material.icons.rounded.VideoChat
+import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.shape.CircleShape
@@ -79,7 +89,23 @@ fun HomeScreen(actions: MainActions, failed: String?, onOpenPortfolio: () -> Uni
                 // FL-708: shown only while a warning / restriction is active or its appeal waits.
                 SanctionsCard()
                 if (profile.availability?.canReceiveOffers == false) PausedCard(onOpen = actions.openAvailability)
-                CompletenessCard(percent = profile.completeness?.percent ?: 0, onEdit = actions.openProfile)
+                WaitingOrdersBanner(actions.openServiceOrders)
+                // FL-L07: the next consultation, when one is booked.
+                NextConsultationBanner(actions.openConsultations)
+                // FL-L11: how complete the profile is and the next steps worth taking (the server ranks them).
+                CoachCard(
+                    fallbackPercent = profile.completeness?.percent ?: 0, onAll = actions.openCoach,
+                    onOpen = { action ->
+                        when (action) {
+                            "skills" -> actions.openSkills()
+                            "specialties" -> actions.openSpecialties()
+                            "portfolio" -> onOpenPortfolio()
+                            "verification" -> actions.openVerification()
+                            "services" -> actions.openServices()
+                            else -> actions.openProfile()
+                        }
+                    },
+                )
                 VerificationCard(profile.status, profile.statusReason, onOpen = actions.openVerification)
 
                 Text(stringResource(R.string.home_quick_title), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -95,45 +121,32 @@ fun HomeScreen(actions: MainActions, failed: String?, onOpenPortfolio: () -> Uni
                     QuickCard(Icons.Rounded.Work, stringResource(R.string.home_open_portfolio), Modifier.weight(1f), onOpenPortfolio)
                     QuickCard(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wl_title), Modifier.weight(1f), actions.openWallet)
                 }
-
-                val missing = profile.completeness?.missing.orEmpty()
-                if (missing.isNotEmpty()) {
-                    Text(stringResource(R.string.home_missing_title), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        missing.forEach { key ->
-                            val label = missingLabel(key) ?: return@forEach
-                            val open: () -> Unit = when (key) {
-                                "specialties" -> actions.openSpecialties
-                                "skills" -> actions.openSkills
-                                "work" -> actions.openExperiences
-                                "portfolio" -> onOpenPortfolio
-                                else -> actions.openProfile
-                            }
-                            Text("• $label", color = settingsAccent(), fontSize = 13.sp, modifier = Modifier.fillMaxWidth().clickable(onClick = open))
-                        }
-                    }
+                // FL-L04: my ready-made services and the orders on them.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickCard(Icons.Rounded.Storefront, stringResource(R.string.svc_home_card), Modifier.weight(1f), actions.openServices)
+                    QuickCard(Icons.Rounded.Inbox, stringResource(R.string.svc_orders_home_card), Modifier.weight(1f), actions.openServiceOrders)
                 }
+                // FL-L01 phase 4: my numbers, and my plan beside them.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickCard(Icons.Rounded.Insights, stringResource(R.string.insights_home_card), Modifier.weight(1f), actions.openInsights)
+                    QuickCard(Icons.Rounded.WorkspacePremium, stringResource(R.string.plans_title), Modifier.weight(1f), actions.openPlans)
+                }
+                // FL-L08: prove a skill with a test and carry its badge.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickCard(Icons.Rounded.Quiz, stringResource(R.string.skt_home_card), Modifier.weight(1f), actions.openSkillTests)
+                    // FL-L10: how many projects I take at once, and who waits.
+                    QuickCard(Icons.Rounded.Speed, stringResource(R.string.cap_home_card), Modifier.weight(1f), actions.openCapacity)
+                }
+                // FL-L07: paid consultations, and the hours I keep for them.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickCard(Icons.Rounded.VideoChat, stringResource(R.string.cns_home_card), Modifier.weight(1f), actions.openConsultations)
+                    QuickCard(Icons.Rounded.EventAvailable, stringResource(R.string.availability_title), Modifier.weight(1f), actions.openAvailability)
+                }
+
             }
             ErrorBanner(failed)
             Spacer(Modifier.height(20.dp))
         }
-    }
-}
-
-@Composable
-private fun CompletenessCard(percent: Int, onEdit: () -> Unit) {
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.home_completeness), color = settingsMut(), fontSize = 13.sp)
-            Text("$percent%", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-        }
-        LinearProgressIndicator(
-            progress = { percent / 100f },
-            color = settingsAccent(),
-            trackColor = settingsAccent().copy(alpha = 0.16f),
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)),
-        )
-        if (percent < 100) SettingsPrimaryButton(text = stringResource(R.string.home_edit_profile), onClick = onEdit)
     }
 }
 
@@ -194,23 +207,6 @@ internal fun statusLabel(status: String?): String = when (status) {
     else -> status.orEmpty()
 }
 
-@Composable
-internal fun missingLabel(key: String): String? = when (key) {
-    "name" -> stringResource(R.string.missing_name)
-    "avatar" -> stringResource(R.string.missing_avatar)
-    "headline" -> stringResource(R.string.missing_headline)
-    "bio" -> stringResource(R.string.missing_bio)
-    "email" -> stringResource(R.string.missing_email)
-    "languages" -> stringResource(R.string.missing_languages)
-    "experience" -> stringResource(R.string.missing_experience)
-    "specialties" -> stringResource(R.string.missing_specialties)
-    "skills" -> stringResource(R.string.missing_skills)
-    "work" -> stringResource(R.string.missing_work)
-    "portfolio" -> stringResource(R.string.missing_portfolio)
-    "terms" -> stringResource(R.string.missing_terms)
-    else -> null
-}
-
 /** A short notice on the home while the freelancer is not taking new offers (paused or on time off); a tap opens the availability page. */
 @Composable
 private fun PausedCard(onOpen: () -> Unit) {
@@ -222,4 +218,52 @@ private fun PausedCard(onOpen: () -> Unit) {
         Icon(Icons.Rounded.EventBusy, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
         Text(stringResource(R.string.availability_paused_banner), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
     }
+}
+
+/**
+ * FL-L04: the orders waiting for my answer, on top of the home — shown only when there are some. Read when the home opens, when the
+ * connection returns and when a notice arrives (a new order is one), never on a timer.
+ */
+@Composable
+private fun NextConsultationBanner(onOpen: () -> Unit) {
+    val reconnect = com.dorr.freelance.net.collectReconnectTick()
+    var next by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.dorr.freelance.net.ConsultationDto?>(null) }
+    suspend fun load() {
+        val r = com.dorr.core.network.apiCall { com.dorr.freelance.net.ApiClient.consultations.list(tab = "upcoming", perPage = 10) }
+        // A request waiting for my answer comes first.
+        if (r is com.dorr.core.network.ApiResult.Ok) next = r.data.firstOrNull { it.phase == "pending" } ?: r.data.firstOrNull()
+    }
+    androidx.compose.runtime.LaunchedEffect(reconnect) { load() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.freelance.net.Realtime.changed.collect { load() } }
+    next?.let { c ->
+        val at = runCatching { java.time.OffsetDateTime.parse(c.startsAt).atZoneSameInstant(java.time.ZoneId.systemDefault()) }.getOrNull()
+        val time = at?.let { java.time.format.DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.US).format(it) }.orEmpty()
+        val day = at?.let { java.time.format.DateTimeFormatter.ofPattern("EEEE d MMM", com.dorr.freelance.net.AppLocale.java()).format(it) }.orEmpty()
+        Row(
+            Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onOpen).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.VideoChat, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(if (c.phase == "pending") R.string.cns_pending_home else R.string.cns_next_banner, c.client?.name.orEmpty()), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text("$day · \u200E$time", color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun WaitingOrdersBanner(onOpen: () -> Unit) {
+    val reconnect = com.dorr.freelance.net.collectReconnectTick()
+    var waiting by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+    suspend fun load() {
+        val r = com.dorr.core.network.apiCall { com.dorr.freelance.net.ApiClient.services.orders(status = "awaiting", perPage = 50) }
+        if (r is com.dorr.core.network.ApiResult.Ok) waiting = r.data.size
+    }
+    androidx.compose.runtime.LaunchedEffect(reconnect) { load() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.freelance.net.Realtime.changed.collect { load() } }
+    if (waiting > 0) OrdersBanner(waiting, onOpen)
 }

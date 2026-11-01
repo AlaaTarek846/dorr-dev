@@ -93,7 +93,7 @@
                                     <td :class="{ 'ps-4': !canMultipleDelete }">
                                         <div class="d-flex align-items-center gap-2" :class="{ 'ms-4': row.parent_id }">
                                             <i v-if="row.parent_id" class="ri-corner-down-right-line text-muted"></i>
-                                            <span class="avatar avatar-sm avatar-rounded" :class="row.parent_id ? 'bg-secondary-transparent' : 'bg-primary-transparent'"><i :class="row.parent_id ? 'ri-node-tree' : 'ri-briefcase-4-line'"></i></span>
+                                            <span class="avatar avatar-sm avatar-rounded" :class="row.parent_id ? 'bg-secondary-transparent' : 'bg-primary-transparent'"><i :class="row.parent_id ? 'ri-id-card-line' : 'ri-briefcase-4-line'"></i></span>
                                             <div>
                                                 <span class="fw-semibold d-block">{{ row.name || `#${row.id}` }}</span>
                                                 <span class="d-block text-muted fs-11">#{{ row.id }}</span>
@@ -193,7 +193,7 @@
                 <div class="mb-3">
                     <label class="form-label">{{ t('freelance.specialties.parent') }}</label>
                     <div class="input-group">
-                        <span class="input-group-text"><i class="ri-node-tree"></i></span>
+                        <span class="input-group-text"><i class="ri-id-card-line"></i></span>
                         <Select v-model="form.parent_id" :options="parentOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :placeholder="t('freelance.specialties.no_parent')" show-clear :disabled="hasChildren" append-to="self" />
                     </div>
                     <div class="text-muted fs-11 mt-1">{{ hasChildren ? t('freelance.specialties.parent_locked') : t('freelance.specialties.parent_hint') }}</div>

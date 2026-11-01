@@ -74,7 +74,7 @@ private fun criterionLabel(c: String): String = stringResource(
 )
 
 @Composable
-private fun Stars(value: Int, size: Int = 26, onPick: ((Int) -> Unit)? = null) {
+internal fun Stars(value: Int, size: Int = 26, onPick: ((Int) -> Unit)? = null) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         (1..5).forEach { n ->
             Icon(

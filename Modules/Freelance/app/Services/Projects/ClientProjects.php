@@ -75,7 +75,7 @@ class ClientProjects
     }
 
     /** The client's country, once they have room for one more open project. */
-    private function roomFor(User $client): int
+    public function roomFor(User $client): int
     {
         $countryId = FreelanceCountry::of($client) ?? throw new FreelanceException('not_available', 403);
         $max = (int) config('freelance.projects.max_open', 20);

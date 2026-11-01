@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L05: monthly service subscriptions -->
+    <string name="mks_monthly">Monthly</string>
+    <string name="mks_from_month">From %1$s / month</string>
+    <string name="mks_per_month">per month</string>
+    <string name="mks_subscribe">Subscribe monthly</string>
+    <string name="mks_confirm_title">Subscribe to this service</string>
+    <string name="mks_confirm_body">This is the first month. The freelancer has %1$d hours to accept it; nothing is paid before that. After that you confirm every month yourself.</string>
+    <string name="mks_terms_title">How the monthly subscription works</string>
+    <string name="mks_term_month">Every month is a delivery of its own, within %1$d days.</string>
+    <string name="mks_term_confirm">Nothing renews by itself: %1$d days before a month ends you confirm the next one, and it is paid from your wallet then.</string>
+    <string name="mks_term_notice">To end it, ask %1$d days or more before the month ends and it ends with that month; later, it ends with the next one.</string>
+    <string name="mks_term_price">The price stays as it is today for as long as you stay subscribed.</string>
+    <string name="mks_tab">Monthly</string>
+    <string name="mks_month_n">Month %1$d</string>
+    <string name="mks_price_month">%1$s / month</string>
+    <string name="mks_status_active">Active</string>
+    <string name="mks_status_pending">Waiting for the freelancer</string>
+    <string name="mks_status_ended">Ended</string>
+    <string name="mks_month_ends">This month ends on %1$s</string>
+    <string name="mks_renew_due">Confirm next month — by %1$s, or the subscription ends</string>
+    <string name="mks_pending_hint">The first month starts once the freelancer accepts it.</string>
+    <string name="mks_ending_me">You are ending it — it ends on %1$s</string>
+    <string name="mks_ending_freelancer">The freelancer is ending it — it ends on %1$s</string>
+    <string name="mks_end_me">You ended it</string>
+    <string name="mks_end_freelancer">The freelancer ended it</string>
+    <string name="mks_end_not_renewed">The next month was not confirmed</string>
+    <string name="mks_end_first">The first month never started</string>
+    <string name="mks_renew_cta">Confirm next month</string>
+    <string name="mks_renew_title">Confirm next month</string>
+    <string name="mks_renew_body">The next month starts now at the same terms, and its money is held from your wallet until you approve the delivery.</string>
+    <string name="mks_renew_safe">The money stays held in Dorr — the freelancer is paid only when you approve.</string>
+    <string name="mks_renew_done">Next month confirmed</string>
+    <string name="mks_cancel">End the subscription</string>
+    <string name="mks_keep">Keep it going</string>
+    <string name="mks_cancel_title">End this subscription?</string>
+    <string name="mks_cancel_body">Ending takes notice: asked %1$d days or more before this month ends, it ends with this month; later, it ends with the next one (which you still confirm). You can take it back until then.</string>
+    <string name="mks_cancel_done">The freelancer is told when it ends</string>
+    <string name="mks_keep_done">The subscription goes on</string>
+    <string name="mks_empty_title">No monthly subscriptions</string>
+    <string name="mks_empty_body">Services marked «Monthly» can be subscribed to — the work comes every month.</string>
+</resources>

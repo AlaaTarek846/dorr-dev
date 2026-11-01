@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L11: زيارات الملف (جوه «إحصائيات أدائي») -->
+    <string name="insights_views_title">زيارات ملفك</string>
+    <string name="insights_views_sub">آخر %1$d يوم، ومقارنتها بالفترة اللي قبلها</string>
+    <string name="insights_views_none">لسه محدش زار ملفك أو خدماتك في الفترة دي. كل ما ملفك يكتمل وخدماتك تتنشر، العملاء بيوصلولك أسهل.</string>
+    <string name="insights_views_profile">زيارات الملف</string>
+    <string name="insights_views_service">زيارات الخدمات</string>
+    <string name="insights_views_flat">من غير زيارات</string>
+    <string name="insights_views_new">جديد</string>
+    <string name="insights_views_vs_before">عن قبل</string>
+    <string name="insights_views_src_offer">من عروضك</string>
+    <string name="insights_views_src_portfolio">من أعمالك</string>
+    <string name="insights_views_src_market">من سوق الخدمات</string>
+    <string name="insights_views_over_time">الزيارات على مدار الفترة</string>
+    <string name="insights_views_top">الخدمات الأكتر زيارة</string>
+    <string name="insights_views_top_row">%1$d زيارة · %2$d طلب</string>
+
+    <!-- FL-L11: طوّر ملفك -->
+    <string name="coach_title">طوّر ملفك</string>
+    <string name="coach_card_title">طوّر ملفك</string>
+    <string name="coach_card_sub">%1$d خطوة تزوّد فرصتك إنك تتختار</string>
+    <string name="coach_see_all">شوف كل الخطوات (%1$d)</string>
+    <string name="coach_level_start">ملفك لسه في الأول</string>
+    <string name="coach_level_good">ملفك كويس وممكن يبقى أحسن</string>
+    <string name="coach_level_great">ملفك ممتاز</string>
+    <string name="coach_steps_done">%1$d من %2$d خطوة اتعملت</string>
+    <string name="coach_next_hint">كمّل الخطوات اللي تحت من الأهم للأقل.</string>
+    <string name="coach_great_title">ملفك مكتمل</string>
+    <string name="coach_great_body">مفيش حاجة ناقصة دلوقتي. خلّي أعمالك ومهاراتك محدّثة.</string>
+    <string name="coach_impact_high">أثر كبير</string>
+    <string name="coach_impact_medium">أثر متوسط</string>
+    <string name="coach_impact_low">تحسينات بسيطة</string>
+
+    <string name="coach_tip_name">ضيف اسمك</string>
+    <string name="coach_tip_name_body">العميل بيختار الناس بأسمائهم، ومن غير اسم ملفك مش بيظهر.</string>
+    <string name="coach_tip_avatar">ضيف صورتك الشخصية</string>
+    <string name="coach_tip_avatar_body">الملفات اللي عليها صورة بتتفتح أكتر وبتدي ثقة أكبر.</string>
+    <string name="coach_tip_headline">اكتب عنوان مهني</string>
+    <string name="coach_tip_headline_body">جملة قصيرة تقول إنت مين، مثلاً: مصمم واجهات تطبيقات.</string>
+    <string name="coach_tip_bio">اكتب نبذة عنك (٥٠ حرف على الأقل)</string>
+    <string name="coach_tip_bio_body">احكي خبرتك وإيه اللي بتعمله أحسن، بأسلوب بسيط.</string>
+    <string name="coach_tip_email">أكّد إيميلك</string>
+    <string name="coach_tip_email_body">بيوصلك عليه الإيصالات والتنبيهات المهمة.</string>
+    <string name="coach_tip_languages">اختار لغات التواصل</string>
+    <string name="coach_tip_languages_body">عشان العميل يعرف يكلمك بلغته.</string>
+    <string name="coach_tip_experience">قول عندك كام سنة خبرة</string>
+    <string name="coach_tip_experience_body">رقم واحد بيساعد العميل يحدد مستواك بسرعة.</string>
+    <string name="coach_tip_specialties">اختار تخصصك</string>
+    <string name="coach_tip_specialties_body">من غيره مش هتظهرلك المشاريع اللي تناسبك.</string>
+    <string name="coach_tip_skills">ضيف ٣ مهارات على الأقل</string>
+    <string name="coach_tip_skills_body">المهارات هي اللي بنطابق بيها المشاريع معاك.</string>
+    <string name="coach_tip_work">ضيف خبراتك السابقة</string>
+    <string name="coach_tip_work_body">أماكن اشتغلت فيها قبل كده بتخلي العميل يطمّن.</string>
+    <string name="coach_tip_portfolio">ضيف أول شغل في معرض أعمالك</string>
+    <string name="coach_tip_portfolio_body">الصور أقوى من الكلام في إقناع العميل.</string>
+    <string name="coach_tip_more_skills">كمّل لـ٦ مهارات</string>
+    <string name="coach_tip_more_skills_body">مهارات أكتر معناها مشاريع أكتر بتناسبك.</string>
+    <string name="coach_tip_more_portfolio">ضيف ٣ أعمال على الأقل</string>
+    <string name="coach_tip_more_portfolio_body">العميل بيقارن بين أعمالك قبل ما يقرر.</string>
+    <string name="coach_tip_verification">وثّق حسابك</string>
+    <string name="coach_tip_verification_body">من غير التوثيق مش هتقدر تقدّم عروض ولا تستلم شغل.</string>
+    <string name="coach_tip_first_service">انشر أول خدمة جاهزة</string>
+    <string name="coach_tip_first_service_body">العميل يطلبها بسعر ثابت من غير ما يستنى عروض.</string>
+</resources>

@@ -15,8 +15,10 @@ use Modules\Freelance\Models\FreelancerExperience;
 use Modules\Freelance\Services\Account\FreelancerCompleteness;
 use Modules\Freelance\Services\Account\FreelancerPortfolio;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
+use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Skills\FreelanceSkillBadges;
 
 /**
  * The offers on a project as its client compares them (FL-305): each with what helps to choose — how complete and verified the
@@ -26,7 +28,8 @@ use Modules\Freelance\Services\Policy\FreelancePolicies;
  */
 class ClientOfferViews
 {
-    public const SORTS = ['newest', 'cheapest', 'fastest', 'completeness'];
+    /** `recommended` (the default) puts the freelancers on a better plan first, then the newest; every other order is plain (FL-L01 phase 4). */
+    public const SORTS = ['recommended', 'newest', 'cheapest', 'fastest', 'completeness'];
 
     public const COMPARE_MAX = 3;
 
@@ -36,14 +39,14 @@ class ClientOfferViews
         private readonly FreelancerPortfolio $portfolio,
         private readonly FreelancePolicies $policies,
         private readonly FreelanceFeatures $features,
+        private readonly FreelancePerks $perks,
     ) {}
 
     /** @return list<array<string, mixed>> the project's offers (not the ones taken back), filtered by status and sorted */
     public function list(Project $project, ?string $status, string $sort): array
     {
-        $rows = $this->offers->forProject($project)
-            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status))
-            ->map(fn (Offer $o) => $this->present($project, $o))->values();
+        $offers = $this->forProject($project, $status);
+        $rows = ($sort === 'recommended' ? $this->recommended($offers) : $offers)->map(fn (Offer $o) => $this->present($project, $o))->values();
 
         $rows = match ($sort) {
             'cheapest' => $rows->sortBy([['price_minor', 'asc'], ['created_at', 'desc']]),
@@ -66,11 +69,11 @@ class ClientOfferViews
         if ($sort === 'completeness') {
             return ApiPaginator::slice($this->list($project, $status, $sort));
         }
-        $rows = $this->offers->forProject($project)
-            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status));
+        $rows = $this->forProject($project, $status);
         $rows = match ($sort) {
             'cheapest' => $rows->sortBy([['price_minor', 'asc'], ['created_at', 'desc']]),
             'fastest' => $rows->sortBy([['duration_days', 'asc'], ['price_minor', 'asc']]),
+            'recommended' => $this->recommended($rows),
             default => $rows,
         };
         $page = ApiPaginator::slice($rows);
@@ -88,7 +91,7 @@ class ClientOfferViews
         if (count($uuids) < 2 || count($uuids) > self::COMPARE_MAX) {
             throw new FreelanceException('offer_compare_count', 422, ['max' => self::COMPARE_MAX], ['max' => self::COMPARE_MAX]);
         }
-        $found = $this->offers->forProject($project)->whereIn('uuid', $uuids);
+        $found = $this->forProject($project, null)->whereIn('uuid', $uuids);
         if ($found->count() !== count($uuids)) {
             abort(404);
         }
@@ -114,6 +117,8 @@ class ClientOfferViews
         $f = $offer->freelancer;
         if ($f !== null) {
             $out['freelancer'] += $this->summary($f, $project);
+            // FL-L01 phase 4: the badge of the plan they hold.
+            $out['freelancer']['badge'] = $this->perks->badge($f);
             // FL-306: the client keeps this freelancer.
             $out['freelancer']['is_favorite'] = app(ClientFavorites::class)->has($project->client, $f->id);
         }
@@ -163,6 +168,9 @@ class ClientOfferViews
             'bio' => $f->bio,
             'avatar_url' => $f->getFirstMediaUrl('avatar') ?: null,
             'verified' => $f->status?->value === 'verified',
+            'badge' => $this->perks->badge($f),
+            // FL-L08: skills the freelancer passed the test of.
+            'skill_badges' => app(FreelanceSkillBadges::class)->of($f),
             'city' => $f->city,
             'languages' => array_values((array) $f->contact_languages),
             'member_since' => $f->created_at?->toDateString(),
@@ -175,7 +183,28 @@ class ClientOfferViews
             'reviews' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->latestAbout($f),
             'rating_criteria' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f)['criteria'],
             'is_favorite' => app(ClientFavorites::class)->has($project->client, $f->id),
+            // FL-L07: the paid consultations listed and open now (empty: none).
+            'consultations' => app(\Modules\Freelance\Services\Consultations\ConsultationOffers::class)->teaser($f),
         ] + $this->summary($f, $project);
+    }
+
+    /** The project's offers (not the ones taken back), by status, with the plans of their freelancers read at once. @return Collection<int, Offer> */
+    private function forProject(Project $project, ?string $status): Collection
+    {
+        $offers = $this->offers->forProject($project)
+            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status));
+        $this->perks->warm($offers->map(fn (Offer $o) => $o->freelancer));
+
+        return $offers;
+    }
+
+    /** Freelancers on a better plan first, then those with more verified skill badges; the newest first within the same weight (the sort is stable). @param Collection<int, Offer> $offers @return Collection<int, Offer> */
+    private function recommended(Collection $offers): Collection
+    {
+        // The plan weighs most; the verified skill badges break a tie (FL-L08).
+        $badges = app(FreelanceSkillBadges::class);
+
+        return $offers->sortByDesc(fn (Offer $o) => $o->freelancer === null ? 0 : $this->perks->boost($o->freelancer) * 1000 + min(999, $badges->count($o->freelancer)))->values();
     }
 
     /** @return array<string, mixed> what helps compare freelancers on this project */

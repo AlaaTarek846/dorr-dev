@@ -15,6 +15,8 @@ use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Plans\FreelanceOfferCredits;
+use Modules\Freelance\Services\Plans\FreelancePlans;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
 use Modules\Freelance\Services\Verification\FreelancerGate;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -23,7 +25,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * Sending an offer (FL-301). One rule decides whether a freelancer may offer on a project, checked in this order so the app can say
  * the most useful thing first: a verified account that is taking work (FL-110 / FL-106) → the project still taking offers (FL-204)
  * → not offered there already → the project not full (`offers.max_per_project`) → the monthly free quota not used up
- * (`offers.free_monthly_quota`, when the `free_offer_quota` switch is on). The price is free, but never under the project budget's
+ * (`offers.free_monthly_quota`, when the `free_offer_quota` switch is on) and no bought extra offers left (FL-L01 phase 2). The price is free, but never under the project budget's
  * minimum of the country / specialty. The commission and the net are worked out from the policy now and kept with the offer.
  */
 class FreelancerOffers
@@ -53,8 +55,8 @@ class FreelancerOffers
             throw new FreelanceException('project_offers_full', 422, ['max' => $max], ['max' => $max]);
         }
         $quota = $this->quota($freelancer);
-        if ($quota['limit'] !== null && $quota['left'] <= 0) {
-            throw new FreelanceException('offer_quota_exhausted', 422, ['limit' => $quota['limit']], ['limit' => $quota['limit']]);
+        if ($quota['limit'] !== null && $quota['left'] <= 0 && $quota['credits'] <= 0) {
+            throw new FreelanceException('offer_quota_exhausted', 422, ['limit' => $quota['limit']], ['limit' => $quota['limit'], 'packs' => $quota['packs']]);
         }
     }
 
@@ -70,20 +72,29 @@ class FreelancerOffers
         }
     }
 
-    /** @return array{enabled: bool, limit: ?int, used: int, left: ?int} the free offers of this calendar month */
+    /** @return array{enabled: bool, limit: ?int, used: int, left: ?int, plan: string, credits: int, packs: bool} the free offers of this calendar month, the bought ones left, and whether more can be bought */
     public function quota(Freelancer $freelancer): array
     {
         $enabled = $this->features->allows((int) $freelancer->country_id, 'free_offer_quota');
         // An offer taken back before the client saw it gives its place back (FL-302).
         $used = Offer::query()->where('freelancer_id', $freelancer->id)->where('free', true)->where('created_at', '>=', now()->startOfMonth())
             ->where(fn ($q) => $q->where('status', '!=', OfferStatus::Withdrawn->value)->orWhereNotNull('viewed_at'))->count();
-        $limit = $enabled ? (int) $this->policies->for((int) $freelancer->country_id)->get('offers.free_monthly_quota') : null;
+        // FL-L01: a plan raises the number, or lifts the limit (null).
+        $plans = app(FreelancePlans::class);
+        $limit = $enabled ? $plans->offersLimit($freelancer, (int) $this->policies->for((int) $freelancer->country_id)->get('offers.free_monthly_quota')) : null;
 
-        return ['enabled' => $enabled, 'limit' => $limit, 'used' => $used, 'left' => $limit === null ? null : max(0, $limit - $used)];
+        // FL-L01 phase 2: offers bought in a pack are spent once the free ones are used up; a plan with no limit never needs them.
+        $credits = $limit === null ? 0 : app(FreelanceOfferCredits::class)->available($freelancer);
+        $packs = $limit !== null && $this->features->allows((int) $freelancer->country_id, 'offer_packs');
+
+        return [
+            'enabled' => $enabled, 'limit' => $limit, 'used' => $used, 'left' => $limit === null ? null : max(0, $limit - $used), 'plan' => $plans->planFor($freelancer)->slug,
+            'credits' => $credits, 'packs' => $packs,
+        ];
     }
 
     /** @return array{price_minor: int, commission_minor: int, net_minor: int, currency: string, commission: array<string, mixed>} what an offer at this price leaves the freelancer */
-    public function preview(Project $project, int $priceMinor): array
+    public function preview(Project $project, int $priceMinor, ?Freelancer $freelancer = null): array
     {
         $values = $this->policies->for($project->country_id, $project->freelance_specialty_id)->all();
         // Where the commission switch is off, the platform keeps nothing.
@@ -92,6 +103,8 @@ class FreelancerOffers
             $values['commission.value'] = 0;
             $values['commission.min_minor'] = null;
         }
+        // FL-L01: the freelancer's plan can lower the commission (never raise it).
+        $values = app(FreelancePlans::class)->withCommission($values, $freelancer);
         $breakdown = FreelanceFees::breakdown($priceMinor, $values);
         $commission = array_intersect_key($values, array_flip(['commission.type', 'commission.value', 'commission.min_minor', 'commission.max_minor']));
 
@@ -123,9 +136,14 @@ class FreelancerOffers
         $offer = DB::transaction(function () use ($freelancer, $project, $data, $files, $answers) {
             // One at a time per project, so its limit and the one-offer rule hold when two arrive together.
             $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            // And one at a time per freelancer, so the last free or bought offer can't be spent twice by two projects together.
+            Freelancer::query()->whereKey($freelancer->id)->lockForUpdate()->first();
             $this->assertCanSend($freelancer, $locked);
 
-            $preview = $this->preview($locked, (int) $data['price_minor']);
+            $preview = $this->preview($locked, (int) $data['price_minor'], $freelancer);
+            // Once the month's free offers are used up the offer is paid for by the bought batch that ends first.
+            $quota = $this->quota($freelancer);
+            $credit = $quota['enabled'] && $quota['limit'] !== null && $quota['left'] <= 0 ? app(FreelanceOfferCredits::class)->pick($freelancer) : null;
             $offer = Offer::query()->create([
                 'project_id' => $locked->id,
                 'freelancer_id' => $freelancer->id,
@@ -138,7 +156,8 @@ class FreelancerOffers
                 'commission_minor' => $preview['commission_minor'],
                 'net_minor' => $preview['net_minor'],
                 'fees' => $preview['commission'],
-                'free' => $this->quota($freelancer)['enabled'],
+                'free' => $quota['enabled'] && $credit === null,
+                'credit_id' => $credit?->id,
             ]);
             foreach ($files as $file) {
                 $offer->addAttachment($file);
@@ -204,7 +223,7 @@ class FreelancerOffers
                 'commission_minor' => $locked->commission_minor, 'net_minor' => $locked->net_minor,
             ]);
 
-            $preview = $this->preview($project, $price);
+            $preview = $this->preview($project, $price, $freelancer);
             $locked->update([
                 'price_minor' => $preview['price_minor'], 'duration_days' => $days, 'details' => $details,
             ] + ($newAnswers !== null ? ['answers' => $newAnswers] : []) + [
@@ -223,7 +242,7 @@ class FreelancerOffers
         return $updated->load(['project', 'media']);
     }
 
-    /** Takes the offer back. Before the client saw it, the free offer it used is given back (see `quota()`); a new one on the same project is not possible. */
+    /** Takes the offer back. Before the client saw it, the free (or bought) offer it used is given back (see `quota()`); a new one on the same project is not possible. */
     public function withdraw(Freelancer $freelancer, Offer $offer): Offer
     {
         return DB::transaction(function () use ($freelancer, $offer) {
@@ -232,7 +251,7 @@ class FreelancerOffers
             $this->assertChangeable($locked);
             $from = $locked->status;
             $locked->update(['status' => OfferStatus::Withdrawn, 'withdrawn_at' => now()]);
-            $this->record($locked, 'offer.withdrawn', 'freelancer', $freelancer->id, $from, OfferStatus::Withdrawn, ['quota_returned' => $locked->viewed_at === null && $locked->free]);
+            $this->record($locked, 'offer.withdrawn', 'freelancer', $freelancer->id, $from, OfferStatus::Withdrawn, ['quota_returned' => $locked->viewed_at === null && ($locked->free || $locked->credit_id !== null)]);
 
             app(\Modules\Freelance\Services\Chat\OfferChat::class)->freeze($locked->project, $locked->freelancer_id);
 
@@ -264,7 +283,8 @@ class FreelancerOffers
     /** @return LengthAwarePaginator<Offer> the freelancer's offers, newest first */
     public function myOffers(Freelancer $freelancer, int $perPage): LengthAwarePaginator
     {
-        return Offer::query()->where('freelancer_id', $freelancer->id)->with(['project', 'media'])->latest('id')->paginate($perPage);
+        // FL-L04: an order's offer is made by the order, not sent — it is listed with the orders.
+        return Offer::query()->where('freelancer_id', $freelancer->id)->whereHas('project', fn ($q) => $q->whereNull('service_id'))->with(['project', 'media'])->latest('id')->paginate($perPage);
     }
 
     /** @return \Illuminate\Support\Collection<int, Offer> the offers on a project, for its client — newest first, without the ones taken back */
