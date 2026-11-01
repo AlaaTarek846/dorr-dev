@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L05: monthly service subscriptions -->
+    <string name="svc_monthly">Monthly subscription</string>
+    <string name="svc_monthly_hint">The price is per month. Each month is delivered within %1$d days; the client confirms and pays every month, and either of you ends it with notice.</string>
+    <string name="svc_fix_monthly_days">A monthly service must deliver every level (with its extras) in %1$d days or less.</string>
+    <string name="sub_tab">Monthly</string>
+    <string name="sub_month_n">Month %1$d</string>
+    <string name="sub_you_get">You get %1$s every month</string>
+    <string name="sub_status_active">Active</string>
+    <string name="sub_status_pending">Waiting for you</string>
+    <string name="sub_status_ended">Ended</string>
+    <string name="sub_month_ends">This month ends on %1$s</string>
+    <string name="sub_renew_open">This month ends on %1$s — the client can confirm the next one now</string>
+    <string name="sub_pending_hint">Accept the first month in the waiting orders to start it.</string>
+    <string name="sub_ending_client">The client is ending it — it ends on %1$s</string>
+    <string name="sub_ending_me">You are ending it — it ends on %1$s</string>
+    <string name="sub_end_client">Ended by the client</string>
+    <string name="sub_end_me">Ended by you</string>
+    <string name="sub_end_not_renewed">The client did not confirm the next month</string>
+    <string name="sub_end_first">The first month never started</string>
+    <string name="sub_cancel">End the subscription</string>
+    <string name="sub_keep">Keep it going</string>
+    <string name="sub_cancel_title">End this subscription?</string>
+    <string name="sub_cancel_body">Ending takes notice: asked %1$d days or more before this month ends, it ends with this month; later, it ends with the next one. You can take it back until then.</string>
+    <string name="sub_cancel_done">The client is told when it ends</string>
+    <string name="sub_keep_done">The subscription goes on</string>
+    <string name="sub_empty">No monthly subscriptions yet</string>
+    <string name="sub_empty_body">Make a service monthly in its form, and clients who subscribe show here.</string>
+</resources>

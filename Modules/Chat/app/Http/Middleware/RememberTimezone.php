@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Middleware;
 use Closure;
 use DateTimeZone;
 use Illuminate\Http\Request;
+use Modules\Freelance\Models\Freelancer;
 use Modules\User\Models\User;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,8 +20,8 @@ class RememberTimezone
         $zone = $request->header('X-Timezone');
         $user = $request->user();
 
-        // Users only (the column lives on `users`).
-        if (is_string($zone) && $zone !== '' && $user instanceof User && $user->timezone !== $zone
+        // Users and freelancers (the column lives on `users` and `freelancers`; a consultation's times are told in it).
+        if (is_string($zone) && $zone !== '' && ($user instanceof User || $user instanceof Freelancer) && $user->timezone !== $zone
             && in_array($zone, DateTimeZone::listIdentifiers(), true)) {
             $user->forceFill(['timezone' => $zone])->saveQuietly();
         }

@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -24,12 +28,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dorr.app.R
+import com.dorr.app.network.FreelancePlanBadgeDto
+import com.dorr.app.network.FreelanceSkillBadgeDto
 import com.dorr.app.ui.locale.LocaleAwareBottomSheet
 import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -119,18 +130,37 @@ internal fun FlStat(icon: ImageVector, label: String, value: String, modifier: M
 
 /** A form over the page (not a dialog): the same head as the organizer form, then its fields. */
 @Composable
-internal fun FlSheet(icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun FlSheet(
+    icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, fullHeight: Boolean = false,
+    /** Kept at the bottom of the sheet while the fields scroll, so the main button is always in reach (opens the sheet to full height). */
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     LocaleAwareBottomSheet(
         onDismissRequest = onDismiss,
+        fullHeight = fullHeight || footer != null,
         containerColor = if (settingsNight()) AccountDark.card else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
-        Column(
-            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            FlIntro(icon, title, body)
-            content()
+        if (footer == null) {
+            Column(
+                Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                FlIntro(icon, title, body)
+                content()
+            }
+        } else {
+            Column(Modifier.fillMaxWidth().imePadding()) {
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    FlIntro(icon, title, body)
+                    content()
+                }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 6.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { footer() }
+            }
         }
     }
 }
@@ -188,5 +218,72 @@ internal fun FlTabs(tabs: List<FlTab>, selected: Int, onSelect: (Int) -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** A plan's colours for its badge: Pro gold, Plus indigo, any other plan the app's accent. */
+@Composable
+private fun planBadgeColors(plan: String): Pair<Color, Color> = when (plan) {
+    "pro" -> Color(0xFFF59E0B) to Color(0xFFD97706)
+    "plus" -> Color(0xFF818CF8) to Color(0xFF6366F1)
+    else -> settingsAccent() to settingsAccent().copy(alpha = 0.8f)
+}
+
+/**
+ * FL-L01 phase 4: the badge of the plan a freelancer holds, by their name. [compact] is the small one for cards and lists; the full one is
+ * for a profile. Nothing is drawn when their plan has no badge. Give it a start padding when it follows a name.
+ */
+@Composable
+internal fun PlanBadge(badge: FreelancePlanBadgeDto?, modifier: Modifier = Modifier, compact: Boolean = true) {
+    if (badge == null) return
+    val (from, to) = planBadgeColors(badge.plan)
+    val label = badge.name?.takeIf { it.isNotBlank() } ?: badge.plan.replaceFirstChar { it.uppercase() }
+    val description = stringResource(R.string.fl_plan_badge_desc, label)
+    Row(
+        modifier.semantics(mergeDescendants = true) { contentDescription = description }
+            .clip(RoundedCornerShape(999.dp)).background(Brush.linearGradient(listOf(from, to)))
+            .padding(horizontal = if (compact) 7.dp else 11.dp, vertical = if (compact) 2.dp else 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp),
+    ) {
+        Icon(Icons.Rounded.WorkspacePremium, null, tint = Color.White, modifier = Modifier.size(if (compact) 11.dp else 15.dp))
+        Text(label, color = Color.White, fontSize = if (compact) 10.sp else 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+    }
+}
+
+/**
+ * FL-L08: the skills a freelancer passed the test of, as small verified chips (at most [max], then «+n»). Nothing is drawn without any. The
+ * full one is for a profile, where the score shows too.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun SkillBadges(badges: List<FreelanceSkillBadgeDto>, modifier: Modifier = Modifier, max: Int = 2, compact: Boolean = true) {
+    if (badges.isEmpty()) return
+    val tone = Color(0xFF0D9488)
+    androidx.compose.foundation.layout.FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        badges.take(max).forEach { b ->
+            val label = b.name.orEmpty()
+            val description = stringResource(R.string.fl_skill_badge_desc, label)
+            Row(
+                Modifier.semantics(mergeDescendants = true) { contentDescription = description }
+                    .clip(RoundedCornerShape(999.dp)).background(tone.copy(alpha = 0.12f))
+                    .padding(horizontal = if (compact) 7.dp else 10.dp, vertical = if (compact) 2.dp else 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Icon(Icons.Rounded.Verified, null, tint = tone, modifier = Modifier.size(if (compact) 11.dp else 14.dp))
+                Text(if (compact) label else "$label · ${b.scorePercent}%", color = tone, fontSize = if (compact) 10.sp else 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+        }
+        if (badges.size > max) {
+            Text("+${badges.size - max}", color = tone, fontSize = if (compact) 10.sp else 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(vertical = 2.dp))
+        }
+    }
+}
+
+/** A quiet line under the filters that says why a list is in the order it is (the «recommended» order puts the premium plans first). */
+@Composable
+internal fun FlHint(text: String, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Rounded.Info, null, tint = settingsMut(), modifier = Modifier.padding(top = 1.dp).size(14.dp))
+        Text(text, color = settingsMut(), fontSize = 11.5.sp, lineHeight = 16.sp, modifier = Modifier.weight(1f))
     }
 }

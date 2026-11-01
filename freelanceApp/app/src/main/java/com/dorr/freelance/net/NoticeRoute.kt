@@ -18,7 +18,15 @@ object NoticeRoute {
             e.startsWith("freelance.skill") -> Routes.SKILLS
             e == "freelance.portfolio.hidden" -> Routes.PORTFOLIO
             e == "freelance.quota.low" -> Routes.MY_OFFERS
+            e.startsWith("freelance.subscription") -> Routes.PLANS
             e == "freelance.invitation.received" -> Routes.INVITATIONS
+            // FL-L04: a new order opens it; a decision on a service, my services.
+            e == "freelance.order.received" -> field("order")?.let(Routes::serviceOrder) ?: Routes.SERVICE_ORDERS
+            // FL-L07: a consultation notice opens the booking.
+            // A listing the staff decided on opens its editor; a booking opens the booking.
+            e.startsWith("freelance.consultation.listing") -> field("consultation_offer")?.let { Routes.consultationEdit(it) } ?: Routes.CONSULTATIONS
+            e.startsWith("freelance.consultation") -> field("consultation")?.let(Routes::consultation) ?: Routes.CONSULTATIONS
+            e.startsWith("freelance.service.") -> field("service")?.let { Routes.service(it) } ?: Routes.SERVICES
             e.startsWith("freelance.dispute") -> {
                 val dispute = field("dispute")
                 if (project != null && dispute != null) "dispute/$project/$dispute" else project?.let(Routes::agreement)

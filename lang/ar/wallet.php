@@ -105,9 +105,13 @@ return [
         'ride_discount' => 'خصم رحلة :number',
         'freelance_payment' => 'دفع شغل على مشروع :project',
         'freelance_earning' => 'أرباح من مشروع :project',
+        'freelance_consultation_payment' => 'دفع استشارة مع :name',
+        'freelance_consultation_earning' => 'أرباح :title',
         'freelance_commission' => 'عمولة مشروع :project',
         'freelance_client_fee' => 'رسم عميل على مشروع :project',
         'freelance_discount' => 'خصم على مشروع :project',
+        'freelance_offer_pack' => 'عروض إضافية :project',
+        'freelance_subscription' => 'باقة العمل الحر :plan',
     ],
 
     'types' => [

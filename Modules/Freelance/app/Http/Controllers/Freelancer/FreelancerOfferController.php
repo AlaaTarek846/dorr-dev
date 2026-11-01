@@ -31,7 +31,7 @@ class FreelancerOfferController extends Controller
             'blocked' => $this->offers->blocked($me, $project),
             'quota' => $this->offers->quota($me),
             'min_price_minor' => $this->minPrice($project),
-            'breakdown' => isset($data['price_minor']) ? $this->offers->preview($project, (int) $data['price_minor']) : null,
+            'breakdown' => isset($data['price_minor']) ? $this->offers->preview($project, (int) $data['price_minor'], $me) : null,
         ], __('api.retrieved'));
     }
 
