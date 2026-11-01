@@ -782,7 +782,7 @@ fun ScheduleSheet(onDismiss: () -> Unit, onPick: (ZonedDateTime) -> Unit) {
     ChSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Wa.Surface,
+        containerColor = Ch.Surface,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
     ) {
         Column(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -89,6 +90,8 @@ import com.dorr.app.network.AiSearchHitDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.chat.chatAuth
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.chat.timeAgo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -240,7 +243,7 @@ private fun AiChip(text: String, p: AiPalette, selected: Boolean = false, onClic
 // ==================================================================== memory (spec 140–144)
 
 @Composable
-internal fun AiMemoryScreen(night: Boolean, onExit: () -> Unit) {
+internal fun AiMemoryScreen(night: Boolean, onExit: () -> Unit, settingsHeader: Boolean = false) {
     val p = AiPalette(night)
     val scope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(true) }
@@ -280,16 +283,17 @@ internal fun AiMemoryScreen(night: Boolean, onExit: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(p.bg)) {
-        AiToolHeader(stringResource(R.string.ai_tools_memory_title), p.ink, onExit) {
-            if (memories.isNotEmpty()) {
-                Text(
-                    stringResource(R.string.ai_tools_memory_delete_all), color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { confirmDeleteAll = true }.padding(8.dp),
-                )
-            }
+    @Composable
+    fun deleteAllAction() {
+        if (memories.isNotEmpty()) {
+            Text(
+                stringResource(R.string.ai_tools_memory_delete_all), color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { confirmDeleteAll = true }.padding(8.dp),
+            )
         }
-        // Memory on/off (spec 143).
+    }
+
+    val body: @Composable ColumnScope.() -> Unit = {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(p.surface).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -346,6 +350,21 @@ internal fun AiMemoryScreen(night: Boolean, onExit: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+
+    if (settingsHeader) {
+        Box(Modifier.fillMaxSize()) {
+            PinkBackdrop(Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+                SubHeader(stringResource(R.string.ai_tools_memory_title), onExit, trailing = { deleteAllAction() })
+                Column(Modifier.weight(1f).fillMaxWidth(), content = body)
+            }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().background(p.bg)) {
+            AiToolHeader(stringResource(R.string.ai_tools_memory_title), p.ink, onExit) { deleteAllAction() }
+            body()
         }
     }
 

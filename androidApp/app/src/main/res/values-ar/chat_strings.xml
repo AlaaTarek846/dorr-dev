@@ -149,6 +149,12 @@
     <string name="ch_call_camera">الكاميرا</string>
     <string name="ch_call_flip">تبديل</string>
     <string name="ch_call_end">إنهاء</string>
+    <string name="ch_call_lock">قفل</string>
+    <string name="ch_call_unlock">فك القفل</string>
+    <string name="ch_call_more">المزيد</string>
+    <string name="ch_call_share_screen">مشاركة الشاشة</string>
+    <string name="ch_call_effect_on">شغالة</string>
+    <string name="ch_call_effect_off">متقفلة</string>
     <string name="ch_call_swipe_answer">اسحب لأعلى للرد</string>
     <string name="ch_permission_call">اسمح بالميكروفون (والكاميرا لمكالمات الفيديو) لإجراء المكالمات</string>
 
@@ -891,7 +897,7 @@
     <string name="ch_ai_image_send">إرسال</string>
     <string name="ch_ai_image_quota_note">كل صورة بتتحسب من الصور اليومية في باقة دُرر AI بتاعتك.</string>
     <string name="ch_ai_image_ideas">أفكار</string>
-    <string name="ch_ai_image_style">الستايل</string>
+    <string name="ch_ai_image_style">الشكل</string>
     <string name="ch_ai_style_realistic">واقعي</string>
     <string name="ch_ai_style_illustration">رسم</string>
     <string name="ch_ai_style_anime">أنمي</string>
@@ -978,8 +984,8 @@
     <string name="ia_choices">الاختيارات</string>
     <string name="ia_option_hint">اختيار %1$d</string>
     <string name="ia_description_hint">سطر تحته (اختياري)</string>
-    <string name="ia_add_button">ضيف زرار</string>
-    <string name="ia_add_choice">ضيف اختيار</string>
+    <string name="ia_add_button">إضافة زرار</string>
+    <string name="ia_add_choice">إضافة خيار</string>
     <string name="ia_footer_hint">سطر تحت الرسالة (اختياري)</string>
     <string name="ia_choose">اختار</string>
     <string name="ia_no_answers">لسه محدش رد</string>

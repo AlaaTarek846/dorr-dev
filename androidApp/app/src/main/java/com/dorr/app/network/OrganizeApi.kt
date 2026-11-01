@@ -75,7 +75,11 @@ interface OrganizeApi {
     // ------------------------------------------------------------------ broadcasts
 
     @GET("mobile/v1/chat/broadcasts")
-    suspend fun broadcasts(@Header("Authorization") auth: String): ApiEnvelope<List<BroadcastDto>>
+    suspend fun broadcasts(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<BroadcastDto>>
 
     @POST("mobile/v1/chat/broadcasts")
     suspend fun createBroadcast(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<BroadcastDto>

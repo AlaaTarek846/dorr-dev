@@ -63,6 +63,18 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android send-money gift card (2026-11-01):** send-money with `meta.gift` is a compact receipt in chat colours; attach-sheet transfer receipts keep the old red card.
+- **Chat calls (2026-11-01):** a second start of my own still-ringing 1:1 call cancels the leftover and starts a new one (`409` only when the other person already has a call in that chat). Android no longer hangs up a ringing call when LiveKit closes an empty room.
+- **Android share-a-transfer picker (2026-11-01):** «اختر تحويلا لمشاركته» pages 15 (`GET wallet/transactions?type=transfer_out&page=&per_page=15`); next page near the end of the list.
+- **Android AI memory (2026-11-01):** chat overlay uses `LocaleAwareDialog` (Arabic strings) and the settings header (`SubHeader` + pink wash).
+- **Android conversation AI menu (2026-11-01):** header AI `ChoiceSheet` uses a fixed ~58% screen height; options scroll; title/cancel stay put. Other choice sheets stay wrap-content.
+- **Android Gradle (2026-11-01):** 4 GB heap, Gradle cache; Kotlin compile stays `in-process` (daemon dies on startup here).
+- **Android media / links / files (2026-11-01):** `ChatMediaPage` uses the settings header (`SubHeader` + pink wash).
+- **Android chat sheets (2026-11-01):** all chat `ChSheet`s use `Ch.Surface` (appearance token `surface`).
+- **Android attach sheet (2026-11-01):** composer attach circles are smaller; each still has its own colour.
+- **Chat broadcasts (2026-11-01):** `GET broadcasts` pages of 15 like communities; Android list loads more near the end. Cap still 50 lists.
+- **Android broadcasts (2026-10-29):** «قوائم البث» uses the settings header (`SubHeader` + pink wash).
+- **Android new chat (2026-10-29):** settings header (`SubHeader` + pink wash).
 - **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
 - **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
 - **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.
