@@ -1,6 +1,11 @@
 package com.dorr.freelance.navigation
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +43,7 @@ import com.dorr.freelance.ui.screens.OfferFormScreen
 import com.dorr.freelance.ui.screens.EditOfferScreen
 import com.dorr.freelance.ui.screens.InvitationsScreen
 import com.dorr.freelance.ui.screens.MyOffersScreen
+import com.dorr.freelance.ui.screens.OfferDetailScreen
 import com.dorr.freelance.ui.screens.LoginScreen
 import com.dorr.freelance.ui.screens.OtpScreen
 import com.dorr.freelance.ui.screens.ProfileScreen
@@ -70,6 +76,7 @@ object Routes {
     const val PROJECT = "project/{uuid}"
     const val OFFER_FORM = "offer/{uuid}"
     const val OFFER_EDIT = "offer-edit/{uuid}"
+    const val OFFER_DETAIL = "offer-detail/{uuid}"
     const val MY_OFFERS = "offers"
     const val INVITATIONS = "invitations"
     const val CHAT = "chat/{uuid}"
@@ -91,6 +98,7 @@ object Routes {
     fun offerForm(uuid: String) = "offer/$uuid"
 
     fun offerEdit(uuid: String) = "offer-edit/$uuid"
+    fun offerDetail(uuid: String) = "offer-detail/$uuid"
 
     fun portfolioItem(id: Int) = "portfolio/$id"
 
@@ -134,34 +142,57 @@ fun FreelanceNavGraph() {
         )
     }
 
-    // A notification tapped in the phone's tray (push): the notifications page, once the freelancer is signed in.
+    // A notification tapped in the phone's tray (push): the notifications page — or the project itself when the notice is "a project
+    // that fits you" (FL-208) — once the freelancer is signed in.
     val tapped by Realtime.opened.collectAsState()
-    LaunchedEffect(tapped, signedIn) {
-        if (tapped != null && signedIn && nav.currentDestination?.route == Routes.HOME) {
+    val tappedRoute by Realtime.openedRoute.collectAsState()
+    LaunchedEffect(tapped, tappedRoute, signedIn) {
+        val here = nav.currentDestination?.route
+        // A notice lands on the screen of what it is about from wherever the app was left; one without such a screen, on the list from the home.
+        val ready = if (tappedRoute != null) here != null && here != Routes.SPLASH && here != Routes.START && here != Routes.LOGIN && here != Routes.OTP else here == Routes.HOME
+        if (tapped != null && signedIn && ready) {
+            val target = tappedRoute
             Realtime.consumeOpened()
-            nav.navigate(Routes.NOTIFICATIONS)
+            nav.navigate(target ?: Routes.NOTIFICATIONS)
         }
     }
 
     fun afterWelcome() = if (Session.signedIn.value) Routes.HOME else Routes.LOGIN
 
-    // Every page over the tabs sits in the same frame as the tabs: the header (wallet, bell) and the bottom bar. A tab tapped
+    // Every page over the tabs sits in the same frame as the tabs: the bottom bar (the header with the wallet and the bell is on the Home tab only). A tab tapped
     // there goes back to the tabs on that tab; the wallet and the bell open once (a second tap on the open one does nothing).
-    val shell: @Composable (Boolean, @Composable () -> Unit) -> Unit = { header, page ->
+    val shell: @Composable (Boolean, @Composable () -> Unit) -> Unit = { _, page ->
         AppShell(
-            showHeader = header,
+            showHeader = false,
             onSelectTab = { index ->
                 ShellState.tab = index
                 nav.popBackStack(Routes.HOME, inclusive = false)
             },
             onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } },
             onOpenNotifications = { nav.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true } },
+            onOpenInvitations = { nav.navigate(Routes.INVITATIONS) { launchSingleTop = true } },
             content = page,
         )
     }
 
-    NavHost(navController = nav, startDestination = Routes.SPLASH) {
-        composable(Routes.SPLASH) {
+    // Pages slide and fade between each other like the DORR app: forward from the trailing edge, back to it.
+    NavHost(
+        navController = nav,
+        startDestination = Routes.SPLASH,
+        enterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(340, easing = FastOutSlowInEasing)) + fadeIn(tween(280))
+        },
+        exitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(320, easing = FastOutSlowInEasing)) + fadeOut(tween(240))
+        },
+        popEnterTransition = {
+            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(340, easing = FastOutSlowInEasing)) + fadeIn(tween(280))
+        },
+        popExitTransition = {
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(320, easing = FastOutSlowInEasing)) + fadeOut(tween(240))
+        },
+    ) {
+        composable(Routes.SPLASH, exitTransition = { fadeOut(tween(400)) }) {
             SplashScreen(onFinished = {
                 val next = if (Welcome.seen(context)) afterWelcome() else Routes.START
                 nav.navigate(next) { popUpTo(Routes.SPLASH) { inclusive = true } }
@@ -203,6 +234,7 @@ fun FreelanceNavGraph() {
                     openPortfolio = { nav.navigate(Routes.PORTFOLIO) },
                     openProject = { uuid -> nav.navigate(Routes.project(uuid)) },
                     openMyOffers = { nav.navigate(Routes.MY_OFFERS) },
+                    openOffer = { uuid -> nav.navigate(Routes.offerDetail(uuid)) },
                     openInvitations = { nav.navigate(Routes.INVITATIONS) },
                     openCertificates = { nav.navigate(Routes.CERTIFICATES) },
                     openVerification = { nav.navigate(Routes.VERIFICATION) },
@@ -214,10 +246,10 @@ fun FreelanceNavGraph() {
         }
         composable(Routes.SPECIALTIES) { shell(true) { SpecialtiesScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.SKILLS) { shell(true) { SkillsScreen(onBack = { nav.popBackStack() }) } }
-        composable(Routes.PORTFOLIO) { shell(true) { PortfolioTab(onOpenItem = { id -> nav.navigate(Routes.portfolioItem(id)) }) } }
+        composable(Routes.PORTFOLIO) { shell(true) { PortfolioTab(onBack = { nav.popBackStack() }, onOpenItem = { id -> nav.navigate(Routes.portfolioItem(id)) }) } }
         composable(Routes.PROJECT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             val uuid = entry.arguments?.getString("uuid").orEmpty()
-            shell(true) { ProjectDetailScreen(uuid = uuid, onBack = { nav.popBackStack() }, onOffer = { nav.navigate(Routes.offerForm(uuid)) }, onEditOffer = { nav.navigate(Routes.offerEdit(uuid)) }, onChat = { room -> nav.navigate(Routes.chat(room)) }, onAgreement = { nav.navigate(Routes.agreement(uuid)) }) }
+            shell(true) { ProjectDetailScreen(uuid = uuid, onBack = { nav.popBackStack() }, onOffer = { nav.navigate(Routes.offerForm(uuid)) }, onOpenOffer = { nav.navigate(Routes.offerDetail(uuid)) }, onAgreement = { nav.navigate(Routes.agreement(uuid)) }) }
         }
         composable(Routes.AGREEMENT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             val p = entry.arguments?.getString("uuid").orEmpty()
@@ -234,13 +266,22 @@ fun FreelanceNavGraph() {
             shell(false) { ChatScreen(conversationUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.OFFER_FORM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
-            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }) }
+            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }, onOpenProfile = { ShellState.openProfileHub = true; ShellState.tab = 4; nav.popBackStack(Routes.HOME, inclusive = false) }) }
         }
         composable(Routes.OFFER_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             shell(true) { EditOfferScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
         }
         composable(Routes.INVITATIONS) { shell(true) { InvitationsScreen(onBack = { nav.popBackStack() }, onOpenProject = { uuid -> nav.navigate(Routes.project(uuid)) }) } }
-        composable(Routes.MY_OFFERS) { shell(true) { MyOffersScreen(onBack = { nav.popBackStack() }, onOpenProject = { uuid -> nav.navigate(Routes.project(uuid)) }) } }
+        composable(Routes.MY_OFFERS) { shell(true) { MyOffersScreen(onBack = { nav.popBackStack() }, onOpenProject = { uuid -> nav.navigate(Routes.offerDetail(uuid)) }) } }
+        composable(Routes.OFFER_DETAIL, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            val p = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) {
+                OfferDetailScreen(
+                    projectUuid = p, onBack = { nav.popBackStack() }, onOpenProject = { nav.navigate(Routes.project(p)) },
+                    onEdit = { nav.navigate(Routes.offerEdit(p)) }, onChat = { room -> nav.navigate(Routes.chat(room)) }, onAgreement = { nav.navigate(Routes.agreement(p)) },
+                )
+            }
+        }
         composable(Routes.AVAILABILITY) { shell(true) { AvailabilityScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.EXPERIENCES) { shell(true) { ExperiencesScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.PORTFOLIO_ITEM, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
@@ -248,7 +289,7 @@ fun FreelanceNavGraph() {
         }
         // The wallet draws its own page header (title, back), so the app header is left out there.
         composable(Routes.WALLET) { shell(false) { WalletRoute(onBack = { nav.popBackStack() }) } }
-        composable(Routes.NOTIFICATIONS) { shell(false) { NotificationsScreen(onBack = { nav.popBackStack() }, onOpenVerification = { nav.navigate(Routes.VERIFICATION) }, onOpenProject = { uuid -> nav.navigate(Routes.project(uuid)) }) } }
+        composable(Routes.NOTIFICATIONS) { shell(false) { NotificationsScreen(onBack = { nav.popBackStack() }, onOpenRoute = { route -> nav.navigate(route) }) } }
         composable(Routes.CERTIFICATES) { shell(true) { CertificatesScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.VERIFICATION) { shell(true) { VerificationScreen(onBack = { nav.popBackStack() }, onOpenProfile = { nav.navigate(Routes.PROFILE) }) } }
         composable(Routes.TERMS) {

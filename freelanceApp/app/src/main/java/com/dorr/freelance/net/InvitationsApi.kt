@@ -5,11 +5,12 @@ import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /** FL-205: the invitations clients sent me to their private projects, and my yes or no (a verified account is needed to answer). */
 interface InvitationsApi {
     @GET("${ApiClient.FREELANCE}invitations")
-    suspend fun list(): Response<ApiEnvelope<List<InvitationDto>>>
+    suspend fun list(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15, @Query("status") status: String? = null): Response<ApiEnvelope<List<InvitationDto>>>
 
     @POST("${ApiClient.FREELANCE}invitations/{uuid}/accept")
     suspend fun accept(@Path("uuid") uuid: String): Response<ApiEnvelope<InvitationRefDto>>

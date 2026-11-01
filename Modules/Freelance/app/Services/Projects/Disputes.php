@@ -243,7 +243,7 @@ class Disputes
                 'side' => $e->side,
                 'mine' => $side === $e->side,
                 'body' => $e->body,
-                'file' => ($f = $e->getFirstMedia('files')) === null ? null : ['id' => $f->id, 'name' => $f->file_name, 'mime' => $f->mime_type, 'size' => $f->size, 'path' => "{$filesPath}/{$f->id}"],
+                'file' => ($f = $e->getFirstMedia('files')) === null ? null : ['id' => $f->id, 'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($f), 'mime' => $f->mime_type, 'size' => $f->size, 'path' => "{$filesPath}/{$f->id}"],
                 'at' => $e->created_at?->toIso8601String(),
             ])->values()->all(),
             'can' => $side === 'admin'

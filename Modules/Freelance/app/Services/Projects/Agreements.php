@@ -125,6 +125,15 @@ class Agreements
             if ($a->scope === null) {
                 throw new FreelanceException('agreement_scope_required', 422);
             }
+            // FL-605: how often the client asks for a progress report (none by default).
+            if (array_key_exists('report_every_days', $data)) {
+                // 0 (or null) = no reports: the apps leave a null out of the request, so they send 0 to turn it off.
+                $days = (int) ($data['report_every_days'] ?? 0) === 0 ? null : (int) $data['report_every_days'];
+                if ($days !== null && ! in_array($days, ProgressReports::EVERY_DAYS, true)) {
+                    throw new FreelanceException('report_days_invalid', 422);
+                }
+                $a->report_every_days = $days;
+            }
             $wasSent = $a->status === Agreement::PENDING;
             $a->fill(['status' => Agreement::DRAFT, 'client_approved_at' => null, 'sent_at' => null, 'expires_at' => null, 'version' => $a->version + 1])->save();
             if ($wasSent) {
@@ -143,6 +152,8 @@ class Agreements
             if ($a->status !== Agreement::DRAFT) {
                 throw new FreelanceException('agreement_invalid_state', 409, ['status' => __('freelance.agreement_statuses.'.$a->status)], ['status' => $a->status]);
             }
+            // FL-210: the price and the fees of its parts together must stay within the most the client said they'd pay.
+            app(ClientProjects::class)->assertWithinCostCap($a->project, (int) $a->price_minor + (int) $this->milestones->of($a)->sum('client_fee_minor'));
             $a->fill(['status' => Agreement::PENDING, 'sent_at' => now(), 'client_approved_at' => now(), 'expires_at' => now()->addDays(self::ANSWER_DAYS)])->save();
             $this->approval($a, 'agreement.sent', 'client', $client->id);
 
@@ -169,6 +180,7 @@ class Agreements
                     'quoted_total_minor' => ((array) $a->money)['quoted_total_minor'] ?? null],
             ])->save();
             $this->approval($a, 'agreement.approved', 'freelancer', $freelancer->id);
+            app(ProgressReports::class)->start($a);
             $this->machine->move($a->project, Status::InProgress, 'project.started', 'freelancer', $freelancer->id, [], ['agreement' => $a->uuid]);
 
             return $a;
@@ -269,6 +281,8 @@ class Agreements
             'price_minor' => $a->price_minor,
             'currency' => $a->currency_code,
             'duration_days' => $a->duration_days,
+            // FL-605: the optional progress reports (how often, when the next is due, whether it is late).
+            'reports' => app(ProgressReports::class)->summary($a),
             'money' => $mine + ['lines' => FreelanceFees::lines($side, $mine)],
             // What the work runs on, as it was when the agreement was made.
             'terms' => ['review_days' => $policy['review.days'] ?? null, 'free_revisions' => $policy['review.free_revisions'] ?? null, 'auto_approve' => $policy['review.auto_approve'] ?? null],
@@ -282,7 +296,8 @@ class Agreements
             'freelancer' => $side === 'client' ? ['uuid' => $a->freelancer?->uuid, 'name' => $a->freelancer?->name] : null,
             // FL-402: the parts it is paid in, with the limits the client splits it within.
             'milestones' => $this->milestones->of($a)->map(fn ($m) => Milestones::present($m, $side, max(0, (int) ($policy['review.free_revisions'] ?? 0))) + [
-                'can' => $a->status === Agreement::ACTIVE ? app(MilestoneWork::class)->can($m, $side) : [],
+                // an object even when empty: the apps read it as a map, and an empty PHP array would go out as a JSON list.
+                'can' => $a->status === Agreement::ACTIVE ? app(MilestoneWork::class)->can($m, $side) : new \stdClass,
                 // FL-501: what is held for it in the client's wallet.
                 'held_minor' => app(MilestonePayments::class)->held($m),
                 // FL-504: when an unanswered delivery approves itself.
@@ -297,7 +312,7 @@ class Agreements
             'milestone_rules' => ['max_count' => (int) ($policy['milestones.max_count'] ?? 5), 'min_amount_minor' => isset($policy['milestones.min_amount_minor']) ? (int) $policy['milestones.min_amount_minor'] : null],
             'can' => $side === 'client'
                 ? ['edit' => $a->open(), 'send' => $a->status === Agreement::DRAFT, 'cancel' => $a->open(), 'split' => $a->open()]
-                : ['approve' => $a->status === Agreement::PENDING, 'decline' => $a->status === Agreement::PENDING],
+                : ['approve' => $a->status === Agreement::PENDING, 'decline' => $a->status === Agreement::PENDING, 'report' => $a->status === Agreement::ACTIVE],
         ];
     }
 

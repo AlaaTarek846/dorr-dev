@@ -98,6 +98,7 @@ import com.dorr.core.network.apiCall
 import com.dorr.freelance.R
 import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.OtpBody
+import com.dorr.freelance.net.PagedRows
 import com.dorr.freelance.net.PaymentMethodDto
 import com.dorr.freelance.net.Realtime
 import com.dorr.freelance.net.TopupPaymentDto
@@ -548,23 +549,18 @@ private fun ExplainRow(icon: ImageVector, tone: Tone, title: String, text: Strin
 private fun WalletHistory(currency: String, onBack: () -> Unit, onOpen: (WalletTransactionDto) -> Unit) {
     val reconnect = collectReconnectTick()
     var filter by rememberSaveable { mutableStateOf("all") }
-    var rows by remember { mutableStateOf<List<WalletTransactionDto>>(emptyList()) }
-    var page by remember { mutableIntStateOf(1) }
-    var hasMore by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(true) }
-
-    LaunchedEffect(reconnect) { page = 1 }
-    LaunchedEffect(filter, page, reconnect) {
-        loading = true
-        val result = apiCall { ApiClient.wallet.transactions(page = page, perPage = 15, direction = filter.takeIf { it == "credit" || it == "debit" }, bucket = filter.takeIf { it == "spend_only" }) }
-        if (result is ApiResult.Ok) {
-            rows = if (page == 1) result.data else rows + result.data
-            hasMore = result.data.size >= 15
-            loading = false
-        }
+    val scope = rememberCoroutineScope()
+    // A new filter is a new list (it starts from the first page); more comes while I scroll.
+    val paged = remember(filter) {
+        PagedRows<WalletTransactionDto>(15, { it.uuid }, { page ->
+            apiCall { ApiClient.wallet.transactions(page = page, perPage = 15, direction = filter.takeIf { it == "credit" || it == "debit" }, bucket = filter.takeIf { it == "spend_only" }) }
+        })
     }
+    LaunchedEffect(paged, reconnect) { paged.reload() }
+    val rows = paged.rows
+    val loading = !paged.loaded
 
-    WaPage(title = stringResource(R.string.wa_history_title), onBack = onBack) {
+    WaPage(title = stringResource(R.string.wa_history_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }) {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 Triple("all", R.string.wa_filter_all, Icons.AutoMirrored.Rounded.List),
@@ -573,11 +569,7 @@ private fun WalletHistory(currency: String, onBack: () -> Unit, onOpen: (WalletT
                 Triple("spend_only", R.string.wa_spend_only, Icons.Rounded.CardGiftcard),
             ).forEach { (value, label, icon) ->
                 WaChip(stringResource(label), icon, selected = filter == value) {
-                    if (filter != value) {
-                        filter = value
-                        page = 1
-                        rows = emptyList()
-                    }
+                    if (filter != value) filter = value
                 }
             }
         }
@@ -595,10 +587,8 @@ private fun WalletHistory(currency: String, onBack: () -> Unit, onOpen: (WalletT
                         }
                     }
                 }
-                if (hasMore) {
-                    Spacer(Modifier.height(12.dp))
-                    WaButton(stringResource(R.string.wa_show_more), { page += 1 }, style = WaButtonStyle.Ghost, loading = loading)
-                }
+                Spacer(Modifier.height(12.dp))
+                com.dorr.freelance.ui.components.PagedFooter(paged) { scope.launch { paged.loadMore() } }
             }
         }
     }
@@ -905,7 +895,7 @@ private fun WalletWithdraw(balance: WalletBalanceDto?, onBack: () -> Unit) {
     val withdrawable = current?.withdrawableMinor ?: 0L
 
     var methods by remember { mutableStateOf<List<WithdrawalMethodDto>?>(null) }
-    val requests = remember { mutableStateListOf<WithdrawalDto>() }
+    val requests = remember { PagedRows<WithdrawalDto>(25, { it.id }, { page -> apiCall { ApiClient.wallet.withdrawals(page) } }) }
     var methodId by rememberSaveable { mutableStateOf<Int?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var type by rememberSaveable { mutableStateOf("bank") }
@@ -927,7 +917,7 @@ private fun WalletWithdraw(balance: WalletBalanceDto?, onBack: () -> Unit) {
             if (methodId == null || list.none { it.id == methodId }) methodId = list.firstOrNull { it.isFavorite }?.id ?: list.firstOrNull()?.id
             if (list.isEmpty()) adding = true
         }
-        (apiCall { ApiClient.wallet.withdrawals(1) } as? ApiResult.Ok)?.data?.let { requests.clear(); requests.addAll(it) }
+        requests.reload()
         (apiCall { ApiClient.wallet.balance() } as? ApiResult.Ok)?.data?.let { current = it }
     }
     LaunchedEffect(reconnect) { load() }
@@ -996,6 +986,7 @@ private fun WalletWithdraw(balance: WalletBalanceDto?, onBack: () -> Unit) {
             else WaButton(stringResource(R.string.wl_wd_send), { pinFor = "withdraw" }, enabled = canSend, icon = Icons.Rounded.AccountBalance)
             WaCtaHint(stringResource(R.string.wa_secure_payments), Icons.Rounded.Lock)
         },
+        onNearEnd = { scope.launch { requests.loadMore() } },
     ) {
         if (!adding) {
             Box(Modifier.waRise(0)) {
@@ -1064,22 +1055,23 @@ private fun WalletWithdraw(balance: WalletBalanceDto?, onBack: () -> Unit) {
 
         WaSectionTitle(stringResource(R.string.wl_wd_requests), topPadding = 16.dp)
         WaCard(Modifier.fillMaxWidth()) {
-            if (requests.isEmpty()) {
+            if (requests.rows.isEmpty()) {
                 WaEmpty(Icons.Rounded.Payments, Tone.Gray, stringResource(R.string.wl_wd_none), stringResource(R.string.wl_wd_can, money(withdrawable) + " " + currency))
             } else {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    requests.forEachIndexed { index, r ->
+                    requests.rows.forEachIndexed { index, r ->
                         WithdrawalRow(r, currency) {
                             scope.launch {
                                 val file = withContext(Dispatchers.IO) { downloadReceipt(context, r.id) }
                                 if (file == null || !openCachedFile(context, file)) host?.showError(genericError)
                             }
                         }
-                        if (index < requests.lastIndex) WaDivider()
+                        if (index < requests.rows.lastIndex) WaDivider()
                     }
                 }
             }
         }
+        com.dorr.freelance.ui.components.PagedFooter(requests) { scope.launch { requests.loadMore() } }
     }
 }
 

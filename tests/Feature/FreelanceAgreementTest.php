@@ -147,6 +147,14 @@ class FreelanceAgreementTest extends TestCase
         $this->postJson(self::CLIENT."/{$this->project->uuid}/agreement/cancel")->assertStatus(409);
     }
 
+    public function test_a_part_of_an_agreement_that_is_not_active_sends_its_can_as_an_object(): void
+    {
+        $this->chooseSara();
+        // The apps read `can` as a map: an empty PHP array would go out as a JSON list and break them.
+        $response = $this->getJson(self::CLIENT."/{$this->project->uuid}/agreement")->assertOk();
+        $this->assertStringContainsString('"can":{}', $response->baseResponse->getContent());
+    }
+
     public function test_after_the_agreement_the_chat_takes_contact_details(): void
     {
         $this->chooseSara();
@@ -229,5 +237,33 @@ class FreelanceAgreementTest extends TestCase
         $this->postJson(self::CLIENT."/{$this->project->uuid}/cancel", [])->assertOk();
         $this->assertSame('cancelled', FreelanceAgreement::query()->firstOrFail()->status);
         $this->assertSame(1, $this->sara->notifications()->where('data->event', 'freelance.project.cancelled')->count());
+    }
+
+    public function test_my_projects_lists_the_agreements_i_was_chosen_for_without_the_draft(): void
+    {
+        $this->chooseSara();
+
+        // A draft the client has not sent is not mine to see yet.
+        $this->asFreelancer($this->sara);
+        $this->getJson('/api/freelance/v1/my-projects')->assertOk()->assertJsonCount(0, 'data');
+
+        $this->asClient();
+        $this->putJson(self::CLIENT."/{$this->project->uuid}/agreement", ['scope' => 'A booking site: doctors, times, reminders.', 'includes' => 'Design, build.', 'excludes' => 'Hosting'])->assertOk();
+        $this->postJson(self::CLIENT."/{$this->project->uuid}/agreement/send")->assertOk();
+
+        $this->asFreelancer($this->sara);
+        $this->getJson('/api/freelance/v1/my-projects?group=active')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'pending_approval')->assertJsonPath('data.0.project.uuid', $this->project->uuid)->assertJsonPath('data.0.price_minor', 350000);
+        $this->getJson('/api/freelance/v1/my-projects?group=completed')->assertOk()->assertJsonCount(0, 'data');
+
+        // Another freelancer sees nothing of it.
+        $this->asFreelancer($this->lina);
+        $this->getJson('/api/freelance/v1/my-projects')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/freelance/v1/my-projects?group=bad')->assertStatus(422);
+
+        // `all` is the default and `disputes` holds only the ones with an unsettled dispute.
+        $this->asFreelancer($this->sara);
+        $this->getJson('/api/freelance/v1/my-projects?group=all')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.has_dispute', false);
+        $this->getJson('/api/freelance/v1/my-projects?group=disputes')->assertOk()->assertJsonCount(0, 'data');
     }
 }

@@ -282,9 +282,9 @@ class CallService
     }
 
     /**
-     * My call log (the "Calls" tab), newest first.
+     * My call log (the "Calls" tab), newest first. Pages of 15.
      */
-    public function history(Model $me, int $perPage = 30): LengthAwarePaginator
+    public function history(Model $me, int $perPage = 15): LengthAwarePaginator
     {
         $rows = ChatParticipant::query()->of($me)->pluck('id');
 

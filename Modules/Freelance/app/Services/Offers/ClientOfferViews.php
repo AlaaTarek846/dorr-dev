@@ -2,6 +2,8 @@
 
 namespace Modules\Freelance\Services\Offers;
 
+use App\Support\Api\ApiPaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Freelance\Enums\FreelanceOfferStatus as OfferStatus;
 use Modules\Freelance\Exceptions\FreelanceException;
@@ -54,6 +56,29 @@ class ClientOfferViews
     }
 
     /**
+     * The same list, one page of it (`page`, `per_page` of the request) — only the offers on the page are built, except when the sort
+     * needs what is built (completeness).
+     *
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function page(Project $project, ?string $status, string $sort): LengthAwarePaginator
+    {
+        if ($sort === 'completeness') {
+            return ApiPaginator::slice($this->list($project, $status, $sort));
+        }
+        $rows = $this->offers->forProject($project)
+            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status));
+        $rows = match ($sort) {
+            'cheapest' => $rows->sortBy([['price_minor', 'asc'], ['created_at', 'desc']]),
+            'fastest' => $rows->sortBy([['duration_days', 'asc'], ['price_minor', 'asc']]),
+            default => $rows,
+        };
+        $page = ApiPaginator::slice($rows);
+
+        return $page->setCollection($page->getCollection()->map(fn (Offer $o) => $this->present($project, $o))->values());
+    }
+
+    /**
      * @param  list<string>  $uuids  two or three offers of this project
      * @return array{offers: list<array<string, mixed>>, best: array<string, ?string>}
      */
@@ -99,6 +124,8 @@ class ClientOfferViews
             'choose' => $offer->status->canMoveTo(OfferStatus::Accepted) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
         ];
         $out['client_cost'] = $this->cost($project, $offer->price_minor);
+        // FL-210: dearer than the most the client said they'd pay (it can't be chosen as it stands).
+        $out['over_cap'] = $project->max_cost_minor !== null && $out['client_cost']['total_minor'] > (int) $project->max_cost_minor;
         // The talk about it (FL-308): null until the client opens it.
         $out['chat'] = app(\Modules\Freelance\Services\Chat\OfferChat::class)->summary($offer, 'client');
         $out['can']['chat'] = in_array($offer->status->value, ['submitted', 'viewed', 'shortlisted', 'accepted'], true) && in_array($project->status->value, ['published', 'awarded'], true);

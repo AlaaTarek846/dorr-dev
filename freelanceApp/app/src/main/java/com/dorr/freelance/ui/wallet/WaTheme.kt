@@ -418,9 +418,13 @@ fun WaPage(
     ctaDock: Boolean = false,
     /** When false the title row is omitted (the screen draws its own header). */
     showHeader: Boolean = true,
+    /** For a paged list: called when the bottom of the scrolling page comes near. */
+    onNearEnd: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val night = dark || walletNight()
+    val scrollState = rememberScrollState()
+    com.dorr.freelance.ui.components.NearEndEffect(scrollState, if (scroll) onNearEnd else null)
     val pageGlow = Wa.Red
     Box(modifier.fillMaxSize().background(if (night) com.dorr.freelance.ui.kit.AccountDark.bg else Wa.Bg)) {
         Canvas(Modifier.fillMaxSize()) {
@@ -462,7 +466,7 @@ fun WaPage(
             val body = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .let { if (scroll) it.verticalScroll(rememberScrollState()) else it }
+                .let { if (scroll) it.verticalScroll(scrollState) else it }
                 .padding(start = 16.dp, end = 16.dp, top = if (showHeader) 6.dp else 0.dp, bottom = if (cta != null) ctaReserve else if (!scroll) 0.dp else 28.dp)
             Column(body, content = content)
         }

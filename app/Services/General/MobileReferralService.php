@@ -5,6 +5,7 @@ namespace App\Services\General;
 use App\Http\Resources\General\MobileReferralCodeResource;
 use App\Http\Resources\General\ReferralResource;
 use App\Support\Api\ApiResponse;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Modules\User\Models\User;
 
@@ -15,7 +16,7 @@ class MobileReferralService
         protected ReferralService $referrals,
     ) {}
 
-    public function myCode(User $user): JsonResponse
+    public function myCode(Model $user): JsonResponse
     {
         $code = $this->codes->codeFor($user);
         $applied = $this->referrals->appliedBy($user);

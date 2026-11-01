@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use App\Models\Concerns\HasReferralCode;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Freelance\Enums\FreelancerStatus;
 use Modules\Wallet\Concerns\HasWallets;
@@ -28,7 +29,7 @@ use Spatie\MediaLibrary\HasMedia;
  */
 class Freelancer extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasVerificationCodes, HasWallets, Notifiable, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasMediaTrait, HasReferralCode, HasNotificationDevices, HasVerificationCodes, HasWallets, Notifiable, SendsPhoneOtp, SoftDeletes;
 
     protected $table = 'freelancers';
 
@@ -158,5 +159,11 @@ class Freelancer extends Authenticatable implements HasMedia
     public function devices(): HasMany
     {
         return $this->hasMany(FreelancerDevice::class);
+    }
+
+    /** The support tickets this freelancer opened (the same tickets and dashboard as the riders'). */
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(\Modules\User\Models\SupportTicket::class);
     }
 }

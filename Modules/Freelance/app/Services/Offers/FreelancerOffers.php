@@ -291,7 +291,7 @@ class FreelancerOffers
             'details' => $offer->details,
             // FL-307: each of the project's questions with this offer's answer.
             'answers' => collect((array) $offer->project?->questions)->values()->map(fn ($q, $i) => ['question' => $q, 'answer' => ((array) $offer->answers)[$i] ?? null])->all(),
-            'attachments' => $offer->getMedia('attachments')->map(fn (Media $m) => ['id' => $m->id, 'name' => $m->file_name, 'mime' => $m->mime_type, 'size' => $m->size, 'path' => "{$filesPath}/{$m->id}"])->values()->all(),
+            'attachments' => $offer->getMedia('attachments')->map(fn (Media $m) => ['id' => $m->id, 'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($m), 'mime' => $m->mime_type, 'size' => $m->size, 'path' => "{$filesPath}/{$m->id}"])->values()->all(),
             'created_at' => $offer->created_at?->toIso8601String(),
             'edited' => $offer->revisions()->exists(),
         ];

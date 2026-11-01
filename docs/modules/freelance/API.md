@@ -21,7 +21,8 @@
 { "success": true, "status": "success", "code": 200, "message": "…", "data": {}, "pagination": null }
 ```
 
-- **القوائم:** `data` مصفوفة، و`pagination` فيها بيانات الصفحات.
+- **القوائم:** `data` مصفوفة، و`pagination` فيها بيانات الصفحات (`current_page` و`per_page` و`total` و`last_page` و`has_more_pages`).
+- **صفحات القوائم الطويلة:** `?page=&per_page=` (الافتراضي **15**، الحد الأقصى 50). التطبيقين بيجيبوا أول 15 ويكمّلوا الباقي لوحدهم مع السكرول من غير تايمر (`has_more_pages`). اللي بيتصفّح بيها: مشاريعي، عروض مشروع، المحترفين المفضّلين، الإيصالات، عروضي، دعوات المحترف، وسجل المحفظة وطلبات السحب؛ الرسايل بتتصفّح بـ `before`/`limit` (40).
 - **الخطأ:** `success: false` ومعاه `code` (HTTP)، و`message` مترجمة، وللأخطاء اللي بتخص الخدمة `error_code` يبدأ بـ `freelance_` وأحياناً `data` فيها تفاصيل.
 - **التحقق:** 422 و`errors` بأسماء الحقول.
 - **الأسماء:** `snake_case`، والتواريخ ISO-8601 (`2026-10-19T12:00:00+00:00`)، والمبالغ بالعملة الصغرى (يتحدد في الدفعة 5).
@@ -77,6 +78,17 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 |---|---|
 | `POST auth/otp` · `auth/verify` · `auth/resend` | الدخول بالموبايل والكود (`dial_code`, `phone`, `code`, و`device_id` / `device_name` / `platform` عند `verify`). جلسة لكل جهاز |
 | `GET auth/me` · `POST auth/logout` | بياناتي (فيها `missing` و`terms`) والخروج |
+| `GET appearance` · `PUT appearance` | شكل التطبيق للفريلانسر (نفس شكل وفاليديشن تطبيق الـ user): `dark_mode` (system/light/dark) و`uses_default_colors` و`custom_light_tokens` / `custom_dark_tokens` و`mobile_app_font_id`. الرد فيه `font` و`available_fonts` و`resolved` و`default`. جدول `freelancer_mobile_appearances` (صف لكل فريلانسر)، والـ payload من `MobileAppearanceService::payload` |
+| `GET ratings/mine` · `POST ratings` | تقييم التطبيق (نفس تقييم تطبيق الـ user: `stars` من 1 لـ 5 بخطوة ربع نجمة، و`comment` اختياري 5–300 حرف). تقييم واحد لكل فريلانسر، والـ POST التاني بيعدّل. بيظهر في صفحة التقييمات في الداشبورد (`author` = Freelancer). `MobileRatingService` بقى بياخد أي موديل صاحب تقييم |
+| `GET faqs` | الأسئلة الشائعة العامة (نفس `mobile/v1/faqs`) |
+| `GET my-projects?group=all\|active\|completed\|closed\|disputes` | المشاريع اللي اتختارت ليها (تاب «شغلي»): `active` = شغّال أو مستني موافقتي، `completed` = خلص، `closed` = اترفض/اتلغى/انتهت مدته. الأحدث الأول وصفحات (`per_page`). كل صف: `uuid` الاتفاقية و`status` و`project{uuid,title}` والسعر والعملة والأيام و`milestones_count`/`milestones_done` و`has_dispute` (فيه نزاع لسه ما اتحسمش)، و`disputes` = اللي فيها نزاع مفتوح، وبدون group = الكل. المسودة اللي العميل لسه ما بعتهاش مش بتظهر |
+| `GET referrals/my-code` | كود الدعوة بتاع الفريلانسر (حساب > شارك التطبيق مع أصدقائك): `{code, is_active, applied}`. نفس جدول `referral_codes` وبادئة `DORRFC-` بتاعة تطبيق الـ user، المالك `referrable_type = freelancer` (متسجل في `config/referral.php`). الكود ثابت، بيتعمل أول طلب |
+| `GET security/devices` · `DELETE security/devices/{session}` · `POST security/devices/logout-others` · `GET security/events` | الأمان (إعدادات > الأمان): الأجهزة المسجّل دخولها (الحالي أولاً)، تسجيل خروج جهاز أو كل الأجهزة الأخرى، وسجل الأمان (`type` و`warnings=1` وصفحات). هي نفس جلسات وسجل تطبيق الـ user (`account_sessions` و`security_events`)، فبتظهر للدعم في الداشبورد؛ تسجيل الدخول بقى بيعدي على `AccountSessionService` وتنبيه «جهاز جديد» شغال. تسجيل خروج جهاز بيشيله كمان من `devices` |
+| `GET security/devices` · `DELETE security/devices/{session}` · `POST security/devices/logout-others` · `GET security/events` | الأمان (إعدادات > الأمان): الأجهزة المسجّل دخولها (الحالي أولاً)، تسجيل خروج جهاز أو كل الأجهزة الأخرى، وسجل الأمان (`type` و`warnings=1` وصفحات). هي نفس جلسات وسجل تطبيق الـ user (`account_sessions` و`security_events`)، فبتظهر للدعم في الداشبورد؛ تسجيل الدخول بقى بيعدي على `AccountSessionService` وتنبيه «جهاز جديد» شغال. تسجيل خروج جهاز بيشيله كمان من `devices` |
+| `GET legal-pages?type=privacy\|term` | **عامة** (من غير تسجيل دخول، شاشة الدخول بتعرضها): سياسة الخصوصية أو الشروط الخاصة بخدمة الفريلانس (`legal_pages.service_id` = خدمة `freelance`)، ولو الخدمة ملهاش صفحة منشورة بترجع الصفحة العامة. بيرجع `data.content` باللغة الحالية. السيدر `FreelanceLegalPageSeeder` |
+| `GET support-help` · `POST support-help/{node}/feedback` | قائمة المساعدة الموجّهة (الشات السريع) — المواضيع اللي `audience = freelancer` بس، ورد واحد فيه الشجرة كلها. الـ feedback (`solved`) بيتعدّ في الداشبورد، و«محتاج موظف» بيوصّل إشعار لفريق الدعم |
+| `GET support-tickets` · `POST support-tickets` · `GET support-tickets/{id}` · `PATCH support-tickets/{id}/status` | تذاكر الدعم (`title` و`body` وصورة اختيارية). نفس جدول `support_tickets` وصفحة الدعم في الداشبورد، والتذكرة بتتربط بـ `freelancer_id` (جنب `user_id` و`driver_id`). الحالة من الفريلانسر: `closed` أو `reopened` بس. تذكرة حد تاني = 404 |
+| `GET support-tickets/{id}/messages` · `POST support-tickets/{id}/messages` · `POST support-tickets/{id}/auto-reply-feedback` | المحادثة جوه التذكرة (`order=desc` الأحدث الأول، وصورة اختيارية) والرد على الإجابة الآلية. اللحظي على قناة الفريلانسر (`support.message` / `support.ticket.updated`) |
 | `GET config` | الإعدادات (القسم 4) |
 | `PUT profile` · `POST profile/avatar` | إكمال البيانات: `name` (إجباري) و`headline` و`bio` و`years_of_experience` و`contact_languages[]` و`city` و`gender` و`date_of_birth` و`country_id` و`locale`، والصورة (5MB). الحقل اللي ما اتبعتش بيفضل، والمبعوت فاضي بيتمسح. الإيميل مش من هنا |
 | `POST profile/email/send-code` · `profile/email/confirm` | `{email}` ← كود على الإيميل (ما بيتغيّرش حاجة لحد التأكيد)، ثم `{code}` ← الإيميل يبقى متحقق منه. الإيميل المأخوذ بيترفض |
@@ -340,12 +352,12 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 | GET | `projects/{uuid}/offer-preview[?price_minor=]` | `blocked` (null أو `{code, message}`) + `quota{enabled, limit, used, left}` + `min_price_minor` + `breakdown{price_minor, commission_minor, net_minor, currency}` |
 | POST | `projects/{uuid}/offers` | multipart: `price_minor`، `duration_days`، `details` (30–3000)، `files[]` لحد 5 (نفس أنواع وحجم ملفات المشروع) |
 | GET | `projects/{uuid}/my-offer` | `{offer: … أو null}` |
-| GET | `offers` | عروضي، الأحدث أول (مع `project{uuid,title}`) |
+| GET | `offers` | عروضي، الأحدث أول (مع `project{uuid,title}`)، `page` و`per_page` (15) |
 | GET | `offers/{uuid}/attachments/{id}` | ملف من عرضي |
 
 **ترتيب الفحص:** حساب موثّق وبيستقبل شغل (`freelance_verification_required` 403 / `freelance_unavailable`) ← المشروع بيستقبل عروض (`freelance_project_offers_closed`) ← مفيش عرض قبل كده (`freelance_offer_already_sent` 409) ← المشروع مش مكتمل (`offers.max_per_project`، `freelance_project_offers_full`) ← الحصة الشهرية (`offers.free_monthly_quota` لو مفتاح `free_offer_quota` مفتوح، `freelance_offer_quota_exhausted` و`data.limit`). السعر حر بس مش أقل من حد ميزانية الدولة/التخصص (`freelance_offer_below_min`). العمولة والصافي بيتحسبوا وقت الإرسال ويتحفظوا مع العرض. العرض اللي بيكمّل العدد بيقفل المشروع (`close_reason = max_offers`). العميل بيتبلّغ (`freelance.offer.received`).
 
-**العميل** (`user_api`): `GET mobile/v1/freelance/projects/{uuid}/offers` (العروض مع المحترف: الاسم والعنوان والصورة وموثّق ولا لأ — من غير صافي ربحه) و`GET …/offers/{offer}/attachments/{id}`. رد المشروع فيه `offers.count`.
+**العميل** (`user_api`): `GET mobile/v1/freelance/projects/{uuid}/offers` (العروض مع المحترف: الاسم والعنوان والصورة وموثّق ولا لأ — من غير صافي ربحه، `page` و`per_page` (15)؛ الترتيب ثابت بين الصفحات مهما كان `sort`) و`GET …/offers/{offer}/attachments/{id}`. رد المشروع فيه `offers.count`.
 
 ## تعديل العرض وسحبه (FL-302)
 
@@ -372,7 +384,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 كل الـ endpoints تحت `mobile/v1/freelance/projects/{uuid}` (`user_api`، صاحب المشروع بس):
 
-- `GET offers?sort=newest|cheapest|fastest|completeness&status=all|shortlisted|…` — كل عرض فيه `freelancer{completeness, years_of_experience, portfolio_count, specialties, skills, matching_skills, project_skills_count, rating, reviews_count, completed_projects}` (التقييم والمنجز `null` لحد FL-701/703) و`can{shortlist, reject, choose}` و`client_cost{price_minor, client_fee_minor, total_minor, currency}` (رسوم العميل من السياسة لو مفتاح `client_fee` شغال).
+- `GET offers?sort=newest|cheapest|fastest|completeness&status=all|shortlisted|…&page=&per_page=` (15 في الصفحة؛ «اتشاف» بيتعلّم على الصفحة الأولى بس) — كل عرض فيه `freelancer{completeness, years_of_experience, portfolio_count, specialties, skills, matching_skills, project_skills_count, rating, reviews_count, completed_projects}` (التقييم والمنجز `null` لحد FL-701/703) و`can{shortlist, reject, choose}` و`client_cost{price_minor, client_fee_minor, total_minor, currency}` (رسوم العميل من السياسة لو مفتاح `client_fee` شغال).
 - `GET offers/compare?ids=a,b[,c]` — من 2 لـ 3 عروض بترتيب الاختيار + `best{price, duration, completeness, skills}`. عدد تاني = `freelance_offer_compare_count` (422)؛ عرض مش في المشروع = 404.
 - `GET offers/{offer}` — عرض واحد بنفس الشكل.
 - `GET offers/{offer}/freelancer` — بروفايل المحترف للعميل: نبذة، خبرات، شهادات، معرض الأعمال (روابط صور موقّعة)، لغات، مدينة. **من غير تليفون ولا إيميل.**
@@ -404,7 +416,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 ## المفضلة والقائمة المختصرة (FL-306)
 
 - القائمة المختصرة: `shortlist` / `unshortlist` وفلتر `status=shortlisted` (FL-303/305).
-- المحترفين المفضّلين للعميل: `GET mobile/v1/freelance/favorites`، `POST|DELETE favorites/{uuid}` — بس لمحترف قدّم للعميل عرض قبل كده (غير كده 404). العروض والبروفايل فيهم `is_favorite`. القائمة مفيهاش تليفون ولا إيميل.
+- المحترفين المفضّلين للعميل: `GET mobile/v1/freelance/favorites` (`page`/`per_page`)، `POST|DELETE favorites/{uuid}` — بس لمحترف قدّم للعميل عرض قبل كده (غير كده 404). العروض والبروفايل فيهم `is_favorite`. القائمة مفيهاش تليفون ولا إيميل.
 
 ## الاتفاق الإلكتروني (FL-401)
 
@@ -503,7 +515,15 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 ## الإيصالات (FL-511)
 
-- `GET receipts` (الأحدث الأول، لحد 50) و`GET receipts/{uuid}` — العميل على `mobile/v1/freelance`، المحترف على `freelance/v1`؛ كل طرف إيصالاته بس.
+- **الإبلاغ عن رسالة (FL-709):** `POST chat/messages/{id}/report {reason, note?}` (البريفيكسين، throttle 20/دقيقة): `reason` من `abuse · harassment · blackmail · contact_info · spam · other` (غير كده 422)، `note` ≤ 500. المسموح: رسالة **الطرف التاني** في غرفة أنا فيها (غرفة مش بتاعتي = 404)؛ رسالتي أو سطر نظام = 422 `report_not_allowed`، رسالة اتسحبت = 422 `report_message_gone`، تاني مرة = 409 `report_already`. النص بيتحفظ وقت البلاغ والطرف التاني مش بيتبلّغ. الأدمن (`freelance-message-reports`): `GET admin/v1/freelance-message-reports?status=open|upheld|dismissed&reason=` (فيه `pagination.counts`) و`POST …/{uuid}/decide {decision: dismiss|uphold, hide_message?, note?}` (مرة واحدة، تاني = 409)؛ `uphold` + `hide_message` بيخلّي الرسالة «محذوفة» في الغرفة. **القرار مش بيقيّد أي حساب** (FL-708).
+- **الاعتراض على التقييم (FL-706):** `GET {uuid}/review` بقى فيه `can_object` (التقييم اللي عني اتنشر، ماعترضتش قبل كده، وفي أقل من 14 يوم)، `object_until`، `objection` (`{reason,note,status,decision_note}` أو null)، `objection_reasons`، و`mine.removed`؛ و`theirs` بترجع null لو التقييم اتشال، و`theirs.comment_hidden` لو التعليق اتخفى. `POST {uuid}/review/objection {reason: abusive|false|unfair|other, note ≥5 ≤500}` (البريفيكسين، throttle): قبل النشر أو بعد 14 يوم أو مرة تانية = 409 (`objection_*`)، وبيرجّع نفس شكل `review`. الأدمن (`freelance-reviews`): `GET admin/v1/freelance-reviews/objections?status=open|rejected|comment_hidden|rating_removed` (فيه `pagination.counts`) و`POST …/objections/{uuid}/decide {decision: reject|hide_comment|remove_rating, note?}` (مرة واحدة، تاني = 409). `hide_comment` بيخلّي النجوم تتحسب والكلام يتخفى، و`remove_rating` بيطلّع التقييم من المتوسط والملف. بيوصل إشعار `review.objection_decided` للي اعترض و`review.moderated` للي قيّم (لو اتغيّر حاجة). **القرار مش بيقيّد أي حساب** (FL-708).
+- **استبيان الرضا (FL-702):** `GET {uuid}/survey` → `{can_answer, answer_until, reasons[], not_satisfied_max: 3, mine}`؛ `POST {uuid}/survey {score 1..5, reasons?[], comment? ≤500}`: مرة من كل طرف، خلال 30 يوم من نهاية المشروع (اتكمل، أو اتلغى بعد ما بدأ) وإلا 409 (`survey_closed` / `survey_exists`)؛ درجة 3 أو أقل من غير سبب = 422 `survey_reasons_required`. الأسباب: quality · late · communication · price · scope · payment · platform · other. الأدمن: `GET admin/v1/freelance-reviews/satisfaction?from=&to=` (`freelance-reviews.view`): العدد والمتوسط والتوزيع وأسباب عدم الرضا لكل طرف وآخر الردود الضعيفة.
+- **الإنذارات والقيود والتعليق (FL-708):** `GET sanctions` (البريفيكسين) → `{restrictions: {chat, work}, items: [...]}` (آخر سنة): كل واحدة `{uuid, type: warning|chat_limit|work_limit|suspension, state: active|lifted|expired, reason, blocks: [chat|work], starts_at, ends_at (null = لحد ما يترفع), can_appeal, appeal_until, appeal: {status: open|upheld|reduced|lifted, note, decision_note}}`. `POST sanctions/{uuid}/appeal {note 5..1000}` (throttle 10/دقيقة): مرة واحدة خلال 14 يوم من البداية، وإلا 409 `appeal_exists` / `appeal_closed`؛ عقوبة مش بتاعتي = 404. **المنع:** `chat` بيوقف إرسال الرسائل وطلب المقابلات (`403 freelance_restricted_chat`)، و`work` بيوقف العروض الجديدة وقبول الدعوات للمحترف، وإرسال مشروع واختيار عرض ودعوة محترفين للعميل (`403 freelance_restricted_work`)، والاتنين فيهم `data.until`. **مفيش أي قيد بيلمس المحفظة أو السحب أو التسليم أو الموافقة أو النزاعات.**
+- **الأدمن (`freelance-sanctions`: view · issue · suspend · appeal):** `GET admin/v1/freelance-sanctions?state=active|lifted|expired&appeal=open&type=&side=&search=` (`pagination.counts`: active, lifted, expired, appeals)؛ `GET …/people?side=&search=`؛ `GET …/person/{side}/{id}` → `{quality, restrictions, sanctions}`؛ `POST freelance-sanctions {side, person_id, type, reason ≥5, days?, source?: manual|message_report|review_objection|dispute, source_ref?}` (القيد محتاج `days` 1..30، التعليق `days` اختياري 1..365 ومحتاج `suspend` وإلا 403 `sanction_suspend_permission`)؛ `POST …/{uuid}/lift {note?}` (تعليق = `suspend`)؛ `POST …/{uuid}/appeal {decision: upheld|reduced|lifted, ends_at? (للتقصير)، note?}` (اللي أصدرها مايقدرش = 403 `appeal_same_admin`؛ التقصير لازم تاريخ في المستقبل وقبل النهاية الحالية = 422 `appeal_reduce_date`). كل إجراء بيتسجل في `audit_logs` وبيبعت إشعار `sanction.issued|lifted|appeal_decided`. **العملاء (FL-707):** `GET admin/v1/freelance-sanctions/clients?risk=low|medium|high&search=&per_page=` (صلاحية `view`) — العملاء اللي بدأوا مشاريع بجودتهم ومخاطرهم (من `freelance_client_risk`، بيتحدّث يوميًا بـ`freelance:refresh-risk` وعند كل تغيير في القيود وعند فتح الشخص)، الأعلى خطورة الأول، و`pagination.counts` بعدد كل مستوى.
+- **مؤشر الجودة والمخاطر (FL-707):** في `person` → `quality: {score 0..100|null, level: low|medium|high, reasons: [{code, level, count}], inputs}`؛ الأكواد: `reports_upheld`, `disputes_lost`, `suspensions`, `sanctions`, `cancel_rate`, `account_status`, `not_verified`. `GET admin/v1/freelancers` بقى فيه `quality_score` و`risk_level` وفلتر `risk=low|medium|high` (القيمة بتتحدّث يومياً بـ `freelance:refresh-risk` وبعد أي عقوبة ولما الأدمن يفتح الشخص). الأرقام والأوزان في `config/freelance.php` (`sanctions`, `quality`).
+- **سبب الإلغاء وتصنيف المسؤولية (FL-607):** إلغاء جزء بيقبل `reason_code` (واحد من `scope_changed · client_unresponsive · not_delivered · quality · mutual · force_majeure · other`، غير كده 422) و`reason` اختياري ≤ 500: عميل `POST …/milestones/{uuid}/cancel` وإلغاء المشروع `POST projects/{uuid}/cancel`، ومحترف `POST …/milestones/{uuid}/withdraw` (`note` هو النص). التصنيف بيتحسب من السبب: scope_changed/client_unresponsive ← `client`، not_delivered/quality ← `freelancer`، mutual ← `shared`، force_majeure ← `none`، other (أو من غير كود) ← `review`. بيتسجّل في `freelance_cancellation_reasons` لما الإلغاء يتم فعلاً (أو طلب الإلغاء لجزء بدأ شغله) — **قول اللي ألغى، مش حكم**، وللأدمن بس: `GET admin/v1/freelance-reports/cancel-reasons?from=&to=&responsibility=` (صلاحية `freelance-reports.view`) بيرجّع `total` و`by_responsibility` و`by_reason` وآخر الصفوف. **مفيش أي أثر مالي أو عقوبة تلقائية.**
+- **تقارير التقدّم (FL-605) — اختيارية:** العميل بيحدد وهو بيكتب الاتفاق `report_every_days` (`PUT projects/{uuid}/agreement`: **3 أو 7 أو 14**، و`0`/`null` = من غير تقارير، غيرهم 422 `freelance_report_days_invalid`)؛ بتتجمّد مع الاتفاق. المحترف يبعت في أي وقت والاتفاق شغال: `POST projects/{uuid}/reports {note (3–2000), percent? (0–100)}` على `freelance/v1`، والاتنين يقروا `GET projects/{uuid}/reports` (على `freelance/v1` و`mobile/v1/freelance`) ← `{summary{every_days,next_due_at,last_at,late,allowed_days}, reports[{uuid,note,percent,created_at}]}` (الأحدث أول، لحد 100). الاتفاق نفسه فيه `reports` (نفس الـ summary) و`can.report` للمحترف. كل تقرير بيبدأ الفترة الجاية (`next_report_due_at = دلوقتي + الفترة`). الأمر `freelance:report-reminders` (كل ساعة): لما الميعاد يجي المحترف بيتفكّر **مرة** (`freelancer.report.due`)، ولو عدّى يوم (`LATE_AFTER_HOURS`) من غير تقرير العميل بيتنبّه **مرة** (`client.report.late`)؛ تقرير جديد بيرجّع التنبيهين. مفيش حظر ولا غرامة على التأخير. إشعار العميل بالتقرير: `client.report.received`. أخطاء: `report_not_active` (409)، `report_note_required`، `report_days_invalid`. العميل مبيبعتش (403)، وغير طرفي الاتفاق 404.
+- `GET receipts` (الأحدث الأول، `page`/`per_page` (15)، و`?project={uuid}` لإيصالات مشروع واحد) و`GET receipts/{uuid}` — العميل على `mobile/v1/freelance`، المحترف على `freelance/v1`؛ كل طرف إيصالاته بس.
 - الإيصال: `{uuid, number (FR-SA-2026-000123), party, kind, reason, title, project, milestone, currency, amount_minor, fee_minor, total_minor, refunded_minor, issued_at}` + في الواحد: `client, freelancer, reason_text, text` (نص جاهز للمشاركة).
 - الأنواع: `funded` (العميل: المحجوز)، `paid` (العميل: اتدفع عند القبول)، `earned` (المحترف: المبلغ والعمولة والصافي)، `refunded` (العميل: رجع كله)، `settled` (العميل: مرحلة اتقفلت بعد الشغل — المدفوع واللي رجع). السبب: `approved · auto_approved · dispute · ended · cancelled`.
 - الرقم متسلسل لكل دولة وسنة، بيتكتب في نفس ترانزاكشن الحركة.
@@ -512,6 +532,24 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 - `GET admin/v1/freelance-reports/summary[?country_id=&from=&to=]` (الشهر الحالي افتراضيًا): لكل دولة `held_minor, pending_earnings_minor` (دلوقتي) و`funded_minor, paid_minor, refunded_minor, earned_minor, client_fees_minor, commissions_minor, counts` (في الفترة).
 - `GET admin/v1/freelance-reports/reconcile[?country_id=]`: `{checked_at, count, issues[]}` — الأنواع `hold_mismatch, hold_left, receipt_missing, fee_mismatch, commission_mismatch, earning_unpaid`. مفيش حاجة بتتصلح لوحدها.
+
+### المتابعة والمتأخر للموظفين (FL-801 / FL-802)
+صلاحية `freelance-projects.view`، للقراءة فقط.
+- `GET admin/v1/freelance-oversight/projects[?status=&country_id=&q=&per_page=]` — المشاريع + `pagination.counts` لكل حالة.
+- `GET admin/v1/freelance-oversight/offers[?status=&project=uuid&freelancer_id=&per_page=]` — العروض + counts.
+- `GET admin/v1/freelance-oversight/agreements[?status=&project=uuid&per_page=]` — الاتفاقات مع `parts {total, approved}` + counts.
+- `GET admin/v1/freelance-oversight/late` — `{total, groups, checked_at}`؛ المجموعات: `parts_late` (جزء عدّى مدته)، `deliveries_waiting` (تسليم مستني العميل +5 أيام)، `agreements_unanswered` (اتفاق انتهى وقته من غير رد)، `disputes_overdue` (نزاع عدّى `respond_by`)، `projects_waiting_review` (مشروع في المراجعة +يومين).
+- الأمر `freelance:late-alerts` (يوميًا 08:00): لو فيه متأخر، بيبعت إشعار مرة واحدة في اليوم لكل من عنده `freelance-projects.view`. مفيش حاجة بتتغير.
+
+### الدعم والنزاعات والدول والتقارير والمخاطر والتدقيق (FL-803 … FL-808)
+كلها `admin/v1` وقراءة فقط إلا اللي مكتوب إنه بيغيّر. صلاحيات جديدة: `freelance-support` (view/update)، `freelance-risk` (view)، `freelance-audit` (view) — بتتضاف بـ `AdminPermissionSeeder`.
+- **تصنيف النزاع (FL-803):** `POST freelance-disputes/{uuid}/classify {category}` (صلاحية `freelance-disputes.update`) — `payment · delivery · quality · conduct · scope · other`. القايمة والتفاصيل فيها `category` و`suggested_category` (بيتحسب من سبب صاحب النزاع: not_delivered/late ← delivery، no_response ← conduct، quality/not_as_agreed ← quality، out_of_scope ← scope، غير كده other). فلتر `?category=`. بيتسجل في سجل التدقيق.
+- **تذاكر الدعم (FL-803):** `GET freelance-support/tickets[?status=&q=&project=uuid&dispute=uuid]` — تذاكر المحترفين + أي تذكرة مربوطة بمشروع/نزاع، بنفس شكل `AdminSupportTicketResource` + `link {kind, uuid}` و`pagination.counts` لكل حالة. `POST freelance-support/tickets/{number}/link {kind: project|dispute|none, uuid}` بيربط التذكرة (في `reference` = `freelance_project:{uuid}` / `freelance_dispute:{uuid}`) أو يشيل الربط. الرد والتعيين والإغلاق من شاشة الدعم الموجودة. مفيش تصنيف تلقائي.
+- **الدول (FL-804):** `GET freelance-oversight/countries` — لكل دولة: `service_open` و`closed_by_availability` و`features` و`projects`. لو الأدمن قفل خدمة الفريلانس في الدولة من صفحة `service-availability` (country row بـ `service_enabled=false`) الخدمة بتتقفل في التطبيقات كمان (`FreelanceFeatures::allows/snapshot`). دولة محدش لمسها هناك بتفضل ماشية على مفاتيح الفريلانس (مفيش تغيير في اللي شغال).
+- **التشغيل (FL-805):** `GET freelance-reports/operations[?country_id=&from=&to=]` — مشاريع/عروض/اتفاقات/أجزاء حسب الحالة، متوسط الساعات لحد أول عرض ولحد التعاقد، نزاعات حسب التصنيف. الفلوس (محجوز/محرَّر/عمولات/رسوم) في `freelance-reports/summary` زي ما هي.
+- **سجل التدقيق (FL-806):** `GET freelance-audit[?action=&actor_id=&subject_id=&from=&to=]` — أفعال الفريلانس بس (`action` بيطابق البداية، مثلًا `freelance.dispute`)، الأحدث أولًا، مع اسم الموظف. اتضاف تسجيل لقرار النزاع (`freelance.dispute.decided`) وتصنيفه وقرار بلاغ الرسالة (`freelance.message_report.decided`) وقرار اعتراض التقييم (`freelance.review_objection.decided`) وربط التذكرة (`freelance.support.linked`). **المناوبات: لسه NEEDS-DECISION (اختيارية).**
+- **المخاطر (FL-807):** `GET freelance-risk/overview` (عدد المحترفين والعملاء متوسطي/عاليي الخطورة، البلاغات المفتوحة حسب السبب، العقوبات السارية) و`GET freelance-risk/accounts[?side=freelancer|client&level=medium|high]` — الحسابات (محترفين وعملاء مع بعض) من قواعد FL-707 مع الأسباب وعدد العقوبات والبلاغات المفتوحة ضدهم. بيعرض بس؛ العقوبة من `freelance-sanctions` والبلاغ يتقرر في `freelance-message-reports`.
+- **التحسين المستمر (FL-808):** `GET freelance-reports/improvement[?country_id=&from=&to=]` — أسباب الإلغاء حسب اللي ألغى (عميل/محترف)، أسباب عدم الرضا من استبيان الرضا لكل طرف، العروض المرفوضة/المسحوبة/المنتهية، الدعوات المرفوضة/المنتهية، ومشاريع انتهت من غير شغل. معلومات فقط.
 - صلاحية `freelance-reports.view`. `freelance:reconcile` يوميًا 03:20 — لو فيه فروقات بيبلّغ الأدمنز اللي معاهم الصلاحية (مرة في اليوم بالكتير، من غير push).
 
 ## سطور السعر (FL-510)
@@ -522,10 +560,40 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 ## المشاريع الخاصة والدعوات (FL-205)
 
 - العميل (`mobile/v1/freelance/projects/{uuid}`، سويتش `invitations`): `GET invitations` (`summary{sent,accepted,declined,max,can_invite,can_make_public}` + القائمة)، `POST invitations {freelancers:[uuid]}` (حد أقصى سياسة `invitations.max_per_project`، الافتراضي 10)، `DELETE invitations/{invitation}`، `GET invitees?q=&all=1`، `POST make-public`.
-- المحترف (`freelance/v1`): `GET invitations`، `POST invitations/{uuid}/accept|decline` (يتطلب حساب موثّق)؛ `GET projects/{uuid}` فيه `invitation{uuid,status}`.
+- المحترف (`freelance/v1`): `GET invitations` (`page`/`per_page`/`status=sent|accepted|declined`)، `POST invitations/{uuid}/accept|decline` (يتطلب حساب موثّق)؛ `GET projects/{uuid}` فيه `invitation{uuid,status}`.
 - المشروع الخاص يظهر للمدعوّين فقط؛ التقديم من غيرهم `freelance_project_invite_only`.
 - أخطاء: `invitations_limit`, `invitation_not_open`, `invitation_closed`, `invitation_project_public`, `invitation_project_not_published`, `invitation_accepted_exists`.
 - العميل يختار عرضًا واحدًا بالطريقة العادية؛ لو محدش قبل يقدر يحوّل المشروع لعام.
+
+## نسخ المشروع والحد الأقصى للتكلفة والمعاينة ومشروعي (FL-209 / FL-210 / FL-211)
+
+على `mobile/v1/freelance/projects` (سويتش `projects`):
+
+| الطريقة | المسار | ملاحظات |
+|---|---|---|
+| POST | `{uuid}/duplicate` | (FL-209) مسودة جديدة بنفس العنوان والوصف والتخصص والمهارات النشطة والميزانية والحد الأقصى والمدة والظهور والأسئلة والملفات (نسخ مستقل). مفيش عروض ولا دعوات ولا اتفاق. أي مشروع يتنسخ مهما كانت حالته. بيحترم حد المشاريع المفتوحة (`freelance_project_limit`). الحدث `project.created` فيه `copied_from`. throttle `freelance-project-create` |
+| GET | `{uuid}/preview` | (FL-210) `{project, issues[], can_submit}`. كل `issue` = `{severity: error\|warning, code, field, message}`. **أخطاء:** `missing_<field>`، أخطاء الإرسال (`project_budget_below_min` / `_above_max` / `_range`، مهارة معطّلة)، `cost_cap_below_budget` (الحد أقل من أقل ميزانية شامل الرسوم). **تحذيرات:** `budget_range_wide` (الأعلى > ×5 من الأقل)، `cost_cap_below_budget_top`، `duration_short_big_budget` (≤ 3 أيام وميزانية ≥ ×10 من أدنى ميزانية في البلد)، `duration_long_small_budget` (≥ 180 يوم وأعلى ميزانية ≤ ×2 من الأدنى). العتبات في `freelance.projects.preview`. `can_submit` = قابل للتعديل ومفيش أخطاء |
+| PUT | `{uuid}/cost-cap` | `{max_cost_minor}` (≥ 1). قبل بدء الشغل بس (مسودة / مطلوب تعديل / مرفوض / قيد المراجعة / منشور / مرسى)، وإلا `freelance_project_invalid_state` 409. الحدث `project.cost_cap_set` |
+| DELETE | `{uuid}/cost-cap` | شيل الحد (نفس الشروط) |
+
+- `max_cost_minor` كمان بيتبعت في `POST /` و`PUT {uuid}` (اختياري). **الحد = أكتر مبلغ يدفعه العميل إجمالي شامل رسوم العميل.**
+- التنفيذ: اختيار عرض إجماليه أعلى من الحد → `freelance_project_cost_cap_exceeded` 422 (`data.total_minor`, `max_cost_minor`)، وإرسال الاتفاق (`agreement/send`) بنفس الكود لو السعر + رسوم المراحل أعلى. العرض في قائمة العروض فيه `over_cap` (boolean). إشعار تخطّي الحد (358) مأجّل.
+- المشروع (`present`) بقى فيه: `max_cost_minor`، `can.duplicate`، `can.set_cost_cap`، `progress{total,approved,in_review,price_minor,approved_minor}` (null قبل ما فيه اتفاق شغال/مكتمل)، `next_action` (`finish_draft` · `submit` · `fix_project` · `review_offers` · `send_agreement` · `review_delivery` · `fund_milestone` · `dispute` أو null لو الدور على الطرف التاني)، و`milestones[{uuid,position,title,amount_minor,duration_days,status,status_label}]` — **في `GET {uuid}` بس، مش في القائمة** (القائمة فيها `milestones: null`).
+
+## إشعارات المشاريع المناسبة (FL-208)
+
+مفيش مسار جديد: لما مشروع **عام** يتنشر (`POST admin/v1/freelance-projects/{uuid}/publish`) أو يتحوّل من خاص لعام (`make-public`)، بعد ما الرد يرجع بيتبعت حدث `freelance.project.matched` (`data.project` = uuid المشروع) لكل محترف يناسبه — في قايمة الإشعارات + لحظي (القناة الخاصة) + push بلغته (`type: freelance_project_matched`). الشغل في `Services/Projects/ProjectMatching.php` وبيتنفّذ بعد الرد (`NotificationCenter::later`) فمبيبطّئش الأدمن.
+
+**قواعد المطابقة** (بسيطة، من غير تقييم):
+- محترف **موثّق** (`verified`) من نفس دولة المشروع.
+- تخصص المشروع هو أحد تخصصاته، أو تحت أحد تخصصاته (زي ما قايمة المشاريع بتعرضله).
+- المهارات: لو المشروع والمحترف عندهم مهارات يبقى مهارة واحدة مشتركة على الأقل (محترف من غير مهارات بيدخل). كل ما المشترك أكتر اتبلّغ أول.
+- مستقبل للعروض النهارده (مش موقوف ولا في إجازة).
+- الميزانية: محترف سعره الاسترشادي `fixed` بيتبلّغ بس لو ميزانية المشروع بتتقاطع مع نطاقه (`rate_min`–`rate_max`، وطرف فاضي = مفتوح). `hourly`/غير محدد بيتخطّى الشرط.
+- مرة واحدة لكل (مشروع، محترف) — جدول `freelance_project_alerts` (`score` = عدد المهارات المشتركة). مبيتبلّغش اللي اتدعى للمشروع (أي حالة) ولا اللي قدّم عليه عرض. المشروع الخاص ومش المنشور مبيتبلّغش عنهم.
+- الحد الأقصى للمتبلّغين في المشروع الواحد: `freelance.matching.max_recipients` (100، الأنسب الأول).
+
+الإشعار مفيهوش سويتش أو تفضيل للمحترف (بيقف لو أوقف استقبال الطلبات أو بقى في إجازة).
 
 ## المقابلة القصيرة (FL-310)
 
@@ -557,3 +625,9 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
   - `GET admin/v1/freelance-disputes/{uuid}/timeline/export` → CSV (`text/csv`)، الخلايا اللي بتبدأ بـ `= + - @` بتتحوّل لنص. بيسجّل `freelance.dispute.timeline_exported`.
   - `GET admin/v1/freelance-disputes/{uuid}/deliveries/{delivery}/files/{media}` → ملف التسليم (الصورة inline، `nosniff`، `no-store`).
 - اسم الملف في القوائم والتحميل هو الاسم اللي كتبه الشخص (مش الاسم المخزّن).
+
+
+## ملاحظة شكل `can` في الأجزاء (2026-10-25)
+في `GET …/agreement` كل جزء فيه `can` وهو **object دايمًا**: قايمة الإجراءات لما الاتفاق `active`، و`{}` لما مش نشط. التطبيقات بتقراه كـ map، فمينفعش يرجع `[]`.
+
+- **إدارة المحترفين (FL-109):** `GET admin/v1/freelancers[?search=&status=&country_id=&specialty_id=&per_page=]` (`specialty_id` من تخصصات الملف؛ `pagination.counts` عدّاد كل حالة بعد باقي الفلاتر وقبل فلتر الحالة) و`GET …/options` (دول وتخصصات وحالات). `GET …/{id}` بيرجّع الملف (`profile`) وآخر طلب توثيق (`verification`) والمعرض (`portfolio`) وآخر 20 عرض (`offers`) و20 اتفاق (`projects`) و`stats` والمحافظ (`wallets`) و`audit` (آخر 30 تغيير على الحساب). `POST …/{id}/status {status: verified|profile_ready|suspended|blocked, reason}` — السبب إلزامي للإيقاف/الحظر ومسجّل في سجل التدقيق. الصلاحيات `freelancers.view` / `freelancers.update`.

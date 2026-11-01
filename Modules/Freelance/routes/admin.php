@@ -6,6 +6,7 @@ use Modules\Freelance\Http\Controllers\Admin\FreelanceDocumentTypeController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceFeatureRuleController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceProjectReviewController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceReportController;
+use Modules\Freelance\Http\Controllers\Admin\FreelanceOversightController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceVerificationController;
 use Modules\Freelance\Http\Controllers\Admin\FreelancePolicyController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceSkillController;
@@ -15,6 +16,7 @@ use Modules\Freelance\Http\Controllers\Admin\FreelancerAdminController;
 // Admin → Freelance (docs/freelance_tasks.md): filled in by the tasks of batches 1 and 8.
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
     Route::middleware('auth:admin_api')->group(function () {
+        Route::get('freelancers/options', [FreelancerAdminController::class, 'options']);
         Route::get('freelancers', [FreelancerAdminController::class, 'index']);
         Route::get('freelancers/{freelancer}', [FreelancerAdminController::class, 'show'])->whereNumber('freelancer');
         Route::post('freelancers/{freelancer}/portfolio/{item}/hide', [FreelancerAdminController::class, 'hidePortfolio'])->whereNumber(['freelancer', 'item']);
@@ -39,6 +41,40 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         // The project money and its reconciliation (FL-512).
         Route::get('freelance-reports/summary', [FreelanceReportController::class, 'summary']);
         Route::get('freelance-reports/reconcile', [FreelanceReportController::class, 'reconcile']);
+        Route::get('freelance-oversight/projects', [FreelanceOversightController::class, 'projects']);
+        Route::get('freelance-oversight/offers', [FreelanceOversightController::class, 'offers']);
+        Route::get('freelance-oversight/agreements', [FreelanceOversightController::class, 'agreements']);
+        Route::get('freelance-oversight/late', [FreelanceOversightController::class, 'late']);
+        Route::get('freelance-oversight/countries', [FreelanceOversightController::class, 'countries']);
+
+        // Support, operations, improvement, risk and the audit log (FL-803, FL-805, FL-806, FL-807, FL-808).
+        Route::get('freelance-support/tickets', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSupportController::class, 'index']);
+        Route::post('freelance-support/tickets/{number}/link', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSupportController::class, 'link'])->whereNumber('number');
+        Route::get('freelance-reports/operations', [\Modules\Freelance\Http\Controllers\Admin\FreelanceInsightsController::class, 'operations']);
+        Route::get('freelance-reports/improvement', [\Modules\Freelance\Http\Controllers\Admin\FreelanceInsightsController::class, 'improvement']);
+        Route::get('freelance-risk/overview', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'overview']);
+        Route::get('freelance-risk/accounts', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'accounts']);
+        Route::get('freelance-audit', [\Modules\Freelance\Http\Controllers\Admin\FreelanceAuditController::class, 'index']);
+        Route::get('freelance-reports/cancel-reasons', [FreelanceReportController::class, 'cancelReasons']);
+
+        // Objections to ratings and the satisfaction survey (FL-706 / FL-702).
+        Route::get('freelance-reviews/objections', [\Modules\Freelance\Http\Controllers\Admin\FreelanceReviewAdminController::class, 'objections']);
+        Route::post('freelance-reviews/objections/{uuid}/decide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceReviewAdminController::class, 'decide'])->whereUuid('uuid');
+        Route::get('freelance-reviews/satisfaction', [\Modules\Freelance\Http\Controllers\Admin\FreelanceReviewAdminController::class, 'satisfaction']);
+
+        // Reported chat messages (FL-709).
+        Route::get('freelance-message-reports', [\Modules\Freelance\Http\Controllers\Admin\FreelanceMessageReportController::class, 'index']);
+        Route::get('freelance-message-reports/{uuid}/file', [\Modules\Freelance\Http\Controllers\Admin\FreelanceMessageReportController::class, 'file'])->whereUuid('uuid');
+        Route::post('freelance-message-reports/{uuid}/decide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceMessageReportController::class, 'decide'])->whereUuid('uuid');
+
+        // Warnings, limits and suspensions, their appeals, and the quality / risk of a person (FL-708 / FL-707).
+        Route::get('freelance-sanctions', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'index']);
+        Route::post('freelance-sanctions', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'store']);
+        Route::get('freelance-sanctions/clients', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'clients']);
+        Route::get('freelance-sanctions/people', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'people']);
+        Route::get('freelance-sanctions/person/{side}/{id}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'person'])->whereIn('side', ['client', 'freelancer'])->whereNumber('id');
+        Route::post('freelance-sanctions/{uuid}/lift', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'lift'])->whereUuid('uuid');
+        Route::post('freelance-sanctions/{uuid}/appeal', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSanctionAdminController::class, 'decideAppeal'])->whereUuid('uuid');
 
         // The disputes desk (FL-705).
         Route::get('freelance-disputes', [FreelanceDisputeController::class, 'index']);
@@ -48,6 +84,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('freelance-disputes/{uuid}/timeline/export', [FreelanceDisputeController::class, 'exportTimeline'])->whereUuid('uuid');
         Route::get('freelance-disputes/{uuid}/deliveries/{delivery}/files/{media}', [FreelanceDisputeController::class, 'deliveryFile'])->whereUuid(['uuid', 'delivery'])->whereNumber('media');
         Route::post('freelance-disputes/{uuid}/decide', [FreelanceDisputeController::class, 'decide'])->whereUuid('uuid');
+        Route::post('freelance-disputes/{uuid}/classify', [FreelanceDisputeController::class, 'classify'])->whereUuid('uuid');
         Route::get('freelance-disputes/{uuid}/files/{media}', [FreelanceDisputeController::class, 'file'])->whereUuid('uuid')->whereNumber('media');
 
         // Reviewing the clients' projects (FL-203): the queue, one project with its files, a fix, and the decision.

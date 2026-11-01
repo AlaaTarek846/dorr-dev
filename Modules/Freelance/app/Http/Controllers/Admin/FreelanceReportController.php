@@ -21,7 +21,7 @@ class FreelanceReportController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return AdminPermissionMiddleware::fromActionMethodMap('freelance-reports', [
-            ['view', ['summary', 'reconcile']],
+            ['view', ['summary', 'reconcile', 'cancelReasons']],
         ]);
     }
 
@@ -40,6 +40,19 @@ class FreelanceReportController extends Controller implements HasMiddleware
             'from' => $from->toDateString(), 'to' => $to->toDateString(),
             'countries' => $this->report->summary(isset($f['country_id']) ? (int) $f['country_id'] : null, $from, $to),
         ], __('api.retrieved'));
+    }
+
+    /** GET freelance-reports/cancel-reasons[?from=&to=&responsibility=client|freelancer|shared|none|review] - why work was called off (FL-607); information only. */
+    public function cancelReasons(Request $request): JsonResponse
+    {
+        $f = $request->validate([
+            'from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'responsibility' => ['nullable', \Illuminate\Validation\Rule::in(\Modules\Freelance\Enums\FreelanceCancelReason::responsibilities())],
+        ]);
+        $from = isset($f['from']) ? Carbon::parse($f['from'])->startOfDay() : now()->startOfMonth();
+        $to = isset($f['to']) ? Carbon::parse($f['to'])->endOfDay() : now()->endOfDay();
+
+        return ApiResponse::success(app(\Modules\Freelance\Services\Projects\CancelReasons::class)->summary($from, $to, $f['responsibility'] ?? null), __('api.retrieved'));
     }
 
     /** GET freelance-reports/reconcile[?country_id=] — every difference found; nothing is changed. */

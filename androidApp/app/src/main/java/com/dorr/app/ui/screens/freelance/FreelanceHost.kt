@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.foundation.layout.wrapContentSize
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,6 +54,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,6 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,6 +75,9 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.FreelanceBudgetRulesDto
 import com.dorr.app.network.FreelanceCancelRequest
+import com.dorr.app.network.FreelanceCostCapRequest
+import com.dorr.app.network.FreelanceIssueDto
+import com.dorr.app.network.FreelancePreviewDto
 import com.dorr.app.network.FreelanceNamedDto
 import com.dorr.app.network.FreelanceProjectDto
 import com.dorr.app.network.FreelanceProjectRequest
@@ -126,12 +135,20 @@ fun FreelanceHost(onExit: () -> Unit) {
         "chat" -> "offer:" + parts[1] + ":" + parts[2]
         "freelancer" -> "offer:" + parts[1] + ":" + parts[2]
         "favorites" -> "list"
-        "agreement", "invites" -> "show:" + parts[1]
+        "agreement", "invites", "preview" -> "show:" + parts[1]
         "dispute", "dispute-new" -> "agreement:" + parts[1]
         else -> "list"
     }
     BackHandler {
         if (page == "list") onExit() else page = back()
+    }
+    // A tapped notification names the page it belongs to (also when this screen is already open).
+    val linked = FreelanceLink.pending
+    LaunchedEffect(linked) {
+        if (linked != null) {
+            page = linked
+            FreelanceLink.pending = null
+        }
     }
 
     Box(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
@@ -144,11 +161,14 @@ fun FreelanceHost(onExit: () -> Unit) {
                 onBack = { page = "list" },
                 onEdit = { page = "edit:$it" },
                 onGone = { page = "list"; listVersion++ },
-                onOffers = { page = "offers:" + page.removePrefix("show:") },
+                onPreview = { page = "preview:" + page.removePrefix("show:") },
+                onCopied = { listVersion++; page = "show:$it" },
+                onOffers ={ page = "offers:" + page.removePrefix("show:") },
                 onOpenOffer = { page = "offer:" + page.removePrefix("show:") + ":" + it },
                 onAgreement = { page = "agreement:" + page.removePrefix("show:") },
                 onInvitations = { page = "invites:" + page.removePrefix("show:") },
             )
+            parts[0] == "preview" -> PreviewPage(parts[1], onBack = { page = back() }, onEdit = { page = "edit:${parts[1]}" }, onSent = { listVersion++; page = "show:${parts[1]}" })
             parts[0] == "invites" -> InvitationsPage(parts[1], onBack = { page = back() }, onOpenOffer = { page = "offer:${parts[1]}:$it" }, onMadePublic = { listVersion++; page = "show:${parts[1]}" })
             parts[0] == "offers" -> OffersPage(parts[1], onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" }, onCompare = { page = "compare:${parts[1]}:" + it.joinToString(",") })
             parts[0] == "compare" -> ComparePage(parts[1], parts[2].split(','), onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" })
@@ -207,13 +227,29 @@ private fun StatusPill(status: String) {
 }
 
 @Composable
-internal fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
+internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     val accent = settingsAccent()
-    Text(
-        text, color = if (selected) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp),
-    )
+    val ink = if (selected) Color.White else settingsInk()
+    Row(
+        Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (icon != null) Icon(icon, null, tint = if (selected) Color.White else settingsAccent(), modifier = Modifier.size(16.dp))
+        Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    }
+}
+
+private fun filterIcon(status: String?): androidx.compose.ui.graphics.vector.ImageVector = when (status) {
+    null -> Icons.Rounded.Apps
+    "draft" -> Icons.Rounded.EditNote
+    "pending_review" -> Icons.Rounded.HourglassTop
+    "changes_requested" -> Icons.Rounded.Edit
+    "published" -> Icons.Rounded.Public
+    "awarded" -> Icons.Rounded.Handshake
+    "in_progress" -> Icons.Rounded.Autorenew
+    "rejected" -> Icons.Rounded.Block
+    else -> Icons.Rounded.Cancel
 }
 
 @Composable
@@ -222,57 +258,39 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
-    val rows = remember { mutableStateListOf<FreelanceProjectDto>() }
-    var page by remember { mutableStateOf(1) }
-    var hasMore by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    suspend fun load(next: Int) {
-        loading = true
-        try {
-            val envelope = ApiClient.freelance.projects(auth(), status = filter, page = next)
-            if (next == 1) rows.clear()
-            rows.addAll(envelope.data.orEmpty())
-            page = next
-            hasMore = envelope.pagination?.hasMorePages == true
-            error = null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            error = e.message(generic)
-        }
-        loading = false
-    }
-    LaunchedEffect(filter, reconnect, version) { load(1) }
+    val listState = rememberLazyListState()
+    // A new filter is a new list (it starts from the first page); the next pages come while I scroll.
+    val paged = remember(filter) { PagedRows<FreelanceProjectDto>({ it.uuid }, { page -> ApiClient.freelance.projects(auth(), status = filter, page = page) }) }
+    val rows = paged.rows
+    val loading = !paged.loaded
+    val error = paged.error
+    LaunchedEffect(paged, reconnect, version) { paged.reload(generic) }
+    listState.NearEnd(rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
         SubHeader(stringResource(R.string.fl_my_projects), onExit)
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FILTERS.forEach { f -> Chip(filterLabel(f), selected = filter == f) { filter = f } }
+            Chip(stringResource(R.string.fl_favorites), selected = false, icon = Icons.Rounded.Favorite) { onFavorites() }
+            FILTERS.forEach { f -> Chip(filterLabel(f), selected = filter == f, icon = filterIcon(f)) { filter = f } }
         }
-        Box(Modifier.padding(horizontal = 16.dp)) { TextAction("♥  " + stringResource(R.string.fl_favorites)) { onFavorites() } }
-        LazyColumn(
-            Modifier.weight(1f).fillMaxWidth(),
+        if (loading && error == null) {
+            Box(Modifier.weight(1f)) { FlSkeletonList() }
+        } else LazyColumn(
+            Modifier.weight(1f).fillMaxWidth(), state = listState,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            // FL-708: shown only while a warning / restriction is active or its appeal waits.
+            item { SanctionsCard(version) }
             if (!loading && rows.isEmpty() && error == null) item {
-                Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    PinkIcon(Icons.Rounded.Work, box = 64.dp)
-                    Spacer(Modifier.height(14.dp))
-                    Text(stringResource(R.string.fl_empty_title), color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.fl_empty_text), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-                }
+                com.dorr.app.ui.screens.wallet.WaEmpty(
+                    Icons.Rounded.Work, com.dorr.app.ui.screens.wallet.Tone.Blue,
+                    stringResource(R.string.fl_empty_title), stringResource(R.string.fl_empty_text),
+                )
             }
             items(rows, key = { it.uuid }) { p -> ProjectCard(p) { onOpen(p.uuid) } }
-            if (hasMore) item {
-                TextButton(onClick = { scope.launch { load(page + 1) } }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.fl_show_more), color = settingsAccent(), fontWeight = FontWeight.Bold)
-                }
-            }
-            if (loading) item { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(24.dp)) } }
-            error?.let { item { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) } }
+            item { PagedSpinner(paged) }
+            error?.let { item { TextButton(onClick = { paged.clearError(); scope.launch { paged.loadMore(generic) } }, modifier = Modifier.fillMaxWidth()) { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) } } }
         }
         SettingsPrimaryButton(text = stringResource(R.string.fl_new_project), modifier = Modifier.padding(16.dp), onClick = onNew)
     }
@@ -280,19 +298,68 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
 
 @Composable
 private fun ProjectCard(p: FreelanceProjectDto, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
+    val color = statusColor(p.status)
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Work, null, tint = color, modifier = Modifier.size(22.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
             StatusPill(p.status)
         }
-        p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 12.sp) }
-        budgetText(p)?.let { Text(it, color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+        budgetText(p)?.let { b ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Rounded.Payments, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))
+                Text(b, color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        // FL-211: where the work stands, and what is due from me.
+        p.progress?.let { g ->
+            ProgressBar(g.approved, g.total)
+            Text(
+                listOfNotNull(
+                    stringResource(R.string.fl_progress_parts, g.approved, g.total),
+                    if (g.inReview > 0) stringResource(R.string.fl_progress_review, g.inReview) else null,
+                ).joinToString("  ·  "),
+                color = settingsMut(), fontSize = 12.sp,
+            )
+        }
+        p.nextAction?.let { NextActionLine(it) }
     }
 }
+
+@Composable
+private fun ProgressBar(done: Int, total: Int) {
+    val accent = settingsAccent()
+    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(accent.copy(alpha = 0.15f))) {
+        if (total > 0 && done > 0) Box(Modifier.fillMaxWidth((done.toFloat() / total).coerceAtMost(1f)).height(6.dp).clip(RoundedCornerShape(999.dp)).background(accent))
+    }
+}
+
+@Composable
+private fun NextActionLine(code: String) {
+    FlNotice(stringResource(R.string.fl_next_label, nextActionLabel(code)), Icons.Rounded.NotificationsActive, Color(0xFFD97706))
+}
+
+@Composable
+private fun nextActionLabel(code: String): String = stringResource(
+    when (code) {
+        "finish_draft" -> R.string.fl_next_finish_draft
+        "submit" -> R.string.fl_next_submit
+        "fix_project" -> R.string.fl_next_fix_project
+        "review_offers" -> R.string.fl_next_review_offers
+        "send_agreement" -> R.string.fl_next_send_agreement
+        "review_delivery" -> R.string.fl_next_review_delivery
+        "fund_milestone" -> R.string.fl_next_fund_milestone
+        else -> R.string.fl_next_dispute
+    },
+)
 
 @Composable
 private fun budgetText(p: FreelanceProjectDto): String? {
@@ -304,15 +371,21 @@ private fun budgetText(p: FreelanceProjectDto): String? {
 // ---------------------------------------------------------------- one project
 
 @Composable
-private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}) {
+private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onPreview: () -> Unit, onCopied: (String) -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
-    var project by remember { mutableStateOf<FreelanceProjectDto?>(null) }
+    var project by remember(uuid) { mutableStateOf<FreelanceProjectDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<String?>(null) }
+    // FL-607: why the project is cancelled.
+    var cancelCode by remember { mutableStateOf<String?>(null) }
+    var cancelNote by remember { mutableStateOf("") }
+    var capDialog by remember { mutableStateOf(false) }
+    var capError by remember { mutableStateOf<String?>(null) }
+    val capFailed = stringResource(R.string.fl_cost_cap_failed)
 
     LaunchedEffect(uuid, reconnect) {
         try {
@@ -343,103 +416,160 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
         }
     }
 
-    val sentText = stringResource(R.string.fl_sent_for_review)
+    /** The limit changes (or goes); a refusal is told inside the dialog, not under the page. */
+    fun changeCap(block: suspend () -> FreelanceProjectDto?) {
+        busy = true
+        capError = null
+        scope.launch {
+            try {
+                block()?.let { project = it }
+                capDialog = false
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                capError = e.message(capFailed)
+            }
+            busy = false
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         SubHeader(stringResource(R.string.fl_project), onBack)
         val p = project
         if (p == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(24.dp))
-                else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    StatusPill(p.status)
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(statusColor(p.status).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Work, null, tint = statusColor(p.status), modifier = Modifier.size(24.dp))
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                        Row { StatusPill(p.status) }
+                    }
                 }
-                if (!p.statusReason.isNullOrBlank()) {
-                    Text(stringResource(R.string.fl_reviewer_note, p.statusReason), color = statusColor(p.status), fontSize = 13.sp)
+                if (!p.statusReason.isNullOrBlank()) FlNotice(stringResource(R.string.fl_reviewer_note, p.statusReason), Icons.Rounded.Info, statusColor(p.status))
+                if (p.status == "pending_review") FlNotice(stringResource(R.string.fl_under_review_hint), Icons.Rounded.HourglassTop, Color(0xFFD97706))
+                if (p.status == "rejected") FlNotice(stringResource(R.string.fl_rejected_hint), Icons.Rounded.Block, Color(0xFFDC2626))
+                p.nextAction?.let { NextActionLine(it) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_budget), budgetText(p) ?: "—", Modifier.weight(1.4f))
+                    FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) } ?: "—", Modifier.weight(1f))
+                    FlStat(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers), p.offers.count.toString(), Modifier.weight(0.8f))
                 }
-                if (p.status == "pending_review") Text(stringResource(R.string.fl_under_review_hint), color = settingsMut(), fontSize = 12.sp)
-                if (p.status == "rejected") Text(stringResource(R.string.fl_rejected_hint), color = settingsMut(), fontSize = 12.sp)
             }
-            Card {
-                Field(stringResource(R.string.fl_description), p.description)
-                Field(stringResource(R.string.fl_specialty), p.specialty?.name)
-                Field(stringResource(R.string.fl_skills), p.skills.joinToString("، ") { it.name }.ifBlank { null })
-                Field(stringResource(R.string.fl_budget), budgetText(p))
-                Field(stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) })
-                Field(stringResource(R.string.fl_visibility), stringResource(if (p.visibility == "private") R.string.fl_private else R.string.fl_public))
-                if (p.questions.isNotEmpty()) Field(stringResource(R.string.fl_questions), p.questions.mapIndexed { i, q -> "${i + 1}. $q" }.joinToString("\n"))
+            // FL-211: the stages of the work, each with where it stands.
+            p.milestones?.takeIf { it.isNotEmpty() }?.let { stages ->
+                Card(Icons.Rounded.Flag, stringResource(R.string.fl_stages)) {
+                    p.progress?.let { g ->
+                        ProgressBar(g.approved, g.total)
+                        Text(
+                            stringResource(R.string.fl_progress_parts, g.approved, g.total) + "  ·  " +
+                                stringResource(R.string.fl_progress_money, "‎" + money(g.approvedMinor), money(g.priceMinor), p.budget.currency),
+                            color = settingsMut(), fontSize = 12.sp,
+                        )
+                    }
+                    stages.forEach { m ->
+                        val mc = milestoneStatusColor(m.status)
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(mc.copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Text(m.position.toString(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.size(24.dp).clip(RoundedCornerShape(50)).background(mc).wrapContentSize(Alignment.Center))
+                            Column(Modifier.weight(1f)) {
+                                Text(m.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "‎${money(m.amountMinor)} ${p.budget.currency}" + (m.durationDays?.let { "  ·  " + stringResource(R.string.fl_days, it) } ?: ""),
+                                    color = settingsMut(), fontSize = 12.sp,
+                                )
+                            }
+                            Text(milestoneStatusLabel(m.status), color = mc, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
             // FL-401: the agreement with the chosen freelancer.
             p.agreement?.let { ag ->
-                Card {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Label(stringResource(R.string.fl_agreement))
-                        Spacer(Modifier.weight(1f))
-                        Text(agreementStatusLabel(ag.status), color = agreementStatusColor(ag.status), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    TextAction(stringResource(if (ag.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open)) { onAgreement() }
+                Card(Icons.Rounded.Handshake, stringResource(R.string.fl_agreement)) {
+                    Text(agreementStatusLabel(ag.status), color = agreementStatusColor(ag.status), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    FlAction(stringResource(if (ag.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open), Icons.Rounded.Handshake, FlTone.Primary, onClick = onAgreement)
                 }
             }
             // FL-205: a private project is filled by invitation.
             p.invitations?.takeIf { p.status == "published" }?.let { inv ->
-                Card {
-                    Label(stringResource(R.string.fl_inv_title))
+                Card(Icons.Rounded.MarkEmailUnread, stringResource(R.string.fl_inv_title)) {
                     Text(stringResource(R.string.fl_inv_summary, inv.sent, inv.accepted, inv.declined), color = settingsMut(), fontSize = 13.sp)
-                    TextAction(stringResource(if (inv.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see)) { onInvitations() }
+                    FlAction(stringResource(if (inv.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see), Icons.Rounded.PersonAdd, onClick = onInvitations)
                 }
             }
-            if (p.status == "published" || p.status == "awarded") Card {
-                Label(stringResource(R.string.fl_offers) + if (p.offers.count > 0) " (${p.offers.count})" else "")
-                Text(
+            if (p.status == "published" || p.status == "awarded") Card(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers) + if (p.offers.count > 0) " (${p.offers.count})" else "") {
+                FlNotice(
                     when {
                         p.status == "awarded" -> stringResource(R.string.fl_offers_closed_chosen)
                         p.offers.accepting -> stringResource(R.string.fl_offers_open, p.offers.deadlineAt?.take(10).orEmpty())
                         else -> stringResource(when (p.offers.closeReason) { "client" -> R.string.fl_offers_closed_client; "admin" -> R.string.fl_offers_closed_admin; "max_offers" -> R.string.fl_offers_closed_full; else -> R.string.fl_offers_closed_deadline })
                     },
-                    color = if (p.status == "awarded") Color(0xFF7C3AED) else if (p.offers.accepting) Color(0xFF16A34A) else Color(0xFFD97706), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    if (p.offers.accepting) Icons.Rounded.CheckCircle else Icons.Rounded.Lock,
+                    if (p.status == "awarded") Color(0xFF7C3AED) else if (p.offers.accepting) Color(0xFF16A34A) else Color(0xFFD97706),
                 )
                 // FL-305 / FL-309: compare them and choose one.
-                p.offers.chosen?.let { chosen -> TextAction(stringResource(R.string.fl_see_chosen)) { onOpenOffer(chosen) } }
-                if (p.offers.count > 0) TextAction(stringResource(if (p.status == "published") R.string.fl_compare_choose else R.string.fl_see_offers)) { onOffers() }
-                if (p.offers.canClose) TextAction(stringResource(R.string.fl_offers_close)) { act({ ApiClient.freelance.closeOffers(auth(), p.uuid).data }) }
-                if (p.offers.canReopen) TextAction(stringResource(R.string.fl_offers_reopen, p.offers.reopensLeft)) { act({ ApiClient.freelance.reopenOffers(auth(), p.uuid).data }) }
+                p.offers.chosen?.let { chosen -> FlAction(stringResource(R.string.fl_see_chosen), Icons.Rounded.Star, FlTone.Primary) { onOpenOffer(chosen) } }
+                if (p.offers.count > 0) FlAction(stringResource(if (p.status == "published") R.string.fl_compare_choose else R.string.fl_see_offers), Icons.Rounded.CompareArrows, onClick = onOffers)
+                if (p.offers.canClose) FlAction(stringResource(R.string.fl_offers_close), Icons.Rounded.Lock, FlTone.Warn) { act({ ApiClient.freelance.closeOffers(auth(), p.uuid).data }) }
+                if (p.offers.canReopen) FlAction(stringResource(R.string.fl_offers_reopen, p.offers.reopensLeft), Icons.Rounded.LockOpen) { act({ ApiClient.freelance.reopenOffers(auth(), p.uuid).data }) }
             }
-            if (p.attachments.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_files))
+            Card(Icons.Rounded.Article, stringResource(R.string.fl_description)) { ProjectSummary(p) }
+            if (p.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
                 p.attachments.forEach { a ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Icon(Icons.Rounded.Description, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                         Text(a.name, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
-            if (p.missing.isNotEmpty()) {
-                Text(stringResource(R.string.fl_missing, p.missing.map { missingLabel(it) }.joinToString("، ")), color = Color(0xFFD97706), fontSize = 13.sp)
-            }
-            notice?.let { Text(it, color = Color(0xFF16A34A), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) }
+            if (p.missing.isNotEmpty()) FlNotice(stringResource(R.string.fl_missing, p.missing.map { missingLabel(it) }.joinToString("، ")), Icons.Rounded.Warning, Color(0xFFD97706))
+            notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A)) }
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
 
-            if (p.can.submit) SettingsPrimaryButton(
-                text = stringResource(if (p.status == "changes_requested" || p.status == "rejected") R.string.fl_resubmit else R.string.fl_submit),
-                enabled = p.missing.isEmpty(), loading = busy,
-                onClick = { act({ ApiClient.freelance.submit(auth(), p.uuid).data }, successNotice = sentText) },
-            )
-            if (p.can.edit) TextAction(stringResource(R.string.fl_edit)) { onEdit(p.uuid) }
-            if (p.can.withdraw) TextAction(stringResource(R.string.fl_withdraw)) { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }
-            if (p.can.cancel) TextAction(stringResource(R.string.fl_cancel_project), danger = true) { confirm = "cancel" }
-            if (p.can.delete) TextAction(stringResource(R.string.fl_delete_draft), danger = true) { confirm = "delete" }
+            // FL-210: a last look before it goes out (it also says what doesn't add up).
+            if (p.can.submit) FlAction(stringResource(R.string.fl_review_and_send), Icons.Rounded.Send, FlTone.Primary, enabled = p.missing.isEmpty(), loading = busy, onClick = onPreview)
+            if (p.can.edit) FlAction(stringResource(R.string.fl_edit), Icons.Rounded.Edit) { onEdit(p.uuid) }
+            if (p.can.setCostCap) FlAction(stringResource(if (p.maxCostMinor == null) R.string.fl_cost_cap_set else R.string.fl_cost_cap_change), Icons.Rounded.Savings) { capError = null; capDialog = true }
+            // FL-209: ask for it again from this one.
+            if (p.can.duplicate) FlAction(stringResource(R.string.fl_copy_project), Icons.Rounded.ContentCopy) {
+                busy = true
+                error = null
+                scope.launch {
+                    try {
+                        ApiClient.freelance.duplicate(auth(), p.uuid).data?.let { onCopied(it.uuid) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error = e.message(generic)
+                    }
+                    busy = false
+                }
+            }
+            if (p.can.withdraw) FlAction(stringResource(R.string.fl_withdraw), Icons.Rounded.Undo, FlTone.Warn) { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }
+            if (p.can.cancel) FlAction(stringResource(R.string.fl_cancel_project), Icons.Rounded.Cancel, FlTone.Danger) { cancelCode = null; cancelNote = ""; confirm = "cancel" }
+            if (p.can.delete) FlAction(stringResource(R.string.fl_delete_draft), Icons.Rounded.DeleteForever, FlTone.Danger) { confirm = "delete" }
 
             p.timeline?.takeIf { it.isNotEmpty() }?.let { events ->
-                Card {
-                    Label(stringResource(R.string.fl_history))
+                Card(Icons.Rounded.History, stringResource(R.string.fl_history)) {
                     events.forEach { e ->
-                        Text("${eventLabel(e.type)}  ·  ‎${e.at?.take(16)?.replace('T', ' ').orEmpty()}", color = settingsMut(), fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(Modifier.padding(top = 6.dp).size(7.dp).clip(RoundedCornerShape(50)).background(settingsAccent()))
+                            Column {
+                                Text(eventLabel(e.type), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("‎${e.at?.take(16)?.replace('T', ' ').orEmpty()}", color = settingsMut(), fontSize = 11.5.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -448,16 +578,172 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
     }
 
     when (confirm) {
-        "cancel" -> ConfirmDialog(
-            icon = Icons.Rounded.Close, title = stringResource(R.string.fl_cancel_project), message = stringResource(R.string.fl_cancel_confirm),
-            loading = busy, onDismiss = { confirm = null },
-            onConfirm = { act({ ApiClient.freelance.cancel(auth(), uuid, FreelanceCancelRequest(null)).data }, after = { confirm = null }) },
-        )
+        "cancel" -> FlSheet(Icons.Rounded.Cancel, stringResource(R.string.fl_cancel_project), stringResource(R.string.fl_cancel_confirm), onDismiss = { if (!busy) confirm = null }) {
+            CancelReasonPicker(cancelCode, cancelNote, { cancelCode = it }, { cancelNote = it })
+            FlAction(stringResource(R.string.fl_cancel_project), Icons.Rounded.Cancel, FlTone.Danger, enabled = cancelReasonReady(cancelCode, cancelNote), loading = busy) {
+                act({ ApiClient.freelance.cancel(auth(), uuid, FreelanceCancelRequest(cancelNote.trim().ifEmpty { null }, cancelCode)).data }, after = { confirm = null })
+            }
+            FlAction(stringResource(R.string.fl_not_now), null) { confirm = null }
+        }
         "delete" -> ConfirmDialog(
             icon = Icons.Rounded.DeleteForever, title = stringResource(R.string.fl_delete_draft), message = stringResource(R.string.fl_delete_confirm),
             loading = busy, onDismiss = { confirm = null },
             onConfirm = { act({ ApiClient.freelance.delete(auth(), uuid); null }, after = { confirm = null; onGone() }) },
         )
+    }
+    if (capDialog) project?.let { p ->
+        CostCapDialog(
+            current = p.maxCostMinor, currency = p.budget.currency, busy = busy, error = capError, onDismiss = { capDialog = false },
+            onSave = { v -> changeCap { ApiClient.freelance.setCostCap(auth(), uuid, FreelanceCostCapRequest(v)).data } },
+            onRemove = { changeCap { ApiClient.freelance.removeCostCap(auth(), uuid).data } },
+        )
+    }
+}
+
+/** What the project says, as the freelancers read it (the details page and the last look share it). */
+@Composable
+private fun ProjectSummary(p: FreelanceProjectDto) {
+    Field(stringResource(R.string.fl_description), p.description)
+    Field(stringResource(R.string.fl_specialty), p.specialty?.name)
+    Field(stringResource(R.string.fl_skills), p.skills.joinToString("، ") { it.name }.ifBlank { null })
+    Field(stringResource(R.string.fl_budget), budgetText(p))
+    if (p.maxCostMinor != null || p.can.setCostCap) {
+        Field(
+            stringResource(R.string.fl_cost_cap),
+            p.maxCostMinor?.let { stringResource(R.string.fl_cost_cap_value, "‎" + money(it), p.budget.currency) } ?: stringResource(R.string.fl_cost_cap_none),
+        )
+    }
+    Field(stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) })
+    Field(stringResource(R.string.fl_visibility), stringResource(if (p.visibility == "private") R.string.fl_private else R.string.fl_public))
+    if (p.questions.isNotEmpty()) Field(stringResource(R.string.fl_questions), p.questions.mapIndexed { i, q -> "${i + 1}. $q" }.joinToString("\n"))
+}
+
+/** The most the client will pay in all (FL-210): typed once, lifted with one tap. */
+@Composable
+private fun CostCapDialog(current: Long?, currency: String, busy: Boolean, error: String?, onDismiss: () -> Unit, onSave: (Long) -> Unit, onRemove: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf(money(current)) }
+    var localError by remember { mutableStateOf<String?>(null) }
+    val invalid = stringResource(R.string.fl_budget_invalid)
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    FlSheet(Icons.Rounded.Savings, stringResource(R.string.fl_cost_cap), stringResource(R.string.fl_cost_cap_hint), onDismiss = { if (!busy) onDismiss() }) {
+        DorrTextField(text, { text = it }, label = stringResource(R.string.fl_cost_cap_field, currency), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+        (localError ?: error)?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
+        FlAction(stringResource(R.string.fl_cost_cap_save), Icons.Rounded.Check, FlTone.Primary, enabled = !busy) {
+            val v = parseMoney(text)
+            if (v == null || v <= 0) localError = invalid else {
+                localError = null
+                focus.clearFocus()
+                keyboard?.hide()
+                onSave(v)
+            }
+        }
+        if (current != null) FlAction(stringResource(R.string.fl_cost_cap_remove), Icons.Rounded.Delete, FlTone.Danger, enabled = !busy, onClick = onRemove)
+    }
+}
+
+// ---------------------------------------------------------------- the last look (FL-210)
+
+@Composable
+private fun PreviewPage(uuid: String, onBack: () -> Unit, onEdit: () -> Unit, onSent: () -> Unit) {
+    val generic = stringResource(R.string.fl_error_generic)
+    val scope = rememberCoroutineScope()
+    val reconnect = collectReconnectTick()
+    var preview by remember { mutableStateOf<FreelancePreviewDto?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var capDialog by remember { mutableStateOf(false) }
+    var capError by remember { mutableStateOf<String?>(null) }
+    val capFailed = stringResource(R.string.fl_cost_cap_failed)
+
+    suspend fun load() {
+        try {
+            preview = ApiClient.freelance.preview(auth(), uuid).data
+            error = null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = e.message(generic)
+        }
+    }
+    LaunchedEffect(uuid, reconnect) { load() }
+
+    /** The limit changes (or goes), then the look is taken again. */
+    fun changeCap(block: suspend () -> Unit) {
+        busy = true
+        capError = null
+        scope.launch {
+            try {
+                block()
+                capDialog = false
+                load()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                capError = e.message(capFailed)
+            }
+            busy = false
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        SubHeader(stringResource(R.string.fl_preview_title), onBack)
+        val pv = preview
+        if (pv == null) {
+            FlLoading(error)
+            return@Column
+        }
+        val p = pv.project
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            FlIntro(Icons.Rounded.FactCheck, p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), stringResource(R.string.fl_preview_intro))
+            Card(Icons.Rounded.Article, stringResource(R.string.fl_project)) {
+                ProjectSummary(p)
+                if (p.attachments.isNotEmpty()) Field(stringResource(R.string.fl_files), p.attachments.joinToString("، ") { it.name })
+            }
+            val errors = pv.issues.filter { it.severity == "error" }
+            val warnings = pv.issues.filter { it.severity != "error" }
+            if (pv.issues.isEmpty()) FlNotice(stringResource(R.string.fl_preview_ok), Icons.Rounded.CheckCircle, Color(0xFF16A34A))
+            if (errors.isNotEmpty()) IssuesCard(stringResource(R.string.fl_preview_errors), errors, Color(0xFFDC2626))
+            if (warnings.isNotEmpty()) IssuesCard(stringResource(R.string.fl_preview_warnings), warnings, Color(0xFFD97706))
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
+            // The limit is the one thing that can be fixed from here.
+            if (p.can.setCostCap && pv.issues.any { it.field == "max_cost" }) FlAction(stringResource(R.string.fl_cost_cap_change), Icons.Rounded.Savings) { capError = null; capDialog = true }
+            FlAction(
+                stringResource(R.string.fl_preview_send), Icons.Rounded.Send, FlTone.Primary, enabled = pv.canSubmit, loading = busy,
+                onClick = {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            ApiClient.freelance.submit(auth(), uuid)
+                            onSent()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            error = e.message(generic)
+                        }
+                        busy = false
+                    }
+                },
+            )
+            FlAction(stringResource(R.string.fl_preview_fix), Icons.Rounded.Edit, onClick = onEdit)
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+
+    if (capDialog) preview?.project?.let { p ->
+        CostCapDialog(
+            current = p.maxCostMinor, currency = p.budget.currency, busy = busy, error = capError, onDismiss = { capDialog = false },
+            onSave = { v -> changeCap { ApiClient.freelance.setCostCap(auth(), uuid, FreelanceCostCapRequest(v)) } },
+            onRemove = { changeCap { ApiClient.freelance.removeCostCap(auth(), uuid) } },
+        )
+    }
+}
+
+@Composable
+private fun IssuesCard(title: String, issues: List<FreelanceIssueDto>, color: Color) {
+    Card(if (color == Color(0xFFDC2626)) Icons.Rounded.ErrorOutline else Icons.Rounded.Warning, title) {
+        issues.forEach { i -> FlNotice(i.message, if (color == Color(0xFFDC2626)) Icons.Rounded.ErrorOutline else Icons.Rounded.Warning, color) }
     }
 }
 
@@ -477,6 +763,10 @@ private fun eventLabel(type: String): String = when (type) {
     "project.submitted" -> stringResource(R.string.fl_ev_submitted)
     "project.resubmitted" -> stringResource(R.string.fl_ev_resubmitted)
     "project.withdrawn" -> stringResource(R.string.fl_ev_withdrawn)
+    "project.cost_cap_set" -> stringResource(R.string.fl_ev_cost_cap)
+    "project.completed" -> stringResource(R.string.fl_ev_completed)
+    "project.invited" -> stringResource(R.string.fl_ev_invited)
+    "project.made_public" -> stringResource(R.string.fl_ev_made_public)
     "project.cancelled" -> stringResource(R.string.fl_ev_cancelled)
     "project.edited_by_admin" -> stringResource(R.string.fl_ev_edited_by_admin)
     "project.offers_closed" -> stringResource(R.string.fl_ev_offers_closed)
@@ -491,8 +781,13 @@ private fun eventLabel(type: String): String = when (type) {
 }
 
 @Composable
-internal fun Card(content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+internal fun Card(icon: androidx.compose.ui.graphics.vector.ImageVector? = null, title: String? = null, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (title != null) {
+            if (icon != null) FlHeading(icon, title) else Label(title)
+        }
+        content()
+    }
 }
 
 @Composable
@@ -502,21 +797,33 @@ internal fun Label(text: String) {
 
 @Composable
 internal fun Field(label: String, value: String?) {
-    Column {
-        Text(label, color = settingsMut(), fontSize = 12.sp)
-        Text(value?.takeIf { it.isNotBlank() } ?: "—", color = settingsInk(), fontSize = 14.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(value?.takeIf { it.isNotBlank() } ?: "—", color = settingsInk(), fontSize = 14.sp, lineHeight = 22.sp)
     }
 }
 
 @Composable
-internal fun TextAction(text: String, danger: Boolean = false, onClick: () -> Unit) {
-    Text(
-        text, color = if (danger) Color(0xFFDC2626) else settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
-    )
+internal fun TextAction(text: String, danger: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+    FlAction(text, icon, if (danger) FlTone.Danger else FlTone.Soft, onClick = onClick)
 }
 
 // ---------------------------------------------------------------- the form
+
+private val NamedSaver = listSaver<FreelanceNamedDto?, Any>(
+    save = { if (it == null) emptyList() else listOf(it.id, it.name) },
+    restore = { if (it.isEmpty()) null else FreelanceNamedDto(it[0] as Int, it[1] as String) },
+)
+
+private val NamedListSaver = listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<FreelanceNamedDto>, Any>(
+    save = { list -> list.flatMap { listOf<Any>(it.id, it.name) } },
+    restore = { flat -> mutableStateListOf<FreelanceNamedDto>().also { l -> flat.chunked(2).forEach { l.add(FreelanceNamedDto(it[0] as Int, it[1] as String)) } } },
+)
+
+private val TextListSaver = listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<String>, String>(
+    save = { it.toList() },
+    restore = { saved -> mutableStateListOf<String>().also { it.addAll(saved) } },
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -530,14 +837,17 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     var loaded by remember { mutableStateOf(uuid == null) }
     var title by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
-    var specialty by remember { mutableStateOf<FreelanceNamedDto?>(null) }
-    val skills = remember { mutableStateListOf<FreelanceNamedDto>() }
+    // Saveable: the system file picker can recreate the activity, and the choices must come back with the text fields.
+    var specialty by rememberSaveable(stateSaver = NamedSaver) { mutableStateOf<FreelanceNamedDto?>(null) }
+    val skills = rememberSaveable(saver = NamedListSaver) { mutableStateListOf<FreelanceNamedDto>() }
     var budgetType by rememberSaveable { mutableStateOf("fixed") }
     var budgetMin by rememberSaveable { mutableStateOf("") }
     var budgetMax by rememberSaveable { mutableStateOf("") }
+    // FL-210: the most I pay in all (optional); a limit that was set and is emptied is lifted on save.
+    var maxCost by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableStateOf("") }
     var visibility by rememberSaveable { mutableStateOf("public") }
-    val questions = remember { mutableStateListOf<String>() }
+    val questions = rememberSaveable(saver = TextListSaver) { mutableStateListOf<String>() }
     var attachments by remember { mutableStateOf(emptyList<com.dorr.app.network.FreelanceAttachmentDto>()) }
     var rules by remember { mutableStateOf<FreelanceBudgetRulesDto?>(null) }
     var pickSpecialty by remember { mutableStateOf(false) }
@@ -556,6 +866,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 budgetType = p.budget.type
                 budgetMin = money(p.budget.minMinor)
                 budgetMax = money(p.budget.maxMinor)
+                maxCost = money(p.maxCostMinor)
                 duration = p.durationDays?.toString().orEmpty()
                 visibility = p.visibility
                 questions.clear(); questions.addAll(p.questions)
@@ -576,6 +887,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     fun request(): FreelanceProjectRequest? {
         val min = budgetMin.takeIf { it.isNotBlank() }?.let { parseMoney(it) ?: return null }
         val max = if (budgetType == "range") budgetMax.takeIf { it.isNotBlank() }?.let { parseMoney(it) ?: return null } else null
+        val cap = maxCost.takeIf { it.isNotBlank() }?.let { parseMoney(it)?.takeIf { v -> v > 0 } ?: return null }
         return FreelanceProjectRequest(
             title = title.trim().ifBlank { null },
             description = description.trim().ifBlank { null },
@@ -584,6 +896,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
             budgetType = budgetType,
             budgetMinMinor = min,
             budgetMaxMinor = max,
+            maxCostMinor = cap,
             durationDays = duration.toIntOrNull(),
             visibility = visibility,
             questions = questions.map { it.trim() }.filter { it.isNotEmpty() },
@@ -602,6 +915,8 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 if (saved != null) {
                     current = saved.uuid
                     attachments = saved.attachments
+                    // A blank field can't say "none" in the body (empty fields are left out), so lifting the limit is its own call.
+                    if (maxCost.isBlank() && saved.maxCostMinor != null) ApiClient.freelance.removeCostCap(auth(), saved.uuid)
                     then(saved.uuid)
                 }
             } catch (e: CancellationException) {
@@ -635,36 +950,35 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     Column(Modifier.fillMaxSize()) {
         SubHeader(stringResource(if (uuid == null) R.string.fl_new_project else R.string.fl_edit), onBack)
         if (!loaded) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), modifier = Modifier.padding(24.dp)) else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Card {
-                DorrTextField(title, { title = it.take(120) }, label = stringResource(R.string.fl_title), placeholder = stringResource(R.string.fl_title_hint), modifier = Modifier.fillMaxWidth())
-                DorrTextField(description, { description = it.take(5000) }, label = stringResource(R.string.fl_description), placeholder = stringResource(R.string.fl_description_hint), singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            FlIntro(Icons.Rounded.Work, stringResource(R.string.fl_form_intro_title), stringResource(R.string.fl_form_intro))
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                DorrTextField(title, { title = it.take(120) }, label = stringResource(R.string.fl_title), placeholder = stringResource(R.string.fl_title_hint), icon = Icons.Rounded.Title, modifier = Modifier.fillMaxWidth())
+                DorrTextField(description, { description = it.take(5000) }, label = stringResource(R.string.fl_description), placeholder = stringResource(R.string.fl_description_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
             }
-            Card {
-                Label(stringResource(R.string.fl_specialty))
-                DorrTextField(specialty?.name.orEmpty(), {}, placeholder = stringResource(R.string.fl_pick_specialty), onClick = { pickSpecialty = true }, modifier = Modifier.fillMaxWidth())
-                Label(stringResource(R.string.fl_skills))
-                SkillPicker(skills)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlHeading(Icons.Rounded.Category, stringResource(R.string.fl_specialty))
+                DorrTextField(specialty?.name.orEmpty(), {}, placeholder = stringResource(R.string.fl_pick_specialty), icon = Icons.Rounded.Category, onClick = { pickSpecialty = true }, modifier = Modifier.fillMaxWidth())
+                FlHeading(Icons.Rounded.Bolt, stringResource(R.string.fl_skills))
+                SkillPicker(skills, specialty?.id)
             }
-            Card {
-                Label(stringResource(R.string.fl_budget))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlHeading(Icons.Rounded.Payments, stringResource(R.string.fl_budget))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(stringResource(R.string.fl_budget_fixed), budgetType == "fixed") { budgetType = "fixed" }
-                    Chip(stringResource(R.string.fl_budget_range), budgetType == "range") { budgetType = "range" }
+                    Chip(stringResource(R.string.fl_budget_fixed), budgetType == "fixed", Icons.Rounded.Lock) { budgetType = "fixed" }
+                    Chip(stringResource(R.string.fl_budget_range), budgetType == "range", Icons.Rounded.SyncAlt) { budgetType = "range" }
                 }
                 val currency = rules?.currency.orEmpty()
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     DorrTextField(
-                        budgetMin, { budgetMin = it }, label = stringResource(if (budgetType == "range") R.string.fl_budget_from else R.string.fl_budget_amount, currency),
+                        budgetMin, { budgetMin = it }, label = stringResource(if (budgetType == "range") R.string.fl_budget_from else R.string.fl_budget_amount, currency), icon = Icons.Rounded.Payments,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
                     )
                     if (budgetType == "range") DorrTextField(
-                        budgetMax, { budgetMax = it }, label = stringResource(R.string.fl_budget_to, currency),
+                        budgetMax, { budgetMax = it }, label = stringResource(R.string.fl_budget_to, currency), icon = Icons.Rounded.Payments,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
                     )
                 }
@@ -675,32 +989,40 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                     )
                     if (parts.isNotEmpty()) Text("‎" + parts.joinToString(" · "), color = settingsMut(), fontSize = 12.sp)
                 }
+                // FL-210: the most I will pay in all.
+                DorrTextField(
+                    maxCost, { maxCost = it }, label = stringResource(R.string.fl_cost_cap_field, currency), icon = Icons.Rounded.Savings,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.fl_cost_cap_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
             }
-            Card {
-                DorrTextField(duration, { duration = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.fl_duration_days), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
-                Label(stringResource(R.string.fl_visibility))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DorrTextField(duration, { duration = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.fl_duration_days), icon = Icons.Rounded.Schedule, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                FlHeading(Icons.Rounded.Visibility, stringResource(R.string.fl_visibility))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(stringResource(R.string.fl_public), visibility == "public") { visibility = "public" }
-                    Chip(stringResource(R.string.fl_private), visibility == "private") { visibility = "private" }
+                    Chip(stringResource(R.string.fl_public), visibility == "public", Icons.Rounded.Public) { visibility = "public" }
+                    Chip(stringResource(R.string.fl_private), visibility == "private", Icons.Rounded.Lock) { visibility = "private" }
                 }
-                Text(stringResource(if (visibility == "private") R.string.fl_private_hint else R.string.fl_public_hint), color = settingsMut(), fontSize = 12.sp)
+                FlNotice(stringResource(if (visibility == "private") R.string.fl_private_hint else R.string.fl_public_hint), Icons.Rounded.Info, settingsAccent())
             }
             // FL-307: questions every freelancer answers with their offer.
-            Card {
-                Label(stringResource(R.string.fl_questions))
-                Text(stringResource(R.string.fl_questions_hint), color = settingsMut(), fontSize = 12.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlHeading(Icons.Rounded.QuestionAnswer, stringResource(R.string.fl_questions), stringResource(R.string.fl_questions_hint))
                 questions.forEachIndexed { i, q ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DorrTextField(q, { questions[i] = it.take(300) }, placeholder = stringResource(R.string.fl_question_n, i + 1), modifier = Modifier.weight(1f))
-                        Icon(Icons.Rounded.Close, stringResource(R.string.fl_remove), tint = settingsMut(), modifier = Modifier.size(30.dp).clip(RoundedCornerShape(50)).clickable { questions.removeAt(i) }.padding(6.dp))
+                        DorrTextField(q, { questions[i] = it.take(300) }, placeholder = stringResource(R.string.fl_question_n, i + 1), icon = Icons.Rounded.QuestionAnswer, modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.Close, stringResource(R.string.fl_remove), tint = settingsMut(), modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable { questions.removeAt(i) }.padding(7.dp))
                     }
                 }
-                if (questions.size < 5) TextAction(stringResource(R.string.fl_add_question)) { questions.add("") }
+                if (questions.size < 5) FlAction(stringResource(R.string.fl_add_question), Icons.Rounded.Add) { questions.add("") }
             }
-            Card {
-                Label(stringResource(R.string.fl_files))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlHeading(Icons.Rounded.AttachFile, stringResource(R.string.fl_files), stringResource(R.string.fl_files_hint))
                 attachments.forEach { a ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         Icon(Icons.Rounded.Description, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                         Text(a.name, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Icon(
@@ -720,17 +1042,9 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                         )
                     }
                 }
-                Row(
-                    Modifier.clip(RoundedCornerShape(12.dp)).clickable(enabled = !uploading) { picker.launch("*/*") }.padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    if (uploading) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                    else Icon(Icons.Rounded.AttachFile, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.fl_add_file), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Text(stringResource(R.string.fl_files_hint), color = settingsMut(), fontSize = 11.sp)
+                FlAction(stringResource(R.string.fl_add_file), Icons.Rounded.AttachFile, loading = uploading) { picker.launch("*/*") }
             }
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) }
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
             Spacer(Modifier.height(8.dp))
         }
         SettingsPrimaryButton(text = stringResource(R.string.fl_save_draft), loading = busy, modifier = Modifier.padding(16.dp), onClick = { save(onSaved) })
@@ -751,19 +1065,27 @@ private fun filePart(context: Context, uri: Uri): MultipartBody.Part? {
     return MultipartBody.Part.createFormData("file", name, bytes.toRequestBody(type.toMediaTypeOrNull()))
 }
 
-/** Picked skills as removable pills, and a search over the active catalog (400 ms after the last key). */
+/**
+ * Picked skills as removable pills, and under them the skills: with nothing typed, the ones of the project's specialty (as soon as one is
+ * chosen); from two letters on, a search over the whole active catalog (400 ms after the last key).
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SkillPicker(selected: MutableList<FreelanceNamedDto>) {
+private fun SkillPicker(selected: MutableList<FreelanceNamedDto>, specialtyId: Int?) {
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf(emptyList<FreelanceNamedDto>()) }
-    LaunchedEffect(query) {
-        if (query.trim().length < 2) {
-            results = emptyList()
+    LaunchedEffect(query, specialtyId) {
+        val term = query.trim()
+        if (term.length < 2) {
+            if (term.isNotEmpty() || specialtyId == null) {
+                results = emptyList()
+                return@LaunchedEffect
+            }
+            results = runCatching { ApiClient.freelance.skills(auth(), null, specialtyId = specialtyId).data.orEmpty().map { FreelanceNamedDto(it.id, it.name) } }.getOrDefault(emptyList())
             return@LaunchedEffect
         }
         delay(400)
-        results = runCatching { ApiClient.freelance.skills(auth(), query.trim()).data.orEmpty().map { FreelanceNamedDto(it.id, it.name) } }.getOrDefault(emptyList())
+        results = runCatching { ApiClient.freelance.skills(auth(), term).data.orEmpty().map { FreelanceNamedDto(it.id, it.name) } }.getOrDefault(emptyList())
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         selected.forEach { s ->
@@ -777,9 +1099,9 @@ private fun SkillPicker(selected: MutableList<FreelanceNamedDto>) {
         }
     }
     if (selected.size < 10) {
-        DorrTextField(query, { query = it }, placeholder = stringResource(R.string.fl_search_skills), modifier = Modifier.fillMaxWidth())
+        DorrTextField(query, { query = it }, placeholder = stringResource(R.string.fl_search_skills), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth())
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            results.filter { r -> selected.none { it.id == r.id } }.take(12).forEach { r ->
+            results.filter { r -> selected.none { it.id == r.id } }.take(20).forEach { r ->
                 Row(
                     Modifier.clip(RoundedCornerShape(999.dp)).border(1.dp, settingsAccent().copy(alpha = 0.4f), RoundedCornerShape(999.dp))
                         .clickable { selected.add(r); query = "" }.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -798,34 +1120,27 @@ private fun SkillPicker(selected: MutableList<FreelanceNamedDto>) {
 private fun SpecialtyDialog(onDismiss: () -> Unit, onPick: (FreelanceNamedDto) -> Unit) {
     var tree by remember { mutableStateOf<List<FreelanceSpecialtyNodeDto>?>(null) }
     LaunchedEffect(Unit) { tree = runCatching { ApiClient.freelance.specialties(auth()).data.orEmpty() }.getOrDefault(emptyList()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.fl_pick_specialty), fontWeight = FontWeight.Bold) },
-        text = {
-            val nodes = tree
-            if (nodes == null) {
-                Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(24.dp)) }
-            } else {
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    nodes.forEach { parent ->
-                        if (parent.children.isEmpty()) {
-                            item(key = "p${parent.id}") { PickRow(parent.name, bold = true) { onPick(FreelanceNamedDto(parent.id, parent.name)) } }
-                        } else {
-                            item(key = "h${parent.id}") { Text(parent.name, color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
-                            items(parent.children, key = { "c${it.id}" }) { child -> PickRow(child.name, bold = false) { onPick(FreelanceNamedDto(child.id, child.name)) } }
-                        }
-                    }
+    FlSheet(Icons.Rounded.Category, stringResource(R.string.fl_pick_specialty), "", onDismiss = onDismiss) {
+        val nodes = tree
+        if (nodes == null) {
+            repeat(5) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(40.dp), RoundedCornerShape(12.dp)) }
+        } else {
+            nodes.forEach { parent ->
+                if (parent.children.isEmpty()) {
+                    PickRow(parent.name, bold = true) { onPick(FreelanceNamedDto(parent.id, parent.name)) }
+                } else {
+                    Text(parent.name, color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                    parent.children.forEach { child -> PickRow(child.name, bold = false) { onPick(FreelanceNamedDto(child.id, child.name)) } }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.fl_close), color = settingsAccent()) } },
-    )
+        }
+    }
 }
 
 @Composable
 private fun PickRow(text: String, bold: Boolean, onClick: () -> Unit) {
     Text(
         text, color = settingsInk(), fontSize = 14.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 6.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.06f)).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 12.dp),
     )
 }

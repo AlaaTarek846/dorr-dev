@@ -95,9 +95,26 @@ fun LanguageSwitch(modifier: Modifier = Modifier) {
     }
 }
 
-/** A short error line on a tinted card (a refused sign-in, a wrong code). */
+/**
+ * A message shown as the DORR app shows it everywhere outside the sign-in pages: a short system toast. The same call serves an
+ * error ([ErrorBanner]) and a success text ([MessageToast]); it shows again whenever the text changes (the screens clear it
+ * before the next request).
+ */
 @Composable
-fun ErrorBanner(message: String?, modifier: Modifier = Modifier) {
+fun MessageToast(message: String?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(message) {
+        if (!message.isNullOrBlank()) android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+/** An error text from a screen: a toast, as in the DORR app (the sign-in and code pages use [InlineErrorBanner]). */
+@Composable
+fun ErrorBanner(message: String?, modifier: Modifier = Modifier) = MessageToast(message)
+
+/** A short error line on a tinted card (a refused sign-in, a wrong code) - the DORR app's sign-in page banner. */
+@Composable
+fun InlineErrorBanner(message: String?, modifier: Modifier = Modifier) {
     val night = settingsNight()
     AnimatedVisibility(
         visible = message != null,

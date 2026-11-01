@@ -1,5 +1,12 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.LocationCity
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.material.icons.rounded.Person
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -71,6 +78,7 @@ import com.dorr.freelance.ui.components.ChipRow
 import com.dorr.freelance.ui.components.DateField
 import com.dorr.freelance.ui.components.DorrTextField
 import com.dorr.freelance.ui.components.ErrorBanner
+import com.dorr.freelance.ui.components.MessageToast
 import com.dorr.freelance.ui.kit.PinkBackdrop
 import com.dorr.freelance.ui.kit.SettingsPrimaryButton
 import com.dorr.freelance.ui.kit.SubHeader
@@ -94,6 +102,7 @@ import java.io.File
 @Composable
 fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
     val context = LocalContext.current
+    val savedText = stringResource(R.string.profile_saved)
     val scope = rememberCoroutineScope()
     val initial = remember { Session.me.value }
     val me by Session.me.collectAsState()
@@ -231,6 +240,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
             saving = false
             if (result is ApiResult.Ok) {
                 Session.setMe(result.data)
+                android.widget.Toast.makeText(context, savedText, android.widget.Toast.LENGTH_SHORT).show()
                 onSaved()
             } else {
                 error = result.errorText(offlineText) ?: genericError
@@ -249,8 +259,9 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Person, stringResource(R.string.profile_intro_title), stringResource(R.string.profile_intro))
                 // Photo
-                Section {
+                CardSection {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         AvatarImage(url = me?.avatarUrl, size = 96.dp)
                         Text(stringResource(R.string.profile_photo), color = settingsMut(), fontSize = 13.sp)
@@ -264,11 +275,11 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
 
                 // Basics
                 Section {
-                    DorrTextField(name, { name = it }, label = stringResource(R.string.profile_name), modifier = Modifier.fillMaxWidth())
-                    DorrTextField(headline, { headline = it }, label = stringResource(R.string.profile_headline), placeholder = stringResource(R.string.profile_headline_hint), modifier = Modifier.fillMaxWidth())
-                    DorrTextField(bio, { bio = it.take(1500) }, label = stringResource(R.string.profile_bio), singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(name, { name = it }, label = stringResource(R.string.profile_name), icon = Icons.Rounded.Person, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(headline, { headline = it }, label = stringResource(R.string.profile_headline), icon = Icons.Rounded.Badge, placeholder = stringResource(R.string.profile_headline_hint), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(bio, { bio = it.take(1500) }, label = stringResource(R.string.profile_bio), icon = Icons.Rounded.Notes, singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
                     DorrTextField(
-                        years, { years = it.filter(Char::isDigit).take(2) }, label = stringResource(R.string.profile_years),
+                        years, { years = it.filter(Char::isDigit).take(2) }, label = stringResource(R.string.profile_years), icon = Icons.Rounded.Schedule,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -285,7 +296,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                         DorrTextField(
                             value = allCountries.firstOrNull { it.id == countryId }?.name.orEmpty(),
                             onValueChange = {},
-                            label = stringResource(R.string.profile_country),
+                            label = stringResource(R.string.profile_country), icon = Icons.Rounded.Public,
                             trailing = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, tint = settingsMut()) },
                             onClick = { if (allCountries.isNotEmpty()) countryMenu = true },
                             modifier = Modifier.fillMaxWidth(),
@@ -302,7 +313,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                             }
                         }
                     }
-                    DorrTextField(city, { city = it }, label = stringResource(R.string.profile_city), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(city, { city = it }, label = stringResource(R.string.profile_city), icon = Icons.Rounded.LocationCity, modifier = Modifier.fillMaxWidth())
                     Label(stringResource(R.string.profile_residency))
                     ChipRow(
                         options = listOf("citizen" to stringResource(R.string.residency_citizen), "resident" to stringResource(R.string.residency_resident)),
@@ -322,7 +333,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                 ErrorBanner(error, Modifier.fillMaxWidth())
 
                 // Email (its own code, apart from the save)
-                Section {
+                CardSection {
                     DorrTextField(
                         email, { email = it; codeSent = false }, label = stringResource(R.string.profile_email), icon = Icons.Rounded.Email,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(),
@@ -335,7 +346,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                     } else {
                         if (codeSent) {
                             DorrTextField(
-                                code, { code = it.filter(Char::isDigit).take(8) }, label = stringResource(R.string.profile_email_code),
+                                code, { code = it.filter(Char::isDigit).take(8) }, label = stringResource(R.string.profile_email_code), icon = Icons.Rounded.Lock,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                             )
                             SettingsPrimaryButton(text = stringResource(R.string.profile_email_confirm), enabled = code.length >= 4, loading = emailBusy, onClick = ::confirmEmail)
@@ -343,7 +354,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                             SettingsPrimaryButton(text = stringResource(R.string.profile_email_send), enabled = email.contains("@"), loading = emailBusy, onClick = ::sendCode)
                         }
                     }
-                    emailMessage?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
+                    MessageToast(emailMessage)
                     ErrorBanner(emailError, Modifier.fillMaxWidth())
                 }
             }
@@ -352,7 +363,7 @@ fun ProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
 }
 
 @Composable
-private fun Section(content: @Composable () -> Unit) {
+private fun CardSection(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().widthIn(max = 440.dp).settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -377,4 +388,10 @@ private fun PhotoButton(icon: androidx.compose.ui.graphics.vector.ImageVector, t
         Icon(icon, contentDescription = null, tint = if (enabled) accent else accent.copy(alpha = 0.4f), modifier = Modifier.height(20.dp))
         Text(text, color = if (enabled) accent else accent.copy(alpha = 0.4f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+/** The fields of the profile straight on the page, like the other forms. */
+@Composable
+private fun Section(content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) { content() }
 }

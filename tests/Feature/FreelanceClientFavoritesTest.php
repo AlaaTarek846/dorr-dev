@@ -128,4 +128,13 @@ class FreelanceClientFavoritesTest extends TestCase
         Sanctum::actingAs($other, [], 'user_api');
         $this->postJson(self::CLIENT."/favorites/{$this->sara->uuid}")->assertNotFound();
     }
+
+    public function test_the_kept_freelancers_come_in_pages(): void
+    {
+        $this->asClient();
+        $this->postJson(self::CLIENT."/favorites/{$this->sara->uuid}")->assertOk();
+        $this->postJson(self::CLIENT."/favorites/{$this->lina->uuid}")->assertOk();
+        $this->getJson(self::CLIENT.'/favorites?per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', true)->assertJsonPath('pagination.total', 2);
+        $this->getJson(self::CLIENT.'/favorites?per_page=1&page=2')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+    }
 }

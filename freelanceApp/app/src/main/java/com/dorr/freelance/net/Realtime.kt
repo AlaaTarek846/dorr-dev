@@ -51,6 +51,11 @@ object Realtime {
     /** A notice just arrived: the account, the unread count or the list may have changed. */
     val changed: SharedFlow<Unit> = _changed
 
+    private val _events = MutableSharedFlow<LiveEvent>(extraBufferCapacity = 64)
+
+    /** Support's live events (`support.message`, `support.ticket.updated`…) with their payload: an open ticket list or conversation updates itself. */
+    val events: SharedFlow<LiveEvent> = _events
+
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected.asStateFlow()
 
@@ -64,8 +69,14 @@ object Realtime {
     /** The event of a notification the freelancer tapped in the tray, until the navigation has consumed it. */
     val opened: StateFlow<String?> = _opened.asStateFlow()
 
+    private val _openedRoute = MutableStateFlow<String?>(null)
+
+    /** The screen a tapped notification leads to (see [NoticeRoute]); null: the notifications page. */
+    val openedRoute: StateFlow<String?> = _openedRoute.asStateFlow()
+
     fun consumeOpened() {
         _opened.value = null
+        _openedRoute.value = null
     }
 
     fun attach(context: Context) {
@@ -133,6 +144,9 @@ object Realtime {
         channel.bindGlobal { event ->
             if (event.eventName.startsWith("pusher:")) return@bindGlobal
             Log.i(TAG, "Live event: ${event.eventName}")
+            if (event.eventName.startsWith("support.")) {
+                runCatching { com.google.gson.JsonParser.parseString(event.data).asJsonObject }.getOrNull()?.let { _events.tryEmit(LiveEvent(event.eventName, it)) }
+            }
             _changed.tryEmit(Unit)
             scope.launch { refreshUnread() }
         }
@@ -168,12 +182,23 @@ object Realtime {
             })
             OneSignal.Notifications.addClickListener(object : INotificationClickListener {
                 override fun onClick(event: INotificationClickEvent) {
-                    _opened.value = event.notification.additionalData?.optString("type")?.takeIf { it.isNotBlank() } ?: "freelance"
+                    val data = event.notification.additionalData
+                    val type = data?.optString("type")?.takeIf { it.isNotBlank() } ?: "freelance"
+                    _openedRoute.value = NoticeRoute.resolve(data?.optString("event")) { key -> data?.optString(key)?.takeIf { it.isNotBlank() } }
+                    _opened.value = type
                 }
             })
             registerDevice()
           }.onFailure { Log.w(TAG, "OneSignal init failed", it) }
         }
+    }
+
+    /** Whether this phone receives push (the Notifications switch in the settings). */
+    fun pushOptedIn(): Boolean = runCatching { OneSignal.User.pushSubscription.optedIn }.getOrDefault(true)
+
+    /** Turns this phone's push on or off without signing out. */
+    fun setPushOptedIn(on: Boolean) {
+        runCatching { if (on) OneSignal.User.pushSubscription.optIn() else OneSignal.User.pushSubscription.optOut() }
     }
 
     /** Asks for the notification permission (Android 13+) — call once, after the first screen. */

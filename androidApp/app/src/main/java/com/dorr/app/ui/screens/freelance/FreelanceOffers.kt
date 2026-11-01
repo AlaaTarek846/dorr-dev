@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.rounded.*
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -159,43 +161,51 @@ private fun skillsMatch(f: FreelanceOfferFreelancerDto?): String? =
 
 // ---------------------------------------------------------------- the list
 
+private fun sortIcon(sort: String): androidx.compose.ui.graphics.vector.ImageVector = when (sort) {
+    "cheapest" -> Icons.Rounded.Payments
+    "fastest" -> Icons.Rounded.Bolt
+    "completeness" -> Icons.Rounded.Verified
+    else -> Icons.Rounded.Schedule
+}
+
 @Composable
 internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String) -> Unit, onCompare: (List<String>) -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     var sort by rememberSaveable { mutableStateOf("newest") }
     var onlyShortlisted by rememberSaveable { mutableStateOf(false) }
-    var offers by remember { mutableStateOf<List<FreelanceOfferDto>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    // A new sort or filter is a new list (it starts from the first page); the next fifteen come while I scroll.
+    val paged = remember(projectUuid, sort, onlyShortlisted) {
+        PagedRows<FreelanceOfferDto>({ it.uuid }, { page -> ApiClient.freelance.offers(auth(), projectUuid, sort, if (onlyShortlisted) "shortlisted" else null, page = page) })
+    }
+    val offers = if (paged.loaded && (paged.error == null || paged.rows.isNotEmpty())) paged.rows.toList() else null
+    val error = paged.error
     val picked = remember { mutableStateListOf<String>() }
 
-    LaunchedEffect(projectUuid, sort, onlyShortlisted, reconnect) {
-        try {
-            offers = ApiClient.freelance.offers(auth(), projectUuid, sort, if (onlyShortlisted) "shortlisted" else null).data.orEmpty()
-            error = null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            error = e.message(generic)
-        }
-    }
+    LaunchedEffect(paged, reconnect) { paged.reload(generic) }
+    listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
         SubHeader(stringResource(R.string.fl_offers), onBack)
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SORTS.forEach { s -> Chip(sortLabel(s), selected = sort == s) { sort = s } }
+            Chip(stringResource(R.string.fl_filter_all), selected = !onlyShortlisted, icon = Icons.Rounded.Apps) { onlyShortlisted = false }
+            Chip(stringResource(R.string.fl_offer_st_shortlisted), selected = onlyShortlisted, icon = Icons.Rounded.Star) { onlyShortlisted = true }
+            SORTS.forEach { s -> Chip(sortLabel(s), selected = sort == s, icon = sortIcon(s)) { sort = s } }
         }
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(stringResource(R.string.fl_filter_all), selected = !onlyShortlisted) { onlyShortlisted = false }
-            Chip(stringResource(R.string.fl_offer_st_shortlisted), selected = onlyShortlisted) { onlyShortlisted = true }
-        }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val list = offers
             when {
-                list == null && error == null -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp)) } }
-                list != null && list.isEmpty() -> item { Text(stringResource(if (onlyShortlisted) R.string.fl_no_shortlisted else R.string.fl_no_offers), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(top = 24.dp)) }
+                list == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(150.dp), RoundedCornerShape(18.dp)) }
+                list != null && list.isEmpty() -> item {
+                    com.dorr.app.ui.screens.wallet.WaEmpty(
+                        Icons.Rounded.RequestQuote, com.dorr.app.ui.screens.wallet.Tone.Blue,
+                        stringResource(if (onlyShortlisted) R.string.fl_no_shortlisted else R.string.fl_no_offers), "",
+                    )
+                }
                 list != null -> {
-                    if (list.size >= 2) item { Text(stringResource(R.string.fl_compare_hint, COMPARE_MAX), color = settingsMut(), fontSize = 12.sp) }
+                    if (list.size >= 2) item { FlNotice(stringResource(R.string.fl_compare_hint, COMPARE_MAX), Icons.Rounded.CompareArrows, settingsAccent()) }
                     items(list, key = { it.uuid }) { o ->
                         val isPicked = o.uuid in picked
                         OfferCard(
@@ -205,7 +215,8 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
                     }
                 }
             }
-            error?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
+            item { PagedSpinner(paged) }
+            error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
         }
         if (picked.size >= 2) SettingsPrimaryButton(text = stringResource(R.string.fl_compare_n, picked.size), modifier = Modifier.padding(16.dp), onClick = { onCompare(picked.toList()) })
     }
@@ -215,17 +226,17 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
 private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, onPick: () -> Unit, onClick: () -> Unit) {
     val f = o.freelancer
     Column(
-        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp))
-            .then(if (picked) Modifier.border(2.dp, settingsAccent(), RoundedCornerShape(18.dp)) else Modifier)
+        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp))
+            .then(if (picked) Modifier.border(2.dp, settingsAccent(), RoundedCornerShape(20.dp)) else Modifier)
             .clickable(onClick = onClick).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(f)
+            Avatar(f, 46)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
                     if (f?.isFavorite == true) Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite), tint = Red, modifier = Modifier.padding(start = 4.dp).size(15.dp))
                 }
@@ -233,7 +244,12 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
             }
             OfferStatusPill(o.status)
         }
-        Text("‎${money(o.priceMinor)} ${o.currency}  ·  " + stringResource(R.string.fl_days, o.durationDays), color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}", Modifier.weight(1.5f))
+            FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays), Modifier.weight(1f))
+        }
+        // FL-210: dearer than the most I said I'd pay.
+        if (o.overCap) FlNotice(stringResource(R.string.fl_over_cap), Icons.Rounded.Warning, Red)
         Text(
             listOfNotNull(
                 f?.let { stringResource(R.string.fl_completeness, it.completeness) },
@@ -241,15 +257,18 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
                 skillsMatch(f),
                 ratingText(f),
             ).joinToString("  ·  "),
-            color = settingsMut(), fontSize = 12.sp,
+            color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp,
         )
-        Text(o.details, color = settingsInk(), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        Text(o.details, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(end = 10.dp))
-            if (o.attachments.isNotEmpty()) Text(stringResource(R.string.fl_offer_files, o.attachments.size), color = settingsMut(), fontSize = 11.sp)
+            if (o.attachments.isNotEmpty()) {
+                Icon(Icons.Rounded.AttachFile, null, tint = settingsMut(), modifier = Modifier.size(14.dp))
+                Text(stringResource(R.string.fl_offer_files, o.attachments.size), color = settingsMut(), fontSize = 11.sp)
+            }
             Spacer(Modifier.weight(1f))
             if (canPick) Row(
-                Modifier.clip(RoundedCornerShape(999.dp)).clickable(onClick = onPick).padding(horizontal = 8.dp, vertical = 4.dp),
+                Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = if (picked) 0.16f else 0.08f)).clickable(onClick = onPick).padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(if (picked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
@@ -283,13 +302,11 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
         SubHeader(stringResource(R.string.fl_compare_title), onBack)
         val d = data
         if (d == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(24.dp))
-                else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlIntro(Icons.Rounded.CompareArrows, stringResource(R.string.fl_compare_title), stringResource(R.string.fl_compare_best_hint))
             // The heads: who, tap to open the offer.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 d.offers.forEach { o ->
@@ -320,7 +337,6 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
             d.offers.firstOrNull()?.answers?.forEachIndexed { i, a ->
                 CompareRow(a.question, d) { o -> Cell(o.answers.getOrNull(i)?.answer ?: "—", small = true) }
             }
-            Text(stringResource(R.string.fl_compare_best_hint), color = settingsMut(), fontSize = 11.sp)
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -395,10 +411,7 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
         SubHeader(stringResource(R.string.fl_offer), onBack)
         val o = offer
         if (o == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(24.dp))
-                else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
         val f = o.freelancer
@@ -419,28 +432,31 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                 OfferStatusPill(o.status)
             }
             Card {
-                Field(stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}")
-                Field(stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}", Modifier.weight(1.5f))
+                    FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays), Modifier.weight(1f))
+                }
                 Field(stringResource(R.string.fl_offer_details), o.details)
                 o.answers.forEach { a -> Field(a.question, a.answer) }
                 if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp)
             }
-            if (f != null) Card {
-                Field(stringResource(R.string.fl_profile_complete), "${f.completeness}%")
+            if (f != null) Card(Icons.Rounded.Person, stringResource(R.string.fl_freelancer_profile)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlStat(Icons.Rounded.Verified, stringResource(R.string.fl_profile_complete), "${f.completeness}%", Modifier.weight(1f))
+                    FlStat(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio), "${f.portfolioCount}", Modifier.weight(1f))
+                }
                 Field(stringResource(R.string.fl_skills_fit), (skillsMatch(f)?.let { "$it — " } ?: "") + f.matchingSkills.joinToString("، ") { it.name }.ifBlank { "—" })
-                Field(stringResource(R.string.fl_portfolio), "${f.portfolioCount}")
             }
-            if (o.attachments.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_files))
+            if (o.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
                 o.attachments.forEach { a ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(enabled = opening == null && a.path != null) {
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f)).clickable(enabled = opening == null && a.path != null) {
                             opening = a.id
                             scope.launch {
                                 if (!openFile(context, a)) error = fileError
                                 opening = null
                             }
-                        }.padding(vertical = 6.dp),
+                        }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (opening == a.id) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
@@ -449,12 +465,12 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                     }
                 }
             }
-            notice?.let { Text(it, color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-            error?.let { Text(it, color = Red, fontSize = 13.sp) }
+            notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Green) }
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Red) }
 
             // FL-308: talk to them before choosing (phone numbers and links are not allowed until the agreement).
-            if (o.can.chat || o.chat != null) SettingsPrimaryButton(
-                text = stringResource(R.string.fl_chat_open) + if ((o.chat?.unread ?: 0) > 0) " (${o.chat?.unread})" else "",
+            if (o.can.chat || o.chat != null) FlAction(
+                stringResource(R.string.fl_chat_open) + if ((o.chat?.unread ?: 0) > 0) " (${o.chat?.unread})" else "", Icons.Rounded.Chat,
                 loading = busy && sheet == "chat",
                 onClick = {
                     val existing = o.chat?.uuid
@@ -476,10 +492,11 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                     }
                 },
             )
-            if (o.can.choose) SettingsPrimaryButton(text = stringResource(R.string.fl_choose_offer), loading = busy && sheet == null, onClick = { sheet = "choose" })
-            if (o.can.shortlist && o.status != "shortlisted") TextAction(stringResource(R.string.fl_shortlist)) { decide("shortlist") }
-            if (o.can.unshortlist) TextAction(stringResource(R.string.fl_unshortlist)) { decide("unshortlist") }
-            if (o.can.reject) TextAction(stringResource(R.string.fl_reject_offer), danger = true) { sheet = "reject" }
+            if (o.can.choose && o.overCap) FlNotice(stringResource(R.string.fl_over_cap_note), Icons.Rounded.Warning, Red)
+            if (o.can.choose) FlAction(stringResource(R.string.fl_choose_offer), Icons.Rounded.Handshake, FlTone.Primary, enabled = !o.overCap, loading = busy && sheet == null) { sheet = "choose" }
+            if (o.can.shortlist && o.status != "shortlisted") FlAction(stringResource(R.string.fl_shortlist), Icons.Rounded.StarBorder) { decide("shortlist") }
+            if (o.can.unshortlist) FlAction(stringResource(R.string.fl_unshortlist), Icons.Rounded.Star) { decide("unshortlist") }
+            if (o.can.reject) FlAction(stringResource(R.string.fl_reject_offer), Icons.Rounded.Cancel, FlTone.Danger) { sheet = "reject" }
             Spacer(Modifier.height(20.dp))
         }
     }
@@ -511,15 +528,15 @@ internal fun BottomPanel(onDismiss: () -> Unit, content: @Composable () -> Unit)
 @Composable
 private fun ChooseSheet(o: FreelanceOfferDto, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     val cost = o.clientCost
-    BottomPanel(onDismiss) {
-        Text(stringResource(R.string.fl_choose_title, o.freelancer?.name ?: "—"), color = settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-        SumLine(stringResource(R.string.fl_price), "‎${money(cost?.priceMinor ?: o.priceMinor)} ${o.currency}")
-        SumLine(stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays))
-        if ((cost?.clientFeeMinor ?: 0L) > 0L) SumLine(stringResource(R.string.fl_client_fee), "‎${money(cost?.clientFeeMinor)} ${o.currency}")
-        SumLine(stringResource(R.string.fl_total), "‎${money(cost?.totalMinor ?: o.priceMinor)} ${o.currency}", bold = true)
-        Text(stringResource(R.string.fl_choose_note), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
-        SettingsPrimaryButton(text = stringResource(R.string.fl_choose_confirm), loading = busy, onClick = onConfirm)
-        TextAction(stringResource(R.string.fl_not_now)) { onDismiss() }
+    FlSheet(Icons.Rounded.Handshake, stringResource(R.string.fl_choose_title, o.freelancer?.name ?: "—"), stringResource(R.string.fl_choose_note), onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SumLine(stringResource(R.string.fl_price), "‎${money(cost?.priceMinor ?: o.priceMinor)} ${o.currency}")
+            SumLine(stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays))
+            if ((cost?.clientFeeMinor ?: 0L) > 0L) SumLine(stringResource(R.string.fl_client_fee), "‎${money(cost?.clientFeeMinor)} ${o.currency}")
+            SumLine(stringResource(R.string.fl_total), "‎${money(cost?.totalMinor ?: o.priceMinor)} ${o.currency}", bold = true)
+        }
+        FlAction(stringResource(R.string.fl_choose_confirm), Icons.Rounded.Handshake, FlTone.Primary, loading = busy, onClick = onConfirm)
+        FlAction(stringResource(R.string.fl_not_now), null, onClick = onDismiss)
     }
 }
 
@@ -534,12 +551,10 @@ private fun SumLine(label: String, value: String, bold: Boolean = false) {
 @Composable
 private fun RejectSheet(busy: Boolean, onDismiss: () -> Unit, onConfirm: (String?) -> Unit) {
     var reason by rememberSaveable { mutableStateOf("") }
-    BottomPanel(onDismiss) {
-        Text(stringResource(R.string.fl_reject_offer), color = Red, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-        Text(stringResource(R.string.fl_reject_hint), color = settingsMut(), fontSize = 12.sp)
-        DorrTextField(value = reason, onValueChange = { if (it.length <= 500) reason = it }, label = stringResource(R.string.fl_reject_reason), singleLine = false, minLines = 3)
-        SettingsPrimaryButton(text = stringResource(R.string.fl_reject_confirm), loading = busy, onClick = { onConfirm(reason.trim().ifBlank { null }) })
-        TextAction(stringResource(R.string.fl_not_now)) { onDismiss() }
+    FlSheet(Icons.Rounded.Cancel, stringResource(R.string.fl_reject_offer), stringResource(R.string.fl_reject_hint), onDismiss) {
+        DorrTextField(value = reason, onValueChange = { if (it.length <= 500) reason = it }, label = stringResource(R.string.fl_reject_reason), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+        FlAction(stringResource(R.string.fl_reject_confirm), Icons.Rounded.Cancel, FlTone.Danger, loading = busy) { onConfirm(reason.trim().ifBlank { null }) }
+        FlAction(stringResource(R.string.fl_not_now), null, onClick = onDismiss)
     }
 }
 
@@ -586,10 +601,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
         SubHeader(stringResource(R.string.fl_freelancer_profile), onBack)
         val p = profile
         if (p == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(24.dp))
-                else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
         val head = FreelanceOfferFreelancerDto(uuid = p.uuid, name = p.name, avatarUrl = p.avatarUrl, verified = p.verified, rating = p.rating, reviewsCount = p.reviewsCount)
@@ -623,11 +635,10 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                 )
                 Text(stringResource(R.string.fl_contact_in_dorr), color = settingsMut(), fontSize = 11.sp)
             }
-            p.bio?.takeIf { it.isNotBlank() }?.let { Card { Label(stringResource(R.string.fl_about)); Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) } }
-            if (p.specialties.isNotEmpty() || p.skills.isNotEmpty()) Card {
+            p.bio?.takeIf { it.isNotBlank() }?.let { Card(Icons.Rounded.Info, stringResource(R.string.fl_about)) { Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) } }
+            if (p.specialties.isNotEmpty() || p.skills.isNotEmpty()) Card(Icons.Rounded.Bolt, stringResource(R.string.fl_skills)) {
                 if (p.specialties.isNotEmpty()) Field(stringResource(R.string.fl_specialty), p.specialties.joinToString("، ") { it.name })
                 if (p.skills.isNotEmpty()) {
-                    Label(stringResource(R.string.fl_skills))
                     val matching = p.matchingSkills.map { it.id }.toSet()
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         p.skills.forEach { s ->
@@ -641,13 +652,12 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     if (matching.isNotEmpty()) Text(stringResource(R.string.fl_skills_green), color = settingsMut(), fontSize = 11.sp)
                 }
             }
-            if (p.languages.isNotEmpty() || !p.city.isNullOrBlank()) Card {
+            if (p.languages.isNotEmpty() || !p.city.isNullOrBlank()) Card(Icons.Rounded.Language, stringResource(R.string.fl_languages)) {
                 if (p.languages.isNotEmpty()) Field(stringResource(R.string.fl_languages), p.languages.joinToString("، "))
                 if (!p.city.isNullOrBlank()) Field(stringResource(R.string.fl_city), p.city)
                 p.memberSince?.let { Field(stringResource(R.string.fl_member_since), "‎" + it.take(7)) }
             }
-            if (p.experiences.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_work_history))
+            if (p.experiences.isNotEmpty()) Card(Icons.Rounded.Work, stringResource(R.string.fl_work_history)) {
                 p.experiences.forEach { e ->
                     Column(Modifier.padding(vertical = 4.dp)) {
                         Text(listOfNotNull(e.title, e.company).joinToString(" — "), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -656,8 +666,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     }
                 }
             }
-            if (p.portfolio.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_portfolio) + " (${p.portfolio.size})")
+            if (p.portfolio.isNotEmpty()) Card(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio) + " (${p.portfolio.size})") {
                 p.portfolio.forEach { w ->
                     Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         val cover = w.images.firstOrNull()?.url
@@ -673,8 +682,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                 }
             }
             // FL-701 / FL-703: what clients said, and their numbers.
-            if (p.reviews.isNotEmpty() || (p.completedProjects ?: 0) > 0) Card {
-                Label(stringResource(R.string.fl_rv_about))
+            if (p.reviews.isNotEmpty() || (p.completedProjects ?: 0) > 0) Card(Icons.Rounded.Star, stringResource(R.string.fl_rv_about)) {
                 Text(listOfNotNull(p.completedProjects?.let { stringResource(R.string.fl_st_completed_n, it) }, p.onTimeRate?.let { stringResource(R.string.fl_st_on_time_n, it) }).joinToString("  ·  "), color = settingsMut(), fontSize = 12.sp)
                 p.reviews.forEach { r ->
                     Column(Modifier.padding(vertical = 4.dp)) {
@@ -684,8 +692,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     }
                 }
             }
-            if (p.certificates.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_certificates))
+            if (p.certificates.isNotEmpty()) Card(Icons.Rounded.School, stringResource(R.string.fl_certificates)) {
                 p.certificates.forEach { c -> Text(listOfNotNull(c.title, c.issuer, c.issuedOn?.let { "‎$it" }).joinToString(" · "), color = settingsInk(), fontSize = 13.sp) }
             }
             Spacer(Modifier.height(20.dp))
@@ -700,26 +707,21 @@ internal fun FavoritesPage(onBack: () -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
-    var list by remember { mutableStateOf<List<com.dorr.app.network.FreelanceFavoriteDto>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+    val paged = remember { PagedRows<com.dorr.app.network.FreelanceFavoriteDto>({ it.uuid }, { page -> ApiClient.freelance.favorites(auth(), page = page) }) }
+    val list = if (paged.loaded && (paged.error == null || paged.rows.isNotEmpty())) paged.rows.toList() else null
+    val error = paged.error
 
-    LaunchedEffect(reconnect) {
-        try {
-            list = ApiClient.freelance.favorites(auth()).data.orEmpty()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            error = e.message(generic)
-        }
-    }
+    LaunchedEffect(reconnect) { paged.reload(generic) }
+    listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
         SubHeader(stringResource(R.string.fl_favorites), onBack)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val rows = list
             when {
-                rows == null && error == null -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp)) } }
-                rows != null && rows.isEmpty() -> item { Text(stringResource(R.string.fl_favorites_empty), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(top = 24.dp)) }
+                rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
+                rows != null && rows.isEmpty() -> item { com.dorr.app.ui.screens.wallet.WaEmpty(Icons.Rounded.Favorite, com.dorr.app.ui.screens.wallet.Tone.Pink, stringResource(R.string.fl_favorites), stringResource(R.string.fl_favorites_empty)) }
                 rows != null -> items(rows, key = { it.uuid }) { f ->
                     Row(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Avatar(FreelanceOfferFreelancerDto(uuid = f.uuid, name = f.name, avatarUrl = f.avatarUrl))
@@ -734,13 +736,14 @@ internal fun FavoritesPage(onBack: () -> Unit) {
                         }
                         Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite_remove), tint = Red, modifier = Modifier.size(34.dp).clip(CircleShape).clickable {
                             scope.launch {
-                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) list = list?.filter { it.uuid != f.uuid }
+                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) paged.rows.removeAll { it.uuid == f.uuid }
                             }
                         }.padding(7.dp))
                     }
                 }
             }
-            error?.let { item { Text(it, color = Red, fontSize = 13.sp) } }
+            item { PagedSpinner(paged) }
+            error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
         }
     }
 }

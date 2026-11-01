@@ -76,9 +76,11 @@ fun HomeScreen(actions: MainActions, failed: String?, onOpenPortfolio: () -> Uni
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val profile = me
             if (profile != null) {
+                // FL-708: shown only while a warning / restriction is active or its appeal waits.
+                SanctionsCard()
                 if (profile.availability?.canReceiveOffers == false) PausedCard(onOpen = actions.openAvailability)
                 CompletenessCard(percent = profile.completeness?.percent ?: 0, onEdit = actions.openProfile)
-                VerificationCard(profile.status, onOpen = actions.openVerification)
+                VerificationCard(profile.status, profile.statusReason, onOpen = actions.openVerification)
 
                 Text(stringResource(R.string.home_quick_title), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -136,7 +138,7 @@ private fun CompletenessCard(percent: Int, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun VerificationCard(status: String?, onOpen: () -> Unit) {
+private fun VerificationCard(status: String?, reason: String?, onOpen: () -> Unit) {
     val verified = status == "verified"
     Row(
         Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onOpen).padding(16.dp),
@@ -147,6 +149,8 @@ private fun VerificationCard(status: String?, onOpen: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.home_open_verification), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             Text(statusLabel(status), color = settingsMut(), fontSize = 12.sp)
+            // Why the account was put on hold, as staff wrote it.
+            if (status == "suspended") reason?.takeIf { it.isNotBlank() }?.let { Text(stringResource(R.string.status_reason_line, it), color = settingsMut(), fontSize = 12.sp) }
         }
     }
 }

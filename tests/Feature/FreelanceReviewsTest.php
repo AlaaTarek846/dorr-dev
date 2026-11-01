@@ -280,4 +280,108 @@ class FreelanceReviewsTest extends TestCase
         $this->assertSame(3, $stats->stats($this->sara)['reviews_count']);
         $this->assertSame(4.5, $stats->stats($this->sara)['rating']);
     }
+
+    private function asStaff(string ...$permissions): \Modules\Admin\Models\Admin
+    {
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $admin = \Modules\Admin\Models\Admin::create(['name' => 'Staff', 'email' => uniqid('a').'@example.com', 'password' => 'secret123', 'status' => 'active']);
+        foreach ($permissions as $p) {
+            \Spatie\Permission\Models\Permission::findOrCreate($p, 'admin_api');
+            $admin->givePermissionTo($p);
+        }
+        $this->app['auth']->forgetGuards();
+        Sanctum::actingAs($admin, [], 'admin_api');
+
+        return $admin;
+    }
+
+    /** FL-706: the freelancer objects to the client's rating; staff hide its comment; the stars stay. */
+    public function test_the_rated_person_objects_once_and_staff_can_hide_the_comment(): void
+    {
+        $this->completed();
+        $this->asClient();
+        $this->review('client', ['scores' => self::CLIENT_SCORES, 'comment' => 'Terrible person, a thief'])->assertCreated();
+        $this->asFreelancer($this->sara);
+        // Not out yet: nothing to object to.
+        $this->postJson(self::FREELANCER."/{$this->project->uuid}/review/objection", ['reason' => 'abusive', 'note' => 'Insulting words'])->assertStatus(409);
+        $this->review('freelancer', ['scores' => self::FREELANCER_SCORES])->assertCreated();
+
+        $this->getJson(self::FREELANCER."/{$this->project->uuid}/review")->assertJsonPath('data.can_object', true)->assertJsonPath('data.objection', null);
+        $this->postJson(self::FREELANCER."/{$this->project->uuid}/review/objection", ['reason' => 'abusive', 'note' => 'ab'])->assertStatus(422);
+        $this->postJson(self::FREELANCER."/{$this->project->uuid}/review/objection", ['reason' => 'abusive', 'note' => 'Insulting words, I did nothing wrong'])->assertCreated()
+            ->assertJsonPath('data.objection.status', 'open')->assertJsonPath('data.can_object', false);
+        $this->postJson(self::FREELANCER."/{$this->project->uuid}/review/objection", ['reason' => 'false', 'note' => 'Again please'])->assertStatus(409);
+        // Nothing changed while it waits; the client can object to the freelancer's rating of them too.
+        $reviews = app(\Modules\Freelance\Services\Projects\FreelanceReviews::class);
+        $this->assertSame('Terrible person, a thief', $reviews->latestAbout($this->sara)[0]['comment']);
+        $this->asClient();
+        $this->getJson(self::CLIENT."/{$this->project->uuid}/review")->assertJsonPath('data.can_object', true);
+
+        $this->asStaff('freelance-reviews.view', 'freelance-reviews.update');
+        $row = $this->getJson('/api/admin/v1/freelance-reviews/objections')->assertOk()->assertJsonPath('pagination.counts.open', 1)->assertJsonPath('data.0.rating.comment', 'Terrible person, a thief')->json('data.0');
+        $this->postJson("/api/admin/v1/freelance-reviews/objections/{$row['uuid']}/decide", ['decision' => 'hide_comment', 'note' => 'Insults'])->assertOk()->assertJsonPath('data.status', 'comment_hidden');
+        $this->postJson("/api/admin/v1/freelance-reviews/objections/{$row['uuid']}/decide", ['decision' => 'reject'])->assertStatus(409);
+
+        $latest = $reviews->latestAbout($this->sara)[0];
+        $this->assertNull($latest['comment']);
+        $this->assertSame(4.5, $latest['stars'], 'the stars stay');
+        $this->assertSame(1, $this->sara->notifications()->where('data->event', 'freelance.review.objection_decided')->count());
+        $this->assertSame(1, $this->client->notifications()->where('data->event', 'freelance.review.moderated')->count());
+    }
+
+    public function test_a_removed_rating_leaves_the_numbers_and_a_viewer_cannot_decide(): void
+    {
+        $this->completed();
+        $this->asClient();
+        $this->review('client', ['scores' => self::CLIENT_SCORES])->assertCreated();
+        $this->asFreelancer($this->sara);
+        $this->review('freelancer', ['scores' => self::FREELANCER_SCORES])->assertCreated();
+        $this->postJson(self::FREELANCER."/{$this->project->uuid}/review/objection", ['reason' => 'false', 'note' => 'This never happened'])->assertCreated();
+
+        $uuid = DB::table('freelance_review_objections')->value('uuid');
+        $this->asStaff('freelance-reviews.view');
+        $this->postJson("/api/admin/v1/freelance-reviews/objections/{$uuid}/decide", ['decision' => 'remove_rating'])->assertForbidden();
+        $this->asStaff('freelance-reviews.view', 'freelance-reviews.update');
+        $this->postJson("/api/admin/v1/freelance-reviews/objections/{$uuid}/decide", ['decision' => 'remove_rating'])->assertOk();
+
+        $reviews = app(\Modules\Freelance\Services\Projects\FreelanceReviews::class);
+        $this->assertSame([], $reviews->latestAbout($this->sara));
+        $this->assertSame(0, $reviews->stats($this->sara)['reviews_count']);
+        $this->asFreelancer($this->sara);
+        $this->getJson(self::FREELANCER."/{$this->project->uuid}/review")->assertJsonPath('data.theirs', null)->assertJsonPath('data.can_object', false);
+    }
+
+    private function survey(string $as): string
+    {
+        return ($as === 'client' ? self::CLIENT : self::FREELANCER)."/{$this->project->uuid}/survey";
+    }
+
+    /** FL-702: a short survey from each side after the project; the reasons are needed when not satisfied. */
+    public function test_each_side_answers_the_survey_once_and_staff_see_why_people_are_not_satisfied(): void
+    {
+        $this->completed();
+        $this->asClient();
+        $this->getJson($this->survey('client'))->assertOk()->assertJsonPath('data.can_answer', true)->assertJsonPath('data.mine', null);
+        $this->postJson($this->survey('client'), ['score' => 2])->assertStatus(422)->assertJsonPath('error_code', 'freelance_survey_reasons_required');
+        $this->postJson($this->survey('client'), ['score' => 2, 'reasons' => ['late', 'communication', 'nonsense']])->assertStatus(422);
+        $this->postJson($this->survey('client'), ['score' => 2, 'reasons' => ['late', 'communication'], 'comment' => 'Slow replies'])->assertCreated()
+            ->assertJsonPath('data.can_answer', false)->assertJsonPath('data.mine.score', 2)->assertJsonPath('data.mine.reasons.0', 'late');
+        $this->postJson($this->survey('client'), ['score' => 5])->assertStatus(409);
+
+        $this->asFreelancer($this->sara);
+        $this->postJson($this->survey('freelancer'), ['score' => 5, 'reasons' => ['late']])->assertCreated()->assertJsonPath('data.mine.reasons', []);
+
+        $this->asStaff('freelance-reviews.view');
+        $this->getJson('/api/admin/v1/freelance-reviews/satisfaction')->assertOk()
+            ->assertJsonPath('data.total', 2)->assertJsonPath('data.average', 3.5)->assertJsonPath('data.not_satisfied', 1)
+            ->assertJsonPath('data.reasons.0.key', 'quality')->assertJsonPath('data.latest.0.comment', 'Slow replies');
+    }
+
+    public function test_the_survey_is_closed_before_the_project_ends(): void
+    {
+        $this->activeInTwo();
+        $this->asClient();
+        $this->getJson($this->survey('client'))->assertOk()->assertJsonPath('data.can_answer', false);
+        $this->postJson($this->survey('client'), ['score' => 5])->assertStatus(409);
+    }
 }

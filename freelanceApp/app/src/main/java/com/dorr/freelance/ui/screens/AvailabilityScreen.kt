@@ -1,5 +1,8 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,6 +41,7 @@ import com.dorr.freelance.ui.components.ChipRow
 import com.dorr.freelance.ui.components.DateField
 import com.dorr.freelance.ui.components.DorrTextField
 import com.dorr.freelance.ui.components.ErrorBanner
+import com.dorr.freelance.ui.components.MessageToast
 import com.dorr.freelance.ui.components.FieldLabel
 import com.dorr.freelance.ui.components.Page
 import com.dorr.freelance.ui.kit.RedToggle
@@ -176,7 +180,7 @@ fun AvailabilityScreen(onBack: () -> Unit) {
             }
             if (!accepting) {
                 DateField(pausedUntil, { pausedUntil = it }, label = stringResource(R.string.availability_back_on), modifier = Modifier.fillMaxWidth())
-                DorrTextField(pauseReason, { pauseReason = it.take(200) }, label = stringResource(R.string.availability_pause_reason), modifier = Modifier.fillMaxWidth())
+                DorrTextField(pauseReason, { pauseReason = it.take(200) }, label = stringResource(R.string.availability_pause_reason), icon = Icons.Rounded.Notes, modifier = Modifier.fillMaxWidth())
             }
         }
 
@@ -190,8 +194,8 @@ fun AvailabilityScreen(onBack: () -> Unit) {
             )
             if (rateType != "none") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    DorrTextField(rateMin, { rateMin = it }, label = stringResource(R.string.availability_rate_from, currency), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
-                    DorrTextField(rateMax, { rateMax = it }, label = stringResource(R.string.availability_rate_to, currency), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+                    DorrTextField(rateMin, { rateMin = it }, label = stringResource(R.string.availability_rate_from, currency), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+                    DorrTextField(rateMax, { rateMax = it }, label = stringResource(R.string.availability_rate_to, currency), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -212,7 +216,7 @@ fun AvailabilityScreen(onBack: () -> Unit) {
         }
 
         SettingsPrimaryButton(text = stringResource(R.string.profile_save), enabled = loaded, loading = busy, onClick = ::save)
-        notice?.let { Text(it, color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+        MessageToast(notice)
 
         // Time off: added and removed at once.
         Card {

@@ -1,5 +1,12 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import com.dorr.app.ui.screens.profile.settingsSurface
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -125,18 +132,16 @@ internal fun DisputePage(projectUuid: String, milestoneUuid: String?, disputeUui
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val d = dispute
             if (disputeUuid == null) {
-                // Opening one.
-                Card {
-                    Label(stringResource(R.string.fl_dispute_open_title))
-                    Text(stringResource(R.string.fl_dispute_open_note), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DISPUTE_REASONS.forEach { r -> Chip(disputeReasonLabel(r), selected = reason == r) { reason = r } }
-                    }
-                    DorrTextField(text, { text = it.take(3000) }, label = stringResource(R.string.fl_dispute_details), placeholder = stringResource(R.string.fl_dispute_details_hint), singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
+                // Opening one: the same look as the organizer form.
+                FlIntro(Icons.Rounded.Gavel, stringResource(R.string.fl_dispute_open_title), stringResource(R.string.fl_dispute_open_note))
+                FlHeading(Icons.Rounded.Flag, stringResource(R.string.fl_dispute_reason))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DISPUTE_REASONS.forEach { r -> Chip(disputeReasonLabel(r), selected = reason == r, icon = Icons.Rounded.Flag) { reason = r } }
                 }
-                error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) }
-                SettingsPrimaryButton(
-                    text = stringResource(R.string.fl_dispute_open), loading = busy, enabled = reason != null && text.trim().length >= 20 && milestoneUuid != null,
+                DorrTextField(text, { text = it.take(3000) }, label = stringResource(R.string.fl_dispute_details), placeholder = stringResource(R.string.fl_dispute_details_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
+                error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
+                FlAction(
+                    stringResource(R.string.fl_dispute_open), Icons.Rounded.Gavel, FlTone.Warn, loading = busy, enabled = reason != null && text.trim().length >= 20 && milestoneUuid != null,
                     onClick = {
                         run {
                             val opened = ApiClient.freelance.openDispute(auth(), projectUuid, milestoneUuid!!, FreelanceDisputeOpenRequest(reason!!, text.trim())).data
@@ -145,48 +150,52 @@ internal fun DisputePage(projectUuid: String, milestoneUuid: String?, disputeUui
                     },
                 )
             } else if (d == null) {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp) else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-                }
+                FlLoading(error)
             } else {
+                val sc = if (d.status == "resolved") Color(0xFF16A34A) else Color(0xFFD97706)
                 Card {
-                    Text(disputeStatusLabel(d.status), color = if (d.status == "resolved") Color(0xFF16A34A) else Color(0xFFD97706), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    d.milestone?.let { Text("${it.title}  ·  ‎${money(it.amountMinor)} ${d.currency.orEmpty()}", color = settingsInk(), fontSize = 13.sp) }
-                    Text(stringResource(if (d.mine) R.string.fl_dispute_opened_by_me else R.string.fl_dispute_opened_by_them) + "  ·  " + d.reasonLabel, color = settingsMut(), fontSize = 12.sp)
-                    Text(d.details, color = settingsInk(), fontSize = 13.sp, lineHeight = 19.sp)
-                    if (d.status == "open") d.respondBy?.let { Text(stringResource(R.string.fl_dispute_respond_by, "‎" + it.take(10)), color = settingsMut(), fontSize = 12.sp) }
-                    Text(stringResource(R.string.fl_dispute_frozen), color = settingsMut(), fontSize = 11.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(sc.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Gavel, null, tint = sc, modifier = Modifier.size(24.dp))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(disputeStatusLabel(d.status), color = sc, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(stringResource(if (d.mine) R.string.fl_dispute_opened_by_me else R.string.fl_dispute_opened_by_them) + "  ·  " + d.reasonLabel, color = settingsMut(), fontSize = 12.sp)
+                        }
+                    }
+                    d.milestone?.let { Field(stringResource(R.string.fl_ms_title), "${it.title}  ·  ‎${money(it.amountMinor)} ${d.currency.orEmpty()}") }
+                    Text(d.details, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp)
+                    if (d.status == "open") d.respondBy?.let { FlNotice(stringResource(R.string.fl_dispute_respond_by, "‎" + it.take(10)), Icons.Rounded.Schedule, Color(0xFFD97706)) }
+                    FlNotice(stringResource(R.string.fl_dispute_frozen), Icons.Rounded.Lock, Color(0xFF0EA5E9))
                 }
                 d.decision?.let { dec ->
-                    Card {
-                        Label(stringResource(R.string.fl_dispute_decision))
+                    Card(Icons.Rounded.Balance, stringResource(R.string.fl_dispute_decision)) {
                         Text(
                             when (dec.type) {
                                 "refund" -> stringResource(R.string.fl_dd_refund)
                                 "release" -> stringResource(R.string.fl_dd_release)
                                 else -> stringResource(R.string.fl_dd_split, (dec.freelancerBp ?: 0) / 100)
                             },
-                            color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                            color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
                         )
-                        dec.note?.let { Text(it, color = settingsInk(), fontSize = 13.sp) }
-                        if (d.status == "decided") dec.executesAt?.let { Text(stringResource(R.string.fl_dispute_runs_at, "‎" + it.take(10)), color = settingsMut(), fontSize = 12.sp) }
+                        dec.note?.let { Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) }
+                        if (d.status == "decided") dec.executesAt?.let { FlNotice(stringResource(R.string.fl_dispute_runs_at, "‎" + it.take(10)), Icons.Rounded.Schedule, Color(0xFFD97706)) }
                         if (dec.final) Text(stringResource(R.string.fl_dispute_final), color = settingsMut(), fontSize = 12.sp)
                     }
                 }
-                d.appeal?.let { Text(stringResource(R.string.fl_dispute_appealed_note), color = Color(0xFFD97706), fontSize = 12.sp) }
-                Card {
-                    Label(stringResource(R.string.fl_dispute_evidence))
+                d.appeal?.let { FlNotice(stringResource(R.string.fl_dispute_appealed_note), Icons.Rounded.HourglassTop, Color(0xFFD97706)) }
+                Card(Icons.Rounded.Forum, stringResource(R.string.fl_dispute_evidence)) {
                     if (d.evidence.isEmpty()) Text(stringResource(R.string.fl_dispute_no_evidence), color = settingsMut(), fontSize = 12.sp)
                     d.evidence.forEach { e ->
-                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (e.mine) settingsAccent().copy(alpha = 0.06f) else Color(0x0F6B7280)).padding(10.dp)) {
-                            Text(stringResource(if (e.mine) R.string.fl_dispute_you else R.string.fl_dispute_them) + "  ·  ‎" + e.at?.take(10).orEmpty(), color = settingsMut(), fontSize = 11.sp)
-                            Text(e.body, color = settingsInk(), fontSize = 13.sp)
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (e.mine) settingsAccent().copy(alpha = 0.08f) else Color(0x146B7280)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(stringResource(if (e.mine) R.string.fl_dispute_you else R.string.fl_dispute_them) + "  ·  ‎" + e.at?.take(10).orEmpty(), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(e.body, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp)
                             e.file?.let { Text("📎 " + it.name, color = settingsMut(), fontSize = 12.sp) }
                         }
                     }
                     if (d.can.evidence) {
-                        DorrTextField(text, { text = it.take(3000) }, placeholder = stringResource(R.string.fl_dispute_add_hint), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
-                        TextAction(stringResource(R.string.fl_dispute_add)) {
+                        DorrTextField(text, { text = it.take(3000) }, placeholder = stringResource(R.string.fl_dispute_add_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+                        FlAction(stringResource(R.string.fl_dispute_add), Icons.Rounded.Send, FlTone.Primary) {
                             if (text.trim().length >= 5) run {
                                 ApiClient.freelance.disputeEvidence(auth(), projectUuid, d.uuid, FreelanceTextRequest(text.trim())).data?.let { dispute = it }
                                 text = ""
@@ -194,14 +203,14 @@ internal fun DisputePage(projectUuid: String, milestoneUuid: String?, disputeUui
                         }
                     }
                 }
-                notice?.let { Text(it, color = Color(0xFF16A34A), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) }
+                notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A)) }
+                error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
                 if (d.can.appeal) {
-                    if (!appealing) TextAction(stringResource(R.string.fl_dispute_appeal), danger = true) { appealing = true; text = "" }
-                    else Card {
-                        Text(stringResource(R.string.fl_dispute_appeal_note), color = settingsMut(), fontSize = 12.sp)
-                        DorrTextField(text, { text = it.take(2000) }, placeholder = stringResource(R.string.fl_dispute_appeal_hint), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
-                        SettingsPrimaryButton(text = stringResource(R.string.fl_dispute_appeal_send), loading = busy, enabled = text.trim().length >= 20, onClick = {
+                    if (!appealing) FlAction(stringResource(R.string.fl_dispute_appeal), Icons.Rounded.Gavel, FlTone.Danger) { appealing = true; text = "" }
+                    else {
+                        FlIntro(Icons.Rounded.Gavel, stringResource(R.string.fl_dispute_appeal), stringResource(R.string.fl_dispute_appeal_note))
+                        DorrTextField(text, { text = it.take(2000) }, placeholder = stringResource(R.string.fl_dispute_appeal_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+                        FlAction(stringResource(R.string.fl_dispute_appeal_send), Icons.Rounded.Send, FlTone.Primary, loading = busy, enabled = text.trim().length >= 20) {
                             run {
                                 val r = ApiClient.freelance.appealDispute(auth(), projectUuid, d.uuid, FreelanceTextRequest(reason = text.trim()))
                                 r.data?.let { dispute = it }
@@ -209,7 +218,7 @@ internal fun DisputePage(projectUuid: String, milestoneUuid: String?, disputeUui
                                 appealing = false
                                 text = ""
                             }
-                        })
+                        }
                     }
                 }
             }

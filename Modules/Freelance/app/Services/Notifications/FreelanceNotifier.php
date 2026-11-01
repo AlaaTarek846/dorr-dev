@@ -21,6 +21,7 @@ class FreelanceNotifier
     public const EVENTS = [
         // For the freelancer
         'freelancer.invitation.received' => ['project'],
+        'freelancer.project.matched' => ['project'],
         'freelancer.offer.viewed' => ['project'],
         'freelancer.offer.shortlisted' => ['project'],
         'freelancer.offer.accepted' => ['project'],
@@ -58,6 +59,9 @@ class FreelanceNotifier
         'freelancer.portfolio.hidden' => ['title', 'reason'],
         'freelancer.skill.approved' => ['name'],
         'freelancer.skill.rejected' => ['name', 'reason'],
+        'freelancer.report.due' => ['project'],
+        'freelancer.review.objection_decided' => ['project', 'outcome'],
+        'freelancer.review.moderated' => ['project', 'outcome'],
         // For the client (a Dorr user)
         'client.project.published' => ['project'],
         'client.project.offers_closed' => ['project'],
@@ -99,6 +103,17 @@ class FreelanceNotifier
         'client.dispute.appealed' => ['project'],
         'client.review.received' => ['project', 'name'],
         'client.review.published' => ['project', 'name'],
+        'client.report.received' => ['project', 'name'],
+        'client.report.late' => ['project', 'name'],
+        'client.review.objection_decided' => ['project', 'outcome'],
+        'client.review.moderated' => ['project', 'outcome'],
+        // FL-708: warnings, limits and suspensions, for both sides
+        'freelancer.sanction.issued' => ['type', 'reason'],
+        'freelancer.sanction.lifted' => ['type'],
+        'freelancer.sanction.appeal_decided' => ['type', 'outcome'],
+        'client.sanction.issued' => ['type', 'reason'],
+        'client.sanction.lifted' => ['type'],
+        'client.sanction.appeal_decided' => ['type', 'outcome'],
     ];
 
     public function __construct(private readonly NotificationCenter $notifications) {}

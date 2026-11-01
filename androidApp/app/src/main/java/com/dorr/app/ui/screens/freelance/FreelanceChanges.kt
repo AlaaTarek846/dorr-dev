@@ -1,5 +1,17 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import com.dorr.app.ui.screens.profile.settingsSurface
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -85,11 +97,10 @@ internal fun ChangesCard(
     var excludes by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
 
-    Card {
-        Label(stringResource(R.string.fl_ch_title))
+    Card(Icons.Rounded.SwapHoriz, stringResource(R.string.fl_ch_title)) {
         if (changes.isEmpty()) Text(stringResource(R.string.fl_ch_none), color = settingsMut(), fontSize = 12.sp)
         changes.forEach { c ->
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.05f)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(changeText(c, currency), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(if (c.mine) R.string.fl_ch_by_me else R.string.fl_ch_by_them) + "  ·  " + changeStatus(c.status), color = settingsMut(), fontSize = 11.sp)
                 c.reason?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }

@@ -1,5 +1,15 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.dorr.app.ui.screens.profile.settingsSurface
+import com.dorr.app.ui.screens.profile.settingsAccent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,7 +37,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.FreelanceObjectionRequest
 import com.dorr.app.network.FreelanceReviewDto
+import com.dorr.app.network.FreelanceSurveyRequest
+import com.dorr.app.network.FreelanceSurveyDto
+import com.dorr.app.network.collectReconnectTick
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import com.dorr.app.network.FreelanceReviewRequest
 import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.ui.screens.profile.SettingsPrimaryButton
@@ -67,11 +90,11 @@ private fun Stars(value: Int, size: Int = 26, onPick: ((Int) -> Unit)? = null) {
  * rated, or when the rating days are over.
  */
 @Composable
-internal fun ReviewCard(review: FreelanceReviewDto, busy: Boolean, onSend: (FreelanceReviewRequest) -> Unit) {
+internal fun ReviewCard(review: FreelanceReviewDto, busy: Boolean, onObject: (FreelanceObjectionRequest) -> Unit, onSend: (FreelanceReviewRequest) -> Unit) {
+    var objecting by remember { mutableStateOf(false) }
     val scores = remember { mutableStateMapOf<String, Int>() }
     var comment by remember { mutableStateOf("") }
-    Card {
-        Label(stringResource(R.string.fl_rv_title))
+    Card(Icons.Rounded.Star, stringResource(R.string.fl_rv_title)) {
         if (review.canRate) {
             Text(stringResource(R.string.fl_rv_note, "‎" + review.rateUntil?.take(10).orEmpty()), color = settingsMut(), fontSize = 12.sp)
             review.criteria.forEach { c ->
@@ -95,10 +118,113 @@ internal fun ReviewCard(review: FreelanceReviewDto, busy: Boolean, onSend: (Free
             review.theirs != null -> Column(Modifier.padding(top = 6.dp)) {
                 Text(stringResource(R.string.fl_rv_theirs), color = settingsMut(), fontSize = 12.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) { Stars(Math.round(review.theirs.stars).toInt(), 18); Text("  ${review.theirs.stars}", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                review.theirs.comment?.let { Text(it, color = settingsInk(), fontSize = 13.sp) }
+                if (review.theirs.commentHidden == true) Text(stringResource(R.string.fl_ob_hidden), color = settingsMut(), fontSize = 12.sp)
+                else review.theirs.comment?.let { Text(it, color = settingsInk(), fontSize = 13.sp) }
+                review.objection?.let { o ->
+                    Text(
+                        stringResource(when (o.status) { "rejected" -> R.string.fl_ob_rejected; "comment_hidden" -> R.string.fl_ob_comment_hidden; "rating_removed" -> R.string.fl_ob_rating_removed; else -> R.string.fl_ob_open }),
+                        color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    )
+                    o.decisionNote?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
+                }
+                if (review.canObject == true) {
+                    TextLink(stringResource(R.string.fl_ob_action)) { objecting = true }
+                    Text(stringResource(R.string.fl_ob_until, "‎" + review.objectUntil?.take(10).orEmpty()), color = settingsMut(), fontSize = 11.sp)
+                }
             }
             review.theirsWaiting -> Text(stringResource(R.string.fl_rv_waiting), color = settingsMut(), fontSize = 12.sp)
             !review.canRate && review.mine == null -> Text(stringResource(R.string.fl_rv_closed), color = settingsMut(), fontSize = 12.sp)
+        }
+        if (objecting) ObjectionDialog(review.objectionReasons.orEmpty(), busy, onSend = { objecting = false; onObject(it) }, onDismiss = { objecting = false })
+    }
+}
+
+@Composable
+private fun ObjectionDialog(reasons: List<String>, busy: Boolean, onSend: (FreelanceObjectionRequest) -> Unit, onDismiss: () -> Unit) {
+    var code by remember { mutableStateOf<String?>(null) }
+    var note by remember { mutableStateOf("") }
+    FlSheet(Icons.Rounded.Gavel, stringResource(R.string.fl_ob_title), stringResource(R.string.fl_ob_hint), onDismiss = { if (!busy) onDismiss() }) {
+        reasons.forEach { r -> Chip(stringResource(objectionReasonLabel(r)), code == r, Icons.Rounded.Flag) { code = r } }
+        DorrTextField(note, { note = it.take(500) }, placeholder = stringResource(R.string.fl_ob_note), icon = Icons.Rounded.Notes, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+        FlAction(stringResource(R.string.fl_ob_send), Icons.Rounded.Send, FlTone.Danger, enabled = code != null && note.trim().length >= 5, loading = busy) { onSend(FreelanceObjectionRequest(code.orEmpty(), note.trim())) }
+        FlAction(stringResource(R.string.fl_not_now), null, onClick = onDismiss)
+    }
+}
+
+private fun objectionReasonLabel(r: String): Int = when (r) {
+    "abusive" -> R.string.fl_ob_r_abusive
+    "false" -> R.string.fl_ob_r_false
+    "unfair" -> R.string.fl_ob_r_unfair
+    else -> R.string.fl_ob_r_other
+}
+
+private fun surveyReasonLabel(r: String): Int = when (r) {
+    "quality" -> R.string.fl_sv_r_quality
+    "late" -> R.string.fl_sv_r_late
+    "communication" -> R.string.fl_sv_r_communication
+    "price" -> R.string.fl_sv_r_price
+    "scope" -> R.string.fl_sv_r_scope
+    "payment" -> R.string.fl_sv_r_payment
+    "platform" -> R.string.fl_sv_r_platform
+    else -> R.string.fl_sv_r_other
+}
+
+/**
+ * FL-702: a short survey once the project is over - how satisfied, and when not (3 stars or less) what went wrong. Shown only while it can
+ * be answered, and afterwards as a thank-you. The other side never sees it. Read on open and again when the connection returns.
+ */
+@Composable
+internal fun SurveyCard(projectUuid: String, refreshKey: String) {
+    val reconnect = collectReconnectTick()
+    val scope = rememberCoroutineScope()
+    val generic = stringResource(R.string.fl_error_generic)
+    var survey by remember { mutableStateOf<FreelanceSurveyDto?>(null) }
+    var score by remember { mutableStateOf(0) }
+    val picked = remember { mutableStateListOf<String>() }
+    var comment by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(projectUuid, refreshKey, reconnect) {
+        try {
+            survey = ApiClient.freelance.survey(auth(), projectUuid).data
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+        }
+    }
+    val s = survey ?: return
+    val mine = s.mine
+    if (s.canAnswer != true && mine == null) return
+    val max = s.notSatisfiedMax ?: 3
+    Card(Icons.Rounded.Poll, stringResource(R.string.fl_sv_title)) {
+        if (mine != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) { Stars(mine.score, 18); Text("  " + stringResource(R.string.fl_sv_thanks), color = settingsInk(), fontSize = 13.sp) }
+        } else {
+            Text(stringResource(R.string.fl_sv_hint, "‎" + s.answerUntil?.take(10).orEmpty()), color = settingsMut(), fontSize = 12.sp)
+            Stars(score, 30) { score = it }
+            if (score in 1..max) {
+                Text(stringResource(R.string.fl_sv_why), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                s.reasons.orEmpty().forEach { r -> Chip(stringResource(surveyReasonLabel(r)), r in picked) { if (r in picked) picked.remove(r) else picked.add(r) } }
+            }
+            if (score > 0) DorrTextField(comment, { comment = it.take(500) }, label = stringResource(R.string.fl_sv_comment), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
+            SettingsPrimaryButton(
+                text = stringResource(R.string.fl_sv_send), loading = busy, enabled = score > 0 && (score > max || picked.isNotEmpty()),
+                onClick = {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            survey = ApiClient.freelance.answerSurvey(auth(), projectUuid, FreelanceSurveyRequest(score, if (score <= max) picked.toList() else emptyList(), comment.trim().ifBlank { null })).data
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            error = e.message(generic)
+                        }
+                        busy = false
+                    }
+                },
+            )
         }
     }
 }

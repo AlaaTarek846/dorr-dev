@@ -47,6 +47,7 @@ class FreelanceInterviews
 
     public function propose(FreelanceConversation $room, Model $me, CarbonInterface $startsAt, int $duration, ?string $note): Interview
     {
+        app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($me, 'chat');
         if (! $this->chat->canWrite($room)) {
             throw new FreelanceException('chat_closed', 409);
         }

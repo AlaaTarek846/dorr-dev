@@ -308,6 +308,7 @@ internal fun PrivacySettingsRow(
     title: String,
     subtitle: String? = null,
     value: String? = null,
+    trailing: String? = null,
     last: Boolean = false,
     checked: Boolean? = null,
     onChecked: ((Boolean) -> Unit)? = null,
@@ -338,6 +339,10 @@ internal fun PrivacySettingsRow(
                 Text(subtitle, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
             }
         }
+        if (!trailing.isNullOrBlank()) {
+            Text(trailing, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, color = settingsInk())
+            Spacer(Modifier.width(6.dp))
+        }
         if (checked != null && onChecked != null) {
             RedToggle(checked, dark) { onChecked(!checked) }
         } else if (onClick != null) {
@@ -362,19 +367,72 @@ fun StarredPage() {
 @Composable
 fun CallsPage() {
     val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var list by remember { mutableStateOf<List<CallDto>?>(null) }
-    LaunchedEffect(Unit) { list = runCatching { ApiClient.chat.calls(chatAuth()).data }.getOrNull().orEmpty() }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var total by remember { mutableIntStateOf(0) }
     val startCall = rememberCallStarter()
 
-    ChPage(stringResource(R.string.ch_calls_title), onBack = { host.pop() }) {
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching { ApiClient.chat.calls(chatAuth(), page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        list = if (reset) chunk else {
+            val known = list.orEmpty().map { it.id }.toSet()
+            list.orEmpty() + chunk.filter { it.id !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        total = envelope?.pagination?.total ?: if (reset) chunk.size else maxOf(total, list.orEmpty().size)
+        if (!reset) loadingMore = false
+    }
+
+    LaunchedEffect(Unit) { loadPage(reset = true) }
+    LaunchedEffect(listState, list?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
+
+    ChPage(stringResource(R.string.ch_calls_title), onBack = { host.pop() }, settingsHeader = true) {
         val items = list
         when {
             items == null -> Box(Modifier.fillMaxSize()) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().padding(16.dp).height(200.dp)) }
-            else -> LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Calls over other apps and the lock screen, while it isn't allowed yet.
-                item(key = "call-permissions") { CallPermissionCard() }
-                // Call links (WhatsApp list 72): make one, and the ones I have.
-                item(key = "call-links") { CallLinksCard() }
+            else -> LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                item(key = "call-tools") {
+                    CallPermissionCard()
+                    Spacer(Modifier.height(8.dp))
+                }
+                item(key = "call-list-head") {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PinkIcon(Icons.Rounded.Call)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            stringResource(R.string.ch_calls_title),
+                            color = settingsInk(),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(total.toString(), color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
                 if (items.isEmpty()) item(key = "empty") {
                     Box(Modifier.fillMaxWidth().height(360.dp)) { ChEmptyState(Icons.Rounded.Call, stringResource(R.string.ch_calls_title), stringResource(R.string.ch_no_calls), animated = true) }
                 }
@@ -414,6 +472,11 @@ fun CallsPage() {
                                 .clickable { startCall(call.conversationId, call.type == "video", title, other?.avatar, other?.key) },
                             contentAlignment = Alignment.Center,
                         ) { Icon(if (call.type == "video") Icons.Rounded.Videocam else Icons.Rounded.Call, null, tint = Ch.Red, modifier = Modifier.size(21.dp)) }
+                    }
+                }
+                if (loadingMore) item(key = "more") {
+                    Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                     }
                 }
             }

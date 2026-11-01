@@ -58,6 +58,8 @@ sealed interface ChRoute {
     /** Communities (WhatsApp list 93–98): mine, and one of them. */
     data object Communities : ChRoute
     data class Community(val id: String) : ChRoute
+    /** Every group in a community — `yours` is the ones I'm in. */
+    data class CommunityGroups(val id: String, val yours: Boolean) : ChRoute
     /** Write a text story, or caption a picked photo / video (`media`). */
     data class StoryComposer(val media: String? = null) : ChRoute
     data object StoryPrivacy : ChRoute

@@ -1,5 +1,6 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,11 +23,18 @@ import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Logout
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.Verified
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
@@ -40,6 +48,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Paid
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Policy
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.ConfirmationNumber
+import androidx.compose.material.icons.rounded.Help
+import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
@@ -49,6 +67,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import com.dorr.core.network.ApiResult
@@ -142,7 +161,7 @@ private fun MeHeader(withBadges: Boolean = false) {
 
 /** The round header button (settings / back): a card-coloured circle with a small icon. */
 @Composable
-private fun AccountCircle(icon: ImageVector, description: String, onClick: () -> Unit) {
+private fun AccountCircle(icon: ImageVector, description: String, flip: Boolean = false, onClick: () -> Unit) {
     val dark = settingsNight()
     Box(
         Modifier.size(34.dp)
@@ -151,7 +170,7 @@ private fun AccountCircle(icon: ImageVector, description: String, onClick: () ->
             .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, contentDescription = description, tint = if (dark) AccountDark.accent else settingsAccent(), modifier = Modifier.size(16.dp)) }
+    ) { Icon(icon, contentDescription = description, tint = if (dark) AccountDark.accent else settingsAccent(), modifier = Modifier.size(16.dp).then(if (flip) Modifier.graphicsLayer { scaleX = -1f } else Modifier)) }
 }
 
 /** A row that slides in from the side, one after the other. */
@@ -255,15 +274,14 @@ private fun AccountStat(icon: ImageVector, iconTint: Color, iconBg: Color, value
     }
 }
 
-/** My profile: the personal data and the lists that make the profile (the DORR app account menu, with the freelancer's pages). */
+/** My profile, a page under the Account tab: the personal data and the lists that make the profile, under a title with a back circle. */
 @Composable
-fun ProfileHubScreen(actions: MainActions) {
+private fun ProfileHubPage(actions: MainActions, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp)) {
-        Column(Modifier.padding(top = 14.dp)) {
-            SettingsScreenTitle(stringResource(R.string.tab_profile))
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            SettingsScreenTitle(stringResource(R.string.tab_profile), Modifier.weight(1f))
+            AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), flip = true, onClick = onBack)
         }
-        Spacer(Modifier.height(10.dp))
-        MeHeader()
         listOf(
             MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = actions.openProfile),
             MenuEntry(Icons.Rounded.Category, R.string.home_open_specialties, R.string.hub_specialties_sub, onClick = actions.openSpecialties),
@@ -277,10 +295,41 @@ fun ProfileHubScreen(actions: MainActions) {
     }
 }
 
-/** My account: the settings (language, about), signing out and deleting the account — the DORR app settings page. */
+private const val ACCOUNT_RATE = 1
+private const val ACCOUNT_SUPPORT = 2
+private const val ACCOUNT_QUICK_CHAT = 3
+private const val ACCOUNT_TICKET = 4
+private const val ACCOUNT_INVITE = 5
+private const val ACCOUNT_PROFILE = 6
+
+/** Which page of the Account tab is drawn: [account] is an `ACCOUNT_*` page (0 = none) and [settings] is `settingsPage` (-1 = settings closed). */
+private data class AccountShown(val account: Int, val settings: Int) {
+    /** How deep under the Account list the page is; going to a deeper one slides forward, to a shallower one back. */
+    fun depth(): Int = when {
+        account == ACCOUNT_QUICK_CHAT || account == ACCOUNT_TICKET -> 2
+        account != 0 -> 1
+        settings == -1 -> 0
+        settings == 0 -> 1
+        settings in 5..6 -> 3
+        else -> 2
+    }
+}
+
+/** A page of menu rows under a title with a back circle (the support menu) — the same look as the settings page. */
+@Composable
+private fun AccountListPage(title: String, onBack: () -> Unit, entries: List<MenuEntry>) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            SettingsScreenTitle(title, Modifier.weight(1f))
+            AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), flip = true, onClick = onBack)
+        }
+        entries.forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
+    }
+}
+
+/** My account: the settings (language, appearance, font, contact, about), rating the app, support, signing out and deleting the account — the DORR app's pages. */
 @Composable
 fun AccountScreen(actions: MainActions) {
-    val language = LocalAppLanguage.current
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -311,18 +360,98 @@ fun AccountScreen(actions: MainActions) {
     }
 
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = settingsOpen) { settingsOpen = false }
+    // 0 = the settings list, 1 = colours and mode, 2 = the font (each a page of its own, as in the DORR app).
+    var settingsPage by rememberSaveable { mutableStateOf(0) }
+    var showLanguage by remember { mutableStateOf(false) }
+    // 3 = notifications, 4 = policies & terms (5 privacy, 6 terms under it), 7 = security (devices and the log)
+    BackHandler(enabled = settingsOpen && settingsPage in 5..6) { settingsPage = 4 }
+    BackHandler(enabled = settingsOpen && (settingsPage in 1..4 || settingsPage == 7)) { settingsPage = 0 }
+    BackHandler(enabled = settingsOpen && settingsPage == 0) { settingsOpen = false }
+    // The pages under the main list (0 = none): rate the app, the support menu, the quick chat and the tickets.
+    var accountPage by rememberSaveable { mutableStateOf(0) }
+    LaunchedEffect(com.dorr.freelance.ui.components.ShellState.openProfileHub) {
+        if (com.dorr.freelance.ui.components.ShellState.openProfileHub) {
+            accountPage = ACCOUNT_PROFILE
+            com.dorr.freelance.ui.components.ShellState.openProfileHub = false
+        }
+    }
+    var showContact by remember { mutableStateOf(false) }
+    var showFaq by remember { mutableStateOf(false) }
+    BackHandler(enabled = accountPage == ACCOUNT_RATE || accountPage == ACCOUNT_SUPPORT || accountPage == ACCOUNT_INVITE || accountPage == ACCOUNT_PROFILE) { accountPage = 0 }
 
-    if (settingsOpen) {
+    // One page at a time, sliding like the DORR app's profile pages: forward comes in from the trailing edge, back from the leading one.
+    val shownNow = AccountShown(accountPage, if (settingsOpen) settingsPage else -1)
+    AnimatedContent(
+        targetState = shownNow,
+        label = "accountPage",
+        transitionSpec = {
+            val forward = targetState.depth() >= initialState.depth()
+            val sign = if (forward) 1 else -1
+            ContentTransform(
+                slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { sign * it / 5 } + fadeIn(tween(280)),
+                slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -sign * it / 5 } + fadeOut(tween(220)),
+                sizeTransform = null,
+            )
+        },
+    ) { shown ->
+    if (shown.account == ACCOUNT_RATE) {
+        RateAppScreen(onBack = { accountPage = 0 })
+    } else if (shown.account == ACCOUNT_PROFILE) {
+        ProfileHubPage(actions, onBack = { accountPage = 0 })
+    } else if (shown.account == ACCOUNT_INVITE) {
+        InviteFriendsScreen(onBack = { accountPage = 0 })
+    } else if (shown.account == ACCOUNT_SUPPORT) {
+        AccountListPage(
+            title = stringResource(R.string.support_title),
+            onBack = { accountPage = 0 },
+            entries = listOf(
+                MenuEntry(Icons.Rounded.SupportAgent, R.string.support_quick_chat_title, R.string.support_quick_chat_sub, onClick = { accountPage = ACCOUNT_QUICK_CHAT }),
+                MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = { accountPage = ACCOUNT_TICKET }),
+                MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub, onClick = { showFaq = true }),
+            ),
+        )
+    } else if (shown.account == ACCOUNT_QUICK_CHAT) {
+        // The guided help that ends in "solved" or a ticket (the ticket screen hosts both).
+        SupportTicketScreen(onBack = { accountPage = ACCOUNT_SUPPORT }, startQuickChat = true)
+    } else if (shown.account == ACCOUNT_TICKET) {
+        SupportTicketScreen(onBack = { accountPage = ACCOUNT_SUPPORT })
+    } else if (shown.settings == 1) {
+        AppearanceScreen(onBack = { settingsPage = 0 })
+    } else if (shown.settings == 2) {
+        AppearanceFontScreen(onBack = { settingsPage = 0 })
+    } else if (shown.settings == 3) {
+        NotificationSettingsScreen(onBack = { settingsPage = 0 })
+    } else if (shown.settings == 7) {
+        SecurityScreen(onBack = { settingsPage = 0 })
+    } else if (shown.settings == 4) {
+        AccountListPage(
+            title = stringResource(R.string.account_legal),
+            onBack = { settingsPage = 0 },
+            entries = listOf(
+                MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = { settingsPage = 5 }),
+                MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = { settingsPage = 6 }),
+            ),
+        )
+    } else if (shown.settings == 5) {
+        PrivacyPolicyScreen(onBack = { settingsPage = 4 })
+    } else if (shown.settings == 6) {
+        TermsConditionsScreen(onBack = { settingsPage = 4 })
+    } else if (shown.settings == 0) {
         // The settings page, as in the DORR app: its own title with a back circle and the rows below.
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 SettingsScreenTitle(stringResource(R.string.account_settings), Modifier.weight(1f))
-                AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back)) { settingsOpen = false }
+                AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), flip = true) { settingsOpen = false }
             }
             listOf(
-                MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub, onClick = { language.toggle() }),
+                MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = { settingsPage = 3 }),
+                MenuEntry(Icons.Rounded.Security, R.string.security_title, R.string.security_sub, onClick = { settingsPage = 7 }),
+                MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub, onClick = { showLanguage = true }),
+                MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = { settingsPage = 1 }),
+                MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = { settingsPage = 2 }),
+                MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub, onClick = { showContact = true }),
                 MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub, onClick = { showAbout = true }),
+                MenuEntry(Icons.Rounded.Policy, R.string.account_legal, R.string.account_legal_sub, onClick = { settingsPage = 4 }),
                 MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true, onClick = { showDelete = true }),
             ).forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
             ErrorBanner(error, Modifier.fillMaxWidth())
@@ -340,13 +469,20 @@ fun AccountScreen(actions: MainActions) {
             AccountStats()
             Spacer(Modifier.height(12.dp))
             listOf(
-                MenuEntry(Icons.Rounded.Verified, R.string.home_open_verification, R.string.hub_verification_sub, onClick = actions.openVerification),
+                MenuEntry(Icons.Rounded.Person, R.string.tab_profile, R.string.account_profile_sub, onClick = { accountPage = ACCOUNT_PROFILE }),
                 MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = { settingsOpen = true }),
+                MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = { accountPage = ACCOUNT_RATE }),
+                MenuEntry(Icons.Rounded.PersonAdd, R.string.invite_title, R.string.invite_sub, onClick = { accountPage = ACCOUNT_INVITE }),
+                MenuEntry(Icons.Rounded.SupportAgent, R.string.support_title, R.string.support_sub, onClick = { accountPage = ACCOUNT_SUPPORT }),
                 MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true, onClick = { showLogout = true }),
             ).forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
         }
     }
+    }
 
+    if (showLanguage) LanguageDialog(onDismiss = { showLanguage = false })
+    if (showContact) ContactUsSheet(onDismiss = { showContact = false })
+    if (showFaq) FaqSheet(onDismiss = { showFaq = false })
     if (showLogout) {
         ConfirmDialog(
             icon = Icons.Rounded.Logout,
@@ -369,12 +505,41 @@ fun AccountScreen(actions: MainActions) {
             onDismiss = { if (!busy) showDelete = false },
         )
     }
-    if (showAbout) {
-        AlertDialog(
-            onDismissRequest = { showAbout = false },
-            title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.about_body, BuildConfig.VERSION_NAME)) },
-            confirmButton = { TextButton(onClick = { showAbout = false }) { Text(stringResource(R.string.common_ok), color = settingsAccent()) } },
-        )
+    if (showAbout) AboutDialog(onDismiss = { showAbout = false })
+}
+
+/** "About the app": the same card as the user app - a pink backdrop, the app name with its icon, the version, a line about the app and a close button. */
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    com.dorr.freelance.ui.locale.LocaleAwareDialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable(onClick = onDismiss), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.padding(horizontal = 24.dp).widthIn(max = 300.dp).fillMaxWidth()
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = {}),
+            ) {
+                com.dorr.freelance.ui.kit.PinkBackdrop(Modifier.matchParentSize())
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
+                        com.dorr.freelance.ui.kit.PinkIcon(Icons.Rounded.Info)
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(R.string.app_name), color = if (settingsNight()) AccountDark.accent else settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), color = settingsMut(), fontSize = 13.sp, lineHeight = 22.sp)
+                    Spacer(Modifier.height(22.dp))
+                    Text(stringResource(R.string.about_description), color = settingsMut(), fontSize = 13.sp, lineHeight = 22.sp, modifier = Modifier.padding(bottom = 14.dp))
+                    Box(
+                        Modifier.fillMaxWidth().height(44.dp)
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
+                            .clip(RoundedCornerShape(14.dp)).background(settingsAccent()).clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(stringResource(R.string.common_close), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
     }
 }

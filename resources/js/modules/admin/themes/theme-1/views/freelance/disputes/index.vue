@@ -21,6 +21,7 @@
         <div class="card custom-card">
             <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
                 <Select v-model="statusFilter" :options="statusOptions" option-label="label" option-value="value" class="wallet-filter-select" />
+                <Select v-model="categoryFilter" :options="categoryOptions" option-label="label" option-value="value" class="wallet-filter-select" />
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -46,6 +47,7 @@
                                 <td>
                                     <span class="d-block">{{ row.reason_label }}</span>
                                     <span class="text-muted fs-11">{{ t(`freelance.disputes.by.${row.opened_by}`) }}</span>
+                                    <span v-if="row.category" class="badge bg-primary-transparent ms-1">{{ t(`freelance.disputeCategory.${row.category}`) }}</span>
                                 </td>
                                 <td dir="ltr">{{ money(row.milestone.amount_minor) }} {{ row.currency }}</td>
                                 <td>
@@ -92,6 +94,25 @@
                     <div class="fw-semibold fs-13">{{ current.reason_label }} · {{ t(`freelance.disputes.by.${current.opened_by}`) }}</div>
                     <div class="fs-13 mt-1" style="white-space: pre-line">{{ current.details }}</div>
                     <div class="text-muted fs-11 mt-1">{{ formatCatalogDate(current.opened_at, locale) }} · {{ t('freelance.disputes.respond_by', { date: formatCatalogDate(current.respond_by, locale) }) }}</div>
+                </div>
+
+                <!-- FL-803: staff's label for the problem; the person's own reason stays as it was. -->
+                <div class="border rounded p-3 mb-3">
+                    <div class="fs-12 fw-semibold mb-2">{{ t('freelance.disputeCategory.title') }}</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <button
+                            v-for="c in categories"
+                            :key="c"
+                            type="button"
+                            class="btn btn-sm"
+                            :class="(current.category ?? null) === c ? 'btn-primary' : 'btn-outline-primary'"
+                            :disabled="!canClassify || classifying"
+                            @click="classify(c)"
+                        >
+                            {{ t(`freelance.disputeCategory.${c}`) }}
+                        </button>
+                    </div>
+                    <div v-if="!current.category" class="text-muted fs-11 mt-2">{{ t('freelance.disputeCategory.suggested', { name: t(`freelance.disputeCategory.${current.suggested_category}`) }) }}</div>
                 </div>
 
                 <div v-if="current.appeal" class="alert alert-warning fs-13">
@@ -225,6 +246,13 @@ const statusFilter = ref('all');
 const page = ref(1);
 
 const statuses = ['open', 'appealed', 'decided', 'resolved'];
+const categories = ['payment', 'delivery', 'quality', 'conduct', 'scope', 'other'];
+const categoryFilter = ref('all');
+const classifying = ref(false);
+const categoryOptions = computed(() => [
+    { value: 'all', label: t('freelance.disputeCategory.all') },
+    ...categories.map((c) => ({ value: c, label: t(`freelance.disputeCategory.${c}`) })),
+]);
 const total = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0));
 const waiting = computed(() => (counts.value.open ?? 0) + (counts.value.appealed ?? 0));
 const statusOptions = computed(() => [
@@ -236,13 +264,13 @@ const needsDecision = (s) => s === 'open' || s === 'appealed';
 const money = (minor) => (minor == null ? '—' : (minor / 100).toFixed(2));
 const decisionText = (d) => (d.type === 'split' ? t('freelance.disputes.decision_split', { n: (d.freelancer_bp ?? 0) / 100 }) : t(`freelance.disputes.decision.${d.type}`));
 
-watch(statusFilter, () => (page.value === 1 ? load() : (page.value = 1)));
+watch([statusFilter, categoryFilter], () => (page.value === 1 ? load() : (page.value = 1)));
 watch(page, load);
 
 async function load() {
     loading.value = true;
     try {
-        const { data } = await adminAxios.get(endpoint, { params: { page: page.value, status: statusFilter.value === 'all' ? undefined : statusFilter.value } });
+        const { data } = await adminAxios.get(endpoint, { params: { page: page.value, status: statusFilter.value === 'all' ? undefined : statusFilter.value, category: categoryFilter.value === 'all' ? undefined : categoryFilter.value } });
         rows.value = data.data ?? [];
         pagination.value = data.pagination ?? {};
         counts.value = data.pagination?.counts ?? {};
@@ -263,6 +291,7 @@ const kindBadge = (k) => ({ agreement: 'bg-primary-transparent', approval: 'bg-i
 const actorClass = (a) => (a === 'client' ? 'text-primary' : a === 'freelancer' ? 'text-success' : 'text-muted');
 const actorText = (a) => (['client', 'freelancer'].includes(a) ? t(`freelance.disputes.side.${a}`) : t('freelance.disputes.timeline_staff'));
 const form = reactive({ decision: null, percent: 50, note: '' });
+const canClassify = computed(() => can('freelance-disputes.update'));
 const canDecide = computed(() => !!current.value?.can?.decide && can('freelance-disputes.update'));
 const ready = computed(() => !!form.decision && form.note.trim().length >= 10 && (form.decision !== 'split' || (form.percent > 0 && form.percent < 100)));
 // What the decision does to the part's amount (the fee and the commission follow the same share).
@@ -324,6 +353,20 @@ async function openFile(file) {
         window.open(URL.createObjectURL(data), '_blank', 'noopener');
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
+    }
+}
+
+async function classify(category) {
+    classifying.value = true;
+    try {
+        const response = await adminAxios.post(`${endpoint}/${current.value.uuid}/classify`, { category });
+        showSuccess(extractApiMessage(response, t('toast.success')));
+        current.value = response.data.data;
+        load();
+    } catch (error) {
+        showError(extractApiErrorMessage(error, t('toast.error')));
+    } finally {
+        classifying.value = false;
     }
 }
 

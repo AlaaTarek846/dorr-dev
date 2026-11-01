@@ -88,6 +88,7 @@ dependencies {
 
     // Avatars, portfolio and certificate images — through the API's own OkHttp client (FreelanceApp.newImageLoader).
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // Live updates: speaks the Pusher protocol, so it keeps working when we move to our own Soketi / Reverb server (the host
     // comes from GET realtime-config, never from the app).

@@ -1,5 +1,12 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Title
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -93,8 +100,8 @@ internal fun AgreementChangesCard(changes: List<ChangeDto>, milestones: List<Mil
                 }
             }
         }
-        if (!asking) Link(stringResource(R.string.ch_ask)) { asking = true }
-        else {
+        ActionButton(stringResource(R.string.ch_ask), Icons.Rounded.EditNote, Tone.Primary) { asking = true }
+        if (asking) FormSheet(Icons.Rounded.EditNote, stringResource(R.string.ch_ask), stringResource(R.string.ch_form_intro), onDismiss = { asking = false }) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("extend_days" to R.string.ch_t_extend, "scope" to R.string.ch_t_scope, "milestone_price" to R.string.ch_t_price, "add_milestone" to R.string.ch_t_add).forEach { (t, label) ->
                     Pick(stringResource(label), type == t) { type = t; part = null }
@@ -106,26 +113,26 @@ internal fun AgreementChangesCard(changes: List<ChangeDto>, milestones: List<Mil
                         Pick(stringResource(R.string.ch_whole), part == null) { part = null }
                         milestones.filter { it.status !in listOf("approved", "cancelled", "disputed") }.forEach { m -> Pick(m.title, part == m.uuid) { part = m.uuid } }
                     }
-                    DorrTextField(days, { days = it.filter(Char::isDigit).take(3) }, placeholder = stringResource(R.string.ch_days), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(days, { days = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.ch_days), icon = Icons.Rounded.Schedule, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 }
                 "milestone_price" -> {
                     val unfunded = milestones.filter { it.status == "unfunded" }
                     if (unfunded.isEmpty()) Text(stringResource(R.string.ch_no_unfunded), color = settingsMut(), fontSize = 12.sp)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { unfunded.forEach { m -> Pick(m.title, part == m.uuid) { part = m.uuid } } }
-                    DorrTextField(amount, { amount = it.take(12) }, placeholder = stringResource(R.string.ch_new_price, currency), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(amount, { amount = it.take(12) }, label = stringResource(R.string.ch_new_price, currency), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                 }
                 "scope" -> {
                     Text(stringResource(R.string.ch_scope_hint), color = settingsMut(), fontSize = 11.sp)
-                    DorrTextField(scope, { scope = it.take(8000) }, placeholder = stringResource(R.string.ag_scope), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
-                    DorrTextField(includes, { includes = it.take(3000) }, placeholder = stringResource(R.string.ag_includes), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
-                    DorrTextField(excludes, { excludes = it.take(3000) }, placeholder = stringResource(R.string.ag_excludes), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(scope, { scope = it.take(8000) }, label = stringResource(R.string.ag_scope), icon = Icons.Rounded.Notes, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(includes, { includes = it.take(3000) }, label = stringResource(R.string.ag_includes), icon = Icons.Rounded.Notes, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(excludes, { excludes = it.take(3000) }, label = stringResource(R.string.ag_excludes), icon = Icons.Rounded.Notes, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
                 }
                 else -> {
-                    DorrTextField(title, { title = it.take(120) }, placeholder = stringResource(R.string.ch_part_title), modifier = Modifier.fillMaxWidth())
-                    DorrTextField(amount, { amount = it.take(12) }, placeholder = stringResource(R.string.ch_new_price, currency), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(title, { title = it.take(120) }, label = stringResource(R.string.ch_part_title), icon = Icons.Rounded.Title, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(amount, { amount = it.take(12) }, label = stringResource(R.string.ch_new_price, currency), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
                 }
             }
-            DorrTextField(reason, { reason = it.take(1000) }, placeholder = stringResource(R.string.ch_reason), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+            DorrTextField(reason, { reason = it.take(1000) }, label = stringResource(R.string.ch_reason), icon = Icons.Rounded.Notes, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
             val minor = parseMinor(amount)
             val ready = when (type) {
                 "extend_days" -> (days.toIntOrNull() ?: 0) > 0
@@ -133,8 +140,8 @@ internal fun AgreementChangesCard(changes: List<ChangeDto>, milestones: List<Mil
                 "scope" -> scope.isNotBlank() || includes.isNotBlank() || excludes.isNotBlank()
                 else -> title.isNotBlank() && minor != null
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Link(stringResource(R.string.ch_send)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton(stringResource(R.string.ch_send), Icons.Rounded.Send, Tone.Primary, enabled = ready && !busy) {
                     if (ready && !busy) {
                         onAsk(ChangeRequest(
                             type = type, milestone = part, days = days.toIntOrNull(), amountMinor = minor, title = title.trim().ifBlank { null },
@@ -144,7 +151,6 @@ internal fun AgreementChangesCard(changes: List<ChangeDto>, milestones: List<Mil
                         asking = false; days = ""; amount = ""; title = ""; reason = ""; scope = ""; includes = ""; excludes = ""
                     }
                 }
-                Link(stringResource(R.string.common_cancel), settingsMut()) { asking = false }
             }
         }
     }

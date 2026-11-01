@@ -397,4 +397,61 @@ class FreelanceDisputeTest extends TestCase
         $this->assertStringContainsString('design.png', $csv->streamedContent());
         $this->assertSame(1, DB::table('audit_logs')->where('action', 'freelance.dispute.timeline_exported')->count());
     }
+
+    /** FL-803 / FL-806 / FL-805 / FL-807 / FL-808 on the same case: classify, link a ticket, the audit log, operations, improvement and risk. */
+    public function test_staff_classify_link_audit_and_read_the_figures(): void
+    {
+        [$one, $d] = $this->disputed();
+        $staff = $this->admin();
+        foreach (['freelance-support.view', 'freelance-support.update', 'freelance-audit.view', 'freelance-reports.view', 'freelance-risk.view', 'freelance-projects.view'] as $name) {
+            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            $staff->givePermissionTo($name);
+        }
+        $this->asAdmin($staff);
+
+        // The person's own reason gives a suggestion; staff's label replaces it and is logged.
+        $this->getJson("/api/admin/v1/freelance-disputes/{$d}")->assertOk()->assertJsonPath('data.category', null)->assertJsonPath('data.suggested_category', 'quality');
+        $this->postJson("/api/admin/v1/freelance-disputes/{$d}/classify", ['category' => 'bogus'])->assertStatus(422);
+        $this->postJson("/api/admin/v1/freelance-disputes/{$d}/classify", ['category' => 'payment'])->assertOk()->assertJsonPath('data.category', 'payment');
+        $this->getJson('/api/admin/v1/freelance-disputes?category=payment')->assertOk()->assertJsonPath('data.0.category', 'payment');
+        $this->getJson('/api/admin/v1/freelance-disputes?category=delivery')->assertOk()->assertJsonCount(0, 'data');
+
+        // A ticket from the freelancer shows on the Freelance desk, and links to the dispute.
+        $ticket = \Modules\User\Models\SupportTicket::query()->create(['freelancer_id' => $this->sara->id, 'title' => 'Where is my money', 'body' => 'The client disputed my part.', 'status' => 'opened']);
+        $this->getJson('/api/admin/v1/freelance-support/tickets')->assertOk()->assertJsonPath('data.0.number', $ticket->number)->assertJsonPath('data.0.link', null)->assertJsonPath('pagination.counts.opened', 1);
+        $this->postJson("/api/admin/v1/freelance-support/tickets/{$ticket->number}/link", ['kind' => 'dispute', 'uuid' => (string) \Illuminate\Support\Str::uuid()])->assertStatus(404);
+        $this->postJson("/api/admin/v1/freelance-support/tickets/{$ticket->number}/link", ['kind' => 'dispute', 'uuid' => $d])->assertOk()->assertJsonPath('data.link.kind', 'dispute');
+        $this->getJson("/api/admin/v1/freelance-support/tickets?project={$this->project->uuid}")->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/admin/v1/freelance-support/tickets?q=nothing-like-this')->assertOk()->assertJsonCount(0, 'data');
+
+        // The decision and the label are in the audit log, with who did them.
+        $this->decide($d, ['decision' => 'release', 'note' => 'The delivery matches what was agreed on.'])->assertOk();
+        $audit = $this->getJson('/api/admin/v1/freelance-audit?action=freelance.dispute')->assertOk();
+        $this->assertEqualsCanonicalizing(['freelance.dispute.classified', 'freelance.dispute.decided'], array_column($audit->json('data'), 'action'));
+        $this->assertSame('Staff', $audit->json('data.0.actor.name'));
+        $this->getJson('/api/admin/v1/freelance-audit?action=freelance.support')->assertOk()->assertJsonCount(1, 'data');
+
+        // The figures read what is already kept.
+        $ops = $this->getJson('/api/admin/v1/freelance-reports/operations')->assertOk();
+        $this->assertSame(1, $ops->json('data.disputes_opened'));
+        $this->assertSame(1, $ops->json('data.disputes_by_category.payment'));
+        $this->assertArrayHasKey('active', $ops->json('data.agreements_by_status'));
+        $this->getJson('/api/admin/v1/freelance-reports/improvement')->assertOk()->assertJsonStructure(['data' => ['cancellations' => ['by_client', 'by_freelancer'], 'dissatisfaction' => ['client', 'freelancer'], 'offers', 'invitations']]);
+
+        // Nobody at risk yet; once Sara is marked, she is listed with her reasons.
+        $this->getJson('/api/admin/v1/freelance-risk/accounts')->assertOk()->assertJsonCount(0, 'data');
+        $this->sara->forceFill(['risk_level' => 'high', 'quality_score' => 40])->save();
+        $risk = $this->getJson('/api/admin/v1/freelance-risk/accounts?side=freelancer')->assertOk();
+        $this->assertSame(['freelancer', 'Sara', 'high'], [$risk->json('data.0.side'), $risk->json('data.0.name'), $risk->json('data.0.risk_level')]);
+        $this->getJson('/api/admin/v1/freelance-risk/overview')->assertOk()->assertJsonPath('data.freelancers.high', 1);
+
+        // Where the service is open: closing it on the availability page closes it for the apps too (FL-804).
+        $this->getJson('/api/admin/v1/freelance-oversight/countries')->assertOk()->assertJsonPath('data.0.service_open', true)->assertJsonPath('data.0.closed_by_availability', false);
+        (new \Database\Seeders\General\ServiceCategoriesSeeder)->run();
+        $category = \App\Models\ServiceCategory::query()->where('module_name', 'freelance')->first();
+        $this->assertNotNull($category);
+        \App\Models\ServiceAvailability::query()->create(['service_category_id' => $category->id, 'country_id' => $this->saudi->id, 'service_enabled' => false]);
+        \Illuminate\Support\Facades\Cache::forget('freelance:service-closed');
+        $this->getJson('/api/admin/v1/freelance-oversight/countries')->assertOk()->assertJsonPath('data.0.service_open', false)->assertJsonPath('data.0.closed_by_availability', true);
+    }
 }

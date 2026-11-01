@@ -37,6 +37,7 @@ class FreelancerAgreementController extends Controller
     public function milestoneAction(Request $request, string $uuid, string $milestone, string $action): JsonResponse
     {
         $data = $request->validate([
+            'reason_code' => ['nullable', \Illuminate\Validation\Rule::enum(\Modules\Freelance\Enums\FreelanceCancelReason::class)],
             'note' => [$action === 'deliver' ? 'required' : 'nullable', 'string', 'min:5', 'max:3000'],
             'files' => ['nullable', 'array', 'max:'.\Modules\Freelance\Services\Projects\MilestoneDeliveries::MAX_FILES],
             'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb'), 'mimes:'.\Modules\Freelance\Services\Projects\MilestoneDeliveries::MIMES, new \Modules\Freelance\Rules\CleanUpload],
@@ -47,7 +48,7 @@ class FreelancerAgreementController extends Controller
         $cancel = app(\Modules\Freelance\Services\Projects\MilestoneCancellation::class);
         match ($action) {
             'start' => $work->start($m, $me),
-            'withdraw' => $cancel->byFreelancer($m, $me, $data['note'] ?? null),
+            'withdraw' => $cancel->byFreelancer($m, $me, $data['note'] ?? null, $data['reason_code'] ?? null),
             'cancel-accept' => $cancel->accept($m, $me, 'freelancer'),
             'cancel-reject' => $cancel->reject($m, $me, 'freelancer'),
             default => $work->deliver($m, $me, $data['note'], array_values($request->file('files', []))),

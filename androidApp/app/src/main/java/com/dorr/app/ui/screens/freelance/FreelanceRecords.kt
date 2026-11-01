@@ -1,5 +1,20 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.dorr.app.ui.screens.profile.settingsSurface
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.*
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -46,15 +61,14 @@ internal fun ReceiptsCard(projectUuid: String, refreshKey: String) {
     var open by remember { mutableStateOf<FreelanceReceiptDto?>(null) }
     LaunchedEffect(refreshKey, reconnect) {
         try {
-            list = ApiClient.freelance.receipts(auth()).data.orEmpty().filter { it.project?.uuid == projectUuid }
+            list = ApiClient.freelance.receipts(auth(), project = projectUuid).data.orEmpty()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
         }
     }
     if (list.isEmpty()) return
-    Card {
-        Label(stringResource(R.string.fl_rcp_title))
+    Card(Icons.Rounded.Receipt, stringResource(R.string.fl_rcp_title)) {
         list.forEach { r ->
             Row(Modifier.fillMaxWidth().clickable {
                 scope.launch {
@@ -104,7 +118,7 @@ internal fun TrailCard(projectUuid: String, refreshKey: String) {
     if (list.isEmpty()) return
     Card {
         Row(Modifier.fillMaxWidth().clickable { shown = !shown }, verticalAlignment = Alignment.CenterVertically) {
-            Label(stringResource(R.string.fl_trail_title, list.size))
+            FlHeading(Icons.Rounded.History, stringResource(R.string.fl_trail_title, list.size))
             Text(stringResource(if (shown) R.string.fl_trail_hide else R.string.fl_trail_show), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f).padding(start = 8.dp))
         }

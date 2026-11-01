@@ -513,7 +513,7 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 | POST | `conversations/{c}/calls` `{type: audio\|video, recording_consent?}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call (`recording_consent` when it records — see below) |
 | POST | `calls/{id}/accept` `{recording_consent?}` · `decline` · `leave` | Accept returns `join` |
 | GET | `calls/{id}/token?recording_consent=1` | Rejoin an ongoing call |
-| GET | `calls` · `calls/{id}` | Call log |
+| GET | `calls?page=&per_page=` · `calls/{id}` | Call log, newest first. Pages of 15 (`per_page` default 15, max 50). `pagination.has_more_pages` |
 
 Every call payload also has `recording_available` (the record button shows only then), `recording` (asking or recording right now, the state below, or `null`) and `recordings_count` (recordings of this call I agreed to).
 
@@ -681,7 +681,7 @@ Calling a link joins one LiveKit room (`link-{token}`). Nobody is rung and no ch
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `call-links` | My links that still work |
+| GET | `call-links` | My links that still work. `page` / `per_page` (default 15, max 50), `pagination.has_more_pages` / `total` |
 | POST | `call-links` | `{type: audio\|video}`. At most 20 at a time (`chat_call_link_limit`). Each lasts 30 days |
 | GET | `call-links/{token}` | `{token, type, link, payload, owner, is_mine, expires_at, last_joined_at}` |
 | POST | `call-links/{token}/join` | `{link, join: {url, room, token}}` |
@@ -731,7 +731,7 @@ How it fits together:
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `communities` | Mine |
+| GET | `communities` | Mine. `page` / `per_page` (default 15, max 50), `q` (name or description), `pagination.has_more_pages` |
 | POST | `communities` | `{name, description?, groups?: [ids of groups I run, not in a community], avatar?}`. A group already in a community returns `chat_community_group_taken` |
 | GET | `communities/{id}` | See the fields below |
 | POST | `communities/{id}` | `{name?, description?, avatar?}`. Admins only |

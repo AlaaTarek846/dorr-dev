@@ -11,7 +11,10 @@ use Modules\Freelance\Console\ExecuteDisputeDecisions;
 use Modules\Freelance\Console\ReleaseFreelanceEarnings;
 use Modules\Freelance\Console\PublishFreelanceReviews;
 use Modules\Freelance\Console\ReconcileFreelanceMoney;
+use Modules\Freelance\Console\TellFreelanceLateWork;
 use Modules\Freelance\Console\RemindFreelanceInterviews;
+use Modules\Freelance\Console\RefreshFreelancerRisk;
+use Modules\Freelance\Console\RemindProgressReports;
 use Modules\Freelance\Console\ExpireVerificationDocuments;
 use Illuminate\Support\Facades\Event;
 use Modules\Freelance\Events\FreelanceSkillsMerged;
@@ -48,7 +51,10 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         ReleaseFreelanceEarnings::class,
         PublishFreelanceReviews::class,
         ReconcileFreelanceMoney::class,
+        TellFreelanceLateWork::class,
         RemindFreelanceInterviews::class,
+        RemindProgressReports::class,
+        RefreshFreelancerRisk::class,
     ];
 
     public function boot(): void
@@ -73,7 +79,11 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         $schedule->command(ReleaseFreelanceEarnings::class)->hourly()->withoutOverlapping();
         $schedule->command(PublishFreelanceReviews::class)->hourly()->withoutOverlapping();
         $schedule->command(ReconcileFreelanceMoney::class)->dailyAt('03:20')->withoutOverlapping();
+        $schedule->command(TellFreelanceLateWork::class)->dailyAt('08:00')->withoutOverlapping();
         $schedule->command(RemindFreelanceInterviews::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(RemindProgressReports::class)->hourly()->withoutOverlapping();
+        // FL-707: the quality score and risk level shown to staff.
+        $schedule->command(RefreshFreelancerRisk::class)->dailyAt('04:10')->withoutOverlapping();
     }
 
     /**

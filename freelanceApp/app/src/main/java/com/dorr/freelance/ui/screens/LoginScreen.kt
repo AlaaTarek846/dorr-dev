@@ -17,7 +17,22 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
+import com.dorr.freelance.ui.components.InlineErrorBanner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,7 +57,6 @@ import com.dorr.freelance.net.OtpRequest
 import com.dorr.freelance.net.errorText
 import com.dorr.freelance.net.formattedDial
 import com.dorr.freelance.ui.components.DorrLogo
-import com.dorr.freelance.ui.components.ErrorBanner
 import com.dorr.freelance.ui.components.LanguageSwitch
 import com.dorr.freelance.ui.components.PhoneField
 import com.dorr.freelance.ui.kit.AccountDark
@@ -65,6 +79,10 @@ fun LoginScreen(onOtpSent: (dialCode: String, phone: String, cooldownSeconds: In
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // The terms must be agreed to before a code is asked for (the DORR app's sign-in page); the two links open the policies.
+    var acceptedTerms by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
 
     var selectedCountryId by remember { mutableStateOf<Int?>(null) }
     var flagCode by remember { mutableStateOf("sa") }
@@ -100,7 +118,8 @@ fun LoginScreen(onOtpSent: (dialCode: String, phone: String, cooldownSeconds: In
     }
 
     val isPhoneValid = phone.length == phoneLength && (phoneStartsWith.isEmpty() || phone.startsWith(phoneStartsWith))
-    val canSubmit = !isLoading && isPhoneValid
+    val isFormValid = acceptedTerms && isPhoneValid
+    val canSubmit = !isLoading && isFormValid
 
     val phoneError: String? = when {
         phone.isEmpty() -> null
@@ -185,18 +204,55 @@ fun LoginScreen(onOtpSent: (dialCode: String, phone: String, cooldownSeconds: In
                     canSubmit = canSubmit,
                     onSubmit = ::submit,
                 )
-                ErrorBanner(phoneError, Modifier.fillMaxWidth())
+                InlineErrorBanner(phoneError, Modifier.fillMaxWidth())
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(28.dp).clickable { acceptedTerms = !acceptedTerms }, contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (acceptedTerms) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                            contentDescription = null,
+                            tint = if (acceptedTerms) accent else if (night) AccountDark.line else Color(0xFFD1D5DB),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    val terms = buildAnnotatedString {
+                        val link = SpanStyle(color = accent, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)
+                        append(stringResource(R.string.login_terms_prefix))
+                        pushStringAnnotation("link", "terms")
+                        withStyle(link) { append(stringResource(R.string.login_terms_use)) }
+                        pop()
+                        append(stringResource(R.string.login_terms_mid))
+                        pushStringAnnotation("link", "privacy")
+                        withStyle(link) { append(stringResource(R.string.login_terms_privacy)) }
+                        pop()
+                    }
+                    ClickableText(
+                        text = terms,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 20.sp, color = mut),
+                        modifier = Modifier.weight(1f),
+                        onClick = { offset ->
+                            when (terms.getStringAnnotations("link", offset, offset).firstOrNull()?.item) {
+                                "terms" -> showTerms = true
+                                "privacy" -> showPrivacy = true
+                            }
+                        },
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
                 SettingsPrimaryButton(
                     text = stringResource(R.string.login_cta),
-                    enabled = isPhoneValid,
+                    enabled = isFormValid,
                     loading = isLoading,
                     onClick = ::submit,
                 )
-                ErrorBanner(errorMessage, Modifier.fillMaxWidth())
+                InlineErrorBanner(errorMessage, Modifier.fillMaxWidth())
             }
         }
+        if (showPrivacy) PrivacyPolicyScreen(onBack = { showPrivacy = false })
+        if (showTerms) TermsConditionsScreen(onBack = { showTerms = false })
     }
 }
 

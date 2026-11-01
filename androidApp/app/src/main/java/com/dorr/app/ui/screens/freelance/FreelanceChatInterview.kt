@@ -1,5 +1,19 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -79,24 +93,24 @@ internal fun InterviewPanel(roomUuid: String, canWrite: Boolean, items: List<Fre
     ) {
         if (open != null) {
             val toAnswer = open.status == "proposed" && open.proposedBy != "client"
-            Text(stringResource(R.string.fl_iv_title), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(interviewWhen(open.startsAt) + " · " + stringResource(R.string.fl_iv_minutes, open.durationMinutes), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            FlHeading(Icons.Rounded.Event, stringResource(R.string.fl_iv_title))
+            Text(interviewWhen(open.startsAt) + " · " + stringResource(R.string.fl_iv_minutes, open.durationMinutes), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             open.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
             Text(
                 stringResource(if (open.status == "confirmed") R.string.fl_iv_confirmed else if (toAnswer) R.string.fl_iv_asks_you else R.string.fl_iv_waiting),
                 color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (toAnswer) {
-                    TextAction(stringResource(R.string.fl_iv_confirm)) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "confirm") } }
-                    TextAction(stringResource(R.string.fl_iv_decline), danger = true) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "decline") } }
+                    FlAction(stringResource(R.string.fl_iv_confirm), Icons.Rounded.CheckCircle, FlTone.Primary, enabled = !busy) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "confirm") } }
+                    FlAction(stringResource(R.string.fl_iv_decline), Icons.Rounded.Cancel, FlTone.Danger, enabled = !busy) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "decline") } }
                 } else {
-                    TextAction(stringResource(R.string.fl_iv_cancel), danger = true) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "cancel") } }
+                    FlAction(stringResource(R.string.fl_iv_cancel), Icons.Rounded.Cancel, FlTone.Danger, enabled = !busy) { run { ApiClient.freelance.answerInterview(auth(), roomUuid, open.uuid, "cancel") } }
                 }
-                if (canWrite) TextAction(stringResource(R.string.fl_iv_other_time)) { picking = !picking }
+                if (canWrite) FlAction(stringResource(R.string.fl_iv_other_time), Icons.Rounded.Schedule) { picking = !picking }
             }
         } else {
-            TextAction(stringResource(R.string.fl_iv_schedule)) { picking = !picking }
+            FlAction(stringResource(R.string.fl_iv_schedule), Icons.Rounded.EventAvailable) { picking = !picking }
         }
         if (picking && canWrite) InterviewPicker(busy) { startsAt, minutes -> run { ApiClient.freelance.proposeInterview(auth(), roomUuid, FreelanceInterviewRequest(startsAt, minutes)) } }
     }
@@ -110,14 +124,15 @@ private fun InterviewPicker(busy: Boolean, onSend: (String, Int) -> Unit) {
     var minutes by remember { mutableStateOf(15) }
     val slots = remember { (8..22).flatMap { h -> listOf(LocalTime.of(h, 0), LocalTime.of(h, 30)) } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlHeading(Icons.Rounded.CalendarMonth, stringResource(R.string.fl_iv_title))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            (0..13).forEach { n -> val d = today.plusDays(n.toLong()); Chip(d.format(DateTimeFormatter.ofPattern("EEE d MMM")), d == day) { day = d } }
+            (0..13).forEach { n -> val d = today.plusDays(n.toLong()); Chip(d.format(DateTimeFormatter.ofPattern("EEE d MMM")), d == day, Icons.Rounded.CalendarMonth) { day = d } }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            slots.forEach { t -> Chip(t.format(DateTimeFormatter.ofPattern("HH:mm")), t == time) { time = t } }
+            slots.forEach { t -> Chip(t.format(DateTimeFormatter.ofPattern("HH:mm")), t == time, Icons.Rounded.Schedule) { time = t } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(10, 15, 30, 45, 60).forEach { m -> Chip(stringResource(R.string.fl_iv_minutes, m), m == minutes) { minutes = m } }
+            listOf(10, 15, 30, 45, 60).forEach { m -> Chip(stringResource(R.string.fl_iv_minutes, m), m == minutes, Icons.Rounded.Timer) { minutes = m } }
         }
         SettingsPrimaryButton(text = stringResource(R.string.fl_iv_send), loading = busy, onClick = {
             onSend(ZonedDateTime.of(day, time, ZoneId.systemDefault()).toOffsetDateTime().toString(), minutes)

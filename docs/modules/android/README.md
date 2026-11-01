@@ -109,7 +109,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
     - Tapping a layer picks it and shows a delete button. Tapping picked text rewrites it.
     - Layers are placed in the photo or video's own frame (`style[aspect]`). The viewer draws them with `StoryLayersView`.
   - **Call links (72) — `ChatCallLinks.kt`:**
-    - The calls page has "Create call link", plus my links (copy, share, join, cancel).
+    - The calls page has "Create call link" and a call-link log (count on the row, pages of 15). Copy, share, join, cancel stay on the link sheet.
     - `CallLinkSheet` opens from `dorr://chat/call/X`, https `/call/X`, a QR, a typed code, or the "someone joined" push.
     - `CallController.joinLink` joins the room with no call row and no hang-up when alone.
   - **Screen sharing (71):**
@@ -122,7 +122,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
     - The sender sees "N answered" and who picked what.
   - **Communities (93–98) — `ChatCommunityUi.kt`:**
     - Chat menu → Communities, routes `ChRoute.Communities` and `ChRoute.Community(id)`.
-    - A community page has announcements, my groups, and other groups (join or ask).
+    - A community page has announcements, my groups, and other groups (join or ask). Each list shows 6 then «عرض الكل (N)» (`ChRoute.CommunityGroups`).
     - Admin tools: add or make groups, members and admins, rename, delete (creator) or leave.
     - A group's info page links to its community.
 

@@ -89,7 +89,13 @@ return [
         'max_reopens' => 3,
         'max_duration_days' => 365,
         'attachment_types' => ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip'],
+        // FL-210: when the final preview warns — a range whose top is over N times its bottom; a very short or very long project
+        // next to a budget that is many times / hardly over the country's smallest budget.
+        'preview' => ['range_ratio' => 5, 'short_days' => 3, 'long_days' => 180, 'big_budget_times' => 10, 'small_budget_times' => 2],
     ],
+
+    // FL-208: the most freelancers told about one new project (the best fits first).
+    'matching' => ['max_recipients' => 100],
 
     // Offers (FL-301): how long the text must be, how many files.
     'offers' => ['details_min' => 30, 'details_max' => 3000, 'max_attachments' => 5],
@@ -102,4 +108,31 @@ return [
 
     // The terms the freelancer must accept; raise it when the terms change and everyone accepts again.
     'terms_version' => env('FREELANCE_TERMS_VERSION', '1'),
+
+    /*
+    | FL-708: warnings, limits and suspensions — never automatic, always a person with a reason, and always open to an appeal that
+    | another person decides. Days are the defaults proposed to the owner (2026-10-26); change them here.
+    */
+    'sanctions' => [
+        'warning_days' => 90,      // a warning stays on the account this long (no limit, only a notice)
+        'limit_max_days' => 30,    // a chat / work limit lasts 1..this many days
+        'suspension_max_days' => 365, // a suspension may have an end, or none (until lifted)
+        'appeal_days' => 14,       // the days to appeal after it starts
+    ],
+
+    /*
+    | FL-707: the internal quality score (0-100) and risk level, for staff only. They never act on an account by themselves.
+    | Weights are shares of the score (the parts that have no data yet are left out and the others scaled up);
+    | penalties are points off for each case in `window_days`.
+    */
+    'quality' => [
+        'window_days' => 90,
+        'weights' => ['rating' => 40, 'on_time' => 30, 'completion' => 30],
+        'penalties' => ['dispute_lost' => 10, 'report_upheld' => 5, 'sanction' => 10],
+        // What raises the level; the level is the highest any rule reaches, and every rule that matched is shown as a reason.
+        'risk' => [
+            'high' => ['reports_upheld' => 3, 'disputes_lost' => 2, 'suspensions' => 1],
+            'medium' => ['reports_upheld' => 1, 'disputes_lost' => 1, 'sanctions' => 1, 'cancel_rate' => 30, 'cancel_min' => 3],
+        ],
+    ],
 ];

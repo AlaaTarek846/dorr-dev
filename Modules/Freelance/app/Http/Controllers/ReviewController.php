@@ -13,6 +13,9 @@ use Modules\Freelance\Services\Projects\Agreements;
 use Modules\Freelance\Services\Projects\ClientProjects;
 use Modules\Freelance\Services\Projects\FreelanceReviews;
 use Modules\Freelance\Services\Projects\FreelancerProjects;
+use Modules\Freelance\Services\Projects\ReviewObjections;
+use Modules\Freelance\Services\Projects\SatisfactionSurveys;
+use Illuminate\Validation\Rule;
 
 /**
  * Rating each other after a project (FL-701), for both sides: `GET|POST projects/{uuid}/review` (client at `mobile/v1/freelance`, freelancer
@@ -41,6 +44,40 @@ class ReviewController extends Controller
         $this->reviews->rate($a, $me, $side, $data['scores'], $data['comment'] ?? null);
 
         return ApiResponse::created($this->reviews->forAgreement($a->refresh(), $side), __('freelance.review_sent'));
+    }
+
+    /** POST {uuid}/review/objection {reason: abusive|false|unfair|other, note} (FL-706) - object to the rating about me, once. */
+    public function object(Request $request, string $uuid): JsonResponse
+    {
+        $data = $request->validate(['reason' => ['required', Rule::in(ReviewObjections::REASONS)], 'note' => ['required', 'string', 'min:5', 'max:500']]);
+        [$me, $side, $a] = $this->context($request, $uuid);
+        app(ReviewObjections::class)->object($a, $me, $side, $data['reason'], $data['note']);
+
+        return ApiResponse::created($this->reviews->forAgreement($a->refresh(), $side), __('freelance.objection_sent'));
+    }
+
+    /** GET {uuid}/survey (FL-702) - the short satisfaction survey of a finished project, for me. */
+    public function survey(Request $request, string $uuid): JsonResponse
+    {
+        [, $side, $a] = $this->context($request, $uuid);
+
+        return ApiResponse::success(app(SatisfactionSurveys::class)->forAgreement($a, $side), __('api.retrieved'));
+    }
+
+    /** POST {uuid}/survey {score: 1..5, reasons?: [], comment?} (FL-702) */
+    public function answerSurvey(Request $request, string $uuid): JsonResponse
+    {
+        $data = $request->validate([
+            'score' => ['required', 'integer', 'min:1', 'max:5'],
+            'reasons' => ['nullable', 'array', 'max:8'],
+            'reasons.*' => ['string', Rule::in(SatisfactionSurveys::REASONS)],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        [$me, $side, $a] = $this->context($request, $uuid);
+        $surveys = app(SatisfactionSurveys::class);
+        $surveys->answer($a, $me, $side, (int) $data['score'], $data['reasons'] ?? [], $data['comment'] ?? null);
+
+        return ApiResponse::created($surveys->forAgreement($a, $side), __('freelance.survey_sent'));
     }
 
     /** GET reviews — the freelancer's own numbers and the latest ratings clients gave them. */

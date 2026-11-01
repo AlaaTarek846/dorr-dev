@@ -34,6 +34,10 @@ interface ChatApi {
     @POST("${ApiClient.FREELANCE}chat/conversations/{uuid}/interviews/{interview}/{action}")
     suspend fun answerInterview(@Path("uuid") uuid: String, @Path("interview") interview: String, @Path("action") action: String): Response<ApiEnvelope<List<InterviewDto>>>
 
+    /** FL-709: report the other person's message. */
+    @POST("${ApiClient.FREELANCE}chat/messages/{id}/report")
+    suspend fun reportMessage(@Path("id") id: Int, @Body body: ReportMessageRequest): Response<ApiEnvelope<Any?>>
+
     @POST("${ApiClient.FREELANCE}chat/conversations/{uuid}/read")
     suspend fun read(@Path("uuid") uuid: String): Response<ApiEnvelope<Map<String, Int>>>
 }
@@ -63,6 +67,8 @@ data class ChatMessageDto(
 )
 
 data class ChatSendRequest(val body: String, @SerializedName("client_id") val clientId: String)
+
+data class ReportMessageRequest(val reason: String, val note: String? = null)
 
 /** What my offer shows of the room (null: the client has not opened one). */
 data class OfferChatDto(val uuid: String, val unread: Int = 0, @SerializedName("can_write") val canWrite: Boolean = false)

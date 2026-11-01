@@ -8,10 +8,18 @@ use Modules\Freelance\Http\Controllers\FreelanceCatalogController;
 use Modules\Freelance\Http\Controllers\FreelanceChatController;
 use Modules\Freelance\Http\Controllers\MilestoneDeliveryController;
 use Modules\Freelance\Http\Controllers\FreelanceInterviewController;
+use Modules\Freelance\Http\Controllers\ProgressReportController;
 use Modules\Freelance\Http\Controllers\FreelanceConfigController;
+use Modules\Freelance\Http\Controllers\FreelanceLegalPageController;
 use Modules\Freelance\Http\Controllers\FreelanceRealtimeController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAccountController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAuthController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAppearanceController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerMyProjectsController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerRatingController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerReferralController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerSecurityController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerSupportController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAvailabilityController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerPortfolioController;
 use Modules\Freelance\Http\Controllers\ChangeRequestController;
@@ -33,6 +41,9 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::post('auth/resend', [FreelancerAuthController::class, 'resendOtp']);
     });
 
+    // The Freelance service's privacy policy and terms, read before sign-in too (falls back to the general pages).
+    Route::get('legal-pages', [FreelanceLegalPageController::class, 'show'])->middleware('throttle:60,1');
+
     // Anyone may read a verified freelancer's public works (the website).
     Route::get('public/freelancers/{uuid}/portfolio', [PortfolioViewController::class, 'show'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-public-portfolio');
 
@@ -46,6 +57,24 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::get('realtime-config', FreelanceRealtimeController::class);
         Route::get('auth/me', [FreelancerAuthController::class, 'me']);
         Route::post('auth/logout', [FreelancerAuthController::class, 'logout']);
+
+        // The app's colours, dark mode and font, as in the DORR app's settings.
+        Route::get('appearance', [FreelancerAppearanceController::class, 'show']);
+        Route::put('appearance', [FreelancerAppearanceController::class, 'update']);
+
+        // Rate the app, the FAQs and support (the guided help, tickets and their conversations) - as in the DORR app.
+        Route::get('ratings/mine', [FreelancerRatingController::class, 'mine']);
+        Route::post('ratings', [FreelancerRatingController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('faqs', [\Modules\User\Http\Controllers\Mobile\FaqController::class, 'index']);
+        Route::get('support-help', [FreelancerSupportController::class, 'help']);
+        Route::post('support-help/{node}/feedback', [FreelancerSupportController::class, 'helpFeedback'])->whereNumber('node')->middleware('throttle:30,1');
+        Route::get('support-tickets', [FreelancerSupportController::class, 'index']);
+        Route::post('support-tickets', [FreelancerSupportController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('support-tickets/{ticket}', [FreelancerSupportController::class, 'show'])->whereNumber('ticket');
+        Route::patch('support-tickets/{ticket}/status', [FreelancerSupportController::class, 'status'])->whereNumber('ticket');
+        Route::get('support-tickets/{ticket}/messages', [FreelancerSupportController::class, 'messages'])->whereNumber('ticket');
+        Route::post('support-tickets/{ticket}/messages', [FreelancerSupportController::class, 'send'])->whereNumber('ticket')->middleware('throttle:30,1');
+        Route::post('support-tickets/{ticket}/auto-reply-feedback', [FreelancerSupportController::class, 'autoReplyFeedback'])->whereNumber('ticket')->middleware('throttle:30,1');
 
         Route::put('profile', [FreelancerAccountController::class, 'updateProfile']);
         Route::post('profile/email/send-code', [FreelancerAccountController::class, 'sendEmailCode'])->middleware('throttle:5,1,freelancer-email-code');
@@ -84,10 +113,17 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             // FL-701: rating each other after the project.
             Route::get('{uuid}/review', [ReviewController::class, 'show'])->whereUuid('uuid');
             Route::post('{uuid}/review', [ReviewController::class, 'store'])->whereUuid('uuid')->middleware('freelance.feature:ratings');
+            // FL-706: object to the rating about me. FL-702: the short satisfaction survey.
+            Route::post('{uuid}/review/objection', [ReviewController::class, 'object'])->whereUuid('uuid')->middleware(['freelance.feature:ratings', 'throttle:10,1,freelance-objection']);
+            Route::get('{uuid}/survey', [ReviewController::class, 'survey'])->whereUuid('uuid');
+            Route::post('{uuid}/survey', [ReviewController::class, 'answerSurvey'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-survey');
             // FL-404 / FL-405: changes to an active agreement.
             // FL-406: the record of approvals.
             Route::get('{uuid}/agreement/trail', [ApprovalTrailController::class, 'index'])->whereUuid('uuid');
             Route::get('{uuid}/agreement/changes', [ChangeRequestController::class, 'index'])->whereUuid('uuid');
+            // FL-605: optional progress reports (the freelancer sends, the two read).
+            Route::get('{uuid}/reports', [ProgressReportController::class, 'index'])->whereUuid('uuid');
+            Route::post('{uuid}/reports', [ProgressReportController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-report');
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
             Route::post('{uuid}/agreement/decline', [FreelancerAgreementController::class, 'decline'])->whereUuid('uuid');
@@ -106,9 +142,15 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         });
         // FL-703: my numbers and the latest ratings clients gave me.
         Route::get('reviews', [ReviewController::class, 'mine']);
+        // FL-708: my warnings, limits and suspensions, and appealing one.
+        Route::get('sanctions', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'index']);
+        Route::post('sanctions/{uuid}/appeal', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'appeal'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-sanction-appeal');
         // FL-511: my receipts of the project money.
         Route::get('receipts', [ReceiptController::class, 'index']);
         Route::get('receipts/{uuid}', [ReceiptController::class, 'show'])->whereUuid('uuid');
+
+        // The projects I was chosen for: working on, finished, or ended (the app's «My work» tab).
+        Route::get('my-projects', [FreelancerMyProjectsController::class, 'index'])->middleware('freelance.feature:projects');
 
         // FL-509: my earnings from projects.
         Route::get('earnings', [FreelancerAgreementController::class, 'earnings'])->middleware('freelance.feature:projects');
@@ -150,6 +192,13 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::get('verification/documents/{document}/{side}', [FreelancerVerificationController::class, 'file'])->whereNumber('document')->whereIn('side', ['front', 'back']);
         Route::delete('verification/documents/{document}', [FreelancerVerificationController::class, 'destroy'])->whereNumber('document');
         Route::post('terms/accept', [FreelancerAccountController::class, 'acceptTerms']);
+        // Settings > Security: the devices signed in (sign any out, or all but this one) and the account's security log.
+        Route::get('security/devices', [FreelancerSecurityController::class, 'devices']);
+        Route::post('security/devices/logout-others', [FreelancerSecurityController::class, 'signOutOthers'])->middleware('throttle:10,1');
+        Route::delete('security/devices/{session}', [FreelancerSecurityController::class, 'signOut'])->whereNumber('session')->middleware('throttle:20,1');
+        Route::get('security/events', [FreelancerSecurityController::class, 'events']);
+        // Account > Share the app with friends: the freelancer's own invite code.
+        Route::get('referrals/my-code', [FreelancerReferralController::class, 'myCode']);
         Route::get('devices', [FreelancerAccountController::class, 'devices']);
         Route::delete('devices/{device}', [FreelancerAccountController::class, 'destroyDevice'])->whereNumber('device');
         Route::delete('account', [FreelancerAccountController::class, 'destroyAccount']);
@@ -166,6 +215,8 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             Route::post('conversations/{uuid}/interviews', [FreelanceInterviewController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-interview');
             Route::post('conversations/{uuid}/interviews/{interview}/{action}', [FreelanceInterviewController::class, 'respond'])->whereUuid(['uuid', 'interview'])->whereIn('action', ['confirm', 'decline', 'cancel']);
             Route::delete('messages/{message}', [FreelanceChatController::class, 'destroy'])->whereNumber('message');
+            // FL-709: report the other person's message.
+            Route::post('messages/{message}/report', [\Modules\Freelance\Http\Controllers\MessageReportController::class, 'store'])->whereNumber('message')->middleware('throttle:20,1,freelance-message-report');
         });
     });
 

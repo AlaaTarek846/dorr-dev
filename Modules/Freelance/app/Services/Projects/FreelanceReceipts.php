@@ -4,6 +4,7 @@ namespace Modules\Freelance\Services\Projects;
 
 use App\Models\Country;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\Freelance\Models\FreelanceAgreement as Agreement;
 use Modules\Freelance\Models\FreelanceMilestone as Milestone;
@@ -54,15 +55,18 @@ class FreelanceReceipts
     }
 
     /**
+     * One page of the owner's receipts, newest first (of one project when `$projectUuid` is given).
+     *
      * @param  'client'|'freelancer'  $side
-     * @return array{data: list<array<string, mixed>>}
+     * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function list(Model $owner, string $side, int $limit = 50): array
+    public function list(Model $owner, string $side, int $perPage = 15, ?string $projectUuid = null): LengthAwarePaginator
     {
-        $rows = Receipt::query()->where($side === 'client' ? 'client_id' : 'freelancer_id', $owner->getKey())->where('party', $side)
-            ->with('project:id,uuid,title', 'milestone:id,uuid,title')->orderByDesc('id')->limit($limit)->get();
+        $page = Receipt::query()->where($side === 'client' ? 'client_id' : 'freelancer_id', $owner->getKey())->where('party', $side)
+            ->when($projectUuid !== null, fn ($q) => $q->whereHas('project', fn ($p) => $p->where('uuid', $projectUuid)))
+            ->with('project:id,uuid,title', 'milestone:id,uuid,title')->orderByDesc('id')->paginate($perPage);
 
-        return ['data' => $rows->map(fn (Receipt $r) => $this->present($r, false))->all()];
+        return $page->setCollection($page->getCollection()->map(fn (Receipt $r) => $this->present($r, false))->values());
     }
 
     public function find(Model $owner, string $side, string $uuid): Receipt

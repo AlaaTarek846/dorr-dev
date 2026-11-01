@@ -38,7 +38,7 @@ class SupportTicketService
         $first = null;
 
         $ticket = DB::transaction(function () use ($user, $title, $body, $image, $rideId, $category, $reference, &$first) {
-            $path = $image?->store('support-tickets/'.($this->isDriver($user) ? 'd' : '').$user->getKey(), 'public');
+            $path = $image?->store('support-tickets/'.($this->isDriver($user) ? 'd' : ($this->isFreelancer($user) ? 'f' : '')).$user->getKey(), 'public');
 
             $ticket = SupportTicket::query()->create($this->ownerColumns($user) + [
                 'ride_id' => $rideId,
@@ -91,6 +91,7 @@ class SupportTicketService
         $message = $this->addMessage($ticket, [
             'user_id' => $ticket->user_id,
             'driver_id' => $ticket->driver_id,
+            'freelancer_id' => $ticket->freelancer_id,
             'admin_id' => $admin->getKey(),
             'sender' => SupportMessage::SENDER_SUPPORT,
         ], $body, $image, 'support-messages/'.$ticket->getKey());
@@ -215,7 +216,16 @@ class SupportTicketService
     /** @return array{user_id: ?int, driver_id: ?int} who a ticket / message belongs to */
     private function ownerColumns(\Illuminate\Database\Eloquent\Model $owner): array
     {
-        return $this->isDriver($owner) ? ['user_id' => null, 'driver_id' => $owner->getKey()] : ['user_id' => $owner->getKey(), 'driver_id' => null];
+        return match (true) {
+            $this->isDriver($owner) => ['user_id' => null, 'driver_id' => $owner->getKey(), 'freelancer_id' => null],
+            $this->isFreelancer($owner) => ['user_id' => null, 'driver_id' => null, 'freelancer_id' => $owner->getKey()],
+            default => ['user_id' => $owner->getKey(), 'driver_id' => null, 'freelancer_id' => null],
+        };
+    }
+
+    private function isFreelancer(\Illuminate\Database\Eloquent\Model $owner): bool
+    {
+        return $owner instanceof \Modules\Freelance\Models\Freelancer;
     }
 
     private function isDriver(\Illuminate\Database\Eloquent\Model $owner): bool

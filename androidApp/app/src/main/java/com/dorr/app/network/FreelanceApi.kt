@@ -27,7 +27,7 @@ interface FreelanceApi {
     suspend fun specialties(@Header("Authorization") auth: String): ApiEnvelope<List<FreelanceSpecialtyNodeDto>>
 
     @GET("mobile/v1/freelance/skills")
-    suspend fun skills(@Header("Authorization") auth: String, @Query("q") q: String?, @Query("per_page") perPage: Int = 30): ApiEnvelope<List<FreelanceSkillDto>>
+    suspend fun skills(@Header("Authorization") auth: String, @Query("q") q: String?, @Query("per_page") perPage: Int = 30, @Query("specialty_id") specialtyId: Int? = null): ApiEnvelope<List<FreelanceSkillDto>>
 
     @GET("mobile/v1/freelance/projects")
     suspend fun projects(@Header("Authorization") auth: String, @Query("status") status: String? = null, @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15): ApiEnvelope<List<FreelanceProjectDto>>
@@ -53,6 +53,21 @@ interface FreelanceApi {
     @POST("mobile/v1/freelance/projects/{uuid}/withdraw")
     suspend fun withdraw(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
 
+    /** FL-209: asks for the project again — a new draft with the same details. */
+    @POST("mobile/v1/freelance/projects/{uuid}/duplicate")
+    suspend fun duplicate(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
+
+    /** FL-210: the last look before sending, with what is missing or doesn't add up. */
+    @GET("mobile/v1/freelance/projects/{uuid}/preview")
+    suspend fun preview(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelancePreviewDto>
+
+    /** FL-210: the most I will pay in all, fee included. */
+    @PUT("mobile/v1/freelance/projects/{uuid}/cost-cap")
+    suspend fun setCostCap(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceCostCapRequest): ApiEnvelope<FreelanceProjectDto>
+
+    @DELETE("mobile/v1/freelance/projects/{uuid}/cost-cap")
+    suspend fun removeCostCap(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
+
     /** The offers on my project (FL-305): sort = newest · cheapest · fastest · completeness; status = shortlisted … (null: all). */
     @GET("mobile/v1/freelance/projects/{uuid}/offers")
     suspend fun offers(
@@ -60,6 +75,8 @@ interface FreelanceApi {
         @Path("uuid") uuid: String,
         @Query("sort") sort: String? = null,
         @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
     ): ApiEnvelope<List<FreelanceOfferDto>>
 
     /** Two or three offers side by side (ids comma separated). */
@@ -98,6 +115,10 @@ interface FreelanceApi {
     @POST("mobile/v1/freelance/projects/{uuid}/milestones/{milestone}/{action}")
     suspend fun milestoneAction(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("milestone") milestone: String, @Path("action") action: String, @Body body: FreelanceDecisionRequest): ApiEnvelope<FreelanceAgreementDto>
 
+    /** FL-605: the optional progress reports (the freelancer sends them; I read them). */
+    @GET("mobile/v1/freelance/projects/{uuid}/reports")
+    suspend fun reports(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceReportsDto>
+
     @POST("mobile/v1/freelance/projects/{uuid}/agreement/send")
     suspend fun sendAgreement(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceAgreementDto>
 
@@ -106,7 +127,7 @@ interface FreelanceApi {
 
     /** FL-511: my receipts of the project money, newest first; one with its text to share. */
     @GET("mobile/v1/freelance/receipts")
-    suspend fun receipts(@Header("Authorization") auth: String): ApiEnvelope<List<FreelanceReceiptDto>>
+    suspend fun receipts(@Header("Authorization") auth: String, @Query("project") project: String? = null, @Query("per_page") perPage: Int = 50): ApiEnvelope<List<FreelanceReceiptDto>>
 
     @GET("mobile/v1/freelance/receipts/{uuid}")
     suspend fun receipt(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceReceiptDto>
@@ -118,6 +139,23 @@ interface FreelanceApi {
     /** FL-701: rate the freelancer after the project. */
     @POST("mobile/v1/freelance/projects/{uuid}/review")
     suspend fun review(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceReviewRequest): ApiEnvelope<FreelanceReviewDto>
+
+    /** FL-706: object to the freelancer's rating of me (once). FL-702: the satisfaction survey after the project. */
+    @POST("mobile/v1/freelance/projects/{uuid}/review/objection")
+    suspend fun objectToReview(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceObjectionRequest): ApiEnvelope<FreelanceReviewDto>
+
+    @GET("mobile/v1/freelance/projects/{uuid}/survey")
+    suspend fun survey(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceSurveyDto>
+
+    @POST("mobile/v1/freelance/projects/{uuid}/survey")
+    suspend fun answerSurvey(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceSurveyRequest): ApiEnvelope<FreelanceSurveyDto>
+
+    /** FL-708: my warnings and restrictions on freelance work, and appealing one (once, within the days). */
+    @GET("mobile/v1/freelance/sanctions")
+    suspend fun sanctions(@Header("Authorization") auth: String): ApiEnvelope<FreelanceSanctionsDto>
+
+    @POST("mobile/v1/freelance/sanctions/{uuid}/appeal")
+    suspend fun appealSanction(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceSanctionAppealRequest): ApiEnvelope<FreelanceSanctionsDto>
 
     /** FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw). */
     @POST("mobile/v1/freelance/projects/{uuid}/agreement/changes")
@@ -141,7 +179,7 @@ interface FreelanceApi {
 
     /** FL-306: the freelancers I keep. */
     @GET("mobile/v1/freelance/favorites")
-    suspend fun favorites(@Header("Authorization") auth: String): ApiEnvelope<List<FreelanceFavoriteDto>>
+    suspend fun favorites(@Header("Authorization") auth: String, @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15): ApiEnvelope<List<FreelanceFavoriteDto>>
 
     @POST("mobile/v1/freelance/favorites/{uuid}")
     suspend fun addFavorite(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<Any?>
@@ -162,6 +200,10 @@ interface FreelanceApi {
 
     @POST("mobile/v1/freelance/chat/conversations/{uuid}/messages")
     suspend fun chatSend(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceChatSend): ApiEnvelope<FreelanceChatMessageDto>
+
+    /** FL-709: report the other person's message. */
+    @POST("mobile/v1/freelance/chat/messages/{id}/report")
+    suspend fun reportMessage(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: FreelanceReportMessageRequest): ApiEnvelope<Any?>
 
     /** FL-310: the interviews of this room; propose a time; confirm / decline / cancel one. */
     @GET("mobile/v1/freelance/chat/conversations/{uuid}/interviews")
@@ -251,11 +293,18 @@ data class FreelanceProjectDto(
     val specialty: FreelanceNamedDto? = null,
     val skills: List<FreelanceNamedDto> = emptyList(),
     val budget: FreelanceBudgetDto = FreelanceBudgetDto(),
+    /** FL-210: the most I pay in all (fee included), or null. */
+    @SerializedName("max_cost_minor") val maxCostMinor: Long? = null,
     @SerializedName("duration_days") val durationDays: Int? = null,
     val visibility: String = "public",
     val attachments: List<FreelanceAttachmentDto> = emptyList(),
     val missing: List<String> = emptyList(),
     val can: FreelanceProjectCanDto = FreelanceProjectCanDto(),
+    /** FL-211: where the work stands (null until there is work), and what is due from me next. */
+    val progress: FreelanceProgressDto? = null,
+    @SerializedName("next_action") val nextAction: String? = null,
+    /** All the parts of the work with their state — on the project page only. */
+    val milestones: List<FreelanceProjectPartDto>? = null,
     val offers: FreelanceOffersDto = FreelanceOffersDto(),
     /** FL-401: the agreement with the chosen freelancer. */
     val agreement: FreelanceAgreementRefDto? = null,
@@ -265,6 +314,35 @@ data class FreelanceProjectDto(
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("submitted_at") val submittedAt: String? = null,
 )
+
+data class FreelanceProgressDto(
+    val total: Int = 0,
+    val approved: Int = 0,
+    @SerializedName("in_review") val inReview: Int = 0,
+    @SerializedName("price_minor") val priceMinor: Long = 0,
+    @SerializedName("approved_minor") val approvedMinor: Long = 0,
+)
+
+data class FreelanceProjectPartDto(
+    val uuid: String = "",
+    val position: Int = 1,
+    val title: String = "",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("duration_days") val durationDays: Int? = null,
+    val status: String = "unfunded",
+    @SerializedName("status_label") val statusLabel: String = "",
+)
+
+data class FreelancePreviewDto(
+    val project: FreelanceProjectDto,
+    val issues: List<FreelanceIssueDto> = emptyList(),
+    @SerializedName("can_submit") val canSubmit: Boolean = false,
+)
+
+/** severity = error (stops the sending) · warning (worth a look). */
+data class FreelanceIssueDto(val severity: String = "warning", val code: String = "", val field: String = "", val message: String = "")
+
+data class FreelanceCostCapRequest(@SerializedName("max_cost_minor") val maxCostMinor: Long)
 
 /** The window in which a published project takes offers (FL-204). */
 data class FreelanceOffersDto(
@@ -299,6 +377,8 @@ data class FreelanceOfferDto(
     val can: FreelanceOfferCanDto = FreelanceOfferCanDto(),
     /** What the client pays if they choose it: the price and the client fee (FL-309). */
     @SerializedName("client_cost") val clientCost: FreelanceClientCostDto? = null,
+    /** FL-210: dearer than the most I said I'd pay. */
+    @SerializedName("over_cap") val overCap: Boolean = false,
     /** The room about this offer (FL-308): null until the client opens it. */
     val chat: FreelanceOfferChatDto? = null,
 )
@@ -329,6 +409,8 @@ data class FreelanceChatMessageDto(
 
 data class FreelanceChatSend(val body: String, @SerializedName("client_id") val clientId: String)
 
+data class FreelanceReportMessageRequest(val reason: String, val note: String? = null)
+
 data class FreelanceAnswerDto(val question: String = "", val answer: String? = null)
 
 data class FreelanceOfferCanDto(val chat: Boolean = false, val shortlist: Boolean = false, val unshortlist: Boolean = false, val reject: Boolean = false, val choose: Boolean = false)
@@ -345,7 +427,7 @@ data class FreelanceCompareDto(val offers: List<FreelanceOfferDto> = emptyList()
 /** The offer that stands out in each row (its uuid). */
 data class FreelanceCompareBestDto(val price: String? = null, val duration: String? = null, val completeness: String? = null, val skills: String? = null)
 
-data class FreelanceDecisionRequest(val reason: String? = null)
+data class FreelanceDecisionRequest(val reason: String? = null, @SerializedName("reason_code") val reasonCode: String? = null)
 
 data class FreelanceOfferFreelancerDto(
     val uuid: String? = null,
@@ -443,6 +525,8 @@ data class FreelanceProjectCanDto(
     val withdraw: Boolean = false,
     val cancel: Boolean = false,
     val delete: Boolean = false,
+    val duplicate: Boolean = false,
+    @SerializedName("set_cost_cap") val setCostCap: Boolean = false,
 )
 
 data class FreelanceProjectEventDto(val type: String = "", val from: String? = null, val to: String? = null, val at: String? = null)
@@ -456,6 +540,7 @@ data class FreelanceProjectRequest(
     @SerializedName("budget_type") val budgetType: String,
     @SerializedName("budget_min_minor") val budgetMinMinor: Long?,
     @SerializedName("budget_max_minor") val budgetMaxMinor: Long?,
+    @SerializedName("max_cost_minor") val maxCostMinor: Long? = null,
     @SerializedName("duration_days") val durationDays: Int?,
     val visibility: String,
     val questions: List<String>,
@@ -486,7 +571,21 @@ data class FreelanceAgreementDto(
     val review: FreelanceReviewDto? = null,
     @SerializedName("milestone_rules") val milestoneRules: FreelanceMilestoneRulesDto = FreelanceMilestoneRulesDto(),
     val can: FreelanceAgreementCanDto = FreelanceAgreementCanDto(),
+    /** FL-605: how often I asked for a progress report, and whether the next one is late. */
+    val reports: FreelanceReportSummaryDto = FreelanceReportSummaryDto(),
 )
+
+data class FreelanceReportSummaryDto(
+    @SerializedName("every_days") val everyDays: Int? = null,
+    @SerializedName("next_due_at") val nextDueAt: String? = null,
+    @SerializedName("last_at") val lastAt: String? = null,
+    val late: Boolean = false,
+    @SerializedName("allowed_days") val allowedDays: List<Int> = listOf(3, 7, 14),
+)
+
+data class FreelanceReportDto(val uuid: String = "", val note: String = "", val percent: Int? = null, @SerializedName("created_at") val createdAt: String? = null)
+
+data class FreelanceReportsDto(val summary: FreelanceReportSummaryDto = FreelanceReportSummaryDto(), val reports: List<FreelanceReportDto> = emptyList())
 
 data class FreelanceMilestoneDto(
     val uuid: String = "",
@@ -571,9 +670,10 @@ data class FreelanceAgreementTermsDto(@SerializedName("review_days") val reviewD
 
 data class FreelanceAgreementCanDto(val edit: Boolean = false, val send: Boolean = false, val cancel: Boolean = false, val split: Boolean = false)
 
-data class FreelanceAgreementRequest(val scope: String, val includes: String?, val excludes: String?)
+/** [reportEveryDays]: 3, 7 or 14, or 0 for no progress reports (a null would be left out, and the server keeps what it had). */
+data class FreelanceAgreementRequest(val scope: String, val includes: String?, val excludes: String?, @SerializedName("report_every_days") val reportEveryDays: Int = 0)
 
-data class FreelanceCancelRequest(val reason: String?)
+data class FreelanceCancelRequest(val reason: String?, @SerializedName("reason_code") val reasonCode: String? = null)
 
 data class FreelanceDisputeRefDto(val uuid: String, val status: String = "open")
 
@@ -649,9 +749,56 @@ data class FreelanceReviewDto(
     val mine: FreelanceRatingDto? = null,
     val theirs: FreelanceRatingDto? = null,
     @SerializedName("theirs_waiting") val theirsWaiting: Boolean = false,
+    /** FL-706: I may object once to their rating of me; what became of it. */
+    @SerializedName("can_object") val canObject: Boolean? = null,
+    @SerializedName("object_until") val objectUntil: String? = null,
+    val objection: FreelanceObjectionDto? = null,
+    @SerializedName("objection_reasons") val objectionReasons: List<String>? = null,
 )
 
-data class FreelanceRatingDto(val stars: Double = 0.0, val comment: String? = null, val scores: Map<String, Int> = emptyMap())
+data class FreelanceRatingDto(
+    val stars: Double = 0.0,
+    val comment: String? = null,
+    val scores: Map<String, Int> = emptyMap(),
+    @SerializedName("comment_hidden") val commentHidden: Boolean? = null,
+    val removed: Boolean? = null,
+)
+
+data class FreelanceObjectionDto(val reason: String? = null, val note: String? = null, val status: String = "open", @SerializedName("decision_note") val decisionNote: String? = null)
+
+data class FreelanceObjectionRequest(val reason: String, val note: String)
+
+/** FL-702 */
+data class FreelanceSurveyDto(
+    @SerializedName("can_answer") val canAnswer: Boolean? = null,
+    @SerializedName("answer_until") val answerUntil: String? = null,
+    val reasons: List<String>? = null,
+    @SerializedName("not_satisfied_max") val notSatisfiedMax: Int? = null,
+    val mine: FreelanceSurveyMineDto? = null,
+)
+
+data class FreelanceSurveyMineDto(val score: Int = 0, val reasons: List<String>? = null, val comment: String? = null)
+
+data class FreelanceSurveyRequest(val score: Int, val reasons: List<String>, val comment: String?)
+
+/** FL-708 */
+data class FreelanceSanctionsDto(val items: List<FreelanceSanctionDto>? = null)
+
+data class FreelanceSanctionDto(
+    val uuid: String = "",
+    val type: String = "warning",
+    val state: String = "active",
+    val reason: String? = null,
+    val blocks: List<String>? = null,
+    @SerializedName("ends_at") val endsAt: String? = null,
+    @SerializedName("can_appeal") val canAppeal: Boolean? = null,
+    @SerializedName("appeal_until") val appealUntil: String? = null,
+    val appeal: FreelanceSanctionAppealDto? = null,
+)
+
+data class FreelanceSanctionAppealDto(val status: String = "open", val note: String? = null, @SerializedName("decision_note") val decisionNote: String? = null)
+
+data class FreelanceSanctionAppealRequest(val note: String)
 
 data class FreelanceReviewRequest(val scores: Map<String, Int>, val comment: String?)
 

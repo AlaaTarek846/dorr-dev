@@ -27,6 +27,7 @@ class ClientAgreementController extends Controller
             'scope' => ['sometimes', 'required', 'string', 'max:8000'],
             'includes' => ['sometimes', 'nullable', 'string', 'max:3000'],
             'excludes' => ['sometimes', 'nullable', 'string', 'max:3000'],
+            'report_every_days' => ['sometimes', 'nullable', 'integer'],
         ]);
 
         return $this->answer($this->agreements->update($this->find($request, $uuid), $this->me($request), $data), __('api.updated'));
@@ -49,7 +50,10 @@ class ClientAgreementController extends Controller
     /** POST projects/{uuid}/milestones/{milestone}/fund (FL-501) | approve | revision {reason} | cancel (FL-403). */
     public function milestoneAction(Request $request, string $uuid, string $milestone, string $action): JsonResponse
     {
-        $data = $request->validate(['reason' => [$action === 'revision' ? 'required' : 'nullable', 'string', 'min:5', 'max:1000']]);
+        $data = $request->validate([
+            'reason' => [$action === 'revision' ? 'required' : 'nullable', 'string', 'min:5', 'max:1000'],
+            'reason_code' => ['nullable', \Illuminate\Validation\Rule::enum(\Modules\Freelance\Enums\FreelanceCancelReason::class)],
+        ]);
         $me = $this->me($request);
         $work = app(\Modules\Freelance\Services\Projects\MilestoneWork::class);
         $m = $work->find($this->projects->find($me, $uuid), $milestone);
@@ -61,7 +65,7 @@ class ClientAgreementController extends Controller
             'revision' => $work->requestRevision($m, $me, $data['reason']),
             'cancel-accept' => $cancel->accept($m, $me, 'client'),
             'cancel-reject' => $cancel->reject($m, $me, 'client'),
-            default => $cancel->byClient($m, $me, $data['reason'] ?? null),
+            default => $cancel->byClient($m, $me, $data['reason'] ?? null, $data['reason_code'] ?? null),
         };
 
         return $this->answer($m->agreement, __('api.updated'));

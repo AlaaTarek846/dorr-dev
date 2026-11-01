@@ -1,5 +1,11 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.foundation.layout.width
+import com.dorr.app.ui.screens.profile.settingsSurface
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -136,63 +142,68 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
         SubHeader(stringResource(R.string.fl_inv_title), onBack)
         val d = data
         if (d == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) Text(error.orEmpty(), color = settingsMut(), fontSize = 14.sp, modifier = Modifier.padding(24.dp))
-                else CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
+            FlLoading(error)
             return@Column
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Card {
-                Label(stringResource(R.string.fl_inv_summary, d.summary.sent, d.summary.accepted, d.summary.declined))
-                Text(stringResource(R.string.fl_inv_how, d.summary.max), color = settingsMut(), fontSize = 12.sp)
-                if (d.summary.declined > 0 && d.summary.accepted == 0 && d.summary.sent == 0) {
-                    Text(stringResource(R.string.fl_inv_none_left), color = Color(0xFFD97706), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
+            FlIntro(Icons.Rounded.MarkEmailUnread, stringResource(R.string.fl_inv_title), stringResource(R.string.fl_inv_how, d.summary.max))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlStat(Icons.Rounded.Send, stringResource(R.string.fl_inv_s_sent), d.summary.sent.toString(), Modifier.weight(1f))
+                FlStat(Icons.Rounded.CheckCircle, stringResource(R.string.fl_inv_s_accepted), d.summary.accepted.toString(), Modifier.weight(1f))
+                FlStat(Icons.Rounded.Cancel, stringResource(R.string.fl_inv_s_declined), d.summary.declined.toString(), Modifier.weight(1f))
             }
-            notice?.let { Text(it, color = Color(0xFF16A34A), fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) }
+            if (d.summary.declined > 0 && d.summary.accepted == 0 && d.summary.sent == 0) FlNotice(stringResource(R.string.fl_inv_none_left), Icons.Rounded.Warning, Color(0xFFD97706))
+            notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A)) }
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
 
-            if (d.invitations.isNotEmpty()) Card {
-                Label(stringResource(R.string.fl_inv_list))
-                d.invitations.forEach { i ->
-                    Column(Modifier.padding(vertical = 4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                i.freelancer?.let { Text(inviteeLine(it), color = settingsMut(), fontSize = 11.sp) }
-                            }
-                            Text(inviteStatusLabel(i.status), color = inviteStatusColor(i.status), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            d.invitations.forEach { i ->
+                val c = inviteStatusColor(i.status)
+                Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(c.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Person, null, tint = c, modifier = Modifier.size(22.dp))
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            i.offer?.let { TextAction(stringResource(R.string.fl_inv_see_offer)) { onOpenOffer(it) } }
-                            if (i.canWithdraw) TextAction(stringResource(R.string.fl_inv_withdraw), danger = true) {
-                                act { data = ApiClient.freelance.withdrawInvitation(auth(), projectUuid, i.uuid).data }
-                            }
+                        Column(Modifier.weight(1f)) {
+                            Text(i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold)
+                            i.freelancer?.let { Text(inviteeLine(it), color = settingsMut(), fontSize = 11.5.sp) }
                         }
+                        Text(
+                            inviteStatusLabel(i.status), color = c, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(c.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp),
+                        )
+                    }
+                    i.offer?.let { FlAction(stringResource(R.string.fl_inv_see_offer), Icons.Rounded.RequestQuote, FlTone.Primary) { onOpenOffer(it) } }
+                    if (i.canWithdraw) FlAction(stringResource(R.string.fl_inv_withdraw), Icons.Rounded.Undo, FlTone.Danger) {
+                        act { data = ApiClient.freelance.withdrawInvitation(auth(), projectUuid, i.uuid).data }
                     }
                 }
             }
 
             if (d.summary.canInvite) {
-                if (!picking) SettingsPrimaryButton(text = stringResource(R.string.fl_inv_add), onClick = { picking = true })
-                else Card {
-                    Label(stringResource(R.string.fl_inv_pick))
-                    DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.fl_inv_search), modifier = Modifier.fillMaxWidth())
-                    Chip(stringResource(if (all) R.string.fl_inv_all else R.string.fl_inv_same_specialty), all) { all = !all }
-                    if (searching) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-                    else if (found.isEmpty()) Text(stringResource(R.string.fl_inv_none_found), color = settingsMut(), fontSize = 13.sp)
+                if (!picking) FlAction(stringResource(R.string.fl_inv_add), Icons.Rounded.PersonAdd, FlTone.Primary) { picking = true }
+                else {
+                    FlHeading(Icons.Rounded.PersonSearch, stringResource(R.string.fl_inv_pick))
+                    DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.fl_inv_search), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category) { all = false }
+                        Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps) { all = true }
+                    }
+                    if (searching) repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(14.dp)) }
+                    else if (found.isEmpty()) FlNotice(stringResource(R.string.fl_inv_none_found), Icons.Rounded.Info, settingsMut())
                     found.forEach { f ->
                         val on = f.uuid in ticked
-                        Row(Modifier.fillMaxWidth().clickable { if (on) ticked.remove(f.uuid) else ticked.add(f.uuid) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = if (on) 0.14f else 0.06f)).clickable { if (on) ticked.remove(f.uuid) else ticked.add(f.uuid) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                                 Text(f.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(inviteeLine(f), color = settingsMut(), fontSize = 11.sp)
+                                Text(inviteeLine(f), color = settingsMut(), fontSize = 11.5.sp)
                             }
                         }
                     }
-                    SettingsPrimaryButton(text = stringResource(R.string.fl_inv_send, ticked.size), loading = busy, enabled = ticked.isNotEmpty(), onClick = {
+                    FlAction(stringResource(R.string.fl_inv_send, ticked.size), Icons.Rounded.Send, FlTone.Primary, loading = busy, enabled = ticked.isNotEmpty()) {
                         act {
                             data = ApiClient.freelance.invite(auth(), projectUuid, FreelanceInviteRequest(ticked.toList())).data
                             ticked.clear()
@@ -200,14 +211,13 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                             notice = sentText
                             reloads++
                         }
-                    })
-                    TextAction(stringResource(R.string.fl_not_now)) { picking = false; ticked.clear() }
+                    }
+                    FlAction(stringResource(R.string.fl_not_now), null) { picking = false; ticked.clear() }
                 }
             }
-            if (d.summary.canMakePublic) Card {
-                Label(stringResource(R.string.fl_inv_public_title))
-                Text(stringResource(R.string.fl_inv_public_hint), color = settingsMut(), fontSize = 12.sp)
-                TextAction(stringResource(R.string.fl_inv_public)) { confirmPublic = true }
+            if (d.summary.canMakePublic) Card(Icons.Rounded.Public, stringResource(R.string.fl_inv_public_title)) {
+                Text(stringResource(R.string.fl_inv_public_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
+                FlAction(stringResource(R.string.fl_inv_public), Icons.Rounded.Public, FlTone.Warn) { confirmPublic = true }
             }
             Spacer(Modifier.height(20.dp))
         }

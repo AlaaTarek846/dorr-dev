@@ -5,6 +5,7 @@ namespace Modules\Freelance\Services\Projects;
 use Modules\Freelance\Models\FreelanceProjectApproval;
 use App\Models\Rating;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Freelance\Enums\FreelanceMilestoneStatus as Status;
 use Modules\Freelance\Exceptions\FreelanceException;
@@ -110,14 +111,22 @@ class FreelanceReviews
         $mine = $rows->get($side);
         $theirs = $rows->get($side === 'client' ? 'freelancer' : 'client');
 
+        $objections = app(ReviewObjections::class);
+        $out = $theirs !== null && $theirs->published_at !== null && $theirs->excluded_at === null;
+
         return [
             'criteria' => self::CRITERIA[$side],
             'can_rate' => $mine === null && $this->open($a),
             'rate_until' => $a->completed_at?->copy()->addDays($this->days($a))->toIso8601String(),
-            'mine' => $mine === null ? null : $this->presentRating((int) $mine->rating_id),
-            // The other side's rating shows once both are out.
-            'theirs' => $theirs === null || $theirs->published_at === null ? null : $this->presentRating((int) $theirs->rating_id),
+            'mine' => $mine === null ? null : $this->presentRating((int) $mine->rating_id, $mine) + ['removed' => $mine->excluded_at !== null],
+            // The other side's rating shows once both are out (and not when staff took it out - FL-706).
+            'theirs' => $out ? $this->presentRating((int) $theirs->rating_id, $theirs) : null,
             'theirs_waiting' => $theirs !== null && $theirs->published_at === null,
+            // FL-706: I may object to the rating about me, once, for a while after it is out.
+            'can_object' => $out && $objections->canObject($theirs),
+            'object_until' => $out ? Carbon::parse($theirs->published_at)->addDays(ReviewObjections::APPEAL_DAYS)->toIso8601String() : null,
+            'objection' => $theirs === null ? null : $objections->forReview($theirs, $a),
+            'objection_reasons' => ReviewObjections::REASONS,
         ];
     }
 
@@ -129,7 +138,7 @@ class FreelanceReviews
     public function stats(Freelancer $f, ?int $specialtyId = null): array
     {
         $published = DB::table('freelance_reviews')->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
-            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at');
+            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at');
         $count = (clone $published)->count();
         $average = $count >= self::MIN_FOR_AVERAGE ? round((float) (clone $published)->avg('ratings.stars'), 2) : null;
         $criteria = $count >= self::MIN_FOR_AVERAGE
@@ -163,20 +172,22 @@ class FreelanceReviews
     {
         return DB::table('freelance_reviews')->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
             ->join('freelance_projects', 'freelance_projects.id', '=', 'freelance_reviews.project_id')
-            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')
+            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at')
             ->orderByDesc('freelance_reviews.published_at')->limit($limit)
-            ->get(['ratings.stars', 'ratings.comment', 'freelance_projects.title', 'freelance_reviews.published_at'])
-            ->map(fn ($r) => ['stars' => (float) $r->stars, 'comment' => $r->comment, 'project' => $r->title, 'at' => \Illuminate\Support\Carbon::parse($r->published_at)->toIso8601String()])->all();
+            ->get(['ratings.stars', 'ratings.comment', 'freelance_projects.title', 'freelance_reviews.published_at', 'freelance_reviews.comment_hidden_at'])
+            ->map(fn ($r) => ['stars' => (float) $r->stars, 'comment' => $r->comment_hidden_at === null ? $r->comment : null, 'project' => $r->title, 'at' => \Illuminate\Support\Carbon::parse($r->published_at)->toIso8601String()])->all();
     }
 
     /** @return array<string, mixed> */
-    private function presentRating(int $ratingId): array
+    private function presentRating(int $ratingId, ?object $review = null): array
     {
         $r = Rating::query()->findOrFail($ratingId);
 
         return [
             'stars' => (float) $r->stars,
-            'comment' => $r->comment,
+            // FL-706: staff may hide the words of a rating; the stars stay.
+            'comment' => $review?->comment_hidden_at === null ? $r->comment : null,
+            'comment_hidden' => $review?->comment_hidden_at !== null,
             'scores' => DB::table('freelance_rating_scores')->where('rating_id', $ratingId)->pluck('stars', 'criterion')->map(fn ($v) => (int) $v)->all(),
             'at' => $r->created_at?->toIso8601String(),
         ];
