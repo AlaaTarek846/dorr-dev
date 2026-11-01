@@ -26,8 +26,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.rounded.ScreenShare
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -46,6 +44,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -56,11 +55,15 @@ import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -96,6 +99,7 @@ import com.dorr.app.R
 import com.dorr.app.chat.CallController
 import com.dorr.app.chat.CallPhase
 import com.dorr.app.chat.CallVideo
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import io.livekit.android.renderer.TextureViewRenderer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -244,6 +248,7 @@ private fun CallScreen() {
     val phase = CallController.phase ?: CallPhase.Ended
     val video = CallController.isVideo
     var controlsVisible by remember { mutableStateOf(true) }
+    var locked by remember { mutableStateOf(false) }
     var tick by remember { mutableLongStateOf(0L) }
     val remote = CallController.videos.firstOrNull { !it.isLocal }
     val local = CallController.videos.firstOrNull { it.isLocal }
@@ -262,7 +267,11 @@ private fun CallScreen() {
         try { kotlinx.coroutines.awaitCancellation() } finally { job.cancel() }
     }
     // In a video call, controls hide themselves; a tap brings them back.
-    LaunchedEffect(controlsVisible, phase, remote != null, grouped) {
+    LaunchedEffect(controlsVisible, phase, remote != null, grouped, locked) {
+        if (locked) {
+            controlsVisible = true
+            return@LaunchedEffect
+        }
         if (controlsVisible && phase == CallPhase.Active && remote != null && !grouped) {
             delay(4000)
             controlsVisible = false
@@ -280,7 +289,9 @@ private fun CallScreen() {
 
     Box(
         Modifier.fillMaxSize().background(Color.Black)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { controlsVisible = !controlsVisible },
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                if (!locked) controlsVisible = !controlsVisible
+            },
     ) {
         // ------------------------------------------------------------ group: everyone in a grid
         if (grouped) {
@@ -370,7 +381,7 @@ private fun CallScreen() {
                 IncomingControls(onDecline = { CallController.decline() }, onAccept = { accept() })
             } else {
                 AnimatedVisibility(controlsVisible || remote == null || grouped, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                    ActiveControls(video)
+                    ActiveControls(video, locked) { locked = it }
                 }
             }
         }
@@ -483,8 +494,9 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
 }
 
 @Composable
-private fun ActiveControls(video: Boolean) {
+private fun ActiveControls(video: Boolean, locked: Boolean, onLocked: (Boolean) -> Unit) {
     val context = LocalContext.current
+    val locale = rememberAppLocaleFrame()
     // Share my screen (WhatsApp list 71): Android asks first, then LiveKit captures it.
     val screenAsk = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data
@@ -493,33 +505,99 @@ private fun ActiveControls(video: Boolean) {
     var backgrounds by remember { mutableStateOf(false) }
     var goLive by remember { mutableStateOf(false) }
     var liveShare by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
     val cameraAsk = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) CallController.toggleCamera()
         else android.widget.Toast.makeText(context, context.getString(R.string.ch_call_camera_denied), android.widget.Toast.LENGTH_SHORT).show()
     }
-    Row(
-        // Many buttons on a narrow phone: the row scrolls instead of squeezing them.
-        Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f))
-            .horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ToggleAction(if (CallController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, !CallController.micOn) { CallController.toggleMic() }
-        ToggleAction(Icons.Rounded.VolumeUp, CallController.speakerOn) { CallController.toggleSpeaker() }
-        ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) {
-            if (!CallController.cameraOn && !CallController.cameraAllowed()) cameraAsk.launch(Manifest.permission.CAMERA)
-            else CallController.toggleCamera()
-        }
-        if (CallController.cameraOn) ToggleAction(Icons.Rounded.Cameraswitch, false) { CallController.flipCamera() }
-        // Blur or a picture behind me (spec 94), made on the phone.
-        // Camera backgrounds are heavy: not in lite mode (spec 87).
-        if (CallController.cameraOn && !com.dorr.app.chat.ChatLite.active) ToggleAction(Icons.Rounded.BlurOn, com.dorr.app.chat.CallEffects.mode != com.dorr.app.chat.CallEffects.Mode.None) { backgrounds = true }
-        ToggleAction(Icons.Rounded.ScreenShare, CallController.sharingScreen) {
+    fun unlessLocked(block: () -> Unit) {
+        if (!locked) block()
+    }
+    fun shareScreen() {
+        unlessLocked {
             if (CallController.sharingScreen) CallController.stopScreenShare()
             else context.getSystemService(android.media.projection.MediaProjectionManager::class.java)?.let { screenAsk.launch(it.createScreenCaptureIntent()) }
         }
-        // Go live (spec 93) — or, once live, share / end it.
-        if (com.dorr.app.chat.ChatFeatures.allows("live") || CallController.live?.status == "live") ToggleAction(Icons.Rounded.Podcasts, CallController.live?.status == "live") { if (CallController.live?.status == "live") liveShare = true else goLive = true }
-        RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
+    }
+    val liveOn = CallController.live?.status == "live"
+    val showLive = com.dorr.app.chat.ChatFeatures.allows("live") || liveOn
+    val showFlip = CallController.cameraOn
+    val showBlur = CallController.cameraOn && !com.dorr.app.chat.ChatLite.active
+    val extras = 4 /* mic, speaker, camera, share */ + 1 /* lock */ + (if (showLive) 1 else 0) + (if (showFlip) 1 else 0) + (if (showBlur) 1 else 0)
+    val overflow = extras > 6
+    Column(
+        Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn, enabled = !locked) {
+                unlessLocked {
+                    if (!CallController.cameraOn && !CallController.cameraAllowed()) cameraAsk.launch(Manifest.permission.CAMERA)
+                    else CallController.toggleCamera()
+                }
+            }
+            ToggleAction(Icons.Rounded.VolumeUp, CallController.speakerOn, enabled = !locked) { unlessLocked { CallController.toggleSpeaker() } }
+            ToggleAction(if (CallController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, !CallController.micOn, enabled = !locked) { unlessLocked { CallController.toggleMic() } }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            if (overflow) {
+                if (showLive) {
+                    ToggleAction(Icons.Rounded.Podcasts, liveOn, enabled = !locked) {
+                        unlessLocked { if (liveOn) liveShare = true else goLive = true }
+                    }
+                } else {
+                    Spacer(Modifier.size(52.dp))
+                }
+                if (showFlip) {
+                    ToggleAction(Icons.Rounded.Cameraswitch, CallController.flippedCamera, enabled = !locked) { unlessLocked { CallController.flipCamera() } }
+                } else {
+                    Spacer(Modifier.size(52.dp))
+                }
+                Box {
+                    ToggleAction(Icons.Rounded.MoreVert, moreOpen, enabled = true) { moreOpen = true }
+                    DropdownMenu(
+                        expanded = moreOpen,
+                        onDismissRequest = { moreOpen = false },
+                        modifier = Modifier.widthIn(min = 220.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        containerColor = Ch.SurfaceMuted,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 12.dp,
+                    ) {
+                        locale.Provide {
+                        CallMoreItem(if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen, stringResource(if (locked) R.string.ch_call_unlock else R.string.ch_call_lock)) {
+                            moreOpen = false
+                            onLocked(!locked)
+                        }
+                        CallMoreItem(Icons.Rounded.ScreenShare, stringResource(R.string.ch_call_share_screen)) {
+                            moreOpen = false
+                            shareScreen()
+                        }
+                        if (showBlur) {
+                            CallMoreItem(Icons.Rounded.BlurOn, stringResource(R.string.ce_title)) {
+                                moreOpen = false
+                                unlessLocked { backgrounds = true }
+                            }
+                        }
+                        }
+                    }
+                }
+            } else {
+                ToggleAction(Icons.Rounded.ScreenShare, CallController.sharingScreen, enabled = !locked) { shareScreen() }
+                if (showLive) {
+                    ToggleAction(Icons.Rounded.Podcasts, liveOn, enabled = !locked) {
+                        unlessLocked { if (liveOn) liveShare = true else goLive = true }
+                    }
+                } else if (showFlip) {
+                    ToggleAction(Icons.Rounded.Cameraswitch, CallController.flippedCamera, enabled = !locked) { unlessLocked { CallController.flipCamera() } }
+                } else {
+                    Spacer(Modifier.size(52.dp))
+                }
+                ToggleAction(if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen, locked) { onLocked(!locked) }
+            }
+        }
+        RoundAction(Icons.Rounded.CallEnd, null, if (locked) Ch.Danger.copy(alpha = 0.4f) else Ch.Danger, size = 60.dp) { unlessLocked { CallController.hangUp() } }
     }
     if (backgrounds) CallBackgroundSheet { backgrounds = false }
     if (goLive) StartLiveSheet { goLive = false }
@@ -544,10 +622,25 @@ private fun RoundAction(icon: ImageVector, label: String?, color: Color, size: a
 }
 
 @Composable
-private fun ToggleAction(icon: ImageVector, active: Boolean, onClick: () -> Unit) {
+private fun CallMoreItem(icon: ImageVector, text: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(text, color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun ToggleAction(icon: ImageVector, active: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val bg by animateColorAsState(if (active) Color.White else Color.White.copy(alpha = 0.16f), label = "toggle")
     val fg by animateColorAsState(if (active) Color.Black else Color.White, label = "toggleFg")
-    Box(Modifier.size(52.dp).clip(CircleShape).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.size(52.dp).graphicsLayer { alpha = if (enabled) 1f else 0.4f }.clip(CircleShape).background(bg).clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
         Icon(icon, null, tint = fg, modifier = Modifier.size(24.dp))
     }
 }

@@ -91,7 +91,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
 - **WhatsApp backlog screens (`ChatBacklogUi.kt`, `StoryVoice.kt`, `network/BacklogApi.kt`):**
   - **Chats:** export a chat (info page); storage (Data and performance → manage storage); channel stats and allowed reactions.
   - **Business:** the business card and message stats.
-  - **Broadcasts:** a list from a folder.
+  - **Broadcasts:** a list from a folder. «قوائم البث» pages of 15 (`GET broadcasts?page=&per_page=`).
   - **Profile and QR:** a ready message on my QR / link.
   - **Statuses:** a voice status (the "Voice" tile, `ChRoute.StoryComposer("voice")`), "@ Mention" on every status editor, and "Mentioned you" with "Add to my status" in the viewer and in the chat (`story_mention`).
   - **Links:** `dorr://chat/{token}` links open the chat (manifest intent filter, `ChatDeepLink.ChatLink`). Exports are shared through the FileProvider `${applicationId}.files`.
@@ -149,7 +149,7 @@ Media URLs built by Laravel with `dorr.test` are rewritten to the reachable host
 3. New UI string → `values/strings.xml` **and** `values-ar/strings.xml`.
 4. Colors/fonts from the appearance tokens, not hard-coded.
 5. Chat details live in [../chat/README.md](../chat/README.md); wallet plan in [../../wallet-plan.md](../../wallet-plan.md).
-6. Build check: `./gradlew assembleDebug` from `androidApp/` with JDK 17–21 (Gradle 8.9 doesn't run on JDK 25).
+6. Build check: `./gradlew assembleDebug` from `androidApp/` with JDK 17–21 (Gradle 8.9 doesn't run on JDK 25). Kotlin compiles `in-process` (`gradle.properties`) because the compile daemon exits 0 after "is ready". Don't Clean unless the build is actually broken.
 7. Update this file and `docs/10-CHANGELOG.md` when behavior changes.
 
 ## App size

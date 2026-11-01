@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Android send-money gift card (2026-11-01):** «ابعت فلوس» with an occasion uses a compact receipt inside a normal chat bubble (`Ch.OutBubble` / `Ch.InBubble`). Sharing a transfer receipt is unchanged.
+- **Chat calls (2026-11-01):** starting a direct call again while **your own** previous one is still ringing cancels that leftover and places a new call, instead of `409 chat_call_busy` forever. Someone else calling into that chat is still busy. Test: `ChatTest::test_a_call_rings_is_answered_and_ends_with_a_line_in_the_chat`.
+- **Android share-a-transfer picker (2026-11-01):** the attach-sheet picker loads 15 outgoing transfers at a time (`type=transfer_out`) and the next page when the list nears its end.
+- **Android AI memory (2026-11-01):** the chat memory screen follows the app locale (Arabic copy was already in `values-ar`) and uses the same settings header as the other chat pages.
+- **Android conversation AI menu (2026-11-01):** the header AI tools sheet has a fixed height (~58% of the screen) and a scrollable option list so the last rows and Cancel stay reachable.
+
 ### Added
 
 - **Freelance FL-L07 — rating a consultation (2026-10-30):** once a consultation is completed (confirmed, paid by the clock, or paid by the staff) the client rates it once: `POST mobile/v1/freelance/consultations/{uuid}/review {stars 1-5, comment?}` within `ratings.window_days` (14) of the pay-out; errors `consultation_review_closed` / `consultation_review_exists`. It shows at once (nothing to rate back) and lives in `freelance_reviews` with the project ratings (`consultation_id`, `agreement_id`/`project_id` now nullable; migration `consultation_reviews`), so the freelancer's average, count, quality score, «My ratings» and profile count it; `latestAbout()` lines carry `kind` (project | consultation). Every consultation payload has `review {can_rate, rate_until, rating}`; the consultation page before booking lists `freelancer.reviews`. Notification `freelancer.consultation.rated`. Client app: after «It went well» a star sheet opens (pinned send button), the page shows «Rate it» / «Your rating», the list marks ones to rate; the freelancer app shows the client's rating on the booking and «Consultation · title» in My ratings. Objections (FL-706) stay for project ratings only. Test `test_the_client_rates_a_finished_consultation_once_…`.
@@ -113,6 +120,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Freelance — the evidence timeline of a dispute (FL-606, 2026-10-24):** `GET admin/v1/freelance-disputes/{uuid}/timeline` gives staff one list, oldest first, of everything on the project: the agreement's steps, every approval on record (FL-406), the work on the disputed part, each delivery with its files, what both sides said and showed in the dispute, the dispute's own steps (opened, appealed, decided, resolved) and the chat between the two (up to 500 lines). `GET …/timeline/export` is the same as a CSV (cells that start with `=`, `+`, `-`, `@` are neutralised) and `GET …/deliveries/{delivery}/files/{media}` opens a delivered file (inline for images, `nosniff`, `no-store`). Reading and exporting need `freelance-disputes.view` and are written to the audit log (`freelance.dispute.timeline_viewed|timeline_exported`). Admin page (Freelance → Disputes → a case): an "Evidence timeline" block with a show/hide button, a colour badge per kind, file links and "Download CSV". Delivered files now keep the name the person gave them (not the stored one) in lists, the timeline and downloads. Test: `FreelanceDisputeTest`.
 
 ### Changed
+- **Android Gradle (2026-11-01):** 4 GB heap, parallel + build cache. Kotlin stays `in-process` — the compile daemon exits 0 right after "is ready" on this setup.
+- **Android media / links / files (2026-11-01):** the chat media page header is the settings bar (`SubHeader` + pink wash).
+- **Android AI image sheet (2026-11-01):** lightbulb next to Ideas, palette next to Look; smaller style swatches; daily-quota note is a highlighted row with an info icon.
+- **Android chat sheets (2026-11-01):** every chat bottom sheet uses the appearance `surface` colour (`Ch.Surface`). Wallet/profile sheets are unchanged.
+- **Android attach sheet (2026-11-01):** smaller circles; each tile keeps its own gradient (gallery purple, document blue, …).
+- **Chat broadcasts (2026-11-01):** `GET broadcasts` pages of 15 (`page` / `per_page` default 15, max 50, `pagination.has_more_pages`). Android «قوائم البث» loads the next page near the end. Cap stays 50 lists. Test: `ChatBroadcastTest::test_broadcasts_page_fifteen`.
+- **Android broadcasts (2026-10-29):** «قوائم البث» uses the settings header (`SubHeader` + pink wash).
+- **Android new chat (2026-10-29):** header is the settings bar (`SubHeader` + pink wash), same as new group and communities.
 - **Android community groups (2026-10-29):** «جروباتك» and other groups show 6 rows then «عرض الكل (N)» like group members (`ChRoute.CommunityGroups`).
 - **Android community detail (2026-10-28):** same hero as group/channel info (`HeaderBrush`, avatar, white name/stats/description, floating search + back). Rows use `SettingRow`. Labels: announcements sub, add existing groups, create a group, change community name, delete community. Delete uses `ConfirmDialog` (حذف / إلغاء) then a toast.
 - **Android communities (2026-10-28):** «مجتمع جديد» stays at the bottom like create-channel. List searches and pages 15 (`GET communities?q=&page=&per_page=`).

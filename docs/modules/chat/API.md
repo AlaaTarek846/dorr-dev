@@ -411,7 +411,8 @@ My own grouping of chats; nobody else knows it exists. A chat sits in one of my 
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| GET / POST | `broadcasts` | `name?`, `members[]` (user ids, ≤ 256) | Up to 50 lists. `title` is the name or "first names +N" |
+| GET | `broadcasts` | `page`, `per_page` (default 15, max 50) | Mine, newest first. Up to 50 lists in total. `pagination.has_more_pages` |
+| POST | `broadcasts` | `name?`, `members[]` (user ids, ≤ 256) | `title` is the name or "first names +N" |
 | GET / PATCH / DELETE | `broadcasts/{id}` | `name?`, `members?[]` | `members[]` and `sent[]` (what I sent: `{type, body, thumbnail, sent_count, skipped_count, created_at}`) |
 | POST | `broadcasts/{id}/messages` | the same fields and `files[]` as a message | Each member gets it in our own direct chat — **only those who have me saved**, the rest come back in `skipped[]`. Files are uploaded once and copied. Text, photo, video, voice, audio, file, location, contact, GIF and sticker only (`chat_broadcast_type_unsupported`). Answers `{sent, skipped[], broadcast}` |
 
@@ -510,7 +511,7 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `conversations/{c}/calls` `{type: audio\|video, recording_consent?}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call (`recording_consent` when it records — see below) |
+| POST | `conversations/{c}/calls` `{type: audio\|video, recording_consent?}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call (`recording_consent` when it records — see below). In a direct chat, calling again while **your own** ringing call is still open cancels it and starts a new one; anyone else's open call is `409 chat_call_busy` |
 | POST | `calls/{id}/accept` `{recording_consent?}` · `decline` · `leave` | Accept returns `join` |
 | GET | `calls/{id}/token?recording_consent=1` | Rejoin an ongoing call |
 | GET | `calls?page=&per_page=` · `calls/{id}` | Call log, newest first. Pages of 15 (`per_page` default 15, max 50). `pagination.has_more_pages` |
