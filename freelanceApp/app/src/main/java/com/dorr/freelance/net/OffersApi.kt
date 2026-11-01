@@ -69,7 +69,16 @@ data class OfferPreviewDto(
 
 data class OfferBlockedDto(val code: String = "", val message: String = "")
 
-data class OfferQuotaDto(val enabled: Boolean = false, val limit: Int? = null, val used: Int = 0, val left: Int? = null)
+data class OfferQuotaDto(
+    val enabled: Boolean = false,
+    val limit: Int? = null,
+    val used: Int = 0,
+    val left: Int? = null,
+    /** Bought (extra) offers I still have; they are spent after the free ones. */
+    val credits: Int = 0,
+    /** Whether I can buy more (the switch is on and my plan has a limit). */
+    val packs: Boolean = false,
+)
 
 data class OfferBreakdownDto(
     @SerializedName("price_minor") val priceMinor: Long = 0,

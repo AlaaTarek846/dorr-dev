@@ -141,6 +141,12 @@ class Freelancer extends Authenticatable implements HasMedia
         return $this->hasOne(FreelancerAvailability::class);
     }
 
+    /** FL-L07: the paid consultations listed (any status). */
+    public function consultationOffers(): HasMany
+    {
+        return $this->hasMany(FreelanceConsultationOffer::class);
+    }
+
     public function timeOff(): HasMany
     {
         return $this->hasMany(FreelancerTimeOff::class);
@@ -149,6 +155,12 @@ class Freelancer extends Authenticatable implements HasMedia
     public function portfolioItems(): HasMany
     {
         return $this->hasMany(FreelancerPortfolioItem::class);
+    }
+
+    /** FL-L04: my ready-made services. */
+    public function services(): HasMany
+    {
+        return $this->hasMany(FreelanceService::class);
     }
 
     public function certificates(): HasMany

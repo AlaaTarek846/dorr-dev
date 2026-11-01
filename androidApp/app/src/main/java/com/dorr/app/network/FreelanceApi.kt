@@ -429,6 +429,19 @@ data class FreelanceCompareBestDto(val price: String? = null, val duration: Stri
 
 data class FreelanceDecisionRequest(val reason: String? = null, @SerializedName("reason_code") val reasonCode: String? = null)
 
+/**
+ * FL-L01 phase 4: the badge of the plan a freelancer holds, shown by their name. [plan] is the plan's slug (plus, pro…) and [name] its name
+ * in my language; the whole object is absent when their plan gives none.
+ */
+data class FreelancePlanBadgeDto(val plan: String = "", val name: String? = null)
+
+/** FL-L08: a skill the freelancer passed the test of — a verified badge for that skill, shown by their name. */
+data class FreelanceSkillBadgeDto(
+    @SerializedName("skill_id") val skillId: Int = 0,
+    val name: String? = null,
+    @SerializedName("score_percent") val scorePercent: Int = 0,
+)
+
 data class FreelanceOfferFreelancerDto(
     val uuid: String? = null,
     val name: String? = null,
@@ -451,6 +464,8 @@ data class FreelanceOfferFreelancerDto(
     @SerializedName("similar_projects") val similarProjects: Int? = null,
     /** I keep this freelancer (FL-306). */
     @SerializedName("is_favorite") val isFavorite: Boolean = false,
+    val badge: FreelancePlanBadgeDto? = null,
+    @SerializedName("skill_badges") val skillBadges: List<FreelanceSkillBadgeDto> = emptyList(),
 )
 
 data class FreelanceFavoriteDto(
@@ -465,6 +480,8 @@ data class FreelanceFavoriteDto(
 /** The freelancer's profile as the client of one of their offers reads it (FL-305). */
 data class FreelancerProfileDto(
     val uuid: String? = null,
+    /** FL-L07: the paid consultations listed now (empty: none). */
+    val consultations: List<ConsultTeaserDto> = emptyList(),
     val name: String? = null,
     val headline: String? = null,
     val bio: String? = null,
@@ -488,9 +505,12 @@ data class FreelancerProfileDto(
     /** FL-701: what clients said. */
     val reviews: List<FreelanceReviewLineDto> = emptyList(),
     @SerializedName("is_favorite") val isFavorite: Boolean = false,
+    val badge: FreelancePlanBadgeDto? = null,
+    @SerializedName("skill_badges") val skillBadges: List<FreelanceSkillBadgeDto> = emptyList(),
 )
 
-data class FreelanceReviewLineDto(val stars: Double = 0.0, val comment: String? = null, val project: String? = null, val at: String? = null)
+/** `kind` = project · consultation; `project` is its title either way. */
+data class FreelanceReviewLineDto(val stars: Double = 0.0, val comment: String? = null, val project: String? = null, val at: String? = null, val kind: String? = null)
 
 data class FreelanceExperienceDto(
     val title: String? = null,
@@ -855,6 +875,8 @@ data class FreelanceInviteeDto(
     val rating: Double? = null,
     @SerializedName("reviews_count") val reviewsCount: Int = 0,
     @SerializedName("completed_projects") val completedProjects: Int = 0,
+    val badge: FreelancePlanBadgeDto? = null,
+    @SerializedName("skill_badges") val skillBadges: List<FreelanceSkillBadgeDto> = emptyList(),
 )
 
 data class FreelanceInviteRequest(val freelancers: List<String>)

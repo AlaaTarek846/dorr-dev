@@ -61,6 +61,7 @@ import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -470,6 +471,7 @@ fun AccountScreen(actions: MainActions) {
             Spacer(Modifier.height(12.dp))
             listOf(
                 MenuEntry(Icons.Rounded.Person, R.string.tab_profile, R.string.account_profile_sub, onClick = { accountPage = ACCOUNT_PROFILE }),
+                MenuEntry(Icons.Rounded.WorkspacePremium, R.string.plans_title, R.string.plans_sub, onClick = actions.openPlans),
                 MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = { settingsOpen = true }),
                 MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = { accountPage = ACCOUNT_RATE }),
                 MenuEntry(Icons.Rounded.PersonAdd, R.string.invite_title, R.string.invite_sub, onClick = { accountPage = ACCOUNT_INVITE }),

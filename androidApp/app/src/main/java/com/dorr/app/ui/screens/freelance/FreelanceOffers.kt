@@ -95,7 +95,7 @@ import java.io.File
  * connection comes back — nothing on a timer.
  */
 
-private val SORTS = listOf("newest", "cheapest", "fastest", "completeness")
+private val SORTS = listOf("recommended", "newest", "cheapest", "fastest", "completeness")
 
 private const val COMPARE_MAX = 3
 
@@ -105,6 +105,7 @@ private val Red = Color(0xFFDC2626)
 @Composable
 private fun sortLabel(sort: String): String = stringResource(
     when (sort) {
+        "recommended" -> R.string.fl_sort_recommended
         "cheapest" -> R.string.fl_sort_cheapest
         "fastest" -> R.string.fl_sort_fastest
         "completeness" -> R.string.fl_sort_completeness
@@ -162,6 +163,7 @@ private fun skillsMatch(f: FreelanceOfferFreelancerDto?): String? =
 // ---------------------------------------------------------------- the list
 
 private fun sortIcon(sort: String): androidx.compose.ui.graphics.vector.ImageVector = when (sort) {
+    "recommended" -> Icons.Rounded.WorkspacePremium
     "cheapest" -> Icons.Rounded.Payments
     "fastest" -> Icons.Rounded.Bolt
     "completeness" -> Icons.Rounded.Verified
@@ -172,7 +174,7 @@ private fun sortIcon(sort: String): androidx.compose.ui.graphics.vector.ImageVec
 internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String) -> Unit, onCompare: (List<String>) -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
-    var sort by rememberSaveable { mutableStateOf("newest") }
+    var sort by rememberSaveable { mutableStateOf("recommended") }
     var onlyShortlisted by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -194,6 +196,7 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
             Chip(stringResource(R.string.fl_offer_st_shortlisted), selected = onlyShortlisted, icon = Icons.Rounded.Star) { onlyShortlisted = true }
             SORTS.forEach { s -> Chip(sortLabel(s), selected = sort == s, icon = sortIcon(s)) { sort = s } }
         }
+        if (sort == "recommended") FlHint(stringResource(R.string.fl_sort_recommended_hint), Modifier.padding(horizontal = 18.dp, vertical = 2.dp))
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val list = offers
             when {
@@ -238,9 +241,11 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                    PlanBadge(f?.badge, Modifier.padding(start = 6.dp))
                     if (f?.isFavorite == true) Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite), tint = Red, modifier = Modifier.padding(start = 4.dp).size(15.dp))
                 }
                 f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                SkillBadges(f?.skillBadges.orEmpty(), Modifier.padding(top = 2.dp))
             }
             OfferStatusPill(o.status)
         }
@@ -316,6 +321,7 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
                     ) {
                         Avatar(o.freelancer, 48)
                         Text(o.freelancer?.name ?: "—", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        PlanBadge(o.freelancer?.badge)
                         OfferStatusPill(o.status)
                     }
                 }
@@ -422,8 +428,9 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(f?.name ?: "—", color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(f?.name ?: "—", color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f, fill = false))
                         if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+                        PlanBadge(f?.badge, Modifier.padding(start = 6.dp))
                     }
                     f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
                     Text(ratingText(f), color = settingsMut(), fontSize = 12.sp)
@@ -580,7 +587,7 @@ private suspend fun openFile(context: Context, a: FreelanceAttachmentDto): Boole
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBack: () -> Unit) {
+internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBack: () -> Unit, onBookConsultation: (String) -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     var profile by remember { mutableStateOf<FreelancerProfileDto?>(null) }
@@ -612,6 +619,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     Text(p.name ?: "—", color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                     if (p.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(18.dp))
                 }
+                PlanBadge(p.badge, compact = false)
+                SkillBadges(p.skillBadges, Modifier.padding(top = 4.dp), max = 6, compact = false)
                 // FL-306: keep this freelancer to find them again.
                 Row(
                     Modifier.clip(RoundedCornerShape(999.dp)).clickable {
@@ -633,6 +642,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     listOfNotNull(ratingText(head), stringResource(R.string.fl_completeness, p.completeness), p.yearsOfExperience?.let { stringResource(R.string.fl_years_exp, it) }).joinToString("  ·  "),
                     color = settingsMut(), fontSize = 12.sp,
                 )
+                // FL-L07: talk to them as a paid consultation.
+                if (p.consultations.isNotEmpty()) Box(Modifier.padding(top = 8.dp)) { ConsultTeaser(p.consultations, onBookConsultation) }
                 Text(stringResource(R.string.fl_contact_in_dorr), color = settingsMut(), fontSize = 11.sp)
             }
             p.bio?.takeIf { it.isNotBlank() }?.let { Card(Icons.Rounded.Info, stringResource(R.string.fl_about)) { Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) } }
@@ -688,7 +699,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     Column(Modifier.padding(vertical = 4.dp)) {
                         ReviewStars(r.stars)
                         r.comment?.let { Text(it, color = settingsInk(), fontSize = 13.sp) }
-                        Text(listOfNotNull(r.project, r.at?.take(10)?.let { "\u200E$it" }).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
+                        Text(listOfNotNull(if (r.kind == "consultation") stringResource(R.string.cs_review_kind) else null, r.project, r.at?.take(10)?.let { "\u200E$it" }).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
                     }
                 }
             }

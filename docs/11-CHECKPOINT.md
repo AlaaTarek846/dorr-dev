@@ -76,6 +76,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - **Android broadcasts (2026-10-29):** «قوائم البث» uses the settings header (`SubHeader` + pink wash).
 - **Android new chat (2026-10-29):** settings header (`SubHeader` + pink wash).
 - **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
+- **iOS wallet (2026-10-28):** done — every Android wallet screen and flow in `iosApp/Dorr/UI/Wallet/`, marked ✅ in the iOS parity table. Next on iOS: to be chosen by the owner.
+- **iOS app (2026-10-28):** `iosApp/` SwiftUI foundation (auth flow, tabs, Home/Services/Account). Every Android change must be mirrored there (AGENTS.md sync rule); parity table in `docs/modules/ios/README.md`.
 - **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
 - **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.
 - **Chat communities demo (2026-10-28):** `ChatCommunitiesDemoSeeder` — creator, member-only, hop-in / ask-to-join groups, long names, fillers for page 2, plus three groups outside a community for «إضافة مجموعات موجودة».

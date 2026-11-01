@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L11: profile visits (inside «My performance») -->
+    <string name="insights_views_title">Profile visits</string>
+    <string name="insights_views_sub">The last %1$d days, against the period before</string>
+    <string name="insights_views_none">Nobody has looked at your profile or services in this period yet. The more complete your profile and the more services you publish, the easier clients find you.</string>
+    <string name="insights_views_profile">Profile visits</string>
+    <string name="insights_views_service">Service visits</string>
+    <string name="insights_views_flat">No visits</string>
+    <string name="insights_views_new">New</string>
+    <string name="insights_views_vs_before">vs before</string>
+    <string name="insights_views_src_offer">From your offers</string>
+    <string name="insights_views_src_portfolio">From your portfolio</string>
+    <string name="insights_views_src_market">From the services market</string>
+    <string name="insights_views_over_time">Visits over time</string>
+    <string name="insights_views_top">Most visited services</string>
+    <string name="insights_views_top_row">%1$d visits · %2$d orders</string>
+
+    <!-- FL-L11: improve my profile -->
+    <string name="coach_title">Improve your profile</string>
+    <string name="coach_card_title">Improve your profile</string>
+    <string name="coach_card_sub">%1$d steps to get chosen more often</string>
+    <string name="coach_see_all">See all steps (%1$d)</string>
+    <string name="coach_level_start">Your profile is just starting</string>
+    <string name="coach_level_good">A good profile that can be better</string>
+    <string name="coach_level_great">Your profile is great</string>
+    <string name="coach_steps_done">%1$d of %2$d steps done</string>
+    <string name="coach_next_hint">Work through the steps below, the most valuable first.</string>
+    <string name="coach_great_title">Your profile is complete</string>
+    <string name="coach_great_body">Nothing is missing right now. Keep your work and skills up to date.</string>
+    <string name="coach_impact_high">High impact</string>
+    <string name="coach_impact_medium">Medium impact</string>
+    <string name="coach_impact_low">Small touches</string>
+
+    <string name="coach_tip_name">Add your name</string>
+    <string name="coach_tip_name_body">Clients choose people by name; without one your profile is not shown.</string>
+    <string name="coach_tip_avatar">Add your photo</string>
+    <string name="coach_tip_avatar_body">Profiles with a photo get opened more and feel more trustworthy.</string>
+    <string name="coach_tip_headline">Write a headline</string>
+    <string name="coach_tip_headline_body">One short line on who you are, like: mobile app UI designer.</string>
+    <string name="coach_tip_bio">Write about yourself (50 characters or more)</string>
+    <string name="coach_tip_bio_body">Tell your experience and what you do best, in plain words.</string>
+    <string name="coach_tip_email">Confirm your email</string>
+    <string name="coach_tip_email_body">Receipts and important notices reach you there.</string>
+    <string name="coach_tip_languages">Pick the languages you speak</string>
+    <string name="coach_tip_languages_body">So clients know they can talk to you in theirs.</string>
+    <string name="coach_tip_experience">Say how many years you have worked</string>
+    <string name="coach_tip_experience_body">One number helps a client place your level fast.</string>
+    <string name="coach_tip_specialties">Choose your specialty</string>
+    <string name="coach_tip_specialties_body">Without it you do not see the projects that fit you.</string>
+    <string name="coach_tip_skills">Add at least 3 skills</string>
+    <string name="coach_tip_skills_body">Skills are what projects are matched to you by.</string>
+    <string name="coach_tip_work">Add your past experience</string>
+    <string name="coach_tip_work_body">Places you worked before reassure the client.</string>
+    <string name="coach_tip_portfolio">Add your first work to your portfolio</string>
+    <string name="coach_tip_portfolio_body">Pictures convince a client better than words.</string>
+    <string name="coach_tip_more_skills">Reach 6 skills</string>
+    <string name="coach_tip_more_skills_body">More skills means more projects that fit you.</string>
+    <string name="coach_tip_more_portfolio">Add at least 3 works</string>
+    <string name="coach_tip_more_portfolio_body">Clients compare your works before they decide.</string>
+    <string name="coach_tip_verification">Verify your account</string>
+    <string name="coach_tip_verification_body">Without verification you cannot send offers or take work.</string>
+    <string name="coach_tip_first_service">Publish your first ready-made service</string>
+    <string name="coach_tip_first_service_body">A client can order it at a fixed price without waiting for offers.</string>
+</resources>

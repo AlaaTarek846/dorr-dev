@@ -27,7 +27,7 @@ class FreelanceFeatures
         'bidding', 'free_offer_quota',
         'milestones', 'chat',
         'wallet_payment', 'client_fee', 'commission',
-        'ai_assistant', 'disputes', 'ratings',
+        'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations',
     ];
 
     /** The service first, then the features — what the admin switches page lists. */

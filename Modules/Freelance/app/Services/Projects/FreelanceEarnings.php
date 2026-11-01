@@ -51,25 +51,49 @@ class FreelanceEarnings
         return $earning;
     }
 
+    /** FL-L07: a consultation's net, inside its paying transaction — the waiting days are the ones kept on the booking. */
+    public function creditConsultation(\Modules\Freelance\Models\FreelanceConsultation $c, Country $country, int $amount, string $kind, string $key): ?Earning
+    {
+        if ($amount <= 0) {
+            return null;
+        }
+        $existing = Earning::query()->where('key', $key)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+        $days = max(0, (int) (((array) $c->policy)['earnings_hold_days'] ?? 0));
+        $earning = Earning::query()->create([
+            'freelancer_id' => $c->freelancer_id, 'consultation_id' => $c->id, 'country_id' => $country->id, 'kind' => $kind,
+            'amount_minor' => $amount, 'currency_code' => $c->currency_code, 'status' => $days === 0 ? Earning::RELEASED : Earning::PENDING,
+            'release_at' => $days === 0 ? null : now()->addDays($days), 'key' => $key,
+        ]);
+        if ($days === 0) {
+            $tx = $this->toWallet($earning->setRelation('consultation', $c), $c->freelancer, $country, $c->label());
+            $earning->forceFill(['released_at' => now(), 'wallet_transaction_id' => $tx->id])->save();
+        }
+
+        return $earning;
+    }
+
     /** Hourly (FL-505): pending earnings whose day came go into the wallets, once each. */
     public function releaseDue(): int
     {
         $count = 0;
         Earning::query()->where('status', Earning::PENDING)->where('release_at', '<=', now())->pluck('id')->each(function (int $id) use (&$count): void {
             $released = DB::transaction(function () use ($id) {
-                $e = Earning::query()->whereKey($id)->lockForUpdate()->with(['freelancer', 'project'])->first();
+                $e = Earning::query()->whereKey($id)->lockForUpdate()->with(['freelancer', 'project', 'consultation'])->first();
                 if ($e === null || $e->status !== Earning::PENDING) {
                     return null;
                 }
-                $tx = $this->toWallet($e, $e->freelancer, Country::query()->findOrFail($e->country_id), (string) $e->project?->title);
+                $tx = $this->toWallet($e, $e->freelancer, Country::query()->findOrFail($e->country_id), $e->sourceTitle());
                 $e->forceFill(['status' => Earning::RELEASED, 'released_at' => now(), 'wallet_transaction_id' => $tx->id])->save();
 
                 return $e;
             });
             if ($released !== null) {
                 $this->notifier->notify($released->freelancer, 'payment.available', [
-                    'project' => (string) $released->project?->title, 'amount' => number_format($released->amount_minor / 100, 2).' '.$released->currency_code,
-                ], ['project' => $released->project?->uuid]);
+                    'project' => $released->sourceTitle(), 'amount' => number_format($released->amount_minor / 100, 2).' '.$released->currency_code,
+                ], array_filter(['project' => $released->project?->uuid, 'consultation' => $released->consultation?->uuid]));
                 $count++;
             }
         });
@@ -84,7 +108,10 @@ class FreelanceEarnings
         $pending = Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::PENDING);
         // Held by clients for parts not approved yet, after the commission: what is on its way.
         $expected = (int) Milestone::query()->whereIn('status', [Status::Funded->value, Status::InProgress->value, Status::Delivered->value, Status::Revision->value, Status::Disputed->value])
-            ->whereHas('agreement', fn ($q) => $q->where('freelancer_id', $f->id)->where('status', Agreement::ACTIVE))->sum('net_minor');
+            ->whereHas('agreement', fn ($q) => $q->where('freelancer_id', $f->id)->where('status', Agreement::ACTIVE))->sum('net_minor')
+            // FL-L07: booked consultations not paid out yet.
+            + (int) \Modules\Freelance\Models\FreelanceConsultation::query()->where('freelancer_id', $f->id)
+                ->whereIn('status', [\Modules\Freelance\Models\FreelanceConsultation::BOOKED, \Modules\Freelance\Models\FreelanceConsultation::DISPUTED])->sum('net_minor');
 
         return [
             'currency' => $wallet?->currency?->code ?? Earning::query()->where('freelancer_id', $f->id)->value('currency_code'),
@@ -93,9 +120,11 @@ class FreelanceEarnings
             'next_release_at' => (clone $pending)->min('release_at') === null ? null : \Illuminate\Support\Carbon::parse((clone $pending)->min('release_at'))->toIso8601String(),
             'expected_minor' => $expected,
             'earned_minor' => (int) Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::RELEASED)->sum('amount_minor'),
-            'recent' => Earning::query()->where('freelancer_id', $f->id)->with(['project', 'milestone'])->latest('id')->limit($recent)->get()->map(fn (Earning $e) => [
+            'recent' => Earning::query()->where('freelancer_id', $f->id)->with(['project', 'milestone', 'consultation'])->latest('id')->limit($recent)->get()->map(fn (Earning $e) => [
                 'id' => $e->id, 'kind' => $e->kind, 'amount_minor' => $e->amount_minor, 'currency' => $e->currency_code, 'status' => $e->status,
-                'project' => ['uuid' => $e->project?->uuid, 'title' => $e->project?->title], 'milestone' => $e->milestone?->title,
+                // A consultation's earning has no project: its title stands in (FL-L07).
+                'project' => ['uuid' => $e->project?->uuid, 'title' => $e->sourceTitle()], 'milestone' => $e->milestone?->title,
+                'consultation' => $e->consultation?->uuid,
                 'release_at' => $e->release_at?->toIso8601String(), 'released_at' => $e->released_at?->toIso8601String(), 'at' => $e->created_at?->toIso8601String(),
             ])->values()->all(),
         ];
@@ -103,9 +132,14 @@ class FreelanceEarnings
 
     private function toWallet(Earning $e, Freelancer $f, Country $country, string $project): WalletTransaction
     {
+        $consultation = $e->consultation_id !== null;
+
         return $this->wallets->credit($this->wallets->firstOrCreateWallet($f, $country), $e->amount_minor, WalletBucket::Withdrawable, WalletTransactionType::ServiceEarning, [
-            'reference_type' => MilestonePayments::REFERENCE, 'reference_id' => $e->milestone_id,
-            'notes' => ['key' => 'wallet.notes.freelance_earning', 'variables' => ['project' => $project]],
+            'reference_type' => $consultation ? \Modules\Freelance\Services\Consultations\Consultations::REFERENCE : MilestonePayments::REFERENCE,
+            'reference_id' => $consultation ? $e->consultation_id : $e->milestone_id,
+            'notes' => $consultation
+                ? ['key' => 'wallet.notes.freelance_consultation_earning', 'variables' => ['title' => $project]]
+                : ['key' => 'wallet.notes.freelance_earning', 'variables' => ['project' => $project]],
             // The same key the earnings had before FL-505, so an earning is never paid twice.
             'idempotency_key' => $e->key,
         ]);

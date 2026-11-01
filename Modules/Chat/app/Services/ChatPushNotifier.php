@@ -3,6 +3,7 @@
 namespace Modules\Chat\Services;
 
 use App\Models\NotificationDevice;
+use App\Services\Notifications\ApnsVoipPusher;
 use App\Support\LocaleResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -314,10 +315,21 @@ class ChatPushNotifier
 
         // The app turns this into a full-screen ringing call (it needs the caller's name itself),
         // so it must arrive now or never: top priority, and dropped after the ring timeout.
-        $this->send($recipients, ['en' => $callerName], $body, $data + ['type' => 'chat_call', 'caller_name' => $callerName], [
-            'priority' => 10,
-            'ttl' => (int) config('chat.call_ring_timeout_seconds', 45),
-        ]);
+        $ttl = (int) config('chat.call_ring_timeout_seconds', 45);
+        $data += ['type' => 'chat_call', 'caller_name' => $callerName];
+
+        // iPhones with a PushKit token ring through CallKit (full screen, even locked): a VoIP push
+        // straight to Apple, and no OneSignal one on top of it.
+        $voip = app(ApnsVoipPusher::class);
+        $except = [];
+        if ($voip->configured()) {
+            $devices = $this->devicesOf($recipients)->whereNotNull('voip_token')->get(['player_id', 'voip_token']);
+            $except = $devices->pluck('player_id')->all();
+            $tokens = $devices->pluck('voip_token')->all();
+            DB::afterCommit(fn () => defer(fn () => $voip->send($tokens, $data + ['video' => $video ? '1' : '0'], $ttl)));
+        }
+
+        $this->send($recipients, ['en' => $callerName], $body, $data, ['priority' => 10, 'ttl' => $ttl], $except);
     }
 
     /**
@@ -377,22 +389,18 @@ class ChatPushNotifier
 
     /**
      * @param  array<string, mixed>  $options  extra OneSignal fields (priority, ttl…)
+     * @param  list<string>  $exceptPlayerIds  phones already reached another way (an iPhone's VoIP push)
      */
-    private function send(Collection $recipients, array $headings, array $contents, array $data, array $options = []): void
+    private function send(Collection $recipients, array $headings, array $contents, array $data, array $options = [], array $exceptPlayerIds = []): void
     {
         if ($recipients->isEmpty()) {
             return;
         }
 
-        DB::afterCommit(function () use ($recipients, $headings, $contents, $data, $options) {
+        DB::afterCommit(function () use ($recipients, $headings, $contents, $data, $options, $exceptPlayerIds) {
             try {
-                $playerIds = NotificationDevice::query()
-                    ->where(function ($q) use ($recipients) {
-                        foreach ($recipients->groupBy('participant_type') as $type => $rows) {
-                            $q->orWhere(fn ($q) => $q->whereIn('owner_type', self::deviceOwnerTypes($type))->whereIn('owner_id', $rows->pluck('participant_id')));
-                        }
-                    })
-                    ->pluck('player_id')->filter()->unique()->values()->all();
+                $playerIds = $this->devicesOf($recipients)
+                    ->pluck('player_id')->filter()->reject(fn ($id) => in_array($id, $exceptPlayerIds, true))->unique()->values()->all();
 
                 if ($playerIds === []) {
                     return;
@@ -404,6 +412,19 @@ class ChatPushNotifier
                 }
             } catch (Throwable $e) {
                 Log::error('[ChatPushNotifier] '.$e->getMessage());
+            }
+        });
+    }
+
+    /**
+     * @param  Collection<int, object>  $recipients
+     * @return \Illuminate\Database\Eloquent\Builder<NotificationDevice>
+     */
+    private function devicesOf(Collection $recipients)
+    {
+        return NotificationDevice::query()->where(function ($q) use ($recipients) {
+            foreach ($recipients->groupBy('participant_type') as $type => $rows) {
+                $q->orWhere(fn ($q) => $q->whereIn('owner_type', self::deviceOwnerTypes($type))->whereIn('owner_id', $rows->pluck('participant_id')));
             }
         });
     }

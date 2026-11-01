@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Freelance\Http\Controllers\Client\ClientInvitationController;
+use Modules\Freelance\Http\Controllers\Client\ClientServiceController;
 use Modules\Freelance\Http\Controllers\ReceiptController;
 use Modules\Freelance\Http\Controllers\ApprovalTrailController;
 use Modules\Freelance\Http\Controllers\Client\ClientAgreementController;
@@ -21,7 +22,7 @@ use Modules\Freelance\Http\Controllers\PortfolioViewController;
 // The client of freelance work is a regular Dorr user, on the Dorr user app (FL-004): their own
 // guard, the same Services as the freelancer's API.
 Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
-    Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:60,1', 'remember-locale'])->group(function () {
+    Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:60,1', 'remember-locale', \Modules\Chat\Http\Middleware\RememberTimezone::class])->group(function () {
         Route::get('config', [FreelanceConfigController::class, 'show']);
         // FL-708: my warnings, limits and suspensions, and appealing one.
         Route::get('sanctions', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'index']);
@@ -107,6 +108,47 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::delete('{uuid}/attachments/{media}', [ClientProjectController::class, 'removeAttachment'])->whereUuid('uuid')->whereNumber('media');
         });
 
+        // FL-L04: ready-made services in my country, ordering one, and my orders (after the freelancer accepts, the order is a project above).
+        Route::prefix('services')->middleware(['freelance.feature:projects', 'freelance.feature:services'])->group(function () {
+            Route::get('/', [ClientServiceController::class, 'index']);
+            Route::get('{uuid}', [ClientServiceController::class, 'show'])->whereUuid('uuid');
+            Route::get('{uuid}/quote', [ClientServiceController::class, 'quote'])->whereUuid('uuid');
+            Route::post('{uuid}/order', [ClientServiceController::class, 'order'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-service-order');
+            Route::post('{uuid}/waitlist', [ClientServiceController::class, 'joinWaitlist'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-waitlist');
+            Route::delete('{uuid}/waitlist', [ClientServiceController::class, 'leaveWaitlist'])->whereUuid('uuid');
+        });
+        // FL-L05: my monthly service subscriptions - confirming the next month (paid from the wallet), and ending one with notice.
+        Route::prefix('service-subscriptions')->middleware('freelance.feature:projects')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Client\ClientServiceSubscriptionController::class, 'index']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Client\ClientServiceSubscriptionController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/renew', [\Modules\Freelance\Http\Controllers\Client\ClientServiceSubscriptionController::class, 'renew'])->whereUuid('uuid')
+                ->middleware(['freelance.feature:wallet_payment', 'throttle:10,1,freelance-subscription-renew']);
+            Route::post('{uuid}/{action}', [\Modules\Freelance\Http\Controllers\Client\ClientServiceSubscriptionController::class, 'action'])->whereUuid('uuid')->whereIn('action', ['cancel', 'keep']);
+        });
+        // FL-L07: paid consultations - a freelancer's offer and free times, booking (paid from the wallet), and mine.
+        Route::prefix('consultation-offers')->middleware('freelance.feature:consultations')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'market']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'offer'])->whereUuid('uuid');
+            Route::get('{uuid}/slots', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'slots'])->whereUuid('uuid');
+        });
+        Route::prefix('consultations')->middleware('freelance.feature:freelance')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'index']);
+            Route::post('/', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'store'])
+                ->middleware(['freelance.feature:consultations', 'freelance.feature:wallet_payment', 'throttle:10,1,freelance-consultation-book']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/cancel', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'cancel'])->whereUuid('uuid');
+            Route::post('{uuid}/confirm', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'confirm'])->whereUuid('uuid');
+            Route::post('{uuid}/review', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'review'])->whereUuid('uuid')
+                ->middleware('throttle:10,1,freelance-consultation-review');
+            Route::post('{uuid}/complain', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'complain'])->whereUuid('uuid')
+                ->middleware('throttle:10,1,freelance-consultation-complain');
+        });
+        Route::prefix('service-orders')->middleware('freelance.feature:projects')->group(function () {
+            Route::get('/', [ClientServiceController::class, 'orders']);
+            Route::get('{uuid}', [ClientServiceController::class, 'showOrder'])->whereUuid('uuid');
+            Route::post('{uuid}/cancel', [ClientServiceController::class, 'cancel'])->whereUuid('uuid');
+        });
+
         // The freelancers I keep (FL-306).
         // FL-511: my receipts of the project money.
         Route::get('receipts', [ReceiptController::class, 'index'])->middleware('freelance.feature:projects');
@@ -138,3 +180,5 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
 
 // A portfolio image link: signed, and it expires (FL-105). No sign-in, so it opens in an image view.
 Route::get('mobile/v1/freelance/portfolio-images/{media}', [PortfolioViewController::class, 'image'])->whereNumber('media')->middleware(['signed', 'throttle:120,1,freelance-portfolio-image'])->name('freelance.portfolio.image'); // the module's routes are named `api.` + this
+// FL-L04: a ready-made service's image link — signed and short-lived, like the portfolio's.
+Route::get('mobile/v1/freelance/service-images/{media}', [ClientServiceController::class, 'image'])->whereNumber('media')->middleware(['signed:relative', 'throttle:120,1,freelance-service-image'])->name('freelance.service.image');

@@ -46,6 +46,8 @@ class RideSettingController extends Controller implements HasMiddleware
             // O-01, O-02: Google or Mapbox — one of them — and Mapbox's public token and style.
             'map_provider' => ['sometimes', 'string', 'in:'.implode(',', RideSetting::PROVIDERS)],
             'mapbox_token' => ['sometimes', 'nullable', 'string', 'max:400'],
+            // O-72: the iPhone app's map — the provider above, or Apple Maps.
+            'ios_map_provider' => ['sometimes', 'string', 'in:'.implode(',', RideSetting::IOS_PROVIDERS)],
             'mapbox_style' => ['sometimes', 'string', 'max:80', 'regex:/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/'],
             'fallback_speed_kmh' => ['sometimes', 'integer', 'between:10,150'],
             'fallback_road_factor_bp' => ['sometimes', 'integer', 'between:10000,30000'],
@@ -94,6 +96,7 @@ class RideSettingController extends Controller implements HasMiddleware
             'mapbox_token_hint' => $mapbox !== '' ? '••••'.mb_substr($mapbox, -4) : null,
             'mapbox_env_set' => (string) config('rides.mapbox.token') !== '',
             'mapbox_style' => $settings->mapbox_style ?: 'mapbox/streets-v12',
+            'ios_map_provider' => $settings->iosMapProvider(),
             'google_maps_key_set' => $key !== '',
             'google_maps_key_hint' => $key !== '' ? '••••'.mb_substr($key, -4) : null,
             'env_key_set' => (string) config('rides.google.key') !== '',

@@ -69,10 +69,27 @@ return [
         'earnings.hold_days' => 0,
         // Private projects (FL-205): the most freelancers one project can invite.
         'invitations.max_per_project' => 10,
+        // Ready-made services (FL-L04): checked by the staff before clients see one, how many one freelancer offers at once (published or
+        // waiting for review), and the hours the freelancer has to accept an order before it ends by itself.
+        'services.require_review' => true,
+        'services.max_active' => 5,
+        'services.answer_hours' => 48,
+        // Paid consultations (FL-L07): the client cancels with everything back up to these hours before the start, has these hours after
+        // it to complain (then it is paid out), books at least these hours ahead and no further than these days.
+        'consultations.require_review' => true,
+        'consultations.max_active' => 5,
+        'consultations.free_cancel_hours' => 24,
+        'consultations.complaint_hours' => 24,
+        'consultations.response_hours' => 24,
+        'consultations.min_notice_hours' => 2,
+        'consultations.max_days_ahead' => 30,
     ],
 
     // Skill suggestions (FL-102): how many new skills one freelancer may suggest a day.
     'skills' => ['suggest_daily_limit' => (int) env('FREELANCE_SKILL_SUGGEST_DAILY_LIMIT', 5)],
+
+    // Ready-made services (FL-L04): the most images, extras and listed features one service has, and how long an image link lasts.
+    'services' => ['max_images' => 5, 'max_addons' => 5, 'max_features' => 10, 'image_link_minutes' => 30],
 
     // What a freelancer can list on the profile (FL-104).
     'profile' => ['max_specialties' => 5, 'max_skills' => 30, 'max_experiences' => 20, 'max_certificates' => 20, 'max_portfolio' => 30, 'max_portfolio_images' => 10, 'max_time_off' => 12],
@@ -135,4 +152,61 @@ return [
             'medium' => ['reports_upheld' => 1, 'disputes_lost' => 1, 'sanctions' => 1, 'cancel_rate' => 30, 'cancel_min' => 3],
         ],
     ],
+
+    /*
+    | FL-L01: freelancer plans. What each plan gives, and the default price of the paid ones. The seeder turns `usd` into every country's own
+    | currency (by the currencies' exchange rates, rounded to a friendly number) and writes only the prices that are missing - an admin's
+    | price is never overwritten. Yearly = 12 months less `plan_yearly_discount_bp`. Free (rank 0) keeps every number null: the policy rules.
+    */
+    'plans' => [
+        'free' => ['rank' => 0, 'name' => ['ar' => 'مجانية', 'en' => 'Free'], 'description' => ['ar' => 'ابدأ وقدّم عروضك بالحصة الشهرية المجانية.', 'en' => 'Start and send offers with the free monthly quota.']],
+        'plus' => [
+            'rank' => 1, 'name' => ['ar' => 'بلس', 'en' => 'Plus'],
+            'description' => ['ar' => 'عروض أكتر وعمولة أقل للمحترف النشيط.', 'en' => 'More offers and a lower commission for an active freelancer.'],
+            'offers_monthly' => 40, 'commission_bp' => 800, 'trial_days' => 14, 'usd' => 9,
+            'badge' => true, 'boost' => 1, 'analytics' => 1, 'services_max' => 15,
+        ],
+        'pro' => [
+            'rank' => 2, 'name' => ['ar' => 'برو', 'en' => 'Pro'],
+            'description' => ['ar' => 'عروض بلا حد وأقل عمولة للمحترف المتفرّغ.', 'en' => 'Unlimited offers and the lowest commission for a full-time freelancer.'],
+            'offers_unlimited' => true, 'commission_bp' => 600, 'trial_days' => 14, 'usd' => 24,
+            'badge' => true, 'boost' => 2, 'analytics' => 2, 'services_max' => 30,
+        ],
+    ],
+    /*
+    | FL-L01 phase 4: the performance numbers a plan opens (`plans.*.analytics`): the days each level can look back over, and how many
+    | specialties the full level lists. `boost` (0-3) is a plan's weight in the «recommended» order; the badge and the boost go only with a
+    | subscription that gives its plan right now, and never with a work limit or a suspension.
+    */
+    'insights' => ['days' => [1 => [30], 2 => [30, 90, 365]], 'top_specialties' => 5],
+    /*
+    | FL-L11: visits to a profile and to a ready-made service are counted per day, never per person; the same client opening the same
+    | thing again within `dedupe_minutes` counts once (0 = count every open).
+    */
+    'profile_views' => ['dedupe_minutes' => 10],
+    // Capacity and the waiting list (FL-L10): the highest cap a freelancer may choose, and how long a freed place is kept for the first in line.
+    'capacity' => ['max_choice' => 20, 'hold_hours' => 24],
+    // Monthly service subscriptions (FL-L05): a month's length; the client confirms the next one from `renew_window_days` before it ends
+    // until `grace_days` after; ending it asked `cancel_notice_days` or more before the month ends lands on that month's end, else the next.
+    'subscriptions' => ['period_days' => 30, 'renew_window_days' => 3, 'grace_days' => 2, 'cancel_notice_days' => 7],
+    // Skill tests (FL-L08): a badge is valid for this many days after the pass (0 = never ends); a test with no setting of its own uses `defaults`.
+    'skill_tests' => ['badge_valid_days' => 365, 'defaults' => ['questions_count' => 10, 'minutes' => 15, 'pass_percent' => 70, 'retake_hours' => 24]],
+    'plan_boost_max' => 3,
+    'plan_yearly_discount_bp' => 2000, // 20% off the 12 months
+    'plan_grace_days' => 3,   // a failed renewal keeps the plan this many days (one retry a day), then it ends
+    'plan_remind_days' => 3,  // the renewal reminder goes this many days before
+    // Currencies whose stored rate is only a placeholder (0.01): units of the currency per 1 USD.
+    'plan_usd_rates' => ['JPY' => 150, 'KWD' => 0.31, 'BHD' => 0.38, 'OMR' => 0.385, 'JOD' => 0.71],
+
+    /*
+    | Extra offers for sale (FL-L01, phase 2): packs a freelancer buys when the month's free offers are used up. `FreelanceOfferPackDefaults`
+    | prices each pack in every country from `usd` (never overwriting an admin's price). A pack costs a little more per offer than Plus does,
+    | so the plan stays the better deal. Bought offers are spent after the free ones and end after `offer_credit_valid_days` (0 = never).
+    */
+    'offer_packs' => [
+        'small' => ['sort_order' => 1, 'offers' => 10, 'usd' => 3, 'name' => ['ar' => 'حزمة صغيرة', 'en' => 'Small pack']],
+        'medium' => ['sort_order' => 2, 'offers' => 25, 'usd' => 6, 'name' => ['ar' => 'حزمة متوسطة', 'en' => 'Medium pack']],
+        'large' => ['sort_order' => 3, 'offers' => 50, 'usd' => 12, 'name' => ['ar' => 'حزمة كبيرة', 'en' => 'Large pack']],
+    ],
+    'offer_credit_valid_days' => 180,
 ];

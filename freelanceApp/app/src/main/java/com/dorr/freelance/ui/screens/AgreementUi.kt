@@ -42,9 +42,10 @@ import com.dorr.freelance.ui.locale.LocaleAwareBottomSheet
 
 /** A form over the page (instead of a dialog): the same head as the offer form - an icon, a title and a line - then its fields. */
 @Composable
-internal fun FormSheet(icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun FormSheet(icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, fullHeight: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     LocaleAwareBottomSheet(
         onDismissRequest = onDismiss,
+        fullHeight = fullHeight,
         containerColor = if (settingsNight()) AccountDark.card else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
