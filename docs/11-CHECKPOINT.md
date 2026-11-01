@@ -63,6 +63,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **iOS wallet (2026-10-28):** done — every Android wallet screen and flow in `iosApp/Dorr/UI/Wallet/`, marked ✅ in the iOS parity table. Next on iOS: to be chosen by the owner.
+- **iOS app (2026-10-28):** `iosApp/` SwiftUI foundation (auth flow, tabs, Home/Services/Account). Every Android change must be mirrored there (AGENTS.md sync rule); parity table in `docs/modules/ios/README.md`.
 - **Android manage storage (2026-10-27):** summary card; select-all on the open chip; delete confirms then a toast. Files page 15.
 - **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` — large, forwarded, and per-chat files for last `mobile-app` login.
 - **Android usage stats hero (2026-10-27):** memory well, calendar on the since date, mobile/Wi-Fi glass split like the wallet.

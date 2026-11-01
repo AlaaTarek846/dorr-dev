@@ -83,6 +83,8 @@ class NotificationController extends Controller
         $data = $request->validate([
             'player_id' => ['required', 'string', 'max:191'],
             'platform' => ['nullable', Rule::in(['android', 'ios', 'web'])],
+            // An iPhone's PushKit token: ringing calls reach it through APNs (CallKit, full screen).
+            'voip_token' => ['nullable', 'string', 'max:200'],
         ]);
 
         $account = $request->user();
@@ -93,6 +95,7 @@ class NotificationController extends Controller
                 'owner_type' => $account->getMorphClass(),
                 'owner_id' => $account->getKey(),
                 'platform' => $data['platform'] ?? null,
+                'voip_token' => $data['voip_token'] ?? null,
                 // So signing this device out (Security → Devices) also stops its pushes.
                 'device_id' => DeviceContext::fromRequest($request)->deviceId,
                 'locale' => app()->getLocale(),
