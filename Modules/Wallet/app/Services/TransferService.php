@@ -117,7 +117,7 @@ class TransferService
 
             // A sender-paid fee has to fit in the same bucket as the principal — chosen (or checked)
             // against the combined total, so the debit below can never fail after the transfer succeeded.
-            $bucket = $this->chooseBucket($from, $amountMinor + ($senderPaysFee ? $feeMinor : 0), $fromBucket);
+            $bucket = $this->chooseBucket($from, $amountMinor + ($senderPaysFee ? $feeMinor : 0), $fromBucket, (bool) $settings->rewards_transferable);
 
             $result = $this->wallets->transfer($from, $to, $amountMinor, $bucket, [
                 'idempotency_key' => $scopedKey,
@@ -228,9 +228,15 @@ class TransferService
      * transfer can never dip into money reserved for a withdrawal or a service.
      * With no explicit choice, bonus money (spend_only) is spent first.
      */
-    private function chooseBucket(Wallet $from, int $amountMinor, ?WalletBucket $requested): WalletBucket
+    private function chooseBucket(Wallet $from, int $amountMinor, ?WalletBucket $requested, bool $rewardsTransferable = false): WalletBucket
     {
-        $candidates = $requested !== null ? [$requested] : [WalletBucket::SpendOnly, WalletBucket::Withdrawable];
+        // Rewards go to someone else only where the country allows it (Watch & Earn D20) — not even when asked for by name.
+        if ($requested === WalletBucket::Reward && ! $rewardsTransferable) {
+            throw TransferException::rewardsNotTransferable();
+        }
+
+        $candidates = $requested !== null ? [$requested]
+            : ($rewardsTransferable ? [WalletBucket::Reward, WalletBucket::SpendOnly, WalletBucket::Withdrawable] : [WalletBucket::SpendOnly, WalletBucket::Withdrawable]);
 
         foreach ($candidates as $bucket) {
             if ($from->availableMinor($bucket) >= $amountMinor) {

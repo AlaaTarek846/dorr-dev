@@ -28,6 +28,9 @@ enum ChatDeepLink: Equatable {
     case join(String)
     /// A call link: who made it, then «Join».
     case callLink(String)
+    /// Watch & Earn (`type = watch_earn`): an ad of mine changed → its stats; my rewards arrived; a comment report was
+    /// decided ([role]: `reporter` = the advertiser who reported, `author` = who wrote the comment).
+    case watchEarn(event: String, adId: String?, role: String?)
 }
 
 @MainActor
@@ -119,6 +122,7 @@ final class ChatPush: NSObject, ObservableObject {
         if event == "chat.call_link.joined", let token = s("token") { return .callLink(token) }
         if type == "support", let t = s("ticket_id").flatMap(Int.init), t > 0 { return .support(t) }
         if type == "security" { return .security }
+        if type == "watch_earn" { return .watchEarn(event: event ?? "", adId: s("ad_id"), role: s("role")) }
         if let conversation { return .conversation(conversation) }
         if type == "ride", let ride = s("ride_uuid") { return .ride(ride) }
         if let event, let kind = event.split(separator: ".").first.map(String.init), ["bus", "marine", "hire", "lesson", "loyalty"].contains(kind) {

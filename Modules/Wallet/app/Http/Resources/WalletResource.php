@@ -33,6 +33,7 @@ class WalletResource extends JsonResource
             'total_minor' => $this->totalBalanceMinor(),
             'withdrawable_minor' => $this->withdrawable_minor,
             'spend_only_minor' => $this->spend_only_minor,
+            'reward_minor' => (int) $this->reward_minor,
             'held_withdrawable_minor' => $this->held_withdrawable_minor,
             'held_spend_only_minor' => $this->held_spend_only_minor,
             'status' => (bool) $this->status,

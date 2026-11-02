@@ -27,6 +27,7 @@ return [
         'transfer_wallet_number_invalid' => 'رقم المحفظة غير صحيح. راجعه وحاول مرة أخرى.',
         'transfer_recipient_expired' => 'يرجى البحث عن المستلم مرة أخرى قبل الإرسال.',
         'transfers_disabled' => 'التحويل غير متاح في دولتك.',
+        'rewards_not_transferable' => 'رصيد المكافآت يُستخدم داخل التطبيق فقط ولا يمكن تحويله.',
         'transfer_qr_invalid' => 'رمز QR غير صالح — هذا ليس رمز محفظة.',
         'transfer_qr_other_country' => 'رمز QR هذا لمحفظة في :qr، ومحفظتك في :wallet. التحويل يكون داخل نفس الدولة فقط.',
         'pin_recovery_required' => 'اختر وسيلة استرجاع الرقم السري قبل إنشائه.',
@@ -112,6 +113,9 @@ return [
         'freelance_discount' => 'خصم على مشروع :project',
         'freelance_offer_pack' => 'عروض إضافية :project',
         'freelance_subscription' => 'باقة العمل الحر :plan',
+        'ad_funding' => 'تحويل إلى المحفظة الإعلانية',
+        'ad_return' => 'استرداد من المحفظة الإعلانية',
+        'watch_reward' => 'مكافأة شاهد واكسب: :title',
     ],
 
     'types' => [
@@ -134,6 +138,8 @@ return [
         'tip' => 'إكرامية',
         'discount_compensation' => 'تعويض خصم',
         'debt_settlement' => 'تسوية دين',
+        'ad_funding' => 'تمويل إعلانات',
+        'ad_return' => 'استرداد من الإعلانات',
     ],
 
     'sandbox_page' => [

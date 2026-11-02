@@ -285,6 +285,20 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view'],
             ],
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
+            // management, and the money report.
+            'watch-earn-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-ads' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-finance' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
                 'module_name' => 'general_services',

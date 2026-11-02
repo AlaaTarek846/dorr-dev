@@ -29,8 +29,10 @@ class Wallet extends Model
         'currency_id',
         'withdrawable_minor',
         'spend_only_minor',
+        'reward_minor',
         'held_withdrawable_minor',
         'held_spend_only_minor',
+        'held_reward_minor',
         'status',
         'last_reconciled_at',
     ];
@@ -57,6 +59,8 @@ class Wallet extends Model
             'spend_only_minor' => 'integer',
             'held_withdrawable_minor' => 'integer',
             'held_spend_only_minor' => 'integer',
+            'reward_minor' => 'integer',
+            'held_reward_minor' => 'integer',
             'status' => 'boolean',
             'last_reconciled_at' => 'datetime',
         ];
@@ -92,12 +96,20 @@ class Wallet extends Model
 
     public function balanceMinor(WalletBucket $bucket): int
     {
-        return $bucket === WalletBucket::Withdrawable ? $this->withdrawable_minor : $this->spend_only_minor;
+        return match ($bucket) {
+            WalletBucket::Withdrawable => $this->withdrawable_minor,
+            WalletBucket::SpendOnly => $this->spend_only_minor,
+            WalletBucket::Reward => (int) $this->reward_minor,
+        };
     }
 
     public function heldMinor(WalletBucket $bucket): int
     {
-        return $bucket === WalletBucket::Withdrawable ? $this->held_withdrawable_minor : $this->held_spend_only_minor;
+        return match ($bucket) {
+            WalletBucket::Withdrawable => $this->held_withdrawable_minor,
+            WalletBucket::SpendOnly => $this->held_spend_only_minor,
+            WalletBucket::Reward => (int) $this->held_reward_minor,
+        };
     }
 
     /**
@@ -109,8 +121,43 @@ class Wallet extends Model
         return $this->balanceMinor($bucket) - $this->heldMinor($bucket);
     }
 
+    /** Every bucket together — rewards are spent in the app like the rest (Watch & Earn D20). */
     public function totalBalanceMinor(): int
     {
-        return $this->withdrawable_minor + $this->spend_only_minor;
+        return $this->withdrawable_minor + $this->spend_only_minor + (int) $this->reward_minor;
+    }
+
+    /**
+     * The order every payment in the app spends the buckets in (owner's rule O-38f, extended by Watch & Earn D20):
+     * rewards, then the rest that can't be withdrawn, then withdrawable.
+     *
+     * @var list<WalletBucket>
+     */
+    public const SPEND_ORDER = [WalletBucket::Reward, WalletBucket::SpendOnly, WalletBucket::Withdrawable];
+
+    /** What a payment can take right now, every bucket together (nothing below zero counts). */
+    public function spendableMinor(): int
+    {
+        return array_sum(array_map(fn (WalletBucket $b) => max(0, $this->availableMinor($b)), self::SPEND_ORDER));
+    }
+
+    /**
+     * How a payment of $amountMinor splits across the buckets, in SPEND_ORDER. Withdrawable takes whatever is left —
+     * even past its balance, for the flows that allow a debt; the caller checks spendableMinor() when they don't.
+     *
+     * @return list<array{0: WalletBucket, 1: int}> only the parts above zero
+     */
+    public function spendParts(int $amountMinor): array
+    {
+        $parts = [];
+        foreach (self::SPEND_ORDER as $bucket) {
+            $part = $bucket === WalletBucket::Withdrawable ? $amountMinor : min(max(0, $this->availableMinor($bucket)), $amountMinor);
+            if ($part > 0) {
+                $parts[] = [$bucket, $part];
+                $amountMinor -= $part;
+            }
+        }
+
+        return $parts;
     }
 }

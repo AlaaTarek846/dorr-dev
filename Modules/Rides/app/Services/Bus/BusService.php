@@ -426,7 +426,7 @@ class BusService
     private function charge(User $rider, BusTrip $trip, BusBooking $booking, int $amount): array
     {
         $wallet = $this->wallets->firstOrCreateWallet($rider, $trip->country()->firstOrFail())->fresh();
-        $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        $free = $wallet->spendableMinor();
         if ($free < $amount) {
             throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }

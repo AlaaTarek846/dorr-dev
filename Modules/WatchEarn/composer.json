@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/watch-earn",
+    "description": "DORR Watch & Earn: paid image/video ads, viewers rewarded for watching and interacting.",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\WatchEarn\\": "app/",
+            "Modules\\WatchEarn\\Database\\Factories\\": "database/factories/",
+            "Modules\\WatchEarn\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\WatchEarn\\Tests\\": "tests/"
+        }
+    }
+}

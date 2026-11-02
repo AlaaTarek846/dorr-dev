@@ -53,6 +53,11 @@ sealed interface ChatDeepLink {
     data class CallLink(val token: String) : ChatDeepLink
     /** A freelance notification (an offer, the agreement, a dispute…): the Freelance screen it belongs to — a page of the Freelance host. */
     data class Freelance(val page: String) : ChatDeepLink
+    /**
+     * Watch & Earn (`type = watch_earn`): an ad of mine changed → its stats; my rewards arrived; a comment report was
+     * decided ([role]: `reporter` = the advertiser who reported, `author` = who wrote the comment).
+     */
+    data class WatchEarn(val event: String, val adId: String?, val role: String? = null) : ChatDeepLink
 }
 
 /**
@@ -155,6 +160,11 @@ object ChatPush {
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         data.optString("type") == "security" -> ChatDeepLink.Security
                         data.optString("type") == "chat_verification" -> ChatDeepLink.Verification
+                        data.optString("type") == "watch_earn" -> ChatDeepLink.WatchEarn(
+                            data.optString("event"),
+                            data.optString("ad_id").takeIf { it.isNotBlank() && it != "null" },
+                            data.optString("role").takeIf { it.isNotBlank() && it != "null" },
+                        )
                         data.optString("event").startsWith("freelance.") -> ChatDeepLink.Freelance(
                             com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(
                                 data.optString("event"),

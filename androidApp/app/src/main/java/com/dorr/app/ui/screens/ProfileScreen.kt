@@ -79,6 +79,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlayCircleFilled
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Security
@@ -451,6 +452,8 @@ private fun ProfileMenuScreen(
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
     val menuItems = listOf(
+        // Watch & Earn (D17): above the personal data.
+        MenuEntry(Icons.Rounded.PlayCircleFilled, R.string.we_title, R.string.we_menu_sub) { com.dorr.app.ui.screens.watchearn.WatchEarnLink.show() },
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = onOpenSettings),
         MenuEntry(Icons.Rounded.VerifiedUser, R.string.verification_title, R.string.verification_menu_sub, onClick = onOpenVerification),

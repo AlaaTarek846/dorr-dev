@@ -994,6 +994,31 @@ export default [
                 component: page('chat/portals/index'),
                 meta: { middleware: [auth], permission: 'chat-portals.view' },
             },
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043).
+            {
+                path: 'watch-earn/ads',
+                name: 'admin.watch-earn.ads',
+                component: page('watch-earn/ads/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/comment-reports',
+                name: 'admin.watch-earn.comment-reports',
+                component: page('watch-earn/comment-reports/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/settings',
+                name: 'admin.watch-earn.settings',
+                component: page('watch-earn/settings/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-settings.view' },
+            },
+            {
+                path: 'watch-earn/finance',
+                name: 'admin.watch-earn.finance',
+                component: page('watch-earn/finance/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-finance.view' },
+            },
             {
                 path: 'chat/groups',
                 name: 'admin.chat.groups',

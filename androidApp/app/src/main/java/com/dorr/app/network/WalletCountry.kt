@@ -55,6 +55,9 @@ object WalletCountry {
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }
 
-    /** For the HTTP client: the header value for a wallet request, if I chose another wallet. */
-    fun headerFor(path: String): String? = selected?.takeIf { path.contains("/v1/wallet") }
+    /**
+     * For the HTTP client: the header value for a wallet request, if I chose another wallet. Watch & Earn
+     * works on the same wallet (rewards land in it, the ad wallet is funded from it), so it follows too.
+     */
+    fun headerFor(path: String): String? = selected?.takeIf { path.contains("/v1/wallet") || path.contains("/v1/watch-earn") }
 }

@@ -37,6 +37,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showWatchEarnSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.watch_earn') }}</span>
+                        </li>
+
+                        <li v-for="item in watchEarnItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <template v-if="showRidesSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.rides') }}</span>
@@ -864,6 +877,16 @@ const chatAdminItems = [
 const showChatAdminSection = computed(
     () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
 );
+
+/** Watch & Earn (Modules/WatchEarn): the ads' review, the settings per country and the money report. */
+const watchEarnItems = [
+    { route: 'admin.watch-earn.ads', permission: 'watch-earn-ads.view', icon: 'ri-play-circle-line', label: 'watch_earn.ads.title' },
+    { route: 'admin.watch-earn.comment-reports', permission: 'watch-earn-ads.view', icon: 'ri-chat-delete-line', label: 'watch_earn.comment_reports.title' },
+    { route: 'admin.watch-earn.settings', permission: 'watch-earn-settings.view', icon: 'ri-equalizer-line', label: 'watch_earn.settings.title' },
+    { route: 'admin.watch-earn.finance', permission: 'watch-earn-finance.view', icon: 'ri-money-dollar-circle-line', label: 'watch_earn.finance.title' },
+];
+
+const showWatchEarnSection = computed(() => watchEarnItems.some((item) => can(item.permission)));
 
 /** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
 const ridesItems = [

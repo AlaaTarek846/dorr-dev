@@ -285,6 +285,11 @@ fun ChatListPage() {
                 FilterChips()
             }
 
+            // Watch & Earn (D17): a slim card the person can hide (it comes back from the chat settings).
+            AnimatedVisibility(!searching && host.filter == "all", enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                com.dorr.app.ui.screens.watchearn.WatchEarnChatCard(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 6.dp))
+            }
+
             // -------------------------------------------------------------- list
             PullToRefreshBox(
                 isRefreshing = refreshing,

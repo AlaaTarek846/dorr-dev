@@ -11,6 +11,7 @@ private let chatThemeModes = [("system", "ch_theme_system"), ("light", "ch_theme
 struct ChatSettingsPage: View {
     @ObservedObject private var ch = Ch.shared
     @ObservedObject private var store = ChatStore.shared
+    @ObservedObject private var wePrefs = WatchEarnPrefs.shared
     @ObservedObject var host: ChatHost
     @State private var sheet: String?
 
@@ -54,7 +55,11 @@ struct ChatSettingsPage: View {
                     case "look":
                         SettingsGroup {
                             SettingsListRow(icon: "moon.fill", title: L("ch_theme"), value: L(chatThemeModes.first { $0.0 == store.themeMode }?.1 ?? "ch_theme_system")) { sheet = "theme" }
-                            SettingsListRow(icon: "textformat.size", title: L("cp_comfort"), last: true) { sheet = "comfort" }
+                            SettingsListRow(icon: "textformat.size", title: L("cp_comfort")) { sheet = "comfort" }
+                            // The Watch & Earn card at the top of the chat list: hidden from its ×, shown again here.
+                            SettingsListRow(icon: "play.circle.fill", title: L("we_chat_card_setting"), value: L(wePrefs.chatCardHidden ? "we_off" : "we_on"), last: true) {
+                                wePrefs.setChatCardHidden(!wePrefs.chatCardHidden)
+                            }
                         }
                     case "data":
                         SettingsGroup { SettingsListRow(icon: "speedometer", title: L("pf_title"), last: true) { host.push(.dataPerformance) } }

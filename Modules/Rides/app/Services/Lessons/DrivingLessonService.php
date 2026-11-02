@@ -350,7 +350,7 @@ class DrivingLessonService
     {
         $key = 'lessons:'.$enrollment->uuid.':pay';
         $wallet = $this->wallets->firstOrCreateWallet($learner, $pack->country()->firstOrFail())->fresh();
-        $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        $free = $wallet->spendableMinor();
         if ($free < $amount) {
             throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }

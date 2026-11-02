@@ -22,6 +22,7 @@ struct MainScreen: View {
     @State private var showCalendar = false
     @ObservedObject private var eventsLink = EventsLink.shared
     @ObservedObject private var sportsLink = SportsLink.shared
+    @ObservedObject private var watchEarnLink = WatchEarnLink.shared
     @ObservedObject private var aiGate = AiPlanGate.shared
     @State private var serviceDetail: (service: ServiceDto, color: Color)?
 
@@ -66,6 +67,7 @@ struct MainScreen: View {
             .animation(.easeInOut(duration: 0.25), value: router.supportChatOpen)
             .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42), value: eventsLink.open)
             .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42), value: sportsLink.open)
+            .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42), value: watchEarnLink.open)
             .background((wa.night ? wa.bg : appearance.color("background", .white, dark: false)).ignoresSafeArea())
 
             // A service's page and the notifications cover the whole shell, tab bar included (Android draws the
@@ -149,6 +151,13 @@ struct MainScreen: View {
                     .zIndex(1)
             }
 
+            // Watch & Earn: watch ads and earn, my ads, the ad wallet — opened from the wallet, the chat list, Home and Account.
+            if watchEarnLink.open {
+                WatchEarnHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { watchEarnLink.close() } })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+
             #if DEBUG
             if showMapPreview { MapPreview(onBack: { showMapPreview = false }).zIndex(4) }
             #endif
@@ -192,6 +201,12 @@ struct MainScreen: View {
             case .call(let id, _):
                 CallController.shared.loadIncoming(id)
                 ChatPush.shared.consumeDeepLink()
+            // A Watch & Earn push: an ad's stats, my rewards, or the section.
+            case .watchEarn(let event, let adId, let role):
+                router.walletOpen = false
+                showChat = false
+                WatchEarnLink.shared.openFromPush(event, adId, role: role)
+                ChatPush.shared.consumeDeepLink()
             default: break
             }
         }
@@ -214,6 +229,7 @@ struct MainScreen: View {
             case "rides": showRides = true
             case "ai": showAi = true
             case "chat": showChat = true
+            case "watchEarn": watchEarnLink.show()
             case "map": showMapPreview = true
             case "match": sportsLink.show("m1")
             case "goal":
