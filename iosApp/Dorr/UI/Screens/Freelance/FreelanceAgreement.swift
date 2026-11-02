@@ -74,6 +74,8 @@ struct AgreementPage: View {
     @State private var scopeText = ""
     @State private var includes = ""
     @State private var excludes = ""
+    // FL-605: how often I ask for a progress report (0 = none).
+    @State private var reportDays = 0
     @State private var busy = false
     @State private var error: String?
     @State private var notice: String?
@@ -81,11 +83,15 @@ struct AgreementPage: View {
     // FL-403: the part the client is sending back, and why.
     @State private var revisionFor: String?
     @State private var revisionReason = ""
-    // FL-501: the part being funded (the confirm dialog).
+    // FL-501: the part being funded (the confirm sheet).
     @State private var fundFor: FreelanceMilestoneDto?
-    // FL-506: the part being called off (the dialog says what comes back).
+    // FL-506: the part being called off (the sheet says what comes back).
     @State private var cancelFor: FreelanceMilestoneDto?
+    // FL-607: why (a picked reason and a few words).
+    @State private var cancelCode: String?
+    @State private var cancelNote = ""
     @State private var reloads = 0
+    @State private var tab = 0
     // FL-402: the parts, while the client splits them (title, amount as typed).
     @State private var splitting = false
     @State private var parts: [(String, String)] = []
@@ -96,6 +102,7 @@ struct AgreementPage: View {
             scopeText = a.scope ?? ""
             includes = a.includes ?? ""
             excludes = a.excludes ?? ""
+            reportDays = a.reports?.everyDays ?? 0
         }
     }
 
@@ -117,19 +124,20 @@ struct AgreementPage: View {
     private var changed: Bool {
         guard let a = agreement else { return false }
         func t(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
-        return t(scopeText) != (a.scope ?? "") || t(includes) != (a.includes ?? "") || t(excludes) != (a.excludes ?? "")
+        return t(scopeText) != (a.scope ?? "") || t(includes) != (a.includes ?? "") || t(excludes) != (a.excludes ?? "") || reportDays != (a.reports?.everyDays ?? 0)
     }
 
     private func saveBody() async throws -> ApiEnvelope<FreelanceAgreementDto> {
         func clean(_ s: String) -> String? { let t = s.trimmingCharacters(in: .whitespacesAndNewlines); return t.isEmpty ? nil : t }
-        return try await FreelanceApi.updateAgreement(projectUuid, scope: scopeText.trimmingCharacters(in: .whitespacesAndNewlines), includes: clean(includes), excludes: clean(excludes))
+        return try await FreelanceApi.updateAgreement(projectUuid, scope: scopeText.trimmingCharacters(in: .whitespacesAndNewlines), includes: clean(includes),
+                                                      excludes: clean(excludes), reportEveryDays: reportDays)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             SubHeader(title: L("fl_agreement"), onBack: onBack)
             if let a = agreement {
-                ScrollView { content(a).padding(.horizontal, 16) }
+                ScrollView { content(a).padding(.horizontal, 16) }.scrollDismissesKeyboard(.interactively)
             } else {
                 FlLoading(error: error)
             }
@@ -137,14 +145,14 @@ struct AgreementPage: View {
         .task(id: "\(network.reconnectTick)|\(reloads)") {
             do { take(try await FreelanceApi.agreement(projectUuid).data) } catch { self.error = flError(error) }
         }
-        .dorrDialog(isPresented: Binding(get: { cancelFor != nil }, set: { if !$0 && !busy { cancelFor = nil } })) {
-            if let m = cancelFor { cancelDialog(m) }
+        .dorrDialog(isPresented: Binding(get: { cancelFor != nil }, set: { if !$0 && !busy { cancelFor = nil } }), bottom: true) {
+            if let m = cancelFor { cancelSheet(m) }
         }
-        .dorrDialog(isPresented: Binding(get: { fundFor != nil }, set: { if !$0 && !busy { fundFor = nil } })) {
-            if let m = fundFor { fundDialog(m) }
+        .dorrDialog(isPresented: Binding(get: { fundFor != nil }, set: { if !$0 && !busy { fundFor = nil } }), bottom: true) {
+            if let m = fundFor { fundSheet(m) }
         }
-        .dorrDialog(isPresented: Binding(get: { revisionFor != nil }, set: { if !$0 && !busy { revisionFor = nil } })) {
-            if let target = revisionFor { revisionDialog(target) }
+        .dorrDialog(isPresented: Binding(get: { revisionFor != nil }, set: { if !$0 && !busy { revisionFor = nil } }), bottom: true) {
+            if let target = revisionFor { revisionSheet(target) }
         }
         .dorrDialog(isPresented: $confirmCancel) {
             ConfirmDialog(icon: "xmark", title: L("fl_ag_cancel"), message: L("fl_ag_cancel_confirm"), loading: busy,
@@ -155,103 +163,168 @@ struct AgreementPage: View {
 
     @ViewBuilder
     private func content(_ a: FreelanceAgreementDto) -> some View {
+        let milestones = a.milestones ?? []
+        let recordsKey = "\(a.state):\(a.version ?? 1):" + milestones.map(\.state).joined(separator: ",")
+        let activity = a.state == "active" || a.state == "completed"
+        let sc = agreementStatusColor(a.state)
+        let money = a.money ?? FreelanceAgreementMoneyDto()
+        VStack(alignment: .leading, spacing: 12) {
+            // The head: who, where it stands and the figures.
+            FlCard {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "person.2.fill").font(.system(size: 19)).foregroundStyle(sc)
+                        .frame(width: 48, height: 48)
+                        .background(sc.opacity(0.12), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(verbatim: a.freelancer?.name ?? "—").font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
+                        FlPill(text: agreementStatusLabel(a.state), color: sc)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Text(verbatim: agreementHint(a.state)).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+                if let exp = a.expiresAt { FlNotice(text: L("fl_ag_answer_by", "\u{200E}" + String(exp.prefix(10))), icon: "hourglass", color: flAmber) }
+                HStack(spacing: 8) {
+                    FlStat(icon: "banknote", label: L("fl_total"), value: flAmount(money.totalMinor, a.currency)).layoutPriority(1)
+                    FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", a.durationDays ?? 0))
+                }
+                let done = milestones.filter { $0.state == "approved" }.count
+                if !milestones.isEmpty && activity {
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(wa.accent.opacity(0.15))
+                            if done > 0 { Capsule().fill(wa.accent).frame(width: proxy.size.width * min(CGFloat(done) / CGFloat(milestones.count), 1)) }
+                        }
+                    }
+                    .frame(height: 6)
+                    Text(verbatim: L("fl_progress_parts", done, milestones.count)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                }
+            }
+            FlTabs(tabs: [
+                FlTab(icon: "doc.text", label: L("fl_tab_overview")),
+                FlTab(icon: "flag.fill", label: L("fl_tab_parts"), badge: milestones.count),
+                FlTab(icon: "clock.arrow.circlepath", label: L("fl_tab_activity")),
+            ], selected: tab) { tab = $0 }
+            switch tab {
+            case 0: overview(a)
+            case 1: partsTab(a)
+            default: activityTab(a, recordsKey: recordsKey, activity: activity)
+            }
+            Spacer(minLength: 20)
+        }
+    }
+
+    @ViewBuilder
+    private func overview(_ a: FreelanceAgreementDto) -> some View {
         let money = a.money ?? FreelanceAgreementMoneyDto()
         let terms = a.terms ?? FreelanceAgreementTermsDto()
         let can = a.can ?? FreelanceAgreementCanDto()
-        let milestones = a.milestones ?? []
-        VStack(alignment: .leading, spacing: 12) {
-            FlCard {
-                HStack {
-                    Text(verbatim: a.freelancer?.name ?? "—").font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk)
-                    Spacer()
-                    Text(verbatim: agreementStatusLabel(a.state)).font(.dorr(12, .bold)).foregroundStyle(agreementStatusColor(a.state))
-                }
-                Text(verbatim: agreementHint(a.state)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                if let exp = a.expiresAt { Text(verbatim: L("fl_ag_answer_by", "\u{200E}" + String(exp.prefix(10)))).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+        FlCard(icon: "banknote", title: L("fl_ag_money")) {
+            FlField(label: L("fl_price"), value: flAmount(money.priceMinor, a.currency))
+            if (money.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(money.clientFeeMinor, a.currency)) }
+            FlField(label: L("fl_total"), value: flAmount(money.totalMinor, a.currency))
+            // FL-510: the split made the total differ from the one told before choosing (a minimum fee on each part).
+            if let q = money.quotedTotalMinor, q != money.totalMinor {
+                Text(verbatim: L("fl_quoted_total", flAmount(q, a.currency))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
             }
-            FlCard {
-                FlField(label: L("fl_price"), value: flAmount(money.priceMinor, a.currency))
-                if (money.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(money.clientFeeMinor, a.currency)) }
-                FlField(label: L("fl_total"), value: flAmount(money.totalMinor, a.currency))
-                // FL-510: the split made the total differ from the one told before choosing (a minimum fee on each part).
-                if let q = money.quotedTotalMinor, q != money.totalMinor {
-                    Text(verbatim: L("fl_quoted_total", flAmount(q, a.currency))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                }
-                FlField(label: L("fl_duration"), value: L("fl_days", a.durationDays ?? 0))
-                if let d = terms.reviewDays { FlField(label: L("fl_ag_review_days"), value: L("fl_days", d)) }
-                if let r = terms.freeRevisions { FlField(label: L("fl_ag_free_revisions"), value: "\(r)") }
+            if let d = terms.reviewDays { FlField(label: L("fl_ag_review_days"), value: L("fl_days", d)) }
+            if let r = terms.freeRevisions { FlField(label: L("fl_ag_free_revisions"), value: "\(r)") }
+        }
+        if can.edit == true {
+            // The terms are a form: the same look as the organizer form.
+            FlIntro(icon: "square.and.pencil", title: L("fl_ag_terms"), text: L("fl_ag_form_intro"))
+            VStack(alignment: .leading, spacing: 14) {
+                DorrTextArea(value: Binding(get: { scopeText }, set: { scopeText = String($0.prefix(8000)) }), label: L("fl_ag_scope"), icon: "text.alignleft", minHeight: 110)
+                DorrTextArea(value: Binding(get: { includes }, set: { includes = String($0.prefix(3000)) }), label: L("fl_ag_includes"), icon: "checkmark.circle.fill", minHeight: 70)
+                DorrTextArea(value: Binding(get: { excludes }, set: { excludes = String($0.prefix(3000)) }), label: L("fl_ag_excludes"), icon: "nosign", minHeight: 70)
             }
-            FlCard {
-                HStack {
-                    FlLabel(text: L("fl_ms_title"))
-                    Spacer()
-                    if can.split == true && !splitting {
-                        FlTextLink(text: L(milestones.count > 1 ? "fl_ms_edit" : "fl_ms_split")) { startSplit(a) }
+            // FL-605: optional progress reports.
+            FlHeading(icon: "calendar.badge.clock", text: L("fl_rp_ask"), hint: L("fl_rp_hint"))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    FlChip(text: L("fl_rp_none"), selected: reportDays == 0, icon: "nosign") { reportDays = 0 }
+                    ForEach(a.reports?.allowedDays ?? [3, 7, 14], id: \.self) { d in
+                        FlChip(text: L("fl_rp_every", d), selected: reportDays == d, icon: "calendar.badge.clock") { reportDays = d }
                     }
                 }
-                if !splitting {
-                    ForEach(milestones) { m in milestoneRow(a, m) }
-                } else {
-                    splitEditor(a)
-                }
             }
-            // FL-511 / FL-406: the receipts of this project and its record of approvals.
-            let recordsKey = "\(a.state):\(a.version ?? 1):" + milestones.map(\.state).joined(separator: ",")
-            ReceiptsCard(projectUuid: projectUuid, refreshKey: recordsKey)
-            TrailCard(projectUuid: projectUuid, refreshKey: recordsKey)
-            // FL-701: rating the freelancer once it is completed.
-            if let rv = a.review {
-                ReviewCard(review: rv, busy: busy) { scores, comment in
-                    act({
-                        _ = try await FreelanceApi.review(projectUuid, scores: scores, comment: comment)
-                        return try await FreelanceApi.agreement(projectUuid).data
-                    })
-                }
+            if a.state == "pending_approval" { FlNotice(text: L("fl_ag_edit_resets"), icon: "info.circle.fill", color: wa.accent) }
+        } else {
+            FlCard(icon: "doc.text", title: L("fl_ag_terms")) {
+                FlField(label: L("fl_ag_scope"), value: a.scope)
+                FlField(label: L("fl_ag_includes"), value: a.includes)
+                FlField(label: L("fl_ag_excludes"), value: a.excludes)
             }
-            // FL-404 / FL-405: changes after the agreement started.
-            if a.state == "active" {
-                ChangesCard(changes: a.changes ?? [], milestones: milestones, currency: a.currency ?? "", canAsk: true, busy: busy,
-                            onAsk: { body in
-                                act({
-                                    _ = try await FreelanceApi.requestChange(projectUuid, body)
-                                    return try await FreelanceApi.agreement(projectUuid).data
-                                })
-                            },
-                            onAnswer: { change, action in
-                                act({
-                                    _ = try await FreelanceApi.answerChange(projectUuid, change, action: action)
-                                    return try await FreelanceApi.agreement(projectUuid).data
-                                })
-                            })
-            }
-            FlCard {
-                if can.edit == true {
-                    DorrTextArea(value: Binding(get: { scopeText }, set: { scopeText = String($0.prefix(8000)) }), label: L("fl_ag_scope"), minHeight: 110)
-                    DorrTextArea(value: Binding(get: { includes }, set: { includes = String($0.prefix(3000)) }), label: L("fl_ag_includes"), minHeight: 70)
-                    DorrTextArea(value: Binding(get: { excludes }, set: { excludes = String($0.prefix(3000)) }), label: L("fl_ag_excludes"), minHeight: 70)
-                    if a.state == "pending_approval" { Text(L("fl_ag_edit_resets")).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
-                } else {
-                    FlField(label: L("fl_ag_scope"), value: a.scope)
-                    FlField(label: L("fl_ag_includes"), value: a.includes)
-                    FlField(label: L("fl_ag_excludes"), value: a.excludes)
-                }
-            }
-            FlNotices(notice: notice, error: error)
-            if can.edit == true && changed { FlTextAction(text: L("fl_ag_save")) { act({ try await saveBody().data }) } }
-            if can.send == true || (can.edit == true && changed) {
-                SettingsPrimaryButton(text: L("fl_ag_send"), enabled: !scopeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, loading: busy) {
-                    let wasChanged = changed
-                    act({
-                        if wasChanged { _ = try await saveBody() }
-                        let sent = try await FreelanceApi.sendAgreement(projectUuid)
-                        notice = sent.message
-                        return sent.data
-                    })
-                }
-            }
-            if can.cancel == true { FlTextAction(text: L("fl_ag_cancel"), danger: true) { confirmCancel = true } }
-            Spacer(minLength: 20)
         }
+        FlNotices(notice: notice, error: error)
+        if can.edit == true && changed { FlAction(text: L("fl_ag_save"), icon: "square.and.arrow.down") { act({ try await saveBody().data }) } }
+        if can.send == true || (can.edit == true && changed) {
+            FlAction(text: L("fl_ag_send"), icon: "paperplane.fill", tone: .primary, enabled: !scopeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, loading: busy) {
+                let wasChanged = changed
+                act({
+                    if wasChanged { _ = try await saveBody() }
+                    let sent = try await FreelanceApi.sendAgreement(projectUuid)
+                    notice = sent.message
+                    return sent.data
+                })
+            }
+        }
+        if can.cancel == true { FlAction(text: L("fl_ag_cancel"), icon: "xmark.circle.fill", tone: .danger) { confirmCancel = true } }
+    }
+
+    @ViewBuilder
+    private func partsTab(_ a: FreelanceAgreementDto) -> some View {
+        let milestones = a.milestones ?? []
+        if a.can?.split == true && !splitting {
+            FlAction(text: L(milestones.count > 1 ? "fl_ms_edit" : "fl_ms_split"), icon: "arrow.triangle.branch") { startSplit(a) }
+        }
+        if !splitting {
+            ForEach(milestones) { m in milestoneRow(a, m) }
+            FlNotices(notice: notice, error: error)
+        } else {
+            splitEditor(a)
+        }
+    }
+
+    @ViewBuilder
+    private func activityTab(_ a: FreelanceAgreementDto, recordsKey: String, activity: Bool) -> some View {
+        // FL-511 / FL-406: the receipts of this project and its record of approvals.
+        ReceiptsCard(projectUuid: projectUuid, refreshKey: recordsKey)
+        TrailCard(projectUuid: projectUuid, refreshKey: recordsKey)
+        // FL-701: rating the freelancer once it is completed.
+        if let rv = a.review {
+            ReviewCard(review: rv, busy: busy, onObject: { reason, note in
+                act({
+                    _ = try await FreelanceApi.objectToReview(projectUuid, reason: reason, note: note)
+                    return try await FreelanceApi.agreement(projectUuid).data
+                })
+            }) { scores, comment in
+                act({
+                    _ = try await FreelanceApi.review(projectUuid, scores: scores, comment: comment)
+                    return try await FreelanceApi.agreement(projectUuid).data
+                })
+            }
+        }
+        // FL-702: how satisfied, once it is over.
+        if a.state == "completed" || a.state == "cancelled" { SurveyCard(projectUuid: projectUuid, refreshKey: recordsKey) }
+        // FL-605: the progress reports the freelancer sent.
+        if activity { ProgressReportsCard(projectUuid: projectUuid, summary: a.reports ?? FreelanceReportSummaryDto(), refreshKey: recordsKey) }
+        // FL-404 / FL-405: changes after the agreement started.
+        if a.state == "active" {
+            ChangesCard(changes: a.changes ?? [], milestones: a.milestones ?? [], currency: a.currency ?? "", canAsk: true, busy: busy,
+                        onAsk: { body in
+                            act({
+                                _ = try await FreelanceApi.requestChange(projectUuid, body)
+                                return try await FreelanceApi.agreement(projectUuid).data
+                            })
+                        },
+                        onAnswer: { change, action in
+                            act({
+                                _ = try await FreelanceApi.answerChange(projectUuid, change, action: action)
+                                return try await FreelanceApi.agreement(projectUuid).data
+                            })
+                        })
+        }
+        if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
     }
 
     private func startSplit(_ a: FreelanceAgreementDto) {
@@ -268,49 +341,55 @@ struct AgreementPage: View {
     @ViewBuilder
     private func milestoneRow(_ a: FreelanceAgreementDto, _ m: FreelanceMilestoneDto) -> some View {
         let can = m.can ?? FreelanceMilestoneCanDto()
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(verbatim: "\(m.position ?? 1). \(m.title ?? "")").font(.dorr(14)).foregroundStyle(wa.settingsInk)
-                Spacer()
-                Text(verbatim: flAmount(m.amountMinor, a.currency)).font(.dorr(14, .bold)).foregroundStyle(wa.accent)
+        let mc = milestoneStatusColor(m.state)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text(verbatim: "\(m.position ?? 1)").font(.dorr(13, .heavy)).foregroundStyle(.white).frame(width: 28, height: 28).background(mc, in: Circle())
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: m.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk)
+                    Text(verbatim: flAmount(m.amountMinor, a.currency)).font(.dorr(13, .bold)).foregroundStyle(wa.accent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if a.state == "active" { FlPill(text: milestoneStatusLabel(m.state), color: mc) }
             }
-            if a.state == "active" {
-                Text(verbatim: milestoneStatusLabel(m.state) + ((m.heldMinor ?? 0) > 0 ? "  ·  " + L("fl_held", flAmount(m.heldMinor, a.currency)) : ""))
-                    .font(.dorr(12, .bold)).foregroundStyle(milestoneStatusColor(m.state))
-            }
+            if a.state == "active", (m.heldMinor ?? 0) > 0 { FlNotice(text: L("fl_held", flAmount(m.heldMinor, a.currency)), icon: "lock.fill", color: Color(hex: 0x0EA5E9)) }
             // FL-602 / FL-604: the versions delivered (opened in place) and the checklist for the part.
             if a.state == "active" || a.state == "completed" { DeliveryReview(projectUuid: projectUuid, m: m) }
             // FL-407: the free rounds of changes.
             if m.state == "delivered", let max = m.revisionsMax, max > 0 {
                 Text(verbatim: (m.revisionsLeft ?? 0) > 0 ? L("fl_ms_rounds_left", m.revisionsLeft ?? 0, max) : L("fl_ms_rounds_none", m.revisionsLeft ?? 0, max))
-                    .font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                    .font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
             }
             // FL-506: a request to end a started part waits for an answer; what went back after it ended.
-            if m.cancelRequestedBy == "freelancer" { Text(L("fl_ms_cancel_asked_them")).font(.dorr(12)).foregroundStyle(flAmber) }
-            if m.cancelRequestedBy == "client" { Text(L("fl_ms_cancel_asked_you")).font(.dorr(12)).foregroundStyle(flAmber) }
+            if m.cancelRequestedBy == "freelancer" { FlNotice(text: L("fl_ms_cancel_asked_them"), icon: "hourglass", color: flAmber) }
+            if m.cancelRequestedBy == "client" { FlNotice(text: L("fl_ms_cancel_asked_you"), icon: "hourglass", color: flAmber) }
             if m.state == "cancelled", (m.refundedMinor ?? 0) > 0 {
-                Text(verbatim: L("fl_ms_refunded", flAmount(m.refundedMinor, a.currency))).font(.dorr(12)).foregroundStyle(flGreen)
+                FlNotice(text: L("fl_ms_refunded", flAmount(m.refundedMinor, a.currency)), icon: "checkmark.circle.fill", color: flGreen)
             }
-            if let auto = m.autoApproveAt { Text(verbatim: L("fl_auto_approve_on", "\u{200E}" + String(auto.prefix(10)))).font(.dorr(11)).foregroundStyle(flAmber) }
-            FlowLayout(spacing: 16) {
-                if can.fund == true { FlTextLink(text: L("fl_fund")) { fundFor = m } }
-                if can.approve == true { FlTextLink(text: L("fl_ms_approve")) { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "approve").data }) } }
-                if can.revision == true { FlTextLink(text: L("fl_ms_revision")) { revisionFor = m.uuid; revisionReason = "" } }
-                if can.cancel == true { FlTextLink(text: L(m.state == "unfunded" ? "fl_ms_cancel" : "fl_ms_call_off")) { cancelFor = m } }
-                if can.cancelAccept == true {
-                    FlTextLink(text: L("fl_ms_cancel_accept")) { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel-accept").data }) }
-                }
-                // FL-704: open a dispute, or see it.
-                if let dsp = m.dispute { FlTextLink(text: L("fl_dispute_see")) { onDispute(m.uuid, dsp.uuid) } }
-                if can.dispute == true && (m.dispute == nil || m.dispute?.status == "resolved") {
-                    FlTextLink(text: L("fl_dispute_open")) { onDispute(m.uuid, nil) }
-                }
-                if can.cancelReject == true {
-                    FlTextLink(text: L("fl_ms_cancel_reject")) { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel-reject").data }) }
-                }
+            if let auto = m.autoApproveAt { FlNotice(text: L("fl_auto_approve_on", "\u{200E}" + String(auto.prefix(10))), icon: "clock", color: flAmber) }
+            if can.fund == true { FlAction(text: L("fl_fund"), icon: "wallet.pass.fill", tone: .primary) { fundFor = m } }
+            if can.approve == true {
+                FlAction(text: L("fl_ms_approve"), icon: "checkmark.circle.fill", tone: .primary) { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "approve").data }) }
+            }
+            if can.revision == true { FlAction(text: L("fl_ms_revision"), icon: "arrow.counterclockwise") { revisionFor = m.uuid; revisionReason = "" } }
+            if can.cancelAccept == true {
+                FlAction(text: L("fl_ms_cancel_accept"), icon: "checkmark.circle.fill") { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel-accept").data }) }
+            }
+            if can.cancelReject == true {
+                FlAction(text: L("fl_ms_cancel_reject"), icon: "xmark") { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel-reject").data }) }
+            }
+            // FL-704: open a dispute, or see it.
+            if let dsp = m.dispute { FlAction(text: L("fl_dispute_see"), icon: "hammer.fill", tone: .warn) { onDispute(m.uuid, dsp.uuid) } }
+            if can.dispute == true && (m.dispute == nil || m.dispute?.status == "resolved") {
+                FlAction(text: L("fl_dispute_open"), icon: "hammer.fill", tone: .warn) { onDispute(m.uuid, nil) }
+            }
+            if can.cancel == true {
+                FlAction(text: L(m.state == "unfunded" ? "fl_ms_cancel" : "fl_ms_call_off"), icon: "xmark.circle.fill", tone: .danger) { cancelCode = nil; cancelNote = ""; cancelFor = m }
             }
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .settingsSurface(20)
     }
 
     @ViewBuilder
@@ -318,80 +397,94 @@ struct AgreementPage: View {
         let sum = parts.reduce(0) { $0 + (flParseMoney($1.1) ?? 0) }
         let left = (a.priceMinor ?? 0) - sum
         let rules = a.milestoneRules ?? FreelanceMilestoneRulesDto()
+        FlIntro(icon: "arrow.triangle.branch", title: L("fl_ms_title"), text: L("fl_ms_split_intro"))
         ForEach(parts.indices, id: \.self) { i in
             HStack(spacing: 6) {
                 DorrTextArea(value: Binding(get: { parts.indices.contains(i) ? parts[i].0 : "" }, set: { if parts.indices.contains(i) { parts[i].0 = String($0.prefix(120)) } }),
-                             placeholder: L("fl_ms_part", i + 1), singleLine: true)
+                             placeholder: L("fl_ms_part", i + 1), icon: "flag.fill", singleLine: true)
                     .layoutPriority(1.4)
                 DorrTextArea(value: Binding(get: { parts.indices.contains(i) ? parts[i].1 : "" }, set: { if parts.indices.contains(i) { parts[i].1 = String($0.prefix(12)) } }),
-                             placeholder: "0.00", singleLine: true)
+                             placeholder: "0.00", icon: "banknote", singleLine: true)
                     .keyboardType(.decimalPad)
-                    .frame(maxWidth: 110)
+                    .frame(maxWidth: 130)
                 if parts.count > 1 { RemoveButton { parts.remove(at: i) } }
             }
         }
-        if parts.count < (rules.maxCount ?? 5) { FlTextLink(text: L("fl_ms_add")) { parts.append(("", flMoney(Swift.max(left, 0)))) } }
-        Text(verbatim: left == 0 ? L("fl_ms_balanced") : L("fl_ms_left", flAmount(left, a.currency))).font(.dorr(12, .bold)).foregroundStyle(left == 0 ? flGreen : flAmber)
+        if parts.count < (rules.maxCount ?? 5) { FlAction(text: L("fl_ms_add"), icon: "plus") { parts.append(("", flMoney(Swift.max(left, 0)))) } }
+        FlNotice(text: left == 0 ? L("fl_ms_balanced") : L("fl_ms_left", flAmount(left, a.currency)),
+                 icon: left == 0 ? "checkmark.circle.fill" : "exclamationmark.triangle.fill", color: left == 0 ? flGreen : flAmber)
         if let minPart = rules.minAmountMinor {
-            Text(verbatim: L("fl_ms_rules", rules.maxCount ?? 5, flAmount(minPart, a.currency))).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+            Text(verbatim: L("fl_ms_rules", rules.maxCount ?? 5, flAmount(minPart, a.currency))).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
         }
-        HStack(spacing: 16) {
-            FlTextLink(text: L("fl_ms_save")) {
-                let items = parts.enumerated().map { i, p -> (title: String, amountMinor: Int) in
-                    let t = p.0.trimmingCharacters(in: .whitespaces)
-                    return (t.isEmpty ? "\(i + 1)" : t, flParseMoney(p.1) ?? 0)
-                }
-                act({ try await FreelanceApi.setMilestones(projectUuid, items).data }, after: { splitting = false })
+        FlAction(text: L("fl_ms_save"), icon: "square.and.arrow.down", tone: .primary, loading: busy) {
+            let items = parts.enumerated().map { i, p -> (title: String, amountMinor: Int) in
+                let t = p.0.trimmingCharacters(in: .whitespaces)
+                return (t.isEmpty ? "\(i + 1)" : t, flParseMoney(p.1) ?? 0)
             }
-            FlTextLink(text: L("fl_ms_cancel_edit")) { splitting = false }
+            act({ try await FreelanceApi.setMilestones(projectUuid, items).data }, after: { splitting = false })
         }
+        FlAction(text: L("fl_ms_cancel_edit")) { splitting = false }
     }
 
-    private func cancelDialog(_ m: FreelanceMilestoneDto) -> some View {
+    private func cancelSheet(_ m: FreelanceMilestoneDto) -> some View {
         let note: String
         switch m.state {
         case "unfunded": note = L("fl_ms_cancel_note_unfunded")
         case "funded": note = L("fl_ms_cancel_note_funded")
         default: note = L("fl_ms_cancel_note_started")
         }
-        return FlAlert(title: L("fl_ms_call_off_title", m.title ?? ""), content: {
-            Text(verbatim: note).font(.dorr(13)).foregroundStyle(wa.settingsMut)
-        }, confirm: L(m.state == "in_progress" || m.state == "revision" ? "fl_ms_cancel_ask" : "fl_ms_cancel_confirm"), confirmColor: flRed, confirmEnabled: !busy,
-           onConfirm: { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel").data }, after: { cancelFor = nil }) },
-           onDismiss: { cancelFor = nil })
+        return FlSheet(icon: "xmark.circle.fill", title: L("fl_ms_call_off_title", m.title ?? ""), text: note) {
+            CancelReasonPicker(code: cancelCode, note: $cancelNote) { cancelCode = $0 }
+            FlAction(text: L(m.state == "in_progress" || m.state == "revision" ? "fl_ms_cancel_ask" : "fl_ms_cancel_confirm"), icon: "xmark.circle.fill", tone: .danger,
+                     enabled: flCancelReasonReady(cancelCode, cancelNote), loading: busy) {
+                let text = cancelNote.trimmingCharacters(in: .whitespacesAndNewlines)
+                act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "cancel", reason: text.isEmpty ? nil : text, reasonCode: cancelCode).data },
+                    after: { cancelFor = nil })
+            }
+            FlAction(text: L("fl_not_now")) { cancelFor = nil }
+        }
     }
 
-    private func fundDialog(_ m: FreelanceMilestoneDto) -> some View {
+    private func fundSheet(_ m: FreelanceMilestoneDto) -> some View {
         let cur = agreement?.currency
         let total = (m.amountMinor ?? 0) + (m.clientFeeMinor ?? 0)
         let available = agreement?.walletAvailableMinor ?? 0
         let enough = available >= total
-        return FlAlert(title: L("fl_fund_title", m.title ?? ""), content: {
-            VStack(alignment: .leading, spacing: 6) {
+        return FlSheet(icon: "wallet.pass.fill", title: L("fl_fund_title", m.title ?? ""), text: L(enough ? "fl_fund_note" : "fl_fund_short")) {
+            VStack(alignment: .leading, spacing: 8) {
                 FlField(label: L("fl_price"), value: flAmount(m.amountMinor, cur))
                 if (m.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(m.clientFeeMinor, cur)) }
                 FlField(label: L("fl_total"), value: flAmount(total, cur))
                 FlField(label: L("fl_wallet_available"), value: flAmount(available, cur))
-                Text(L(enough ? "fl_fund_note" : "fl_fund_short")).font(.dorr(12)).foregroundStyle(enough ? wa.settingsMut : flAmber)
             }
-        }, confirm: L(enough ? "fl_fund_confirm" : "fl_topup"), confirmEnabled: !busy, onConfirm: {
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             if enough {
-                act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "fund").data }, after: { fundFor = nil })
+                FlAction(text: L("fl_fund_confirm"), icon: "wallet.pass.fill", tone: .primary, loading: busy) {
+                    act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "fund").data }, after: { fundFor = nil })
+                }
             } else {
-                fundFor = nil
-                // Top up what is missing; coming back reads the wallet once more.
-                TopupLauncher.shared.open(total - available) { reloads += 1 }
+                FlAction(text: L("fl_topup"), icon: "creditcard.fill", tone: .primary) {
+                    fundFor = nil
+                    // Top up what is missing; coming back reads the wallet once more.
+                    TopupLauncher.shared.open(total - available) { reloads += 1 }
+                }
             }
-        }, onDismiss: { fundFor = nil })
+            FlAction(text: L("fl_not_now")) { fundFor = nil }
+        }
     }
 
-    private func revisionDialog(_ target: String) -> some View {
-        FlAlert(title: L("fl_ms_revision"), content: {
-            DorrTextArea(value: Binding(get: { revisionReason }, set: { revisionReason = String($0.prefix(1000)) }), placeholder: L("fl_ms_revision_hint"), minHeight: 90)
-        }, confirm: L("fl_ms_revision_send"), confirmEnabled: revisionReason.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5 && !busy, onConfirm: {
-            act({ try await FreelanceApi.milestoneAction(projectUuid, target, action: "revision", reason: revisionReason.trimmingCharacters(in: .whitespacesAndNewlines)).data },
-                after: { revisionFor = nil })
-        }, onDismiss: { revisionFor = nil })
+    private func revisionSheet(_ target: String) -> some View {
+        FlSheet(icon: "arrow.counterclockwise", title: L("fl_ms_revision"), text: L("fl_ms_revision_intro")) {
+            DorrTextArea(value: Binding(get: { revisionReason }, set: { revisionReason = String($0.prefix(1000)) }), placeholder: L("fl_ms_revision_hint"), icon: "text.alignleft", minHeight: 90)
+            FlAction(text: L("fl_ms_revision_send"), icon: "paperplane.fill", tone: .primary,
+                     enabled: revisionReason.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5, loading: busy) {
+                act({ try await FreelanceApi.milestoneAction(projectUuid, target, action: "revision", reason: revisionReason.trimmingCharacters(in: .whitespacesAndNewlines)).data },
+                    after: { revisionFor = nil })
+            }
+            FlAction(text: L("fl_not_now")) { revisionFor = nil }
+        }
     }
 }
 
@@ -453,11 +546,10 @@ private struct ChangesCard: View {
     }
 
     var body: some View {
-        FlCard {
-            FlLabel(text: L("fl_ch_title"))
+        FlCard(icon: "arrow.left.arrow.right", title: L("fl_ch_title")) {
             if changes.isEmpty { Text(L("fl_ch_none")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
             ForEach(changes, id: \.uuid) { c in
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(verbatim: changeText(c, currency)).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
                     Text(verbatim: L(c.mine == true ? "fl_ch_by_me" : "fl_ch_by_them") + "  ·  " + changeStatus(c.status)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
                     if let r = c.reason { Text(verbatim: r).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
@@ -467,9 +559,9 @@ private struct ChangesCard: View {
                         if c.can?.withdraw == true { FlTextAction(text: L("fl_ch_withdraw"), fill: false) { onAnswer(c.uuid, "withdraw") } }
                     }
                 }
-                .padding(10)
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(wa.accent.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             if canAsk && !asking { FlTextAction(text: L("fl_ch_ask")) { asking = true } }
             if canAsk && asking { form }
@@ -603,7 +695,7 @@ private struct DeliveryReview: View {
             do { versions = try await FreelanceApi.deliveries(projectUuid, m.uuid).data ?? [] } catch { self.error = flError(error) }
         }
         .onChange(of: m.checklist) { _ in checks = nil }
-        .dorrDialog(isPresented: $editing) {
+        .dorrDialog(isPresented: $editing, bottom: true) {
             ChecklistEditor(initial: list.compactMap(\.text), onDismiss: { editing = false }) { texts in
                 Task {
                     do { checks = try await FreelanceApi.setChecklist(projectUuid, m.uuid, items: texts).data ?? [] } catch { self.error = flError(error) }
@@ -656,22 +748,24 @@ private struct ChecklistEditor: View {
     @State private var lines: [String] = []
 
     var body: some View {
-        FlAlert(title: L("fl_ck_set"), content: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(L("fl_ck_editor_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                ForEach(lines.indices, id: \.self) { i in
-                    HStack(spacing: 0) {
-                        DorrTextArea(value: Binding(get: { lines.indices.contains(i) ? lines[i] : "" }, set: { if lines.indices.contains(i) { lines[i] = String($0.prefix(200)) } }),
-                                     placeholder: L("fl_ck_line"), singleLine: true)
-                        Button { lines.remove(at: i) } label: { Text(verbatim: "✕").font(.dorr(16)).foregroundStyle(flRed).padding(10) }.buttonStyle(.plain)
+        FlSheet(icon: "checklist", title: L("fl_ck_set"), text: L("fl_ck_editor_hint")) {
+            ForEach(lines.indices, id: \.self) { i in
+                HStack(spacing: 6) {
+                    DorrTextArea(value: Binding(get: { lines.indices.contains(i) ? lines[i] : "" }, set: { if lines.indices.contains(i) { lines[i] = String($0.prefix(200)) } }),
+                                 placeholder: L("fl_ck_line"), icon: "checkmark.circle.fill", singleLine: true)
+                    Button { lines.remove(at: i) } label: {
+                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(flRed).frame(width: 34, height: 34).contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
-                if lines.count < maxChecks { FlTextLink(text: L("fl_ck_add")) { lines.append("") } }
             }
-        }, confirm: L("fl_ck_save"), onConfirm: {
-            onSave(lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
-        }, dismiss: L("common_cancel"), onDismiss: onDismiss)
-        .onAppear { lines = initial.isEmpty ? [""] : initial }
+            if lines.count < maxChecks { FlAction(text: L("fl_ck_add"), icon: "plus") { lines.append("") } }
+            FlAction(text: L("fl_ck_save"), icon: "square.and.arrow.down", tone: .primary) {
+                onSave(lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+            }
+            FlAction(text: L("common_cancel"), action: onDismiss)
+        }
+        .onAppear { if lines.isEmpty { lines = initial.isEmpty ? [""] : initial } }
     }
 }
 
@@ -758,16 +852,16 @@ struct DisputePage: View {
 
     @ViewBuilder
     private var opening: some View {
-        FlCard {
-            FlLabel(text: L("fl_dispute_open_title"))
-            Text(L("fl_dispute_open_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
-            FlowLayout(spacing: 6) {
-                ForEach(disputeReasons, id: \.self) { r in FlChip(text: disputeReasonLabel(r), selected: reason == r) { reason = r } }
-            }
-            DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(3000)) }), label: L("fl_dispute_details"), placeholder: L("fl_dispute_details_hint"), minHeight: 110)
+        // Opening one: the same look as the organizer form.
+        FlIntro(icon: "hammer.fill", title: L("fl_dispute_open_title"), text: L("fl_dispute_open_note"))
+        FlHeading(icon: "flag.fill", text: L("fl_dispute_reason"))
+        FlowLayout(spacing: 6) {
+            ForEach(disputeReasons, id: \.self) { r in FlChip(text: disputeReasonLabel(r), selected: reason == r, icon: "flag.fill") { reason = r } }
         }
-        if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed) }
-        SettingsPrimaryButton(text: L("fl_dispute_open"), enabled: reason != nil && trimmed.count >= 20 && milestoneUuid != nil, loading: busy) {
+        DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(3000)) }), label: L("fl_dispute_details"), placeholder: L("fl_dispute_details_hint"),
+                     icon: "text.alignleft", minHeight: 110)
+        if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
+        FlAction(text: L("fl_dispute_open"), icon: "hammer.fill", tone: .warn, enabled: reason != nil && trimmed.count >= 20 && milestoneUuid != nil, loading: busy) {
             guard let milestoneUuid, let reason else { return }
             let details = trimmed
             run {
@@ -781,46 +875,53 @@ struct DisputePage: View {
 
     @ViewBuilder
     private func details(_ d: FreelanceDisputeDto) -> some View {
+        let sc = d.status == "resolved" ? flGreen : flAmber
         FlCard {
-            Text(verbatim: disputeStatusLabel(d.status)).font(.dorr(15, .heavy)).foregroundStyle(d.status == "resolved" ? flGreen : flAmber)
-            if let m = d.milestone { Text(verbatim: "\(m.title ?? "")  ·  " + flAmount(m.amountMinor, d.currency)).font(.dorr(13)).foregroundStyle(wa.settingsInk) }
-            Text(verbatim: L(d.mine == true ? "fl_dispute_opened_by_me" : "fl_dispute_opened_by_them") + "  ·  " + (d.reasonLabel ?? "")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            Text(verbatim: d.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(4)
-            if d.status == "open" || d.status == nil, let by = d.respondBy {
-                Text(verbatim: L("fl_dispute_respond_by", "\u{200E}" + String(by.prefix(10)))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            HStack(spacing: 12) {
+                Image(systemName: "hammer.fill").font(.system(size: 19)).foregroundStyle(sc)
+                    .frame(width: 46, height: 46)
+                    .background(sc.opacity(0.12), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: disputeStatusLabel(d.status)).font(.dorr(16, .heavy)).foregroundStyle(sc)
+                    Text(verbatim: L(d.mine == true ? "fl_dispute_opened_by_me" : "fl_dispute_opened_by_them") + "  ·  " + (d.reasonLabel ?? "")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Text(L("fl_dispute_frozen")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+            if let m = d.milestone { FlField(label: L("fl_ms_title"), value: "\(m.title ?? "")  ·  " + flAmount(m.amountMinor, d.currency)) }
+            Text(verbatim: d.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5)
+            if d.status == "open" || d.status == nil, let by = d.respondBy {
+                FlNotice(text: L("fl_dispute_respond_by", "\u{200E}" + String(by.prefix(10))), icon: "clock", color: flAmber)
+            }
+            FlNotice(text: L("fl_dispute_frozen"), icon: "lock.fill", color: Color(hex: 0x0EA5E9))
         }
         if let dec = d.decision {
-            FlCard {
-                FlLabel(text: L("fl_dispute_decision"))
+            FlCard(icon: "scalemass.fill", title: L("fl_dispute_decision")) {
                 Text(verbatim: dec.type == "refund" ? L("fl_dd_refund") : (dec.type == "release" ? L("fl_dd_release") : L("fl_dd_split", (dec.freelancerBp ?? 0) / 100)))
-                    .font(.dorr(14, .bold)).foregroundStyle(wa.accent)
-                if let note = dec.note { Text(verbatim: note).font(.dorr(13)).foregroundStyle(wa.settingsInk) }
+                    .font(.dorr(14, .heavy)).foregroundStyle(wa.accent)
+                if let note = dec.note { Text(verbatim: note).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5) }
                 if d.status == "decided", let at = dec.executesAt {
-                    Text(verbatim: L("fl_dispute_runs_at", "\u{200E}" + String(at.prefix(10)))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    FlNotice(text: L("fl_dispute_runs_at", "\u{200E}" + String(at.prefix(10))), icon: "clock", color: flAmber)
                 }
                 if dec.final == true { Text(L("fl_dispute_final")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
             }
         }
-        if d.appeal != nil { Text(L("fl_dispute_appealed_note")).font(.dorr(12)).foregroundStyle(flAmber) }
-        FlCard {
-            FlLabel(text: L("fl_dispute_evidence"))
+        if d.appeal != nil { FlNotice(text: L("fl_dispute_appealed_note"), icon: "hourglass", color: flAmber) }
+        FlCard(icon: "bubble.left.and.bubble.right.fill", title: L("fl_dispute_evidence")) {
             let evidence = d.evidence ?? []
             if evidence.isEmpty { Text(L("fl_dispute_no_evidence")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
             ForEach(Array(evidence.enumerated()), id: \.offset) { _, e in
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: L(e.mine == true ? "fl_dispute_you" : "fl_dispute_them") + "  ·  \u{200E}" + String((e.at ?? "").prefix(10))).font(.dorr(11)).foregroundStyle(wa.settingsMut)
-                    Text(verbatim: e.body ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: L(e.mine == true ? "fl_dispute_you" : "fl_dispute_them") + "  ·  \u{200E}" + String((e.at ?? "").prefix(10))).font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut)
+                    Text(verbatim: e.body ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5)
                     if let file = e.file { Text(verbatim: "📎 " + (file.name ?? "")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                 }
-                .padding(10)
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(e.mine == true ? wa.accent.opacity(0.06) : Color(hex: 0x6B7280).opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(e.mine == true ? wa.accent.opacity(0.08) : Color(hex: 0x6B7280).opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             if d.can?.evidence == true {
-                DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(3000)) }), placeholder: L("fl_dispute_add_hint"), minHeight: 90)
-                FlTextAction(text: L("fl_dispute_add")) {
+                DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(3000)) }), placeholder: L("fl_dispute_add_hint"), icon: "text.alignleft", minHeight: 90)
+                FlAction(text: L("fl_dispute_add"), icon: "paperplane.fill", tone: .primary) {
                     let body = trimmed
                     guard body.count >= 5 else { return }
                     run {
@@ -833,26 +934,25 @@ struct DisputePage: View {
         FlNotices(notice: notice, error: error)
         if d.can?.appeal == true {
             if !appealing {
-                FlTextAction(text: L("fl_dispute_appeal"), danger: true) { appealing = true; text = "" }
+                FlAction(text: L("fl_dispute_appeal"), icon: "hammer.fill", tone: .danger) { appealing = true; text = "" }
             } else {
-                FlCard {
-                    Text(L("fl_dispute_appeal_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                    DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(2000)) }), placeholder: L("fl_dispute_appeal_hint"), minHeight: 90)
-                    SettingsPrimaryButton(text: L("fl_dispute_appeal_send"), enabled: trimmed.count >= 20, loading: busy) {
-                        let reasonText = trimmed
-                        run {
-                            let r = try await FreelanceApi.appealDispute(projectUuid, d.uuid, reason: reasonText)
-                            if let updated = r.data { dispute = updated }
-                            notice = r.message
-                            appealing = false
-                            text = ""
-                        }
+                FlIntro(icon: "hammer.fill", title: L("fl_dispute_appeal"), text: L("fl_dispute_appeal_note"))
+                DorrTextArea(value: Binding(get: { text }, set: { text = String($0.prefix(2000)) }), placeholder: L("fl_dispute_appeal_hint"), icon: "text.alignleft", minHeight: 90)
+                FlAction(text: L("fl_dispute_appeal_send"), icon: "paperplane.fill", tone: .primary, enabled: trimmed.count >= 20, loading: busy) {
+                    let reasonText = trimmed
+                    run {
+                        let r = try await FreelanceApi.appealDispute(projectUuid, d.uuid, reason: reasonText)
+                        if let updated = r.data { dispute = updated }
+                        notice = r.message
+                        appealing = false
+                        text = ""
                     }
                 }
             }
         }
     }
 }
+
 
 // MARK: - Receipts and the record of approvals (FL-511 / FL-406)
 
@@ -871,8 +971,7 @@ private struct ReceiptsCard: View {
     var body: some View {
         Group {
             if !list.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_rcp_title"))
+                FlCard(icon: "doc.text.fill", title: L("fl_rcp_title")) {
                     ForEach(list) { r in
                         Button {
                             Task { open = (try? await FreelanceApi.receipt(r.uuid).data) ?? r }
@@ -894,7 +993,7 @@ private struct ReceiptsCard: View {
             }
         }
         .task(id: "\(refreshKey)|\(network.reconnectTick)") {
-            if let all = try? await FreelanceApi.receipts().data { list = all.filter { $0.project?.uuid == projectUuid } }
+            if let all = try? await FreelanceApi.receipts(project: projectUuid).data { list = all }
         }
         .dorrDialog(isPresented: Binding(get: { open != nil }, set: { if !$0 { open = nil } }), bottom: true) {
             if let r = open {
@@ -931,7 +1030,7 @@ private struct TrailCard: View {
                 FlCard {
                     Button { shown.toggle() } label: {
                         HStack(spacing: 8) {
-                            FlLabel(text: L("fl_trail_title", list.count))
+                            FlHeading(icon: "clock.arrow.circlepath", text: L("fl_trail_title", list.count))
                             Text(L(shown ? "fl_trail_hide" : "fl_trail_show")).font(.dorr(13, .bold)).foregroundStyle(wa.accent)
                             Spacer()
                         }
@@ -984,7 +1083,7 @@ private func criterionLabel(_ c: String) -> String {
     }
 }
 
-private struct FlStars: View {
+struct FlStars: View {
     let value: Int
     var size: CGFloat = 26
     var onPick: ((Int) -> Void)?
@@ -1002,20 +1101,21 @@ private struct FlStars: View {
 }
 
 /// One to five stars on each criterion and a comment. Theirs about me shows once both rated, or when the rating
-/// days are over.
+/// days are over; I may object once to theirs (FL-706).
 @MainActor
 private struct ReviewCard: View {
     @Environment(\.wa) private var wa
     let review: FreelanceReviewDto
     let busy: Bool
+    let onObject: (_ reason: String, _ note: String) -> Void
     let onSend: ([String: Int], String?) -> Void
     @State private var scores: [String: Int] = [:]
     @State private var comment = ""
+    @State private var objecting = false
 
     var body: some View {
         let criteria = review.criteria ?? []
-        FlCard {
-            FlLabel(text: L("fl_rv_title"))
+        FlCard(icon: "star.fill", title: L("fl_rv_title")) {
             if review.canRate == true {
                 Text(verbatim: L("fl_rv_note", "\u{200E}" + String((review.rateUntil ?? "").prefix(10)))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                 ForEach(criteria, id: \.self) { c in
@@ -1034,11 +1134,25 @@ private struct ReviewCard: View {
             if let r = review.mine {
                 Text(L("fl_rv_mine")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                 rating(r)
+                if let c = r.comment { Text(verbatim: c).font(.dorr(13)).foregroundStyle(wa.settingsInk) }
             }
             if let theirs = review.theirs {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L("fl_rv_theirs")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                     rating(theirs)
+                    if theirs.commentHidden == true {
+                        Text(L("fl_ob_hidden")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    } else if let c = theirs.comment {
+                        Text(verbatim: c).font(.dorr(13)).foregroundStyle(wa.settingsInk)
+                    }
+                    if let o = review.objection {
+                        Text(verbatim: objectionStatus(o.status)).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut)
+                        if let note = o.decisionNote { Text(verbatim: note).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                    }
+                    if review.canObject == true {
+                        FlTextLink(text: L("fl_ob_action")) { objecting = true }
+                        Text(verbatim: L("fl_ob_until", "\u{200E}" + String((review.objectUntil ?? "").prefix(10)))).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                    }
                 }
                 .padding(.top, 6)
             } else if review.theirsWaiting == true {
@@ -1047,15 +1161,132 @@ private struct ReviewCard: View {
                 Text(L("fl_rv_closed")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
             }
         }
+        .dorrDialog(isPresented: Binding(get: { objecting }, set: { if !$0, !busy { objecting = false } }), bottom: true) {
+            ObjectionSheet(reasons: review.objectionReasons ?? [], busy: busy, onSend: { r, n in objecting = false; onObject(r, n) }, onDismiss: { objecting = false })
+        }
     }
 
-    @ViewBuilder
     private func rating(_ r: FreelanceRatingDto) -> some View {
         HStack(spacing: 0) {
             FlStars(value: Int((r.stars ?? 0).rounded()), size: 18)
             Text(verbatim: "  \(r.stars ?? 0)").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
         }
-        if let c = r.comment { Text(verbatim: c).font(.dorr(13)).foregroundStyle(wa.settingsInk) }
+    }
+
+    private func objectionStatus(_ status: String?) -> String {
+        switch status {
+        case "rejected": return L("fl_ob_rejected")
+        case "comment_hidden": return L("fl_ob_comment_hidden")
+        case "rating_removed": return L("fl_ob_rating_removed")
+        default: return L("fl_ob_open")
+        }
+    }
+}
+
+private struct ObjectionSheet: View {
+    let reasons: [String]
+    let busy: Bool
+    let onSend: (String, String) -> Void
+    let onDismiss: () -> Void
+    @State private var code: String?
+    @State private var note = ""
+
+    var body: some View {
+        FlSheet(icon: "hammer.fill", title: L("fl_ob_title"), text: L("fl_ob_hint")) {
+            ForEach(reasons, id: \.self) { r in FlChip(text: objectionReasonLabel(r), selected: code == r, icon: "flag.fill") { code = r } }
+            DorrTextArea(value: Binding(get: { note }, set: { note = String($0.prefix(500)) }), placeholder: L("fl_ob_note"), icon: "text.alignleft", minHeight: 70)
+            FlAction(text: L("fl_ob_send"), icon: "paperplane.fill", tone: .danger,
+                     enabled: code != nil && note.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5, loading: busy) {
+                onSend(code ?? "", note.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            FlAction(text: L("fl_not_now"), action: onDismiss)
+        }
+    }
+
+    private func objectionReasonLabel(_ r: String) -> String {
+        switch r {
+        case "abusive": return L("fl_ob_r_abusive")
+        case "false": return L("fl_ob_r_false")
+        case "unfair": return L("fl_ob_r_unfair")
+        default: return L("fl_ob_r_other")
+        }
+    }
+}
+
+private func surveyReasonLabel(_ r: String) -> String {
+    switch r {
+    case "quality": return L("fl_sv_r_quality")
+    case "late": return L("fl_sv_r_late")
+    case "communication": return L("fl_sv_r_communication")
+    case "price": return L("fl_sv_r_price")
+    case "scope": return L("fl_sv_r_scope")
+    case "payment": return L("fl_sv_r_payment")
+    case "platform": return L("fl_sv_r_platform")
+    default: return L("fl_sv_r_other")
+    }
+}
+
+/// FL-702: a short survey once the project is over — how satisfied, and when not (3 stars or less) what went wrong. Shown only
+/// while it can be answered, and afterwards as a thank-you. The other side never sees it. Read on open and again when the
+/// connection returns.
+@MainActor
+private struct SurveyCard: View {
+    @Environment(\.wa) private var wa
+    @EnvironmentObject private var network: NetworkMonitor
+    let projectUuid: String
+    let refreshKey: String
+    @State private var survey: FreelanceSurveyDto?
+    @State private var score = 0
+    @State private var picked: [String] = []
+    @State private var comment = ""
+    @State private var busy = false
+    @State private var error: String?
+
+    var body: some View {
+        Group {
+            if let s = survey, s.canAnswer == true || s.mine != nil {
+                let max = s.notSatisfiedMax ?? 3
+                FlCard(icon: "chart.bar.fill", title: L("fl_sv_title")) {
+                    if let mine = s.mine {
+                        HStack(spacing: 0) {
+                            FlStars(value: mine.score ?? 0, size: 18)
+                            Text(verbatim: "  " + L("fl_sv_thanks")).font(.dorr(13)).foregroundStyle(wa.settingsInk)
+                        }
+                    } else {
+                        Text(verbatim: L("fl_sv_hint", "\u{200E}" + String((s.answerUntil ?? "").prefix(10)))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        FlStars(value: score, size: 30) { score = $0 }
+                        if (1...max).contains(score) {
+                            Text(L("fl_sv_why")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
+                            ForEach(s.reasons ?? [], id: \.self) { r in
+                                FlChip(text: surveyReasonLabel(r), selected: picked.contains(r)) {
+                                    if let i = picked.firstIndex(of: r) { picked.remove(at: i) } else { picked.append(r) }
+                                }
+                            }
+                        }
+                        if score > 0 {
+                            DorrTextArea(value: Binding(get: { comment }, set: { comment = String($0.prefix(500)) }), label: L("fl_sv_comment"), minHeight: 70)
+                        }
+                        if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(flRed) }
+                        SettingsPrimaryButton(text: L("fl_sv_send"), enabled: score > 0 && (score > max || !picked.isEmpty), loading: busy) {
+                            busy = true
+                            error = nil
+                            let t = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+                            Task {
+                                do {
+                                    survey = try await FreelanceApi.answerSurvey(projectUuid, score: score, reasons: score <= max ? picked : [], comment: t.isEmpty ? nil : t).data
+                                } catch {
+                                    self.error = flError(error)
+                                }
+                                busy = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .task(id: "\(projectUuid)|\(refreshKey)|\(network.reconnectTick)") {
+            if let fresh = try? await FreelanceApi.survey(projectUuid).data { survey = fresh }
+        }
     }
 }
 

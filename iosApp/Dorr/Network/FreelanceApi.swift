@@ -52,6 +52,9 @@ struct FreelanceProjectCanDto: Codable, Equatable {
     var withdraw: Bool?
     var cancel: Bool?
     var delete: Bool?
+    /// FL-209 / FL-210.
+    var duplicate: Bool?
+    var setCostCap: Bool?
 }
 
 /// The window in which a published project takes offers (FL-204).
@@ -116,9 +119,50 @@ struct FreelanceProjectDto: Codable, Equatable, Identifiable {
     var timeline: [FreelanceProjectEventDto]?
     var createdAt: String?
     var submittedAt: String?
+    /// FL-210: the most I pay in all (fee included), or nil.
+    var maxCostMinor: Int?
+    /// FL-211: where the work stands (nil until there is work), and what is due from me next.
+    var progress: FreelanceProgressDto?
+    var nextAction: String?
+    /// All the parts of the work with their state — on the project page only.
+    var milestones: [FreelanceProjectPartDto]?
 
     var id: String { uuid }
     var state: String { status ?? "draft" }
+}
+
+struct FreelanceProgressDto: Codable, Equatable {
+    var total: Int?
+    var approved: Int?
+    var inReview: Int?
+    var priceMinor: Int?
+    var approvedMinor: Int?
+}
+
+struct FreelanceProjectPartDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var position: Int?
+    var title: String?
+    var amountMinor: Int?
+    var durationDays: Int?
+    var status: String?
+    var statusLabel: String?
+
+    var id: String { uuid }
+}
+
+struct FreelancePreviewDto: Codable, Equatable {
+    var project: FreelanceProjectDto
+    var issues: [FreelanceIssueDto]?
+    var canSubmit: Bool?
+}
+
+/// severity = error (stops the sending) · warning (worth a look).
+struct FreelanceIssueDto: Codable, Equatable {
+    var severity: String?
+    var code: String?
+    var field: String?
+    var message: String?
 }
 
 struct FreelanceOfferChatDto: Codable, Equatable {
@@ -169,6 +213,9 @@ struct FreelanceOfferFreelancerDto: Codable, Equatable {
     var similarProjects: Int?
     /// I keep this freelancer (FL-306).
     var isFavorite: Bool?
+    /// FL-L01 / FL-L08: their plan's badge and the skills they passed the test of.
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
 }
 
 /// An offer on my project (FL-301).
@@ -191,6 +238,8 @@ struct FreelanceOfferDto: Codable, Equatable, Identifiable {
     var clientCost: FreelanceClientCostDto?
     /// The room about this offer (FL-308): nil until the client opens it.
     var chat: FreelanceOfferChatDto?
+    /// FL-210: dearer than the most I said I'd pay.
+    var overCap: Bool?
 
     var id: String { uuid }
     var state: String { status ?? "submitted" }
@@ -220,11 +269,13 @@ struct FreelanceFavoriteDto: Codable, Equatable, Identifiable {
     var id: String { uuid }
 }
 
+/// `kind` = project · consultation; `project` is its title either way.
 struct FreelanceReviewLineDto: Codable, Equatable {
     var stars: Double?
     var comment: String?
     var project: String?
     var at: String?
+    var kind: String?
 }
 
 struct FreelanceExperienceDto: Codable, Equatable {
@@ -281,6 +332,10 @@ struct FreelancerProfileDto: Codable, Equatable {
     /// FL-701: what clients said.
     var reviews: [FreelanceReviewLineDto]?
     var isFavorite: Bool?
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
+    /// FL-L07: the paid consultations listed now (empty: none).
+    var consultations: [ConsultTeaserDto]?
 }
 
 struct FreelanceChatPeerDto: Codable, Equatable {
@@ -449,6 +504,9 @@ struct FreelanceChangeDto: Codable, Equatable {
 struct FreelanceRatingDto: Codable, Equatable {
     var stars: Double?
     var comment: String?
+    var scores: [String: Int]?
+    var commentHidden: Bool?
+    var removed: Bool?
 }
 
 struct FreelanceReviewDto: Codable, Equatable {
@@ -458,6 +516,81 @@ struct FreelanceReviewDto: Codable, Equatable {
     var mine: FreelanceRatingDto?
     var theirs: FreelanceRatingDto?
     var theirsWaiting: Bool?
+    /// FL-706: I may object once to their rating of me; what became of it.
+    var canObject: Bool?
+    var objectUntil: String?
+    var objection: FreelanceObjectionDto?
+    var objectionReasons: [String]?
+}
+
+struct FreelanceObjectionDto: Codable, Equatable {
+    var reason: String?
+    var note: String?
+    var status: String?
+    var decisionNote: String?
+}
+
+/// FL-702: the satisfaction survey after the project.
+struct FreelanceSurveyDto: Codable, Equatable {
+    var canAnswer: Bool?
+    var answerUntil: String?
+    var reasons: [String]?
+    var notSatisfiedMax: Int?
+    var mine: FreelanceSurveyMineDto?
+}
+
+struct FreelanceSurveyMineDto: Codable, Equatable {
+    var score: Int?
+    var reasons: [String]?
+    var comment: String?
+}
+
+/// FL-708: my warnings and restrictions on freelance work.
+struct FreelanceSanctionsDto: Codable, Equatable {
+    var items: [FreelanceSanctionDto]?
+}
+
+struct FreelanceSanctionDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var type: String?
+    var state: String?
+    var reason: String?
+    var blocks: [String]?
+    var endsAt: String?
+    var canAppeal: Bool?
+    var appealUntil: String?
+    var appeal: FreelanceSanctionAppealDto?
+
+    var id: String { uuid }
+}
+
+struct FreelanceSanctionAppealDto: Codable, Equatable {
+    var status: String?
+    var note: String?
+    var decisionNote: String?
+}
+
+/// FL-605: how often I asked for a progress report, and whether the next one is late.
+struct FreelanceReportSummaryDto: Codable, Equatable {
+    var everyDays: Int?
+    var nextDueAt: String?
+    var lastAt: String?
+    var late: Bool?
+    var allowedDays: [Int]?
+}
+
+struct FreelanceReportDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var note: String?
+    var percent: Int?
+    var createdAt: String?
+
+    var id: String { uuid }
+}
+
+struct FreelanceReportsDto: Codable, Equatable {
+    var summary: FreelanceReportSummaryDto?
+    var reports: [FreelanceReportDto]?
 }
 
 struct FreelanceAgreementDto: Codable, Equatable {
@@ -483,6 +616,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var review: FreelanceReviewDto?
     var milestoneRules: FreelanceMilestoneRulesDto?
     var can: FreelanceAgreementCanDto?
+    /// FL-605: how often I asked for a progress report, and whether the next one is late.
+    var reports: FreelanceReportSummaryDto?
 
     var state: String { status ?? "draft" }
 }
@@ -576,6 +711,8 @@ struct FreelanceInviteeDto: Codable, Equatable {
     var rating: Double?
     var reviewsCount: Int?
     var completedProjects: Int?
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
 }
 
 struct FreelanceInvitationDto: Codable, Equatable {
@@ -604,6 +741,8 @@ struct FreelanceProjectRequest {
     var durationDays: Int?
     var visibility: String
     var questions: [String]
+    /// FL-210: the most I pay in all.
+    var maxCostMinor: Int? = nil
 
     var json: [String: JSONValue] {
         [
@@ -617,6 +756,7 @@ struct FreelanceProjectRequest {
             "duration_days": durationDays.map(JSONValue.int) ?? .null,
             "visibility": .string(visibility),
             "questions": .array(questions.map(JSONValue.string)),
+            "max_cost_minor": maxCostMinor.map(JSONValue.int) ?? .null,
         ]
     }
 }
@@ -657,8 +797,8 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/specialties")
     }
 
-    static func skills(q: String?, perPage: Int = 30) async throws -> ApiEnvelope<[FreelanceSkillDto]> {
-        try await ApiClient.snake("\(base)/skills", query: ["q": q, "per_page": String(perPage)])
+    static func skills(q: String?, perPage: Int = 30, specialtyId: Int? = nil) async throws -> ApiEnvelope<[FreelanceSkillDto]> {
+        try await ApiClient.snake("\(base)/skills", query: ["q": q, "per_page": String(perPage), "specialty_id": specialtyId.map(String.init)])
     }
 
     static func projects(status: String? = nil, page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceProjectDto]> {
@@ -693,9 +833,28 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/withdraw", method: "POST", body: [:])
     }
 
+    /// FL-209: asks for the project again — a new draft with the same details.
+    static func duplicate(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/duplicate", method: "POST", body: [:])
+    }
+
+    /// FL-210: the last look before sending, with what is missing or doesn't add up.
+    static func preview(_ uuid: String) async throws -> ApiEnvelope<FreelancePreviewDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/preview")
+    }
+
+    /// FL-210: the most I will pay in all, fee included.
+    static func setCostCap(_ uuid: String, maxCostMinor: Int) async throws -> ApiEnvelope<FreelanceProjectDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/cost-cap", method: "PUT", body: ["max_cost_minor": .int(maxCostMinor)])
+    }
+
+    static func removeCostCap(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/cost-cap", method: "DELETE")
+    }
+
     /// The offers on my project (FL-305): sort = newest · cheapest · fastest · completeness; status = shortlisted … (nil: all).
-    static func offers(_ uuid: String, sort: String?, status: String?) async throws -> ApiEnvelope<[FreelanceOfferDto]> {
-        try await ApiClient.snake("\(base)/projects/\(uuid)/offers", query: ["sort": sort, "status": status])
+    static func offers(_ uuid: String, sort: String?, status: String?, page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceOfferDto]> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/offers", query: ["sort": sort, "status": status, "page": String(page), "per_page": String(perPage)])
     }
 
     /// Two or three offers side by side (ids comma separated).
@@ -722,10 +881,17 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/agreement")
     }
 
-    static func updateAgreement(_ uuid: String, scope: String, includes: String?, excludes: String?) async throws -> ApiEnvelope<FreelanceAgreementDto> {
+    /// `reportEveryDays`: 3, 7 or 14, or 0 for no progress reports (FL-605).
+    static func updateAgreement(_ uuid: String, scope: String, includes: String?, excludes: String?, reportEveryDays: Int = 0) async throws -> ApiEnvelope<FreelanceAgreementDto> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/agreement", method: "PUT", body: [
             "scope": .string(scope), "includes": includes.map(JSONValue.string) ?? .null, "excludes": excludes.map(JSONValue.string) ?? .null,
+            "report_every_days": .int(reportEveryDays),
         ])
+    }
+
+    /// FL-605: the optional progress reports (the freelancer sends them; I read them).
+    static func reports(_ uuid: String) async throws -> ApiEnvelope<FreelanceReportsDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/reports")
     }
 
     /// FL-402: the parts it is paid in — the whole list each time.
@@ -735,8 +901,10 @@ enum FreelanceApi {
     }
 
     /// FL-403: action = fund · approve · revision {reason} · cancel · cancel-accept · cancel-reject.
-    static func milestoneAction(_ uuid: String, _ milestone: String, action: String, reason text: String? = nil) async throws -> ApiEnvelope<FreelanceAgreementDto> {
-        try await ApiClient.snake("\(base)/projects/\(uuid)/milestones/\(milestone)/\(action)", method: "POST", body: reason(text))
+    static func milestoneAction(_ uuid: String, _ milestone: String, action: String, reason text: String? = nil, reasonCode: String? = nil) async throws -> ApiEnvelope<FreelanceAgreementDto> {
+        var body = reason(text)
+        body["reason_code"] = reasonCode.map(JSONValue.string) ?? .null
+        return try await ApiClient.snake("\(base)/projects/\(uuid)/milestones/\(milestone)/\(action)", method: "POST", body: body)
     }
 
     static func sendAgreement(_ uuid: String) async throws -> ApiEnvelope<FreelanceAgreementDto> {
@@ -748,8 +916,8 @@ enum FreelanceApi {
     }
 
     /// FL-511: my receipts of the project money, newest first; one with its text to share.
-    static func receipts() async throws -> ApiEnvelope<[FreelanceReceiptDto]> {
-        try await ApiClient.snake("\(base)/receipts")
+    static func receipts(project: String? = nil, perPage: Int = 50) async throws -> ApiEnvelope<[FreelanceReceiptDto]> {
+        try await ApiClient.snake("\(base)/receipts", query: ["project": project, "per_page": String(perPage)])
     }
 
     static func receipt(_ uuid: String) async throws -> ApiEnvelope<FreelanceReceiptDto> {
@@ -766,6 +934,30 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/review", method: "POST", body: [
             "scores": .object(scores.mapValues(JSONValue.int)), "comment": comment.map(JSONValue.string) ?? .null,
         ])
+    }
+
+    /// FL-706: object to the freelancer's rating of me (once). FL-702: the satisfaction survey after the project.
+    static func objectToReview(_ uuid: String, reason: String, note: String) async throws -> ApiEnvelope<FreelanceReviewDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/review/objection", method: "POST", body: ["reason": .string(reason), "note": .string(note)])
+    }
+
+    static func survey(_ uuid: String) async throws -> ApiEnvelope<FreelanceSurveyDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/survey")
+    }
+
+    static func answerSurvey(_ uuid: String, score: Int, reasons: [String], comment: String?) async throws -> ApiEnvelope<FreelanceSurveyDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/survey", method: "POST", body: [
+            "score": .int(score), "reasons": .array(reasons.map(JSONValue.string)), "comment": comment.map(JSONValue.string) ?? .null,
+        ])
+    }
+
+    /// FL-708: my warnings and restrictions on freelance work, and appealing one (once, within the days).
+    static func sanctions() async throws -> ApiEnvelope<FreelanceSanctionsDto> {
+        try await ApiClient.snake("\(base)/sanctions")
+    }
+
+    static func appealSanction(_ uuid: String, note: String) async throws -> ApiEnvelope<FreelanceSanctionsDto> {
+        try await ApiClient.snake("\(base)/sanctions/\(uuid)/appeal", method: "POST", body: ["note": .string(note)])
     }
 
     /// FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw).
@@ -795,8 +987,8 @@ enum FreelanceApi {
     }
 
     /// FL-306: the freelancers I keep.
-    static func favorites() async throws -> ApiEnvelope<[FreelanceFavoriteDto]> {
-        try await ApiClient.snake("\(base)/favorites")
+    static func favorites(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceFavoriteDto]> {
+        try await ApiClient.snake("\(base)/favorites", query: ["page": String(page), "per_page": String(perPage)])
     }
 
     static func addFavorite(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
@@ -838,6 +1030,11 @@ enum FreelanceApi {
 
     static func answerInterview(_ uuid: String, _ interview: String, action: String) async throws -> ApiEnvelope<[FreelanceInterviewDto]> {
         try await ApiClient.snake("\(base)/chat/conversations/\(uuid)/interviews/\(interview)/\(action)", method: "POST", body: [:])
+    }
+
+    /// FL-709: report the other person's message.
+    static func reportMessage(_ id: Int, reason: String, note: String?) async throws -> ApiEnvelope<Ignored> {
+        try await ApiClient.snake("\(base)/chat/messages/\(id)/report", method: "POST", body: ["reason": .string(reason), "note": note.map(JSONValue.string) ?? .null])
     }
 
     static func chatRead(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
@@ -891,8 +1088,10 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/offers/reopen", method: "POST", body: [:])
     }
 
-    static func cancel(_ uuid: String, reason text: String?) async throws -> ApiEnvelope<FreelanceProjectDto> {
-        try await ApiClient.snake("\(base)/projects/\(uuid)/cancel", method: "POST", body: reason(text))
+    static func cancel(_ uuid: String, reason text: String?, reasonCode: String? = nil) async throws -> ApiEnvelope<FreelanceProjectDto> {
+        var body = reason(text)
+        body["reason_code"] = reasonCode.map(JSONValue.string) ?? .null
+        return try await ApiClient.snake("\(base)/projects/\(uuid)/cancel", method: "POST", body: body)
     }
 
     static func addAttachment(_ uuid: String, file: ApiClient.FilePart) async throws -> ApiEnvelope<FreelanceProjectDto> {

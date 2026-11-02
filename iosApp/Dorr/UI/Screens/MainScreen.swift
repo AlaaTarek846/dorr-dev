@@ -184,6 +184,8 @@ struct MainScreen: View {
             await LiveLocationSharing.shared.resume()
         }
         .onChange(of: NetworkMonitor.shared.reconnectTick) { _ in Task { await ChatOutbox.shared.flush() } }
+        // After a cold start the saved user can still be filling in from the server: connect again once it has (start is idempotent).
+        .onReceive(AuthSession.shared.$sessionVersion.dropFirst()) { _ in ChatRealtime.shared.start() }
         // A tapped chat notification opens the chat (which opens the conversation itself).
         .onReceive(ChatPush.shared.$deepLink) { link in
             switch link {
@@ -191,6 +193,12 @@ struct MainScreen: View {
             // A ringing call's notification tapped: the ringing page, if it still rings.
             case .call(let id, _):
                 CallController.shared.loadIncoming(id)
+                ChatPush.shared.consumeDeepLink()
+            case .freelance(let page):
+                router.walletOpen = false
+                showChat = false
+                FreelanceLink.shared.show(page)
+                withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showFreelance = true }
                 ChatPush.shared.consumeDeepLink()
             default: break
             }

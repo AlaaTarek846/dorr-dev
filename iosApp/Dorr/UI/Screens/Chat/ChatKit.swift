@@ -112,6 +112,8 @@ struct ChoiceSheet: View {
     var radios = false
     var selected: Int?
     var values: [String?]?
+    /// A long list: the sheet keeps this height and the options scroll inside it.
+    var fixedHeight: CGFloat?
     let onDismiss: () -> Void
 
     var body: some View {
@@ -119,6 +121,23 @@ struct ChoiceSheet: View {
             Text(verbatim: title).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
             if let subtitle { Text(verbatim: subtitle).font(.dorr(13.5)).foregroundStyle(ch.mut).padding(.top, 4) }
             VStack(spacing: 8) {
+                if let fixedHeight {
+                    ScrollView { VStack(spacing: 8) { rows } }.frame(height: max(fixedHeight - 160, 120))
+                } else {
+                    rows
+                }
+                Button(action: onDismiss) {
+                    Text(L("ch_cancel")).font(.dorr(15, .bold)).foregroundStyle(ch.mut).frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(ch.surfaceMuted.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+            .padding(.top, 14)
+        }
+    }
+
+    @ViewBuilder private var rows: some View {
                 ForEach(Array(options.enumerated()), id: \.offset) { i, o in
                     Button {
                         o.1()
@@ -140,15 +159,6 @@ struct ChoiceSheet: View {
                     .buttonStyle(.plain)
                     .chStagger(i)
                 }
-                Button(action: onDismiss) {
-                    Text(L("ch_cancel")).font(.dorr(15, .bold)).foregroundStyle(ch.mut).frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(ch.surfaceMuted.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-            }
-            .padding(.top, 14)
-        }
     }
 }
 
@@ -165,6 +175,8 @@ struct ChField: View {
     var lines: ClosedRange<Int> = 1...1
     var limit = 500
     var keyboard: UIKeyboardType = .default
+    /// An ✕ that empties it while there is text.
+    var clearable = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -172,6 +184,11 @@ struct ChField: View {
             if let icon { Image(systemName: icon).font(.system(size: 16)).foregroundStyle(focused ? ch.red : ch.soft).padding(.top, 2) }
             TextField(placeholder, text: Binding(get: { text }, set: { text = String($0.prefix(limit)) }), axis: .vertical)
                 .lineLimit(lines).font(.dorr(15)).foregroundStyle(ch.ink).tint(ch.red).keyboardType(keyboard).focused($focused)
+            if clearable && !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(ch.soft) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("ch_close_sheet"))
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(ch.fieldFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -318,5 +335,18 @@ struct ChatToastView: View {
         }
         .padding(.horizontal, 16).padding(.bottom, 148)
         .allowsHitTesting(false)
+    }
+}
+
+/// androidApp `IconBadge`: an icon on a soft round tint of its colour.
+struct ChIconBadge: View {
+    let icon: String
+    let color: Color
+    var size: CGFloat = 42
+    var iconTint: Color?
+
+    var body: some View {
+        Image(systemName: icon).font(.system(size: size * 0.42)).foregroundStyle(iconTint ?? color)
+            .frame(width: size, height: size).background(color.opacity(0.14), in: Circle())
     }
 }

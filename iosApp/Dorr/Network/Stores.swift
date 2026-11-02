@@ -131,6 +131,9 @@ final class NetworkMonitor: ObservableObject {
     /// androidApp `collectReconnectTick()`: bumps each time the connection comes back, so a screen keyed
     /// on it reloads once (no timer, no polling).
     @Published private(set) var reconnectTick = 0
+    /// androidApp `RefreshCoordinator.noticeArrived()`: a notice arrived while the app is open (a freelance push, say) —
+    /// the screens on show reload once, as on a reconnect.
+    func noticeArrived() { reconnectTick += 1 }
     /// A metered or constrained line (cellular, Low Data Mode) — photos go lighter.
     @Published private(set) var isExpensive = false
 

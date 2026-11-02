@@ -240,6 +240,7 @@ private struct ChatPage: View {
         case .channels: ChannelsPage(host: host)
         case .communities: CommunitiesPage(host: host)
         case .community(let id): CommunityPage(host: host, id: id)
+        case .communityGroups(let id, let yours): CommunityGroupsPage(host: host, id: id, yours: yours)
         case .thread(let cid, let root): ThreadPage(host: host, conversationId: cid, rootId: root)
         case .decisions(let cid, let admin): DecisionsPage(host: host, conversationId: cid, isAdmin: admin)
         case .broadcasts: BroadcastsPage(host: host)

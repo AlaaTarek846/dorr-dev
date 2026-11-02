@@ -107,24 +107,24 @@ struct NewChatPage: View {
         // Not on Dorr yet: from the server when it answered, else straight from the phone.
         let toInvite = all.isEmpty ? deviceBook : all.filter { !$0.isRegistered }.map { ContactEntry(name: $0.name, phone: $0.phone) }
         let invitees = toInvite.filter { matches($0.name, $0.phone) }
-        ChPage(title: L("ch_new_chat"), onBack: { host.pop() }) {
+        ChSettingsPage(title: L("ch_new_chat"), onBack: { host.pop() }) {
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: 6) {
                     searchField(looksLikeNumber: looksLikeNumber, looksLikeUsername: looksLikeUsername)
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         shortcut("person.3.fill", L("ch_new_group"), 0) { host.replace(.newGroup()) }
                         shortcut("circle.grid.3x3.fill", L("ch_by_number"), 1) { byPhone = "" }
                         shortcut("qrcode.viewfinder", L("ch_scan_qr"), 2) { scanning = true }
                         shortcut("qrcode", L("ch_my_qr"), 3) { host.push(.myQr) }
                     }
                     // A group or channel by its invite code or link (typed or pasted).
-                    linkRow("key.fill", L("ch_join_code"), L("ch_join_code_sub"), 4, filled: false) { joinByCode = true }
+                    NewChatActionRow(icon: "key.fill", title: L("ch_join_code"), subtitle: L("ch_join_code_sub"), index: 4) { joinByCode = true }
                     // Broadcast lists: one message, each person gets it in our own chat (like WhatsApp).
-                    linkRow("megaphone.fill", L("ch_broadcasts"), L("ch_broadcast_hint"), 4, filled: false) { host.push(.broadcasts) }
+                    NewChatActionRow(icon: "megaphone.fill", title: L("ch_broadcasts"), subtitle: L("ch_broadcast_hint"), index: 5) { host.push(.broadcasts) }
                     // Channels: discover, follow, or start one.
-                    linkRow("megaphone.fill", L("ch_channels"), L("ch_channels_hero_sub"), 4, filled: true) { host.push(.channels) }
+                    NewChatActionRow(icon: "megaphone.fill", title: L("ch_channels"), subtitle: L("ch_channels_hero_sub"), index: 6) { host.push(.channels) }
                     // Note to self: notes, links and files I keep for myself, on all my devices.
-                    linkRow("bookmark.fill", L("ch_note_to_self"), L("ch_note_to_self_sub"), 5, filled: false) { host.openNoteToSelf() }
+                    NewChatActionRow(icon: "bookmark.fill", title: L("ch_note_to_self"), subtitle: L("ch_note_to_self_sub"), index: 7) { host.openNoteToSelf() }
                     SyncCard(syncing: syncing, synced: synced, denied: denied) {
                         if denied, let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } else { askAndSync() }
                     }
@@ -214,35 +214,15 @@ struct NewChatPage: View {
 
     private func shortcut(_ icon: String, _ label: String, _ i: Int, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 19)).foregroundStyle(.white).frame(width: 44, height: 44).background(ch.headerBrush, in: Circle())
-                Text(verbatim: label).font(.dorr(12, .bold)).foregroundStyle(ch.ink).lineLimit(1).minimumScaleFactor(0.8)
+            VStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white).frame(width: 36, height: 36).background(ch.headerBrush, in: Circle())
+                Text(verbatim: label).font(.dorr(11, .bold)).foregroundStyle(ch.ink).lineLimit(1).minimumScaleFactor(0.8)
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 14)
-            .background(ch.surface, in: RoundedRectangle(cornerRadius: 20))
+            .frame(maxWidth: .infinity).padding(.vertical, 8)
+            .background(ch.surface, in: RoundedRectangle(cornerRadius: 16))
             .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
         }
         .buttonStyle(AiPressStyle())
-        .chStagger(i)
-    }
-
-    private func linkRow(_ icon: String, _ title: String, _ sub: String, _ i: Int, filled: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 19)).foregroundStyle(filled ? .white : ch.red).frame(width: 44, height: 44)
-                    .background { if filled { Circle().fill(ch.headerBrush) } else { Circle().fill(ch.red.opacity(0.12)) } }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: title).font(.dorr(15, .heavy)).foregroundStyle(ch.ink)
-                    Text(verbatim: sub).font(.dorr(12.5)).foregroundStyle(ch.mut).lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold)).foregroundStyle(ch.soft)
-            }
-            .padding(14)
-            .background(ch.surface, in: RoundedRectangle(cornerRadius: 20))
-            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-        }
-        .buttonStyle(.plain)
         .chStagger(i)
     }
 
@@ -308,6 +288,49 @@ struct NewChatPage: View {
     }
 }
 
+/// One line of the new-chat page: an icon on a soft tile, a title, a short line and an arrow (or its own end).
+private struct NewChatActionRow<Trailing: View>: View {
+    @ObservedObject private var ch = Ch.shared
+    let icon: String
+    let title: String
+    let subtitle: String
+    let index: Int
+    var enabled = true
+    var subtitleColor: Color?
+    @ViewBuilder var trailing: () -> Trailing
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 15)).foregroundStyle(ch.red)
+                    .frame(width: 34, height: 34).background(ch.red.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: title).font(.dorr(13.5, .bold)).foregroundStyle(ch.ink).lineLimit(1)
+                    Text(verbatim: subtitle).font(.dorr(11)).foregroundStyle(subtitleColor ?? ch.ink.opacity(0.65)).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                trailing()
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(ch.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: ch.red.opacity(0.07), radius: 6, y: 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .chStagger(index)
+    }
+}
+
+extension NewChatActionRow where Trailing == AnyView {
+    init(icon: String, title: String, subtitle: String, index: Int, action: @escaping () -> Void) {
+        self.init(icon: icon, title: title, subtitle: subtitle, index: index, trailing: {
+            AnyView(Image(systemName: "chevron.forward").font(.system(size: 12, weight: .semibold)).foregroundStyle(Ch.shared.red.opacity(0.55)))
+        }, action: action)
+    }
+}
+
 private struct SyncCard: View {
     @ObservedObject private var ch = Ch.shared
     let syncing: Bool
@@ -317,23 +340,12 @@ private struct SyncCard: View {
     @State private var spin = false
 
     var body: some View {
-        Button(action: onSync) {
-            HStack(spacing: 12) {
-                Image(systemName: syncing ? "arrow.triangle.2.circlepath" : "person.crop.circle.fill").font(.system(size: 20)).foregroundStyle(.white)
-                    .rotationEffect(.degrees(syncing && spin ? -360 : 0))
-                    .frame(width: 46, height: 46).background(ch.red, in: Circle())
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(L(syncing ? "ch_syncing" : "ch_sync_contacts")).font(.dorr(14.5, .heavy)).foregroundStyle(ch.ink)
-                    Text(denied && !syncing ? L("ch_contacts_denied") : (synced != nil && !syncing) ? L("ch_synced", synced!) : L("ch_contacts_permission"))
-                        .font(.dorr(12)).foregroundStyle(denied && !syncing ? ch.danger : ch.mut)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if !syncing { Image(systemName: "arrow.clockwise").font(.system(size: 18, weight: .semibold)).foregroundStyle(ch.red) }
-            }
-            .padding(14)
-            .background(ch.tint, in: RoundedRectangle(cornerRadius: 20))
-        }
-        .buttonStyle(.plain).disabled(syncing)
+        NewChatActionRow(icon: "person.crop.circle.fill", title: L(syncing ? "ch_syncing" : "ch_sync_contacts"),
+                         subtitle: denied && !syncing ? L("ch_contacts_denied") : (synced != nil && !syncing) ? L("ch_synced", synced!) : L("ch_contacts_permission"),
+                         index: 8, enabled: !syncing, subtitleColor: denied && !syncing ? ch.danger : nil, trailing: {
+                             Image(systemName: "arrow.clockwise").font(.system(size: 15, weight: .semibold)).foregroundStyle(ch.red)
+                                 .rotationEffect(.degrees(syncing && spin ? -360 : 0))
+                         }, action: onSync)
         .onChange(of: syncing) { s in
             spin = false
             if s { withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) { spin = true } }
