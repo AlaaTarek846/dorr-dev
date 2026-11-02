@@ -90,6 +90,11 @@ class ChatHiddenMembersTest extends TestCase
         $this->getJson("/api/mobile/v1/chat/conversations/{$group}", $this->headers())->assertOk()->assertJsonPath('data.group.members_hidden', true);
         $this->checkout($group)->assertStatus(409);
 
+        // For good: once hidden, nothing shows them again — not the group's settings, not its info.
+        $this->patchJson("/api/mobile/v1/chat/groups/{$group}/settings", ['members_hidden' => false, 'members_hidden_at' => null], $this->headers())->assertOk();
+        $this->postJson("/api/mobile/v1/chat/groups/{$group}", ['name' => 'Neighbours', 'members_hidden' => false, 'members_hidden_at' => null], $this->headers())->assertOk();
+        $this->assertNotNull(ChatGroup::query()->firstOrFail()->members_hidden_at);
+
         // Names still show; numbers and @usernames don't; no private chat from here.
         $badr = $this->memberOf($this->amal, $group, 'Badr');
         $this->assertNull($badr['phone']);
