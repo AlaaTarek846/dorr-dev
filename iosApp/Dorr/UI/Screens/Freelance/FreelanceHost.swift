@@ -35,9 +35,10 @@ func flAmount(_ minor: Int?, _ currency: String?) -> String { "\u{200E}\(flMoney
 @MainActor
 struct FreelanceHost: View {
     let onExit: () -> Void
-    // "list", "new", "edit:<uuid>", "show:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
+    // "list", "new", "edit:<uuid>", "show:<uuid>", "preview:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
     @State private var page = "list"
     @State private var listVersion = 0
+    @ObservedObject private var link = FreelanceLink.shared
 
     private var parts: [String] { page.components(separatedBy: ":") }
 
@@ -47,7 +48,7 @@ struct FreelanceHost: View {
         case "edit", "offers": return "show:" + p[1]
         case "offer", "compare": return "offers:" + p[1]
         case "chat", "freelancer": return "offer:" + p[1] + ":" + p[2]
-        case "agreement", "invites": return "show:" + p[1]
+        case "agreement", "invites", "preview": return "show:" + p[1]
         case "dispute", "dispute-new": return "agreement:" + p[1]
         default: return "list"
         }
@@ -65,9 +66,12 @@ struct FreelanceHost: View {
                     ProjectForm(uuid: p[1], onBack: { page = "show:" + p[1] }, onSaved: { page = "show:\($0)"; listVersion += 1 })
                 case "show":
                     ProjectDetails(uuid: p[1], onBack: { page = "list" }, onEdit: { page = "edit:\($0)" },
-                                   onGone: { page = "list"; listVersion += 1 }, onOffers: { page = "offers:" + p[1] },
+                                   onGone: { page = "list"; listVersion += 1 }, onPreview: { page = "preview:" + p[1] },
+                                   onCopied: { listVersion += 1; page = "show:\($0)" }, onOffers: { page = "offers:" + p[1] },
                                    onOpenOffer: { page = "offer:\(p[1]):\($0)" }, onAgreement: { page = "agreement:" + p[1] },
                                    onInvitations: { page = "invites:" + p[1] })
+                case "preview":
+                    PreviewPage(uuid: p[1], onBack: { page = back() }, onEdit: { page = "edit:" + p[1] }, onSent: { listVersion += 1; page = "show:" + p[1] })
                 case "invites":
                     InvitationsPage(projectUuid: p[1], onBack: { page = back() }, onOpenOffer: { page = "offer:\(p[1]):\($0)" },
                                     onMadePublic: { listVersion += 1; page = "show:" + p[1] })
@@ -98,22 +102,39 @@ struct FreelanceHost: View {
             }
             .id(page)
         }
+        // A tapped notification names the page it belongs to (also when this screen is already open).
+        .onAppear(perform: openLinked)
+        .onChange(of: link.pending) { _ in openLinked() }
         #if DEBUG
         .task { if let start = UserDefaults.standard.string(forKey: "DorrFreelancePage") { page = start } }
         #endif
+    }
+
+    private func openLinked() {
+        guard let linked = link.pending else { return }
+        page = linked
+        link.pending = nil
     }
 }
 
 // MARK: - Shared pieces (Card, Label, Field, TextAction, Chip — `internal` on Android)
 
+/// A card; with a title, a heading (an icon beside it when there is one) comes first.
 struct FlCard<Content: View>: View {
+    var icon: String?
+    var title: String?
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) { content() }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .settingsSurface(18)
+        VStack(alignment: .leading, spacing: 10) {
+            if let title {
+                if let icon { FlHeading(icon: icon, text: title) } else { FlLabel(text: title) }
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .settingsSurface(20)
     }
 }
 
@@ -130,29 +151,24 @@ struct FlField: View {
     let value: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(verbatim: label).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: label).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
             Text(verbatim: (value?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "—")
-                .font(.dorr(14)).foregroundStyle(wa.settingsInk)
+                .font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(5)
         }
     }
 }
 
+/// Android's `TextAction`: now a tinted `FlAction` (red when it steps back).
 struct FlTextAction: View {
-    @Environment(\.wa) private var wa
     let text: String
     var danger = false
+    var icon: String?
     var fill = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(verbatim: text).font(.dorr(14, .bold)).foregroundStyle(danger ? flRed : wa.accent)
-                .frame(maxWidth: fill ? .infinity : nil, alignment: .leading)
-                .padding(.vertical, 10)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        FlAction(text: text, icon: icon, tone: danger ? .danger : .soft, action: action)
     }
 }
 
@@ -164,7 +180,9 @@ struct FlTextLink: View {
 
     var body: some View {
         Button(action: action) {
-            Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(wa.accent).padding(.vertical, 4)
+            Text(verbatim: text).font(.dorr(12.5, .bold)).foregroundStyle(wa.accent)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(wa.accent.opacity(0.10), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -174,43 +192,45 @@ struct FlChip: View {
     @Environment(\.wa) private var wa
     let text: String
     let selected: Bool
+    var icon: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(1)
-                .padding(.horizontal, 14).padding(.vertical, 7)
-                .background(selected ? wa.accent : wa.accent.opacity(0.08), in: Capsule())
+            HStack(spacing: 6) {
+                if let icon { Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(selected ? .white : wa.accent) }
+                Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(1).fixedSize()
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(selected ? wa.accent : wa.accent.opacity(0.08), in: Capsule())
         }
         .buttonStyle(.plain)
     }
 }
 
-/// A notice (green) and an error (red) line under a page's cards.
+/// A notice (green) and an error (red) under a page's cards.
 struct FlNotices: View {
     let notice: String?
     let error: String?
 
     var body: some View {
-        if let notice { Text(verbatim: notice).font(.dorr(13, .bold)).foregroundStyle(flGreen) }
-        if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed) }
+        if let notice { FlNotice(text: notice, icon: "checkmark.circle.fill", color: flGreen) }
+        if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
     }
 }
 
-/// A page still loading (spinner) or that failed to (its message).
+/// What a page shows until it is read: the skeleton, or the failure when the read failed.
 struct FlLoading: View {
     @Environment(\.wa) private var wa
     let error: String?
 
     var body: some View {
-        ZStack {
-            if let error {
-                Text(verbatim: error).font(.dorr(14)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).padding(24)
-            } else {
-                ProgressView().tint(wa.accent)
-            }
+        if let error {
+            Text(verbatim: error).font(.dorr(14)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        } else {
+            FlSkeletonDetail()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -295,6 +315,20 @@ func flStatusColor(_ status: String) -> Color {
     }
 }
 
+private func filterIcon(_ status: String?) -> String {
+    switch status {
+    case nil: return "square.grid.2x2.fill"
+    case "draft": return "square.and.pencil"
+    case "pending_review": return "hourglass"
+    case "changes_requested": return "pencil"
+    case "published": return "globe"
+    case "awarded": return "person.2.fill"
+    case "in_progress": return "arrow.triangle.2.circlepath"
+    case "rejected": return "nosign"
+    default: return "xmark.circle.fill"
+    }
+}
+
 struct FlPill: View {
     let text: String
     let color: Color
@@ -312,6 +346,8 @@ private func budgetText(_ p: FreelanceProjectDto) -> String? {
     return "\u{200E}\(flMoney(min)) \(b.currency ?? "")"
 }
 
+private func untitled(_ p: FreelanceProjectDto) -> String { (p.title?.isEmpty == false ? p.title : nil) ?? L("fl_untitled") }
+
 @MainActor
 private struct ProjectList: View {
     @Environment(\.wa) private var wa
@@ -322,67 +358,47 @@ private struct ProjectList: View {
     let onOpen: (String) -> Void
     let onFavorites: () -> Void
     @State private var filter: String?
-    @State private var rows: [FreelanceProjectDto] = []
-    @State private var page = 1
-    @State private var hasMore = false
-    @State private var loading = true
-    @State private var error: String?
-
-    private func load(_ next: Int) async {
-        loading = true
-        do {
-            let envelope = try await FreelanceApi.projects(status: filter, page: next)
-            if next == 1 { rows = [] }
-            rows += envelope.data ?? []
-            page = next
-            hasMore = envelope.pagination?.hasMorePages == true
-            error = nil
-        } catch is CancellationError {
-            return
-        } catch {
-            self.error = flError(error)
-        }
-        loading = false
-    }
+    // A new filter is a new list (it starts from the first page); the next pages come while I scroll.
+    @StateObject private var paged = PagedRows<FreelanceProjectDto>(key: { $0.uuid })
 
     var body: some View {
         VStack(spacing: 0) {
             SubHeader(title: L("fl_my_projects"), onBack: onExit)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    FlChip(text: L("fl_favorites"), selected: false, icon: "heart.fill", action: onFavorites)
                     ForEach(flFilters, id: \.self) { f in
-                        FlChip(text: f.map(flStatusLabel) ?? L("fl_filter_all"), selected: filter == f) { filter = f }
+                        FlChip(text: f.map(flStatusLabel) ?? L("fl_filter_all"), selected: filter == f, icon: filterIcon(f)) { filter = f }
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 4)
             }
-            FlTextAction(text: "♥\u{FE0E}  " + L("fl_favorites"), action: onFavorites).padding(.horizontal, 16)
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    if !loading && rows.isEmpty && error == nil {
-                        VStack(spacing: 0) {
-                            PinkIcon(icon: "briefcase.fill", box: 64)
-                            Text(L("fl_empty_title")).font(.dorr(16, .bold)).foregroundStyle(wa.settingsInk).padding(.top, 14)
-                            Text(L("fl_empty_text")).font(.dorr(13)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).padding(.top, 6)
+            if !paged.loaded && paged.error == nil {
+                FlSkeletonList()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        // FL-708: shown only while a warning / restriction is active or its appeal waits.
+                        SanctionsCard(refreshKey: version)
+                        if paged.rows.isEmpty && paged.error == nil {
+                            WaEmpty(icon: "briefcase.fill", tone: .blue, title: L("fl_empty_title"), text: L("fl_empty_text"))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 60)
-                    }
-                    ForEach(rows) { p in ProjectCard(p: p) { onOpen(p.uuid) } }
-                    if hasMore {
-                        Button { Task { await load(page + 1) } } label: {
-                            Text(L("fl_show_more")).font(.dorr(14, .bold)).foregroundStyle(wa.accent).frame(maxWidth: .infinity).padding(10)
+                        ForEach(Array(paged.rows.enumerated()), id: \.element.uuid) { i, p in
+                            ProjectCard(p: p) { onOpen(p.uuid) }.onAppear { paged.appeared(i) }
                         }
-                        .buttonStyle(.plain)
+                        PagedSpinner(paged: paged)
+                        PagedError(paged: paged)
                     }
-                    if loading { ProgressView().tint(wa.accent).padding(12) }
-                    if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed).frame(maxWidth: .infinity, alignment: .leading) }
+                    .padding(.horizontal, 16).padding(.vertical, 10)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 10)
             }
             SettingsPrimaryButton(text: L("fl_new_project"), action: onNew).padding(16)
         }
-        .task(id: "\(filter ?? "")|\(network.reconnectTick)|\(version)") { await load(1) }
+        .task(id: "\(filter ?? "")") {
+            let status = filter
+            paged.reset { page in try await FreelanceApi.projects(status: status, page: page) }
+        }
+        .task(id: "\(filter ?? "")|\(network.reconnectTick)|\(version)") { await paged.reload() }
     }
 }
 
@@ -392,21 +408,79 @@ private struct ProjectCard: View {
     let onClick: () -> Void
 
     var body: some View {
+        let color = flStatusColor(p.state)
         Button(action: onClick) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text(verbatim: (p.title?.isEmpty == false ? p.title : nil) ?? L("fl_untitled")).font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                    Spacer(minLength: 0)
-                    FlPill(text: flStatusLabel(p.state), color: flStatusColor(p.state))
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "briefcase.fill").font(.system(size: 18)).foregroundStyle(color)
+                        .frame(width: 44, height: 44)
+                        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(verbatim: untitled(p)).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
+                        if let s = p.specialty { Text(verbatim: s.name ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    FlPill(text: flStatusLabel(p.state), color: color)
                 }
-                if let s = p.specialty { Text(verbatim: s.name ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut) }
-                if let b = budgetText(p) { Text(verbatim: b).font(.dorr(13, .semibold)).foregroundStyle(wa.accent) }
+                if let b = budgetText(p) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "banknote").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.accent)
+                        Text(verbatim: b).font(.dorr(13, .heavy)).foregroundStyle(wa.accent)
+                    }
+                }
+                // FL-211: where the work stands, and what is due from me.
+                if let g = p.progress {
+                    FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
+                    Text(verbatim: [L("fl_progress_parts", g.approved ?? 0, g.total ?? 0),
+                                    (g.inReview ?? 0) > 0 ? L("fl_progress_review", g.inReview ?? 0) : nil].compactMap { $0 }.joined(separator: "  ·  "))
+                        .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                }
+                if let next = p.nextAction { NextActionLine(code: next) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .settingsSurface(18)
+            .settingsSurface(20)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct FlProgressBar: View {
+    @Environment(\.wa) private var wa
+    let done: Int
+    let total: Int
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(wa.accent.opacity(0.15))
+                if total > 0 && done > 0 {
+                    Capsule().fill(wa.accent).frame(width: proxy.size.width * min(CGFloat(done) / CGFloat(total), 1))
+                }
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
+private struct NextActionLine: View {
+    let code: String
+
+    var body: some View {
+        FlNotice(text: L("fl_next_label", nextActionLabel(code)), icon: "bell.badge.fill", color: flAmber)
+    }
+
+    private func nextActionLabel(_ code: String) -> String {
+        switch code {
+        case "finish_draft": return L("fl_next_finish_draft")
+        case "submit": return L("fl_next_submit")
+        case "fix_project": return L("fl_next_fix_project")
+        case "review_offers": return L("fl_next_review_offers")
+        case "send_agreement": return L("fl_next_send_agreement")
+        case "review_delivery": return L("fl_next_review_delivery")
+        case "fund_milestone": return L("fl_next_fund_milestone")
+        default: return L("fl_next_dispute")
+        }
     }
 }
 
@@ -429,6 +503,10 @@ private func eventLabel(_ type: String) -> String {
     case "project.submitted": return L("fl_ev_submitted")
     case "project.resubmitted": return L("fl_ev_resubmitted")
     case "project.withdrawn": return L("fl_ev_withdrawn")
+    case "project.cost_cap_set": return L("fl_ev_cost_cap")
+    case "project.completed": return L("fl_ev_completed")
+    case "project.invited": return L("fl_ev_invited")
+    case "project.made_public": return L("fl_ev_made_public")
     case "project.cancelled": return L("fl_ev_cancelled")
     case "project.edited_by_admin": return L("fl_ev_edited_by_admin")
     case "project.offers_closed": return L("fl_ev_offers_closed")
@@ -451,6 +529,8 @@ private struct ProjectDetails: View {
     let onBack: () -> Void
     let onEdit: (String) -> Void
     let onGone: () -> Void
+    let onPreview: () -> Void
+    let onCopied: (String) -> Void
     let onOffers: () -> Void
     let onOpenOffer: (String) -> Void
     let onAgreement: () -> Void
@@ -460,6 +540,11 @@ private struct ProjectDetails: View {
     @State private var error: String?
     @State private var notice: String?
     @State private var confirm: String?
+    // FL-607: why the project is cancelled.
+    @State private var cancelCode: String?
+    @State private var cancelNote = ""
+    @State private var capDialog = false
+    @State private var capError: String?
 
     private func act(_ block: @escaping () async throws -> FreelanceProjectDto?, after: (() -> Void)? = nil, successNotice: String? = nil) {
         busy = true
@@ -477,6 +562,21 @@ private struct ProjectDetails: View {
         }
     }
 
+    /// The limit changes (or goes); a refusal is told inside the dialog, not under the page.
+    private func changeCap(_ block: @escaping () async throws -> FreelanceProjectDto?) {
+        busy = true
+        capError = nil
+        Task {
+            do {
+                if let p = try await block() { project = p }
+                capDialog = false
+            } catch {
+                capError = error.serverMessage ?? L("fl_cost_cap_failed")
+            }
+            busy = false
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             SubHeader(title: L("fl_project"), onBack: onBack)
@@ -489,15 +589,26 @@ private struct ProjectDetails: View {
         .task(id: network.reconnectTick) {
             do { project = try await FreelanceApi.project(uuid).data } catch { self.error = flError(error) }
         }
-        .dorrDialog(isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } })) {
-            if confirm == "cancel" {
-                ConfirmDialog(icon: "xmark", title: L("fl_cancel_project"), message: L("fl_cancel_confirm"), loading: busy,
-                              onConfirm: { act({ try await FreelanceApi.cancel(uuid, reason: nil).data }, after: { confirm = nil }) },
-                              onDismiss: { confirm = nil })
-            } else {
-                ConfirmDialog(icon: "trash", title: L("fl_delete_draft"), message: L("fl_delete_confirm"), loading: busy,
-                              onConfirm: { act({ _ = try await FreelanceApi.delete(uuid); return nil }, after: { confirm = nil; onGone() }) },
-                              onDismiss: { confirm = nil })
+        .dorrDialog(isPresented: Binding(get: { confirm == "delete" }, set: { if !$0 { confirm = nil } })) {
+            ConfirmDialog(icon: "trash.fill", title: L("fl_delete_draft"), message: L("fl_delete_confirm"), loading: busy,
+                          onConfirm: { act({ _ = try await FreelanceApi.delete(uuid); return nil }, after: { confirm = nil; onGone() }) },
+                          onDismiss: { confirm = nil })
+        }
+        .dorrDialog(isPresented: Binding(get: { confirm == "cancel" }, set: { if !$0, !busy { confirm = nil } }), bottom: true) {
+            FlSheet(icon: "xmark.circle.fill", title: L("fl_cancel_project"), text: L("fl_cancel_confirm")) {
+                CancelReasonPicker(code: cancelCode, note: $cancelNote) { cancelCode = $0 }
+                FlAction(text: L("fl_cancel_project"), icon: "xmark.circle.fill", tone: .danger, enabled: flCancelReasonReady(cancelCode, cancelNote), loading: busy) {
+                    let note = cancelNote.trimmingCharacters(in: .whitespacesAndNewlines)
+                    act({ try await FreelanceApi.cancel(uuid, reason: note.isEmpty ? nil : note, reasonCode: cancelCode).data }, after: { confirm = nil })
+                }
+                FlAction(text: L("fl_not_now")) { confirm = nil }
+            }
+        }
+        .dorrDialog(isPresented: Binding(get: { capDialog }, set: { if !$0, !busy { capDialog = false } }), bottom: true) {
+            if let p = project {
+                CostCapDialog(current: p.maxCostMinor, currency: p.budget?.currency ?? "", busy: busy, error: capError,
+                              onSave: { v in changeCap { try await FreelanceApi.setCostCap(uuid, maxCostMinor: v).data } },
+                              onRemove: { changeCap { try await FreelanceApi.removeCostCap(uuid).data } })
             }
         }
     }
@@ -507,94 +618,133 @@ private struct ProjectDetails: View {
         let can = p.can ?? FreelanceProjectCanDto()
         let offers = p.offers ?? FreelanceOffersDto()
         let missing = p.missing ?? []
+        let color = flStatusColor(p.state)
         VStack(alignment: .leading, spacing: 12) {
             FlCard {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "briefcase.fill").font(.system(size: 20)).foregroundStyle(color)
+                        .frame(width: 48, height: 48)
+                        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(verbatim: untitled(p)).font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
+                        FlPill(text: flStatusLabel(p.state), color: color)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let reason = p.statusReason, !reason.isEmpty { FlNotice(text: L("fl_reviewer_note", reason), icon: "info.circle.fill", color: color) }
+                if p.state == "pending_review" { FlNotice(text: L("fl_under_review_hint"), icon: "hourglass", color: flAmber) }
+                if p.state == "rejected" { FlNotice(text: L("fl_rejected_hint"), icon: "nosign", color: flRed) }
+                if let next = p.nextAction { NextActionLine(code: next) }
                 HStack(spacing: 8) {
-                    Text(verbatim: (p.title?.isEmpty == false ? p.title : nil) ?? L("fl_untitled")).font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
-                    Spacer(minLength: 0)
-                    FlPill(text: flStatusLabel(p.state), color: flStatusColor(p.state))
+                    FlStat(icon: "banknote", label: L("fl_budget"), value: budgetText(p) ?? "—").layoutPriority(1.4)
+                    FlStat(icon: "clock", label: L("fl_duration"), value: p.durationDays.map { L("fl_days", $0) } ?? "—")
+                    FlStat(icon: "doc.text.fill", label: L("fl_offers"), value: "\(offers.count ?? 0)")
                 }
-                if let reason = p.statusReason, !reason.isEmpty {
-                    Text(verbatim: L("fl_reviewer_note", reason)).font(.dorr(13)).foregroundStyle(flStatusColor(p.state))
-                }
-                if p.state == "pending_review" { Text(L("fl_under_review_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
-                if p.state == "rejected" { Text(L("fl_rejected_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
             }
-            FlCard {
-                FlField(label: L("fl_description"), value: p.description)
-                FlField(label: L("fl_specialty"), value: p.specialty?.name)
-                FlField(label: L("fl_skills"), value: (p.skills ?? []).compactMap(\.name).joined(separator: "، "))
-                FlField(label: L("fl_budget"), value: budgetText(p))
-                FlField(label: L("fl_duration"), value: p.durationDays.map { L("fl_days", $0) })
-                FlField(label: L("fl_visibility"), value: L(p.visibility == "private" ? "fl_private" : "fl_public"))
-                if let q = p.questions, !q.isEmpty {
-                    FlField(label: L("fl_questions"), value: q.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n"))
+            // FL-211: the stages of the work, each with where it stands.
+            if let stages = p.milestones, !stages.isEmpty {
+                FlCard(icon: "flag.fill", title: L("fl_stages")) {
+                    if let g = p.progress {
+                        FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
+                        Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0) + "  ·  " +
+                             L("fl_progress_money", "\u{200E}" + flMoney(g.approvedMinor ?? 0), flMoney(g.priceMinor ?? 0), p.budget?.currency ?? ""))
+                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    }
+                    ForEach(stages) { m in
+                        let mc = milestoneStatusColor(m.status ?? "unfunded")
+                        HStack(spacing: 10) {
+                            Text(verbatim: "\(m.position ?? 1)").font(.dorr(12, .heavy)).foregroundStyle(.white)
+                                .frame(width: 24, height: 24).background(mc, in: Circle())
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(verbatim: m.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                                Text(verbatim: "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(p.budget?.currency ?? "")" + (m.durationDays.map { "  ·  " + L("fl_days", $0) } ?? ""))
+                                    .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(verbatim: milestoneStatusLabel(m.status ?? "unfunded")).font(.dorr(12, .bold)).foregroundStyle(mc)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .background(mc.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
                 }
             }
             // FL-401: the agreement with the chosen freelancer.
             if let ag = p.agreement {
-                FlCard {
-                    HStack {
-                        FlLabel(text: L("fl_agreement"))
-                        Spacer()
-                        Text(verbatim: agreementStatusLabel(ag.status ?? "draft")).font(.dorr(12, .bold)).foregroundStyle(agreementStatusColor(ag.status ?? "draft"))
-                    }
-                    FlTextAction(text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), action: onAgreement)
+                FlCard(icon: "person.2.fill", title: L("fl_agreement")) {
+                    Text(verbatim: agreementStatusLabel(ag.status ?? "draft")).font(.dorr(13, .bold)).foregroundStyle(agreementStatusColor(ag.status ?? "draft"))
+                    FlAction(text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), icon: "person.2.fill", tone: .primary, action: onAgreement)
                 }
             }
             // FL-205: a private project is filled by invitation.
             if let inv = p.invitations, p.state == "published" {
-                FlCard {
-                    FlLabel(text: L("fl_inv_title"))
+                FlCard(icon: "envelope.badge.fill", title: L("fl_inv_title")) {
                     Text(verbatim: L("fl_inv_summary", inv.sent ?? 0, inv.accepted ?? 0, inv.declined ?? 0)).font(.dorr(13)).foregroundStyle(wa.settingsMut)
-                    FlTextAction(text: L(inv.canInvite == true ? "fl_inv_manage" : "fl_inv_see"), action: onInvitations)
+                    FlAction(text: L(inv.canInvite == true ? "fl_inv_manage" : "fl_inv_see"), icon: "person.badge.plus", action: onInvitations)
                 }
             }
             if p.state == "published" || p.state == "awarded" {
-                FlCard {
-                    FlLabel(text: L("fl_offers") + ((offers.count ?? 0) > 0 ? " (\(offers.count ?? 0))" : ""))
-                    Text(verbatim: offersLine(p, offers)).font(.dorr(13, .semibold))
-                        .foregroundStyle(p.state == "awarded" ? Color(hex: 0x7C3AED) : (offers.accepting == true ? flGreen : flAmber))
+                FlCard(icon: "doc.text.fill", title: L("fl_offers") + ((offers.count ?? 0) > 0 ? " (\(offers.count ?? 0))" : "")) {
+                    FlNotice(text: offersLine(p, offers), icon: offers.accepting == true ? "checkmark.circle.fill" : "lock.fill",
+                             color: p.state == "awarded" ? Color(hex: 0x7C3AED) : (offers.accepting == true ? flGreen : flAmber))
                     // FL-305 / FL-309: compare them and choose one.
-                    if let chosen = offers.chosen { FlTextAction(text: L("fl_see_chosen")) { onOpenOffer(chosen) } }
-                    if (offers.count ?? 0) > 0 { FlTextAction(text: L(p.state == "published" ? "fl_compare_choose" : "fl_see_offers"), action: onOffers) }
-                    if offers.canClose == true { FlTextAction(text: L("fl_offers_close")) { act({ try await FreelanceApi.closeOffers(p.uuid).data }) } }
+                    if let chosen = offers.chosen { FlAction(text: L("fl_see_chosen"), icon: "star.fill", tone: .primary) { onOpenOffer(chosen) } }
+                    if (offers.count ?? 0) > 0 {
+                        FlAction(text: L(p.state == "published" ? "fl_compare_choose" : "fl_see_offers"), icon: "arrow.left.arrow.right", action: onOffers)
+                    }
+                    if offers.canClose == true { FlAction(text: L("fl_offers_close"), icon: "lock.fill", tone: .warn) { act({ try await FreelanceApi.closeOffers(p.uuid).data }) } }
                     if offers.canReopen == true {
-                        FlTextAction(text: L("fl_offers_reopen", offers.reopensLeft ?? 0)) { act({ try await FreelanceApi.reopenOffers(p.uuid).data }) }
+                        FlAction(text: L("fl_offers_reopen", offers.reopensLeft ?? 0), icon: "lock.open.fill") { act({ try await FreelanceApi.reopenOffers(p.uuid).data }) }
                     }
                 }
             }
+            FlCard(icon: "doc.plaintext", title: L("fl_description")) { ProjectSummary(p: p) }
             if let files = p.attachments, !files.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_files"))
+                FlCard(icon: "paperclip", title: L("fl_files")) {
                     ForEach(files, id: \.id) { a in
                         HStack(spacing: 8) {
                             Image(systemName: "doc.text").font(.system(size: 15)).foregroundStyle(wa.accent)
                             Text(verbatim: a.name ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                            Spacer(minLength: 0)
                         }
+                        .padding(.horizontal, 12).padding(.vertical, 9)
+                        .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
             }
-            if !missing.isEmpty {
-                Text(verbatim: L("fl_missing", missing.map(missingLabel).joined(separator: "، "))).font(.dorr(13)).foregroundStyle(flAmber)
-            }
+            if !missing.isEmpty { FlNotice(text: L("fl_missing", missing.map(missingLabel).joined(separator: "، ")), icon: "exclamationmark.triangle.fill", color: flAmber) }
             FlNotices(notice: notice, error: error)
-            if can.submit == true {
-                SettingsPrimaryButton(text: L(p.state == "changes_requested" || p.state == "rejected" ? "fl_resubmit" : "fl_submit"),
-                                      enabled: missing.isEmpty, loading: busy) {
-                    act({ try await FreelanceApi.submit(p.uuid).data }, successNotice: L("fl_sent_for_review"))
+
+            // FL-210: a last look before it goes out (it also says what doesn't add up).
+            if can.submit == true { FlAction(text: L("fl_review_and_send"), icon: "paperplane.fill", tone: .primary, enabled: missing.isEmpty, loading: busy, action: onPreview) }
+            if can.edit == true { FlAction(text: L("fl_edit"), icon: "pencil") { onEdit(p.uuid) } }
+            if can.setCostCap == true {
+                FlAction(text: L(p.maxCostMinor == nil ? "fl_cost_cap_set" : "fl_cost_cap_change"), icon: "dollarsign.circle.fill") { capError = nil; capDialog = true }
+            }
+            // FL-209: ask for it again from this one.
+            if can.duplicate == true {
+                FlAction(text: L("fl_copy_project"), icon: "doc.on.doc") {
+                    busy = true
+                    error = nil
+                    Task {
+                        do { if let copy = try await FreelanceApi.duplicate(p.uuid).data { onCopied(copy.uuid) } } catch { self.error = flError(error) }
+                        busy = false
+                    }
                 }
             }
-            if can.edit == true { FlTextAction(text: L("fl_edit")) { onEdit(p.uuid) } }
-            if can.withdraw == true { FlTextAction(text: L("fl_withdraw")) { act({ try await FreelanceApi.withdraw(p.uuid).data }) } }
-            if can.cancel == true { FlTextAction(text: L("fl_cancel_project"), danger: true) { confirm = "cancel" } }
-            if can.delete == true { FlTextAction(text: L("fl_delete_draft"), danger: true) { confirm = "delete" } }
+            if can.withdraw == true { FlAction(text: L("fl_withdraw"), icon: "arrow.uturn.backward", tone: .warn) { act({ try await FreelanceApi.withdraw(p.uuid).data }) } }
+            if can.cancel == true { FlAction(text: L("fl_cancel_project"), icon: "xmark.circle.fill", tone: .danger) { cancelCode = nil; cancelNote = ""; confirm = "cancel" } }
+            if can.delete == true { FlAction(text: L("fl_delete_draft"), icon: "trash.fill", tone: .danger) { confirm = "delete" } }
+
             if let events = p.timeline, !events.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_history"))
+                FlCard(icon: "clock.arrow.circlepath", title: L("fl_history")) {
                     ForEach(Array(events.enumerated()), id: \.offset) { _, e in
-                        Text(verbatim: "\(eventLabel(e.type ?? ""))  ·  \u{200E}\(String((e.at ?? "").prefix(16)).replacingOccurrences(of: "T", with: " "))")
-                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle().fill(wa.accent).frame(width: 7, height: 7).padding(.top, 6)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(verbatim: eventLabel(e.type ?? "")).font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
+                                Text(verbatim: "\u{200E}" + String((e.at ?? "").prefix(16)).replacingOccurrences(of: "T", with: " ")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                            }
+                        }
                     }
                 }
             }
@@ -610,6 +760,173 @@ private struct ProjectDetails: View {
         case "admin": return L("fl_offers_closed_admin")
         case "max_offers": return L("fl_offers_closed_full")
         default: return L("fl_offers_closed_deadline")
+        }
+    }
+}
+
+/// What the project says, as the freelancers read it (the details page and the last look share it).
+private struct ProjectSummary: View {
+    let p: FreelanceProjectDto
+
+    var body: some View {
+        FlField(label: L("fl_description"), value: p.description)
+        FlField(label: L("fl_specialty"), value: p.specialty?.name)
+        FlField(label: L("fl_skills"), value: (p.skills ?? []).compactMap(\.name).joined(separator: "، "))
+        FlField(label: L("fl_budget"), value: budgetText(p))
+        if p.maxCostMinor != nil || p.can?.setCostCap == true {
+            FlField(label: L("fl_cost_cap"), value: p.maxCostMinor.map { L("fl_cost_cap_value", "\u{200E}" + flMoney($0), p.budget?.currency ?? "") } ?? L("fl_cost_cap_none"))
+        }
+        FlField(label: L("fl_duration"), value: p.durationDays.map { L("fl_days", $0) })
+        FlField(label: L("fl_visibility"), value: L(p.visibility == "private" ? "fl_private" : "fl_public"))
+        if let q = p.questions, !q.isEmpty {
+            FlField(label: L("fl_questions"), value: q.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n"))
+        }
+    }
+}
+
+/// The most the client will pay in all (FL-210): typed once, lifted with one tap.
+private struct CostCapDialog: View {
+    let current: Int?
+    let currency: String
+    let busy: Bool
+    let error: String?
+    let onSave: (Int) -> Void
+    let onRemove: () -> Void
+    @State private var text = ""
+    @State private var localError: String?
+    @State private var started = false
+
+    var body: some View {
+        FlSheet(icon: "dollarsign.circle.fill", title: L("fl_cost_cap"), text: L("fl_cost_cap_hint")) {
+            DorrTextArea(value: $text, label: L("fl_cost_cap_field", currency), icon: "banknote", singleLine: true).keyboardType(.decimalPad)
+            if let e = localError ?? error { FlNotice(text: e, icon: "exclamationmark.circle", color: flRed) }
+            FlAction(text: L("fl_cost_cap_save"), icon: "checkmark", tone: .primary, enabled: !busy) {
+                if let v = flParseMoney(text), v > 0 {
+                    localError = nil
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    onSave(v)
+                } else {
+                    localError = L("fl_budget_invalid")
+                }
+            }
+            if current != nil { FlAction(text: L("fl_cost_cap_remove"), icon: "trash", tone: .danger, enabled: !busy, action: onRemove) }
+        }
+        .onAppear {
+            guard !started else { return }
+            started = true
+            text = flMoney(current)
+        }
+    }
+}
+
+// MARK: - The last look (FL-210)
+
+@MainActor
+private struct PreviewPage: View {
+    @Environment(\.wa) private var wa
+    @EnvironmentObject private var network: NetworkMonitor
+    let uuid: String
+    let onBack: () -> Void
+    let onEdit: () -> Void
+    let onSent: () -> Void
+    @State private var preview: FreelancePreviewDto?
+    @State private var busy = false
+    @State private var error: String?
+    @State private var capDialog = false
+    @State private var capError: String?
+
+    private func load() async {
+        do {
+            preview = try await FreelanceApi.preview(uuid).data
+            error = nil
+        } catch {
+            self.error = flError(error)
+        }
+    }
+
+    /// The limit changes (or goes), then the look is taken again.
+    private func changeCap(_ block: @escaping () async throws -> Void) {
+        busy = true
+        capError = nil
+        Task {
+            do {
+                try await block()
+                capDialog = false
+                await load()
+            } catch {
+                capError = error.serverMessage ?? L("fl_cost_cap_failed")
+            }
+            busy = false
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SubHeader(title: L("fl_preview_title"), onBack: onBack)
+            if let pv = preview {
+                ScrollView { content(pv).padding(.horizontal, 16) }
+            } else {
+                FlLoading(error: error)
+            }
+        }
+        .task(id: network.reconnectTick) { await load() }
+        .dorrDialog(isPresented: Binding(get: { capDialog }, set: { if !$0, !busy { capDialog = false } }), bottom: true) {
+            if let p = preview?.project {
+                CostCapDialog(current: p.maxCostMinor, currency: p.budget?.currency ?? "", busy: busy, error: capError,
+                              onSave: { v in changeCap { _ = try await FreelanceApi.setCostCap(uuid, maxCostMinor: v) } },
+                              onRemove: { changeCap { _ = try await FreelanceApi.removeCostCap(uuid) } })
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ pv: FreelancePreviewDto) -> some View {
+        let p = pv.project
+        let issues = pv.issues ?? []
+        let errors = issues.filter { $0.severity == "error" }
+        let warnings = issues.filter { $0.severity != "error" }
+        VStack(alignment: .leading, spacing: 12) {
+            FlIntro(icon: "checklist", title: untitled(p), text: L("fl_preview_intro"))
+            FlCard(icon: "doc.plaintext", title: L("fl_project")) {
+                ProjectSummary(p: p)
+                if let files = p.attachments, !files.isEmpty { FlField(label: L("fl_files"), value: files.compactMap(\.name).joined(separator: "، ")) }
+            }
+            if issues.isEmpty { FlNotice(text: L("fl_preview_ok"), icon: "checkmark.circle.fill", color: flGreen) }
+            if !errors.isEmpty { IssuesCard(title: L("fl_preview_errors"), issues: errors, color: flRed, icon: "exclamationmark.circle") }
+            if !warnings.isEmpty { IssuesCard(title: L("fl_preview_warnings"), issues: warnings, color: flAmber, icon: "exclamationmark.triangle.fill") }
+            if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
+            // The limit is the one thing that can be fixed from here.
+            if p.can?.setCostCap == true && issues.contains(where: { $0.field == "max_cost" }) {
+                FlAction(text: L("fl_cost_cap_change"), icon: "dollarsign.circle.fill") { capError = nil; capDialog = true }
+            }
+            FlAction(text: L("fl_preview_send"), icon: "paperplane.fill", tone: .primary, enabled: pv.canSubmit == true, loading: busy) {
+                busy = true
+                error = nil
+                Task {
+                    do {
+                        _ = try await FreelanceApi.submit(uuid)
+                        onSent()
+                    } catch {
+                        self.error = flError(error)
+                    }
+                    busy = false
+                }
+            }
+            FlAction(text: L("fl_preview_fix"), icon: "pencil", action: onEdit)
+            Spacer(minLength: 20)
+        }
+    }
+}
+
+private struct IssuesCard: View {
+    let title: String
+    let issues: [FreelanceIssueDto]
+    let color: Color
+    let icon: String
+
+    var body: some View {
+        FlCard(icon: icon, title: title) {
+            ForEach(Array(issues.enumerated()), id: \.offset) { _, i in FlNotice(text: i.message ?? "", icon: icon, color: color) }
         }
     }
 }
@@ -631,6 +948,8 @@ private struct ProjectForm: View {
     @State private var budgetType = "fixed"
     @State private var budgetMin = ""
     @State private var budgetMax = ""
+    // FL-210: the most I pay in all (optional); a limit that was set and is emptied is lifted on save.
+    @State private var maxCost = ""
     @State private var duration = ""
     @State private var visibility = "public"
     @State private var questions: [String] = []
@@ -643,20 +962,24 @@ private struct ProjectForm: View {
     @State private var error: String?
 
     private func request() -> FreelanceProjectRequest? {
-        var min: Int?
-        if !budgetMin.trimmingCharacters(in: .whitespaces).isEmpty {
-            guard let v = flParseMoney(budgetMin) else { return nil }
-            min = v
+        func money(_ text: String) -> Int?? {
+            let t = text.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty { return .some(nil) }
+            guard let v = flParseMoney(t) else { return nil }
+            return .some(v)
         }
+        guard let min = money(budgetMin) else { return nil }
         var max: Int?
-        if budgetType == "range", !budgetMax.trimmingCharacters(in: .whitespaces).isEmpty {
-            guard let v = flParseMoney(budgetMax) else { return nil }
+        if budgetType == "range" {
+            guard let v = money(budgetMax) else { return nil }
             max = v
         }
+        guard let cap = money(maxCost) else { return nil }
+        if let cap, cap <= 0 { return nil }
         func clean(_ s: String) -> String? { let t = s.trimmingCharacters(in: .whitespacesAndNewlines); return t.isEmpty ? nil : t }
         return FreelanceProjectRequest(title: clean(title), description: clean(description), specialtyId: specialty?.id, skillIds: skills.map(\.id),
                                        budgetType: budgetType, budgetMinMinor: min, budgetMaxMinor: max, durationDays: Int(duration),
-                                       visibility: visibility, questions: questions.compactMap(clean))
+                                       visibility: visibility, questions: questions.compactMap(clean), maxCostMinor: cap)
     }
 
     /// Saves the draft; `then` gets the project's uuid (a new draft gets one on its first save).
@@ -670,6 +993,8 @@ private struct ProjectForm: View {
                 if let saved {
                     current = saved.uuid
                     attachments = saved.attachments ?? []
+                    // A blank field can't say "none" in the body (empty fields are left out), so lifting the limit is its own call.
+                    if maxCost.trimmingCharacters(in: .whitespaces).isEmpty && saved.maxCostMinor != nil { _ = try await FreelanceApi.removeCostCap(saved.uuid) }
                     then(saved.uuid)
                 }
             } catch {
@@ -705,7 +1030,7 @@ private struct ProjectForm: View {
             if !loaded {
                 FlLoading(error: error)
             } else {
-                ScrollView { form.padding(.horizontal, 16) }
+                ScrollView { form.padding(.horizontal, 16) }.scrollDismissesKeyboard(.interactively)
                 SettingsPrimaryButton(text: L("fl_save_draft"), loading: busy) { save(then: onSaved) }.padding(16)
             }
         }
@@ -721,6 +1046,7 @@ private struct ProjectForm: View {
                     budgetType = p.budget?.type ?? "fixed"
                     budgetMin = flMoney(p.budget?.minMinor)
                     budgetMax = flMoney(p.budget?.maxMinor)
+                    maxCost = flMoney(p.maxCostMinor)
                     duration = p.durationDays.map(String.init) ?? ""
                     visibility = p.visibility ?? "public"
                     questions = p.questions ?? []
@@ -736,8 +1062,8 @@ private struct ProjectForm: View {
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { upload(url) }
         }
-        .dorrDialog(isPresented: $pickSpecialty) {
-            SpecialtyDialog(onDismiss: { pickSpecialty = false }) { picked in
+        .dorrDialog(isPresented: $pickSpecialty, bottom: true) {
+            SpecialtyDialog { picked in
                 specialty = picked
                 pickSpecialty = false
             }
@@ -745,37 +1071,42 @@ private struct ProjectForm: View {
     }
 
     private var form: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            FlCard {
-                DorrTextArea(value: limited($title, 120), label: L("fl_title"), placeholder: L("fl_title_hint"), singleLine: true)
-                DorrTextArea(value: limited($description, 5000), label: L("fl_description"), placeholder: L("fl_description_hint"), minHeight: 130)
+        VStack(alignment: .leading, spacing: 18) {
+            FlIntro(icon: "briefcase.fill", title: L("fl_form_intro_title"), text: L("fl_form_intro"))
+            VStack(alignment: .leading, spacing: 14) {
+                DorrTextArea(value: limited($title, 120), label: L("fl_title"), placeholder: L("fl_title_hint"), icon: "textformat", singleLine: true)
+                DorrTextArea(value: limited($description, 5000), label: L("fl_description"), placeholder: L("fl_description_hint"), icon: "text.alignleft", minHeight: 130)
             }
-            FlCard {
-                FlLabel(text: L("fl_specialty"))
+            VStack(alignment: .leading, spacing: 10) {
+                FlHeading(icon: "square.grid.2x2", text: L("fl_specialty"))
                 Button { pickSpecialty = true } label: {
-                    Text(verbatim: specialty?.name ?? L("fl_pick_specialty")).font(.dorr(15))
-                        .foregroundStyle(specialty == nil ? (wa.night ? wa.mut : Color(hex: 0xB4BAC4)) : wa.settingsInk)
-                        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .background(wa.night ? wa.bg : Color(hex: 0xFBF7F8), in: Capsule())
-                        .overlay(Capsule().stroke(wa.night ? wa.line : Color(hex: 0xF3D5DB), lineWidth: 1))
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.grid.2x2").font(.system(size: 15, weight: .semibold)).foregroundStyle(wa.red.opacity(0.8))
+                        Text(verbatim: specialty?.name ?? L("fl_pick_specialty")).font(.dorr(15))
+                            .foregroundStyle(specialty == nil ? (wa.night ? wa.mut : Color(hex: 0xB4BAC4)) : wa.settingsInk)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .background(wa.night ? wa.bg : Color(hex: 0xFBF7F8), in: Capsule())
+                    .overlay(Capsule().stroke(wa.night ? wa.line : Color(hex: 0xF3D5DB), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
-                FlLabel(text: L("fl_skills"))
-                SkillPicker(selected: $skills)
+                FlHeading(icon: "bolt.fill", text: L("fl_skills"))
+                SkillPicker(selected: $skills, specialtyId: specialty?.id)
             }
-            FlCard {
-                FlLabel(text: L("fl_budget"))
+            VStack(alignment: .leading, spacing: 10) {
+                FlHeading(icon: "banknote", text: L("fl_budget"))
                 HStack(spacing: 8) {
-                    FlChip(text: L("fl_budget_fixed"), selected: budgetType == "fixed") { budgetType = "fixed" }
-                    FlChip(text: L("fl_budget_range"), selected: budgetType == "range") { budgetType = "range" }
+                    FlChip(text: L("fl_budget_fixed"), selected: budgetType == "fixed", icon: "lock.fill") { budgetType = "fixed" }
+                    FlChip(text: L("fl_budget_range"), selected: budgetType == "range", icon: "arrow.left.arrow.right") { budgetType = "range" }
                 }
                 let currency = rules?.currency ?? ""
                 HStack(alignment: .top, spacing: 10) {
-                    DorrTextArea(value: $budgetMin, label: L(budgetType == "range" ? "fl_budget_from" : "fl_budget_amount", currency), singleLine: true)
+                    DorrTextArea(value: $budgetMin, label: L(budgetType == "range" ? "fl_budget_from" : "fl_budget_amount", currency), icon: "banknote", singleLine: true)
                         .keyboardType(.decimalPad)
                     if budgetType == "range" {
-                        DorrTextArea(value: $budgetMax, label: L("fl_budget_to", currency), singleLine: true).keyboardType(.decimalPad)
+                        DorrTextArea(value: $budgetMax, label: L("fl_budget_to", currency), icon: "banknote", singleLine: true).keyboardType(.decimalPad)
                     }
                 }
                 if let r = rules {
@@ -783,34 +1114,36 @@ private struct ProjectForm: View {
                                  r.maxMinor.map { L("fl_budget_max_rule", flMoney($0), r.currency ?? "") }].compactMap { $0 }
                     if !lines.isEmpty { Text(verbatim: "\u{200E}" + lines.joined(separator: " · ")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                 }
+                // FL-210: the most I will pay in all.
+                DorrTextArea(value: $maxCost, label: L("fl_cost_cap_field", currency), icon: "dollarsign.circle.fill", singleLine: true).keyboardType(.decimalPad)
+                Text(L("fl_cost_cap_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
             }
-            FlCard {
+            VStack(alignment: .leading, spacing: 10) {
                 DorrTextArea(value: Binding(get: { duration }, set: { duration = String($0.filter(\.isNumber).prefix(3)) }),
-                             label: L("fl_duration_days"), singleLine: true)
+                             label: L("fl_duration_days"), icon: "clock", singleLine: true)
                     .keyboardType(.numberPad)
-                FlLabel(text: L("fl_visibility"))
+                FlHeading(icon: "eye.fill", text: L("fl_visibility"))
                 HStack(spacing: 8) {
-                    FlChip(text: L("fl_public"), selected: visibility == "public") { visibility = "public" }
-                    FlChip(text: L("fl_private"), selected: visibility == "private") { visibility = "private" }
+                    FlChip(text: L("fl_public"), selected: visibility == "public", icon: "globe") { visibility = "public" }
+                    FlChip(text: L("fl_private"), selected: visibility == "private", icon: "lock.fill") { visibility = "private" }
                 }
-                Text(L(visibility == "private" ? "fl_private_hint" : "fl_public_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                FlNotice(text: L(visibility == "private" ? "fl_private_hint" : "fl_public_hint"), icon: "info.circle.fill", color: wa.accent)
             }
             // FL-307: questions every freelancer answers with their offer.
-            FlCard {
-                FlLabel(text: L("fl_questions"))
-                Text(L("fl_questions_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            VStack(alignment: .leading, spacing: 10) {
+                FlHeading(icon: "questionmark.bubble.fill", text: L("fl_questions"), hint: L("fl_questions_hint"))
                 ForEach(questions.indices, id: \.self) { i in
                     HStack(spacing: 6) {
                         DorrTextArea(value: Binding(get: { questions.indices.contains(i) ? questions[i] : "" },
                                                     set: { if questions.indices.contains(i) { questions[i] = String($0.prefix(300)) } }),
-                                     placeholder: L("fl_question_n", i + 1), singleLine: true)
+                                     placeholder: L("fl_question_n", i + 1), icon: "questionmark.bubble.fill", singleLine: true)
                         RemoveButton { questions.remove(at: i) }
                     }
                 }
-                if questions.count < 5 { FlTextAction(text: L("fl_add_question")) { questions.append("") } }
+                if questions.count < 5 { FlAction(text: L("fl_add_question"), icon: "plus") { questions.append("") } }
             }
-            FlCard {
-                FlLabel(text: L("fl_files"))
+            VStack(alignment: .leading, spacing: 10) {
+                FlHeading(icon: "paperclip", text: L("fl_files"), hint: L("fl_files_hint"))
                 ForEach(attachments, id: \.id) { a in
                     HStack(spacing: 8) {
                         Image(systemName: "doc.text").font(.system(size: 15)).foregroundStyle(wa.accent)
@@ -824,21 +1157,12 @@ private struct ProjectForm: View {
                             }
                         }
                     }
+                    .padding(.horizontal, 12).padding(.vertical, 4)
+                    .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                Button { picking = true } label: {
-                    HStack(spacing: 6) {
-                        if uploading { ProgressView().tint(wa.accent).scaleEffect(0.8) } else {
-                            Image(systemName: "paperclip").font(.system(size: 15, weight: .semibold)).foregroundStyle(wa.accent)
-                        }
-                        Text(L("fl_add_file")).font(.dorr(13, .bold)).foregroundStyle(wa.accent)
-                    }
-                    .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .disabled(uploading)
-                Text(L("fl_files_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                FlAction(text: L("fl_add_file"), icon: "paperclip", loading: uploading) { picking = true }
             }
-            if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed) }
+            if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
             Spacer(minLength: 8)
         }
     }
@@ -862,11 +1186,13 @@ struct RemoveButton: View {
     }
 }
 
-/// Picked skills as removable pills, and a search over the active catalog (400 ms after the last key).
+/// Picked skills as removable pills, and under them the skills: with nothing typed, the ones of the project's specialty (as soon
+/// as one is chosen); from two letters on, a search over the whole active catalog (400 ms after the last key).
 @MainActor
 private struct SkillPicker: View {
     @Environment(\.wa) private var wa
     @Binding var selected: [FreelanceNamedDto]
+    let specialtyId: Int?
     @State private var query = ""
     @State private var results: [FreelanceNamedDto] = []
 
@@ -887,9 +1213,9 @@ private struct SkillPicker: View {
                 }
             }
             if selected.count < 10 {
-                DorrTextArea(value: $query, placeholder: L("fl_search_skills"), singleLine: true)
+                DorrTextArea(value: $query, placeholder: L("fl_search_skills"), icon: "magnifyingglass", singleLine: true)
                 FlowLayout(spacing: 6) {
-                    ForEach(results.filter { r in !selected.contains { $0.id == r.id } }.prefix(12), id: \.id) { r in
+                    ForEach(results.filter { r in !selected.contains { $0.id == r.id } }.prefix(20), id: \.id) { r in
                         Button { selected.append(r); query = "" } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(wa.accent)
@@ -903,9 +1229,13 @@ private struct SkillPicker: View {
                 }
             }
         }
-        .task(id: query) {
+        .task(id: "\(query)|\(specialtyId ?? 0)") {
             let q = query.trimmingCharacters(in: .whitespaces)
-            guard q.count >= 2 else { results = []; return }
+            if q.count < 2 {
+                guard q.isEmpty, let specialtyId else { results = []; return }
+                results = ((try? await FreelanceApi.skills(q: nil, specialtyId: specialtyId).data) ?? []).map { FreelanceNamedDto(id: $0.id, name: $0.name) }
+                return
+            }
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
             results = ((try? await FreelanceApi.skills(q: q).data) ?? []).map { FreelanceNamedDto(id: $0.id, name: $0.name) }
@@ -917,32 +1247,26 @@ private struct SkillPicker: View {
 @MainActor
 private struct SpecialtyDialog: View {
     @Environment(\.wa) private var wa
-    let onDismiss: () -> Void
     let onPick: (FreelanceNamedDto) -> Void
     @State private var tree: [FreelanceSpecialtyNodeDto]?
 
     var body: some View {
-        FlAlert(title: L("fl_pick_specialty"), content: {
+        FlSheet(icon: "square.grid.2x2", title: L("fl_pick_specialty"), text: "") {
             if let nodes = tree {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(nodes, id: \.id) { parent in
-                            if (parent.children ?? []).isEmpty {
-                                row(parent.name ?? "", bold: true) { onPick(FreelanceNamedDto(id: parent.id, name: parent.name)) }
-                            } else {
-                                Text(verbatim: parent.name ?? "").font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut).padding(.top, 10).padding(.bottom, 2)
-                                ForEach(parent.children ?? [], id: \.id) { child in
-                                    row(child.name ?? "", bold: false) { onPick(FreelanceNamedDto(id: child.id, name: child.name)) }
-                                }
-                            }
+                ForEach(nodes, id: \.id) { parent in
+                    if (parent.children ?? []).isEmpty {
+                        row(parent.name ?? "", bold: true) { onPick(FreelanceNamedDto(id: parent.id, name: parent.name)) }
+                    } else {
+                        Text(verbatim: parent.name ?? "").font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut).padding(.top, 6)
+                        ForEach(parent.children ?? [], id: \.id) { child in
+                            row(child.name ?? "", bold: false) { onPick(FreelanceNamedDto(id: child.id, name: child.name)) }
                         }
                     }
                 }
-                .frame(maxHeight: 420)
             } else {
-                ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(20)
+                ForEach(0..<5, id: \.self) { _ in WaSkeleton(cornerRadius: 12).frame(height: 40) }
             }
-        }, confirm: nil, onConfirm: {}, dismiss: L("fl_close"), onDismiss: onDismiss)
+        }
         .task { tree = (try? await FreelanceApi.specialties().data) ?? [] }
     }
 
@@ -950,7 +1274,8 @@ private struct SpecialtyDialog: View {
         Button(action: action) {
             Text(verbatim: text).font(.dorr(14, bold ? .bold : .regular)).foregroundStyle(wa.settingsInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 10).padding(.horizontal, 6)
+                .padding(12)
+                .background(wa.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

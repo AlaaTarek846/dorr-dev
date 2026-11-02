@@ -67,6 +67,8 @@ struct QuickReplySuggestions: View {
 
 // MARK: - business page
 
+private enum BizPanel { case card, stats, hours, welcome, away, replies }
+
 struct BusinessPage: View {
     @ObservedObject var host: ChatHost
     @ObservedObject private var ch = Ch.shared
@@ -86,150 +88,117 @@ struct BusinessPage: View {
     @State private var saving = false
     @State private var editingReply: QuickReplyDto?
     @State private var newReply = false
-    /// (day, is «from»)
-    @State private var pickingTime: (Int, Bool)?
+    @State private var panel: BizPanel?
 
     var body: some View {
-        ChPage(title: L("ch_business_title"), onBack: { host.pop() }) {
+        ChSettingsPage(title: L("ch_business_title"), onBack: { host.pop() }) {
             if !loaded {
                 WaSkeleton().frame(height: 360).clipShape(RoundedRectangle(cornerRadius: 22)).padding(14)
                 Spacer()
             } else if unavailable {
                 ChEmptyState(icon: "storefront.fill", title: L("ch_business_title"), text: L("ch_business_unavailable"))
             } else {
-                ScrollView { content.padding(14) }
+                ScrollView { content.padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 16) }
             }
         }
         .task { await load() }
-        .dorrDialog(isPresented: Binding(get: { newReply || editingReply != nil }, set: { if !$0 { newReply = false; editingReply = nil } }), bottom: true) {
-            QuickReplySheet(host: host, reply: editingReply) { newReply = false; editingReply = nil }
-        }
-        .dorrDialog(isPresented: Binding(get: { pickingTime != nil }, set: { if !$0 { pickingTime = nil } }), bottom: true) {
-            if let (day, isFrom) = pickingTime, days.indices.contains(day) {
-                BusinessTimeSheet(initial: isFrom ? days[day].from : days[day].to) { text in
-                    if isFrom { days[day].from = text } else { days[day].to = text }
-                    pickingTime = nil
-                }
+        .dorrDialog(isPresented: Binding(get: { panel != nil || newReply || editingReply != nil },
+                                         set: { if !$0 { panel = nil; newReply = false; editingReply = nil } }), bottom: true) {
+            if newReply || editingReply != nil {
+                QuickReplySheet(host: host, reply: editingReply) { newReply = false; editingReply = nil }
+            } else {
+                panelView
             }
         }
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(L("ch_business_intro")).font(.dorr(13)).foregroundStyle(ch.mut).padding(.horizontal, 6)
-
-            // The business card (backlog 111).
-            section(L("bk_business_card"))
-            VStack(spacing: 8) {
-                ChField(placeholder: L("bk_business_about"), text: $about, icon: "info.circle.fill", limit: 500)
-                ChField(placeholder: L("bk_business_address"), text: $address, icon: "mappin.circle.fill", limit: 300)
-                ChField(placeholder: L("bk_business_email"), text: $email, icon: "envelope.fill", limit: 150, keyboard: .emailAddress)
-                ChField(placeholder: L("bk_business_website"), text: $website, icon: "globe", limit: 255, keyboard: .URL)
+            HStack(alignment: .top, spacing: 10) {
+                PinkIcon(icon: "info.circle.fill")
+                Text(L("ch_business_intro")).font(.dorr(12.5)).foregroundStyle(Ch.shared.mut).lineSpacing(4).padding(.top, 6).frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(12)
-            .background(ch.surface, in: RoundedRectangle(cornerRadius: 18))
+            .padding(4)
+            VStack(spacing: 0) {
+                PrivacySettingsRow(icon: "storefront.fill", title: L("bk_business_card")) { panel = .card }
+                PrivacySettingsRow(icon: "chart.xyaxis.line", title: L("bk_business_stats")) { panel = .stats }
+                PrivacySettingsRow(icon: "clock.fill", title: L("ch_business_hours")) { panel = .hours }
+                PrivacySettingsRow(icon: "hand.wave.fill", title: L("ch_business_welcome")) { panel = .welcome }
+                PrivacySettingsRow(icon: "sun.haze.fill", title: L("ch_business_away")) { panel = .away }
+                PrivacySettingsRow(icon: "bolt.fill", title: L("ch_quick_replies"), last: true) { panel = .replies }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .settingsSurface(18, elevation: 8)
+        }
+    }
 
-            // Message statistics (backlog 116).
-            section(L("bk_business_stats"))
-            BusinessStatsCard()
-
-            // Opening hours.
-            section(L("ch_business_hours"))
-            InfoCard {
-                ForEach(days.indices, id: \.self) { i in
-                    HStack(spacing: 0) {
-                        Text(verbatim: dayName(i)).font(.dorr(14, .bold)).foregroundStyle(ch.ink).frame(width: 86, alignment: .leading)
-                        if days[i].open {
-                            timeChip(days[i].from) { pickingTime = (i, true) }
-                            Text(verbatim: "–").foregroundStyle(ch.mut).padding(.horizontal, 6)
-                            timeChip(days[i].to) { pickingTime = (i, false) }
-                        } else {
-                            Text(L("ch_business_closed")).font(.dorr(13)).foregroundStyle(ch.soft)
+    @ViewBuilder
+    private var panelView: some View {
+        let close = { panel = nil }
+        switch panel {
+        case .card:
+            BusinessCardSheet(about: about, address: address, email: email, website: website, busy: saving) { a, d, e, w in
+                about = a; address = d; email = e; website = w
+                save(then: close)
+            }
+        case .stats:
+            ChSheetCard {
+                Text(L("bk_business_stats")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
+                BusinessStatsCard()
+            }
+        case .hours:
+            BusinessHoursSheet(days: days, busy: saving) { next in
+                days = next
+                save(then: close)
+            }
+        case .welcome:
+            BusinessMessageSheet(title: L("ch_business_welcome"), icon: "hand.wave.fill", toggle: L("ch_business_welcome_on"), toggleSub: L("ch_business_welcome_sub"),
+                                 hint: L("ch_business_welcome_hint"), on: welcomeOn, message: welcome, mode: nil, busy: saving) { on, msg, _ in
+                welcomeOn = on; welcome = msg
+                save(then: close)
+            }
+        case .away:
+            BusinessMessageSheet(title: L("ch_business_away"), icon: "sun.haze.fill", toggle: L("ch_business_away_on"), toggleSub: L("ch_business_away_sub"),
+                                 hint: L("ch_business_away_hint"), on: awayOn, message: away, mode: awayMode, busy: saving) { on, msg, mode in
+                awayOn = on; away = msg; awayMode = mode ?? awayMode
+                save(then: close)
+            }
+        case .replies:
+            ChSheetCard {
+                Text(L("ch_quick_replies")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
+                Text(L("ch_quick_replies_sub")).font(.dorr(12.5)).foregroundStyle(ch.mut).padding(.top, 6).padding(.bottom, 14)
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(Array((store.list ?? []).enumerated()), id: \.element.id) { i, reply in
+                            Button { editingReply = reply } label: {
+                                HStack(spacing: 10) {
+                                    Text(verbatim: "/\(reply.shortcut)").font(.dorr(13.5, .heavy)).foregroundStyle(ch.red)
+                                    Text(verbatim: reply.body).font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                                    Image(systemName: "pencil").font(.system(size: 15)).foregroundStyle(ch.soft)
+                                }
+                                .padding(12)
+                                .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .chStagger(i)
                         }
-                        Spacer()
-                        Toggle("", isOn: Binding(get: { days[i].open }, set: { days[i].open = $0 })).labelsHidden().tint(ch.red)
+                        Button { newReply = true } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus").font(.system(size: 17, weight: .semibold))
+                                Text(L("ch_quick_reply_new")).font(.dorr(15, .heavy))
+                            }
+                            .foregroundStyle(ch.red)
+                            .frame(maxWidth: .infinity).padding(14)
+                            .background(ch.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 14).padding(.vertical, 6)
                 }
+                .frame(maxHeight: 520)
             }
-
-            // Welcome.
-            section(L("ch_business_welcome"))
-            InfoCard {
-                ToggleRow(icon: "hand.wave.fill", title: L("ch_business_welcome_on"), checked: welcomeOn, subtitle: L("ch_business_welcome_sub")) { welcomeOn = $0 }
-                ChField(placeholder: L("ch_business_welcome_hint"), text: $welcome, lines: 2...6, limit: 1000).padding(.horizontal, 14).padding(.bottom, 14)
-            }
-
-            // Away.
-            section(L("ch_business_away"))
-            InfoCard {
-                ToggleRow(icon: "sun.haze.fill", title: L("ch_business_away_on"), checked: awayOn, subtitle: L("ch_business_away_sub")) { awayOn = $0 }
-                HStack(spacing: 8) {
-                    modeChip(L("ch_business_away_outside"), "outside_hours")
-                    modeChip(L("ch_business_away_always"), "always")
-                }
-                .padding(.horizontal, 14)
-                ChField(placeholder: L("ch_business_away_hint"), text: $away, lines: 2...6, limit: 1000).padding(14)
-            }
-            ChPrimaryButton(text: L("ch_save"), enabled: !saving, action: save)
-
-            // Quick replies.
-            section(L("ch_quick_replies"))
-            Text(L("ch_quick_replies_sub")).font(.dorr(12.5)).foregroundStyle(ch.mut).padding(.horizontal, 6)
-            ForEach(Array((store.list ?? []).enumerated()), id: \.element.id) { i, reply in
-                Button { editingReply = reply } label: {
-                    HStack(spacing: 10) {
-                        Text(verbatim: "/\(reply.shortcut)").font(.dorr(13.5, .heavy)).foregroundStyle(ch.red)
-                        Text(verbatim: reply.body).font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: "pencil").font(.system(size: 15)).foregroundStyle(ch.soft)
-                    }
-                    .padding(12)
-                    .background(ch.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .chStagger(i)
-            }
-            Button { newReply = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus").font(.system(size: 17, weight: .semibold))
-                    Text(L("ch_quick_reply_new")).font(.dorr(15, .heavy))
-                }
-                .foregroundStyle(ch.red)
-                .frame(maxWidth: .infinity).padding(14)
-                .background(ch.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-            .buttonStyle(.plain)
+        case nil:
+            EmptyView()
         }
-    }
-
-    private func section(_ text: String) -> some View {
-        Text(verbatim: text).font(.dorr(13, .heavy)).foregroundStyle(ch.mut).padding(.leading, 8).padding(.top, 4)
-    }
-
-    private func timeChip(_ time: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(verbatim: time).font(.dorr(13.5, .bold)).foregroundStyle(ch.ink).environment(\.layoutDirection, .leftToRight)
-                .padding(.horizontal, 10).padding(.vertical, 5).background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func modeChip(_ label: String, _ value: String) -> some View {
-        let on = awayMode == value
-        return Button { awayMode = value } label: {
-            Text(verbatim: label).font(.dorr(13, .bold)).foregroundStyle(on ? .white : ch.ink).multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity).padding(.vertical, 10)
-                .background(on ? ch.red : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .animation(.easeOut(duration: 0.2), value: on)
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// Sunday first, in the app's language.
-    private func dayName(_ index: Int) -> String {
-        var cal = Calendar(identifier: .gregorian)
-        cal.locale = AppLocale.locale
-        return cal.weekdaySymbols[index % 7]
     }
 
     private func load() async {
@@ -256,7 +225,8 @@ struct BusinessPage: View {
         loaded = true
     }
 
-    private func save() {
+    /// Saves the whole profile (each sheet changed its part first); `then` once it's saved.
+    private func save(then: (() -> Void)? = nil) {
         saving = true
         func opt(_ s: String) -> JSONValue {
             let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -276,11 +246,160 @@ struct BusinessPage: View {
             do {
                 _ = try await ChatApi.updateBusiness(body)
                 host.showToast(L("ch_saved"))
+                then?()
             } catch {
                 host.showToast(error.apiFailure.message ?? L("ch_error_network"), error: true)
             }
             saving = false
         }
+    }
+}
+
+/// About, address, e-mail and website (backlog 111).
+private struct BusinessCardSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    let about: String
+    let address: String
+    let email: String
+    let website: String
+    let busy: Bool
+    let onSave: (String, String, String, String) -> Void
+    @State private var a = ""
+    @State private var d = ""
+    @State private var e = ""
+    @State private var w = ""
+    @State private var started = false
+
+    var body: some View {
+        ChSheetCard {
+            Text(L("bk_business_card")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
+            ChField(placeholder: L("bk_business_about"), text: $a, icon: "info.circle.fill", lines: 2...5, limit: 500)
+            ChField(placeholder: L("bk_business_address"), text: $d, icon: "mappin.circle.fill", limit: 300).padding(.top, 10)
+            ChField(placeholder: L("bk_business_email"), text: $e, icon: "envelope.fill", limit: 150, keyboard: .emailAddress).padding(.top, 10)
+            ChField(placeholder: L("bk_business_website"), text: $w, icon: "globe", limit: 255, keyboard: .URL).padding(.top, 10)
+            ChPrimaryButton(text: L("ch_save"), enabled: !busy) { onSave(a, d, e, w) }.padding(.top, 16)
+        }
+        .onAppear {
+            guard !started else { return }
+            started = true
+            a = about; d = address; e = email; w = website
+        }
+    }
+}
+
+/// The opening hours, a day a line (Sunday first); a time opens the wheel in place.
+private struct BusinessHoursSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    let days: [BusinessDayDto]
+    let busy: Bool
+    let onSave: ([BusinessDayDto]) -> Void
+    @State private var draft: [BusinessDayDto] = []
+    /// (day, is «from»)
+    @State private var picking: (Int, Bool)?
+    @State private var started = false
+
+    var body: some View {
+        Group {
+            if let (day, isFrom) = picking, draft.indices.contains(day) {
+                BusinessTimeSheet(initial: isFrom ? draft[day].from : draft[day].to) { text in
+                    if isFrom { draft[day].from = text } else { draft[day].to = text }
+                    picking = nil
+                }
+            } else {
+                ChSheetCard {
+                    Text(L("ch_business_hours")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
+                    ForEach(draft.indices, id: \.self) { i in
+                        HStack(spacing: 0) {
+                            Text(verbatim: dayName(i)).font(.dorr(14, .bold)).foregroundStyle(ch.ink).frame(width: 86, alignment: .leading)
+                            if draft[i].open {
+                                timeChip(draft[i].from) { picking = (i, true) }
+                                Text(verbatim: "–").foregroundStyle(ch.mut).padding(.horizontal, 6)
+                                timeChip(draft[i].to) { picking = (i, false) }
+                            } else {
+                                Text(L("ch_business_closed")).font(.dorr(13)).foregroundStyle(ch.soft)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(get: { draft[i].open }, set: { draft[i].open = $0 })).labelsHidden().tint(ch.red)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    ChPrimaryButton(text: L("ch_save"), enabled: !busy) { onSave(draft) }.padding(.top, 16)
+                }
+            }
+        }
+        .onAppear {
+            guard !started else { return }
+            started = true
+            draft = days.isEmpty ? Array(repeating: BusinessDayDto(open: false, from: "09:00", to: "17:00"), count: 7) : days
+        }
+    }
+
+    private func timeChip(_ time: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(verbatim: time).font(.dorr(13.5, .bold)).foregroundStyle(ch.ink).environment(\.layoutDirection, .leftToRight)
+                .padding(.horizontal, 10).padding(.vertical, 5).background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Sunday first, in the app's language.
+    private func dayName(_ index: Int) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.locale = AppLocale.locale
+        return cal.weekdaySymbols[index % 7]
+    }
+}
+
+/// The welcome or the away message: on / off, its text, and for «away» when it goes.
+private struct BusinessMessageSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    let title: String
+    let icon: String
+    let toggle: String
+    let toggleSub: String
+    let hint: String
+    let on: Bool
+    let message: String
+    let mode: String?
+    let busy: Bool
+    let onSave: (Bool, String, String?) -> Void
+    @State private var draftOn = false
+    @State private var draft = ""
+    @State private var draftMode: String?
+    @State private var started = false
+
+    var body: some View {
+        ChSheetCard {
+            Text(verbatim: title).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
+            ToggleRow(icon: icon, title: toggle, checked: draftOn, subtitle: toggleSub) { draftOn = $0 }
+            if draftMode != nil {
+                HStack(spacing: 8) {
+                    modeChip(L("ch_business_away_outside"), "outside_hours")
+                    modeChip(L("ch_business_away_always"), "always")
+                }
+                .padding(.top, 10)
+            }
+            ChField(placeholder: hint, text: $draft, icon: "text.bubble.fill", lines: 2...6, limit: 1000).padding(.top, 10)
+            ChPrimaryButton(text: L("ch_save"), enabled: !busy) { onSave(draftOn, draft, draftMode) }.padding(.top, 16)
+        }
+        .onAppear {
+            guard !started else { return }
+            started = true
+            draftOn = on
+            draft = message
+            draftMode = mode
+        }
+    }
+
+    private func modeChip(_ label: String, _ value: String) -> some View {
+        let selected = draftMode == value
+        return Button { draftMode = value } label: {
+            Text(verbatim: label).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : ch.ink).multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity).padding(.vertical, 10)
+                .background(selected ? ch.red : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .animation(.easeOut(duration: 0.2), value: selected)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -324,8 +443,21 @@ private struct QuickReplySheet: View {
     @State private var body_ = ""
     @State private var busy = false
     @State private var started = false
+    @State private var confirmDelete = false
 
     var body: some View {
+        if confirmDelete, let reply {
+            ConfirmDialog(icon: "trash.fill", title: L("ch_quick_reply_delete_title"), message: L("ch_quick_reply_delete_sub"), loading: busy, confirmLabel: L("ch_delete"),
+                          onConfirm: {
+                              confirmDelete = false
+                              done(L("ch_quick_reply_deleted")) { _ = try await ChatApi.deleteQuickReply(reply.id) }
+                          }, onDismiss: { if !busy { confirmDelete = false } })
+        } else {
+            form
+        }
+    }
+
+    private var form: some View {
         ChSheetCard {
             Text(L(reply == nil ? "ch_quick_reply_new" : "ch_quick_reply_edit")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
             ChField(placeholder: L("ch_quick_reply_shortcut"), text: Binding(get: { shortcut }, set: { v in
@@ -333,21 +465,22 @@ private struct QuickReplySheet: View {
                 if t.hasPrefix("/") { t.removeFirst() }
                 shortcut = String(t.prefix(32))
             }), icon: "bolt.fill", limit: 33)
-            ChField(placeholder: L("ch_quick_reply_body"), text: $body_, lines: 3...8, limit: 4000).padding(.top, 10)
+            ChField(placeholder: L("ch_quick_reply_body"), text: $body_, icon: "text.alignleft", lines: 3...8, limit: 4000).padding(.top, 10)
             ChPrimaryButton(text: L("ch_save"), enabled: !busy && !shortcut.isEmpty && !body_.trimmingCharacters(in: .whitespaces).isEmpty) {
-                done {
+                done(L("ch_saved")) {
                     let b = body_.trimmingCharacters(in: .whitespacesAndNewlines)
                     if let reply { _ = try await ChatApi.updateQuickReply(reply.id, shortcut: shortcut, body: b) } else { _ = try await ChatApi.addQuickReply(shortcut: shortcut, body: b) }
                 }
             }
             .padding(.top, 16)
             if let reply {
-                Button { done { _ = try await ChatApi.deleteQuickReply(reply.id) } } label: {
-                    HStack(spacing: 6) {
+                Button { confirmDelete = true } label: {
+                    HStack(spacing: 8) {
                         Image(systemName: "trash").font(.system(size: 17))
-                        Text(L("ch_delete")).font(.dorr(15, .bold))
+                        Text(L("ch_delete")).font(.dorr(15, .heavy))
                     }
-                    .foregroundStyle(ch.danger).frame(maxWidth: .infinity).padding(12)
+                    .foregroundStyle(ch.danger).frame(maxWidth: .infinity).padding(.horizontal, 26).padding(.vertical, 14)
+                    .background(ch.danger.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(busy)
@@ -361,12 +494,13 @@ private struct QuickReplySheet: View {
         }
     }
 
-    private func done(_ action: @escaping () async throws -> Void) {
+    private func done(_ toast: String, _ action: @escaping () async throws -> Void) {
         busy = true
         Task {
             do {
                 try await action()
                 await QuickReplies.shared.load(force: true)
+                host.showToast(toast)
                 onDismiss()
             } catch {
                 host.showToast(error.apiFailure.message ?? L("ch_error_network"), error: true)
@@ -379,11 +513,12 @@ private struct QuickReplySheet: View {
 /// My messages to customers and theirs to me, over 7 / 30 / 90 days (WhatsApp Business's statistics).
 struct BusinessStatsCard: View {
     @ObservedObject private var ch = Ch.shared
+    @Environment(\.wa) private var wa
     @State private var days = 30
     @State private var stats: BusinessStatsDto?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 ForEach([7, 30, 90], id: \.self) { d in
                     Button { days = d } label: {
@@ -393,30 +528,29 @@ struct BusinessStatsCard: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.bottom, 2)
-            HStack(spacing: 8) {
-                tile(L("bk_stats_sent"), stats?.sent)
-                tile(L("bk_stats_delivered"), stats?.delivered)
-                tile(L("bk_stats_read"), stats?.read)
+            VStack(spacing: 0) {
+                row("paperplane.fill", L("bk_stats_sent"), stats?.sent)
+                row("checkmark.circle.fill", L("bk_stats_delivered"), stats?.delivered)
+                row("eye.fill", L("bk_stats_read"), stats?.read)
+                row("tray.fill", L("bk_stats_received"), stats?.received)
+                row("bubble.left", L("bk_stats_chats"), stats?.chats, last: true)
             }
-            HStack(spacing: 8) {
-                tile(L("bk_stats_received"), stats?.received)
-                tile(L("bk_stats_chats"), stats?.chats)
-            }
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .settingsSurface(18, elevation: 8)
         }
-        .padding(12)
-        .background(ch.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .task(id: days) { stats = try? await BacklogApi.businessStats(days: days).data }
     }
 
-    private func tile(_ label: String, _ value: Int?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(verbatim: value.map(String.init) ?? "…").font(.dorr(20, .heavy)).foregroundStyle(ch.ink)
-            Text(verbatim: label).font(.dorr(12)).foregroundStyle(ch.mut).lineLimit(1)
+    private func row(_ icon: String, _ title: String, _ value: Int?, last: Bool = false) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                PinkIcon(icon: icon)
+                Text(verbatim: title).font(.dorr(13.5, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: value.map(String.init) ?? "…").font(.dorr(13.5, .heavy)).foregroundStyle(wa.settingsInk)
+            }
+            .padding(.horizontal, 4).padding(.vertical, 12)
+            if !last { Rectangle().fill(wa.night ? wa.line : Color(hex: 0xF6E4E8)).frame(height: 1) }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(ch.surfaceMuted.opacity(0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 

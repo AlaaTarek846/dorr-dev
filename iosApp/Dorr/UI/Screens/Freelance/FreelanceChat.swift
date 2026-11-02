@@ -39,25 +39,46 @@ struct FreelanceChatPage: View {
     // Newest first, as the server gives them (drawn from the bottom).
     @State private var messages: [FreelanceChatMessageDto] = []
     @State private var hasMore = false
+    @State private var loadingOlder = false
+    @State private var olderFailed = false
     @State private var input = ""
     @State private var sending = false
     @State private var error: String?
     @State private var loaded = false
     @State private var interviews: [FreelanceInterviewDto] = []
+    // FL-709: the message being reported (the ⋯ beside the other person's).
+    @State private var reporting: Int?
+    @State private var reportNotice: String?
 
     private func load() async {
         do {
             room = try await FreelanceApi.chatRoom(roomUuid).data
             if let list = try? await FreelanceApi.interviews(roomUuid).data { interviews = list }
             let list = try await FreelanceApi.chatMessages(roomUuid).data ?? []
-            messages = list
-            hasMore = list.count >= 40
+            // The newest page replaces what is shown; the older messages I scrolled up to stay under it.
+            let older = list.last.map { oldest in messages.filter { $0.id < oldest.id } } ?? []
+            messages = list + older
+            if older.isEmpty { hasMore = list.count >= 40 }
             error = nil
             if list.contains(where: { $0.mine == false && $0.readAt == nil }) { _ = try? await FreelanceApi.chatRead(roomUuid) }
         } catch {
             if !loaded { self.error = flError(error) }
         }
         loaded = true
+    }
+
+    /// Older messages come by themselves when I scroll up to the oldest one loaded (nothing on a timer).
+    private func loadOlder() async {
+        guard !loadingOlder, hasMore, let before = messages.last?.id else { return }
+        loadingOlder = true
+        olderFailed = false
+        if let more = try? await FreelanceApi.chatMessages(roomUuid, before: before).data {
+            messages += more.filter { n in !messages.contains { $0.id == n.id } }
+            hasMore = more.count >= 40
+        } else {
+            olderFailed = true
+        }
+        loadingOlder = false
     }
 
     private func send() {
@@ -83,17 +104,33 @@ struct FreelanceChatPage: View {
             PinkBackdrop()
             VStack(alignment: .leading, spacing: 0) {
                 SubHeader(title: room?.peer?.name ?? L("fl_chat_title"), onBack: onBack)
-                if let title = room?.project?.title { Text(verbatim: title).font(.dorr(12)).foregroundStyle(wa.settingsMut).padding(.horizontal, 18) }
-                if room?.guarded == true { Text(L("fl_chat_guard_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut).padding(.horizontal, 18).padding(.vertical, 4) }
+                if let title = room?.project?.title {
+                    HStack(spacing: 8) {
+                        Image(systemName: "briefcase.fill").font(.system(size: 13)).foregroundStyle(wa.accent)
+                        Text(verbatim: title).font(.dorr(12.5, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(wa.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, 16)
+                }
+                if room?.guarded == true { FlNotice(text: L("fl_chat_guard_hint"), icon: "shield.fill", color: flAmber).padding(.horizontal, 16).padding(.vertical, 6) }
                 ZStack {
                     if !loaded && error == nil {
-                        ProgressView().tint(wa.accent)
+                        VStack(alignment: .leading, spacing: 10) {
+                            WaSkeleton(cornerRadius: 16).frame(width: 220, height: 48)
+                            WaSkeleton(cornerRadius: 16).frame(width: 180, height: 40).frame(maxWidth: .infinity, alignment: .trailing)
+                            WaSkeleton(cornerRadius: 16).frame(width: 250, height: 56)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(14)
                     } else {
                         list
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(flRed).padding(.horizontal, 18).padding(.vertical, 2) }
+                if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed).padding(.horizontal, 16).padding(.vertical, 2) }
+                if let reportNotice { FlNotice(text: reportNotice, icon: "checkmark.circle.fill", color: flGreen).padding(.horizontal, 16).padding(.vertical, 2) }
                 if room != nil {
                     InterviewPanel(roomUuid: roomUuid, canWrite: room?.canWrite == true, items: interviews,
                                    onChanged: { Task { await load() } }, onError: { error = $0 })
@@ -123,27 +160,37 @@ struct FreelanceChatPage: View {
         .onAppear { ChatRealtime.shared.watchFreelanceRoom(roomUuid) }
         .onDisappear { ChatRealtime.shared.unwatchFreelanceRoom(roomUuid) }
         .onReceive(ChatRealtime.shared.events.receive(on: DispatchQueue.main)) { e in if e.name == "freelance.message" { Task { await load() } } }
+        .dorrDialog(isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } }), bottom: true) {
+            if let id = reporting {
+                ReportMessageDialog(messageId: id, onDone: { reportNotice = $0; reporting = nil }, onDismiss: { reporting = nil })
+            }
+        }
     }
 
     private var list: some View {
         ScrollView {
             LazyVStack(spacing: 6) {
-                ForEach(messages) { m in ChatBubble(m: m).scaleEffect(x: 1, y: -1) }
+                ForEach(Array(messages.enumerated()), id: \.element.id) { i, m in
+                    ChatBubble(m: m) { reporting = m.id }
+                        .scaleEffect(x: 1, y: -1)
+                        .onAppear { if i >= messages.count - 4 && hasMore && !olderFailed { Task { await loadOlder() } } }
+                }
                 if hasMore {
-                    Button {
-                        Task {
-                            guard let before = messages.last?.id, let more = try? await FreelanceApi.chatMessages(roomUuid, before: before).data else { return }
-                            messages += more.filter { n in !messages.contains { $0.id == n.id } }
-                            hasMore = more.count >= 40
+                    Group {
+                        if olderFailed {
+                            Button { olderFailed = false; Task { await loadOlder() } } label: {
+                                Text(L("fl_error_generic")).font(.dorr(13, .bold)).foregroundStyle(wa.accent).frame(maxWidth: .infinity).padding(12)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(12)
+                                .onAppear { Task { await loadOlder() } }
                         }
-                    } label: {
-                        Text(L("fl_chat_earlier")).font(.dorr(13, .bold)).foregroundStyle(wa.accent).frame(maxWidth: .infinity).padding(12)
                     }
-                    .buttonStyle(.plain)
                     .scaleEffect(x: 1, y: -1)
                 }
                 if loaded && messages.isEmpty {
-                    Text(L("fl_chat_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut).padding(24).scaleEffect(x: 1, y: -1)
+                    WaEmpty(icon: "bubble.left.and.bubble.right.fill", tone: .blue, title: L("fl_chat_title"), text: L("fl_chat_empty")).scaleEffect(x: 1, y: -1)
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 8)
@@ -156,6 +203,7 @@ struct FreelanceChatPage: View {
 private struct ChatBubble: View {
     @Environment(\.wa) private var wa
     let m: FreelanceChatMessageDto
+    let onReport: () -> Void
 
     var body: some View {
         if m.kind == "system" {
@@ -174,6 +222,15 @@ private struct ChatBubble: View {
                 .background { if mine { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(wa.accent) } }
                 .modifier(SurfaceIf(on: !mine))
                 .fixedSize(horizontal: true, vertical: false)
+                // FL-709: the three dots beside the other person's message open a small menu (report).
+                if !mine && m.kind != "deleted" {
+                    Menu {
+                        Button(L("fl_rm_title"), action: onReport)
+                    } label: {
+                        Image(systemName: "ellipsis").rotationEffect(.degrees(90)).font(.system(size: 15, weight: .bold)).foregroundStyle(wa.settingsMut)
+                            .frame(width: 32, height: 32).contentShape(Circle())
+                    }
+                }
                 if !mine { Spacer(minLength: 0) }
             }
         }
@@ -227,21 +284,21 @@ private struct InterviewPanel: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let open, let id = open.uuid {
                     let toAnswer = open.status == "proposed" && open.proposedBy != "client"
-                    Text(L("fl_iv_title")).font(.dorr(11, .bold)).foregroundStyle(wa.settingsMut)
-                    Text(verbatim: interviewWhen(open.startsAt ?? "") + " · " + L("fl_iv_minutes", open.durationMinutes ?? 15)).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                    FlHeading(icon: "calendar", text: L("fl_iv_title"))
+                    Text(verbatim: interviewWhen(open.startsAt ?? "") + " · " + L("fl_iv_minutes", open.durationMinutes ?? 15)).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk)
                     if let note = open.note, !note.isEmpty { Text(verbatim: note).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                     Text(L(open.status == "confirmed" ? "fl_iv_confirmed" : (toAnswer ? "fl_iv_asks_you" : "fl_iv_waiting"))).font(.dorr(12, .semibold)).foregroundStyle(wa.accent)
-                    HStack(spacing: 16) {
+                    VStack(spacing: 8) {
                         if toAnswer {
-                            FlTextAction(text: L("fl_iv_confirm"), fill: false) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "confirm") } }
-                            FlTextAction(text: L("fl_iv_decline"), danger: true, fill: false) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "decline") } }
+                            FlAction(text: L("fl_iv_confirm"), icon: "checkmark.circle.fill", tone: .primary, enabled: !busy) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "confirm") } }
+                            FlAction(text: L("fl_iv_decline"), icon: "xmark.circle.fill", tone: .danger, enabled: !busy) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "decline") } }
                         } else {
-                            FlTextAction(text: L("fl_iv_cancel"), danger: true, fill: false) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "cancel") } }
+                            FlAction(text: L("fl_iv_cancel"), icon: "xmark.circle.fill", tone: .danger, enabled: !busy) { run { _ = try await FreelanceApi.answerInterview(roomUuid, id, action: "cancel") } }
                         }
-                        if canWrite { FlTextAction(text: L("fl_iv_other_time"), fill: false) { picking.toggle() } }
+                        if canWrite { FlAction(text: L("fl_iv_other_time"), icon: "clock") { picking.toggle() } }
                     }
                 } else {
-                    FlTextAction(text: L("fl_iv_schedule")) { picking.toggle() }
+                    FlAction(text: L("fl_iv_schedule"), icon: "calendar.badge.plus") { picking.toggle() }
                 }
                 if picking && canWrite {
                     InterviewPicker(busy: busy) { startsAt, minutes in
@@ -269,21 +326,22 @@ private struct InterviewPicker: View {
     var body: some View {
         let dayText = dayFormatter("EEE d MMM")
         VStack(alignment: .leading, spacing: 8) {
+            FlHeading(icon: "calendar", text: L("fl_iv_title"))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(0..<14, id: \.self) { n in
                         let d = Calendar.current.date(byAdding: .day, value: n, to: today)!
-                        FlChip(text: dayText.string(from: d), selected: d == day) { day = d }
+                        FlChip(text: dayText.string(from: d), selected: d == day, icon: "calendar") { day = d }
                     }
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(slots, id: \.self) { t in FlChip(text: String(format: "%02d:%02d", t / 60, t % 60), selected: t == time) { time = t } }
+                    ForEach(slots, id: \.self) { t in FlChip(text: String(format: "%02d:%02d", t / 60, t % 60), selected: t == time, icon: "clock") { time = t } }
                 }
             }
             HStack(spacing: 6) {
-                ForEach([10, 15, 30, 45, 60], id: \.self) { m in FlChip(text: L("fl_iv_minutes", m), selected: m == minutes) { minutes = m } }
+                ForEach([10, 15, 30, 45, 60], id: \.self) { m in FlChip(text: L("fl_iv_minutes", m), selected: m == minutes, icon: "timer") { minutes = m } }
             }
             SettingsPrimaryButton(text: L("fl_iv_send"), loading: busy) {
                 let start = Calendar.current.date(byAdding: .minute, value: time, to: day) ?? day
@@ -405,90 +463,92 @@ struct InvitationsPage: View {
         let s = d.summary ?? FreelanceInvitationsSummaryDto()
         let invitations = d.invitations ?? []
         VStack(alignment: .leading, spacing: 12) {
-            FlCard {
-                FlLabel(text: L("fl_inv_summary", s.sent ?? 0, s.accepted ?? 0, s.declined ?? 0))
-                Text(verbatim: L("fl_inv_how", s.max ?? 10)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                if (s.declined ?? 0) > 0 && (s.accepted ?? 0) == 0 && (s.sent ?? 0) == 0 {
-                    Text(L("fl_inv_none_left")).font(.dorr(13, .semibold)).foregroundStyle(flAmber)
-                }
+            FlIntro(icon: "envelope.badge.fill", title: L("fl_inv_title"), text: L("fl_inv_how", s.max ?? 10))
+            HStack(spacing: 8) {
+                FlStat(icon: "paperplane.fill", label: L("fl_inv_s_sent"), value: "\(s.sent ?? 0)")
+                FlStat(icon: "checkmark.circle.fill", label: L("fl_inv_s_accepted"), value: "\(s.accepted ?? 0)")
+                FlStat(icon: "xmark.circle.fill", label: L("fl_inv_s_declined"), value: "\(s.declined ?? 0)")
+            }
+            if (s.declined ?? 0) > 0 && (s.accepted ?? 0) == 0 && (s.sent ?? 0) == 0 {
+                FlNotice(text: L("fl_inv_none_left"), icon: "exclamationmark.triangle.fill", color: flAmber)
             }
             FlNotices(notice: notice, error: error)
-            if !invitations.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_inv_list"))
-                    ForEach(invitations, id: \.uuid) { i in
+            ForEach(invitations, id: \.uuid) { i in
+                let c = inviteStatusColor(i.status)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.fill").font(.system(size: 18)).foregroundStyle(c)
+                            .frame(width: 42, height: 42)
+                            .background(c.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         VStack(alignment: .leading, spacing: 0) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    Text(verbatim: i.freelancer?.name ?? "—").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-                                    if let f = i.freelancer { Text(verbatim: inviteeLine(f)).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
-                                }
-                                Spacer()
-                                Text(verbatim: inviteStatusLabel(i.status)).font(.dorr(12, .bold)).foregroundStyle(inviteStatusColor(i.status))
-                            }
-                            HStack(spacing: 16) {
-                                if let offer = i.offer { FlTextAction(text: L("fl_inv_see_offer"), fill: false) { onOpenOffer(offer) } }
-                                if i.canWithdraw == true {
-                                    FlTextAction(text: L("fl_inv_withdraw"), danger: true, fill: false) {
-                                        act { data = try await FreelanceApi.withdrawInvitation(projectUuid, i.uuid).data }
-                                    }
-                                }
-                            }
+                            Text(verbatim: i.freelancer?.name ?? "—").font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk)
+                            if let f = i.freelancer { Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut) }
                         }
-                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        FlPill(text: inviteStatusLabel(i.status), color: c)
+                    }
+                    if let offer = i.offer { FlAction(text: L("fl_inv_see_offer"), icon: "doc.text.fill", tone: .primary) { onOpenOffer(offer) } }
+                    if i.canWithdraw == true {
+                        FlAction(text: L("fl_inv_withdraw"), icon: "arrow.uturn.backward", tone: .danger) {
+                            act { data = try await FreelanceApi.withdrawInvitation(projectUuid, i.uuid).data }
+                        }
                     }
                 }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .settingsSurface(20)
             }
             if s.canInvite == true {
                 if !picking {
-                    SettingsPrimaryButton(text: L("fl_inv_add")) { picking = true }
+                    FlAction(text: L("fl_inv_add"), icon: "person.badge.plus", tone: .primary) { picking = true }
                 } else {
-                    FlCard {
-                        FlLabel(text: L("fl_inv_pick"))
-                        DorrTextArea(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("fl_inv_search"), singleLine: true)
-                        FlChip(text: L(all ? "fl_inv_all" : "fl_inv_same_specialty"), selected: all) { all.toggle() }
-                        if searching {
-                            ProgressView().tint(wa.accent)
-                        } else if found.isEmpty {
-                            Text(L("fl_inv_none_found")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
-                        }
-                        ForEach(found, id: \.uuid) { f in
-                            let on = ticked.contains(f.uuid)
-                            Button {
-                                if on { ticked.removeAll { $0 == f.uuid } } else { ticked.append(f.uuid) }
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(on ? wa.accent : wa.settingsMut)
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-                                        Text(verbatim: inviteeLine(f)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        SettingsPrimaryButton(text: L("fl_inv_send", ticked.count), enabled: !ticked.isEmpty, loading: busy) {
-                            let chosen = ticked
-                            act {
-                                data = try await FreelanceApi.invite(projectUuid, freelancers: chosen).data
-                                ticked = []
-                                picking = false
-                                notice = L("fl_inv_sent")
-                                reloads += 1
-                            }
-                        }
-                        FlTextAction(text: L("fl_not_now")) { picking = false; ticked = [] }
+                    FlHeading(icon: "person.crop.circle.badge.questionmark", text: L("fl_inv_pick"))
+                    DorrTextArea(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("fl_inv_search"), icon: "magnifyingglass", singleLine: true)
+                    HStack(spacing: 8) {
+                        FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2") { all = false }
+                        FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill") { all = true }
                     }
+                    if searching {
+                        ForEach(0..<3, id: \.self) { _ in WaSkeleton(cornerRadius: 14).frame(height: 56) }
+                    } else if found.isEmpty {
+                        FlNotice(text: L("fl_inv_none_found"), icon: "info.circle.fill", color: wa.settingsMut)
+                    }
+                    ForEach(found, id: \.uuid) { f in
+                        let on = ticked.contains(f.uuid)
+                        Button {
+                            if on { ticked.removeAll { $0 == f.uuid } } else { ticked.append(f.uuid) }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(on ? wa.accent : wa.settingsMut)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                                    Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(wa.accent.opacity(on ? 0.14 : 0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    FlAction(text: L("fl_inv_send", ticked.count), icon: "paperplane.fill", tone: .primary, enabled: !ticked.isEmpty, loading: busy) {
+                        let chosen = ticked
+                        act {
+                            data = try await FreelanceApi.invite(projectUuid, freelancers: chosen).data
+                            ticked = []
+                            picking = false
+                            notice = L("fl_inv_sent")
+                            reloads += 1
+                        }
+                    }
+                    FlAction(text: L("fl_not_now")) { picking = false; ticked = [] }
                 }
             }
             if s.canMakePublic == true {
-                FlCard {
-                    FlLabel(text: L("fl_inv_public_title"))
-                    Text(L("fl_inv_public_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                    FlTextAction(text: L("fl_inv_public")) { confirmPublic = true }
+                FlCard(icon: "globe", title: L("fl_inv_public_title")) {
+                    Text(L("fl_inv_public_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+                    FlAction(text: L("fl_inv_public"), icon: "globe", tone: .warn) { confirmPublic = true }
                 }
             }
             Spacer(minLength: 20)

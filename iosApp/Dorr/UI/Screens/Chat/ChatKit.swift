@@ -165,6 +165,8 @@ struct ChField: View {
     var lines: ClosedRange<Int> = 1...1
     var limit = 500
     var keyboard: UIKeyboardType = .default
+    /// An ✕ that empties it while there is text.
+    var clearable = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -172,6 +174,11 @@ struct ChField: View {
             if let icon { Image(systemName: icon).font(.system(size: 16)).foregroundStyle(focused ? ch.red : ch.soft).padding(.top, 2) }
             TextField(placeholder, text: Binding(get: { text }, set: { text = String($0.prefix(limit)) }), axis: .vertical)
                 .lineLimit(lines).font(.dorr(15)).foregroundStyle(ch.ink).tint(ch.red).keyboardType(keyboard).focused($focused)
+            if clearable && !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(ch.soft) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("ch_close_sheet"))
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(ch.fieldFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))

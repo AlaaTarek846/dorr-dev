@@ -86,6 +86,15 @@ private struct VerifiedMark: View {
 
 // MARK: - The list
 
+private func sortIcon(_ sort: String) -> String {
+    switch sort {
+    case "cheapest": return "banknote"
+    case "fastest": return "bolt.fill"
+    case "completeness": return "checkmark.seal.fill"
+    default: return "clock"
+    }
+}
+
 @MainActor
 struct OffersPage: View {
     @Environment(\.wa) private var wa
@@ -96,52 +105,50 @@ struct OffersPage: View {
     let onCompare: ([String]) -> Void
     @State private var sort = "newest"
     @State private var onlyShortlisted = false
-    @State private var offers: [FreelanceOfferDto]?
-    @State private var error: String?
+    // A new sort or filter is a new list (it starts from the first page); the next fifteen come while I scroll.
+    @StateObject private var paged = PagedRows<FreelanceOfferDto>(key: { $0.uuid })
     @State private var picked: [String] = []
 
     var body: some View {
+        let offers: [FreelanceOfferDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
             SubHeader(title: L("fl_offers"), onBack: onBack)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) { ForEach(sorts, id: \.self) { s in FlChip(text: sortLabel(s), selected: sort == s) { sort = s } } }
-                    .padding(.horizontal, 14).padding(.vertical, 4)
+                HStack(spacing: 8) {
+                    FlChip(text: L("fl_filter_all"), selected: !onlyShortlisted, icon: "square.grid.2x2.fill") { onlyShortlisted = false }
+                    FlChip(text: L("fl_offer_st_shortlisted"), selected: onlyShortlisted, icon: "star.fill") { onlyShortlisted = true }
+                    ForEach(sorts, id: \.self) { s in FlChip(text: sortLabel(s), selected: sort == s, icon: sortIcon(s)) { sort = s } }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 4)
             }
-            HStack(spacing: 8) {
-                FlChip(text: L("fl_filter_all"), selected: !onlyShortlisted) { onlyShortlisted = false }
-                FlChip(text: L("fl_offer_st_shortlisted"), selected: onlyShortlisted) { onlyShortlisted = true }
-                Spacer()
-            }
-            .padding(.horizontal, 14).padding(.vertical, 4)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    if offers == nil && error == nil {
-                        ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(24)
+                    if offers == nil && paged.error == nil {
+                        ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 150) }
                     } else if let list = offers, list.isEmpty {
-                        Text(L(onlyShortlisted ? "fl_no_shortlisted" : "fl_no_offers")).font(.dorr(14)).foregroundStyle(wa.settingsMut).padding(.top, 24)
+                        WaEmpty(icon: "doc.text.fill", tone: .blue, title: L(onlyShortlisted ? "fl_no_shortlisted" : "fl_no_offers"), text: "")
                     } else if let list = offers {
-                        if list.count >= 2 { Text(verbatim: L("fl_compare_hint", compareMax)).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
-                        ForEach(list) { o in
+                        if list.count >= 2 { FlNotice(text: L("fl_compare_hint", compareMax), icon: "arrow.left.arrow.right", color: wa.accent) }
+                        ForEach(Array(list.enumerated()), id: \.element.uuid) { i, o in
                             let isPicked = picked.contains(o.uuid)
                             OfferCard(o: o, picked: isPicked, canPick: list.count >= 2 && (isPicked || picked.count < compareMax),
                                       onPick: { if isPicked { picked.removeAll { $0 == o.uuid } } else { picked.append(o.uuid) } },
                                       onClick: { onOpen(o.uuid) })
+                                .onAppear { paged.appeared(i) }
                         }
                     }
-                    if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed) }
+                    PagedSpinner(paged: paged)
+                    PagedError(paged: paged)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
             if picked.count >= 2 { SettingsPrimaryButton(text: L("fl_compare_n", picked.count)) { onCompare(picked) }.padding(16) }
         }
-        .task(id: "\(sort)|\(onlyShortlisted)|\(network.reconnectTick)") {
-            do {
-                offers = try await FreelanceApi.offers(projectUuid, sort: sort, status: onlyShortlisted ? "shortlisted" : nil).data ?? []
-                error = nil
-            } catch {
-                self.error = flError(error)
-            }
+        .task(id: "\(sort)|\(onlyShortlisted)") {
+            let (s, status, project) = (sort, onlyShortlisted ? "shortlisted" : nil, projectUuid)
+            paged.reset { page in try await FreelanceApi.offers(project, sort: s, status: status, page: page) }
         }
+        .task(id: "\(sort)|\(onlyShortlisted)|\(network.reconnectTick)") { await paged.reload() }
     }
 }
 
@@ -155,12 +162,12 @@ private struct OfferCard: View {
 
     var body: some View {
         let f = o.freelancer
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                FlAvatar(name: f?.name, url: f?.avatarUrl)
+                FlAvatar(name: f?.name, url: f?.avatarUrl, size: 46)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 4) {
-                        Text(verbatim: f?.name ?? "—").font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                        Text(verbatim: f?.name ?? "—").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
                         if f?.verified == true { VerifiedMark() }
                         if f?.isFavorite == true { Image(systemName: "heart.fill").font(.system(size: 13)).foregroundStyle(flRed).accessibilityLabel(L("fl_favorite")) }
                     }
@@ -169,14 +176,22 @@ private struct OfferCard: View {
                 Spacer(minLength: 0)
                 OfferStatusPill(status: o.state)
             }
-            Text(verbatim: flAmount(o.priceMinor, o.currency) + "  ·  " + L("fl_days", o.durationDays ?? 0)).font(.dorr(14, .heavy)).foregroundStyle(wa.accent)
+            HStack(spacing: 8) {
+                FlStat(icon: "banknote", label: L("fl_price"), value: flAmount(o.priceMinor, o.currency)).layoutPriority(1)
+                FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
+            }
+            // FL-210: dearer than the most I said I'd pay.
+            if o.overCap == true { FlNotice(text: L("fl_over_cap"), icon: "exclamationmark.triangle.fill", color: flRed) }
             Text(verbatim: [f.map { L("fl_completeness", $0.completeness ?? 0) }, f.map { L("fl_portfolio_n", $0.portfolioCount ?? 0) },
                             skillsMatch(f), ratingText(f)].compactMap { $0 }.joined(separator: "  ·  "))
-                .font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            Text(verbatim: o.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(3)
+                .font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+            Text(verbatim: o.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5).lineLimit(3)
             HStack(spacing: 0) {
                 if o.edited == true { Text(L("fl_offer_edited")).font(.dorr(11)).foregroundStyle(wa.settingsMut).padding(.trailing, 10) }
-                if let files = o.attachments, !files.isEmpty { Text(verbatim: L("fl_offer_files", files.count)).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
+                if let files = o.attachments, !files.isEmpty {
+                    Image(systemName: "paperclip").font(.system(size: 11)).foregroundStyle(wa.settingsMut)
+                    Text(verbatim: L("fl_offer_files", files.count)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                }
                 Spacer()
                 if canPick {
                     Button(action: onPick) {
@@ -184,7 +199,8 @@ private struct OfferCard: View {
                             Image(systemName: picked ? "checkmark.circle.fill" : "circle").font(.system(size: 16)).foregroundStyle(wa.accent)
                             Text(L("fl_compare")).font(.dorr(12, .bold)).foregroundStyle(wa.accent)
                         }
-                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(wa.accent.opacity(picked ? 0.16 : 0.08), in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -192,8 +208,8 @@ private struct OfferCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .settingsSurface(18)
-        .overlay { if picked { RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(wa.accent, lineWidth: 2) } }
+        .settingsSurface(20)
+        .overlay { if picked { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(wa.accent, lineWidth: 2) } }
         .contentShape(Rectangle())
         .onTapGesture(perform: onClick)
     }
@@ -220,6 +236,7 @@ struct ComparePage: View {
                 let best = d.best ?? FreelanceCompareBestDto()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
+                        FlIntro(icon: "arrow.left.arrow.right", title: L("fl_compare_title"), text: L("fl_compare_best_hint"))
                         // The heads: who, tap to open the offer.
                         HStack(alignment: .top, spacing: 8) {
                             ForEach(offers) { o in
@@ -261,7 +278,6 @@ struct ComparePage: View {
                                 cell((answers.indices.contains(i) ? answers[i].answer : nil) ?? "—", small: true)
                             }
                         }
-                        Text(L("fl_compare_best_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
                         Spacer(minLength: 16)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
@@ -382,23 +398,26 @@ struct OfferPage: View {
             }
             .buttonStyle(.plain)
             FlCard {
-                FlField(label: L("fl_price"), value: flAmount(o.priceMinor, o.currency))
-                FlField(label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
+                HStack(spacing: 8) {
+                    FlStat(icon: "banknote", label: L("fl_price"), value: flAmount(o.priceMinor, o.currency)).layoutPriority(1)
+                    FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
+                }
                 FlField(label: L("fl_offer_details"), value: o.details)
                 ForEach(Array((o.answers ?? []).enumerated()), id: \.offset) { _, a in FlField(label: a.question ?? "", value: a.answer) }
                 if o.edited == true { Text(L("fl_offer_edited")).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
             }
             if let f {
-                FlCard {
-                    FlField(label: L("fl_profile_complete"), value: "\(f.completeness ?? 0)%")
+                FlCard(icon: "person.fill", title: L("fl_freelancer_profile")) {
+                    HStack(spacing: 8) {
+                        FlStat(icon: "checkmark.seal.fill", label: L("fl_profile_complete"), value: "\(f.completeness ?? 0)%")
+                        FlStat(icon: "photo.on.rectangle", label: L("fl_portfolio"), value: "\(f.portfolioCount ?? 0)")
+                    }
                     let names = (f.matchingSkills ?? []).compactMap(\.name).joined(separator: "، ")
                     FlField(label: L("fl_skills_fit"), value: (skillsMatch(f).map { "\($0) — " } ?? "") + (names.isEmpty ? "—" : names))
-                    FlField(label: L("fl_portfolio"), value: "\(f.portfolioCount ?? 0)")
                 }
             }
             if let files = o.attachments, !files.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_files"))
+                FlCard(icon: "paperclip", title: L("fl_files")) {
                     ForEach(files, id: \.id) { a in
                         Button {
                             guard let path = a.path else { return }
@@ -414,8 +433,9 @@ struct OfferPage: View {
                                 }
                                 Text(verbatim: a.name ?? "").font(.dorr(13, .semibold)).foregroundStyle(wa.accent).lineLimit(1)
                             }
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12).padding(.vertical, 10)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -427,7 +447,7 @@ struct OfferPage: View {
             // FL-308: talk to them before choosing (phone numbers and links are not allowed until the agreement).
             if can.chat == true || o.chat != nil {
                 let unread = o.chat?.unread ?? 0
-                SettingsPrimaryButton(text: L("fl_chat_open") + (unread > 0 ? " (\(unread))" : ""), loading: busy && sheet == "chat") {
+                FlAction(text: L("fl_chat_open") + (unread > 0 ? " (\(unread))" : ""), icon: "bubble.left.and.bubble.right.fill", loading: busy && sheet == "chat") {
                     if let existing = o.chat?.uuid { onChat(existing); return }
                     busy = true
                     sheet = "chat"
@@ -443,10 +463,13 @@ struct OfferPage: View {
                     }
                 }
             }
-            if can.choose == true { SettingsPrimaryButton(text: L("fl_choose_offer"), loading: busy && sheet == nil) { sheet = "choose" } }
-            if can.shortlist == true && o.state != "shortlisted" { FlTextAction(text: L("fl_shortlist")) { decide("shortlist") } }
-            if can.unshortlist == true { FlTextAction(text: L("fl_unshortlist")) { decide("unshortlist") } }
-            if can.reject == true { FlTextAction(text: L("fl_reject_offer"), danger: true) { sheet = "reject" } }
+            if can.choose == true && o.overCap == true { FlNotice(text: L("fl_over_cap_note"), icon: "exclamationmark.triangle.fill", color: flRed) }
+            if can.choose == true {
+                FlAction(text: L("fl_choose_offer"), icon: "person.2.fill", tone: .primary, enabled: o.overCap != true, loading: busy && sheet == nil) { sheet = "choose" }
+            }
+            if can.shortlist == true && o.state != "shortlisted" { FlAction(text: L("fl_shortlist"), icon: "star") { decide("shortlist") } }
+            if can.unshortlist == true { FlAction(text: L("fl_unshortlist"), icon: "star.fill") { decide("unshortlist") } }
+            if can.reject == true { FlAction(text: L("fl_reject_offer"), icon: "xmark.circle.fill", tone: .danger) { sheet = "reject" } }
             Spacer(minLength: 20)
         }
     }
@@ -462,15 +485,17 @@ private struct ChooseSheet: View {
 
     var body: some View {
         let cost = o.clientCost
-        FlBottomPanel(onDismiss: onDismiss) {
-            Text(verbatim: L("fl_choose_title", o.freelancer?.name ?? "—")).font(.dorr(18, .heavy)).foregroundStyle(wa.accent)
-            FlSumLine(label: L("fl_price"), value: flAmount(cost?.priceMinor ?? o.priceMinor, o.currency))
-            FlSumLine(label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
-            if (cost?.clientFeeMinor ?? 0) > 0 { FlSumLine(label: L("fl_client_fee"), value: flAmount(cost?.clientFeeMinor, o.currency)) }
-            FlSumLine(label: L("fl_total"), value: flAmount(cost?.totalMinor ?? o.priceMinor, o.currency), bold: true)
-            Text(L("fl_choose_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
-            SettingsPrimaryButton(text: L("fl_choose_confirm"), loading: busy, action: onConfirm)
-            FlTextAction(text: L("fl_not_now"), action: onDismiss)
+        FlSheet(icon: "person.2.fill", title: L("fl_choose_title", o.freelancer?.name ?? "—"), text: L("fl_choose_note")) {
+            VStack(alignment: .leading, spacing: 8) {
+                FlSumLine(label: L("fl_price"), value: flAmount(cost?.priceMinor ?? o.priceMinor, o.currency))
+                FlSumLine(label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
+                if (cost?.clientFeeMinor ?? 0) > 0 { FlSumLine(label: L("fl_client_fee"), value: flAmount(cost?.clientFeeMinor, o.currency)) }
+                FlSumLine(label: L("fl_total"), value: flAmount(cost?.totalMinor ?? o.priceMinor, o.currency), bold: true)
+            }
+            .padding(14)
+            .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            FlAction(text: L("fl_choose_confirm"), icon: "person.2.fill", tone: .primary, loading: busy, action: onConfirm)
+            FlAction(text: L("fl_not_now"), action: onDismiss)
         }
     }
 }
@@ -498,15 +523,13 @@ private struct RejectSheet: View {
     @State private var reason = ""
 
     var body: some View {
-        FlBottomPanel(onDismiss: onDismiss) {
-            Text(L("fl_reject_offer")).font(.dorr(18, .heavy)).foregroundStyle(flRed)
-            Text(L("fl_reject_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            DorrTextArea(value: Binding(get: { reason }, set: { if $0.count <= 500 { reason = $0 } }), label: L("fl_reject_reason"), minHeight: 90)
-            SettingsPrimaryButton(text: L("fl_reject_confirm"), loading: busy) {
+        FlSheet(icon: "xmark.circle.fill", title: L("fl_reject_offer"), text: L("fl_reject_hint")) {
+            DorrTextArea(value: Binding(get: { reason }, set: { if $0.count <= 500 { reason = $0 } }), label: L("fl_reject_reason"), icon: "text.alignleft", minHeight: 90)
+            FlAction(text: L("fl_reject_confirm"), icon: "xmark.circle.fill", tone: .danger, loading: busy) {
                 let t = reason.trimmingCharacters(in: .whitespacesAndNewlines)
                 onConfirm(t.isEmpty ? nil : t)
             }
-            FlTextAction(text: L("fl_not_now"), action: onDismiss)
+            FlAction(text: L("fl_not_now"), action: onDismiss)
         }
     }
 }
@@ -614,19 +637,17 @@ struct FreelancerProfilePage: View {
             .padding(16)
             .settingsSurface(18)
             if let bio = p.bio, !bio.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_about"))
+                FlCard(icon: "info.circle.fill", title: L("fl_about")) {
                     Text(verbatim: bio).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5)
                 }
             }
             let specialties = p.specialties ?? []
             let skills = p.skills ?? []
             if !specialties.isEmpty || !skills.isEmpty {
-                FlCard {
+                FlCard(icon: "bolt.fill", title: L("fl_skills")) {
                     if !specialties.isEmpty { FlField(label: L("fl_specialty"), value: specialties.compactMap(\.name).joined(separator: "، ")) }
                     if !skills.isEmpty {
                         let matching = Set((p.matchingSkills ?? []).map(\.id))
-                        FlLabel(text: L("fl_skills"))
                         FlowLayout(spacing: 6) {
                             ForEach(skills, id: \.id) { s in
                                 let hit = matching.contains(s.id)
@@ -641,15 +662,14 @@ struct FreelancerProfilePage: View {
             }
             let languages = p.languages ?? []
             if !languages.isEmpty || (p.city?.isEmpty == false) {
-                FlCard {
+                FlCard(icon: "globe", title: L("fl_languages")) {
                     if !languages.isEmpty { FlField(label: L("fl_languages"), value: languages.joined(separator: "، ")) }
                     if let city = p.city, !city.isEmpty { FlField(label: L("fl_city"), value: city) }
                     if let since = p.memberSince { FlField(label: L("fl_member_since"), value: "\u{200E}" + String(since.prefix(7))) }
                 }
             }
             if let ex = p.experiences, !ex.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_work_history"))
+                FlCard(icon: "briefcase.fill", title: L("fl_work_history")) {
                     ForEach(Array(ex.enumerated()), id: \.offset) { _, e in
                         VStack(alignment: .leading, spacing: 0) {
                             Text(verbatim: [e.title, e.company].compactMap { $0 }.joined(separator: " — ")).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
@@ -661,8 +681,7 @@ struct FreelancerProfilePage: View {
                 }
             }
             if let works = p.portfolio, !works.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_portfolio") + " (\(works.count))")
+                FlCard(icon: "photo.on.rectangle", title: L("fl_portfolio") + " (\(works.count))") {
                     ForEach(Array(works.enumerated()), id: \.offset) { _, w in
                         HStack(spacing: 10) {
                             ZStack {
@@ -686,8 +705,7 @@ struct FreelancerProfilePage: View {
             // FL-701 / FL-703: what clients said, and their numbers.
             let reviews = p.reviews ?? []
             if !reviews.isEmpty || (p.completedProjects ?? 0) > 0 {
-                FlCard {
-                    FlLabel(text: L("fl_rv_about"))
+                FlCard(icon: "star.fill", title: L("fl_rv_about")) {
                     Text(verbatim: [p.completedProjects.map { L("fl_st_completed_n", $0) }, p.onTimeRate.map { L("fl_st_on_time_n", $0) }]
                         .compactMap { $0 }.joined(separator: "  ·  "))
                         .font(.dorr(12)).foregroundStyle(wa.settingsMut)
@@ -703,8 +721,7 @@ struct FreelancerProfilePage: View {
                 }
             }
             if let certs = p.certificates, !certs.isEmpty {
-                FlCard {
-                    FlLabel(text: L("fl_certificates"))
+                FlCard(icon: "graduationcap.fill", title: L("fl_certificates")) {
                     ForEach(Array(certs.enumerated()), id: \.offset) { _, c in
                         Text(verbatim: [c.title, c.issuer, c.issuedOn.map { "\u{200E}" + $0 }].compactMap { $0 }.joined(separator: " · ")).font(.dorr(13)).foregroundStyle(wa.settingsInk)
                     }
@@ -722,20 +739,20 @@ struct FavoritesPage: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     let onBack: () -> Void
-    @State private var list: [FreelanceFavoriteDto]?
-    @State private var error: String?
+    @StateObject private var paged = PagedRows<FreelanceFavoriteDto>(key: { $0.uuid })
 
     var body: some View {
+        let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
             SubHeader(title: L("fl_favorites"), onBack: onBack)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    if list == nil && error == nil {
-                        ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(24)
+                    if list == nil && paged.error == nil {
+                        ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
                     } else if let rows = list, rows.isEmpty {
-                        Text(L("fl_favorites_empty")).font(.dorr(14)).foregroundStyle(wa.settingsMut).padding(.top, 24)
+                        WaEmpty(icon: "heart.fill", tone: .pink, title: L("fl_favorites"), text: L("fl_favorites_empty"))
                     } else if let rows = list {
-                        ForEach(rows) { f in
+                        ForEach(Array(rows.enumerated()), id: \.element.uuid) { i, f in
                             HStack(spacing: 10) {
                                 FlAvatar(name: f.name, url: f.avatarUrl)
                                 VStack(alignment: .leading, spacing: 0) {
@@ -748,7 +765,7 @@ struct FavoritesPage: View {
                                 }
                                 Spacer(minLength: 0)
                                 Button {
-                                    Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { list = list?.filter { $0.uuid != f.uuid } } }
+                                    Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
                                 } label: {
                                     Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(flRed).frame(width: 34, height: 34)
                                 }
@@ -757,15 +774,16 @@ struct FavoritesPage: View {
                             }
                             .padding(14)
                             .settingsSurface(18)
+                            .onAppear { paged.appeared(i) }
                         }
                     }
-                    if let error { Text(verbatim: error).font(.dorr(13)).foregroundStyle(flRed) }
+                    PagedSpinner(paged: paged)
+                    PagedError(paged: paged)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
         }
-        .task(id: network.reconnectTick) {
-            do { list = try await FreelanceApi.favorites().data ?? [] } catch { self.error = flError(error) }
-        }
+        .task { paged.reset { page in try await FreelanceApi.favorites(page: page) } }
+        .task(id: network.reconnectTick) { await paged.reload() }
     }
 }

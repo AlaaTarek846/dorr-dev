@@ -549,9 +549,7 @@ private struct ConversationHeader: View {
         .padding(.horizontal, 16)
         .task { withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) { pop = 1 } }
         .dorrDialog(isPresented: $linkTypePicker, bottom: true) {
-            ChoiceSheet(title: L("cl_pick_type"), subtitle: L("cl_create_sub"),
-                        options: [(L("cl_voice"), { makeLink("audio") }), (L("cl_video"), { makeLink("video") })],
-                        onDismiss: { linkTypePicker = false })
+            CallLinkTypeSheet(onPick: makeLink) { linkTypePicker = false }
         }
         .dorrDialog(isPresented: Binding(get: { showingLink != nil }, set: { if !$0 { showingLink = nil } }), bottom: true) {
             if let l = showingLink { CallLinkShareSheet(host: host, link: l, onCancelled: {}) { showingLink = nil } }

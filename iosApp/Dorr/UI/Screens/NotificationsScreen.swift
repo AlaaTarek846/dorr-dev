@@ -18,6 +18,8 @@ private struct NotificationItem: Identifiable, Equatable {
     var rideUuid: String?
     /// A booked service's notification: its kind and booking.
     var service: (kind: String, uuid: String?)?
+    /// A freelance notification opens the Freelance page it belongs to (a page of the Freelance host).
+    var freelancePage: String?
 
     static func == (a: NotificationItem, b: NotificationItem) -> Bool { a.id == b.id && a.unread == b.unread }
 
@@ -46,6 +48,9 @@ private struct NotificationItem: Identifiable, Equatable {
         rideUuid = value("ride_uuid")
         if let kind = event.split(separator: ".").first.map(String.init), ["bus", "marine", "hire", "lesson", "loyalty"].contains(kind) {
             service = (kind, ["booking_uuid", "hire_uuid", "enrollment_uuid"].lazy.compactMap(value).first)
+        }
+        if event.hasPrefix("freelance.") {
+            freelancePage = FreelanceLink.pageFor(event: event, project: value("project"), offer: value("offer"), dispute: value("dispute"))
         }
     }
 }
@@ -187,6 +192,12 @@ struct NotificationsScreen: View {
         if let service = item.service {
             selected = nil
             ChatPush.shared.open(.service(kind: service.kind, uuid: service.uuid))
+        }
+        // This list is its own screen over the main one: go back to it and it opens the screen the link names.
+        if let page = item.freelancePage {
+            selected = nil
+            ChatPush.shared.open(.freelance(page))
+            onBack()
         }
     }
 

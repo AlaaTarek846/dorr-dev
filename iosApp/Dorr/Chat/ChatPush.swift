@@ -28,6 +28,8 @@ enum ChatDeepLink: Equatable {
     case join(String)
     /// A call link: who made it, then «Join».
     case callLink(String)
+    /// A freelance notification (an offer, the agreement, a dispute…): the Freelance page it belongs to.
+    case freelance(String)
 }
 
 @MainActor
@@ -121,6 +123,9 @@ final class ChatPush: NSObject, ObservableObject {
         if type == "security" { return .security }
         if let conversation { return .conversation(conversation) }
         if type == "ride", let ride = s("ride_uuid") { return .ride(ride) }
+        if let event, event.hasPrefix("freelance.") {
+            return .freelance(FreelanceLink.pageFor(event: event, project: s("project"), offer: s("offer"), dispute: s("dispute")))
+        }
         if let event, let kind = event.split(separator: ".").first.map(String.init), ["bus", "marine", "hire", "lesson", "loyalty"].contains(kind) {
             return .service(kind: kind, uuid: ["booking_uuid", "hire_uuid", "enrollment_uuid"].lazy.compactMap(s).first)
         }
