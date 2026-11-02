@@ -2,8 +2,10 @@ package com.dorr.app.ui.screens.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,7 +53,8 @@ internal fun ChSheet(
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
-    containerColor: Color = BottomSheetDefaults.ContainerColor,
+    containerColor: Color = Ch.Surface,
+    besideClose: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -67,12 +70,19 @@ internal fun ChSheet(
                 val closeLabel = stringResource(R.string.ch_close_sheet)
                 Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp)) {
                     Box(Modifier.align(Alignment.Center).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Ch.Soft.copy(alpha = 0.45f)))
-                    Box(
-                        Modifier.align(Alignment.CenterEnd).size(32.dp).clip(CircleShape).background(Ch.SurfaceMuted)
-                            .clickable { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() } },
-                        contentAlignment = Alignment.Center,
+                    Row(
+                        Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Rounded.Close, closeLabel, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                        besideClose?.invoke()
+                        Box(
+                            Modifier.size(32.dp).clip(CircleShape).background(Ch.SurfaceMuted)
+                                .clickable { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() } },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.Close, closeLabel, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }

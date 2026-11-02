@@ -77,4 +77,20 @@ return [
         'freelance_rest_api_key' => env('ONESIGNAL_FREELANCE_REST_API_KEY'),
     ],
 
+    /*
+    | Apple Push (APNs) — VoIP pushes only: a ringing chat call reaches an iPhone's PushKit token so it
+    | rings full screen through CallKit (OneSignal can't send these). A token-based .p8 key from the
+    | Apple developer account; left empty, iPhones get the ordinary OneSignal call push instead.
+    */
+    'apns' => [
+        'key_id' => env('APNS_KEY_ID'),
+        'team_id' => env('APNS_TEAM_ID'),
+        // The .p8 file's path, or its contents.
+        'key' => env('APNS_KEY'),
+        // The iOS app's bundle id; VoIP pushes go to "{bundle_id}.voip".
+        'bundle_id' => env('APNS_BUNDLE_ID', 'com.dorr.app'),
+        'production' => (bool) env('APNS_PRODUCTION', false),
+        'timeout' => (int) env('APNS_TIMEOUT', 10),
+    ],
+
 ];

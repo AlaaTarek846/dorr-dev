@@ -31,4 +31,7 @@ enum WalletTransactionType: string
     case Tip = 'tip';
     case DiscountCompensation = 'discount_compensation';
     case DebtSettlement = 'debt_settlement';
+    // Watch & Earn (docs/watch_earn_tasks.md): money moved into the ad wallet, and back out of it.
+    case AdFunding = 'ad_funding';
+    case AdReturn = 'ad_return';
 }

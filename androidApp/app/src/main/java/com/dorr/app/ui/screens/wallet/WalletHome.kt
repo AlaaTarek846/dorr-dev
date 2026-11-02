@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Info
@@ -164,6 +165,11 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
             if (current != null && here != null && current != here) {
                 WaNote(stringResource(R.string.wa_wallet_away_note, countryName(current)), icon = Icons.Rounded.Info, modifier = Modifier.padding(top = 8.dp))
             }
+        }
+
+        // Watch & Earn (D17): a card under the balance, with my rewards balance.
+        if (balance != null) {
+            com.dorr.app.ui.screens.watchearn.WatchEarnWalletCard(balance.rewardMinor, balance.currencyCode, Modifier.padding(top = 10.dp).waRise(1))
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 0.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -388,6 +394,7 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                     stringResource(R.string.wa_withdrawable),
                     if (hidden) "****" else "${money(balance.withdrawableMinor)} $currencyCode",
                     Modifier.weight(1f),
+                    dot = com.dorr.app.ui.screens.watchearn.We.Withdrawable,
                 ) { host.openSheet(WaSheet.Explain) }
                 Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
                 HeroPart(
@@ -395,7 +402,17 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                     stringResource(R.string.wa_spend_only),
                     if (hidden) "****" else "${money(balance.spendOnlyMinor)} $currencyCode",
                     Modifier.weight(1f),
+                    dot = com.dorr.app.ui.screens.watchearn.We.SpendOnly,
                 ) { host.openSheet(WaSheet.Explain) }
+                // Watch & Earn rewards: spent anywhere in the app, never withdrawn (same colour on every page).
+                Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
+                HeroPart(
+                    Icons.Rounded.EmojiEvents,
+                    stringResource(R.string.we_reward_balance),
+                    if (hidden) "****" else "${money(balance.rewardMinor)} $currencyCode",
+                    Modifier.weight(1f),
+                    dot = com.dorr.app.ui.screens.watchearn.We.Reward,
+                ) { com.dorr.app.ui.screens.watchearn.WatchEarnLink.show(com.dorr.app.ui.screens.watchearn.WeRoute.Rewards) }
             }
             if (balance.heldMinor > 0) {
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -427,7 +444,7 @@ private fun HeroCircle(icon: ImageVector, onClick: () -> Unit) {
 
 /** One half of the glass bar: icon + label, amount under it. */
 @Composable
-private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
+private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier, dot: Color? = null, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.96f)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -440,7 +457,12 @@ private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            // The bucket's colour, the same on every page (wallet, ad wallet, Watch & Earn).
+            if (dot != null) {
+                Spacer(Modifier.width(5.dp))
+                Box(Modifier.size(7.dp).clip(CircleShape).background(dot).border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape))
+            }
         }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Text(

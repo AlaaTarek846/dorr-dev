@@ -285,6 +285,20 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view'],
             ],
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
+            // management, and the money report.
+            'watch-earn-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-ads' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-finance' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
                 'module_name' => 'general_services',
@@ -330,6 +344,9 @@ class AdminPermissionSeeder extends Seeder
             'freelance-message-reports' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-sanctions' => ['module_name' => 'freelance', 'actions' => ['view', 'issue', 'suspend', 'appeal']],
             'freelance-support' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-plans' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-services' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-consultations' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-risk' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-audit' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.

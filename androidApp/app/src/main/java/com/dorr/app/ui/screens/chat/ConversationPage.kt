@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -459,6 +460,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 if (ChatAi.memory) stringResource(R.string.ch_ai_memory) to { memoryOpen = true; Unit } else null,
             ),
             subtitle = stringResource(R.string.ch_ai_privacy_note),
+            fixedHeight = LocalConfiguration.current.screenHeightDp.dp * 0.58f,
             onDismiss = { aiMenu = false },
         )
         state.askAbout?.let { ids -> AiAskSheet(state.id, ids, onDismiss = { state.askAbout = null }) { jumpTo(it) } }

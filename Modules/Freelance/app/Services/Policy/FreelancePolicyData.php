@@ -52,6 +52,16 @@ final class FreelancePolicyData
         'disputes.appeal_days' => ['group' => 'disputes', 'kind' => 'int', 'min' => 0, 'max' => 30],
         'earnings.hold_days' => ['group' => 'earnings', 'kind' => 'int', 'min' => 0, 'max' => 365],
         'invitations.max_per_project' => ['group' => 'invitations', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'services.require_review' => ['group' => 'services', 'kind' => 'bool'],
+        'services.max_active' => ['group' => 'services', 'kind' => 'int', 'min' => 1, 'max' => 1000],
+        'services.answer_hours' => ['group' => 'services', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.require_review' => ['group' => 'consultations', 'kind' => 'bool'],
+        'consultations.max_active' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'consultations.free_cancel_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 0, 'max' => 168],
+        'consultations.complaint_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.response_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.min_notice_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 0, 'max' => 72],
+        'consultations.max_days_ahead' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 90],
     ];
 
     /** Pairs that must not cross: [lower, upper]. */

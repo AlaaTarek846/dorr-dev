@@ -345,7 +345,7 @@ class MarineService
     private function charge(User $guest, MarineListing $listing, int $amount, string $key): array
     {
         $wallet = $this->wallets->firstOrCreateWallet($guest, $listing->country()->firstOrFail())->fresh();
-        $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        $free = $wallet->spendableMinor();
         if ($free < $amount) {
             throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }

@@ -31,8 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.google.gson.JsonParser
 
 /**
@@ -83,7 +83,7 @@ fun AiPlanPromptDialog(night: Boolean, onSubscribe: () -> Unit) {
     val ink = if (night) Ai.inkDark else Ai.inkLight
     val mut = if (night) Ai.mutDark else Ai.mutLight
 
-    Dialog(onDismissRequest = { AiPlanGate.dismiss() }) {
+    LocaleAwareDialog(onDismissRequest = { AiPlanGate.dismiss() }) {
         Column(Modifier.clip(RoundedCornerShape(22.dp)).background(surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Ai.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.WorkspacePremium, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(28.dp))

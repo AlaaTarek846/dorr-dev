@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L01 المرحلة 4: شارة الباقة وترتيب «الموصى بهم» -->
+    <string name="fl_plan_badge_desc">باقة %1$s</string>
+    <string name="fl_sort_recommended">الموصى بهم</string>
+    <string name="mk_sort_recommended">الموصى بهم</string>
+    <string name="fl_sort_recommended_hint">عروض أصحاب الباقات المميزة بتظهر الأول، وبعدها الأحدث.</string>
+    <string name="mk_sort_recommended_hint">خدمات أصحاب الباقات المميزة بتظهر الأول، وبعدها الأحدث.</string>
+    <string name="fl_inv_order_hint">أصحاب الباقات المميزة بيظهروا الأول.</string>
+</resources>

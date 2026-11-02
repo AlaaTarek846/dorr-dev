@@ -117,6 +117,59 @@ if (! function_exists('getCountryCodeByIp')) {
     }
 }
 
+if (! function_exists('ipGeo')) {
+    /**
+     * Where an IP is, as far as a free lookup can tell: country, city name and coordinates (ipwho.is, then
+     * ip-api.com), cached per IP for a day (a failed lookup for 10 minutes). Null for a loopback / LAN address or
+     * when both lookups fail. Accurate to the city at best — sometimes it is the city of the internet provider.
+     * It also primes getCountryCodeByIp()'s cache, so a sign-in looks the IP up once.
+     *
+     * @return array{country_code: string, city: ?string, lat: float, lng: float}|null
+     */
+    function ipGeo(?string $ip = null): ?array
+    {
+        $ip ??= (string) request()->ip();
+
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return null;
+        }
+
+        $key = "ip_geo:{$ip}";
+        if (($cached = Cache::get($key)) !== null) {
+            return $cached === '' ? null : $cached;
+        }
+
+        $geo = null;
+        foreach ([
+            ["https://ipwho.is/{$ip}", ['country_code', 'city', 'latitude', 'longitude']],
+            ["http://ip-api.com/json/{$ip}?fields=status,countryCode,city,lat,lon", ['countryCode', 'city', 'lat', 'lon']],
+        ] as [$url, [$code, $city, $lat, $lng]]) {
+            try {
+                $response = Http::timeout(3)->get($url);
+                $json = $response->successful() ? $response->json() : null;
+            } catch (Throwable) {
+                $json = null;
+            }
+            if (is_array($json) && is_string($json[$code] ?? null) && strlen($json[$code]) === 2 && is_numeric($json[$lat] ?? null) && is_numeric($json[$lng] ?? null)) {
+                $geo = [
+                    'country_code' => strtoupper($json[$code]),
+                    'city' => is_string($json[$city] ?? null) && $json[$city] !== '' ? mb_substr($json[$city], 0, 80) : null,
+                    'lat' => (float) $json[$lat],
+                    'lng' => (float) $json[$lng],
+                ];
+                break;
+            }
+        }
+
+        Cache::put($key, $geo ?? '', $geo ? now()->addDay() : now()->addMinutes(10));
+        if ($geo !== null) {
+            Cache::put("country_code_by_ip:{$ip}", $geo['country_code'], now()->addDay());
+        }
+
+        return $geo;
+    }
+}
+
 if (! function_exists('sendNotification')) {
     /**
      * Dispatch a GeneralNotification (database + Pusher broadcast) to one or many notifiables.

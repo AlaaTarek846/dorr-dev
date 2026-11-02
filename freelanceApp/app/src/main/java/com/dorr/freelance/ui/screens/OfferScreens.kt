@@ -219,7 +219,7 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
  * last key), the time it takes, the details and up to 5 files. Sent once; back on the project page it shows as my offer.
  */
 @Composable
-fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit, onOpenProfile: () -> Unit = {}) {
+fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit, onOpenProfile: () -> Unit = {}, onOpenPlans: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -319,6 +319,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 Text(blocked.message, color = settingsMut(), fontSize = 14.sp, lineHeight = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 androidx.compose.foundation.layout.Spacer(Modifier.size(24.dp))
                 if (icon == androidx.compose.material.icons.Icons.Rounded.VerifiedUser) SettingsPrimaryButton(text = stringResource(R.string.offer_go_profile), onClick = onOpenProfile)
+                else if (blocked.code == "offer_quota_exhausted" && p.quota.packs) SettingsPrimaryButton(text = stringResource(R.string.offer_buy_more), onClick = onOpenPlans)
                 else SettingsPrimaryButton(text = stringResource(R.string.common_back), onClick = onBack)
             }
             return@Page
@@ -334,6 +335,18 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 Text(stringResource(R.string.offer_form_intro_title), color = settingsInk(), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                 Text(stringResource(R.string.offer_form_intro), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
             }
+        }
+        if (p.quota.credits > 0) {
+            Text(
+                stringResource(R.string.offer_quota_extra, p.quota.credits), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+        if (p.quota.enabled && p.quota.limit == null) {
+            Text(
+                stringResource(R.string.offer_quota_unlimited), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 5.dp),
+            )
         }
         p.quota.left?.let { left ->
             Text(

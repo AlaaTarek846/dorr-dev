@@ -1,0 +1,9 @@
+// Copy to Local.xcconfig (ignored by git) and point it at your backend.
+// Simulator on this Mac: DORR_API_HOST = dorr.test, DORR_API_SCHEME = http
+
+// The Google Maps key for iOS (only needed when the admin's map is Google):
+// DORR_GOOGLE_MAPS_KEY = AIza...
+// Phone on the same Wi-Fi: DORR_API_HOST = <this Mac's LAN IP>, DORR_API_SCHEME = http
+
+DORR_API_HOST = dorr.test
+DORR_API_SCHEME = http

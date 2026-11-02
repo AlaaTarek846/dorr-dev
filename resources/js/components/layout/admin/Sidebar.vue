@@ -37,6 +37,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showWatchEarnSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.watch_earn') }}</span>
+                        </li>
+
+                        <li v-for="item in watchEarnItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <template v-if="showRidesSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.rides') }}</span>
@@ -865,6 +878,16 @@ const showChatAdminSection = computed(
     () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
 );
 
+/** Watch & Earn (Modules/WatchEarn): the ads' review, the settings per country and the money report. */
+const watchEarnItems = [
+    { route: 'admin.watch-earn.ads', permission: 'watch-earn-ads.view', icon: 'ri-play-circle-line', label: 'watch_earn.ads.title' },
+    { route: 'admin.watch-earn.comment-reports', permission: 'watch-earn-ads.view', icon: 'ri-chat-delete-line', label: 'watch_earn.comment_reports.title' },
+    { route: 'admin.watch-earn.settings', permission: 'watch-earn-settings.view', icon: 'ri-equalizer-line', label: 'watch_earn.settings.title' },
+    { route: 'admin.watch-earn.finance', permission: 'watch-earn-finance.view', icon: 'ri-money-dollar-circle-line', label: 'watch_earn.finance.title' },
+];
+
+const showWatchEarnSection = computed(() => watchEarnItems.some((item) => can(item.permission)));
+
 /** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
 const ridesItems = [
     { route: 'admin.rides.rides', permission: 'rides.view', icon: 'ri-taxi-line', label: 'rides.rides.title' },
@@ -894,6 +917,9 @@ const freelanceItems = [
     { route: 'admin.freelance.countries', permission: 'freelance-projects.view', icon: 'ri-earth-line', label: 'freelance.countries.title' },
     { route: 'admin.freelance.support', permission: 'freelance-support.view', icon: 'ri-customer-service-2-line', label: 'freelance.support.title' },
     { route: 'admin.freelance.insights', permission: 'freelance-reports.view', icon: 'ri-line-chart-line', label: 'freelance.insights.title' },
+    { route: 'admin.freelance.plans', permission: 'freelance-plans.view', icon: 'ri-vip-crown-2-line', label: 'freelance.plans.title' },
+    { route: 'admin.freelance.services', permission: 'freelance-services.view', icon: 'ri-store-2-line', label: 'freelance.services.title' },
+    { route: 'admin.freelance.consultations', permission: 'freelance-consultations.view', icon: 'ri-video-chat-line', label: 'freelance.consultations.title' },
     { route: 'admin.freelance.risk', permission: 'freelance-risk.view', icon: 'ri-alarm-warning-line', label: 'freelance.risk.title' },
     { route: 'admin.freelance.audit', permission: 'freelance-audit.view', icon: 'ri-history-line', label: 'freelance.audit.title' },
     { route: 'admin.freelance.freelancers', permission: 'freelancers.view', icon: 'ri-user-star-line', label: 'freelance.freelancers.title' },
@@ -906,7 +932,8 @@ const freelanceItems = [
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
-    { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-node-tree', label: 'freelance.specialties.title' },
+    { route: 'admin.freelance.skillTests', permission: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
+    { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },
     { route: 'admin.freelance.policies', permission: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
 ];
 

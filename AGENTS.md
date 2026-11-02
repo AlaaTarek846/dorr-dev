@@ -35,6 +35,7 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Provider SPA | `/provider` → `/api/provider/v1/*` (guard: `provider_api`) — mirrors User auth; **no AI chat** |
 | Driver app | `driverApp/` (separate Gradle project) → `/api/driver/v1/*` (guard: `driver_api`, `Modules/Driver`) — a driver is **not** a Provider |
 | Freelancer app | `freelanceApp/` (separate Gradle project, `com.dorr.freelance`, shares `driverApp/core`) → `/api/freelance/v1/*` (guard: `freelance_api`, `Modules/Freelance`) — guide [docs/modules/freelance/APP.md](docs/modules/freelance/APP.md) |
+| Freelancer iOS app | `freelanceAppIOS/` (SwiftUI, XcodeGen target `DorrPro`, `com.dorr.freelance`) — the iOS twin of `freelanceApp/`, same API — guide [freelanceAppIOS/README.md](freelanceAppIOS/README.md) |
 | Rides | `Modules/Rides` — plan [docs/rides-plan.md](docs/rides-plan.md), tables [docs/rides-structure.md](docs/rides-structure.md), **tasks [docs/rides_tasks.md](docs/rides_tasks.md)** (reserve a task with your name before starting; tick it when done) |
 | Group types (chat) | Educational + work groups = the existing chat group with a `kind` and extra features, inside `Modules/Chat` — **tasks [docs/groups_tasks.md](docs/groups_tasks.md)** (draft; open decisions first; reserve a task before starting) |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
@@ -94,3 +95,33 @@ Every project starts with a plan. Choose model and effort by task size (table in
 ## Android App
 
 Native app in `androidApp/` (Kotlin + Compose, `/api/mobile/v1/*`). Read [docs/modules/android/README.md](docs/modules/android/README.md) before touching it.
+
+---
+
+## iOS App — Android → iOS sync rule (mandatory)
+
+Native twin in `iosApp/` (Swift + SwiftUI, same API). Read [docs/modules/ios/README.md](docs/modules/ios/README.md) before touching it.
+
+**Any change to `androidApp/` must be made in `iosApp/` in the same task.** Android is the reference.
+
+- **Strings** sync automatically: edit only the Android XML; `iosApp/scripts/sync_strings.py` regenerates `Localizable.strings` (on every Xcode build and through the Claude Code hook). Never edit the generated files.
+- **Code:** port the same behavior to the twin file (table in the iOS doc), keeping names (screens, APIs, DTO fields, store keys).
+- **Not on iOS yet?** Update the Parity table in the iOS doc instead of silently skipping. Mark platform-only features "Android only".
+- **Check:** `bash iosApp/scripts/ios-parity.sh` lists Android files changed since `iosApp/` was last updated.
+- **Build check:** `cd iosApp && xcodegen && xcodebuild -project Dorr.xcodeproj -scheme Dorr -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.
+
+Claude Code enforces this with a `PostToolUse` hook (`.claude/settings.json` → `.claude/hooks/android-ios-sync.sh`). Other agents (Cursor, etc.) must follow this section by hand.
+
+---
+
+## Freelancer iOS App — freelanceApp → freelanceAppIOS sync rule (mandatory)
+
+Native twin in `freelanceAppIOS/` (Swift + SwiftUI, same `/api/freelance/v1/*` API). Read [freelanceAppIOS/README.md](freelanceAppIOS/README.md) before touching it.
+
+**Any change to `freelanceApp/` must be made in `freelanceAppIOS/` in the same task.** Android is the reference.
+
+- **Strings** sync automatically: edit only the `freelanceApp` XML; `freelanceAppIOS/scripts/sync_strings.py` regenerates `Localizable.strings` on every Xcode build. Never edit the generated files.
+- **Code:** port the same behavior to the twin file (same file name: `ui/screens/OfferScreens.kt` → `DorrPro/UI/Screens/Work/OfferScreens.swift`, `net/WalletApi.kt` → `DorrPro/Net/WalletApi.swift`), keeping names (screens, API functions, DTO fields, store keys).
+- **Platform-only differences** (no system back key, Face ID, App Store links…) are listed in the README; don't silently skip anything else.
+- **Fast check:** `cd freelanceAppIOS && scripts/typecheck.sh <changed paths>`.
+- **Build check:** `cd freelanceAppIOS && xcodegen && xcodebuild -project DorrPro.xcodeproj -scheme DorrPro -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.

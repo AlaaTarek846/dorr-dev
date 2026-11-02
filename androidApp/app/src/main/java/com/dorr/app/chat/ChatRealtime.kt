@@ -68,11 +68,17 @@ object ChatRealtime {
         "chat.verification.updated",
         // Someone I chat with got (or lost) the verification ✔.
         "account.verification.changed",
+        // Watch & Earn: one of my ads changed (status, views, spend) — its pages reload once.
+        "watch_earn.ad.changed",
     )
 
     /** A ride's private channel while its screen is open (`private-rides.{uuid}`): status, the car's place, its chat. */
     val RIDE_EVENTS = listOf("ride.changed", "ride.message", "ride.driver_location")
     private val watchedRides = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** One Watch & Earn ad while its comments are open (`private-watch-earn.ad.{uuid}`): comments and reaction counts. */
+    val WATCH_EARN_AD_EVENTS = listOf("watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions")
+    private val watchedAds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
     private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
@@ -173,7 +179,35 @@ object ChatRealtime {
             }
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
             watchedRides.forEach { subscribeRide(client, it) }
+            watchedAds.forEach { subscribeAd(client, it) }
         }
+    }
+
+    /** Listen to one Watch & Earn ad (its comments sheet is open). Safe before the connection is up. */
+    fun watchWatchEarnAd(uuid: String) {
+        if (watchedAds.add(uuid)) pusher?.let { subscribeAd(it, uuid) }
+    }
+
+    fun unwatchWatchEarnAd(uuid: String) {
+        if (watchedAds.remove(uuid)) runCatching { pusher?.unsubscribe("private-watch-earn.ad.$uuid") }
+    }
+
+    private fun subscribeAd(client: Pusher, uuid: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-watch-earn.ad.$uuid") != null) return
+            client.subscribePrivate("private-watch-earn.ad.$uuid", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Watch & Earn channel auth failed: $message", e)
+                }
+            }, *WATCH_EARN_AD_EVENTS.toTypedArray())
+        }.onFailure { Log.w(TAG, "Watch & Earn channel $uuid failed", it) }
     }
 
     /**
@@ -263,6 +297,7 @@ object ChatRealtime {
         runCatching { pusher?.disconnect() }
         pusher = null
         watchedRides.clear()
+        watchedAds.clear()
         userId = null
         starting = false
         _connected.value = false

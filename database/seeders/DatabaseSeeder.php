@@ -24,6 +24,7 @@ use Modules\AI\Database\Seeders\AIDatabaseSeeder;
 use Modules\Chat\Database\Seeders\ChatDatabaseSeeder;
 use Modules\Discover\Database\Seeders\DiscoverSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceDocumentTypeSeeder;
+use Modules\Freelance\Database\Seeders\FreelancePlansSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceLegalPageSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSettingsSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSkillSeeder;
@@ -57,6 +58,7 @@ class DatabaseSeeder extends Seeder
             FreelanceSkillSeeder::class,
             FreelanceDocumentTypeSeeder::class,
             FreelanceSettingsSeeder::class,
+            FreelancePlansSeeder::class,
             FreelanceSupportHelpSeeder::class,
             SportsSeeder::class,
             UserSeeder::class,

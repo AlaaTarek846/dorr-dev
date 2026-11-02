@@ -779,6 +779,24 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-reports.view' },
             },
             {
+                path: 'freelance/plans',
+                name: 'admin.freelance.plans',
+                component: page('freelance/plans/index'),
+                meta: { middleware: [auth], permission: 'freelance-plans.view' },
+            },
+            {
+                path: 'freelance/services',
+                name: 'admin.freelance.services',
+                component: page('freelance/services/index'),
+                meta: { middleware: [auth], permission: 'freelance-services.view' },
+            },
+            {
+                path: 'freelance/consultations',
+                name: 'admin.freelance.consultations',
+                component: page('freelance/consultations/index'),
+                meta: { middleware: [auth], permission: 'freelance-consultations.view' },
+            },
+            {
                 path: 'freelance/risk',
                 name: 'admin.freelance.risk',
                 component: page('freelance/risk/index'),
@@ -854,6 +872,12 @@ export default [
                 path: 'freelance/skills',
                 name: 'admin.freelance.skills',
                 component: page('freelance/skills/index'),
+                meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
+            },
+            {
+                path: 'freelance/skill-tests',
+                name: 'admin.freelance.skillTests',
+                component: page('freelance/skill-tests/index'),
                 meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
             },
             {
@@ -969,6 +993,31 @@ export default [
                 name: 'admin.chat.portals',
                 component: page('chat/portals/index'),
                 meta: { middleware: [auth], permission: 'chat-portals.view' },
+            },
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043).
+            {
+                path: 'watch-earn/ads',
+                name: 'admin.watch-earn.ads',
+                component: page('watch-earn/ads/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/comment-reports',
+                name: 'admin.watch-earn.comment-reports',
+                component: page('watch-earn/comment-reports/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/settings',
+                name: 'admin.watch-earn.settings',
+                component: page('watch-earn/settings/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-settings.view' },
+            },
+            {
+                path: 'watch-earn/finance',
+                name: 'admin.watch-earn.finance',
+                component: page('watch-earn/finance/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-finance.view' },
             },
             {
                 path: 'chat/groups',

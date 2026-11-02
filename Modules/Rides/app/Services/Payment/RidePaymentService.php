@@ -28,10 +28,10 @@ class RidePaymentService
         return $this->wallets->firstOrCreateWallet($ride->rider()->firstOrFail(), $ride->country()->firstOrFail());
     }
 
-    /** Spend-only first, then withdrawable — like the checkout. */
+    /** Rewards, then spend-only, then withdrawable — like the checkout (Wallet::SPEND_ORDER). */
     public function available(Wallet $wallet): int
     {
-        return max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        return $wallet->spendableMinor();
     }
 
     /**
@@ -50,8 +50,7 @@ class RidePaymentService
                 throw $this->insufficient($ride, $wallet, $amountMinor, $available);
             }
 
-            $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $amountMinor);
-            $parts = [[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $amountMinor - $fromSpendOnly]];
+            $parts = $wallet->spendParts($amountMinor);
 
             foreach ($parts as [$bucket, $part]) {
                 if ($part <= 0) {

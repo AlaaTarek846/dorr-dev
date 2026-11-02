@@ -10,6 +10,7 @@ use Modules\Freelance\Http\Controllers\Admin\FreelanceOversightController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceVerificationController;
 use Modules\Freelance\Http\Controllers\Admin\FreelancePolicyController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceSkillController;
+use Modules\Freelance\Http\Controllers\Admin\FreelanceSkillTestController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceSpecialtyController;
 use Modules\Freelance\Http\Controllers\Admin\FreelancerAdminController;
 
@@ -52,7 +53,40 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-support/tickets/{number}/link', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSupportController::class, 'link'])->whereNumber('number');
         Route::get('freelance-reports/operations', [\Modules\Freelance\Http\Controllers\Admin\FreelanceInsightsController::class, 'operations']);
         Route::get('freelance-reports/improvement', [\Modules\Freelance\Http\Controllers\Admin\FreelanceInsightsController::class, 'improvement']);
-        Route::get('freelance-risk/overview', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'overview']);
+        // FL-L01: the plans, their prices per country and who is subscribed.
+        Route::get('freelance-plans', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'index']);
+        Route::post('freelance-plans/fill-prices', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'fillPrices']);
+        Route::get('freelance-plans/subscriptions', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'subscriptions']);
+        // FL-L01 phase 2: the packs of extra offers, their price per country and who bought them.
+        Route::get('freelance-plans/packs', [\Modules\Freelance\Http\Controllers\Admin\FreelanceOfferPackController::class, 'index']);
+        Route::get('freelance-plans/pack-purchases', [\Modules\Freelance\Http\Controllers\Admin\FreelanceOfferPackController::class, 'purchases']);
+        Route::put('freelance-plans/packs/{pack}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceOfferPackController::class, 'update'])->whereNumber('pack');
+        Route::get('freelance-plans/packs/{pack}/prices', [\Modules\Freelance\Http\Controllers\Admin\FreelanceOfferPackController::class, 'prices'])->whereNumber('pack');
+        Route::put('freelance-plans/packs/{pack}/prices/{country}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceOfferPackController::class, 'setPrice'])->whereNumber(['pack', 'country']);
+        Route::put('freelance-plans/{plan}', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'update'])->whereNumber('plan');
+        Route::get('freelance-plans/{plan}/prices', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'prices'])->whereNumber('plan');
+        Route::put('freelance-plans/{plan}/prices/{country}', [\Modules\Freelance\Http\Controllers\Admin\FreelancePlanController::class, 'setPrice'])->whereNumber(['plan', 'country']);
+        // FL-L04: ready-made services - the review queue, one service with its images, the decision, and the orders on services.
+        Route::get('freelance-services', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'index']);
+        Route::get('freelance-services/orders', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'orders']);
+        Route::get('freelance-services/subscriptions', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'subscriptions']);
+        Route::get('freelance-services/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'show'])->whereUuid('uuid');
+        Route::get('freelance-services/{uuid}/images/{media}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'image'])->whereUuid('uuid')->whereNumber('media');
+        Route::post('freelance-services/{uuid}/approve', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'approve'])->whereUuid('uuid');
+        Route::post('freelance-services/{uuid}/reject', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'reject'])->whereUuid('uuid');
+        Route::post('freelance-services/{uuid}/suspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'suspend'])->whereUuid('uuid');
+        Route::post('freelance-services/{uuid}/unsuspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'unsuspend'])->whereUuid('uuid');
+        // FL-L07: paid consultations - every booking (complaints first), one, and deciding a complaint.
+        Route::get('freelance-consultation-offers', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'offers']);
+        Route::get('freelance-consultation-offers/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'offer'])->whereUuid('uuid');
+        Route::post('freelance-consultation-offers/{uuid}/approve', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'approve'])->whereUuid('uuid');
+        Route::post('freelance-consultation-offers/{uuid}/reject', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'reject'])->whereUuid('uuid');
+        Route::post('freelance-consultation-offers/{uuid}/suspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'suspend'])->whereUuid('uuid');
+        Route::post('freelance-consultation-offers/{uuid}/unsuspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'unsuspend'])->whereUuid('uuid');
+        Route::get('freelance-consultations', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'index']);
+        Route::get('freelance-consultations/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'show'])->whereUuid('uuid');
+        Route::post('freelance-consultations/{uuid}/resolve', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'resolve'])->whereUuid('uuid');
+        Route::get('freelance-risk/overview',[\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'overview']);
         Route::get('freelance-risk/accounts', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'accounts']);
         Route::get('freelance-audit', [\Modules\Freelance\Http\Controllers\Admin\FreelanceAuditController::class, 'index']);
         Route::get('freelance-reports/cancel-reasons', [FreelanceReportController::class, 'cancelReasons']);
@@ -117,6 +151,15 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-skills/{freelance_skill}/reject', [FreelanceSkillController::class, 'reject'])->whereNumber('freelance_skill');
         Route::post('freelance-skills/{freelance_skill}/merge', [FreelanceSkillController::class, 'merge'])->whereNumber('freelance_skill');
         Route::apiResource('freelance-skills', FreelanceSkillController::class)->parameters(['freelance-skills' => 'freelance_skill']);
+        // Skill tests (FL-L08): per skill the settings and the question bank, plus the badges earned.
+        Route::get('freelance-skill-tests', [FreelanceSkillTestController::class, 'index']);
+        Route::get('freelance-skill-tests/{freelance_skill}', [FreelanceSkillTestController::class, 'show'])->whereNumber('freelance_skill');
+        Route::put('freelance-skill-tests/{freelance_skill}', [FreelanceSkillTestController::class, 'update'])->whereNumber('freelance_skill');
+        Route::post('freelance-skill-tests/{freelance_skill}/questions', [FreelanceSkillTestController::class, 'storeQuestion'])->whereNumber('freelance_skill');
+        Route::put('freelance-skill-questions/{question}', [FreelanceSkillTestController::class, 'updateQuestion'])->whereNumber('question');
+        Route::delete('freelance-skill-questions/{question}', [FreelanceSkillTestController::class, 'destroyQuestion'])->whereNumber('question');
+        Route::get('freelance-skill-badges', [FreelanceSkillTestController::class, 'badges']);
+        Route::post('freelance-skill-badges/{badge}/revoke', [FreelanceSkillTestController::class, 'revoke'])->whereNumber('badge');
 
         // Specialties (FL-101): a specialty and its sub-specialties.
         Route::post('freelance-specialties/delete-multiple', [FreelanceSpecialtyController::class, 'deleteMultiple']);

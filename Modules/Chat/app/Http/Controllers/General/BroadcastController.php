@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Chat\Http\Requests\SendMessageRequest;
@@ -16,12 +17,16 @@ class BroadcastController extends Controller
 {
     public function __construct(private readonly BroadcastService $broadcasts) {}
 
+    /** GET broadcasts?page=&per_page= — mine, newest first. Pages of 15. */
     public function index(Request $request)
     {
-        $me = $request->user();
-        $rows = ChatBroadcastList::query()->ownedBy($me)->latest('updated_at')->get()->map(fn ($l) => $this->broadcasts->present($me, $l));
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $page = $this->broadcasts->minePage($request->user(), (int) ($data['per_page'] ?? 15));
 
-        return ApiResponse::success($rows->values(), __('api.retrieved'));
+        return ApiResponse::success($page->getCollection()->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     /** `{folder_id, name?}` — the people of a folder's one-to-one chats (backlog 129). */

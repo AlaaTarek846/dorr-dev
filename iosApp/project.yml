@@ -1,0 +1,155 @@
+# XcodeGen spec — the .xcodeproj is generated from this file and is not committed.
+#   brew install xcodegen && cd iosApp && xcodegen
+name: Dorr
+options:
+  bundleIdPrefix: com.dorr
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+  createIntermediateGroups: true
+  # Opens in Xcode 15+ (XcodeGen 2.4x defaults to the Xcode 16 format).
+  projectFormat: xcode15_0
+configFiles:
+  Debug: Config/Dorr.xcconfig
+  Release: Config/Dorr.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.1"
+    CURRENT_PROJECT_VERSION: "1"
+# Map engines (docs/rides_tasks.md O-53 / O-72): the admin picks Google or Mapbox, and Apple Maps (MapKit,
+# built into iOS) for the iPhone only. The engines not chosen are never started.
+packages:
+  GoogleMaps:
+    url: https://github.com/googlemaps/ios-maps-sdk
+    from: 9.4.0
+  MapboxMaps:
+    url: https://github.com/mapbox/mapbox-maps-ios.git
+    # The same release as Android (11.8.0); newer ones need Xcode 16.
+    exactVersion: 11.8.0
+  LiveKit:
+    # Chat calls and voice rooms — the same release as Android (livekit-android 2.5.0).
+    url: https://github.com/livekit/client-sdk-swift
+    exactVersion: 2.5.0
+  LiveKitWebRTC:
+    # The WebRTC LiveKit ships; DORR AI's live voice call uses it too, like Android (livekit.org.webrtc).
+    url: https://github.com/livekit/webrtc-xcframework.git
+    exactVersion: 125.6422.28
+  PusherSwift:
+    # The chat's real-time connection (Android: pusher-java-client), settings from `chat/realtime-config`.
+    url: https://github.com/pusher/pusher-websocket-swift
+    exactVersion: 10.1.5
+  OneSignal:
+    # Push notifications (Android: OneSignal 5.x), the app id from `chat/realtime-config`.
+    url: https://github.com/OneSignal/OneSignal-XCFramework
+    exactVersion: 5.2.10
+  Firebase:
+    # Crash reports (Android: firebase-crashlytics 19.2.1 / BoM 33.x — the same generation). Off until
+    # Dorr/GoogleService-Info.plist is added, like Android without google-services.json.
+    url: https://github.com/firebase/firebase-ios-sdk
+    exactVersion: 11.4.0
+  GLTFKit2:
+    # DORR AR's models are glTF (.glb) like on Android's Scene Viewer; ARKit places them at real size.
+    url: https://github.com/warrenm/GLTFKit2
+    exactVersion: 0.5.9
+targets:
+  Dorr:
+    type: application
+    platform: iOS
+    sources:
+      - path: Dorr
+    dependencies:
+      - package: GoogleMaps
+        products: [GoogleMaps]
+      - package: MapboxMaps
+        product: MapboxMaps
+      - package: LiveKit
+        product: LiveKit
+      - package: LiveKitWebRTC
+        product: LiveKitWebRTC
+      - package: PusherSwift
+        product: PusherSwift
+      - package: OneSignal
+        products: [OneSignalFramework]
+      - package: GLTFKit2
+        product: GLTFKit2
+      - package: Firebase
+        product: FirebaseCrashlytics
+      # Sharing the whole phone's screen in a call (Android: MediaProjection).
+      - target: DorrBroadcast
+      # Each push shaped as it arrives — silent, private, local intelligence (Android: ChatNotificationExtension).
+      - target: DorrNotifications
+      # DORR Sports on the home screen (Android: the Glance widgets «My team» and «Live now»).
+      - target: DorrWidgets
+    preBuildScripts:
+      # Android strings → Localizable.strings, so a build never ships stale text.
+      - name: Sync strings from androidApp
+        script: python3 "$SRCROOT/scripts/sync_strings.py"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        INFOPLIST_FILE: Dorr/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Dorr/Dorr.entitlements
+        # A view expression the compiler can't settle in 60 s fails the build with its line, instead of hanging it.
+        OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -solver-expression-time-threshold=60"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+  DorrBroadcast:
+    # The broadcast upload extension that captures the whole screen for a call's screen share (LiveKit's
+    # LKSampleHandler); the frames go to the app through the app group.
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DorrBroadcast
+    dependencies:
+      - package: LiveKit
+        product: LiveKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DORR_APP_BUNDLE_ID).broadcast
+        INFOPLIST_FILE: DorrBroadcast/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrBroadcast/DorrBroadcast.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+  DorrNotifications:
+    # The notification service extension (Android: OneSignal's ChatNotificationExtension): reads the app group for local
+    # intelligence and the app's language, and carries the app's strings.
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DorrNotifications
+      - path: Dorr/Chat/LocalIntelligence.swift
+      - path: Dorr/Resources/ar.lproj
+        buildPhase: resources
+      - path: Dorr/Resources/en.lproj
+        buildPhase: resources
+    dependencies:
+      - package: OneSignal
+        product: OneSignalExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DORR_APP_BUNDLE_ID).notifications
+        INFOPLIST_FILE: DorrNotifications/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrNotifications/DorrNotifications.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+  DorrWidgets:
+    # The home-screen widgets (Android: widget/SportsWidgets.kt): read our server with the account's token from the
+    # app group's keychain, keep the crests in the app group, and carry the app's strings.
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DorrWidgets
+      - path: Dorr/Shared/SportsWidgetShared.swift
+      - path: Dorr/Resources/ar.lproj
+        buildPhase: resources
+      - path: Dorr/Resources/en.lproj
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DORR_APP_BUNDLE_ID).widgets
+        INFOPLIST_FILE: DorrWidgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrWidgets/DorrWidgets.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES

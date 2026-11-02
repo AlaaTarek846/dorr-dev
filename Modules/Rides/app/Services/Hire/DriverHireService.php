@@ -352,7 +352,7 @@ class DriverHireService
     private function charge(User $rider, DriverHire $hire, int $amount, string $key): array
     {
         $wallet = $this->wallets->firstOrCreateWallet($rider, $hire->country()->firstOrFail())->fresh();
-        $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        $free = $wallet->spendableMinor();
         if ($free < $amount) {
             throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }

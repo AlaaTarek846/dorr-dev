@@ -142,6 +142,8 @@ object ApiClient {
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
     val freelance: FreelanceApi by lazy { retrofit.create(FreelanceApi::class.java) }
+    val freelanceServices: FreelanceServicesApi by lazy { retrofit.create(FreelanceServicesApi::class.java) }
+    val freelanceConsultations: FreelanceConsultationsApi by lazy { retrofit.create(FreelanceConsultationsApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
@@ -165,6 +167,8 @@ object ApiClient {
     val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
+    /** Watch & Earn: the viewer, the advertiser and the ad wallet (docs/modules/watch-earn/API.md). */
+    val watchEarn: WatchEarnApi by lazy { retrofit.create(WatchEarnApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 
