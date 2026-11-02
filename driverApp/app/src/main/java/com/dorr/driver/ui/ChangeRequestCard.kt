@@ -112,7 +112,10 @@ internal fun ChangeRequestCard(t: TripDto, onAnswered: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.chg_rider_wants, t.rider?.name.orEmpty()), fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.chg_rider_wants, t.rider?.name.orEmpty()), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                RiderTick(t.rider?.isVerified == true, 14.dp)
+            }
             Spacer(Modifier.height(10.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(DorrBrand.navy.copy(alpha = 0.05f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (!adding) Line(stringResource(R.string.chg_old), t.destination?.address ?: "—")

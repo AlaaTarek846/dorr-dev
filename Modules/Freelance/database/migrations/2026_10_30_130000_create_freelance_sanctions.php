@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('source', 20)->default('manual')->comment('manual | message_report | review_objection | dispute');
             $table->string('source_ref', 64)->nullable()->comment('the uuid of the report / objection / dispute');
             $table->unsignedBigInteger('issued_by');
-            $table->timestamp('starts_at');
+            $table->dateTime('starts_at');
             $table->timestamp('ends_at')->nullable()->comment('null = until lifted (a suspension)');
             $table->unsignedBigInteger('lifted_by')->nullable();
             $table->string('lift_note', 500)->nullable();

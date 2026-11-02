@@ -252,6 +252,8 @@ private struct ProfileMenuScreen: View {
 
     var body: some View {
         let items = [
+            // Watch & Earn (D17): above the personal data.
+            MenuEntry(icon: "play.circle.fill", label: L("we_title"), subtitle: L("we_menu_sub")) { WatchEarnLink.shared.show() },
             MenuEntry(icon: "person.fill", label: L("account_personal_data"), subtitle: L("account_personal_data_sub"), action: onOpenPersonalData),
             MenuEntry(icon: "gearshape.fill", label: L("account_settings"), subtitle: L("account_settings_sub"), action: onOpenSettings),
             MenuEntry(icon: "mappin.circle.fill", label: L("account_places"), subtitle: L("account_places_sub"), action: onOpenAddresses),

@@ -164,7 +164,10 @@ internal fun NextTripCard(trip: TripDto) {
             Icon(Icons.Rounded.NextPlan, null, tint = DorrBrand.success, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.nt_card_title, next.rider.orEmpty()), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.nt_card_title, next.rider.orEmpty()), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f, fill = false))
+                    RiderTick(next.riderVerified, 14.dp)
+                }
                 next.pickup?.address?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f), maxLines = 1) }
             }
             Text(money(next.earningMinor, trip.currency), color = DorrBrand.success, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)

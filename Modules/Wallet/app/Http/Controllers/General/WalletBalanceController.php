@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Wallet\Models\Wallet;
+use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Services\WalletService;
 use Modules\Wallet\Support\OwnerType;
 use Modules\Wallet\Support\WalletNumber;
@@ -31,7 +32,7 @@ class WalletBalanceController extends Controller
         $wallet = $this->wallets->firstOrCreateWallet($owner, $country);
 
         $currency = $wallet->currency ?? $country->currency;
-        $held = $wallet->held_withdrawable_minor + $wallet->held_spend_only_minor;
+        $held = $wallet->held_withdrawable_minor + $wallet->held_spend_only_minor + (int) $wallet->held_reward_minor;
 
         return ApiResponse::success([
             'country_code' => $country->code,
@@ -46,9 +47,13 @@ class WalletBalanceController extends Controller
             'qr_payload' => WalletNumber::qrPayload($country->code, (string) $wallet->wallet_number),
             'currency_code' => $currency?->code,
             'currency_symbol' => $currency?->symbol,
+            'currency_decimals' => (int) ($currency?->decimal_places ?? 2),
             'total_minor' => $wallet->totalBalanceMinor(),
             'withdrawable_minor' => $wallet->withdrawable_minor,
             'spend_only_minor' => $wallet->spend_only_minor,
+            // Watch & Earn rewards (D20): spent anywhere in the app; sent to others only where the country allows.
+            'reward_minor' => (int) $wallet->reward_minor,
+            'rewards_transferable' => (bool) WalletSetting::query()->where('country_id', $country->id)->value('rewards_transferable'),
             'held_minor' => $held,
             // Read-only heads-up: balances in other countries can't be spent here.
             'other_wallets' => Wallet::query()

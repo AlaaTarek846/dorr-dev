@@ -42,6 +42,7 @@ class WithdrawalRequestResource extends JsonResource
                 'type' => $this->wallet->owner_type,
                 'id' => $owner->getKey(),
                 'name' => $owner->name ?? null,
+                'is_verified' => \App\Support\AccountBadge::verified($owner),
                 'phone' => $owner->phone ?? null,
             ]),
             'country_code' => $this->when($isAdmin, fn () => $this->wallet?->country?->code),

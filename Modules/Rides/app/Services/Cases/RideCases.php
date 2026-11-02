@@ -227,7 +227,7 @@ class RideCases
                 'id' => $case->id,
                 'ride_id' => $case->ride_id,
                 'priority' => $case->priority,
-                'reporter' => ['type' => $case->reporter_type, 'id' => $case->reporter_id, 'name' => $reporter?->name, 'phone' => $reporter?->phone],
+                'reporter' => ['type' => $case->reporter_type, 'id' => $case->reporter_id, 'name' => $reporter?->name, 'is_verified' => \App\Support\AccountBadge::verified($reporter), 'phone' => $reporter?->phone],
                 'assigned_to' => $case->assignedTo?->name,
                 'decision_full' => $decision,
                 'decided_by' => $case->decidedBy?->name,

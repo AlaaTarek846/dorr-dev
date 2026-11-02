@@ -74,7 +74,7 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
 
         return ApiResponse::success($this->disputes->present($d, 'admin', "freelance-disputes/{$uuid}/files") + [
             'project' => ['uuid' => $d->project->uuid, 'title' => $d->project->title, 'status' => $d->project->status->value],
-            'client' => ['id' => $a->client?->id, 'name' => $a->client?->name],
+            'client' => ['id' => $a->client?->id, 'name' => $a->client?->name, 'is_verified' => \App\Support\AccountBadge::verified($a->client)],
             'freelancer' => ['id' => $a->freelancer?->id, 'name' => $a->freelancer?->name],
             'agreement' => ['uuid' => $a->uuid, 'scope' => $a->scope, 'includes' => $a->includes, 'excludes' => $a->excludes, 'price_minor' => $a->price_minor, 'duration_days' => $a->duration_days],
             'part' => [

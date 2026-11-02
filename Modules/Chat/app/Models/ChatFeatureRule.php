@@ -12,7 +12,8 @@ use Modules\Chat\Services\ChatFeatures;
  */
 class ChatFeatureRule extends Model
 {
-    public const FEATURES = ['calls', 'voice_rooms', 'live', 'stories', 'ai'];
+    /** The last two are account verification's tracks (docs/verification_tasks.md AV-002). */
+    public const FEATURES = ['calls', 'voice_rooms', 'live', 'stories', 'ai', 'verification_paid', 'verification_celebrity', 'education_groups', 'work_groups'];
 
     protected $fillable = ['feature', 'country_id', 'city_id', 'enabled', 'note'];
 

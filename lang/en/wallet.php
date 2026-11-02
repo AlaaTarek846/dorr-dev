@@ -28,6 +28,7 @@ return [
         'transfer_wallet_number_invalid' => 'This wallet number is not valid. Check it and try again.',
         'transfer_recipient_expired' => 'Please look the recipient up again before sending.',
         'transfers_disabled' => 'Transfers are not available in your country.',
+        'rewards_not_transferable' => 'Rewards are spent in the app only and can\'t be sent.',
         'transfer_qr_invalid' => 'This QR code is not valid — it is not a wallet code.',
         'transfer_qr_other_country' => 'This QR code belongs to a wallet in :qr, but your wallet is in :wallet. Transfers only work inside the same country.',
         'pin_recovery_required' => 'Choose how to recover your PIN before creating it.',
@@ -97,6 +98,9 @@ return [
         'freelance_discount' => 'Discount on project :project',
         'freelance_offer_pack' => 'Extra offers :project',
         'freelance_subscription' => 'Freelance plan :plan',
+        'ad_funding' => 'Moved to the ad wallet',
+        'ad_return' => 'Returned from the ad wallet',
+        'watch_reward' => 'Watch & Earn reward: :title',
         'withdrawal' => 'Withdrawal paid out',
         'reversal' => 'Reversal (:reason)',
         'manual_adjustment' => 'Manual adjustment (:reason)',
@@ -137,6 +141,8 @@ return [
         'tip' => 'Tip',
         'discount_compensation' => 'Discount compensation',
         'debt_settlement' => 'Debt settlement',
+        'ad_funding' => 'Ad funding',
+        'ad_return' => 'Ad wallet return',
     ],
 
     'sandbox_page' => [

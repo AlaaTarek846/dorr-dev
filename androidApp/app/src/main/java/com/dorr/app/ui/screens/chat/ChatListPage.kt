@@ -285,6 +285,11 @@ fun ChatListPage() {
                 FilterChips()
             }
 
+            // Watch & Earn (D17): a slim card the person can hide (it comes back from the chat settings).
+            AnimatedVisibility(!searching && host.filter == "all", enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                com.dorr.app.ui.screens.watchearn.WatchEarnChatCard(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 6.dp))
+            }
+
             // -------------------------------------------------------------- list
             PullToRefreshBox(
                 isRefreshing = refreshing,
@@ -697,7 +702,8 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )
-                    if (c.group?.isVerified == true) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF0EA5E9), modifier = Modifier.padding(start = 4.dp).size(14.dp))
+                    // A verified channel, or a verified person (account verification).
+                    if (c.group?.isVerified == true || c.peer?.isVerified == true) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF0EA5E9), modifier = Modifier.padding(start = 4.dp).size(14.dp))
                     if (c.isLocked) Icon(Icons.Rounded.Lock, null, tint = Ch.Soft, modifier = Modifier.padding(start = 4.dp).size(12.dp))
                 }
                 Spacer(Modifier.height(2.dp))

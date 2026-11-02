@@ -78,6 +78,11 @@
                             >
                                 {{ t('users.filter_blocked') }} ({{ counts.blocked }})
                             </button>
+                            <select :value="verifiedFilter" class="form-select form-select-sm w-auto" :title="t('chat.verification.users_filter')" @change="setVerifiedFilter($event.target.value)">
+                                <option value="">{{ t('chat.verification.users_filter_all') }}</option>
+                                <option value="1">{{ t('chat.verification.users_filter_verified') }}</option>
+                                <option value="0">{{ t('chat.verification.users_filter_unverified') }}</option>
+                            </select>
                         </div>
 
                         <div class="d-flex flex-wrap align-items-center gap-2">
@@ -190,9 +195,9 @@
                                                             class="btn btn-link p-0 text-start fw-semibold text-default"
                                                             @click="openEdit(user)"
                                                         >
-                                                            {{ user.name }}
+                                                            <UserName :user="user">{{ user.name }}</UserName>
                                                         </button>
-                                                        <span v-else class="fw-semibold text-default">{{ user.name }}</span>
+                                                        <span v-else class="fw-semibold text-default"><UserName :user="user">{{ user.name }}</UserName></span>
                                                         <span class="d-block text-muted fs-11">
                                                             #{{ user.id }}
                                                         </span>
@@ -389,6 +394,7 @@ import { usePermission } from '../../../../../../composables/usePermission';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 import NotifyModal from './NotifyModal.vue';
 import SessionsModal from './SessionsModal.vue';
+import UserName from '../../../../../../components/ui/UserName.vue';
 
 const { t, locale } = useI18n();
 const usersStore = useUsersStore();
@@ -429,10 +435,12 @@ const {
     perPage,
     search,
     statusFilter,
+    verifiedFilter,
 } = storeToRefs(usersApi);
 const {
     fetchUsers,
     setStatusFilter,
+    setVerifiedFilter,
     deleteUser,
     deleteSelected,
     changeUserStatus,

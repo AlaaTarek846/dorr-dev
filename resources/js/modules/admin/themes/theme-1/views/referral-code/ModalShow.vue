@@ -101,7 +101,7 @@
                                     <tbody>
                                         <tr v-for="item in record.referrals" :key="item.id" class="crm-contact">
                                             <td>
-                                                {{ item.referred?.name || `#${item.referred?.id}` }}
+                                                <UserName :user="item.referred">{{ item.referred?.name || `#${item.referred?.id}` }}</UserName>
                                                 <span class="d-block text-muted fs-11">#{{ item.id }}</span>
                                             </td>
                                             <td>
@@ -132,6 +132,7 @@ import WalletDetailHero from '../../../../../../components/wallet/WalletDetailHe
 import WalletInfoTile from '../../../../../../components/wallet/WalletInfoTile.vue';
 import WalletSection from '../../../../../../components/wallet/WalletSection.vue';
 import { formatCatalogDate } from '../../../../../../utils/catalog';
+import UserName from '../../../../../../components/ui/UserName.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

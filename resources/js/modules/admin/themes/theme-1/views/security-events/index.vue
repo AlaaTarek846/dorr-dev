@@ -113,7 +113,7 @@
                                             <td>
                                                 <template v-if="row.user">
                                                     <button type="button" class="btn btn-link p-0 fw-semibold text-default" @click.stop="userFilter = row.user.id">
-                                                        {{ row.user.name || `#${row.user.id}` }}
+                                                        <UserName :user="row.user">{{ row.user.name || `#${row.user.id}` }}</UserName>
                                                     </button>
                                                     <span class="d-block text-muted fs-11" dir="ltr">{{ row.user.phone }}</span>
                                                 </template>
@@ -183,6 +183,7 @@ import useOpenFromQuery from '../../../../../../composables/useOpenFromQuery';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 import { formatCatalogDate } from '../../../../../../utils/catalog';
 import ModalShow from './ModalShow.vue';
+import UserName from '../../../../../../components/ui/UserName.vue';
 
 const LIST_URI = '/api/admin/v1/security-events';
 

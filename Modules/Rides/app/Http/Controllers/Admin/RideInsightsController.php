@@ -64,7 +64,7 @@ class RideInsightsController extends Controller implements HasMiddleware
                 'id' => $r->id, 'number' => $r->number, 'status' => $r->status->value,
                 'risk_score' => $r->risk_score,
                 'flags' => collect((array) $r->risk_flags)->map(fn ($f) => ['code' => $f['code'] ?? null, 'label' => __('rides.fraud.'.($f['code'] ?? 'other')), 'detail' => $f['detail'] ?? []])->values(),
-                'rider' => $r->rider?->only(['id', 'name', 'phone']),
+                'rider' => $r->rider ? $r->rider->only(['id', 'name', 'phone']) + ['is_verified' => \App\Support\AccountBadge::verified($r->rider)] : null,
                 'driver' => $r->driver?->only(['id', 'name', 'phone']),
                 'final_total_minor' => $r->final_total_minor,
                 'currency' => $r->currency?->symbol,

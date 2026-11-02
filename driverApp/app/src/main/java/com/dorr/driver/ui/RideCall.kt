@@ -94,6 +94,9 @@ internal object RideCallSession {
         private set
     var peerName by mutableStateOf("")
         private set
+    /** The other side is a verified Dorr account: the tick after their name on the call screen (AV-028). */
+    var peerVerified by mutableStateOf(false)
+        private set
     var muted by mutableStateOf(false)
         private set
     var speaker by mutableStateOf(false)
@@ -114,9 +117,9 @@ internal object RideCallSession {
     private var endApi: (suspend (String, String) -> Unit)? = null
 
     /** I call: the server makes the room and rings them; I wait in the room until they arrive. */
-    fun call(context: Context, ride: String, peer: String, start: suspend () -> RideCallJoin, end: suspend (String, String) -> Unit) {
+    fun call(context: Context, ride: String, peer: String, start: suspend () -> RideCallJoin, end: suspend (String, String) -> Unit, peerVerified: Boolean = false) {
         if (phase != null) return
-        reset(ride, peer, end)
+        reset(ride, peer, end, peerVerified)
         phase = RideCallPhase.Calling
         scope.launch {
             val join = runCatching { start() }.getOrElse { error = it.message; finish(); return@launch }
@@ -127,9 +130,9 @@ internal object RideCallSession {
     }
 
     /** They call me: ring until I answer, decline, or the ring runs out. */
-    fun incoming(context: Context, ride: String, call: String, peer: String, end: suspend (String, String) -> Unit) {
+    fun incoming(context: Context, ride: String, call: String, peer: String, end: suspend (String, String) -> Unit, peerVerified: Boolean = false) {
         if (phase != null || callUuid == call) return
-        reset(ride, peer, end)
+        reset(ride, peer, end, peerVerified)
         callUuid = call
         phase = RideCallPhase.Incoming
         ringtone = runCatching { RingtoneManager.getRingtone(context, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))?.also { it.play() } }.getOrNull()
@@ -170,10 +173,11 @@ internal object RideCallSession {
         applySpeaker()
     }
 
-    private fun reset(ride: String, peer: String, end: suspend (String, String) -> Unit) {
+    private fun reset(ride: String, peer: String, end: suspend (String, String) -> Unit, verified: Boolean) {
         rideUuid = ride
         callUuid = null
         peerName = peer
+        peerVerified = verified
         muted = false
         speaker = false
         activeSince = null
@@ -284,7 +288,10 @@ internal fun RideCallOverlay(onAccept: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text(RideCallSession.peerName, color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(RideCallSession.peerName, color = Color.White, fontWeight = FontWeight.Black, fontSize = 26.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                RiderTick(RideCallSession.peerVerified, 24.dp, tint = Color.White)
+            }
             Spacer(Modifier.height(6.dp))
             Text(
                 when (phase) {
@@ -333,6 +340,7 @@ internal fun startRideCall(context: Context, trip: com.dorr.driver.net.TripDto) 
         context, trip.uuid, trip.rider?.name.orEmpty(),
         start = { callJoin(com.dorr.core.network.apiCall { com.dorr.driver.net.DriverBackend.api.startCall(trip.uuid) }) },
         end = { r, c -> com.dorr.core.network.apiCall { com.dorr.driver.net.DriverBackend.api.endCall(r, c) } },
+        peerVerified = trip.rider?.isVerified == true,
     )
 }
 

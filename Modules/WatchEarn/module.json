@@ -1,0 +1,11 @@
+{
+    "name": "WatchEarn",
+    "alias": "watch-earn",
+    "description": "DORR Watch & Earn: paid image/video ads, viewers rewarded for watching and interacting (docs/watch_earn_tasks.md).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\WatchEarn\\Providers\\WatchEarnServiceProvider"
+    ],
+    "files": []
+}

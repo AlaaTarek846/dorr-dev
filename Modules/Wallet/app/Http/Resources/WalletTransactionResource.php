@@ -55,6 +55,7 @@ class WalletTransactionResource extends JsonResource
         return [
             // Another person's name is never shown in full — first letter of each word only.
             'name' => MaskedName::of($owner->name ?? null),
+            'is_verified' => \App\Support\AccountBadge::verified($owner),
             'phone' => $phone === '' ? null : str_repeat('•', max(0, strlen($phone) - 4)).substr($phone, -4),
         ];
     }

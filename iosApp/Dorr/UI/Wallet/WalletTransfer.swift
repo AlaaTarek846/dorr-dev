@@ -435,11 +435,14 @@ struct WalletTransferConfirm: View {
     @State private var error: String?
     @State private var idempotencyKey = UUID().uuidString
     @State private var sent: WalletTransactionDto?
+    @State private var fromRewards = false
 
     var body: some View {
         let balance = host.balance
         let currency = balance?.currencyCode ?? ""
         let amountMinor = parseAmountToMinor(amountText)
+        // Watch & Earn rewards are a source only where the country lets them be sent (D20); nil = the server's order.
+        let rewardsOffered = balance?.rewardsTransferable == true && (balance?.rewardMinor ?? 0) > 0
         // DORR's optional cut (a preview only — the rate actually applied is decided at send time).
         let feePercent = Double(who.feePercent) ?? 0
         let feeMinor = amountMinor.map { Int((Double($0) * feePercent / 100).rounded()) } ?? 0
@@ -469,7 +472,7 @@ struct WalletTransferConfirm: View {
                     text: amountMinor.map { L("wa_send_amount", money(senderPaysFee ? $0 + feeMinor : $0), currency) } ?? L("wa_send"),
                     icon: "arrow.up.right",
                     enabled: amountMinor != nil
-                ) { send(amountMinor) }
+                ) { send(amountMinor, fromBucket: rewardsOffered && fromRewards ? "reward" : nil) }
                 WaCtaHint(text: L("wa_protected_by_pin"), icon: "shield.fill")
             }) {
                 RecipientCard(who: who).waRise(0)
@@ -484,7 +487,9 @@ struct WalletTransferConfirm: View {
                         HStack(spacing: 6) {
                             Image(systemName: "wallet.pass.fill").font(.system(size: 13)).foregroundStyle(wa.mut)
                             Text(L("wa_available")).font(.dorr(12.5)).foregroundStyle(wa.mut)
-                            Text(verbatim: "\u{2066}\(money(balance.totalMinor - balance.heldMinor)) \(currency)\u{2069}").font(.dorr(12.5, .heavy)).foregroundStyle(wa.ink)
+                            // Rewards that can't be sent here aren't available for a transfer.
+                            let sendable = max(balance.totalMinor - balance.heldMinor - (balance.rewardsTransferable ? 0 : balance.rewardMinor), 0)
+                            Text(verbatim: "\u{2066}\(money(sendable)) \(currency)\u{2069}").font(.dorr(12.5, .heavy)).foregroundStyle(wa.ink)
                         }
                         .padding(.top, 10)
                     }
@@ -505,18 +510,30 @@ struct WalletTransferConfirm: View {
                     .padding(.top, 12)
                     .waRise(2)
                 }
+                if rewardsOffered, let balance {
+                    WaCard(padding: 14) {
+                        Text(L("we_transfer_source")).font(.dorr(13.5, .heavy)).foregroundStyle(wa.ink)
+                        HStack(spacing: 8) {
+                            WeChip(text: L("we_transfer_source_auto"), selected: !fromRewards) { fromRewards = false }
+                            WeChip(text: L("we_reward_balance") + " · " + money(balance.rewardMinor), selected: fromRewards) { fromRewards = true }
+                        }
+                        .padding(.top, 10)
+                    }
+                    .padding(.top, 12)
+                    .waRise(2)
+                }
                 WaNote(text: L("wa_spend_only_transfer_note")).padding(.top, 12).waRise(2)
                 WaError(message: error)
             }
         }
     }
 
-    private func send(_ amountMinor: Int?) {
+    private func send(_ amountMinor: Int?, fromBucket: String?) {
         error = nil
         host.requestPin(subtitle: L("wa_pin_transfer_sub"), onError: { error = $0 }) { pin in
             guard let minor = amountMinor else { return .close(L("wa_error_generic")) }
             do {
-                let result = try await WalletApi.transfer(pin: pin, idempotencyKey: idempotencyKey, TransferRequest(recipientToken: who.recipientToken, amountMinor: minor)).data
+                let result = try await WalletApi.transfer(pin: pin, idempotencyKey: idempotencyKey, TransferRequest(recipientToken: who.recipientToken, amountMinor: minor, fromBucket: fromBucket)).data
                 idempotencyKey = UUID().uuidString
                 guard let result else { return .close(L("wa_error_generic")) }
                 sent = result
@@ -529,6 +546,11 @@ struct WalletTransferConfirm: View {
                 idempotencyKey = UUID().uuidString
                 let message = failure.message ?? L("wa_error_generic")
                 if let code = failure.errorCode, pinErrorCodes.contains(code) { return .retry(message) }
+                // This country keeps rewards in the app: the server says so, and the choice goes back to the default.
+                if failure.errorCode == "rewards_not_transferable" {
+                    fromRewards = false
+                    return .close(message)
+                }
                 // The 10-minute confirmation ran out: go back and look the person up again.
                 if failure.errorCode == "transfer_recipient_expired" {
                     host.closeSheet()

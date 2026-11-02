@@ -53,6 +53,13 @@ struct WalletHome: View {
                 WaNote(text: L("wa_wallet_away_note", countryName(current))).padding(.top, 8)
             }
 
+            // Watch & Earn (D17): a card under the balance, with my rewards balance.
+            if let balance {
+                WatchEarnWalletCard(rewardMinor: balance.rewardMinor, currencyCode: balance.currencyCode)
+                    .padding(.top, 10)
+                    .waRise(1)
+            }
+
             HStack(spacing: 8) {
                 HomeAction(icon: "creditcard.and.123", label: L("wa_action_topup"), index: 1) { host.push(.topup) }
                 HomeAction(icon: "arrow.up.right", label: L("wa_action_transfer"), index: 2) { host.push(.transfer) }
@@ -237,9 +244,14 @@ private struct WaHeroCard: View {
                 .padding(.bottom, 10)
 
                 HStack(spacing: 0) {
-                    HeroPart(icon: "checkmark", label: L("wa_withdrawable"), value: hidden ? "****" : "\(money(balance.withdrawableMinor)) \(currency)") { host.openSheet(.explain) }
+                    HeroPart(icon: "checkmark", label: L("wa_withdrawable"), value: hidden ? "****" : "\(money(balance.withdrawableMinor)) \(currency)", dot: We.withdrawable) { host.openSheet(.explain) }
                     Color.white.opacity(0.22).frame(width: 1, height: 34)
-                    HeroPart(icon: "gift.fill", label: L("wa_spend_only"), value: hidden ? "****" : "\(money(balance.spendOnlyMinor)) \(currency)") { host.openSheet(.explain) }
+                    HeroPart(icon: "gift.fill", label: L("wa_spend_only"), value: hidden ? "****" : "\(money(balance.spendOnlyMinor)) \(currency)", dot: We.spendOnly) { host.openSheet(.explain) }
+                    // Watch & Earn rewards: spent anywhere in the app, never withdrawn (same colour on every page).
+                    Color.white.opacity(0.22).frame(width: 1, height: 34)
+                    HeroPart(icon: "trophy.fill", label: L("we_reward_balance"), value: hidden ? "****" : "\(money(balance.rewardMinor)) \(currency)", dot: We.reward) {
+                        WatchEarnLink.shared.show(.rewards)
+                    }
                 }
                 .padding(.vertical, 9)
                 .padding(.horizontal, 4)
@@ -316,6 +328,7 @@ private struct HeroPart: View {
     let icon: String
     let label: String
     let value: String
+    var dot: Color? = nil
     let action: () -> Void
 
     var body: some View {
@@ -324,6 +337,12 @@ private struct HeroPart: View {
                 HStack(spacing: 6) {
                     Image(systemName: icon).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.92))
                     Text(label).font(.dorr(11)).foregroundStyle(.white.opacity(0.86)).lineLimit(1)
+                    // The bucket's colour, the same on every page (wallet, ad wallet, Watch & Earn).
+                    if let dot {
+                        Circle().fill(dot).frame(width: 7, height: 7)
+                            .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1))
+                            .padding(.leading, -1)
+                    }
                 }
                 Text(verbatim: "\u{2066}\(value)\u{2069}").font(.dorr(14, .heavy)).foregroundStyle(.white).lineLimit(1)
             }

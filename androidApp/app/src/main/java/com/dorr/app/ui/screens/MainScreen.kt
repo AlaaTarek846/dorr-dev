@@ -155,6 +155,7 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
+                com.dorr.app.chat.ChatDeepLink.ParentChildren -> { walletOpen = false; chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Service -> {
                     walletOpen = false
                     chatOpen = false
@@ -187,10 +188,17 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Support,
-                com.dorr.app.chat.ChatDeepLink.Security -> {
+                com.dorr.app.chat.ChatDeepLink.Security,
+                com.dorr.app.chat.ChatDeepLink.Verification -> {
                     walletOpen = false
                     chatOpen = false
                     currentTab = 3
+                }
+                is com.dorr.app.chat.ChatDeepLink.WatchEarn -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.watchearn.WatchEarnLink.openFromPush(link.event, link.adId, link.role)
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Call -> {
                     com.dorr.app.chat.CallController.loadIncoming(link.id)
@@ -486,6 +494,17 @@ fun MainScreen(
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
         com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.freelance.FreelanceHost(onExit = { freelanceOpen = false }) }
+    }
+
+    // Watch & Earn: watch ads and earn, my ads, the ad wallet — opened from the wallet, the chat list, Home and Account.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.watchearn.WatchEarnLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.theme.ProvideAppFont {
+            com.dorr.app.ui.screens.watchearn.WatchEarnHost(onExit = { com.dorr.app.ui.screens.watchearn.WatchEarnLink.close() })
+        }
     }
 
     // The one payment screen, over whatever opened it.

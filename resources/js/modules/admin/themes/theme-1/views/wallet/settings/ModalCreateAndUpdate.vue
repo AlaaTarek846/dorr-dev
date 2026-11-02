@@ -61,6 +61,21 @@
                                     <span></span>
                                 </div>
                             </div>
+                            <!-- Watch & Earn D20: off = rewards are spent in the app only -->
+                            <div class="col-12">
+                                <label class="form-label d-block mb-2">{{ t('wallet.settings.rewards_transferable') }}</label>
+                                <div
+                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
+                                    :class="{ on: form.rewards_transferable }"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="form.rewards_transferable = !form.rewards_transferable"
+                                    @keydown.enter.space.prevent="form.rewards_transferable = !form.rewards_transferable"
+                                >
+                                    <span></span>
+                                </div>
+                                <div class="fs-12 text-muted mt-1">{{ t('wallet.settings.rewards_transferable_hint') }}</div>
+                            </div>
                             <div v-for="f in transferFields" :key="f" class="col-md-4">
                                 <label :for="`ws-${f}`" class="form-label">{{ t(`wallet.settings.${f}`) }}</label>
                                 <div class="input-group">
@@ -220,6 +235,7 @@ const form = reactive({
     country_id: null,
     country_code: '',
     transfers_enabled: false,
+    rewards_transferable: false,
     transfer_fee_percent: '0',
     transfer_fee_payer: 'recipient',
     ...Object.fromEntries(moneyFields.map((field) => [field, ''])),
@@ -262,6 +278,7 @@ function fillForm(row) {
         country_id: row.country_id,
         country_code: row.country_code,
         transfers_enabled: Boolean(row.transfers_enabled),
+        rewards_transferable: Boolean(row.rewards_transferable),
         transfer_fee_percent: row.transfer_fee_percent != null ? String(row.transfer_fee_percent) : '0',
         transfer_fee_payer: row.transfer_fee_payer || 'recipient',
     });
@@ -305,6 +322,7 @@ async function submit() {
 
     const payload = {
         transfers_enabled: form.transfers_enabled,
+        rewards_transferable: form.rewards_transferable,
         transfer_fee_percent: Number(String(form.transfer_fee_percent).replace(',', '.')),
         transfer_fee_payer: form.transfer_fee_payer,
     };

@@ -123,6 +123,28 @@ internal fun AddonsRow(state: RidesState, quote: RideQuoteDto) {
         Text(stringResource(R.string.rd_change), color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = accent, modifier = Modifier.size(18.dp))
     }
+    // O-88: what the choice does to the search — never a silent «nothing happens».
+    val keys = quote.options.map { it.key }.toSet()
+    val needs = listOfNotNull(
+        stringResource(R.string.ad_needs_pet).takeIf { "pet" in keys },
+        stringResource(R.string.ad_needs_child_seat).takeIf { "child_seats" in keys },
+    )
+    if (needs.isNotEmpty()) {
+        val count = quote.equippedNearby
+        val none = count == 0
+        Text(
+            if (none) stringResource(R.string.ad_none_equipped, needs.joinToString(" + ")) else stringResource(R.string.ad_only_equipped, needs.joinToString(" + "), count ?: 0),
+            color = if (none) AppColors.danger else settingsMut(), fontSize = 12.sp, fontWeight = if (none) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(12.dp))
+                .background(if (none) AppColors.danger.copy(alpha = 0.08f) else accent.copy(alpha = 0.06f)).padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+    }
+    if ("wait_save" in keys) {
+        Text(
+            stringResource(R.string.ad_wait_save_starts, (offer.waitSave?.extraWaitS ?: 300) / 60), color = AppColors.success, fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(12.dp)).background(AppColors.success.copy(alpha = 0.08f)).padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+    }
     if (open) AddonsSheet(state, quote, onClose = { open = false })
 }
 

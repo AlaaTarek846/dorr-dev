@@ -137,7 +137,6 @@ return [
         'queue.stats_days' => 14,                         // …from the last this-many days
         'zones.alert_cooldown_s' => 600,                  // D-283: the same restricted-area alert at most this often per captain
         'stops.max' => 3,
-        // R-233..R-237, R-NEW-06: trip add-ons (each opened by its switch); the fees are the captain's.
         'lost_items.report_days' => 7,                    // D-294: a lost item can be reported this long after the ride
         'drivers.require_terms' => false,                 // D-318: newer terms than accepted keep a captain offline until accepted
         'ops.driver_maintenance' => false,                // D-329: the captain side is under maintenance — nobody goes online
@@ -160,6 +159,7 @@ return [
         'loyalty.tier_window_days' => 365,                 // a tier counts the points of this many days
         'loyalty.committed_window_days' => 30,             // the committed rider: no ride cancelled by them after acceptance in these days…
         'loyalty.committed_bonus_bp' => 2000,              // …earns this much more on every ride (2000 = +20%)
+        // R-233..R-237, R-NEW-06: trip add-ons (each opened by its switch); the fees are the captain's.
         'addons.wait_save_discount_bp' => 1000,            // Wait & Save: 10% off the fare (DORR's, like a coupon)
         'addons.wait_save_delay_s' => 300,                 // …for a search that starts this much later
         'addons.priority_fee_minor' => 500,                // priority pickup: the fee; the search starts a ring wider
@@ -183,6 +183,9 @@ return [
         'search.max_search_s' => 600,                     // Jawad: 10 minutes
         'payment.await_s' => 900,                         // a card ride not paid within 15 minutes expires
         'search.refuse_cooldown_s' => 300,                // Jawad
+        'bids.resend_after_s' => 120,                     // O-75: an Offers request goes back to a captain who let it go after this
+        'hourly.mode' => 'category',                      // O-89: category (its «by the hour only» switch) / hourly / distance — per country & category
+        'notify.driver_arriving_s' => 180,                // O-72: the rider is told when the captain is this far (in time) from the pickup (0 = off)
 
         'driver.stale_after_s' => 900,                    // Jawad: 15 minutes
         'driver.min_balance_minor' => -5000,              // Jawad: driver_min_to_get_ride

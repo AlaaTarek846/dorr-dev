@@ -67,6 +67,16 @@ sealed interface ChRoute {
     data class Thread(val conversationId: String, val rootId: String) : ChRoute
     /** A group's decisions log (spec 120). */
     data class Decisions(val conversationId: String, val isAdmin: Boolean) : ChRoute
+
+    /** An educational group's classroom: lessons, homework, tests, sessions (GR-011..017). */
+    data class Classroom(val conversationId: String) : ChRoute
+
+    /** My children in educational groups, as their parent (GR-018, 019 — D8), and one child's page. */
+    data object ParentChildren : ChRoute
+    data class ParentChild(val linkId: String, val title: String) : ChRoute
+
+    /** A work group's tasks (docs/groups_tasks.md GR-033..036). */
+    data class GroupTasks(val conversationId: String, val spaceId: Int? = null, val spaceName: String? = null) : ChRoute
     data object Broadcasts : ChRoute
     data class Broadcast(val id: String) : ChRoute
     /** My tasks (spec 38). */
@@ -465,6 +475,14 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             // Someone posted / removed a story, or my story got a view / reaction: refresh the bar
             // (the open viewer keeps its own snapshot so it never jumps under the finger).
             "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction" -> scope.launch { refreshStories() }
+            // The ✔ of someone I chat with changed (account verification): their chats show it at once.
+            "account.verification.changed" -> {
+                val who = data.str("participant") ?: return
+                val verified = data.bool("is_verified") == true
+                conversations.forEachIndexed { i, c ->
+                    if (c.peer?.key == who && c.peer.isVerified != verified) conversations[i] = c.copy(peer = c.peer.copy(isVerified = verified))
+                }
+            }
             "chat.presence" -> {
                 val who = data.str("participant") ?: return
                 presence[who] = PresenceDto(online = data.bool("online") == true, lastSeenAt = data.str("last_seen_at"))

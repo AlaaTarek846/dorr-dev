@@ -34,6 +34,11 @@ struct ChatListPage: View {
                 if !searching && !specialLists.contains(host.filter) {
                     FilterChips(host: host).transition(.move(edge: .top).combined(with: .opacity))
                 }
+                // Watch & Earn (D17): a slim card the person can hide (it comes back from the chat settings).
+                if !searching && host.filter == "all" {
+                    WatchEarnChatCard(insets: EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 list
             }
             SpeedDial(host: host).padding(.trailing, 20).padding(.bottom, 24)

@@ -32,8 +32,9 @@ class ReconcileWallets extends Command
             foreach ($chunk as $wallet) {
                 $computedWithdrawable = $this->sumBucket($wallet->id, WalletBucket::Withdrawable);
                 $computedSpendOnly = $this->sumBucket($wallet->id, WalletBucket::SpendOnly);
+                $computedReward = $this->sumBucket($wallet->id, WalletBucket::Reward);
 
-                if ($computedWithdrawable !== $wallet->withdrawable_minor || $computedSpendOnly !== $wallet->spend_only_minor) {
+                if ($computedWithdrawable !== $wallet->withdrawable_minor || $computedSpendOnly !== $wallet->spend_only_minor || $computedReward !== (int) $wallet->reward_minor) {
                     $mismatches++;
 
                     Log::error('wallet:reconcile mismatch', [
@@ -41,16 +42,19 @@ class ReconcileWallets extends Command
                         'stored' => [
                             'withdrawable_minor' => $wallet->withdrawable_minor,
                             'spend_only_minor' => $wallet->spend_only_minor,
+                            'reward_minor' => (int) $wallet->reward_minor,
                         ],
                         'computed' => [
                             'withdrawable_minor' => $computedWithdrawable,
                             'spend_only_minor' => $computedSpendOnly,
+                            'reward_minor' => $computedReward,
                         ],
                     ]);
 
                     $this->error(
                         "Wallet #{$wallet->id}: mismatch — stored withdrawable={$wallet->withdrawable_minor} computed={$computedWithdrawable}; ".
-                        "stored spend_only={$wallet->spend_only_minor} computed={$computedSpendOnly}",
+                        "stored spend_only={$wallet->spend_only_minor} computed={$computedSpendOnly}; ".
+                        "stored reward={$wallet->reward_minor} computed={$computedReward}",
                     );
 
                     continue;

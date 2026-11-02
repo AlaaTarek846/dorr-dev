@@ -52,7 +52,7 @@ class DriverOnboardingTest extends TestCase
         $this->assertSame(['driving_license', 'vehicle_registration'], array_column(array_column($state['required_documents'], 'type'), 'code'), 'a citizen never sees the residents-only permit');
         $this->postJson('/api/driver/v1/onboarding/submit')->assertUnprocessable()->assertJsonPath('error_code', 'driver_onboarding_incomplete');
 
-        $this->putJson('/api/driver/v1/profile', ['name' => 'Ahmed Ali', 'national_id' => '1012345678', 'id_type' => 'national_id', 'date_of_birth' => '1990-05-15'])
+        $this->putJson('/api/driver/v1/profile', ['name' => 'Ahmed Ali', 'national_id' => '1012345678', 'id_type' => 'national_id', 'date_of_birth' => '1990-05-15', 'gender' => 'male'])
             ->assertOk()->assertJsonPath('data.steps.profile', true);
 
         $make = VehicleMake::query()->create(['status' => true]);

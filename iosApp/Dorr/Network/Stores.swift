@@ -203,9 +203,10 @@ final class WalletCountry: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.hereKey)
     }
 
-    /// For the HTTP client (any thread): the header value for a wallet request, if I chose another wallet.
+    /// For the HTTP client (any thread): the header value for a wallet request, if I chose another wallet. Watch & Earn
+    /// works on the same wallet (rewards land in it, the ad wallet is funded from it), so it follows too.
     nonisolated static func headerFor(path: String) -> String? {
-        guard path.contains("/v1/wallet") else { return nil }
+        guard path.contains("/v1/wallet") || path.contains("/v1/watch-earn") else { return nil }
         return UserDefaults.standard.string(forKey: selectedKey)
     }
 }

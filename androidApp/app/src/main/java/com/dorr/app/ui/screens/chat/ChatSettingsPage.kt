@@ -22,6 +22,8 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mood
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlayCircleFilled
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.QrCode2
@@ -86,12 +89,15 @@ fun ChatSettingsPage() {
     var comfort by remember { mutableStateOf(false) }
     var aiImagesOpen by remember { mutableStateOf(false) }
     var memoryOpen by remember { mutableStateOf(false) }
+    // Educational / work groups I deleted that can still come back (GR-006).
+    var deletedOpen by remember { mutableStateOf(false) }
     val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
 
     if (themeSheet) ThemeSheet { themeSheet = false }
     if (comfort) ChatComfortSheet { comfort = false }
     if (aiImagesOpen) ChatAiImagesSheet(onDismiss = { aiImagesOpen = false }) { c, m -> aiImagesOpen = false; openAt(c, m) }
     if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
+    if (deletedOpen) DeletedGroupsSheet { deletedOpen = false }
 
     BackHandler(enabled = section != ChatSetSection.Menu) { host.chatSettingsSection = ChatSetSection.Menu }
 
@@ -134,7 +140,10 @@ fun ChatSettingsPage() {
                         ChatSettingsGroup(dark) {
                             ChatSettingsRow(Icons.Rounded.QrCode2, R.string.ch_my_qr, dark) { host.push(ChRoute.MyQr) }
                             ChatSettingsRow(Icons.Rounded.Mood, R.string.ch_status_title, dark) { host.push(ChRoute.MyStatus) }
-                            ChatSettingsRow(Icons.Rounded.Campaign, R.string.ch_channels, dark, last = true) { host.push(ChRoute.Channels) }
+                            ChatSettingsRow(Icons.Rounded.Campaign, R.string.ch_channels, dark) { host.push(ChRoute.Channels) }
+                            // My children in educational groups, as their parent (GR-018, 019).
+                            ChatSettingsRow(Icons.Rounded.FamilyRestroom, R.string.pa_children, dark) { host.push(ChRoute.ParentChildren) }
+                            ChatSettingsRow(Icons.Rounded.Restore, R.string.ch_deleted_groups, dark, last = true) { deletedOpen = true }
                         }
                     }
                     ChatSetSection.Privacy -> item {
@@ -174,7 +183,14 @@ fun ChatSettingsPage() {
                                 Icons.Rounded.DarkMode, R.string.ch_theme, dark,
                                 value = stringResource(chatThemeLabel(com.dorr.app.chat.ChatStore.themeMode)),
                             ) { themeSheet = true }
-                            ChatSettingsRow(Icons.Rounded.TextFields, R.string.cp_comfort, dark, last = true) { comfort = true }
+                            ChatSettingsRow(Icons.Rounded.TextFields, R.string.cp_comfort, dark) { comfort = true }
+                            // The Watch & Earn card at the top of the chat list: hidden from its ×, shown again here.
+                            com.dorr.app.ui.screens.watchearn.WatchEarnPrefs.load(context)
+                            val weHidden = com.dorr.app.ui.screens.watchearn.WatchEarnPrefs.chatCardHidden
+                            ChatSettingsRow(
+                                Icons.Rounded.PlayCircleFilled, R.string.we_chat_card_setting, dark, last = true,
+                                value = stringResource(if (weHidden) R.string.we_off else R.string.we_on),
+                            ) { com.dorr.app.ui.screens.watchearn.WatchEarnPrefs.setChatCardHidden(context, !weHidden) }
                         }
                     }
                     ChatSetSection.Data -> item {

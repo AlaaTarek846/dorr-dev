@@ -84,6 +84,13 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('driver-payouts/{driver}/freeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'freeze'])->whereNumber('driver');
         Route::post('driver-payouts/{driver}/unfreeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'unfreeze'])->whereNumber('driver');
         // D-239..D-259: captain ranks — the ranks, one captain's record, appeals.
+        // O-89: captain services, and per country which kind of vehicle works in which.
+        Route::get('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'index']);
+        Route::post('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'store']);
+        Route::put('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'update'])->whereNumber('id');
+        Route::delete('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'destroy'])->whereNumber('id');
+        Route::get('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'rules']);
+        Route::put('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'saveRules']);
         Route::get('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'index']);
         Route::post('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'store']);
         Route::put('driver-ranks/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'update'])->whereNumber('id');

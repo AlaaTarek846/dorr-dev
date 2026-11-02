@@ -1,6 +1,6 @@
 # Android App (`androidApp/`)
 
-**Last updated:** 2026-10-14
+**Last updated:** 2026-11-02
 
 Native Kotlin app for end users. It talks to the Laravel backend through `/api/mobile/v1/*` (guard `user_api`, Sanctum Bearer token) and `general/v1/services` for the service catalog. There is no Provider or Admin app here.
 
@@ -45,6 +45,13 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
 - **Following the ride:** polled every 3–4 s (searching radar → captain card with rating, car, a drawn plate, the PIN → free-waiting countdown at pickup → on the way); chat sheet (ready-made messages + text, closed when the ride ends); cancel sheet showing the fee first, with reasons; at the end the receipt lines and the rating (stars + tags + comment).
 - **Bidding (`RidesBidding.kt`):** a bid category shows "Name your price"; the sheet's price editor stops at the floor. After booking: my price with +5 / +10 raises, and every captain's offer as a card (cheapest first, cheapest / nearest badges, a draining timer bar, decline / take), polled every 2 s.
 - An active ride is resumed when the screen opens (`GET rides/current`). Strings: `res/values*/rides_strings.xml`.
+
+## Watch & Earn (`ui/screens/watchearn/`, `network/WatchEarnApi.kt`)
+Watch ads and earn wallet rewards; create ads paid from an ad wallet. Spec: [watch-earn/APP.md](../watch-earn/APP.md), endpoints: [watch-earn/API.md](../watch-earn/API.md).
+- **Opened from** the wallet card, the chat list's slim card (hidden from its ×, shown again from chat settings: `WatchEarnPrefs`), the Home banner and the «حسابي» row (D17), through `WatchEarnLink`, an overlay in `MainScreen`. A `type = watch_earn` push opens an ad's stats or my rewards (`ChatDeepLink.WatchEarn`).
+- **Pages (`WatchEarnHost`):** landing, the player (statuses-style; image seconds and the interaction countdown on the device clock), comments sheet, my rewards, the 5-step ad wizard (edit = steps 1–3), my ads, one ad's stats with Canvas charts, the ad wallet (fund behind the wallet PIN with an idempotency key, return).
+- **Live, no polling:** `watch_earn.ad.changed` on the account channel reloads my ads / stats once; `private-watch-earn.ad.{uuid}` carries comments and reaction counts while the comments sheet is open.
+- **Wallet:** `WalletBalanceDto` has `reward_minor`, `rewards_transferable`, `currency_decimals`; a third «رصيد المكافآت» balance and bucket dots on the hero card; the transfer screen offers rewards as the source (`from_bucket = reward`) only where the country allows it. `X-Country` also goes on `/v1/watch-earn` requests. Strings: the `we_*` keys.
 
 ## Behaviour to remember
 
