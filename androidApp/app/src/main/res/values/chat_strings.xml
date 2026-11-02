@@ -123,7 +123,7 @@
     <string name="ch_transfer_done">Transfer successful</string>
     <string name="ch_transfer_reversed">Reversed</string>
     <string name="ch_wallet_qr_title">Wallet QR code</string>
-    <string name="ch_wallet_qr_sub">Scan or tap to send money</string>
+    <string name="ch_wallet_qr_sub">Scan the QR code</string>
     <string name="ch_wallet_qr_pay">Send money</string>
 
     <string name="ch_call_voice">Voice call</string>
@@ -397,6 +397,7 @@
     <string name="ch_money_decline">Decline</string>
     <string name="ch_money_note_hint">Add a note (optional)</string>
     <string name="ch_money_send_request">Request money</string>
+    <string name="ch_money_request_card">Money transfer request</string>
     <string name="ch_money_request_from">%s asked you for money</string>
     <string name="ch_money_requested_from_you">You asked %s for money</string>
     <string name="ch_money_you_requested">You asked for money</string>

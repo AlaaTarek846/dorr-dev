@@ -126,7 +126,7 @@
     <string name="ch_transfer_done">تم التحويل بنجاح</string>
     <string name="ch_transfer_reversed">تم عكسه</string>
     <string name="ch_wallet_qr_title">رمز QR للمحفظة</string>
-    <string name="ch_wallet_qr_sub">امسح أو اضغط لإرسال الأموال</string>
+    <string name="ch_wallet_qr_sub">امسح رمز QR</string>
     <string name="ch_wallet_qr_pay">إرسال أموال</string>
 
     <string name="ch_call_voice">مكالمة صوتية</string>
@@ -400,6 +400,7 @@
     <string name="ch_money_decline">رفض</string>
     <string name="ch_money_note_hint">أضف ملاحظة (اختياري)</string>
     <string name="ch_money_send_request">طلب أموال</string>
+    <string name="ch_money_request_card">طلب تحويل أموال</string>
     <string name="ch_money_request_from">طلب منك %s مبلغًا</string>
     <string name="ch_money_requested_from_you">طلبت من %s مبلغًا</string>
     <string name="ch_money_you_requested">طلبت أنت مبلغًا</string>

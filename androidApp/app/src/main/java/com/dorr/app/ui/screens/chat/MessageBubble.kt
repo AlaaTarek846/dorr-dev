@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallMissed
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -60,6 +61,8 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.RequestQuote
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
@@ -108,6 +111,7 @@ import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.chat.VoicePlayer
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AppLocale
 import com.dorr.app.network.AttachmentDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.ui.screens.wallet.formatMinor
@@ -251,8 +255,7 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
     // Cards that bring their own background (wallet cards, the green money request).
     // A sticker floats on the wallpaper: no bubble, no shadow.
     val bare = dto.type == "sticker" && !dto.isDeleted
-    val sendMoneyGift = dto.type == "wallet_transfer" && !dto.isDeleted && dto.meta?.str("gift") != null
-    val isCard = (dto.type in setOf("wallet_transfer", "wallet_qr", "money_request", "moment_card") || bare) && !dto.isDeleted && !sendMoneyGift
+    val isCard = (dto.type in setOf("wallet_qr", "money_request", "moment_card") || bare) && !dto.isDeleted
     val media = dto.type in setOf("image", "video") && !dto.isDeleted
     val haptic = LocalHapticFeedback.current
 
@@ -404,7 +407,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         "sticker" -> StickerBubble(m, mine) { Footer(m, mine, overlay = true) }
         "gif" -> GifBubble(m, mine) { Footer(m, mine, overlay = true) }
         "money_request" -> MoneyRequestCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
-            Footer(m, mine, overlay = true)
+            Footer(m, mine, overlay = false)
         }
         "bill_split" -> BillSplitCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
             Footer(m, mine, overlay = false)
@@ -926,52 +929,14 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
 @Composable
 private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val amount = meta?.get("amount_minor")?.let { runCatching { it.asLong }.getOrNull() } ?: 0L
-    val currency = meta?.str("currency_symbol") ?: meta?.str("currency")
+    val currency = meta?.str("currency") ?: meta?.str("currency_symbol")
     val reversed = meta?.bool("is_reversed") == true
     val check = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { check.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 260f)) }
-    // Send-money gift card: receipt layout, chat colours, compact. Shared transfer receipts stay below.
-    val gift = giftOf(meta?.str("gift"))
-    if (gift != null) {
-        SendMoneyGiftCard(meta, m, mine, amount, meta?.str("currency") ?: currency, reversed, gift, check.value)
-        return
-    }
-    Column(
-        Modifier.width(262.dp).clip(RoundedCornerShape(20.dp)).background(Ch.HeaderBrush).padding(16.dp),
-    ) {
-        if (gift != null) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(gift.first, fontSize = 46.sp, modifier = Modifier.scale(0.6f + 0.4f * check.value))
-                Text(gift.second, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).scale(check.value).clip(CircleShape).background(Ch.Surface), contentAlignment = Alignment.Center) {
-                Icon(if (reversed) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(stringResource(R.string.ch_transfer_receipt), color = Color.White.copy(alpha = 0.85f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(stringResource(if (reversed) R.string.ch_transfer_reversed else R.string.ch_transfer_done), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(formatMinor(amount, currency), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
-        }
-        Spacer(Modifier.height(6.dp))
-        meta?.str("recipient_name")?.let { Text(stringResource(R.string.ch_transfer_to, it), color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-        meta?.str("recipient_wallet_number")?.let { Text(it, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp) }
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.25f)))
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("#" + meta?.str("transaction_id").orEmpty().take(8).uppercase(), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Footer(m, true, overlay = false)
-        }
-    }
+    SendMoneyGiftCard(meta, m, mine, amount, currency, reversed, giftOf(meta?.str("gift")), check.value)
 }
 
-/** Send-money with an occasion: same receipt sections as a bank slip, in chat colours, smaller. */
+/** Compact transfer receipt in the chat bubble: title row, success well, recipient, time + ref. */
 @Composable
 private fun SendMoneyGiftCard(
     meta: JsonObject?,
@@ -980,7 +945,7 @@ private fun SendMoneyGiftCard(
     amount: Long,
     currency: String?,
     reversed: Boolean,
-    gift: Pair<String, String>,
+    gift: Pair<String, String>?,
     check: Float,
 ) {
     val context = LocalContext.current
@@ -994,13 +959,30 @@ private fun SendMoneyGiftCard(
     val line = if (mine) Ch.OutText.copy(alpha = 0.25f) else Ch.Line
     val mark = if (mine) Ch.OutText else Ch.Red
     Column(
-        Modifier.width(220.dp).padding(horizontal = 10.dp, vertical = 10.dp),
+        Modifier.width(200.dp).padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(gift.first, fontSize = 28.sp, modifier = Modifier.scale(0.85f + 0.15f * check))
-        Text(gift.second, color = ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        Text(stringResource(R.string.ch_transfer_receipt), color = mut, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
+        if (gift != null) {
+            Text(gift.first, fontSize = 28.sp, modifier = Modifier.scale(0.85f + 0.15f * check))
+            Text(gift.second, color = ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.ch_transfer_receipt), color = mut, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(26.dp).clip(CircleShape).background(mark.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.RequestQuote, null, tint = mark, modifier = Modifier.size(15.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.ch_transfer_receipt),
+                    color = ink, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(well).padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -1019,15 +1001,29 @@ private fun SendMoneyGiftCard(
                 )
             }
             androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Text(
-                    formatMinor(amount, null),
-                    color = ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        formatMinor(amount, null),
+                        color = ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+                    )
+                    if (!currency.isNullOrBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(currency, color = mut, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 1.dp))
+                    }
+                }
             }
-            if (!currency.isNullOrBlank()) {
-                Box(Modifier.padding(top = 2.dp).width(40.dp).height(1.dp).background(line))
-                Text(currency, color = mut, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+            if (gift == null) {
+                val day = parseInstant(meta?.str("transferred_at") ?: m.dto.createdAt)?.let {
+                    java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy", AppLocale.java()).withZone(java.time.ZoneId.systemDefault()).format(it)
+                }
+                if (!day.isNullOrBlank()) {
+                    Box(Modifier.padding(top = 4.dp).width(40.dp).height(1.dp).background(line))
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CalendarMonth, null, tint = mut, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(day, color = mut, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1074,28 +1070,45 @@ private fun WalletQrCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions
     val payload = meta?.str("qr_payload").orEmpty()
     val bitmap = remember(payload) { runCatching { qrImage(payload) }.getOrNull() }
     Column(
-        Modifier.width(250.dp).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface),
+        Modifier.width(200.dp).shadow(3.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.fillMaxWidth().background(Ch.HeaderBrush).padding(12.dp)) {
+        Box(Modifier.fillMaxWidth().background(Ch.HeaderBrush).padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.QrCode2, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(stringResource(R.string.ch_wallet_qr_title), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(meta?.str("owner_name").orEmpty(), color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                }
+                Icon(Icons.Rounded.QrCode2, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.ch_wallet_qr_title), color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
         if (bitmap != null) {
-            Image(bitmap.asImageBitmap(), null, modifier = Modifier.padding(top = 14.dp).size(150.dp))
+            Image(bitmap.asImageBitmap(), null, modifier = Modifier.padding(top = 8.dp).size(118.dp))
         }
-        Text(meta?.str("wallet_number").orEmpty(), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 6.dp))
-        Text(stringResource(R.string.ch_wallet_qr_sub), color = Ch.Mut, fontSize = 11.5.sp)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(meta?.str("wallet_number").orEmpty(), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Red.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(Ch.Line))
+            androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.QrCodeScanner, null, tint = Ch.Mut, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.ch_wallet_qr_sub), color = Ch.Mut, fontSize = 11.sp)
+                }
+            }
+        }
         if (!mine && payload.isNotEmpty()) {
-            ChPrimaryButton(stringResource(R.string.ch_wallet_qr_pay), modifier = Modifier.padding(12.dp).fillMaxWidth(), icon = Icons.Rounded.QrCode2) { actions.onPayQr(payload) }
+            ChPrimaryButton(stringResource(R.string.ch_wallet_qr_pay), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 8.dp).fillMaxWidth(), icon = Icons.Rounded.QrCode2) { actions.onPayQr(payload) }
         }
-        Footer(m, mine = false, overlay = false, modifier = Modifier.align(Alignment.End).padding(end = 12.dp, bottom = 8.dp, top = if (mine) 10.dp else 0.dp))
+        Footer(m, mine = false, overlay = false, modifier = Modifier.align(Alignment.End).padding(end = 10.dp, bottom = 8.dp, top = if (mine) 4.dp else 0.dp))
     }
 }
 

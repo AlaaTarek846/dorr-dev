@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+- **Android money-request card (2026-11-01):** title uses the fixed chat strings (`ch_money_you_requested` / `ch_money_request_from` with the sender name — the leaked `s%` was an unfilled `%s`); amount shows the wallet currency code (SAR), not the symbol; card is smaller.
 - **Android send-money gift card (2026-11-01):** «ابعت فلوس» with an occasion uses a compact receipt inside a normal chat bubble (`Ch.OutBubble` / `Ch.InBubble`). Sharing a transfer receipt is unchanged.
 - **Chat calls (2026-11-01):** starting a direct call again while **your own** previous one is still ringing cancels that leftover and places a new call, instead of `409 chat_call_busy` forever. Someone else calling into that chat is still busy. Test: `ChatTest::test_a_call_rings_is_answered_and_ends_with_a_line_in_the_chat`.
 - **Android share-a-transfer picker (2026-11-01):** the attach-sheet picker loads 15 outgoing transfers at a time (`type=transfer_out`) and the next page when the list nears its end.

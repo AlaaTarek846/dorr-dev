@@ -63,6 +63,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android money-request card (2026-11-01):** title from `chat_strings` with the name filled in; amount uses currency code; smaller card.
 - **Android send-money gift card (2026-11-01):** send-money with `meta.gift` is a compact receipt in chat colours; attach-sheet transfer receipts keep the old red card.
 - **Chat calls (2026-11-01):** a second start of my own still-ringing 1:1 call cancels the leftover and starts a new one (`409` only when the other person already has a call in that chat). Android no longer hangs up a ringing call when LiveKit closes an empty room.
 - **Android share-a-transfer picker (2026-11-01):** «اختر تحويلا لمشاركته» pages 15 (`GET wallet/transactions?type=transfer_out&page=&per_page=15`); next page near the end of the list.
