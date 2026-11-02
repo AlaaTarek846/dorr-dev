@@ -1092,7 +1092,9 @@ enum ChatApi {
     static func groupSettings(_ id: String, _ body: [String: Any?]) async throws -> ApiEnvelope<ConversationDto> {
         try await ApiClient.snake("\(base)/groups/\(id)/settings", method: "PATCH", body: json(body))
     }
-    static func communities() async throws -> ApiEnvelope<[CommunityDto]> { try await ApiClient.snake("\(base)/communities") }
+    static func communities(page: Int = 1, perPage: Int = 15, q: String? = nil) async throws -> ApiEnvelope<[CommunityDto]> {
+        try await ApiClient.snake("\(base)/communities", query: ["page": String(page), "per_page": String(perPage), "q": q])
+    }
     static func createCommunity(_ body: [String: Any?]) async throws -> ApiEnvelope<CommunityDto> { try await ApiClient.snake("\(base)/communities", method: "POST", body: json(body)) }
     static func community(_ id: String) async throws -> ApiEnvelope<CommunityDto> { try await ApiClient.snake("\(base)/communities/\(id)") }
     static func updateCommunity(_ id: String, _ body: [String: String]) async throws -> ApiEnvelope<CommunityDto> {
@@ -1256,14 +1258,18 @@ enum ChatApi {
 
     // Calls
 
-    static func calls() async throws -> ApiEnvelope<[CallDto]> { try await ApiClient.snake("\(base)/calls") }
+    static func calls(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[CallDto]> {
+        try await ApiClient.snake("\(base)/calls", query: ["page": String(page), "per_page": String(perPage)])
+    }
     static func startCall(_ conversation: String, type: String, recordingConsent: Bool = false) async throws -> ApiEnvelope<CallSessionDto> {
         var body: [String: JSONValue] = ["type": .string(type)]
         if recordingConsent { body["recording_consent"] = .string("1") }
         return try await ApiClient.snake("\(base)/conversations/\(conversation)/calls", method: "POST", body: body)
     }
     static func call(_ id: String) async throws -> ApiEnvelope<CallDto> { try await ApiClient.snake("\(base)/calls/\(id)") }
-    static func callLinks() async throws -> ApiEnvelope<[CallLinkDto]> { try await ApiClient.snake("\(base)/call-links") }
+    static func callLinks(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[CallLinkDto]> {
+        try await ApiClient.snake("\(base)/call-links", query: ["page": String(page), "per_page": String(perPage)])
+    }
     static func createCallLink(type: String) async throws -> ApiEnvelope<CallLinkDto> { try await ApiClient.snake("\(base)/call-links", method: "POST", body: ["type": .string(type)]) }
     static func callLink(_ token: String) async throws -> ApiEnvelope<CallLinkDto> { try await ApiClient.snake("\(base)/call-links/\(token)") }
     static func joinCallLink(_ token: String) async throws -> ApiEnvelope<CallLinkJoinDto> { try await ApiClient.snake("\(base)/call-links/\(token)/join", method: "POST", body: [:]) }

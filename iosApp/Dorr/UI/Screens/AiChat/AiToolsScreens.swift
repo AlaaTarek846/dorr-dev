@@ -176,6 +176,8 @@ struct AiSearchScreen: View {
 struct AiMemoryScreen: View {
     @Environment(\.wa) private var wa
     let onExit: () -> Void
+    /// Opened from a chat: the settings look (pink backdrop, small header) instead of DORR AI's.
+    var settingsHeader = false
     @State private var enabled = true
     @State private var memories: [AiMemoryDto] = []
     @State private var loading = true
@@ -203,13 +205,19 @@ struct AiMemoryScreen: View {
         }
     }
 
+    @ViewBuilder private var deleteAllAction: some View {
+        if !memories.isEmpty {
+            Button { confirmDeleteAll = true } label: { Text(L("ai_tools_memory_delete_all")).font(.dorr(12.5, .bold)).foregroundStyle(aiDanger).padding(8) }.buttonStyle(.plain)
+        }
+    }
+
     var body: some View {
         let c = wa.ai
         VStack(spacing: 0) {
-            AiToolHeader(title: L("ai_tools_memory_title"), onBack: onExit) {
-                if !memories.isEmpty {
-                    Button { confirmDeleteAll = true } label: { Text(L("ai_tools_memory_delete_all")).font(.dorr(12.5, .bold)).foregroundStyle(aiDanger).padding(8) }.buttonStyle(.plain)
-                }
+            if settingsHeader {
+                SubHeader(title: L("ai_tools_memory_title"), onBack: onExit, trailing: AnyView(deleteAllAction))
+            } else {
+                AiToolHeader(title: L("ai_tools_memory_title"), onBack: onExit) { deleteAllAction }
             }
             // Memory on / off (spec 143).
             HStack {
@@ -263,7 +271,7 @@ struct AiMemoryScreen: View {
                 }
             }
         }
-        .background(c.bg.ignoresSafeArea())
+        .background { if settingsHeader { PinkBackdrop().ignoresSafeArea() } else { c.bg.ignoresSafeArea() } }
         .task {
             do {
                 if let m = try await AiAssistantApi.memories().data {

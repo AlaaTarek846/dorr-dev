@@ -427,11 +427,37 @@ struct BroadcastsPage: View {
     @ObservedObject var host: ChatHost
     @ObservedObject private var ch = Ch.shared
     @State private var lists: [BroadcastDto]?
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
     @State private var creating = false
     @State private var fromFolder = false
 
+    private func loadPage(reset: Bool) async {
+        if !reset && (loadingMore || !hasMore) { return }
+        if !reset { loadingMore = true }
+        let next = reset ? 1 : page + 1
+        let envelope = try? await OrganizeApi.broadcasts(page: next, perPage: 15)
+        let chunk = envelope?.data ?? []
+        if reset {
+            lists = chunk
+        } else {
+            let known = Set((lists ?? []).map(\.id))
+            lists = (lists ?? []) + chunk.filter { !known.contains($0.id) }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if !reset { loadingMore = false }
+    }
+
+    /// A list just made goes on top (and opens).
+    fileprivate func opened(_ b: BroadcastDto) {
+        lists = [b] + (lists ?? []).filter { $0.id != b.id }
+        host.push(.broadcast(b.id))
+    }
+
     var body: some View {
-        ChPage(title: L("ch_broadcasts"), onBack: { host.pop() }) {
+        ChSettingsPage(title: L("ch_broadcasts"), onBack: { host.pop() }) {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     Button { creating = true } label: {
@@ -483,7 +509,9 @@ struct BroadcastsPage: View {
                             }
                             .buttonStyle(.plain)
                             .chStagger(i)
+                            .onAppear { if i >= items.count - 3 { Task { await loadPage(reset: false) } } }
                         }
+                        if loadingMore { ProgressView().tint(ch.red).padding(12) }
                     } else {
                         ForEach(0..<3, id: \.self) { _ in WaSkeleton().frame(height: 70).clipShape(RoundedRectangle(cornerRadius: 20)) }
                     }
@@ -493,7 +521,7 @@ struct BroadcastsPage: View {
         }
         .task {
             await host.refreshFolders()
-            lists = (try? await OrganizeApi.broadcasts().data) ?? []
+            await loadPage(reset: true)
         }
         .dorrDialog(isPresented: $fromFolder, bottom: true) {
             ChoiceSheet(title: L("bk_broadcast_from_folder"), subtitle: L("bk_broadcast_from_folder_sub"), options: host.folders.map { f in
@@ -505,7 +533,7 @@ struct BroadcastsPage: View {
             PeoplePickerSheet(initial: [], onDismiss: { creating = false }) { ids in
                 creating = false
                 Task {
-                    do { if let b = try await OrganizeApi.createBroadcast(members: ids).data { host.push(.broadcast(b.id)) } } catch {
+                    do { if let b = try await OrganizeApi.createBroadcast(members: ids).data { opened(b) } } catch {
                         host.showToast(error.apiFailure.message ?? "", error: true)
                     }
                 }
@@ -518,7 +546,7 @@ extension BroadcastsPage {
     /// A list made from one of my folders, then open it.
     fileprivate func fromFolderPick(_ folderId: Int) {
         Task {
-            do { if let b = try await OrganizeApi.broadcastFromFolder(folderId).data { host.push(.broadcast(b.id)) } } catch {
+            do { if let b = try await OrganizeApi.broadcastFromFolder(folderId).data { opened(b) } } catch {
                 if let m = error.apiFailure.message { host.showToast(m, error: true) }
             }
         }
@@ -538,11 +566,29 @@ struct BroadcastPage: View {
     @State private var sheet: String?
 
     var body: some View {
-        ChPage(title: list?.title ?? L("ch_broadcasts"), onBack: { host.pop() }, actions: {
-            DarkHeroButton(icon: "person.2.fill", label: L("ch_broadcast_pick")) { sheet = "people" }
-            DarkHeroButton(icon: "pencil", label: L("ch_broadcast_name")) { sheet = "rename" }
-            DarkHeroButton(icon: "trash", label: L("ch_broadcast_delete")) { sheet = "delete" }
-        }) {
+        VStack(spacing: 0) {
+            // The head: who it goes to (tap for the people), then rename / delete / back.
+            DarkHeroPanel {
+                HStack(spacing: 8) {
+                    Button { sheet = "people" } label: {
+                        HStack(spacing: 8) {
+                            ChAvatar(url: nil, name: list?.title ?? L("ch_broadcasts"), key: list?.title, size: 34, isGroup: true)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(verbatim: list?.title ?? L("ch_broadcasts")).font(.dorr(16, .bold)).foregroundStyle(.white).lineLimit(1)
+                                Text(L("ch_broadcast_people", list?.membersCount ?? 0)).font(.dorr(12.5)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    DarkHeroButton(icon: "person.2.fill", label: L("ch_broadcast_people", list?.membersCount ?? 0)) { sheet = "people" }
+                    DarkHeroButton(icon: "pencil", label: L("ch_broadcast_name")) { sheet = "rename" }
+                    DarkHeroButton(icon: "trash", label: L("ch_broadcast_delete")) { sheet = "delete" }
+                    DarkHeroButton(icon: "chevron.right", label: L("common_back")) { host.pop() }
+                }
+            }
+            .padding(.horizontal, 16)
             VStack(spacing: 0) {
                 ScrollView {
                     LazyVStack(spacing: 8) {
@@ -578,7 +624,9 @@ struct BroadcastPage: View {
                 .padding(10)
                 .background(ch.surface)
             }
+            .frame(maxHeight: .infinity)
         }
+        .background(ch.bg.ignoresSafeArea())
         .task { await load() }
         .onChange(of: item) { picked in
             Task { if let data = try? await picked?.loadTransferable(type: Data.self) { photo = UIImage(data: data) } }

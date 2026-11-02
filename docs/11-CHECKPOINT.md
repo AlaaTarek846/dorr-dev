@@ -63,6 +63,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **iOS wallet (2026-10-28):** done — every Android wallet screen and flow in `iosApp/Dorr/UI/Wallet/`, marked ✅ in the iOS parity table. Next on iOS: to be chosen by the owner.
+- **iOS app (2026-10-28):** `iosApp/` SwiftUI foundation (auth flow, tabs, Home/Services/Account). Every Android change must be mirrored there (AGENTS.md sync rule); parity table in `docs/modules/ios/README.md`.
+- **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
 - **Android send-money gift card (2026-11-01):** send-money with `meta.gift` is a compact receipt in chat colours; attach-sheet transfer receipts keep the old red card.
 - **Chat calls (2026-11-01):** a second start of my own still-ringing 1:1 call cancels the leftover and starts a new one (`409` only when the other person already has a call in that chat). Android no longer hangs up a ringing call when LiveKit closes an empty room.
 - **Android share-a-transfer picker (2026-11-01):** «اختر تحويلا لمشاركته» pages 15 (`GET wallet/transactions?type=transfer_out&page=&per_page=15`); next page near the end of the list.

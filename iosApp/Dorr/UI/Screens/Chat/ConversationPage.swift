@@ -549,9 +549,7 @@ private struct ConversationHeader: View {
         .padding(.horizontal, 16)
         .task { withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) { pop = 1 } }
         .dorrDialog(isPresented: $linkTypePicker, bottom: true) {
-            ChoiceSheet(title: L("cl_pick_type"), subtitle: L("cl_create_sub"),
-                        options: [(L("cl_voice"), { makeLink("audio") }), (L("cl_video"), { makeLink("video") })],
-                        onDismiss: { linkTypePicker = false })
+            CallLinkTypeSheet(onPick: makeLink) { linkTypePicker = false }
         }
         .dorrDialog(isPresented: Binding(get: { showingLink != nil }, set: { if !$0 { showingLink = nil } }), bottom: true) {
             if let l = showingLink { CallLinkShareSheet(host: host, link: l, onCancelled: {}) { showingLink = nil } }
@@ -1092,7 +1090,7 @@ private struct ConversationAiSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .dorrDialog(isPresented: $aiMenu, bottom: true) {
-                ChoiceSheet(title: L("ch_ai_menu"), subtitle: L("ch_ai_privacy_note"), options: menu) { aiMenu = false }
+                ChoiceSheet(title: L("ch_ai_menu"), subtitle: L("ch_ai_privacy_note"), options: menu, fixedHeight: UIScreen.main.bounds.height * 0.58) { aiMenu = false }
             }
             .dorrDialog(isPresented: Binding(get: { summaryOpen != nil }, set: { if !$0 { summaryOpen = nil } }), bottom: true) {
                 if let unread = summaryOpen { AiSummarySheet(conversationId: state.id, unreadOnly: unread) }
@@ -1106,7 +1104,7 @@ private struct ConversationAiSheets: ViewModifier {
             .dorrDialog(isPresented: $capsuleOpen, bottom: true) {
                 ChatCapsuleSheet(host: host, conversationId: state.id) { capsuleOpen = false }
             }
-            .fullScreenCover(isPresented: $memoryOpen) { AiMemoryScreen { memoryOpen = false } }
+            .fullScreenCover(isPresented: $memoryOpen) { AiMemoryScreen(onExit: { memoryOpen = false }, settingsHeader: true) }
             .dorrDialog(isPresented: Binding(get: { aiPanel != nil }, set: { if !$0 { aiPanel = nil } }), bottom: true) {
                 let close = { aiPanel = nil }
                 switch aiPanel {

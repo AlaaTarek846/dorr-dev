@@ -237,6 +237,8 @@ private struct CallMiniBubble: View {
 private struct CallScreen: View {
     @ObservedObject private var c = CallController.shared
     @State private var controlsVisible = true
+    /// The controls are locked (no accidental taps): they stay up and only the lock answers.
+    @State private var locked = false
     @State private var hideTask: Task<Void, Never>?
     @State private var liveShare = false
 
@@ -264,7 +266,7 @@ private struct CallScreen: View {
                 if phase == .incoming {
                     IncomingControls(onDecline: { c.decline() }, onAccept: accept)
                 } else if controlsVisible || remote == nil || grouped {
-                    ActiveControls().transition(.move(edge: .bottom).combined(with: .opacity))
+                    ActiveControls(locked: locked) { locked = $0 }.transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .padding(.bottom, 36)
@@ -273,10 +275,10 @@ private struct CallScreen: View {
             CallRecordingLayer(phase: phase)
         }
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeInOut(duration: 0.25)) { controlsVisible.toggle() } }
+        .onTapGesture { if !locked { withAnimation(.easeInOut(duration: 0.25)) { controlsVisible.toggle() } } }
         .animation(.easeInOut(duration: 0.25), value: controlsVisible)
         // In a video call, controls hide themselves; a tap brings them back.
-        .onChange(of: "\(controlsVisible)-\(phase)-\(remote != nil)-\(grouped)") { _ in scheduleHide(phase: phase, remote: remote != nil, grouped: grouped) }
+        .onChange(of: "\(controlsVisible)-\(phase)-\(remote != nil)-\(grouped)-\(locked)") { _ in scheduleHide(phase: phase, remote: remote != nil, grouped: grouped) }
         .dorrDialog(isPresented: $liveShare, bottom: true) {
             if let l = c.live { LiveShareSheet(live: l) { liveShare = false } }
         }
@@ -284,6 +286,10 @@ private struct CallScreen: View {
 
     private func scheduleHide(phase: CallPhase, remote: Bool, grouped: Bool) {
         hideTask?.cancel()
+        if locked {
+            controlsVisible = true
+            return
+        }
         guard controlsVisible, phase == .active, remote, !grouped else { return }
         hideTask = Task {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
@@ -515,40 +521,89 @@ private struct ActiveControls: View {
     @ObservedObject private var c = CallController.shared
     @ObservedObject private var effects = CallEffects.shared
     @ObservedObject private var features = ChatFeatures.shared
+    let locked: Bool
+    let onLocked: (Bool) -> Void
     @State private var backgrounds = false
     @State private var goLive = false
     @State private var liveShare = false
 
+    private func unlessLocked(_ block: () -> Void) { if !locked { block() } }
+
+    private func shareScreen() {
+        unlessLocked { if c.sharingScreen { c.stopScreenShare() } else { c.startScreenShare() } }
+    }
+
     var body: some View {
-        let isLive = c.live?.status == "live"
-        // Many buttons on a narrow phone: the row scrolls instead of squeezing them.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ToggleAction(icon: c.micOn ? "mic.fill" : "mic.slash.fill", active: !c.micOn) { c.toggleMic() }
-                ToggleAction(icon: "speaker.wave.2.fill", active: c.speakerOn) { c.toggleSpeaker() }
-                ToggleAction(icon: c.cameraOn ? "video.fill" : "video.slash.fill", active: c.cameraOn) {
-                    if !c.cameraOn && !c.cameraAllowed() {
-                        Task { if await CallPermissions.askCamera() { c.toggleCamera() } else { c.notice = L("ch_call_camera_denied") } }
-                    } else {
-                        c.toggleCamera()
+        let liveOn = c.live?.status == "live"
+        let showLive = features.allows("live") || liveOn
+        let showFlip = c.cameraOn
+        // Blur or a picture behind me (spec 94), made on the phone. Heavy: not in lite mode (spec 87).
+        let showBlur = c.cameraOn && !ChatLite.shared.active
+        // mic, speaker, camera, share + lock, and the ones that come and go: more than six go in a «more» menu.
+        let overflow = 5 + (showLive ? 1 : 0) + (showFlip ? 1 : 0) + (showBlur ? 1 : 0) > 6
+        VStack(spacing: 14) {
+            HStack {
+                Spacer()
+                ToggleAction(icon: c.cameraOn ? "video.fill" : "video.slash.fill", active: c.cameraOn, enabled: !locked) {
+                    unlessLocked {
+                        if !c.cameraOn && !c.cameraAllowed() {
+                            Task { if await CallPermissions.askCamera() { c.toggleCamera() } else { c.notice = L("ch_call_camera_denied") } }
+                        } else {
+                            c.toggleCamera()
+                        }
                     }
                 }
-                if c.cameraOn { ToggleAction(icon: "arrow.triangle.2.circlepath.camera.fill", active: false) { c.flipCamera() } }
-                // Blur or a picture behind me (spec 94), made on the phone. Heavy: not in lite mode (spec 87).
-                if c.cameraOn && !ChatLite.shared.active { ToggleAction(icon: "person.crop.rectangle.fill", active: effects.mode != .none) { backgrounds = true } }
-                ToggleAction(icon: "rectangle.on.rectangle", active: c.sharingScreen) {
-                    if c.sharingScreen { c.stopScreenShare() } else { c.startScreenShare() }
-                }
-                // Go live (spec 93) — or, once live, share / end it.
-                if features.allows("live") || isLive {
-                    ToggleAction(icon: "dot.radiowaves.left.and.right", active: isLive) { if isLive { liveShare = true } else { goLive = true } }
-                }
-                RoundAction(icon: "phone.down.fill", label: nil, color: Ch.shared.danger, size: 60) { c.hangUp() }
+                Spacer()
+                ToggleAction(icon: "speaker.wave.2.fill", active: c.speakerOn, enabled: !locked) { unlessLocked { c.toggleSpeaker() } }
+                Spacer()
+                ToggleAction(icon: c.micOn ? "mic.fill" : "mic.slash.fill", active: !c.micOn, enabled: !locked) { unlessLocked { c.toggleMic() } }
+                Spacer()
             }
-            .padding(.horizontal, 18).padding(.vertical, 14)
+            HStack {
+                Spacer()
+                if overflow {
+                    if showLive {
+                        ToggleAction(icon: "dot.radiowaves.left.and.right", active: liveOn, enabled: !locked) { unlessLocked { if liveOn { liveShare = true } else { goLive = true } } }
+                    } else {
+                        Color.clear.frame(width: 52, height: 52)
+                    }
+                    Spacer()
+                    if showFlip {
+                        ToggleAction(icon: "arrow.triangle.2.circlepath.camera.fill", active: c.flippedCamera, enabled: !locked) { unlessLocked { c.flipCamera() } }
+                    } else {
+                        Color.clear.frame(width: 52, height: 52)
+                    }
+                    Spacer()
+                    Menu {
+                        Button { onLocked(!locked) } label: {
+                            Label(L(locked ? "ch_call_unlock" : "ch_call_lock"), systemImage: locked ? "lock.fill" : "lock.open.fill")
+                        }
+                        Button(action: shareScreen) { Label(L("ch_call_share_screen"), systemImage: "rectangle.on.rectangle") }
+                        if showBlur {
+                            Button { unlessLocked { backgrounds = true } } label: { Label(L("ce_title"), systemImage: "person.crop.rectangle.fill") }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis").rotationEffect(.degrees(90)).font(.system(size: 21)).foregroundStyle(.white)
+                            .frame(width: 52, height: 52).background(Color.white.opacity(0.16), in: Circle())
+                    }
+                } else {
+                    ToggleAction(icon: "rectangle.on.rectangle", active: c.sharingScreen, enabled: !locked, action: shareScreen)
+                    Spacer()
+                    if showLive {
+                        ToggleAction(icon: "dot.radiowaves.left.and.right", active: liveOn, enabled: !locked) { unlessLocked { if liveOn { liveShare = true } else { goLive = true } } }
+                    } else if showFlip {
+                        ToggleAction(icon: "arrow.triangle.2.circlepath.camera.fill", active: c.flippedCamera, enabled: !locked) { unlessLocked { c.flipCamera() } }
+                    } else {
+                        Color.clear.frame(width: 52, height: 52)
+                    }
+                    Spacer()
+                    ToggleAction(icon: locked ? "lock.fill" : "lock.open.fill", active: locked) { onLocked(!locked) }
+                }
+                Spacer()
+            }
+            RoundAction(icon: "phone.down.fill", label: nil, color: Ch.shared.danger.opacity(locked ? 0.4 : 1), size: 60) { unlessLocked { c.hangUp() } }
         }
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(maxWidth: UIScreen.main.bounds.width - 24)
+        .padding(.horizontal, 18).padding(.vertical, 14)
         .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 36, style: .continuous))
         .padding(.horizontal, 12)
         .dorrDialog(isPresented: $backgrounds, bottom: true) { CallBackgroundSheet { backgrounds = false } }
@@ -582,14 +637,17 @@ private struct RoundAction: View {
 private struct ToggleAction: View {
     let icon: String
     let active: Bool
+    var enabled = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 21)).foregroundStyle(active ? .black : .white)
                 .frame(width: 52, height: 52).background(active ? Color.white : Color.white.opacity(0.16), in: Circle())
+                .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
         .animation(.easeInOut(duration: 0.2), value: active)
     }
 }

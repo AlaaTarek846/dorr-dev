@@ -13,26 +13,62 @@ struct CallsPage: View {
     @ObservedObject var host: ChatHost
     @ObservedObject private var ch = Ch.shared
     @State private var list: [CallDto]?
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
+    @State private var total = 0
+
+    private func loadPage(reset: Bool) async {
+        if !reset && (loadingMore || !hasMore) { return }
+        if !reset { loadingMore = true }
+        let next = reset ? 1 : page + 1
+        let envelope = try? await ChatApi.calls(page: next, perPage: 15)
+        let chunk = envelope?.data ?? []
+        if reset {
+            list = chunk
+        } else {
+            let known = Set((list ?? []).map(\.id))
+            list = (list ?? []) + chunk.filter { !known.contains($0.id) }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        total = envelope?.pagination?.total ?? (reset ? chunk.count : max(total, list?.count ?? 0))
+        if !reset { loadingMore = false }
+    }
 
     var body: some View {
-        ChPage(title: L("ch_calls_title"), onBack: { host.pop() }) {
+        ChSettingsPage(title: L("ch_calls_title"), onBack: { host.pop() }) {
             if let items = list {
                 ScrollView {
                     LazyVStack(spacing: 6) {
-                        // Call links (WhatsApp list 72): make one, and the ones I have.
-                        CallLinksCard(host: host)
+                        // Call links (WhatsApp list 72): make one, and the log of the ones that still work. (Android also
+                        // asks here for «calls over other apps» — Android only.)
+                        VStack(spacing: 0) { CallLinksCard(host: host) }
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .settingsSurface(18, elevation: 8)
+                            .padding(.bottom, 8)
+                        HStack(spacing: 10) {
+                            PinkIcon(icon: "phone.fill")
+                            Text(L("ch_calls_title")).font(.dorr(16, .heavy)).foregroundStyle(Ch.shared.ink).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(verbatim: "\(total)").font(.dorr(16, .heavy)).foregroundStyle(Ch.shared.ink)
+                        }
+                        .padding(.horizontal, 4).padding(.vertical, 8)
                         if items.isEmpty {
                             ChEmptyState(icon: "phone.fill", title: L("ch_calls_title"), text: L("ch_no_calls"), animated: true).frame(height: 360)
                         }
-                        ForEach(Array(items.enumerated()), id: \.element.id) { i, call in row(call).chStagger(i) }
+                        ForEach(Array(items.enumerated()), id: \.element.id) { i, call in
+                            row(call).chStagger(i)
+                                .onAppear { if i >= items.count - 3 { Task { await loadPage(reset: false) } } }
+                        }
+                        if loadingMore { ProgressView().tint(ch.red).padding(12) }
                     }
                     .padding(14)
                 }
             } else {
-                ProgressView().tint(ch.red).frame(maxWidth: .infinity, maxHeight: .infinity)
+                WaSkeleton().frame(height: 200).padding(16).frame(maxHeight: .infinity, alignment: .top)
             }
         }
-        .task { list = (try? await ChatApi.calls().data) ?? [] }
+        .task { await loadPage(reset: true) }
     }
 
     private func row(_ call: CallDto) -> some View {
@@ -78,32 +114,78 @@ struct CallsPage: View {
 
 // MARK: - call links (WhatsApp list 72)
 
-/// On the calls page: «Create call link», then my links that still work.
+/// On the calls page: create a link, or open the log of links that still work.
 private struct CallLinksCard: View {
     @ObservedObject var host: ChatHost
     @ObservedObject private var ch = Ch.shared
     @State private var links: [CallLinkDto] = []
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
+    @State private var total = 0
     @State private var picking = false
+    @State private var logOpen = false
     @State private var showing: CallLinkDto?
+    @State private var toDelete: CallLinkDto?
+    @State private var busy = false
+    /// The log and a link's sheet take turns (one cover leaves before the other comes).
+    @State private var switching = false
+
+    private func swap(_ change: @escaping () -> Void) {
+        switching = true
+        Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            change()
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            switching = false
+        }
+    }
+
+    private func loadPage(reset: Bool) async {
+        if !reset && (loadingMore || !hasMore) { return }
+        if !reset { loadingMore = true }
+        let next = reset ? 1 : page + 1
+        let envelope = try? await ChatApi.callLinks(page: next, perPage: 15)
+        let chunk = envelope?.data ?? []
+        if reset {
+            links = chunk
+        } else {
+            let known = Set(links.map(\.token))
+            links += chunk.filter { !known.contains($0.token) }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        total = envelope?.pagination?.total ?? (reset ? chunk.count : max(total, links.count))
+        if !reset { loadingMore = false }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            CallLinkRow(icon: "link.badge.plus", title: L("cl_create"), sub: L("cl_create_sub")) { picking = true }
-            ForEach(links) { l in
-                CallLinkRow(icon: l.type == "video" ? "video.fill" : "phone.fill", title: L(l.type == "video" ? "cl_title_video" : "cl_title_voice"), sub: l.link) { showing = l }
-            }
+            PrivacySettingsRow(icon: "link.badge.plus", title: L("cl_create"), subtitle: L("cl_create_sub")) { picking = true }
+            PrivacySettingsRow(icon: "clock.arrow.circlepath", title: L("cl_log_title"), trailing: "\(total)", last: true) { logOpen = true }
         }
-        .padding(.vertical, 4)
-        .background(ch.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .task { links = (try? await ChatApi.callLinks().data) ?? [] }
+        .task { await loadPage(reset: true) }
         .dorrDialog(isPresented: $picking, bottom: true) {
-            ChoiceSheet(title: L("cl_pick_type"), subtitle: L("cl_create_sub"),
-                        options: [(L("cl_voice"), { create("audio") }), (L("cl_video"), { create("video") })],
-                        onDismiss: { picking = false })
+            CallLinkTypeSheet(onPick: create) { picking = false }
+        }
+        .dorrDialog(isPresented: Binding(get: { logOpen && showing == nil && !switching }, set: { if !$0 && !switching { logOpen = false } }), bottom: true) {
+            CallLinksLogSheet(links: links, total: total, loadingMore: loadingMore, onLoadMore: { Task { await loadPage(reset: false) } },
+                              onOpen: { l in swap { showing = l } }, onDelete: { toDelete = $0 })
         }
         .dorrDialog(isPresented: Binding(get: { showing != nil }, set: { if !$0 { showing = nil } }), bottom: true) {
             if let l = showing {
-                CallLinkShareSheet(host: host, link: l, onCancelled: { links.removeAll { $0.token == l.token } }) { showing = nil }
+                CallLinkShareSheet(host: host, link: l, onCancelled: {
+                    links.removeAll { $0.token == l.token }
+                    total = max(total - 1, 0)
+                }) {
+                    if logOpen { switching = true; showing = nil; swap {} } else { showing = nil }
+                }
+            }
+        }
+        .dorrDialog(isPresented: Binding(get: { toDelete != nil }, set: { if !$0 && !busy { toDelete = nil } })) {
+            if let link = toDelete {
+                ConfirmDialog(icon: "trash.fill", title: L("cl_delete_title"), message: L("cl_delete_sub"), loading: busy, confirmLabel: L("ch_delete"),
+                              onConfirm: { revoke(link) }, onDismiss: { if !busy { toDelete = nil } })
             }
         }
     }
@@ -112,13 +194,115 @@ private struct CallLinksCard: View {
         Task {
             do {
                 guard let made = try await ChatApi.createCallLink(type: type).data else { return }
-                links.insert(made, at: 0)
+                links = [made] + links.filter { $0.token != made.token }
+                total += 1
                 try? await Task.sleep(nanoseconds: 350_000_000)
                 showing = made
             } catch {
                 host.showToast(error.apiFailure.message ?? L("ch_error_network"), error: true)
             }
         }
+    }
+
+    private func revoke(_ link: CallLinkDto) {
+        busy = true
+        Task {
+            do {
+                _ = try await ChatApi.revokeCallLink(link.token)
+                links.removeAll { $0.token == link.token }
+                total = max(total - 1, 0)
+                host.showToast(L("cl_cancelled"))
+                if showing?.token == link.token { showing = nil }
+            } catch {
+                host.showToast(error.apiFailure.message ?? L("ch_error_network"), error: true)
+            }
+            busy = false
+            toDelete = nil
+        }
+    }
+}
+
+/// The links that still work, page by page as I scroll; each opens its sheet or goes with the bin.
+private struct CallLinksLogSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    @Environment(\.wa) private var wa
+    let links: [CallLinkDto]
+    let total: Int
+    let loadingMore: Bool
+    let onLoadMore: () -> Void
+    let onOpen: (CallLinkDto) -> Void
+    let onDelete: (CallLinkDto) -> Void
+
+    var body: some View {
+        ChSheetCard {
+            HStack {
+                Text(L("cl_log_title")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: "\(total)").font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
+            }
+            .padding(.bottom, 14)
+            if links.isEmpty {
+                Text(L("cl_log_empty")).font(.dorr(13)).foregroundStyle(ch.mut)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(links.enumerated()), id: \.element.token) { i, l in
+                            HStack(spacing: 10) {
+                                PinkIcon(icon: l.type == "video" ? "video.fill" : "phone.fill")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(L(l.type == "video" ? "cl_title_video" : "cl_title_voice")).font(.dorr(13.5, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                    Text(verbatim: "/call/\(l.token)").font(.dorr(11)).foregroundStyle(wa.settingsMut).lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.trailing, 10)
+                                Button { onDelete(l) } label: {
+                                    Image(systemName: "trash.fill").font(.system(size: 15)).foregroundStyle(ch.danger)
+                                        .frame(width: 36, height: 36).background(ch.danger.opacity(0.12), in: Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 4).padding(.vertical, 12)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onOpen(l) }
+                            .onAppear { if i >= links.count - 3 { onLoadMore() } }
+                            if i != links.count - 1 { Rectangle().fill(wa.night ? wa.line : Color(hex: 0xF6E4E8)).frame(height: 1) }
+                        }
+                        if loadingMore { ProgressView().tint(ch.red).padding(12) }
+                    }
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                }
+                .frame(height: 380)
+                .settingsSurface(18, elevation: 8)
+            }
+        }
+    }
+}
+
+/// Voice or video: the link that's made is that kind.
+struct CallLinkTypeSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    let onPick: (String) -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ChSheetCard {
+            Text(L("cl_pick_type")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
+            Text(L("cl_create_sub")).font(.dorr(13.5)).foregroundStyle(ch.mut).padding(.top, 4).padding(.bottom, 14)
+            pill("phone.fill", L("cl_voice")) { onDismiss(); onPick("audio") }
+            pill("video.fill", L("cl_video")) { onDismiss(); onPick("video") }.padding(.top, 10)
+        }
+    }
+
+    private func pill(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(verbatim: label).font(.dorr(15, .bold)).foregroundStyle(ch.ink).frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: icon).font(.system(size: 19)).foregroundStyle(ch.red).frame(width: 44, height: 44).background(ch.red.opacity(0.08), in: Circle())
+            }
+            .padding(14)
+            .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -132,12 +316,12 @@ struct CallLinkRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 19)).foregroundStyle(ch.red).frame(width: 44, height: 44).background(ch.red.opacity(0.08), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: title).font(.dorr(15, .bold)).foregroundStyle(ch.ink).lineLimit(1)
                     if let sub { Text(verbatim: sub).font(.dorr(12.5)).foregroundStyle(ch.mut).lineLimit(1) }
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: icon).font(.system(size: 19)).foregroundStyle(ch.red).frame(width: 44, height: 44).background(ch.red.opacity(0.08), in: Circle())
             }
             .padding(.horizontal, 14).padding(.vertical, 10).contentShape(Rectangle())
         }
@@ -152,6 +336,8 @@ struct CallLinkShareSheet: View {
     let link: CallLinkDto
     let onCancelled: () -> Void
     let onDismiss: () -> Void
+    @State private var confirming = false
+    @State private var busy = false
 
     var body: some View {
         let video = link.type == "video"
@@ -168,24 +354,29 @@ struct CallLinkShareSheet: View {
             .padding(14)
             .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .padding(.top, 12).padding(.bottom, 10)
-            CallLinkRow(icon: "doc.on.doc", title: L("ch_copy_link"), sub: nil) {
+            CallLinkRow(icon: "doc.on.doc", title: L("cl_copy_link"), sub: nil) {
                 UIPasteboard.general.string = link.link
                 host.showToast(L("ch_link_copied"))
             }
-            CallLinkRow(icon: "square.and.arrow.up", title: L("ch_share_link"), sub: nil) { chShare(L("cl_share_text", link.link)) }
+            CallLinkRow(icon: "square.and.arrow.up", title: L("cl_share_link"), sub: nil) { chShare(L("cl_share_text", link.link)) }
             CallLinkRow(icon: video ? "video.fill" : "phone.fill", title: L("cl_join"), sub: nil) { joinCallLink(host, link, onDone: onDismiss) }
-            CallLinkRow(icon: "link.badge.minus", title: L("cl_cancel"), sub: nil) {
+            CallLinkRow(icon: "link.badge.minus", title: L("cl_cancel"), sub: nil) { confirming = true }
+        }
+        .dorrDialog(isPresented: Binding(get: { confirming }, set: { if !$0 && !busy { confirming = false } })) {
+            ConfirmDialog(icon: "link.badge.minus", title: L("cl_cancel"), message: L("cl_delete_sub"), loading: busy, confirmLabel: L("cl_cancel"), onConfirm: {
+                busy = true
                 Task {
                     do {
                         _ = try await ChatApi.revokeCallLink(link.token)
                         onCancelled()
-                        host.showToast(L("cl_cancelled"))
+                        confirming = false
                         onDismiss()
                     } catch {
                         host.showToast(error.apiFailure.message ?? L("ch_error_network"), error: true)
                     }
+                    busy = false
                 }
-            }
+            }, onDismiss: { if !busy { confirming = false } })
         }
     }
 }
