@@ -128,6 +128,8 @@ fun FreelanceHost(onExit: () -> Unit) {
     // "list", "new", "edit:<uuid>", "show:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
     var page by rememberSaveable { mutableStateOf("list") }
     var listVersion by remember { mutableStateOf(0) }
+    // FL-L07: where booking a consultation was opened from (back returns there).
+    var bookFrom by rememberSaveable { mutableStateOf("list") }
     val parts = page.split(':')
     fun back(): String = when (parts[0]) {
         "edit", "offers" -> "show:" + parts[1]
@@ -135,6 +137,14 @@ fun FreelanceHost(onExit: () -> Unit) {
         "chat" -> "offer:" + parts[1] + ":" + parts[2]
         "freelancer" -> "offer:" + parts[1] + ":" + parts[2]
         "favorites" -> "list"
+        // FL-L04: the market and my orders.
+        "market", "orders" -> "list"
+        "svc" -> "market"
+        "order" -> "orders"
+        // FL-L07: consultations.
+        "consults", "cmarket" -> "list"
+        "consult" -> "consults"
+        "book" -> bookFrom
         "agreement", "invites", "preview" -> "show:" + parts[1]
         "dispute", "dispute-new" -> "agreement:" + parts[1]
         else -> "list"
@@ -177,9 +187,17 @@ fun FreelanceHost(onExit: () -> Unit) {
             parts[0] == "dispute" -> DisputePage(parts[1], null, parts[2], onBack = { page = back() }, onOpened = {})
             parts[0] == "dispute-new" -> DisputePage(parts[1], parts[2], null, onBack = { page = back() }, onOpened = { page = "dispute:${parts[1]}:$it" })
             parts[0] == "favorites" -> FavoritesPage(onBack = { page = "list" })
+            parts[0] == "market" -> MarketPage(onBack = { page = back() }, onOpen = { page = "svc:$it" }, onOrders = { page = "orders" }, onConsultations = { page = "cmarket" })
+            parts[0] == "svc" -> ServicePage(parts[1], onBack = { page = back() }, onOrdered = { listVersion++; page = "order:$it" })
+            parts[0] == "cmarket" -> ConsultationsMarketPage(onBack = { page = back() }, onOpen = { bookFrom = page; page = "book:$it" }, onMine = { page = "consults" })
+            parts[0] == "consults" -> MyConsultationsPage(onBack = { page = back() }, onOpen = { page = "consult:$it" })
+            parts[0] == "consult" -> ConsultationPage(parts[1], onBack = { page = back() })
+            parts[0] == "book" -> BookConsultationPage(parts[1], onBack = { page = back() }, onBooked = { page = "consult:$it" })
+            parts[0] == "orders" -> MyOrdersPage(onBack = { page = back() }, onOpen = { page = "order:$it" }, onBrowse = { page = "market" })
+            parts[0] == "order" -> MyOrderPage(parts[1], onBack = { page = back() }, onOpenWork = { page = "agreement:$it" }, onOrderAgain = { page = "svc:$it" })
             parts[0] == "chat" -> ChatPage(parts[3], onBack = { page = back() })
-            parts[0] == "freelancer" -> FreelancerProfilePage(parts[1], parts[2], onBack = { page = back() })
-            else -> ProjectList(version = listVersion, onExit = onExit, onNew = { page = "new" }, onOpen = { page = "show:$it" }, onFavorites = { page = "favorites" })
+            parts[0] == "freelancer" -> FreelancerProfilePage(parts[1], parts[2], onBack = { page = back() }, onBookConsultation = { bookFrom = page; page = "book:$it" })
+            else -> ProjectList(version = listVersion, onExit = onExit, onNew = { page = "new" }, onOpen = { page = "show:$it" }, onFavorites = { page = "favorites" }, onMarket = { page = "market" }, onOrders = { page = "orders" }, onConsultations = { page = "consults" }, onConsultMarket = { page = "cmarket" })
         }
     }
 }
@@ -253,7 +271,7 @@ private fun filterIcon(status: String?): androidx.compose.ui.graphics.vector.Ima
 }
 
 @Composable
-private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit, onFavorites: () -> Unit) {
+private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit, onFavorites: () -> Unit, onMarket: () -> Unit = {}, onOrders: () -> Unit = {}, onConsultations: () -> Unit = {}, onConsultMarket: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -271,6 +289,9 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
         SubHeader(stringResource(R.string.fl_my_projects), onExit)
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip(stringResource(R.string.fl_favorites), selected = false, icon = Icons.Rounded.Favorite) { onFavorites() }
+            // FL-L07: my paid consultations.
+            Chip(stringResource(R.string.cs_market_title), selected = false, icon = Icons.Rounded.VideoChat) { onConsultMarket() }
+            Chip(stringResource(R.string.cs_mine_title), selected = false, icon = Icons.Rounded.EventAvailable) { onConsultations() }
             FILTERS.forEach { f -> Chip(filterLabel(f), selected = filter == f, icon = filterIcon(f)) { filter = f } }
         }
         if (loading && error == null) {
@@ -282,6 +303,8 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
         ) {
             // FL-708: shown only while a warning / restriction is active or its appeal waits.
             item { SanctionsCard(version) }
+            // FL-L04: order a ready-made service instead of waiting for offers.
+            item { MarketBanner(onBrowse = onMarket, onOrders = onOrders) }
             if (!loading && rows.isEmpty() && error == null) item {
                 com.dorr.app.ui.screens.wallet.WaEmpty(
                     Icons.Rounded.Work, com.dorr.app.ui.screens.wallet.Tone.Blue,

@@ -25,6 +25,9 @@ suspend fun <T> apiCall(block: suspend () -> Response<ApiEnvelope<T>>): ApiResul
         block()
     } catch (e: IOException) {
         return ApiResult.Offline(e)
+    } catch (e: com.google.gson.JsonParseException) {
+        // An answer the app cannot read is a failed call, not a crash.
+        return ApiResult.Failed(ApiError(0, e.message ?: "Unreadable response", null, emptyMap(), null))
     }
 
     val body = response.body()

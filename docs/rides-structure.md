@@ -932,6 +932,9 @@
 | العمود | الوصف |
 |---|---|
 | `google_maps_key` | مفتاح Google للسيرفر، **مشفّر**، ومبيرجعش في أي رد (بيظهر آخر 4 حروف بس). لو فاضي: `GOOGLE_MAPS_SERVER_KEY` |
+| `map_provider` | `google` / `mapbox`: مزود السيرفر (المسار والمسافة وأسماء المدن) والخريطة في الأندرويد (O-01، وO-53) |
+| `mapbox_token` / `mapbox_style` | مفتاح Mapbox العام (**مشفّر**) والستايل (`mapbox/streets-v12`) |
+| `ios_map_provider` | `follow` / `apple`: خريطة تطبيق الآيفون، زي `map_provider` أو خرائط Apple. `map-config` بيرجّعها `ios_provider` (O-72) |
 | `fallback_speed_kmh` | السرعة المتوسطة للحساب المجاني لما Google ميردش (60 زي Jawad) |
 | `fallback_road_factor_bp` | معامل الطريق على الخط المستقيم (13000 = ×1.3) |
 | `geocode_cache_days` | مدة حفظ اسم المدينة لكل نقطة (30) |

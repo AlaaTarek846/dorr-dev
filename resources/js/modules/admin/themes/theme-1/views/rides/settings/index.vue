@@ -15,6 +15,15 @@
                             </button>
                         </div>
 
+                        <!-- O-72: the iPhone app's map — the provider above (like Android), or Apple Maps. -->
+                        <h6 class="fw-semibold mb-1"><i class="ri-apple-line me-1 text-primary"></i>{{ t('rides.settings.ios_provider') }}</h6>
+                        <p class="text-muted fs-13">{{ t('rides.settings.ios_provider_hint') }}</p>
+                        <div class="btn-group w-100 mb-4" role="group">
+                            <button v-for="p in ['follow', 'apple']" :key="p" type="button" class="btn" :class="form.ios_map_provider === p ? 'btn-primary' : 'btn-outline-primary'" :disabled="!can('ride-settings.update')" @click="form.ios_map_provider = p">
+                                <i :class="p === 'apple' ? 'ri-apple-line' : 'ri-links-line'" class="me-1"></i>{{ p === 'follow' ? t('rides.settings.ios_provider_follow', { provider: t(`rides.settings.provider_${form.map_provider}`) }) : t('rides.settings.ios_provider_apple') }}
+                            </button>
+                        </div>
+
                         <div v-if="form.map_provider === 'mapbox'" class="mb-4">
                             <h6 class="fw-semibold mb-1"><i class="ri-map-pin-2-line me-1 text-primary"></i>Mapbox</h6>
                             <p class="text-muted fs-13">{{ t('rides.settings.mapbox_hint') }}</p>
@@ -124,11 +133,11 @@ const { t } = useI18n();
 const { can } = usePermission();
 const { showSuccess, showError } = useToast();
 
-const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false, map_provider: 'google', mapbox_token_set: false, mapbox_token_hint: null, mapbox_env_set: false, google_paused: { routes: null, geocoding: null } });
+const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false, map_provider: 'google', ios_map_provider: 'follow', mapbox_token_set: false, mapbox_token_hint: null, mapbox_env_set: false, google_paused: { routes: null, geocoding: null } });
 const report = ref(null);
 const checking = ref(false);
 const pausedNow = computed(() => Object.fromEntries(Object.entries(report.value?.paused ?? state.google_paused ?? {}).filter(([, reason]) => reason)));
-const form = reactive({ google_maps_key: '', map_provider: 'google', mapbox_token: '', mapbox_style: 'mapbox/streets-v12', fallback_speed_kmh: 60, fallback_road_factor_bp: 13000, geocode_cache_days: 30 });
+const form = reactive({ google_maps_key: '', map_provider: 'google', ios_map_provider: 'follow', mapbox_token: '', mapbox_style: 'mapbox/streets-v12', fallback_speed_kmh: 60, fallback_road_factor_bp: 13000, geocode_cache_days: 30 });
 const saving = ref(false);
 const showKey = ref(false);
 const showMapbox = ref(false);
@@ -137,7 +146,7 @@ const roadFactor = computed({ get: () => form.fallback_road_factor_bp / 10000, s
 function apply(data) {
     Object.assign(state, data);
     Object.assign(form, {
-        google_maps_key: '', mapbox_token: '', map_provider: data.map_provider ?? 'google', mapbox_style: data.mapbox_style ?? 'mapbox/streets-v12',
+        google_maps_key: '', mapbox_token: '', map_provider: data.map_provider ?? 'google', ios_map_provider: data.ios_map_provider ?? 'follow', mapbox_style: data.mapbox_style ?? 'mapbox/streets-v12',
         fallback_speed_kmh: data.fallback_speed_kmh, fallback_road_factor_bp: data.fallback_road_factor_bp, geocode_cache_days: data.geocode_cache_days,
     });
 }
@@ -156,7 +165,7 @@ async function checkKey() {
 
 async function save(clear = false) {
     saving.value = true;
-    const payload = { map_provider: form.map_provider, mapbox_style: form.mapbox_style || 'mapbox/streets-v12', fallback_speed_kmh: form.fallback_speed_kmh, fallback_road_factor_bp: form.fallback_road_factor_bp, geocode_cache_days: form.geocode_cache_days };
+    const payload = { map_provider: form.map_provider, ios_map_provider: form.ios_map_provider, mapbox_style: form.mapbox_style || 'mapbox/streets-v12', fallback_speed_kmh: form.fallback_speed_kmh, fallback_road_factor_bp: form.fallback_road_factor_bp, geocode_cache_days: form.geocode_cache_days };
     if (form.mapbox_token.trim()) payload.mapbox_token = form.mapbox_token.trim();
     if (clear) payload.google_maps_key = '';
     else if (form.google_maps_key.trim()) payload.google_maps_key = form.google_maps_key.trim();

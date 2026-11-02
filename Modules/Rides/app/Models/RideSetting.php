@@ -16,7 +16,10 @@ class RideSetting extends Model
 
     public const PROVIDERS = ['google', 'mapbox'];
 
-    protected $fillable = ['google_maps_key', 'map_provider', 'mapbox_token', 'mapbox_style', 'fallback_speed_kmh', 'fallback_road_factor_bp', 'geocode_cache_days'];
+    /** O-72: the iPhone app's map — the provider above, or Apple Maps. */
+    public const IOS_PROVIDERS = ['follow', 'apple'];
+
+    protected $fillable = ['google_maps_key', 'map_provider', 'mapbox_token', 'mapbox_style', 'ios_map_provider', 'fallback_speed_kmh', 'fallback_road_factor_bp', 'geocode_cache_days'];
 
     protected $hidden = ['google_maps_key', 'mapbox_token'];
 
@@ -53,6 +56,18 @@ class RideSetting extends Model
     public function mapProvider(): string
     {
         return in_array($this->map_provider, self::PROVIDERS, true) ? $this->map_provider : 'google';
+    }
+
+    /** `follow` or `apple` (O-72). */
+    public function iosMapProvider(): string
+    {
+        return in_array($this->ios_map_provider, self::IOS_PROVIDERS, true) ? $this->ios_map_provider : 'follow';
+    }
+
+    /** The engine the iPhone draws with: `apple`, or the provider above (`google` / `mapbox`). */
+    public function iosMapEngine(): string
+    {
+        return $this->iosMapProvider() === 'apple' ? 'apple' : $this->mapProvider();
     }
 
     public function mapboxToken(): string

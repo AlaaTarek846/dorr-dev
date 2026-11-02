@@ -164,7 +164,10 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                             Icon(Icons.Rounded.Person, null, tint = c, modifier = Modifier.size(22.dp))
                         }
                         Column(Modifier.weight(1f)) {
-                            Text(i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f, fill = false))
+                                PlanBadge(i.freelancer?.badge, Modifier.padding(start = 6.dp))
+                            }
                             i.freelancer?.let { Text(inviteeLine(it), color = settingsMut(), fontSize = 11.5.sp) }
                         }
                         Text(
@@ -188,6 +191,7 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                         Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category) { all = false }
                         Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps) { all = true }
                     }
+                    FlHint(stringResource(R.string.fl_inv_order_hint))
                     if (searching) repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(14.dp)) }
                     else if (found.isEmpty()) FlNotice(stringResource(R.string.fl_inv_none_found), Icons.Rounded.Info, settingsMut())
                     found.forEach { f ->
@@ -198,7 +202,10 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                         ) {
                             Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
                             Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                Text(f.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(f.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+                                    PlanBadge(f.badge, Modifier.padding(start = 6.dp))
+                                }
                                 Text(inviteeLine(f), color = settingsMut(), fontSize = 11.5.sp)
                             }
                         }

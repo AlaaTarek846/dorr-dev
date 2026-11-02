@@ -167,15 +167,31 @@ class FreelanceReviews
         ];
     }
 
-    /** @return list<array<string, mixed>> the latest ratings clients gave this freelancer, once out (for the profile a client reads) */
+    /**
+     * The latest ratings clients gave this freelancer, once out (for the profile a client reads) — from projects and consultations
+     * (FL-L07); `kind` says which, `project` is its title either way.
+     *
+     * @return list<array<string, mixed>>
+     */
     public function latestAbout(Freelancer $f, int $limit = 10): array
     {
         return DB::table('freelance_reviews')->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
-            ->join('freelance_projects', 'freelance_projects.id', '=', 'freelance_reviews.project_id')
+            ->leftJoin('freelance_projects', 'freelance_projects.id', '=', 'freelance_reviews.project_id')
+            ->leftJoin('freelance_consultations', 'freelance_consultations.id', '=', 'freelance_reviews.consultation_id')
+            ->leftJoin('freelance_consultation_offers', 'freelance_consultation_offers.id', '=', 'freelance_consultations.offer_id')
             ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at')
-            ->orderByDesc('freelance_reviews.published_at')->limit($limit)
-            ->get(['ratings.stars', 'ratings.comment', 'freelance_projects.title', 'freelance_reviews.published_at', 'freelance_reviews.comment_hidden_at'])
-            ->map(fn ($r) => ['stars' => (float) $r->stars, 'comment' => $r->comment_hidden_at === null ? $r->comment : null, 'project' => $r->title, 'at' => \Illuminate\Support\Carbon::parse($r->published_at)->toIso8601String()])->all();
+            ->orderByDesc('freelance_reviews.published_at')->orderByDesc('freelance_reviews.id')->limit($limit)
+            ->get([
+                'ratings.stars', 'ratings.comment', 'freelance_projects.title', 'freelance_reviews.published_at', 'freelance_reviews.comment_hidden_at',
+                'freelance_reviews.consultation_id', 'freelance_consultations.title as consultation_title', 'freelance_consultation_offers.title as offer_title',
+            ])
+            ->map(fn ($r) => [
+                'kind' => $r->consultation_id !== null ? 'consultation' : 'project',
+                'stars' => (float) $r->stars,
+                'comment' => $r->comment_hidden_at === null ? $r->comment : null,
+                'project' => $r->consultation_id !== null ? ($r->offer_title ?: $r->consultation_title) : $r->title,
+                'at' => Carbon::parse($r->published_at)->toIso8601String(),
+            ])->all();
     }
 
     /** @return array<string, mixed> */

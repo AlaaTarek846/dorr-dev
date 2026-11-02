@@ -77,7 +77,7 @@ private fun criterion(c: String): String = stringResource(
 )
 
 @Composable
-private fun Stars(value: Int, size: Int = 26, onPick: ((Int) -> Unit)? = null) {
+internal fun Stars(value: Int, size: Int = 26, onPick: ((Int) -> Unit)? = null) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         (1..5).forEach { n ->
             Icon(if (n <= value) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, tint = Gold, modifier = Modifier.size(size.dp).then(if (onPick != null) Modifier.clickable { onPick(n) } else Modifier))
@@ -259,7 +259,8 @@ internal fun MyRatingCard() {
             Column(Modifier.padding(top = 8.dp)) {
                 Stars(Math.round(r.stars).toInt(), 14)
                 r.comment?.let { Text(it, color = Wa.Ink, fontSize = 13.sp) }
-                r.project?.let { Text(it, color = Wa.Mut, fontSize = 11.sp) }
+                listOfNotNull(if (r.kind == "consultation") stringResource(R.string.cns_review_kind) else null, r.project).takeIf { it.isNotEmpty() }
+                    ?.let { Text(it.joinToString(" · "), color = Wa.Mut, fontSize = 11.sp) }
             }
         }
     }

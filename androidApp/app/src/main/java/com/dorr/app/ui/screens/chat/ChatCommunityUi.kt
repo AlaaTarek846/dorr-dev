@@ -296,7 +296,7 @@ private fun NewCommunitySheet(onDismiss: () -> Unit, onCreated: (CommunityDto) -
     var mine by remember { mutableStateOf<List<ConversationDto>?>(null) }
     LaunchedEffect(Unit) { mine = runCatching { loadFreeGroups() }.getOrNull() ?: myFreeGroups(host) }
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Bg, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 660.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.Diversity3, Color(0xFF14B8A6))
@@ -343,7 +343,7 @@ private fun NewCommunitySheet(onDismiss: () -> Unit, onCreated: (CommunityDto) -
 private fun NewCommunityGroupSheet(onDismiss: () -> Unit, onCreate: (String, String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Bg, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.GroupAdd, Ch.Red)
@@ -866,7 +866,7 @@ private fun AddGroupsSheet(onDismiss: () -> Unit, onAdd: (List<String>) -> Unit)
     val picked = remember { mutableStateListOf<String>() }
     var mine by remember { mutableStateOf<List<ConversationDto>?>(null) }
     LaunchedEffect(Unit) { mine = runCatching { loadFreeGroups() }.getOrNull() ?: myFreeGroups(host) }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Bg, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 660.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.AddLink, Ch.Red)
@@ -920,7 +920,7 @@ private fun CommunityMembersSheet(c: CommunityDto, onDismiss: () -> Unit, onChan
         }
     }
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Bg, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.Groups, Ch.Red)

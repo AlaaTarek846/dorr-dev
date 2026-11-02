@@ -588,7 +588,14 @@ class ChatTest extends TestCase
         $this->assertSame('user:'.$this->alice->id, $decoded['sub']);
         $this->assertSame($started->json('data.join.room'), $decoded['video']['room']);
 
-        // A second call in the same direct chat is refused while this one rings.
+        // I call again while mine still rings: the leftover is cancelled and a new one is placed.
+        $again = $this->postJson("/api/mobile/v1/chat/conversations/{$conversation['id']}/calls", ['type' => 'audio'], $this->headers())->assertCreated();
+        $this->assertNotSame($callId, $again->json('data.call.id'));
+        $this->assertSame('cancelled', ChatCall::query()->where('uuid', $callId)->first()?->status?->value);
+        $callId = $again->json('data.call.id');
+
+        // The other person starting a second call while this one rings is still refused.
+        $this->as($this->bob);
         $this->postJson("/api/mobile/v1/chat/conversations/{$conversation['id']}/calls", ['type' => 'audio'], $this->headers())->assertStatus(409);
 
         $this->as($this->bob);

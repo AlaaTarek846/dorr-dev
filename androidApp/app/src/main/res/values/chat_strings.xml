@@ -146,6 +146,12 @@
     <string name="ch_call_camera">Camera</string>
     <string name="ch_call_flip">Flip</string>
     <string name="ch_call_end">End</string>
+    <string name="ch_call_lock">Lock</string>
+    <string name="ch_call_unlock">Unlock</string>
+    <string name="ch_call_more">More</string>
+    <string name="ch_call_share_screen">Share screen</string>
+    <string name="ch_call_effect_on">On</string>
+    <string name="ch_call_effect_off">Off</string>
     <string name="ch_call_swipe_answer">Swipe up to answer</string>
     <string name="ch_permission_call">Allow the microphone (and camera for video) to make calls</string>
 
@@ -881,7 +887,7 @@
     <string name="ch_ai_image_send">Send</string>
     <string name="ch_ai_image_quota_note">Each image counts against your DORR AI plan\'s daily images.</string>
     <string name="ch_ai_image_ideas">Ideas</string>
-    <string name="ch_ai_image_style">Style</string>
+    <string name="ch_ai_image_style">Look</string>
     <string name="ch_ai_style_realistic">Realistic</string>
     <string name="ch_ai_style_illustration">Illustration</string>
     <string name="ch_ai_style_anime">Anime</string>

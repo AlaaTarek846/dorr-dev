@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Services\BroadcastService;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -111,6 +112,23 @@ class ChatBroadcastTest extends TestCase
             ->assertUnprocessable();
         $this->deleteJson("/api/mobile/v1/chat/broadcasts/{$list}", [], $this->headers())->assertOk();
         $this->getJson('/api/mobile/v1/chat/broadcasts', $this->headers())->assertJsonCount(0, 'data');
+    }
+
+    public function test_broadcasts_page_fifteen(): void
+    {
+        $this->as($this->alice);
+        $broadcasts = app(BroadcastService::class);
+        for ($i = 0; $i < 16; $i++) {
+            $broadcasts->create($this->alice, 'List '.$i, [$this->bob->id]);
+        }
+        $this->getJson('/api/mobile/v1/chat/broadcasts?per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('pagination.per_page', 15)
+            ->assertJsonPath('pagination.total', 16)
+            ->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/broadcasts?page=2&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('pagination.has_more_pages', false);
     }
 
     private function as(User $user): void

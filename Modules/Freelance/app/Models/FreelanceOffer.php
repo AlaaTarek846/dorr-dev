@@ -24,7 +24,7 @@ class FreelanceOffer extends Model implements HasMedia
 
     protected $fillable = [
         'uuid', 'project_id', 'freelancer_id', 'price_minor', 'currency_code', 'duration_days', 'details', 'answers', 'status', 'status_reason',
-        'commission_minor', 'net_minor', 'fees', 'free', 'viewed_at', 'accepted_at', 'withdrawn_at',
+        'commission_minor', 'net_minor', 'fees', 'free', 'credit_id', 'viewed_at', 'accepted_at', 'withdrawn_at',
     ];
 
     protected static function booted(): void

@@ -34,6 +34,7 @@ interface WalletApi {
         @Query("per_page") perPage: Int = 15,
         @Query("direction") direction: String? = null,
         @Query("bucket") bucket: String? = null,
+        @Query("type") type: String? = null,
     ): ApiEnvelope<List<WalletTransactionDto>>
 
     /** Step 1 of a transfer: who is behind this phone / wallet number? No PIN, moves nothing; returns a masked name + a short-lived token. */

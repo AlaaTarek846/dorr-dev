@@ -34,6 +34,7 @@ class MainActions(
     val openSkills: () -> Unit,
     val openExperiences: () -> Unit,
     val openAvailability: () -> Unit,
+    val openPlans: () -> Unit,
     val openPortfolio: () -> Unit,
     val openProject: (String) -> Unit,
     val openMyOffers: () -> Unit,
@@ -44,6 +45,19 @@ class MainActions(
     val openPortfolioItem: (Int) -> Unit,
     val openNotifications: () -> Unit,
     val openWallet: () -> Unit,
+    // FL-L04
+    val openServices: () -> Unit,
+    val openServiceOrders: () -> Unit,
+    // FL-L01 phase 4: my performance numbers
+    val openInsights: () -> Unit,
+    // FL-L11: improve my profile
+    val openCoach: () -> Unit,
+    // FL-L08: skill tests and badges
+    val openSkillTests: () -> Unit,
+    // FL-L10: my capacity and the line on my services
+    val openCapacity: () -> Unit,
+    // FL-L07: paid consultations
+    val openConsultations: () -> Unit,
 )
 
 /**

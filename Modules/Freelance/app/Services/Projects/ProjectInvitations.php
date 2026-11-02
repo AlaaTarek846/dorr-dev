@@ -14,6 +14,7 @@ use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Models\FreelanceProjectInvitation as Invitation;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Verification\FreelancerGate;
 use Modules\User\Models\User;
@@ -33,6 +34,7 @@ class ProjectInvitations
         private readonly FreelancerGate $gate,
         private readonly FreelanceNotifier $notifier,
         private readonly ProjectMatching $matching,
+        private readonly FreelancePerks $perks,
     ) {}
 
     // ----------------------------------------------------------------- the client
@@ -89,7 +91,10 @@ class ProjectInvitations
             ->when($q !== null && trim($q) !== '', fn (Builder $b) => $b->where('name', 'like', '%'.addcslashes(trim($q), '%_\\').'%'))
             ->when(! $all && ($q === null || trim($q) === '') && $project->freelance_specialty_id !== null,
                 fn (Builder $b) => $b->whereHas('specialties', fn ($s) => $s->where('freelance_specialties.id', $project->freelance_specialty_id)))
+            // FL-L01 phase 4: freelancers on a better plan first (the badge says why), then by name.
+            ->when(true, fn (Builder $b) => $this->perks->orderByBoost($b, (new Freelancer)->getTable().'.id', (int) $project->country_id))
             ->with(['specialties.translations'])->orderBy('name')->limit(30)->get()
+            ->tap(fn ($found) => $this->perks->warm($found))
             ->map(fn (Freelancer $f) => $this->card($f, $project))->values()->all();
     }
 
@@ -318,6 +323,8 @@ class ProjectInvitations
             'name' => $f->name,
             'headline' => $f->headline,
             'avatar_url' => $f->getFirstMediaUrl('avatar') ?: null,
+            'badge' => $this->perks->badge($f),
+            'skill_badges' => app(\Modules\Freelance\Services\Skills\FreelanceSkillBadges::class)->of($f),
             'specialties' => $f->specialties->map(fn ($s) => ['id' => $s->id, 'name' => $s->translatedName()])->values()->all(),
         ] + array_intersect_key($stats, array_flip(['rating', 'reviews_count', 'completed_projects']));
     }

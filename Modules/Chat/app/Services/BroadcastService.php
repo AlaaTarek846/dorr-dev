@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +38,15 @@ class BroadcastService
         private readonly ChatPrivacy $privacy,
         private readonly ParticipantDirectory $directory,
     ) {}
+
+    /** Mine, newest first. Pages of 15. */
+    public function minePage(Model $me, int $perPage = 15): LengthAwarePaginator
+    {
+        $page = ChatBroadcastList::query()->ownedBy($me)->latest('updated_at')->paginate($perPage);
+        $page->setCollection($page->getCollection()->map(fn (ChatBroadcastList $l) => $this->present($me, $l))->values());
+
+        return $page;
+    }
 
     /**
      * @param  list<int>  $memberIds  user ids

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L01 phase 4: the plan badge and the «recommended» order -->
+    <string name="fl_plan_badge_desc">%1$s plan</string>
+    <string name="fl_sort_recommended">Recommended</string>
+    <string name="mk_sort_recommended">Recommended</string>
+    <string name="fl_sort_recommended_hint">Offers from freelancers on a premium plan come first, then the newest.</string>
+    <string name="mk_sort_recommended_hint">Services from freelancers on a premium plan come first, then the newest.</string>
+    <string name="fl_inv_order_hint">Freelancers on a premium plan are listed first.</string>
+</resources>

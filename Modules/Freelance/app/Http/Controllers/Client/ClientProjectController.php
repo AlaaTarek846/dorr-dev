@@ -12,6 +12,7 @@ use Modules\Freelance\Models\FreelanceProject;
 use Modules\Freelance\Services\Features\FreelanceCountry;
 use Modules\Freelance\Services\Offers\ClientOffers;
 use Modules\Freelance\Services\Offers\ClientOfferViews;
+use Modules\Freelance\Services\Plans\FreelanceProfileViews;
 use Modules\Freelance\Services\Projects\ClientProjects;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
 use Modules\User\Models\User;
@@ -113,7 +114,7 @@ class ClientProjectController extends Controller
     }
 
     /**
-     * GET projects/{uuid}/offers?sort=newest|cheapest|fastest|completeness&status=all|shortlisted|…&page=&per_page=(15) — the offers on my project, with
+     * GET projects/{uuid}/offers?sort=recommended(default)|newest|cheapest|fastest|completeness&status=all|shortlisted|…&page=&per_page=(15) — the offers on my project, with
      * what helps to compare the freelancers who sent them (FL-305).
      */
     public function offers(Request $request, string $uuid): JsonResponse
@@ -130,7 +131,7 @@ class ClientProjectController extends Controller
         if ((int) ($data['page'] ?? 1) === 1) {
             app(ClientOffers::class)->markSeen($project, $me);
         }
-        $page = app(ClientOfferViews::class)->page($project, $data['status'] ?? null, $data['sort'] ?? 'newest');
+        $page = app(ClientOfferViews::class)->page($project, $data['status'] ?? null, $data['sort'] ?? 'recommended');
 
         return ApiResponse::fromPaginator($page, $page->getCollection()->values(), __('api.retrieved'));
     }
@@ -161,6 +162,7 @@ class ClientProjectController extends Controller
         $project = $this->projects->find($this->me($request), $uuid);
         $found = app(ClientOffers::class)->find($project, $offer);
         abort_if($found->status->value === 'withdrawn', 404);
+        app(FreelanceProfileViews::class)->record((int) $found->freelancer_id, FreelanceProfileViews::PROFILE, 'offer', $this->me($request)->getKey());
 
         return ApiResponse::success(app(ClientOfferViews::class)->profile($project, $found), __('api.retrieved'));
     }

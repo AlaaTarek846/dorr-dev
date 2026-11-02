@@ -87,7 +87,7 @@ internal fun DeliverDialog(busy: Boolean, error: String?, onDismiss: () -> Unit,
         }
     }
     val dismiss = { File(context.cacheDir, "delivery-picks").deleteRecursively(); onDismiss() }
-    FormSheet(Icons.Rounded.CloudUpload, stringResource(R.string.ag_ms_deliver), stringResource(R.string.ag_form_deliver_intro), onDismiss = { if (!busy) dismiss() }) {
+    FormSheet(Icons.Rounded.CloudUpload, stringResource(R.string.ag_ms_deliver), stringResource(R.string.ag_form_deliver_intro), onDismiss = { if (!busy) dismiss() }, fullHeight = true) {
         DorrTextField(note, { note = it.take(3000) }, label = stringResource(R.string.ag_ms_deliver_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
         Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             picks.forEachIndexed { i, f ->

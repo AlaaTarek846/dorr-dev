@@ -779,6 +779,24 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-reports.view' },
             },
             {
+                path: 'freelance/plans',
+                name: 'admin.freelance.plans',
+                component: page('freelance/plans/index'),
+                meta: { middleware: [auth], permission: 'freelance-plans.view' },
+            },
+            {
+                path: 'freelance/services',
+                name: 'admin.freelance.services',
+                component: page('freelance/services/index'),
+                meta: { middleware: [auth], permission: 'freelance-services.view' },
+            },
+            {
+                path: 'freelance/consultations',
+                name: 'admin.freelance.consultations',
+                component: page('freelance/consultations/index'),
+                meta: { middleware: [auth], permission: 'freelance-consultations.view' },
+            },
+            {
                 path: 'freelance/risk',
                 name: 'admin.freelance.risk',
                 component: page('freelance/risk/index'),
@@ -854,6 +872,12 @@ export default [
                 path: 'freelance/skills',
                 name: 'admin.freelance.skills',
                 component: page('freelance/skills/index'),
+                meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
+            },
+            {
+                path: 'freelance/skill-tests',
+                name: 'admin.freelance.skillTests',
+                component: page('freelance/skill-tests/index'),
                 meta: { middleware: [auth], permission: 'freelance-catalogs.view' },
             },
             {

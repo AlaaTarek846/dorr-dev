@@ -157,7 +157,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 | للمحترف | للعميل |
 |---|---|
-| `invitation.received` · `offer.accepted` · `offer.rejected` · `milestone.approved` · `milestone.revision` · `payment.held` · `payment.released` · `verification.approved` · `verification.rejected` · `dispute.opened` · `dispute.resolved` · `quota.low` | `offer.received` · `milestone.delivered` · `dispute.opened` · `dispute.resolved` · `review.received` |
+| `invitation.received` · `offer.accepted` · `offer.rejected` · `milestone.approved` · `milestone.revision` · `payment.held` · `payment.released` · `verification.approved` · `verification.rejected` · `dispute.opened` · `dispute.resolved` · `quota.low` · `subscription.started` · `subscription.renewing` · `subscription.renewed` · `subscription.renewal_failed` · `subscription.expired` | `offer.received` · `milestone.delivered` · `dispute.opened` · `dispute.resolved` · `review.received` |
 
 الاستخدام من أي خدمة: `app(FreelanceNotifier::class)->notify($receiver, 'offer.accepted', ['project' => $title], ['project_id' => $id])`. المتغيرات المطلوبة لكل حدث في `FreelanceNotifier::EVENTS`، والنصوص في `lang/{ar,en}/notifications.php` (`freelance_{audience}_{event}_title|body`).
 
@@ -631,3 +631,241 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 في `GET …/agreement` كل جزء فيه `can` وهو **object دايمًا**: قايمة الإجراءات لما الاتفاق `active`، و`{}` لما مش نشط. التطبيقات بتقراه كـ map، فمينفعش يرجع `[]`.
 
 - **إدارة المحترفين (FL-109):** `GET admin/v1/freelancers[?search=&status=&country_id=&specialty_id=&per_page=]` (`specialty_id` من تخصصات الملف؛ `pagination.counts` عدّاد كل حالة بعد باقي الفلاتر وقبل فلتر الحالة) و`GET …/options` (دول وتخصصات وحالات). `GET …/{id}` بيرجّع الملف (`profile`) وآخر طلب توثيق (`verification`) والمعرض (`portfolio`) وآخر 20 عرض (`offers`) و20 اتفاق (`projects`) و`stats` والمحافظ (`wallets`) و`audit` (آخر 30 تغيير على الحساب). `POST …/{id}/status {status: verified|profile_ready|suspended|blocked, reason}` — السبب إلزامي للإيقاف/الحظر ومسجّل في سجل التدقيق. الصلاحيات `freelancers.view` / `freelancers.update`.
+
+
+## باقات المحترف واشتراكاته (FL-L01 — المرحلة 1) — 2026-10-29
+
+**الفكرة:** ثلاث باقات: **Free** (الافتراضية، بتمشي على سياسة الدولة) و**Plus** و**Pro**. الباقة المدفوعة بتديك **عروض مجانية أكتر في الشهر** (أو بلا حد) و**عمولة أقل**، ولها **تجربة مجانية** أول مرة بس. السعر **شهري وسنوي (السنوي بخصم)** و**لكل دولة بعملتها**، والدفع **من محفظة المحترف** (`spend_only` الأول وبعدين القابل للسحب) والإيراد بيتسجّل في الدفتر تحت تصنيف `freelance_subscriptions`.
+
+**القواعد:**
+- الباقة **بتخفّض العمولة وعمرها ما بتزوّدها** (لو عمولة الدولة أقل من الباقة بتفضل عمولة الدولة)، والعروض المجانية = الأكبر بين رقم الدولة ورقم الباقة (Pro بلا حد: `quota.limit = null`).
+- **العمولة بتتجمّد في الاتفاق** وقت ما يتعمل (`policy` snapshot)، فانتهاء الباقة بعد كده ما بيغيّرش اتفاق شغّال.
+- **أول اشتراك** = تجربة مجانية (`trialing`) من غير خصم، وبتتجدد بسعر اليوم لو التجديد شغّال. بعد كده كل اشتراك بيتخصم فورًا. مفيش رصيد كفاية → 422 `freelance_subscription_insufficient` (فيه `data.shortfall_minor`) ومفيش حاجة بتتغير.
+- **الترقية** (باقة أعلى أو سنوي بدل شهري): فورًا، والوقت اللي ما اتستخدمش من الفترة الحالية بيتخصم من السعر وتبدأ فترة جديدة. **التخفيض** (باقة أقل أو شهري بدل سنوي): بيستنى نهاية الفترة (`pending`)، واختيار الباقة الحالية تاني بيلغي المؤجّل. أثناء التجربة التغيير حر.
+- **الإلغاء** = إيقاف التجديد، والباقة بتكمّل لآخر الفترة. **الاستئناف** قبل النهاية بيرجّع التجديد.
+- **التجديد:** الأمر `freelance:renew-subscriptions` (كل ساعة) بيجدّد اللي خلصت فترته بسعر اليوم، ولو الرصيد ناقص الاشتراك بيبقى `past_due` وتفضل الباقة شغّالة **أيام السماح** (`freelance.plan_grace_days` = 3) بمحاولة كل يوم، وبعدها بينتهي (`expired`) ويرجع Free. بيفكّر المحترف قبل التجديد بـ `freelance.plan_remind_days` (3) أيام. في `past_due` التغيير مرفوض (409 `freelance_subscription_past_due`) والدفع بـ `subscription/renew`.
+- مفتاح الميزة **`subscriptions`** (لكل دولة، من «مفاتيح الخدمة»): مقفول = لا بيع ولا الباقات بتشتغل والكل على Free، والـ API بيرجع 403 `freelance_feature_off`.
+
+**المحترف — `/api/freelance/v1` (حارس `freelance_api`، تحت مفتاح `subscriptions`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `plans` | `{enabled, currency, decimals, plans[{slug,name,description,rank,free,current,prices{monthly,yearly},yearly_saving_minor,benefits{offers_unlimited,offers_monthly,commission_bp},trial_days}]}` — الباقات اللي ليها سعر في دولتي بس، `trial_days` = 0 لو استخدمت تجربتي. الأسعار minor بعدد خانات العملة (`decimals`). |
+| GET | `subscription` | `{subscription, invoices[], quota}` — اشتراكي الشغّال وإلا آخر واحد (`null` لو عمري ما اشتركت). `subscription`: `uuid, plan{slug,name,rank}, period, status (trialing/active/past_due/expired), active, auto_renew, price_minor, currency, period_end, trial_ends_at, grace_until, canceled_at, pending{plan,period}`. |
+| POST | `subscription` `{plan, period: monthly\|yearly}` | اشتراك أو تغيير (حسب إن كان فيه اشتراك شغّال). `free` أو باقة بلا سعر → 422 `freelance_plan_unavailable`. نفس الباقة والفترة → 409 `freelance_subscription_unchanged`. |
+| POST | `subscription/cancel` · `subscription/resume` · `subscription/renew` | إيقاف التجديد · رجوعه · دفع تجديد فاشل دلوقتي. كلهم بيرجّعوا نفس جسم `GET subscription`. (throttle 10/دقيقة) |
+
+`quota` (في `GET subscription` وفحص العرض) بقى فيه `plan` (slug) و`limit: null` معناها بلا حد.
+
+**الأدمن — `/api/admin/v1` (صلاحية `freelance-plans`: `view` / `update`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `freelance-plans` | الباقات (+`subscribers`) و`revenue_30d[{currency,decimals,total_minor,invoices}]` و`subscribers` و`defaults`. |
+| PUT | `freelance-plans/{plan}` | `name{ar,en}`, `description`, `offers_monthly`, `offers_unlimited`, `commission_bp` (0–10000), `trial_days` (0–90), `status`. باقة Free أرقامها ثابتة (بتتجاهل). |
+| GET | `freelance-plans/{plan}/prices[?search=&missing=1&per_page=]` | كل الدول بسعرها الشهري والسنوي (فاضي حيث لم يُحدَّد) + `currency` و`decimals`. |
+| PUT | `freelance-plans/{plan}/prices/{country}` `{monthly_minor, yearly_minor, status?}` | سعر الدولة. السنوي لازم ≤ 12 × الشهري (`freelance_plan_yearly_too_high`)، وFree بلا سعر (`freelance_plan_free_no_price`). مسجّل في الـaudit. |
+| POST | `freelance-plans/fill-prices` | يضيف الباقات والأسعار الناقصة من الافتراضي (دولة جديدة) — **مش بيكتب فوق سعر موجود**. |
+| GET | `freelance-plans/subscriptions[?status=&plan=&search=&per_page=]` | المشتركين، و`pagination.counts` عدّاد كل حالة. |
+
+**الأسعار الافتراضية:** `php artisan db:seed --class=FreelancePlansSeeder` (داخل `DatabaseSeeder`) بيزرع الباقات و**سعر شهري وسنوي لكل دولة** من `config('freelance.plans')` (Plus 9$ و Pro 24$ شهريًا، خصم السنوي `plan_yearly_discount_bp` = 2000 أي 20%) بتحويل بأسعار صرف جدول العملات (ولو السعر placeholder 0.01 بيستخدم `plan_usd_rates`) وتقريب لسعر مقروء، وبعدد خانات كل عملة. تشغيله تاني آمن ومش بيغيّر سعرًا عدّله الأدمن.
+
+**الإشعارات الجديدة (للمحترف):** `subscription.started` · `subscription.renewing` · `subscription.renewed` · `subscription.renewal_failed` · `subscription.expired` (الداتا فيها `type=freelance_subscription_*`، والتطبيق بيفتح شاشة «باقتي»).
+
+**الجداول:** `freelance_plans` · `freelance_plan_prices` (فريد: باقة + دولة + فترة) · `freelance_subscriptions` · `freelance_subscription_invoices`. الاختبار: `tests/Feature/FreelancePlansTest.php`.
+
+
+## شراء عروض إضافية (FL-L01 — المرحلة 2) — 2026-10-29
+
+**الفكرة:** لما الحصة المجانية الشهرية تخلص، المحترف يشتري **حزمة عروض** من محفظته (`spend_only` الأول). الحزم 3 افتراضيًا (10 و25 و50 عرض) **بسعر لكل دولة بعملتها**، والإيراد بيتسجّل في الدفتر تحت تصنيف `freelance_offer_packs`.
+
+**القواعد:**
+- العروض المشتراة **بتتصرف بعد المجانية** (العرض بيتحفظ فيه `credit_id` والـ`free=false`)، **والدفعة اللي بتنتهي أول بتتصرف أول**. بتنتهي بعد `freelance.offer_credit_valid_days` (180، و0 = ما بتنتهيش).
+- **المتبقي بيتحسب مش مخزّن** (الكمية − العروض المبعوتة عليها اللي لسه بتتحسب)، زي الحصة المجانية بالظبط: العرض اللي المحترف بيسحبه **قبل ما العميل يشوفه بيرجّع مكانه**، وبعد ما يتشاف مكانه بيروح.
+- الحصة المجانية بتتجدد كل شهر، **والمشتراة ما بتتجددش ولا بتتأثر بتغيير الباقة**. الباقة اللي بلا حد (Pro) ما بتصرفش منها، ومحاولة الشراء بترجع 409 `freelance_offer_pack_not_needed`.
+- بيتبعت `request_id` مع كل ضغطة: نفس الـ`request_id` تاني = نفس الشراء ومفيش خصم تاني. الإرسال بيقفل صف المحترف (`lockForUpdate`) فآخر عرض ما يتصرفش مرتين من مشروعين مع بعض.
+- مفتاح الميزة **`offer_packs`** (لكل دولة) + لازم `free_offer_quota` شغّال (من غير حد شهري مفيش حاجة تتشترى). مقفول → 403 `freelance_feature_off` أو `freelance_offer_packs_closed`.
+- فحص العرض (`offer-preview`) و`GET subscription` فيهم `quota` بقى فيه `credits` (المشترى المتبقي) و`packs` (ينفع يشتري ولا لأ). لما العرض يترفض بـ`offer_quota_exhausted` التطبيق يشوف `quota.packs` ويعرض «اشتري عروض إضافية».
+
+**المحترف — `/api/freelance/v1` (حارس `freelance_api`، تحت مفتاح `offer_packs`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `offer-packs` | `{enabled, currency, decimals, unlimited, valid_days, credits{available,next_expires_at,batches[{uuid,quantity,remaining,expires_at}]}, packs[{slug,name,offers,price_minor}], purchases[], quota}` — الحزم اللي ليها سعر في دولتي وفعّالة بس. |
+| POST | `offer-packs/{pack}/buy` `{request_id?}` | شراء (`pack` = الـslug). نفس جسم `GET`. الرصيد ناقص → 422 `freelance_offer_pack_insufficient` (`data.shortfall_minor`). حزمة غير موجودة أو بلا سعر → 422 `freelance_offer_pack_unavailable`. (throttle 10/دقيقة) |
+
+**الأدمن — `/api/admin/v1` (نفس صلاحية `freelance-plans`: `view` / `update`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `freelance-plans/packs` | الحزم (+`sold_30d`) و`revenue_30d[{currency,decimals,total_minor,purchases}]` و`valid_days`. |
+| PUT | `freelance-plans/packs/{pack}` | `name{ar,en}`, `offers` (≥1), `sort_order`, `status`. تغيير العدد ما بيمسّش مشتريات اتعملت (كل شراء بيحتفظ بكميته وسعره). |
+| GET | `freelance-plans/packs/{pack}/prices[?search=&missing=1&per_page=]` | كل الدول بسعر الحزمة (فاضي حيث لم يُحدَّد). |
+| PUT | `freelance-plans/packs/{pack}/prices/{country}` `{price_minor, status?}` | سعر الدولة (مسجّل في الـaudit). |
+| GET | `freelance-plans/pack-purchases[?search=&pack=&per_page=]` | مين اشترى إيه، والمتبقي، وتاريخ الانتهاء. |
+| POST | `freelance-plans/fill-prices` | بقى بيضيف كمان الحزم وأسعارها الناقصة (`packs`, `pack_prices` في الرد) — ما بيكتبش فوق سعر موجود. |
+
+**الأسعار الافتراضية:** نفس `FreelancePlansSeeder` بيزرع الحزم (`config('freelance.offer_packs')`: small 10 عرض بـ 3$ · medium 25 بـ 6$ · large 50 بـ 12$) وسعر لكل دولة بنفس تحويل الباقات. الحزمة أغلى شوية للعرض الواحد من Plus (عشان الباقة تفضل الأحسن). تشغيله تاني آمن.
+
+**الجداول:** `freelance_offer_packs` · `freelance_offer_pack_prices` (فريد: حزمة + دولة) · `freelance_offer_credits` (فريد: محترف + `request_id`) · عمود `freelance_offers.credit_id` (migration `2026_11_04_100000`). الاختبار: `tests/Feature/FreelanceOfferPacksTest.php`.
+
+
+## الخدمات الجاهزة (FL-L04 — الدفعة أ: الباك إند والأدمن) — 2026-10-29
+
+**الفكرة:** المحترف بيعرض **خدمة بسعر ثابت** بلحد 3 مستويات (`basic` إجباري، `standard`، `premium`) لكل مستوى سعر وأيام تسليم وعدد تعديلات ومميزات، ومعاها **إضافات مدفوعة** (سعر + أيام زيادة). العميل بيطلبها من غير عروض. الطلب **بيتحول لمشروع خاص** (`freelance_projects.service_id`) بعرض مقبول واتفاق **متبعت جاهز** (طلب العميل = موافقته)، فبيمشي في نفس الاتفاق والمراحل والتمويل والتحرير والنزاع والتقييم. **مفيش مسار فلوس جديد، ومفيش دفع قبل قبول المحترف.**
+
+**دورة الخدمة** (الباب الوحيد `FreelancerServices`):
+- `draft` / `rejected` → إرسال → `pending_review` → الموظف: `published` أو `rejected` (بسبب).
+- لو المراجعة مقفولة في الدولة (`services.require_review = false`) الخدمة بتتنشر على طول.
+- `published` ⇄ `paused`. تعديل خدمة منشورة أو متوقفة بيرجّعها للمراجعة لو المراجعة شغالة.
+- الموظف يوقّف أي خدمة (`suspended` بسبب)، ويرجّعها → `paused` والمحترف يشغّلها.
+- مسح الخدمة soft delete. مش مسموح والطلبات لسه مستنية أو شغالة (409 `freelance_service_has_orders`).
+
+**القواعد:**
+- محترف **موثّق** بس، ومش عليه تقييد شغل (`restricted_work`).
+- أقصى عدد خدمات منشورة أو مستنية في نفس الوقت = `services.max_active` (الافتراضي 5). بعده 422 `freelance_service_limit`.
+- كل مستوى أعلى **سعره أكبر** من اللي قبله، وكل الأسعار جوه `project.min_budget_minor` / `project.max_budget_minor` للدولة والتخصص.
+- الحدود من `config('freelance.services')`: لحد 5 صور (لينك موقّع بيخلص بعد 30 دقيقة للعميل، زي معرض الأعمال)، 5 إضافات، 10 مميزات للمستوى.
+- **الطلب:**
+  - السعر = سعر المستوى + الإضافات، والأيام = أيام المستوى + أيام الإضافات.
+  - عدد تعديلات المستوى بيبقى `review.free_revisions` في الاتفاق.
+  - العمولة ورسم العميل زي أي مشروع في الدولة والتخصص (وعمولة باقة المحترف). العرض `free=false`، يعني **ما بيصرفش من حصة العروض**.
+  - الطلب بيحتفظ بنسخة (`snapshot`) من العنوان والمستوى والمميزات والإضافات، فتعديل الخدمة بعد كده ما بيغيّرش الطلب.
+  - العميل **ما يقدرش يعدّل** اتفاق الطلب ولا يقسّمه (409 `freelance_service_order_fixed`).
+- **قبول المحترف** خلال `services.answer_hours` (الافتراضي 48). بعد القبول الاتفاق `active` والمشروع `in_progress`، والعميل يموّل المرحلة من محفظته.
+  - رفض أو انتهاء المهلة (`Agreements::expireDue` كل ساعة) أو إلغاء العميل قبل القبول → الاتفاق بينتهي و**المشروع بيتلغي** (مش بيرجع يستقبل عروض).
+- **حالة الطلب ما بتتخزنش**، بتتقرا من الاتفاق: `awaiting` · `active` · `completed` · `declined` · `expired` · `cancelled` (الفلتر `ended` = آخر 3).
+- `request_id` = نفس الطلب لو الضغطة اتكررت. السؤال اللي المحترف حاطه (`requirements`) لازم العميل يجاوبه في `note`، ومفيش أرقام أو لينكات تواصل في الملاحظة.
+- مفتاح الميزة **`services`** بيقفل إنشاء الخدمات وتصفحها والطلب الجديد. **الطلبات اللي اتعملت بتكمل** (`service-orders` تحت `projects` بس).
+
+**المحترف — `/api/freelance/v1`:**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `services[?status=]` | خدماتي + `counts` لكل حالة + `limits` (الصور، الإضافات، المميزات، `max_active`) + `currency` و`decimals` (عملة دولتي) + `price{min_minor,max_minor}` (حدود السعر هنا) + `review` (المراجعة شغالة؟) + `answer_hours`، عشان الفورم يشتغل قبل أول خدمة. |
+| POST | `services` | `{title, description, requirements?, specialty_id?, tiers[{level, name?, description?, price_minor, delivery_days, revisions?, features[]}], addons?[{title, price_minor, extra_days?}]}` → مسودة. |
+| GET / PUT / DELETE | `services/{uuid}` | التفاصيل (`can{edit,submit,pause,resume,delete}` و`orders{awaiting,active,completed}`) / تعديل (اللي بيتبعت بس، و`tiers` و`addons` بيستبدلوا القايمة كلها) / مسح. |
+| POST | `services/{uuid}/submit` · `pause` · `resume` | إرسال للمراجعة / إيقاف / تشغيل. |
+| POST / GET / DELETE | `services/{uuid}/images` `{image}` · `services/{uuid}/images/{media}` | الصور (jpg/png/webp لحد 5MB، بتتفحص). |
+| GET | `service-orders[?status=awaiting\|active\|completed\|ended]` · `service-orders/{uuid}` | الطلبات اللي جاتلي: `money{price_minor, commission_minor, net_minor}` و`answer_by` و`client.name` و`note` و`can{accept,decline}`. |
+| POST | `service-orders/{uuid}/accept` · `decline {reason?}` | نفس موافقة أو رفض الاتفاق (محتاج حساب موثّق). |
+
+**العميل — `/api/mobile/v1/freelance` (`user_api`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `services[?search=&specialty_id=&min_price=&max_price=&max_days=&sort=newest\|price_low\|price_high\|popular&freelancer=&per_page=]` | خدمات دولتي المنشورة لمحترفين موثّقين. الكارت: السعر اللي بيبدأ بيه (الأساسي) وأيامه، الغلاف، `completed_orders`، المحترف. |
+| GET | `services/{uuid}` | الصفحة كاملة: المستويات والإضافات والصور (لينكات موقّعة) والسؤال، وأرقام المحترف (`rating`, `reviews_count`, `completed_projects`, `on_time_rate`). |
+| GET | `services/{uuid}/quote?level=&addons[]=` | `{price_minor, client_fee_minor, total_minor, delivery_days, revisions, lines}` قبل التأكيد. |
+| POST | `services/{uuid}/order` `{level, addons?, note?, request_id?}` | 201 = الطلب (`status: awaiting`). نفس `request_id` → 200 بنفس الطلب. الخدمة وقفت أو المحترف اتوقف → 409 `freelance_service_unavailable`. |
+| GET | `service-orders[?status=]` · `service-orders/{uuid}` | طلباتي: `money{price_minor, client_fee_minor, total_minor}` و`project` (UUID المشروع، وبعد القبول كل حاجة من شاشات المشروع). |
+| POST | `service-orders/{uuid}/cancel` | إلغاء قبل قبول المحترف بس. |
+| GET | `service-images/{media}` | لينك الصورة الموقّع (من غير تسجيل دخول). |
+
+اتفاق مشروع الطلب (`GET projects/{uuid}/agreement`) فيه `service_order` (UUID الطلب)، و`can.edit` / `can.split` بيبقوا `false`. قايمة عروض المحترف (`GET offers`) ما بتعرضش عروض الطلبات.
+
+**الأدمن — `/api/admin/v1` (صلاحية جديدة `freelance-services`: `view` / `update`):**
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| GET | `freelance-services[?status=&country_id=&search=&per_page=]` | الطابور (المستنية الأقدم الأول) من غير المسودات، و`counts` لكل حالة. |
+| GET | `freelance-services/{uuid}` · `freelance-services/{uuid}/images/{media}` | الخدمة زي ما العميل هيشوفها، والمحترف والطلبات. الصور من الـ endpoint ده بس. |
+| POST | `freelance-services/{uuid}/approve` · `reject {reason}` · `suspend {reason}` · `unsuspend` | القرار (مسجّل في الـ audit، والمحترف بيوصله إشعار). |
+| GET | `freelance-services/orders[?status=&search=&per_page=]` | كل الطلبات بالعميل والمحترف والفلوس كاملة. |
+
+**الإعدادات (صفحة السياسات، لكل دولة وتخصص، مجموعة `services`):** `services.require_review` (true) · `services.max_active` (5) · `services.answer_hours` (48).
+
+**الإشعارات:**
+- للمحترف: `freelance.service.approved` · `service.rejected` · `service.suspended` · `order.received`.
+- للعميل: الموجودة `agreement.active` / `agreement.declined` / `agreement.expired`.
+
+**الجداول:** `freelance_services` (soft delete) · `freelance_service_tiers` (فريد: خدمة + مستوى) · `freelance_service_addons` · `freelance_service_orders` (فريد: عميل + `request_id`، `project_id` فريد) · عمود `freelance_projects.service_id` (migration `2026_11_05_100000`). الاختبار: `tests/Feature/FreelanceServicesTest.php`.
+
+**FL-L04 خلص:** الباك إند والأدمن (أ)، وتطبيق المحترف (ب)، وتطبيق العميل (ج). الشاشات في [APP.md](APP.md). لينكات صور الخدمة موقّعة على المسار بس (`signed:relative`)، فالتطبيق بيركّبها على العنوان اللي بيوصله. صفحة الخدمة للعميل فيها كمان `answer_hours`.
+
+
+## مزايا الباقات: الشارة وأولوية الظهور والإحصائيات (FL-L01 — المرحلة 4، الدفعة أ: الباك إند والأدمن) — 2026-10-29
+
+**الفكرة:** الباقة المدفوعة بقت بتدّي — غير العروض والعمولة — **شارة** جنب اسم المحترف عند العملاء، و**أولوية** في ترتيب «الموصى بهم»، و**شاشة إحصائيات أدائي**، و**حد خدمات جاهزة أعلى**. الأدمن بيظبطها لكل باقة من شاشة الباقات. **مفيش جداول ولا مسار فلوس جديد** (4 أعمدة على `freelance_plans`، migration `2026_11_06_100000`).
+
+| العمود | المعنى | Free | Plus | Pro |
+|---|---|---|---|---|
+| `badge` | شارة الباقة بتظهر | لا | نعم | نعم |
+| `boost` | وزن في «الموصى بهم» (0–3، `freelance.plan_boost_max`) | 0 | 1 | 2 |
+| `analytics` | 0 مقفولة · 1 أساسية (30 يوم) · 2 كاملة | 0 | 1 | 2 |
+| `services_max` | أقصى خدمات جاهزة في نفس الوقت (`null` = سياسة الدولة) | — | 15 | 30 |
+
+الافتراضي من `config('freelance.plans')` (الـmigration بيملّي الباقات الموجودة، والـseeder بيملّي الجديدة ومش بيلمس باقة موجودة). Free ثابتة على الصفر وأي قيمة ليها بتتجاهل.
+
+**مين ياخد المزايا** (`FreelancePerks`): اشتراك **بيدّي باقته دلوقتي** (تجربة أو مدفوع، أو منتظر التجديد، أو `past_due` جوه أيام السماح) + مفتاح `subscriptions` شغّال في دولة المحترف + الباقة لسه معروضة (`status`). غير كده المحترف على Free ومعندوش حاجة. **عقوبة `work_limit` أو إيقاف بتشيل الـ boost** (الشارة بتفضل لأنها اللي دفع عليها). المزايا بتتقرا لقايمة كاملة بـ 2 استعلام (`warm`)، وبتتحفظ لنفس الطلب وبحد 10 ثواني بس.
+
+**الشارة** `badge: {plan, name} | null` بتظهر في: كروت الخدمات وصفحتها (`freelancer.badge`) · قايمة عروض مشروعي والمقارنة وبروفايل المحترف (`freelancer.badge` و`badge`) · قايمة «ادعُ محترفين» (`invitees[].badge`).
+
+**أولوية الظهور — ترتيب `recommended`:**
+- بقى **الافتراضي** (من غير `sort`) في `GET mobile/v1/freelance/services` وفي `GET mobile/v1/freelance/projects/{uuid}/offers`، وفي قايمة `invitees` (الـboost الأول بعدين الاسم). جوه نفس الوزن: **الأحدث الأول**.
+- أي ترتيب العميل يختاره (`newest` · `price_low` · `price_high` · `popular` · `cheapest` · `fastest` · `completeness`) **عادل ومش فيه boost**.
+- الترتيب في قاعدة البيانات بـ subquery (`FreelancePerks::boostQuery`) فمفيش استعلام لكل محترف. لو الدولة قافلة `subscriptions` الترتيب العادي.
+
+**حد الخدمات الجاهزة:** `FreelancePerks::servicesLimit` = الأكبر بين `services.max_active` للدولة و`services_max` للباقة (الباقة عمرها ما بتقلّله). بيطبّق في إرسال الخدمة للمراجعة، و`GET services` → `limits.max_active`، و`GET plans` → `benefits.services_max`. `benefits` في `GET plans` بقى فيه كمان `badge` و`boost` و`analytics`.
+
+**المحترف — `GET /api/freelance/v1/insights[?days=30|90|365]`** (حارس `freelance_api`، تحت مفتاح `projects`؛ إحصائياتي أنا بس):
+
+```
+{ level, locked, subscriptions_enabled, allowed_days[], days, currency, decimals, upgrade:{slug,name}|null,
+  data: null | {
+    offers:     {sent, withdrawn, viewed, shortlisted, accepted, rejected, view_rate, accept_rate},
+    services:   {received, awaiting, active, completed, declined, expired, cancelled, accept_rate},
+    earnings:   {earned_minor, [bucket: week|month, series[{from, earned_minor}]]},        // series للكاملة بس
+    reputation: {rating, reviews_count, completed_projects, completion_rate, on_time_rate, completed_in_period},
+    [specialties: [{id, name, sent, accepted, accept_rate}]]                                // للكاملة بس
+    views:      {profile, service, profile_before, service_before, by_source{offer,portfolio,market},   // FL-L11
+                 [bucket, series[{from, profile, service}], top_services[{id,title,views,orders}]]}   // الأخيرين للكاملة بس
+  } }
+```
+- **المقفولة (Free) ترجع 200 مش خطأ:** `locked: true`، `data: null`، و`upgrade` = أقل باقة عليها سعر في دولتي وتفتح أكتر (`null` لو الباقات مش بتتباع في الدولة، و`subscriptions_enabled: false`). التطبيق يعرض زر «ترقّى» ومنه لـ«باقتي».
+- `days` المطلوب بيتقرّب لأكبر مدة مسموحة ≤ المطلوب (أو أصغر مسموحة): الأساسية `[30]`، الكاملة `[30, 90, 365]`. اللي رجع في `days` هو الفعلي.
+- **القمع:** `sent` = العروض اللي بعتها في المدة (بدون عروض الطلبات الجاهزة لأنها اتعملت من الطلب)، `viewed` اللي العميل شافها، `view_rate`/`accept_rate` على العروض غير المسحوبة. الطلبات: `accept_rate` = اللي قبلها ÷ (قبلها + رفضها/انتهت من غير رد)، وإلغاء العميل مش رد.
+- **الأرباح:** المحرَّر (`released`) في المدة. السلسلة أسبوعية لـ 30 يوم (5 أسابيع بتتعد لورا من النهارده) وشهرية (3 شهور لـ 90 و12 لـ 365) بالشهور الفاضية.
+- محسوب على طول من الجداول الموجودة (من غير تخزين)، فالتطبيق يقراه عند الفتح ورجوع الاتصال بس (من غير polling).
+
+**زيارات الملف (FL-L11):** جدول `freelance_profile_views` (محترف/خدمة/نوع `profile|service`/مصدر `offer|portfolio|market`/يوم/عدّاد `views`) — **من غير أي هوية للزائر**. بتتسجّل لما عميل مسجّل يفتح: ملف محترف من عرض (`offerFreelancer`)، أو من معرض الأعمال (`PortfolioViewController`)، أو خدمة من السوق (`ClientServiceController::show`). التكرار بيتقفل بـ `Cache::add` لمدة `freelance.profile_views.dedupe_minutes` (افتراضي 10 دقايق، `0` = كل فتحة بتتعد). الإجمالي بيتقارن بالفترة اللي قبلها بنفس الطول. الأرقام تحت `insights.data.views` (مقفولة مع باقة بدون إحصائيات).
+
+**المحترف — `GET /api/freelance/v1/profile-coach`** (مفتاح `freelance`، **مجاني لكل الباقات**): `{percent, level: start|good|great, done, total, tips[{key, impact: high|medium|low, points, action: profile|skills|specialties|portfolio|verification|services}]}`. النصايح من خطوات الاكتمال الناقصة (بأوزان `FreelancerCompleteness::weights()`) + `more_skills` و`more_portfolio` و`verification` و`first_service`؛ مترتبة بالأثر ثم النقاط. قواعد ثابتة من غير AI.
+
+**اختبارات المهارات والشارات (FL-L08)** — مفتاح الدولة `skill_tests` (الأدمن بيشغّله من «مفاتيح التشغيل»؛ مقفول = مفيش اختبار جديد والشارات اللي اتكسبت بتفضل ظاهرة).
+- **المحترف** (حارس `freelance_api`): `GET skill-tests` → `{enabled, tests[{skill_id, name, questions, minutes, pass_percent, badge|null, in_progress, retake_at|null, can_start}], badges[{skill_id, name, score_percent, earned_at, expires_at}]}` (المهارات اللي في ملفي وليها اختبار شغّال وبنك ≥ 3 أسئلة بس) · `POST skill-tests/{skill}/start` → `{attempt_id, skill_id, expires_at, seconds_left, pass_percent, questions[{id, prompt, options[نصوص بس]}]}` (السيرفر بيسحب أسئلة عشوائية ويخلط الاختيارات ويجمّدهم في المحاولة؛ نفس الطلب تاني بيرجّع نفس المحاولة المفتوحة؛ **الإجابة الصح عمرها ما بتنزل**) · `POST skill-test-attempts/{attempt}/submit {answers: {question_id: موضع الاختيار المعروض}}` → `{status: passed|failed|expired, passed, score_percent, correct_count, total, pass_percent, badge|null, retake_at|null}` (التصحيح في السيرفر؛ سؤال متسايب = غلط؛ التسليم مرتين بيرجّع النتيجة الأولى؛ متأخر أكتر من 30 ثانية عن الميعاد = `expired`).
+- **الأخطاء** (`error_code`): `freelance_skill_test_closed` (403) · `_off` (404) · `_not_yours` (422، المهارة مش في ملفي) · `_held` (422، عندي شارة سارية) · `_wait` (422، استنى `retake_hours` بعد رسوب/انتهاء وقت) · `_few` (422) · `_gone` (404).
+- **الشارة:** نجاح (`score ≥ pass_percent`) = شارة المهارة (`freelancer_skill_badges`، فريدة لكل محترف+مهارة) بتنتهي بعد `freelance.skill_tests.badge_valid_days` (365؛ 0 = من غير نهاية). بتظهر للعميل **بس** وهي سارية (مش ملغية ولا منتهية) **والمهارة لسه في ملف المحترف** — لو شالها الشارة بتختفي. الإعدادات الافتراضية للاختبار في `freelance.skill_tests.defaults` (10 أسئلة · 15 دقيقة · 70% · انتظار 24 ساعة).
+- **عند العميل:** `skill_badges[{skill_id, name, score_percent, earned_at, expires_at}]` (أفضل 6 بالدرجة) جوه `freelancer` في عروض المشروع وبروفايل المحترف، وفي كارت الخدمة وقوايم الدعوات. وبتكسر التعادل في ترتيب «الموصى بهم» **بعد** وزن الباقة (`FreelancePerks::orderByBoost` + `ClientOfferViews::recommended`).
+- **الأدمن** (صلاحيات `freelance-catalogs.*`): `GET freelance-skill-tests[?search&only=with_test|on]` (المهارات بعدد الأسئلة والشارات) · `GET freelance-skill-tests/{skill}` (الإعدادات + كل الأسئلة **بالإجابة الصح**) · `PUT freelance-skill-tests/{skill} {status?, questions_count(3–50)?, minutes?, pass_percent?, retake_hours?}` (التشغيل محتاج ≥ 3 أسئلة شغّالة) · `POST freelance-skill-tests/{skill}/questions` · `PUT|DELETE freelance-skill-questions/{id}` (سؤال = `prompt{ar,en}` + 2–6 اختيارات `{text{ar,en}, correct}` بالظبط واحد صح؛ مسح/تعطيل لحد ما يبقى أقل من 3 بيقفل الاختبار لوحده) · `GET freelance-skill-badges[?skill_id&state=valid|revoked|all]` · `POST freelance-skill-badges/{id}/revoke {reason?}` (بيسمح للمحترف يعيد الاختبار فورًا).
+
+**الاستشارات المدفوعة (FL-L07)** — الاستشارة **عرض زي الخدمة الجاهزة** (مش جزء من صفحة الخدمة): المحترف يعمل **أكتر من استشارة**، كل واحدة بعنوان ووصف ومدد (15 · 30 · 45 · 60 · 90 دقيقة، لحد 4) بسعر لكل مدة ومواعيد أسبوعية بتوقيته، وبتعدي **مراجعة الأدمن** قبل ما العملاء يشوفوها (`draft` ← `pending_review` ← `published` | `rejected`، `published` ⇄ `paused`، و`suspended` من الأدمن؛ بدون مراجعة في الدولة (`consultations.require_review = false`) بتتنشر على طول؛ التعديل على منشورة بيرجعها للمراجعة؛ أقصى عدد `consultations.max_active` = 5 منشورة أو مستنية). العملاء بيشوفوها في **قايمة لوحدها جنب الخدمات الجاهزة**. العميل بيطلب ميعاد فاضي والفلوس بتتحجز من محفظته على طول، **والمحترف لازم يوافق** (والميعاد بيتقفل على كل استشاراته لما يوافق)، **والجلسة مكالمة فيديو (FL-L16) — مفيش شات للاستشارة**. ميزة الدولة `consultations` (لو مقفولة: مفيش حجز جديد، والحجوزات بتكمل). الجداول: `freelance_consultation_offers` (كذا صف للمحترف: `uuid, country_id, title, about, status, status_reason, submitted_at, reviewed_at, reviewed_by, published_at, options[{minutes, price_minor}], weekly[{day 0=الأحد…6, from, to}], timezone`) و`freelance_consultations` (الحجز بفلوسه وحالته، و`offer_id` للعرض اللي اتحجز منه) و`freelance_earnings.consultation_id` و`freelancers.timezone`.
+- **المواعيد الفاضية:** بداية على نص الساعة (ربع الساعة للمدد 15/45) والمدة كلها جوه فترة من مواعيد الأسبوع، بعد `consultations.min_notice_hours` (2) ولحد `consultations.max_days_ahead` (30) يوم، مش في إجازة (FL-106)، ومش متداخلة مع حجز تاني. بترجع لحظات UTC والتطبيق بيعرضها بساعته.
+- **الطلب:** `POST consultations` بيعمل طلب `pending`: بيتأكد إن الميعاد فاضي (`freelance_consultation_slot_taken` 409) وبيحجز السعر + رسوم العميل من المحفظة (`freelance_wallet_insufficient` 422 بالناقص، ومفيش طلب). **الطلب لوحده مش بيقفل الميعاد** — أكتر من عميل يقدروا يطلبوا نفس الميعاد. المحترف بيوصله `consultation.requested` وعنده `consultations.response_hours` (24) أو لحد الميعاد (الأقرب) يرد (`respond_by` في الرد).
+- **رد المحترف:** `POST consultations/{uuid}/accept` ← الحالة `booked`، تحت نفس القفل: الميعاد بقى بتاعه، **وأي طلب `pending` تاني بيتداخل مع الساعات دي بيتلغي (`declined`، `cancelled_by = system`، `cancel_reason = taken`) وفلوسه بترجع** والعميل يوصله `consultation.declined`، ومن بعدها محدش يقدر يحجز الميعاد (409). بيتضاف لتقويم العميل والعميل يوصله `consultation.accepted`. `POST consultations/{uuid}/decline {reason?}` ← `declined` والفلوس ترجع كاملة. لو ما ردّش (أو جه الميعاد) الأمر `freelance:sweep-consultations` بيلغي الطلب (`cancel_reason = expired`) ويرجّع الفلوس، والمحترف يوصله `consultation.expired`. العميل يقدر يسحب الطلب `pending` في أي وقت (إلغاء مجاني). الحالة: `pending` ← `booked` | `declined` | `cancelled`؛ `booked` ← `completed` | `cancelled` | `disputed` ← `completed` | `refunded`.
+- **الإلغاء (قبل البداية بس):** المحترف → العميل بيسترد كله. العميل قبلها بـ`consultations.free_cancel_hours` (24) أو أكتر → بيسترد كله؛ بعد كده → الفلوس للمحترف (`late_cancel`).
+- **بعد الجلسة:** العميل عنده `consultations.complaint_hours` (24): «كانت كويسة» (`confirm`) → الفلوس تنزل للمحترف دلوقتي؛ «بلّغ عن مشكلة» (`complain`) → `disputed` والأدمن يقرر (`pay` أو `refund`). لو ما قالش حاجة الأمر `freelance:sweep-consultations` (كل 5 دقايق) بيدفع للمحترف، وبيبعت كمان تذكير قبل البداية بـ30 دقيقة للطرفين وسؤال «كانت عاملة إيه؟» للعميل عند النهاية.
+- **التقييم:** بعد ما الاستشارة تبقى `completed` (العميل قال «كانت كويسة»، أو الوقت دفع، أو الأدمن قرر `pay`) العميل يقيّمها **مرة واحدة** خلال `ratings.window_days` (14) يوم من الدفع: `POST consultations/{uuid}/review {stars: 1-5, comment?}` (قبل الدفع أو بعد المهلة `freelance_consultation_review_closed` 409، والمرة التانية `freelance_consultation_review_exists` 409). التقييم **بيظهر على طول** (مفيش تقييم راجع من المحترف) والمحترف يوصله `consultation.rated`. بيتحفظ في `ratings` (rateable = الاستشارة) و`freelance_reviews` مع تقييمات المشاريع (`consultation_id`؛ `agreement_id`/`project_id` بقوا nullable)، فبيدخل في متوسط المحترف وعدده ومؤشر الجودة و«تقييمي» وملفه. كل رد استشارة فيه `review {can_rate, rate_until, rating{stars, comment, removed, at}}` (للمحترف `can_rate` دايماً false). الاعتراض (FL-706) لتقييمات المشاريع بس.
+- **الدفع للمحترف:** الحجوزات بتتسحب، والصافي (السعر − العمولة) بيدخل أرباحه بأيام الانتظار المتجمّدة على الحجز (`earnings.hold_days`)، ورسوم العميل والعمولة بيتسجلوا دخل. كل حركة ليها مفتاح (`freelance:consultation:{uuid}:…`). القواعد (الساعات وأيام الانتظار) بتتجمّد على الحجز.
+- **المحترف** (`/api/freelance/v1/consultations`): `GET info` (المدد المتاحة `lengths`، `max_options`، `max_active`، `review`، `rules`، `stats` فيها `pending`، `suggested_weekly`) · `GET offers` · `POST offers {title, about?, options[{minutes, price_minor}], weekly[{day, from, to}], timezone}` (مسودة؛ الفترات المتداخلة `freelance_consultation_hours_overlap`، أرقام تواصل في النص ممنوعة) · `GET|PUT offers/{uuid}` · `DELETE offers/{uuid}` (مش مسموح لو فيه طلب أو جلسة جاية: `freelance_consultation_has_bookings` 409 — يوقفها بدل المسح) · `POST offers/{uuid}/submit|pause|resume` (الإرسال محتاج عنوان ومدة ومواعيد وإلا `freelance_consultation_incomplete`؛ الحد الأقصى `freelance_consultation_listing_limit`؛ حالة غلط `freelance_consultation_listing_state`). كل عرض في الرد: `status, status_reason, options[+commission_minor/net_minor], weekly, timezone, live, bookings{pending,upcoming,completed}, can{edit,submit,pause,resume,delete}`. الحجوزات: `GET consultations[?tab=upcoming|past|cancelled]` (الطلبات `pending` في «الجاية» و`declined` في «الملغية») (+ `counts`) · `GET consultations/{uuid}` · `POST consultations/{uuid}/accept|decline|cancel`.
+- **العميل** (`/api/mobile/v1/freelance`): `GET consultation-offers[?search=&per_page=]` (الكروت: `uuid, title, about, minutes[], from_minor (الإجمالي), next_slot, freelancer{…}`) · `GET consultation-offers/{uuid}` (الإجمالي لكل مدة + `next_slot` + `rules`) · `GET consultation-offers/{uuid}/slots?minutes=` (لحظات UTC بتتعرض بساعة الجهاز؛ الميعاد المقبول من أي استشارة تانية لنفس المحترف مش بيظهر) · `POST consultations {offer, minutes, starts_at, topic (10+ حروف), request_id}` · `GET consultations[?tab=]` · `GET consultations/{uuid}` · `POST consultations/{uuid}/cancel|confirm|complain {text}` · `POST consultations/{uuid}/review {stars, comment?}`. صفحة الاستشارة قبل الحجز فيها `freelancer.reviews` (آخر 5: `kind` = project | consultation، `project` = العنوان). ملف المحترف من العرض فيه `consultations = [{uuid, title, from_minor, currency, minutes}]` (فاضية لو مفيش)، وصفحة الخدمة مفيهاش استشارة.
+- **الأدمن:** مراجعة العروض: `GET freelance-consultation-offers[?status=&search=]` (اللي مستنية مراجعة الأول، `counts`) · `GET freelance-consultation-offers/{uuid}` · `POST …/{uuid}/approve|unsuspend` · `POST …/{uuid}/reject|suspend {reason}`؛ والحجوزات: `GET freelance-consultations[?status=&search=]` (الشكاوى الأول، `counts`) · `GET freelance-consultations/{uuid}` · `POST freelance-consultations/{uuid}/resolve {decision: pay|refund, note?}` — صلاحيات `freelance-consultations.view|update`. الإعدادات في السياسات (مجموعة `consultations`، منها `require_review` و`max_active`).
+- **الإشعارات:** المحترف `consultation.{listing_approved, listing_rejected, listing_suspended, requested, expired, cancelled, reminder, complained, paid, refunded, rated}` (الـdata فيها `consultation_offer` للعرض)، العميل `consultation.{accepted, declined, cancelled, reminder, review_due, refunded, complaint_closed}`، والأدمن «شكوى على استشارة». الـdata فيها `consultation`. **الوقت في النص بيتكتب بتوقيت جهاز المستلم**: التطبيقين بيبعتوا `X-Timezone` وبيتحفظ على `users.timezone` و`freelancers.timezone` (middleware `RememberTimezone`).
+
+**الاشتراكات الشهرية في الخدمات (FL-L05)** — الخدمة ممكن تتباع مرة واحدة أو شهري (`billing` = `once` | `monthly` في `POST|PUT services`؛ الشهرية لازم كل مستوى + أطول إضافة ≤ `freelance.subscriptions.period_days` (30) وإلا `freelance_service_monthly_days` 422). الكارت وصفحة الخدمة فيهم `billing`، والصفحة فيها `subscription{period_days, renew_window_days, grace_days, notice_days}` (null لو مش شهرية).
+- **البداية:** طلب خدمة شهرية = أول شهر (طلب عادي) + `freelance_service_subscriptions` بحالة `pending` بالشروط متجمّدة (المستوى، المميزات، الإضافات، السعر). الطلب فيه `subscription{uuid, cycle}`. قبول المحترف لأول شهر → `active` و`period_ends_at` = البداية + 30 يوم؛ الرفض/عدم الرد/إلغاء العميل → `ended` (`first_declined|first_expired|first_cancelled`).
+- **العميل بيأكّد كل شهر (مفيش تجديد تلقائي):** `POST service-subscriptions/{uuid}/renew` متاح من `renew_window_days` (3) قبل نهاية الشهر لحد `grace_days` (2) بعدها (غير كده `freelance_subscription_renew_closed` 409). بيعمل طلب الشهر الجاي **بالسعر المتجمّد**، ويبدأه على طول (المحترف موافق على الاشتراك)، ويحجز فلوسه من المحفظة — كله أو ولا حاجة (`freelance_wallet_insufficient` 422 بالناقص). الشهور ماشية على نفس التقويم (`period_ends_at += 30`). المحترف بيوصله `retainer.renewed`.
+- **الإيقاف بإشعار:** `POST service-subscriptions/{uuid}/cancel` (العميل أو المحترف): لو اتطلب قبل نهاية الشهر بـ`cancel_notice_days` (7) أو أكتر → بيخلص مع نهاية الشهر ده (ومفيش تأكيد للجاي)؛ غير كده → مع نهاية الشهر اللي بعده (والعميل بيأكّده). `POST .../keep` = اللي طلب الإيقاف يرجع فيه. الطرف التاني بيوصله `retainer.cancel_requested` / `retainer.kept`.
+- **الأمر `freelance:sweep-subscriptions` (كل ساعة):** تذكير واحد للعميل لما التأكيد يفتح (`client.retainer.renew_due`)، وإنهاء اللي وصل ميعاد إيقافه (`cancelled_client|cancelled_freelancer`) أو اللي الشهر خلص + أيام السماح من غير تأكيد (`not_renewed`)، والطرفين بيوصلهم `retainer.ended`، ومكان الطاقة بيتفضّى.
+- **الطاقة (FL-L10):** الاشتراك الـ`active` = مشروع شغّال واحد طول مدته (حتى بين الشهور)؛ اتفاقات شهوره مش بتتحسب تاني، وبداية الشهر الجاي مش بتتمنع بالحد.
+- **الردود:** `GET service-subscriptions[?status=pending|active|ended]` و`GET service-subscriptions/{uuid}` للعميل (`/api/mobile/v1/freelance`) وللمحترف (`/api/freelance/v1`): `{uuid, status, end_reason, service, level, tier_name, features, addons, price_minor, currency, decimals, delivery_days, revisions, money (كل طرف من ناحيته), cycle, started_at, period_ends_at, renew{opens_at, due_by, open}|null, cancel{by, requested_at, ends_at}|null, notice_days, current{uuid, cycle, status, project}, client|freelancer, can}`. الأدمن: `GET freelance-services/subscriptions[?status=&search=]` (صلاحية `freelance-services.view`).
+
+**الطاقة الاستيعابية وقايمة الانتظار (FL-L10)** — المحترف بيحدد أقصى عدد مشاريع **شغّالة** في نفس الوقت (`freelancers.capacity_max`؛ فاضي = من غير حد). **اللي بيتحسب: الاتفاقات `active` بس** (طلب الخدمة الجاهزة اتفاق برضه)؛ العروض والطلبات اللي مستنية رد مش بتتحسب. المكان المحجوز لأول واحد في الدور بيتحسب مشغول للباقيين.
+- **المحترف:** `GET capacity` → `{max|null, max_choice, running, holds, waiting, full, line[{id, status: waiting|offered, position, hold_until, joined_at, service{uuid,title}, client{name}}]}` · `PUT capacity {max?}` (من غير `max` أو `null` = من غير حد؛ أكبر من `freelance.capacity.max_choice` (20) → `freelance_capacity_too_high` 422). رفع الحد بيدّي الأماكن الفاضية للي في الدور على طول.
+- **بدء الشغل:** موافقة المحترف على أي اتفاق (`Agreements::approve`) بتتأكد من الحد **تحت قفل على صف المحترف**، فموافقتين في نفس اللحظة عمرهم ما يعدّوا الحد → `freelance_capacity_full` 409 (`:max`).
+- **العميل:** كارت الخدمة فيه `at_capacity`، وصفحة الخدمة فيها `capacity{full, waiting, mine|null{status, position, hold_until}}`. الطلب والمحترف مليان (ومش محجوزلي مكان) → `freelance_at_capacity` 409 (`data.waitlist = true`). `POST services/{uuid}/waitlist` (لازم يكون مليان، وإلا `freelance_waitlist_not_full`؛ مرة واحدة لكل محترف `freelance_waitlist_already`) · `DELETE services/{uuid}/waitlist` (`freelance_waitlist_none` 404). الاتنين بيرجّعوا `capacity` الجديدة. الطلب بعد ما المكان اتحجزلي بيستهلك الحجز (`ordered`).
+- **الدور:** لما مكان يفضى (اتفاق بطّل `active` — observer على `FreelanceAgreement` بعد الـcommit — أو الحد زاد، أو حد ساب القايمة وهو حاجز، أو حجز خلص) أقدم واحد مستني بيبقى `offered` والمكان محجوزله `freelance.capacity.hold_hours` (24 ساعة) وبيوصله إشعار `client.waitlist.turn`. الحجز اللي محدش استخدمه بيخلص بأمر `freelance:sweep-waitlist` (كل 5 دقايق) والمكان بيروح للي بعده. المحترف بيوصله `freelancer.waitlist.joined` لما حد يدخل الدور.
+
+**الأدمن:** `PUT freelance-plans/{plan}` بقى بياخد `badge` (bool) · `boost` (0–3) · `analytics` (0–2) · `services_max` (1–1000 أو `null`)، والرد وقايمة الباقات فيهم نفس الحقول. مسجّل في الـaudit. صلاحية `freelance-plans.update`.
+
+**اختبار:** `tests/Feature/FreelancePerksTest.php` (12 اختبار: ضبط الأدمن، متى تظهر المزايا وتختفي، عقوبة العمل، ترتيب الخدمات والعروض والدعوات والشارة، حد الخدمات، الإحصائيات المقفولة والأساسية والكاملة وأرقامها).

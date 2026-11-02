@@ -31,14 +31,26 @@ import com.dorr.freelance.ui.screens.AgreementScreen
 import com.dorr.freelance.ui.screens.DisputeScreen
 import com.dorr.freelance.ui.screens.AvailabilityScreen
 import com.dorr.freelance.ui.screens.ChatScreen
+import com.dorr.freelance.ui.screens.ProfileCoachScreen
+import com.dorr.freelance.ui.screens.SkillTestsScreen
+import com.dorr.freelance.ui.screens.CapacityScreen
+import com.dorr.freelance.ui.screens.ConsultationScreen
+import com.dorr.freelance.ui.screens.ConsultationEditorScreen
+import com.dorr.freelance.ui.screens.ConsultationsScreen
 import com.dorr.freelance.ui.screens.CertificatesScreen
 import com.dorr.freelance.ui.screens.ExperiencesScreen
 import com.dorr.freelance.ui.screens.MainActions
 import com.dorr.freelance.ui.screens.NotificationsScreen
 import com.dorr.freelance.ui.screens.MainScreen
+import com.dorr.freelance.ui.screens.PlansScreen
 import com.dorr.freelance.ui.screens.PortfolioFormScreen
 import com.dorr.freelance.ui.screens.PortfolioTab
 import com.dorr.freelance.ui.screens.ProjectDetailScreen
+import com.dorr.freelance.ui.screens.InsightsScreen
+import com.dorr.freelance.ui.screens.MyServicesScreen
+import com.dorr.freelance.ui.screens.ServiceEditorScreen
+import com.dorr.freelance.ui.screens.ServiceOrderScreen
+import com.dorr.freelance.ui.screens.ServiceOrdersScreen
 import com.dorr.freelance.ui.screens.OfferFormScreen
 import com.dorr.freelance.ui.screens.EditOfferScreen
 import com.dorr.freelance.ui.screens.InvitationsScreen
@@ -72,6 +84,11 @@ object Routes {
     const val SKILLS = "skills"
     const val EXPERIENCES = "experiences"
     const val AVAILABILITY = "availability"
+    const val PLANS = "plans"
+    const val INSIGHTS = "insights"
+    const val COACH = "profile-coach"
+    const val SKILL_TESTS = "skill-tests"
+    const val CAPACITY = "capacity"
     const val PORTFOLIO = "portfolio"
     const val PROJECT = "project/{uuid}"
     const val OFFER_FORM = "offer/{uuid}"
@@ -88,6 +105,24 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
     const val WALLET = "wallet"
     const val PORTFOLIO_ITEM = "portfolio/{id}"
+    // FL-L04: my ready-made services and the orders on them.
+    const val SERVICES = "services"
+    const val SERVICE = "service/{uuid}"
+    const val SERVICE_ORDERS = "service-orders"
+    const val SERVICE_ORDER = "service-order/{uuid}"
+    // FL-L07: paid consultations.
+    const val CONSULTATIONS = "consultations"
+    const val CONSULTATION_EDIT = "consultation-edit?uuid={uuid}"
+    const val CONSULTATION = "consultation/{uuid}"
+
+    /** `null` = a new service. */
+    fun service(uuid: String?) = "service/${uuid ?: "new"}"
+
+    fun serviceOrder(uuid: String) = "service-order/$uuid"
+    fun consultation(uuid: String) = "consultation/$uuid"
+
+    /** The editor of one consultation I list (no uuid: a new one). */
+    fun consultationEdit(uuid: String? = null) = if (uuid == null) "consultation-edit" else "consultation-edit?uuid=$uuid"
 
     fun project(uuid: String) = "project/$uuid"
 
@@ -231,6 +266,7 @@ fun FreelanceNavGraph() {
                     openSkills = { nav.navigate(Routes.SKILLS) },
                     openExperiences = { nav.navigate(Routes.EXPERIENCES) },
                     openAvailability = { nav.navigate(Routes.AVAILABILITY) },
+                    openPlans = { nav.navigate(Routes.PLANS) },
                     openPortfolio = { nav.navigate(Routes.PORTFOLIO) },
                     openProject = { uuid -> nav.navigate(Routes.project(uuid)) },
                     openMyOffers = { nav.navigate(Routes.MY_OFFERS) },
@@ -241,6 +277,13 @@ fun FreelanceNavGraph() {
                     openPortfolioItem = { id -> nav.navigate(Routes.portfolioItem(id)) },
                     openNotifications = { nav.navigate(Routes.NOTIFICATIONS) },
                     openWallet = { nav.navigate(Routes.WALLET) },
+                    openServices = { nav.navigate(Routes.SERVICES) },
+                    openServiceOrders = { nav.navigate(Routes.SERVICE_ORDERS) },
+                    openInsights = { nav.navigate(Routes.INSIGHTS) },
+                    openCoach = { nav.navigate(Routes.COACH) },
+                    openSkillTests = { nav.navigate(Routes.SKILL_TESTS) },
+                    openCapacity = { nav.navigate(Routes.CAPACITY) },
+                    openConsultations = { nav.navigate(Routes.CONSULTATIONS) },
                 ),
             )
         }
@@ -266,7 +309,7 @@ fun FreelanceNavGraph() {
             shell(false) { ChatScreen(conversationUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.OFFER_FORM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
-            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }, onOpenProfile = { ShellState.openProfileHub = true; ShellState.tab = 4; nav.popBackStack(Routes.HOME, inclusive = false) }) }
+            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }, onOpenProfile = { ShellState.openProfileHub = true; ShellState.tab = 4; nav.popBackStack(Routes.HOME, inclusive = false) }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) }
         }
         composable(Routes.OFFER_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             shell(true) { EditOfferScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
@@ -282,7 +325,50 @@ fun FreelanceNavGraph() {
                 )
             }
         }
+        composable(Routes.SERVICES) {
+            shell(true) { MyServicesScreen(onBack = { nav.popBackStack() }, onOpenService = { uuid -> nav.navigate(Routes.service(uuid)) }, onOpenOrders = { nav.navigate(Routes.SERVICE_ORDERS) { launchSingleTop = true } }) }
+        }
+        composable(Routes.SERVICE, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            val id = entry.arguments?.getString("uuid")?.takeIf { it != "new" }
+            shell(true) { ServiceEditorScreen(uuid = id, onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.SERVICE_ORDERS) { shell(true) { ServiceOrdersScreen(onBack = { nav.popBackStack() }, onOpenOrder = { uuid -> nav.navigate(Routes.serviceOrder(uuid)) }) } }
+        composable(Routes.SERVICE_ORDER, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) { ServiceOrderScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onOpenWork = { p -> nav.navigate(Routes.agreement(p)) }) }
+        }
         composable(Routes.AVAILABILITY) { shell(true) { AvailabilityScreen(onBack = { nav.popBackStack() }) } }
+        composable(Routes.PLANS) { shell(true) { PlansScreen(onBack = { nav.popBackStack() }, onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } }, onOpenInsights = { nav.navigate(Routes.INSIGHTS) { launchSingleTop = true } }) } }
+        composable(Routes.INSIGHTS) { shell(true) { InsightsScreen(onBack = { nav.popBackStack() }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) } }
+        composable(Routes.CAPACITY) { shell(true) { CapacityScreen(onBack = { nav.popBackStack() }) } }
+        composable(Routes.CONSULTATIONS) {
+            shell(true) { ConsultationsScreen(onBack = { nav.popBackStack() }, onOpenEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } }, onOpenConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) }) }
+        }
+        composable(Routes.CONSULTATION_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType; nullable = true; defaultValue = null })) { entry ->
+            shell(true) { ConsultationEditorScreen(uuid = entry.arguments?.getString("uuid"), onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.CONSULTATION, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) { ConsultationScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.SKILL_TESTS) { shell(true) { SkillTestsScreen(onBack = { nav.popBackStack() }, onOpenSkills = { nav.navigate(Routes.SKILLS) }) } }
+        composable(Routes.COACH) {
+            shell(true) {
+                ProfileCoachScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpen = { action ->
+                        nav.navigate(
+                            when (action) {
+                                "skills" -> Routes.SKILLS
+                                "specialties" -> Routes.SPECIALTIES
+                                "portfolio" -> Routes.PORTFOLIO
+                                "verification" -> Routes.VERIFICATION
+                                "services" -> Routes.SERVICES
+                                else -> Routes.PROFILE
+                            },
+                        )
+                    },
+                )
+            }
+        }
         composable(Routes.EXPERIENCES) { shell(true) { ExperiencesScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.PORTFOLIO_ITEM, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             shell(true) { PortfolioFormScreen(itemId = entry.arguments?.getInt("id") ?: 0, onBack = { nav.popBackStack() }) }

@@ -31,6 +31,12 @@ class FreelancerCompleteness
     /** Fewer skills than this don't make a profile a profile. */
     public const SKILLS_MIN = 3;
 
+    /** @return array<string, int> the points each step is worth */
+    public static function weights(): array
+    {
+        return self::WEIGHTS;
+    }
+
     /** @return array{percent: int, missing: list<string>, steps: array<string, bool>} */
     public function of(Freelancer $freelancer): array
     {

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerInsightController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerInvitationController;
 use Modules\Freelance\Http\Controllers\ReceiptController;
 use Modules\Freelance\Http\Controllers\ApprovalTrailController;
@@ -18,7 +19,10 @@ use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAppearanceController
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerMyProjectsController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerRatingController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerReferralController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerOfferPackController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerServiceController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerSecurityController;
+use Modules\Freelance\Http\Controllers\Freelancer\FreelancerSubscriptionController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerSupportController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerAvailabilityController;
 use Modules\Freelance\Http\Controllers\Freelancer\FreelancerPortfolioController;
@@ -47,7 +51,7 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
     // Anyone may read a verified freelancer's public works (the website).
     Route::get('public/freelancers/{uuid}/portfolio', [PortfolioViewController::class, 'show'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-public-portfolio');
 
-    Route::middleware(['auth:freelance_api', 'ensure-phone-verified:freelance_api', 'throttle:60,1', 'remember-locale'])->group(function () {
+    Route::middleware(['auth:freelance_api', 'ensure-phone-verified:freelance_api', 'throttle:60,1', 'remember-locale', \Modules\Chat\Http\Middleware\RememberTimezone::class])->group(function () {
         Route::get('config', [FreelanceConfigController::class, 'show']);
 
         // The catalogs the apps pick from (FL-101): the specialty tree, in the request's language.
@@ -75,6 +79,64 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::get('support-tickets/{ticket}/messages', [FreelancerSupportController::class, 'messages'])->whereNumber('ticket');
         Route::post('support-tickets/{ticket}/messages', [FreelancerSupportController::class, 'send'])->whereNumber('ticket')->middleware('throttle:30,1');
         Route::post('support-tickets/{ticket}/auto-reply-feedback', [FreelancerSupportController::class, 'autoReplyFeedback'])->whereNumber('ticket')->middleware('throttle:30,1');
+
+        // FL-L01: my plan - the plans with their prices here, my subscription and invoices, taking / changing / cancelling it.
+        Route::middleware('freelance.feature:subscriptions')->group(function () {
+            Route::get('plans', [FreelancerSubscriptionController::class, 'plans']);
+            Route::get('subscription', [FreelancerSubscriptionController::class, 'show']);
+            Route::middleware('throttle:10,1,freelance-subscription')->group(function () {
+                Route::post('subscription', [FreelancerSubscriptionController::class, 'store']);
+                Route::post('subscription/cancel', [FreelancerSubscriptionController::class, 'cancel']);
+                Route::post('subscription/resume', [FreelancerSubscriptionController::class, 'resume']);
+                Route::post('subscription/renew', [FreelancerSubscriptionController::class, 'renew']);
+            });
+        });
+
+        // FL-L04: my ready-made services (behind the `services` switch), and the orders clients placed on them (these carry on when it is off).
+        Route::middleware(['freelance.feature:projects', 'freelance.feature:services'])->group(function () {
+            Route::get('services', [FreelancerServiceController::class, 'index']);
+            Route::post('services', [FreelancerServiceController::class, 'store'])->middleware('throttle:20,1,freelance-service-create');
+            Route::get('services/{uuid}', [FreelancerServiceController::class, 'show'])->whereUuid('uuid');
+            Route::put('services/{uuid}', [FreelancerServiceController::class, 'update'])->whereUuid('uuid');
+            Route::delete('services/{uuid}', [FreelancerServiceController::class, 'destroy'])->whereUuid('uuid');
+            Route::post('services/{uuid}/{action}', [FreelancerServiceController::class, 'action'])->whereUuid('uuid')->whereIn('action', ['submit', 'pause', 'resume']);
+            Route::get('services/{uuid}/images/{media}', [FreelancerServiceController::class, 'image'])->whereUuid('uuid')->whereNumber('media');
+            Route::delete('services/{uuid}/images/{media}', [FreelancerServiceController::class, 'destroyImage'])->whereUuid('uuid')->whereNumber('media');
+        });
+        // FL-L05: the monthly subscriptions to my services, and ending one with notice.
+        Route::prefix('service-subscriptions')->middleware('freelance.feature:projects')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerServiceSubscriptionController::class, 'index']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerServiceSubscriptionController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/{action}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerServiceSubscriptionController::class, 'action'])->whereUuid('uuid')->whereIn('action', ['cancel', 'keep']);
+        });
+        // FL-L07: paid consultations - what I sell and my weekly hours, the bookings, and cancelling one.
+        Route::prefix('consultations')->middleware('freelance.feature:freelance')->group(function () {
+            Route::get('info', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'info']);
+            Route::get('offers', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'offers']);
+            Route::post('offers', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'createOffer']);
+            Route::get('offers/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'offer'])->whereUuid('uuid');
+            Route::put('offers/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'updateOffer'])->whereUuid('uuid');
+            Route::delete('offers/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'deleteOffer'])->whereUuid('uuid');
+            Route::post('offers/{uuid}/submit', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'submitOffer'])->whereUuid('uuid');
+            Route::post('offers/{uuid}/pause', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'pauseOffer'])->whereUuid('uuid');
+            Route::post('offers/{uuid}/resume', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'resumeOffer'])->whereUuid('uuid');
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'index']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/cancel', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'cancel'])->whereUuid('uuid');
+            Route::post('{uuid}/accept', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'accept'])->whereUuid('uuid');
+            Route::post('{uuid}/decline', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'decline'])->whereUuid('uuid');
+        });
+        Route::prefix('service-orders')->middleware('freelance.feature:projects')->group(function () {
+            Route::get('/', [FreelancerServiceController::class, 'orders']);
+            Route::get('{uuid}', [FreelancerServiceController::class, 'order'])->whereUuid('uuid');
+            Route::post('{uuid}/{action}', [FreelancerServiceController::class, 'answerOrder'])->whereUuid('uuid')->whereIn('action', ['accept', 'decline'])->middleware('freelance.verified');
+        });
+
+        // FL-L01 phase 2: extra offers for sale - the packs here and what I have left, and buying one.
+        Route::middleware('freelance.feature:offer_packs')->group(function () {
+            Route::get('offer-packs', [FreelancerOfferPackController::class, 'index']);
+            Route::post('offer-packs/{pack}/buy', [FreelancerOfferPackController::class, 'buy'])->middleware('throttle:10,1,freelance-offer-pack');
+        });
 
         Route::put('profile', [FreelancerAccountController::class, 'updateProfile']);
         Route::post('profile/email/send-code', [FreelancerAccountController::class, 'sendEmailCode'])->middleware('throttle:5,1,freelancer-email-code');
@@ -155,6 +217,17 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         // FL-509: my earnings from projects.
         Route::get('earnings', [FreelancerAgreementController::class, 'earnings'])->middleware('freelance.feature:projects');
 
+        // FL-L01 phase 4: my performance (what shows depends on my plan; a plan with none gets `locked`, not an error).
+        Route::get('insights', [FreelancerInsightController::class, 'show'])->middleware('freelance.feature:projects');
+        Route::get('profile-coach', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCoachController::class, 'show'])->middleware('freelance.feature:freelance');
+        // Capacity and the waiting list on my services (FL-L10).
+        Route::get('capacity', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCapacityController::class, 'show'])->middleware('freelance.feature:freelance');
+        Route::put('capacity', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCapacityController::class, 'update'])->middleware('freelance.feature:freelance');
+        // Skill tests and badges (FL-L08).
+        Route::get('skill-tests', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'index'])->middleware('freelance.feature:freelance');
+        Route::post('skill-tests/{skill}/start', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'start'])->whereNumber('skill')->middleware(['freelance.feature:freelance', 'throttle:20,1,freelance-skill-test-start']);
+        Route::post('skill-test-attempts/{attempt}/submit', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'submit'])->whereNumber('attempt')->middleware('freelance.feature:freelance');
+
         // FL-304: my offer texts to start from.
         Route::prefix('offer-templates')->middleware(['freelance.feature:projects', 'freelance.feature:bidding'])->group(function () {
             Route::get('/', [FreelancerOfferTemplateController::class, 'index']);
@@ -226,5 +299,6 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::post('verification/documents', [FreelancerVerificationController::class, 'upload']);
         Route::post('profile/portfolio/{item}/images', [FreelancerPortfolioController::class, 'addImage'])->whereNumber('item');
         Route::post('profile/certificates/{certificate}', [FreelancerProfileListsController::class, 'updateCertificate'])->whereNumber('certificate');
+        Route::post('services/{uuid}/images', [FreelancerServiceController::class, 'addImage'])->whereUuid('uuid')->middleware(['freelance.feature:projects', 'freelance.feature:services']);
     });
 });
