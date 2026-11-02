@@ -83,11 +83,14 @@ struct SubHeader: View {
     @Environment(\.wa) private var wa
     let title: String
     let onBack: () -> Void
+    /// Beside the back button (an action of the page).
+    var trailing: AnyView?
 
     var body: some View {
         HStack(spacing: 0) {
             SettingsScreenTitle(title: title)
             Spacer(minLength: 8)
+            if let trailing { trailing.padding(.trailing, 6) }
             Button(action: onBack) {
                 // ArrowBack mirrored (scaleX = -1): it points to the edge it sits on.
                 Image(systemName: "arrow.forward")

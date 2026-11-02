@@ -123,20 +123,27 @@ struct FlSheet<Content: View>: View {
     let icon: String
     let title: String
     let text: String
+    /// Kept at the bottom of the sheet while the fields scroll, so the main button is always in reach.
+    var footer: AnyView?
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Capsule().fill(wa.settingsMut.opacity(0.35)).frame(width: 36, height: 4).frame(maxWidth: .infinity).padding(.top, 10)
-                FlIntro(icon: icon, title: title, text: text)
-                content()
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Capsule().fill(wa.settingsMut.opacity(0.35)).frame(width: 36, height: 4).frame(maxWidth: .infinity).padding(.top, 10)
+                    FlIntro(icon: icon, title: title, text: text)
+                    content()
+                }
+                .padding(.horizontal, 20).padding(.bottom, footer == nil ? 34 : 12)
             }
-            .padding(.horizontal, 20).padding(.bottom, 34)
+            .scrollDismissesKeyboard(.interactively)
+            if let footer {
+                VStack(spacing: 10) { footer }.padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 34)
+            }
         }
-        .scrollDismissesKeyboard(.interactively)
         .frame(maxHeight: UIScreen.main.bounds.height * 0.88)
-        .fixedSize(horizontal: false, vertical: true)
+        .fixedSize(horizontal: false, vertical: footer == nil)
         .background(wa.night ? wa.darkCard : .white)
         .clipShape(UnevenRoundedRectangleCompat(topRadius: 28))
         .contentShape(Rectangle())
@@ -386,9 +393,11 @@ final class FreelanceLink: ObservableObject {
 
     /// The page a client's freelance notification belongs to. `event` is the delivered one ("freelance.offer.received"); the
     /// ids come from the notification's data (`project`, `offer`, `dispute`). Without a project the list opens.
-    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?) -> String {
+    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = nil) -> String {
         let name = (event ?? "").hasPrefix("freelance.") ? String((event ?? "").dropFirst("freelance.".count)) : (event ?? "")
         let group = name.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        // FL-L07: a consultation has no project: it opens the booking (or my consultations).
+        if group == "consultation" { return consultation.flatMap { $0.isEmpty ? nil : "consult:\($0)" } ?? "consults" }
         guard let project, !project.isEmpty else { return "list" }
         switch group {
         case "offer": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"

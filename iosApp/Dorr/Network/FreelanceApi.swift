@@ -213,6 +213,9 @@ struct FreelanceOfferFreelancerDto: Codable, Equatable {
     var similarProjects: Int?
     /// I keep this freelancer (FL-306).
     var isFavorite: Bool?
+    /// FL-L01 / FL-L08: their plan's badge and the skills they passed the test of.
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
 }
 
 /// An offer on my project (FL-301).
@@ -266,11 +269,13 @@ struct FreelanceFavoriteDto: Codable, Equatable, Identifiable {
     var id: String { uuid }
 }
 
+/// `kind` = project · consultation; `project` is its title either way.
 struct FreelanceReviewLineDto: Codable, Equatable {
     var stars: Double?
     var comment: String?
     var project: String?
     var at: String?
+    var kind: String?
 }
 
 struct FreelanceExperienceDto: Codable, Equatable {
@@ -327,6 +332,10 @@ struct FreelancerProfileDto: Codable, Equatable {
     /// FL-701: what clients said.
     var reviews: [FreelanceReviewLineDto]?
     var isFavorite: Bool?
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
+    /// FL-L07: the paid consultations listed now (empty: none).
+    var consultations: [ConsultTeaserDto]?
 }
 
 struct FreelanceChatPeerDto: Codable, Equatable {
@@ -702,6 +711,8 @@ struct FreelanceInviteeDto: Codable, Equatable {
     var rating: Double?
     var reviewsCount: Int?
     var completedProjects: Int?
+    var badge: FreelancePlanBadgeDto?
+    var skillBadges: [FreelanceSkillBadgeDto]?
 }
 
 struct FreelanceInvitationDto: Codable, Equatable {

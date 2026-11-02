@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L08: skill tests and badges -->
+    <string name="skt_title">Skill tests</string>
+    <string name="skt_home_card">Skill tests</string>
+    <string name="skt_hero_none">Prove your skills</string>
+    <string name="skt_hero_count">%1$d verified badges</string>
+    <string name="skt_hero_sub">Pass a short test in a skill and clients see a verified badge beside your name.</string>
+    <string name="skt_off_title">Tests are not available</string>
+    <string name="skt_off_body">Skill tests are not open in your country right now. Check again later.</string>
+    <string name="skt_none_title">No test for your skills yet</string>
+    <string name="skt_none_body">A skill shows here once it has a test. Add more skills to your profile to see more.</string>
+    <string name="skt_open_skills">Go to my skills</string>
+    <string name="skt_meta">%1$d questions · %2$d min · pass at %3$d%%</string>
+    <string name="skt_badge_held">Verified · %1$d%%</string>
+    <string name="skt_badge_until">Your badge is valid until %1$s</string>
+    <string name="skt_badge_forever">Your badge has no end date</string>
+    <string name="skt_in_progress">In progress</string>
+    <string name="skt_retake_at">You can try again on %1$s</string>
+    <string name="skt_start">Start the test</string>
+    <string name="skt_resume">Continue the test</string>
+    <string name="skt_question_of">Question %1$d of %2$d</string>
+    <string name="skt_prev">Back</string>
+    <string name="skt_next">Next</string>
+    <string name="skt_finish">Finish and send</string>
+    <string name="skt_unanswered">%1$d questions are still unanswered and count as wrong.</string>
+    <string name="skt_passed">You passed!</string>
+    <string name="skt_failed">Not this time</string>
+    <string name="skt_expired">Time ran out</string>
+    <string name="skt_score_line">%1$d of %2$d right · pass mark %3$d%%</string>
+    <string name="skt_passed_body">The %1$s badge is now on your profile and shows to clients.</string>
+    <string name="skt_done">Done</string>
+</resources>

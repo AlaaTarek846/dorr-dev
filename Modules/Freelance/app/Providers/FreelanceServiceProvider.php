@@ -11,6 +11,7 @@ use Modules\Freelance\Console\ExecuteDisputeDecisions;
 use Modules\Freelance\Console\ReleaseFreelanceEarnings;
 use Modules\Freelance\Console\PublishFreelanceReviews;
 use Modules\Freelance\Console\ReconcileFreelanceMoney;
+use Modules\Freelance\Console\RenewFreelanceSubscriptions;
 use Modules\Freelance\Console\TellFreelanceLateWork;
 use Modules\Freelance\Console\RemindFreelanceInterviews;
 use Modules\Freelance\Console\RefreshFreelancerRisk;
@@ -55,6 +56,10 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         RemindFreelanceInterviews::class,
         RemindProgressReports::class,
         RefreshFreelancerRisk::class,
+        RenewFreelanceSubscriptions::class,
+        \Modules\Freelance\Console\SweepFreelanceWaitlist::class,
+        \Modules\Freelance\Console\SweepServiceSubscriptions::class,
+        \Modules\Freelance\Console\SweepConsultations::class,
     ];
 
     public function boot(): void
@@ -66,6 +71,18 @@ class FreelanceServiceProvider extends ModuleServiceProvider
 
         // A duplicate skill merged in the catalog (FL-102): whoever listed it now lists the survivor.
         Event::listen(FreelanceSkillsMerged::class, fn (FreelanceSkillsMerged $e) => $this->app->make(FreelancerProfileLists::class)->moveMergedSkill($e->sourceId, $e->targetId));
+
+        // FL-L10: work that stops running frees a place — the first in line for that freelancer is offered it (after the change is saved).
+        \Modules\Freelance\Models\FreelanceAgreement::updated(function (\Modules\Freelance\Models\FreelanceAgreement $a) {
+            // FL-L05: the first month of a subscription accepted starts it; never started, it ends.
+            if ($a->wasChanged('status')) {
+                $this->app->make(\Modules\Freelance\Services\Market\ServiceSubscriptions::class)->agreementChanged($a);
+            }
+            if ($a->wasChanged('status') && $a->getOriginal('status') === \Modules\Freelance\Models\FreelanceAgreement::ACTIVE) {
+                $id = (int) $a->freelancer_id;
+                \Illuminate\Support\Facades\DB::afterCommit(fn () => $this->app->make(\Modules\Freelance\Services\Market\FreelanceCapacity::class)->promote($id));
+            }
+        });
     }
 
     protected function configureSchedules(Schedule $schedule): void
@@ -84,6 +101,13 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         $schedule->command(RemindProgressReports::class)->hourly()->withoutOverlapping();
         // FL-707: the quality score and risk level shown to staff.
         $schedule->command(RefreshFreelancerRisk::class)->dailyAt('04:10')->withoutOverlapping();
+        // FL-L01: freelancer plans renew, retry and end.
+        $schedule->command(RenewFreelanceSubscriptions::class)->hourly()->withoutOverlapping();
+        // FL-L10: a place kept for the first in line and left unused goes to the next.
+        $schedule->command(\Modules\Freelance\Console\SweepFreelanceWaitlist::class)->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command(\Modules\Freelance\Console\SweepServiceSubscriptions::class)->hourly()->withoutOverlapping();
+        // FL-L07: reminders a little before, the question at the end, and paying out after the complaint hours.
+        $schedule->command(\Modules\Freelance\Console\SweepConsultations::class)->everyFiveMinutes()->withoutOverlapping();
     }
 
     /**

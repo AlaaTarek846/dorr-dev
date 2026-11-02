@@ -481,7 +481,10 @@ struct InvitationsPage: View {
                             .frame(width: 42, height: 42)
                             .background(c.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(verbatim: i.freelancer?.name ?? "—").font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk)
+                            HStack(spacing: 6) {
+                                Text(verbatim: i.freelancer?.name ?? "—").font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                PlanBadge(badge: i.freelancer?.badge)
+                            }
                             if let f = i.freelancer { Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -508,6 +511,7 @@ struct InvitationsPage: View {
                         FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2") { all = false }
                         FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill") { all = true }
                     }
+                    FlHint(text: L("fl_inv_order_hint"))
                     if searching {
                         ForEach(0..<3, id: \.self) { _ in WaSkeleton(cornerRadius: 14).frame(height: 56) }
                     } else if found.isEmpty {
@@ -521,7 +525,10 @@ struct InvitationsPage: View {
                             HStack(spacing: 10) {
                                 Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(on ? wa.accent : wa.settingsMut)
                                 VStack(alignment: .leading, spacing: 0) {
-                                    Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                                    HStack(spacing: 6) {
+                                        Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                        PlanBadge(badge: f.badge)
+                                    }
                                     Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
                                 }
                                 Spacer(minLength: 0)

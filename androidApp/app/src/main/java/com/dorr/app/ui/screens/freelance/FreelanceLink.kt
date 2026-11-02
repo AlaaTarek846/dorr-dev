@@ -19,9 +19,11 @@ object FreelanceLink {
      * The page a client's freelance notification belongs to. [event] is the delivered one ("freelance.offer.received"); the ids come
      * from the notification's data (`project`, `offer`, `dispute`). Without a project the list opens.
      */
-    fun pageFor(event: String?, project: String?, offer: String?, dispute: String?): String {
+    fun pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = null): String {
         val name = event?.removePrefix("freelance.").orEmpty()
         val group = name.substringBefore('.')
+        // FL-L07: a consultation has no project: it opens the booking (or my consultations).
+        if (group == "consultation") return consultation?.takeIf { it.isNotBlank() }?.let { "consult:$it" } ?: "consults"
         if (project.isNullOrBlank()) return "list"
         return when (group) {
             "offer" -> if (!offer.isNullOrBlank()) "offer:$project:$offer" else "offers:$project"

@@ -57,6 +57,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -164,7 +165,7 @@ internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -
         Box(Modifier.fillMaxSize()) {
             PinkBackdrop(Modifier.fillMaxSize())
             Column(Modifier.fillMaxSize()) {
-                SubHeader(title, onBack)
+                SubHeader(title, onBack, trailing = actions)
                 Box(Modifier.weight(1f).fillMaxWidth()) { content() }
             }
         }
@@ -324,8 +325,8 @@ fun NewChatPage() {
     val toInvite: List<ContactEntry> = if (all.isNotEmpty()) all.filter { !it.isRegistered }.map { ContactEntry(it.name, it.phone) } else deviceBook
     val invitees = toInvite.filter { matches(it.name, it.phone) }
 
-    ChPage(stringResource(R.string.ch_new_chat), onBack = { host.pop() }) {
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+    ChPage(stringResource(R.string.ch_new_chat), onBack = { host.pop() }, settingsHeader = true) {
+        LazyColumn(contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxSize()) {
             item {
                 ChField(query, { query = it; lookupError = null }, stringResource(R.string.ch_find_by_number), icon = Icons.Rounded.Search, clearable = !looksLikeNumber, trailing = {
                     AnimatedVisibility(looksLikeNumber || looksLikeUsername, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
@@ -346,7 +347,7 @@ fun NewChatPage() {
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ShortcutTile(Icons.Rounded.GroupAdd, stringResource(R.string.ch_new_group), 0, Modifier.weight(1f)) { host.replace(ChRoute.NewGroup()) }
                     ShortcutTile(Icons.Rounded.Dialpad, stringResource(R.string.ch_by_number), 1, Modifier.weight(1f)) { byPhone = "" }
                     ShortcutTile(Icons.Rounded.QrCodeScanner, stringResource(R.string.ch_scan_qr), 2, Modifier.weight(1f)) {
@@ -355,77 +356,17 @@ fun NewChatPage() {
                     ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 3, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
                 }
             }
-            // A group or channel by its invite code or link (typed or pasted).
             item {
-                Row(
-                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
-                        .clickable { joinByCode = true }.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Key, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ch_join_code), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                        Text(stringResource(R.string.ch_join_code_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
-                }
+                NewChatActionRow(Icons.Rounded.Key, stringResource(R.string.ch_join_code), stringResource(R.string.ch_join_code_sub), 4) { joinByCode = true }
             }
-            // Broadcast lists: one message, each person gets it in our own chat (like WhatsApp).
             item {
-                Row(
-                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
-                        .clickable { host.push(ChRoute.Broadcasts) }.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Campaign, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ch_broadcasts), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                        Text(stringResource(R.string.ch_broadcast_hint), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
-                }
+                NewChatActionRow(Icons.Rounded.Campaign, stringResource(R.string.ch_broadcasts), stringResource(R.string.ch_broadcast_hint), 5) { host.push(ChRoute.Broadcasts) }
             }
-            // Channels: discover, follow, or start one.
             item {
-                Row(
-                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
-                        .clickable { host.push(ChRoute.Channels) }.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Campaign, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ch_channels), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                        Text(stringResource(R.string.ch_channels_hero_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
-                }
+                NewChatActionRow(Icons.Rounded.Campaign, stringResource(R.string.ch_channels), stringResource(R.string.ch_channels_hero_sub), 6) { host.push(ChRoute.Channels) }
             }
-            // Note to self: notes, links and files I keep for myself, on all my devices.
             item {
-                Row(
-                    Modifier.fillMaxWidth().chStagger(5).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
-                        .clickable { host.openNoteToSelf() }.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.TintBrush), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Bookmark, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.ch_note_to_self), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                        Text(stringResource(R.string.ch_note_to_self_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
-                }
+                NewChatActionRow(Icons.Rounded.Bookmark, stringResource(R.string.ch_note_to_self), stringResource(R.string.ch_note_to_self_sub), 7) { host.openNoteToSelf() }
             }
             item { SyncCard(syncing, synced, permissionDenied) {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) sync()
@@ -543,12 +484,12 @@ private fun internationalDigits(phone: String, myPhone: String?): String {
 @Composable
 private fun ShortcutTile(icon: ImageVector, label: String, index: Int, modifier: Modifier, onClick: () -> Unit) {
     Column(
-        modifier.chStagger(index).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(vertical = 14.dp),
+        modifier.chStagger(index).shadow(4.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
-        Spacer(Modifier.height(8.dp))
-        Text(label, color = Ch.Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center)
+        Box(Modifier.size(36.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = Ch.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center)
     }
 }
 
@@ -583,34 +524,69 @@ private fun InviteRow(entry: ContactEntry, index: Int, onInvite: () -> Unit) {
 }
 
 @Composable
+private fun NewChatActionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    index: Int,
+    trailing: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+    subtitleColor: Color = Ch.Ink.copy(alpha = 0.65f),
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .chStagger(index)
+            .shadow(6.dp, shape, spotColor = Ch.Red.copy(alpha = 0.07f))
+            .clip(shape)
+            .background(Ch.Surface)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(Ch.Red.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = subtitleColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (trailing != null) trailing()
+        else Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Ch.Red.copy(alpha = 0.55f), modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
 private fun SyncCard(syncing: Boolean, synced: Int?, denied: Boolean = false, onSync: () -> Unit) {
     val spin = rememberInfiniteTransition(label = "sync")
     val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "angle")
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Ch.TintBrush).clickable(enabled = !syncing, onClick = onSync).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(46.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
-            Icon(if (syncing) Icons.Rounded.Sync else Icons.Rounded.Contacts, null, tint = Color.White, modifier = Modifier.size(24.dp).rotate(if (syncing) -angle else 0f))
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            AnimatedContent(targetState = Triple(syncing, synced, 0), label = "syncText", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (busy, count, _) ->
-                Column {
-                    Text(stringResource(if (busy) R.string.ch_syncing else R.string.ch_sync_contacts), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp)
-                    Text(
-                        when {
-                            denied && !busy -> stringResource(R.string.ch_contacts_denied)
-                            count != null && !busy -> stringResource(R.string.ch_synced, count)
-                            else -> stringResource(R.string.ch_contacts_permission)
-                        },
-                        color = if (denied && !busy) Ch.Danger else Ch.Mut, fontSize = 12.sp,
-                    )
-                }
-            }
-        }
-        if (!syncing) Icon(Icons.Rounded.Refresh, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
-    }
+    NewChatActionRow(
+        Icons.Rounded.Contacts,
+        stringResource(if (syncing) R.string.ch_syncing else R.string.ch_sync_contacts),
+        when {
+            denied && !syncing -> stringResource(R.string.ch_contacts_denied)
+            synced != null && !syncing -> stringResource(R.string.ch_synced, synced)
+            else -> stringResource(R.string.ch_contacts_permission)
+        },
+        8,
+        subtitleColor = if (denied && !syncing) Ch.Danger else Ch.Ink.copy(alpha = 0.65f),
+        trailing = {
+            Icon(
+                Icons.Rounded.Refresh,
+                null,
+                tint = Ch.Red,
+                modifier = Modifier.size(18.dp).rotate(if (syncing) -angle else 0f),
+            )
+        },
+        enabled = !syncing,
+        onClick = onSync,
+    )
 }
 
 @Composable

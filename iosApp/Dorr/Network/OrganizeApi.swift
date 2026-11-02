@@ -108,7 +108,9 @@ enum OrganizeApi {
 
     // Broadcasts
 
-    static func broadcasts() async throws -> ApiEnvelope<[BroadcastDto]> { try await ApiClient.snake("\(base)/broadcasts") }
+    static func broadcasts(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[BroadcastDto]> {
+        try await ApiClient.snake("\(base)/broadcasts", query: ["page": String(page), "per_page": String(perPage)])
+    }
     static func createBroadcast(members: [Int]) async throws -> ApiEnvelope<BroadcastDto> {
         try await ApiClient.snake("\(base)/broadcasts", method: "POST", body: ["members": .array(members.map { .int($0) })])
     }

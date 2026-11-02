@@ -128,7 +128,7 @@ class MilestonePayments
         return max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
     }
 
-    private static function money(int $minor, string $currency): string
+    public static function money(int $minor, string $currency): string
     {
         return number_format($minor / 100, 2).' '.$currency;
     }

@@ -340,7 +340,8 @@ data class MyReviewsDto(
     val latest: List<ReviewLineDto> = emptyList(),
 )
 
-data class ReviewLineDto(val stars: Double = 0.0, val comment: String? = null, val project: String? = null, val at: String? = null)
+/** `kind` = project · consultation; `project` is its title either way. */
+data class ReviewLineDto(val stars: Double = 0.0, val comment: String? = null, val project: String? = null, val at: String? = null, val kind: String? = null)
 
 /** FL-511: a receipt of one money movement of a part. `text`/`reason_text` come with the single receipt. */
 data class ReceiptDto(

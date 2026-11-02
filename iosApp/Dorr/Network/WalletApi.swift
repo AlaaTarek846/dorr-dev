@@ -11,9 +11,9 @@ enum WalletApi {
     }
 
     /// Statement of the request country's wallet, newest first. `direction`: credit/debit; `bucket`: withdrawable/spend_only.
-    static func transactions(page: Int, perPage: Int = 15, direction: String? = nil, bucket: String? = nil) async throws -> ApiEnvelope<[WalletTransactionDto]> {
+    static func transactions(page: Int, perPage: Int = 15, direction: String? = nil, bucket: String? = nil, type: String? = nil) async throws -> ApiEnvelope<[WalletTransactionDto]> {
         try await ApiClient.get("mobile/v1/wallet/transactions", query: [
-            "page": String(page), "per_page": String(perPage), "direction": direction, "bucket": bucket,
+            "page": String(page), "per_page": String(perPage), "direction": direction, "bucket": bucket, "type": type,
         ], auth: true)
     }
 

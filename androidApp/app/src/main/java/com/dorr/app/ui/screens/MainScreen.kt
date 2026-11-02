@@ -329,7 +329,8 @@ fun MainScreen(
                         onOpenAccount = { currentTab = 3 },
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
-                        onOpenServices = onOpenServices,
+                        // «View all» is the Services tab: a separate page had no handler, so Freelance and rides opened «coming soon».
+                        onOpenServices = { currentTab = 1 },
                         onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
                         onOpenAi = {

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L05: الاشتراكات الشهرية -->
+    <string name="svc_monthly">اشتراك شهري</string>
+    <string name="svc_monthly_hint">السعر في الشهر. كل شهر بيتسلّم في %1$d يوم أو أقل، والعميل بيأكّد ويدفع كل شهر، وأي حد فيكم يقدر يوقفه بإشعار قبلها.</string>
+    <string name="svc_fix_monthly_days">الخدمة الشهرية لازم كل مستوى فيها (مع الإضافات) يتسلّم في %1$d يوم أو أقل.</string>
+    <string name="sub_tab">شهرية</string>
+    <string name="sub_month_n">الشهر %1$d</string>
+    <string name="sub_you_get">بتاخد %1$s كل شهر</string>
+    <string name="sub_status_active">شغّال</string>
+    <string name="sub_status_pending">مستني موافقتك</string>
+    <string name="sub_status_ended">خلص</string>
+    <string name="sub_month_ends">الشهر الحالي بيخلص %1$s</string>
+    <string name="sub_renew_open">الشهر الحالي بيخلص %1$s — العميل يقدر يأكّد الشهر الجاي دلوقتي</string>
+    <string name="sub_pending_hint">وافق على أول شهر في الطلبات المستنية عشان يبدأ.</string>
+    <string name="sub_ending_client">العميل طالب يوقفه — هيخلص %1$s</string>
+    <string name="sub_ending_me">إنت طالب توقفه — هيخلص %1$s</string>
+    <string name="sub_end_client">العميل وقّفه</string>
+    <string name="sub_end_me">إنت وقّفته</string>
+    <string name="sub_end_not_renewed">العميل ما أكّدش الشهر الجاي</string>
+    <string name="sub_end_first">أول شهر ما بدأش</string>
+    <string name="sub_cancel">وقّف الاشتراك</string>
+    <string name="sub_keep">كمّل الاشتراك</string>
+    <string name="sub_cancel_title">توقف الاشتراك ده؟</string>
+    <string name="sub_cancel_body">الإيقاف محتاج إشعار: لو طلبته قبل نهاية الشهر الحالي بـ%1$d يوم أو أكتر، هيخلص مع نهاية الشهر ده؛ غير كده هيخلص مع نهاية الشهر اللي بعده. تقدر ترجع فيه لحد ساعتها.</string>
+    <string name="sub_cancel_done">العميل هيعرف هيخلص إمتى</string>
+    <string name="sub_keep_done">الاشتراك مكمّل</string>
+    <string name="sub_empty">مفيش اشتراكات شهرية لسه</string>
+    <string name="sub_empty_body">خلّي أي خدمة شهرية من الفورم بتاعها، والعملاء اللي يشتركوا هيظهروا هنا.</string>
+</resources>

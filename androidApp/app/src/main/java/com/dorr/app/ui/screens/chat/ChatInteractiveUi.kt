@@ -173,7 +173,7 @@ fun InteractiveComposerSheet(onDismiss: () -> Unit, onSend: (body: String, extra
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(Icons.Rounded.SmartButton, Color(0xFF0EA5E9))
+                IconBadge(Icons.Rounded.SmartButton, Color(0xFF0EA5E9), iconTint = Ch.Red)
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(stringResource(R.string.ia_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
@@ -212,9 +212,14 @@ fun InteractiveComposerSheet(onDismiss: () -> Unit, onSend: (body: String, extra
                         }
                         AnimatedVisibility(options.size > 1) {
                             Box(
-                                Modifier.padding(start = 6.dp).size(34.dp).clip(CircleShape).clickable { if (options.size > 1) { options.removeAt(i); descriptions.removeAt(i) } },
+                                Modifier
+                                    .padding(start = 6.dp)
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Ch.Danger.copy(alpha = 0.12f))
+                                    .clickable { if (options.size > 1) { options.removeAt(i); descriptions.removeAt(i) } },
                                 contentAlignment = Alignment.Center,
-                            ) { Icon(Icons.Rounded.Close, null, tint = Ch.Mut, modifier = Modifier.size(18.dp)) }
+                            ) { Icon(Icons.Rounded.Close, null, tint = Ch.Danger, modifier = Modifier.size(18.dp)) }
                         }
                     }
                     if (list) Box(Modifier.padding(start = 24.dp, end = 40.dp, top = 4.dp)) {
@@ -224,7 +229,12 @@ fun InteractiveComposerSheet(onDismiss: () -> Unit, onSend: (body: String, extra
             }
             AnimatedVisibility(options.size < max) {
                 Row(
-                    Modifier.padding(top = 4.dp).clip(RoundedCornerShape(14.dp)).clickable { options.add(""); descriptions.add("") }.padding(horizontal = 8.dp, vertical = 10.dp),
+                    Modifier
+                        .padding(top = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Ch.Red.copy(alpha = 0.12f))
+                        .clickable { options.add(""); descriptions.add("") }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(20.dp))

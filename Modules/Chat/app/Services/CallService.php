@@ -84,7 +84,15 @@ class CallService
             if ($conversation->isGroup()) {
                 return ['call' => $active, 'join' => $this->accept($me, $active, $recordingConsent)['join']];
             }
-            throw ChatException::callBusy();
+            // My own ringing call was left hanging (app closed, LiveKit dropped): calling
+            // again cancels it and places a new one, instead of 409 call_busy forever.
+            if ((int) $active->initiator_participant_id === (int) $mine->id && $active->status === CallStatus::Ringing) {
+                $this->finish($active, CallStatus::Cancelled);
+            } elseif ((int) $active->initiator_participant_id === (int) $mine->id && $active->status === CallStatus::Ongoing) {
+                return ['call' => $active, 'join' => $this->token($me, $active, $recordingConsent)];
+            } else {
+                throw ChatException::callBusy();
+            }
         }
 
         $others = $conversation->activeParticipants()->where('id', '!=', $mine->id)->get();

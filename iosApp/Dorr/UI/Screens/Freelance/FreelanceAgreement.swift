@@ -1083,7 +1083,7 @@ private func criterionLabel(_ c: String) -> String {
     }
 }
 
-private struct FlStars: View {
+struct FlStars: View {
     let value: Int
     var size: CGFloat = 26
     var onPick: ((Int) -> Void)?

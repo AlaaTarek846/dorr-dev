@@ -34,7 +34,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,8 +95,6 @@ private val STYLES = listOf(
     ImageStyle("oil", R.string.ch_ai_style_oil, listOf(Color(0xFFFDBA74), Color(0xFFB45309))),
     ImageStyle("minimal", R.string.ch_ai_style_minimal, listOf(Color(0xFFE5E7EB), Color(0xFF9CA3AF))),
 )
-
-private val Indigo = listOf(Color(0xFF818CF8), Color(0xFF4F46E5))
 
 /**
  * Images with DORR AI in the chat (spec 50, 51) — describe a new image ([source] null), or how to
@@ -166,11 +167,16 @@ fun ChatAiImageSheet(state: ConversationState, source: MessageDto?, onDismiss: (
         }
     }
 
-    ChSheet(onDismissRequest = { if (!making && !sending) onDismiss() }, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(
+        onDismissRequest = { if (!making && !sending) onDismiss() },
+        containerColor = Ch.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        besideClose = { QuotaChip(quota) },
+    ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             // ---------------------------------------------------------------- header
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(Indigo)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(21.dp))
                 }
                 Spacer(Modifier.width(10.dp))
@@ -178,7 +184,6 @@ fun ChatAiImageSheet(state: ConversationState, source: MessageDto?, onDismiss: (
                     Text(stringResource(if (editing) R.string.ch_ai_image_edit_title else R.string.ch_ai_image_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                     Text(stringResource(R.string.ch_ai_image_sub), color = Ch.Mut, fontSize = 12.sp)
                 }
-                QuotaChip(quota)
             }
             Spacer(Modifier.height(16.dp))
 
@@ -201,15 +206,15 @@ fun ChatAiImageSheet(state: ConversationState, source: MessageDto?, onDismiss: (
                             shape = RoundedCornerShape(18.dp), colors = imageFieldColors(), minLines = 3, modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(10.dp))
-                        SectionLabel(stringResource(R.string.ch_ai_image_ideas))
+                        SectionLabel(stringResource(R.string.ch_ai_image_ideas), Icons.Rounded.Lightbulb)
                         val ideas = stringArrayResource(if (editing) R.array.ch_ai_image_edit_ideas else R.array.ch_ai_image_ideas)
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(ideas.toList()) { idea -> IdeaChip(idea) { prompt = idea } }
                         }
                         if (!editing) {
-                            Spacer(Modifier.height(14.dp))
-                            SectionLabel(stringResource(R.string.ch_ai_image_style))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Spacer(Modifier.height(12.dp))
+                            SectionLabel(stringResource(R.string.ch_ai_image_style), Icons.Rounded.Palette)
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 items(STYLES, key = { it.key }) { s -> StyleChip(s, selected = style == s.key) { style = if (style == s.key) null else s.key } }
                             }
                         }
@@ -243,7 +248,14 @@ fun ChatAiImageSheet(state: ConversationState, source: MessageDto?, onDismiss: (
                     primary = true, busy = false, enabled = prompt.isNotBlank(), modifier = Modifier.fillMaxWidth(),
                 ) { make() }
             }
-            Text(stringResource(R.string.ch_ai_image_quota_note), color = Ch.Mut, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(12.dp)).background(Ch.HeaderBrush).padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Info, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.ch_ai_image_quota_note), color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
@@ -282,7 +294,7 @@ private fun quotaText(quota: AiImageQuotaDto?): String = when (quota?.reason) {
 @Composable
 private fun LockedCard(text: String) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF001B53), Color(0xFF4F46E5)))).padding(22.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Ch.HeaderBrush).padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
@@ -309,16 +321,22 @@ private fun MakingCanvas() {
     val spin by t.animateFloat(0f, 360f, infiniteRepeatable(tween(3000, easing = LinearEasing)), label = "spin")
     Box(
         Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFFC7D2FE), Color(0xFFF5D0FE), Color(0xFFBAE6FD)), start = Offset(0f, 1200f * shift), end = Offset(1200f, 1200f * (1 - shift)))),
+            .background(
+                Brush.linearGradient(
+                    listOf(Ch.Red.copy(alpha = 0.35f), Ch.Red.copy(alpha = 0.12f), Ch.SurfaceMuted),
+                    start = Offset(0f, 1200f * shift),
+                    end = Offset(1200f, 1200f * (1 - shift)),
+                ),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(64.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFF4F46E5), modifier = Modifier.size(30.dp).rotate(spin))
+                Icon(Icons.Rounded.AutoAwesome, null, tint = Ch.Red, modifier = Modifier.size(30.dp).rotate(spin))
             }
             Spacer(Modifier.height(14.dp))
             AnimatedContent(hints[hint], transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) }, label = "hint") { text ->
-                Text(text, color = Color(0xFF312E81), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text, color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -343,8 +361,12 @@ private fun SourceRow(source: MessageDto) {
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text, color = Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+private fun SectionLabel(text: String, icon: ImageVector) {
+    Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
@@ -357,14 +379,14 @@ private fun IdeaChip(text: String, onClick: () -> Unit) {
 
 @Composable
 private fun StyleChip(style: ImageStyle, selected: Boolean, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(2.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(2.dp)) {
         Box(
-            Modifier.size(54.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(style.colors))
-                .border(if (selected) 2.5.dp else 0.dp, if (selected) Ch.Red else Color.Transparent, RoundedCornerShape(16.dp)),
+            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Brush.linearGradient(style.colors))
+                .border(if (selected) 2.dp else 0.dp, if (selected) Ch.Red else Color.Transparent, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
-        ) { if (selected) Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-        Spacer(Modifier.height(4.dp))
-        Text(stringResource(style.label), color = if (selected) Ch.Red else Ch.Mut, fontSize = 11.5.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+        ) { if (selected) Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+        Spacer(Modifier.height(3.dp))
+        Text(stringResource(style.label), color = if (selected) Ch.Red else Ch.Mut, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
     }
 }
 

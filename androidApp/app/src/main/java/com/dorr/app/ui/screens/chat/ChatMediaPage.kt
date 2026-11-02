@@ -150,7 +150,7 @@ fun ChatMediaPage(route: ChRoute.Media) {
     androidx.activity.compose.BackHandler(viewer != null) { viewer = null }
 
     Box(Modifier.fillMaxSize()) {
-        ChPage(stringResource(R.string.ch_media_title), onBack = { host.pop() }) {
+        ChPage(stringResource(R.string.ch_media_title), onBack = { host.pop() }, settingsHeader = true) {
             Column(Modifier.fillMaxSize()) {
                 MediaTabsRow(tab, counts = MediaTabs.associate { it.key to feeds[it.key]?.takeIf { f -> f.loaded }?.items?.size }) { tab = it }
                 if (tab.key == "media" || tab.key == "docs") MediaFilterRow(

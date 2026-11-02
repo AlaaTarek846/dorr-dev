@@ -158,6 +158,9 @@ object CallController {
         private set
     var cameraOn by mutableStateOf(false)
         private set
+    /** Rear camera is in use (flipped from the default front camera). */
+    var flippedCamera by mutableStateOf(false)
+        private set
     var speakerOn by mutableStateOf(false)
     /** The call screen shrunk to a small window I can drag (back button / ⌄) while I use the app. */
     var minimized by mutableStateOf(false)
@@ -200,6 +203,7 @@ object CallController {
         this.peerKey = peerKey
         isVideo = video
         cameraOn = video
+        flippedCamera = false
         speakerOn = video
         micOn = true
         error = null
@@ -220,6 +224,7 @@ object CallController {
         peerKey = null
         isVideo = video
         cameraOn = video
+        flippedCamera = false
         speakerOn = true
         micOn = true
         error = null
@@ -423,6 +428,7 @@ object CallController {
     fun toggleCamera() {
         if (!cameraOn && !cameraAllowed()) return
         cameraOn = !cameraOn
+        if (!cameraOn) flippedCamera = false
         scope.launch {
             applyCamera()
             refreshVideos()
@@ -431,7 +437,7 @@ object CallController {
 
     fun flipCamera() {
         val track = room?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? LocalVideoTrack ?: return
-        runCatching { track.switchCamera() }
+        if (runCatching { track.switchCamera() }.isSuccess) flippedCamera = !flippedCamera
     }
 
     fun toggleSpeaker() {
@@ -484,8 +490,9 @@ object CallController {
                     is RoomEvent.ParticipantConnected, is RoomEvent.ParticipantDisconnected,
                     is RoomEvent.ActiveSpeakersChanged -> refreshVideos()
                     // The room dropped us (network gone for good, kicked, room closed): the call is
-                    // over in every phase, not only once it was answered.
-                    is RoomEvent.Disconnected -> if (phase != null && phase != CallPhase.Ended) hangUp()
+                    // over once it was answered. While it still rings, LiveKit may close an empty
+                    // room — hanging up here left a ringing row and the next tap was call_busy.
+                    is RoomEvent.Disconnected -> if (phase == CallPhase.Active || phase == CallPhase.Connecting) hangUp()
                     else -> Unit
                 }
                 if (event is RoomEvent.ParticipantConnected || event is RoomEvent.ParticipantDisconnected) watchAlone()
@@ -728,6 +735,7 @@ object CallController {
         runCatching { room?.release() }
         room = null
         effectTrack = null
+        flippedCamera = false
         sharingScreen = false
         linkToken = null
         live = null

@@ -67,6 +67,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -89,6 +90,7 @@ import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -99,8 +101,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -142,6 +146,8 @@ import com.dorr.app.network.MessageDto
 import com.dorr.app.network.WalletTransactionDto
 import com.dorr.app.ui.screens.wallet.formatMinor
 import com.dorr.app.ui.theme.CairoFontFamily
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -900,9 +906,9 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     }
 
     ChSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 28.dp)) {
             items.chunked(3).forEachIndexed { row, chunk ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                     chunk.forEachIndexed { col, item -> AttachButton(item, row * 3 + col) }
                 }
             }
@@ -919,13 +925,13 @@ private fun AttachButton(item: AttachItem, index: Int) {
         kotlinx.coroutines.delay(40L + index * 45L)
         pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 380f))
     }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(92.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) }) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) }) {
         Box(
-            Modifier.size(62.dp).shadow(12.dp, CircleShape, spotColor = item.colors.last().copy(alpha = 0.5f)).clip(CircleShape).background(Brush.linearGradient(item.colors)).clickable(onClick = item.onClick),
+            Modifier.size(50.dp).shadow(8.dp, CircleShape, spotColor = item.colors.last().copy(alpha = 0.5f)).clip(CircleShape).background(Brush.linearGradient(item.colors)).clickable(onClick = item.onClick),
             contentAlignment = Alignment.Center,
-        ) { Icon(item.icon, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(item.label), color = Ch.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        ) { Icon(item.icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(item.label), color = Ch.Ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -933,11 +939,39 @@ private fun AttachButton(item: AttachItem, index: Int) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var list by remember { mutableStateOf<List<WalletTransactionDto>?>(null) }
-    LaunchedEffect(Unit) {
-        list = runCatching { ApiClient.wallet.transactions(chatAuth(), page = 1, perPage = 30, direction = "debit").data }.getOrNull()
-            .orEmpty().filter { it.type == "transfer_out" }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching {
+            ApiClient.wallet.transactions(chatAuth(), page = next, perPage = 15, type = "transfer_out")
+        }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        list = if (reset) chunk else {
+            val known = list.orEmpty().map { it.uuid }.toSet()
+            list.orEmpty() + chunk.filter { it.uuid !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
     }
+
+    LaunchedEffect(Unit) { loadPage(reset = true) }
+    LaunchedEffect(listState, list?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
+
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_pick_transfer), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
@@ -946,7 +980,7 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
             when {
                 items == null -> repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(62.dp).padding(vertical = 4.dp)) }
                 items.isEmpty() -> Text(stringResource(R.string.ch_no_transfers), color = Ch.Mut, modifier = Modifier.padding(vertical = 24.dp))
-                else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                else -> LazyColumn(state = listState, modifier = Modifier.heightIn(max = 420.dp)) {
                     items(items, key = { it.uuid }) { tx ->
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).clickable { onPick(tx) }.padding(12.dp),
@@ -963,6 +997,11 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
                             androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                                 Text(formatMinor(tx.amountMinor, null), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                             }
+                        }
+                    }
+                    if (loadingMore) item(key = "more") {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                         }
                     }
                 }

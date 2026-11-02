@@ -207,6 +207,11 @@ internal fun SettingsScreenTitle(title: String, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun SubHeader(title: String, onBack: () -> Unit) {
+    SubHeader(title, onBack, trailing = {})
+}
+
+@Composable
+internal fun SubHeader(title: String, onBack: () -> Unit, trailing: @Composable () -> Unit) {
     val dark = settingsNight()
     Row(
         modifier = Modifier
@@ -216,6 +221,7 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SettingsScreenTitle(title, Modifier.weight(1f))
+        trailing()
         Box(
             modifier = Modifier
                 .size(34.dp)

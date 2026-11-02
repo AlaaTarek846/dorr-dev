@@ -47,8 +47,10 @@ class Agreements
     public function draft(Project $project, Offer $offer): Agreement
     {
         $policy = $this->policies->for($project->country_id, $project->freelance_specialty_id)->all();
+        // FL-L01: the commission under the freelancer's plan at this moment is the one agreed (a later plan change never moves it).
+        $policy = app(\Modules\Freelance\Services\Plans\FreelancePlans::class)->withCommission($policy, $offer->freelancer);
         $cost = app(ClientOfferViews::class)->cost($project, (int) $offer->price_minor);
-        $net = app(FreelancerOffers::class)->preview($project, (int) $offer->price_minor);
+        $net = app(FreelancerOffers::class)->preview($project, (int) $offer->price_minor, $offer->freelancer);
 
         $agreement = Agreement::query()->create([
             'project_id' => $project->id,
@@ -85,6 +87,7 @@ class Agreements
         return DB::transaction(function () use ($agreement, $client, $items) {
             $a = $this->locked($agreement);
             $this->assertOpen($a);
+            $this->assertNotOrder($a);
             $this->milestones->replace($a, $items);
             $wasSent = $a->status === Agreement::PENDING;
             $a->fill(['status' => Agreement::DRAFT, 'client_approved_at' => null, 'sent_at' => null, 'expires_at' => null, 'version' => $a->version + 1])->save();
@@ -116,6 +119,7 @@ class Agreements
         return DB::transaction(function () use ($agreement, $client, $data) {
             $a = $this->locked($agreement);
             $this->assertOpen($a);
+            $this->assertNotOrder($a);
             foreach (['scope', 'includes', 'excludes'] as $key) {
                 if (array_key_exists($key, $data)) {
                     $text = $data[$key] === null ? null : trim(strip_tags((string) $data[$key]));
@@ -144,22 +148,27 @@ class Agreements
         });
     }
 
-    /** The client sends it — that is their approval — and the freelancer has a few days to answer. */
-    public function send(Agreement $agreement, User $client): Agreement
+    /**
+     * The client sends it — that is their approval — and the freelancer has a few days to answer. FL-L04: an order on a ready-made service
+     * sends its agreement itself, with the service's own answer time, and tells the freelancer in its own words (`$notify` false).
+     */
+    public function send(Agreement $agreement, User $client, ?\DateTimeInterface $expiresAt = null, bool $notify = true): Agreement
     {
-        $sent = DB::transaction(function () use ($agreement, $client) {
+        $sent = DB::transaction(function () use ($agreement, $client, $expiresAt) {
             $a = $this->locked($agreement);
             if ($a->status !== Agreement::DRAFT) {
                 throw new FreelanceException('agreement_invalid_state', 409, ['status' => __('freelance.agreement_statuses.'.$a->status)], ['status' => $a->status]);
             }
             // FL-210: the price and the fees of its parts together must stay within the most the client said they'd pay.
             app(ClientProjects::class)->assertWithinCostCap($a->project, (int) $a->price_minor + (int) $this->milestones->of($a)->sum('client_fee_minor'));
-            $a->fill(['status' => Agreement::PENDING, 'sent_at' => now(), 'client_approved_at' => now(), 'expires_at' => now()->addDays(self::ANSWER_DAYS)])->save();
+            $a->fill(['status' => Agreement::PENDING, 'sent_at' => now(), 'client_approved_at' => now(), 'expires_at' => $expiresAt ?? now()->addDays(self::ANSWER_DAYS)])->save();
             $this->approval($a, 'agreement.sent', 'client', $client->id);
 
             return $a;
         });
-        $this->notifier->notify($sent->freelancer, 'agreement.received', ['project' => (string) $sent->project->title], ['project' => $sent->project->uuid]);
+        if ($notify) {
+            $this->notifier->notify($sent->freelancer, 'agreement.received', ['project' => (string) $sent->project->title], ['project' => $sent->project->uuid]);
+        }
 
         return $sent;
     }
@@ -170,6 +179,8 @@ class Agreements
         $active = DB::transaction(function () use ($agreement, $freelancer) {
             $a = $this->locked($agreement);
             $this->assertPending($a);
+            // FL-L10: never past the freelancer's cap of running projects (checked under a lock on the freelancer).
+            app(\Modules\Freelance\Services\Market\FreelanceCapacity::class)->assertRoomToStart($a);
             $parts = $this->milestones->of($a);
             $fee = (int) $parts->sum('client_fee_minor');
             $a->fill([
@@ -310,8 +321,10 @@ class Agreements
             // FL-501: what the client can spend now, for the funding sheet.
             'wallet_available_minor' => $side === 'client' && $a->status === Agreement::ACTIVE ? app(MilestonePayments::class)->availableFor($a->client, (int) $a->project->country_id) : null,
             'milestone_rules' => ['max_count' => (int) ($policy['milestones.max_count'] ?? 5), 'min_amount_minor' => isset($policy['milestones.min_amount_minor']) ? (int) $policy['milestones.min_amount_minor'] : null],
+            // FL-L04: the order this agreement came from (its price and work are fixed).
+            'service_order' => $a->project?->service_id === null ? null : \Modules\Freelance\Models\FreelanceServiceOrder::query()->where('project_id', $a->project_id)->value('uuid'),
             'can' => $side === 'client'
-                ? ['edit' => $a->open(), 'send' => $a->status === Agreement::DRAFT, 'cancel' => $a->open(), 'split' => $a->open()]
+                ? ['edit' => $a->open() && $a->project?->service_id === null, 'send' => $a->status === Agreement::DRAFT, 'cancel' => $a->open(), 'split' => $a->open() && $a->project?->service_id === null]
                 : ['approve' => $a->status === Agreement::PENDING, 'decline' => $a->status === Agreement::PENDING, 'report' => $a->status === Agreement::ACTIVE],
         ];
     }
@@ -327,6 +340,14 @@ class Agreements
     {
         if (! $a->open()) {
             throw new FreelanceException('agreement_invalid_state', 409, ['status' => __('freelance.agreement_statuses.'.$a->status)], ['status' => $a->status]);
+        }
+    }
+
+    /** FL-L04: an order keeps the price, the work and the one part it was placed with. */
+    private function assertNotOrder(Agreement $a): void
+    {
+        if ($a->project?->service_id !== null) {
+            throw new FreelanceException('service_order_fixed', 409);
         }
     }
 
@@ -353,6 +374,12 @@ class Agreements
         $this->chat->freeze($a->project, $offer->freelancer_id);
 
         $project = $a->project;
+        // FL-L04: an order's project takes no other offers — it ends with its agreement.
+        if ($project->service_id !== null) {
+            $this->machine->move($project, Status::Cancelled, 'project.cancelled', $actorType, $actorId, ['closed_at' => now()], ['agreement' => $a->uuid, 'reason' => $why]);
+
+            return;
+        }
         $this->machine->move($project, Status::Published, 'project.reopened', $actorType, $actorId, [
             'awarded_at' => null, 'offers_closed_at' => null, 'offers_close_reason' => null, 'offers_deadline_at' => $this->window->deadlineFor($project),
         ], ['agreement' => $a->uuid, 'reason' => $why]);

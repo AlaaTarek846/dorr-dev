@@ -8,11 +8,12 @@ import UIKit
 // the profile of the freelancer who sent it and the freelancers I keep. Each page reads once when it opens and
 // when the connection comes back — nothing on a timer.
 
-private let sorts = ["newest", "cheapest", "fastest", "completeness"]
+private let sorts = ["recommended", "newest", "cheapest", "fastest", "completeness"]
 private let compareMax = 3
 
 private func sortLabel(_ sort: String) -> String {
     switch sort {
+    case "recommended": return L("fl_sort_recommended")
     case "cheapest": return L("fl_sort_cheapest")
     case "fastest": return L("fl_sort_fastest")
     case "completeness": return L("fl_sort_completeness")
@@ -88,6 +89,7 @@ private struct VerifiedMark: View {
 
 private func sortIcon(_ sort: String) -> String {
     switch sort {
+    case "recommended": return "rosette"
     case "cheapest": return "banknote"
     case "fastest": return "bolt.fill"
     case "completeness": return "checkmark.seal.fill"
@@ -103,7 +105,7 @@ struct OffersPage: View {
     let onBack: () -> Void
     let onOpen: (String) -> Void
     let onCompare: ([String]) -> Void
-    @State private var sort = "newest"
+    @State private var sort = "recommended"
     @State private var onlyShortlisted = false
     // A new sort or filter is a new list (it starts from the first page); the next fifteen come while I scroll.
     @StateObject private var paged = PagedRows<FreelanceOfferDto>(key: { $0.uuid })
@@ -121,6 +123,7 @@ struct OffersPage: View {
                 }
                 .padding(.horizontal, 14).padding(.vertical, 4)
             }
+            if sort == "recommended" { FlHint(text: L("fl_sort_recommended_hint")).padding(.horizontal, 18).padding(.vertical, 2) }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     if offers == nil && paged.error == nil {
@@ -169,9 +172,11 @@ private struct OfferCard: View {
                     HStack(spacing: 4) {
                         Text(verbatim: f?.name ?? "—").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
                         if f?.verified == true { VerifiedMark() }
+                        PlanBadge(badge: f?.badge).padding(.leading, 2)
                         if f?.isFavorite == true { Image(systemName: "heart.fill").font(.system(size: 13)).foregroundStyle(flRed).accessibilityLabel(L("fl_favorite")) }
                     }
                     if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                    SkillBadges(badges: f?.skillBadges ?? []).padding(.top, 2)
                 }
                 Spacer(minLength: 0)
                 OfferStatusPill(status: o.state)
@@ -243,6 +248,7 @@ struct ComparePage: View {
                                 Button { onOpen(o.uuid) } label: {
                                     VStack(spacing: 4) {
                                         FlAvatar(name: o.freelancer?.name, url: o.freelancer?.avatarUrl, size: 48)
+                                        PlanBadge(badge: o.freelancer?.badge)
                                         Text(verbatim: o.freelancer?.name ?? "—").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2).multilineTextAlignment(.center)
                                         OfferStatusPill(status: o.state)
                                     }
@@ -383,8 +389,9 @@ struct OfferPage: View {
                     FlAvatar(name: f?.name, url: f?.avatarUrl, size: 52)
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
-                            Text(verbatim: f?.name ?? "—").font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk)
+                            Text(verbatim: f?.name ?? "—").font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
                             if f?.verified == true { VerifiedMark(size: 18) }
+                            PlanBadge(badge: f?.badge).padding(.leading, 2)
                         }
                         if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                         Text(verbatim: ratingText(f)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
@@ -576,6 +583,7 @@ struct FreelancerProfilePage: View {
     let projectUuid: String
     let offerUuid: String
     let onBack: () -> Void
+    var onBookConsultation: (String) -> Void = { _ in }
     @State private var profile: FreelancerProfileDto?
     @State private var error: String?
 
@@ -617,6 +625,8 @@ struct FreelancerProfilePage: View {
                     Text(verbatim: p.name ?? "—").font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
                     if p.verified == true { VerifiedMark(size: 18) }
                 }
+                PlanBadge(badge: p.badge, compact: false)
+                SkillBadges(badges: p.skillBadges ?? [], max: 6, compact: false).padding(.top, 4)
                 // FL-306: keep this freelancer to find them again.
                 Button { toggleFavorite(p) } label: {
                     HStack(spacing: 4) {
@@ -631,6 +641,8 @@ struct FreelancerProfilePage: View {
                 Text(verbatim: [ratingText(head), L("fl_completeness", p.completeness ?? 0), p.yearsOfExperience.map { L("fl_years_exp", $0) }]
                     .compactMap { $0 }.joined(separator: "  ·  "))
                     .font(.dorr(12)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center)
+                // FL-L07: talk to them as a paid consultation.
+                if let items = p.consultations, !items.isEmpty { ConsultTeaser(items: items, onBook: onBookConsultation).padding(.top, 8) }
                 Text(L("fl_contact_in_dorr")).font(.dorr(11)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -713,7 +725,7 @@ struct FreelancerProfilePage: View {
                         VStack(alignment: .leading, spacing: 2) {
                             ReviewStars(stars: r.stars ?? 0)
                             if let c = r.comment { Text(verbatim: c).font(.dorr(13)).foregroundStyle(wa.settingsInk) }
-                            Text(verbatim: [r.project, r.at.map { "\u{200E}" + String($0.prefix(10)) }].compactMap { $0 }.joined(separator: " · "))
+                            Text(verbatim: [r.kind == "consultation" ? L("cs_review_kind") : nil, r.project, r.at.map { "\u{200E}" + String($0.prefix(10)) }].compactMap { $0 }.joined(separator: " · "))
                                 .font(.dorr(11)).foregroundStyle(wa.settingsMut)
                         }
                         .padding(.vertical, 4)

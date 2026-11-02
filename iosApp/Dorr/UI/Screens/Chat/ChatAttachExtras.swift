@@ -27,8 +27,7 @@ struct InteractiveComposerSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
-                        Image(systemName: "rectangle.and.hand.point.up.left.fill").font(.system(size: 18)).foregroundStyle(Color(hex: 0x0EA5E9))
-                            .frame(width: 44, height: 44).background(Color(hex: 0x0EA5E9).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+                        ChIconBadge(icon: "rectangle.and.hand.point.up.left.fill", color: Color(hex: 0x0EA5E9), iconTint: ch.red)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(L("ia_new")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
                             Text(L("ia_new_sub")).font(.dorr(12.5)).foregroundStyle(ch.mut)
@@ -65,7 +64,7 @@ struct InteractiveComposerSheet: View {
                                         options.remove(at: i)
                                         descriptions.remove(at: i)
                                     } label: {
-                                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(ch.mut).frame(width: 34, height: 34)
+                                        Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(ch.danger).frame(width: 34, height: 34).background(ch.danger.opacity(0.12), in: Circle())
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -88,7 +87,8 @@ struct InteractiveComposerSheet: View {
                                 Image(systemName: "plus").font(.system(size: 17, weight: .semibold))
                                 Text(L(list ? "ia_add_choice" : "ia_add_button")).font(.dorr(14, .heavy))
                             }
-                            .foregroundStyle(ch.red).padding(.horizontal, 8).padding(.vertical, 10)
+                            .foregroundStyle(ch.red).padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(ch.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -135,7 +135,6 @@ private let imageStyles = [
     ImageStyle(key: "minimal", label: "ch_ai_style_minimal", colors: [Color(hex: 0xE5E7EB), Color(hex: 0x9CA3AF)]),
 ]
 
-private let indigo = [Color(hex: 0x818CF8), Color(hex: 0x4F46E5)]
 
 /// Write → DORR AI draws (a soft moving canvas) → the result only I see: send it with a caption, try again, or change
 /// the words. Every image counts against the plan's daily images; a locked plan offers the plans.
@@ -162,7 +161,7 @@ struct ChatAiImageSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 10) {
                         Image(systemName: "sparkles").font(.system(size: 19)).foregroundStyle(.white)
-                            .frame(width: 42, height: 42).background(LinearGradient(colors: indigo, startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14))
+                            .frame(width: 42, height: 42).background(ch.headerBrush, in: RoundedRectangle(cornerRadius: 14))
                         VStack(alignment: .leading, spacing: 0) {
                             Text(L(editing ? "ch_ai_image_edit_title" : "ch_ai_image_title")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
                             Text(L("ch_ai_image_sub")).font(.dorr(12)).foregroundStyle(ch.mut)
@@ -187,7 +186,13 @@ struct ChatAiImageSheet: View {
                     .animation(.easeOut(duration: 0.22), value: making)
                     if let error { Text(verbatim: error).font(.dorr(12.5)).foregroundStyle(ch.danger).padding(.top, 10) }
                     actions(locked).padding(.top, 16)
-                    Text(L("ch_ai_image_quota_note")).font(.dorr(11)).foregroundStyle(ch.mut).multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 10)
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill").font(.system(size: 14)).foregroundStyle(.white)
+                        Text(L("ch_ai_image_quota_note")).font(.dorr(11)).foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(ch.headerBrush, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.top, 10)
                 }
             }
             .frame(maxHeight: 700)
@@ -228,7 +233,14 @@ struct ChatAiImageSheet: View {
             Text(verbatim: lockedText).font(.dorr(14, .semibold)).foregroundStyle(.white).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(22)
-        .background(LinearGradient(colors: [Color(hex: 0x001B53), Color(hex: 0x4F46E5)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(ch.headerBrush, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func sectionLabel(_ text: String, _ icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 13)).foregroundStyle(ch.red)
+            Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(ch.ink)
+        }
     }
 
     private var writeStage: some View {
@@ -241,7 +253,7 @@ struct ChatAiImageSheet: View {
                 .padding(.bottom, 10)
             }
             ChField(placeholder: L(editing ? "ch_ai_image_edit_hint" : "ch_ai_image_hint"), text: $prompt, lines: 3...6, limit: 1000)
-            Text(L("ch_ai_image_ideas")).font(.dorr(13, .bold)).foregroundStyle(ch.ink).padding(.top, 10).padding(.bottom, 8)
+            sectionLabel(L("ch_ai_image_ideas"), "lightbulb.fill").padding(.top, 10).padding(.bottom, 8)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(La(editing ? "ch_ai_image_edit_ideas" : "ch_ai_image_ideas"), id: \.self) { idea in
@@ -253,20 +265,20 @@ struct ChatAiImageSheet: View {
                 }
             }
             if !editing {
-                Text(L("ch_ai_image_style")).font(.dorr(13, .bold)).foregroundStyle(ch.ink).padding(.top, 14).padding(.bottom, 8)
+                sectionLabel(L("ch_ai_image_style"), "paintpalette.fill").padding(.top, 12).padding(.bottom, 8)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 6) {
                         ForEach(imageStyles, id: \.key) { s in
                             let on = style == s.key
                             Button { style = on ? nil : s.key } label: {
-                                VStack(spacing: 4) {
+                                VStack(spacing: 3) {
                                     ZStack {
-                                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(LinearGradient(colors: s.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
-                                        if on { Image(systemName: "sparkles").font(.system(size: 18)).foregroundStyle(.white) }
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(LinearGradient(colors: s.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                                        if on { Image(systemName: "sparkles").font(.system(size: 14)).foregroundStyle(.white) }
                                     }
-                                    .frame(width: 54, height: 54)
-                                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(on ? ch.red : .clear, lineWidth: 2.5))
-                                    Text(L(s.label)).font(.dorr(11.5, on ? .bold : .medium)).foregroundStyle(on ? ch.red : ch.mut)
+                                    .frame(width: 42, height: 42)
+                                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(on ? ch.red : .clear, lineWidth: 2))
+                                    Text(L(s.label)).font(.dorr(10, on ? .bold : .medium)).foregroundStyle(on ? ch.red : ch.mut)
                                 }
                                 .padding(2)
                             }
@@ -358,13 +370,13 @@ private struct MakingCanvas: View {
     var body: some View {
         let hints = La("ch_ai_image_making")
         ZStack {
-            LinearGradient(colors: [Color(hex: 0xC7D2FE), Color(hex: 0xF5D0FE), Color(hex: 0xBAE6FD)],
+            LinearGradient(colors: [Ch.shared.red.opacity(0.35), Ch.shared.red.opacity(0.12), Ch.shared.surfaceMuted],
                            startPoint: shift ? .topLeading : .bottomLeading, endPoint: shift ? .bottomTrailing : .topTrailing)
             VStack(spacing: 14) {
-                Image(systemName: "sparkles").font(.system(size: 28)).foregroundStyle(Color(hex: 0x4F46E5)).rotationEffect(.degrees(spin ? 360 : 0))
+                Image(systemName: "sparkles").font(.system(size: 28)).foregroundStyle(Ch.shared.red).rotationEffect(.degrees(spin ? 360 : 0))
                     .frame(width: 64, height: 64).background(Color.white.opacity(0.55), in: Circle())
                 if !hints.isEmpty {
-                    Text(verbatim: hints[hint % hints.count]).font(.dorr(14, .bold)).foregroundStyle(Color(hex: 0x312E81)).id(hint).transition(.opacity)
+                    Text(verbatim: hints[hint % hints.count]).font(.dorr(14, .bold)).foregroundStyle(Ch.shared.ink).id(hint).transition(.opacity)
                 }
             }
         }
@@ -390,6 +402,26 @@ struct TransferPicker: View {
     @ObservedObject private var ch = Ch.shared
     let onPick: (WalletTransactionDto) -> Void
     @State private var list: [WalletTransactionDto]?
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
+
+    private func loadPage(reset: Bool) async {
+        if !reset && (loadingMore || !hasMore) { return }
+        if !reset { loadingMore = true }
+        let next = reset ? 1 : page + 1
+        let envelope = try? await WalletApi.transactions(page: next, perPage: 15, type: "transfer_out")
+        let chunk = envelope?.data ?? []
+        if reset {
+            list = chunk
+        } else {
+            let known = Set((list ?? []).map(\.uuid))
+            list = (list ?? []) + chunk.filter { !known.contains($0.uuid) }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if !reset { loadingMore = false }
+    }
 
     var body: some View {
         ChSheetCard {
@@ -400,7 +432,7 @@ struct TransferPicker: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 8) {
-                            ForEach(items) { tx in
+                            ForEach(Array(items.enumerated()), id: \.element.uuid) { i, tx in
                                 Button { onPick(tx) } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: "banknote.fill").font(.system(size: 17)).foregroundStyle(.white).frame(width: 40, height: 40).background(ch.headerBrush, in: Circle())
@@ -415,7 +447,9 @@ struct TransferPicker: View {
                                     .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
+                                .onAppear { if i >= items.count - 3 { Task { await loadPage(reset: false) } } }
                             }
+                            if loadingMore { ProgressView().tint(ch.red).padding(12) }
                         }
                     }
                     .frame(maxHeight: 420)
@@ -424,8 +458,6 @@ struct TransferPicker: View {
                 VStack(spacing: 8) { ForEach(0..<3, id: \.self) { _ in WaSkeleton().frame(height: 62) } }
             }
         }
-        .task {
-            list = ((try? await WalletApi.transactions(page: 1, perPage: 30, direction: "debit").data) ?? []).filter { $0.type == "transfer_out" }
-        }
+        .task { await loadPage(reset: true) }
     }
 }

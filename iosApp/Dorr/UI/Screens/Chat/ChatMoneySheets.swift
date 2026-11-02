@@ -173,8 +173,7 @@ struct SendMoneySheet: View {
             switch step {
             case 0:
                 VStack(spacing: 0) {
-                    Image(systemName: "banknote.fill").font(.system(size: 26)).foregroundStyle(.white).frame(width: 58, height: 58)
-                        .background(LinearGradient(colors: moneyGreenColors, startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                    ChIconBadge(icon: "banknote.fill", color: ch.success, size: 58, iconTint: ch.red)
                     Text(L("ch_money_send_to", peerName)).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).multilineTextAlignment(.center).padding(.top, 10)
                     AmountField(value: $amount).padding(.top, 16)
                     ChField(placeholder: L("ch_money_note_hint"), text: $note, icon: "square.and.pencil", limit: 200).padding(.top, 12)
@@ -231,8 +230,7 @@ struct SplitBillSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
-                        Image(systemName: "arrow.triangle.branch").font(.system(size: 20)).foregroundStyle(.white).frame(width: 44, height: 44)
-                            .background(LinearGradient(colors: moneyGreenColors, startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                        ChIconBadge(icon: "arrow.triangle.branch", color: ch.success, size: 44, iconTint: ch.red)
                         Text(L("ch_split_new")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
                     }
                     AmountField(value: $amount).padding(.top, 14)

@@ -320,7 +320,7 @@ private fun ChannelFilterSheet(
         else -> allLabel
     }
     val catName = categories.firstOrNull { it.id == categoryId }?.name?.takeIf { it.isNotBlank() } ?: allLabel
-    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
+    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 22.dp)) {
             Text(stringResource(R.string.ev_filter_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))

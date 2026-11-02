@@ -38,6 +38,8 @@ struct FreelanceHost: View {
     // "list", "new", "edit:<uuid>", "show:<uuid>", "preview:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
     @State private var page = "list"
     @State private var listVersion = 0
+    // FL-L07: where booking a consultation was opened from (back returns there).
+    @State private var bookFrom = "list"
     @ObservedObject private var link = FreelanceLink.shared
 
     private var parts: [String] { page.components(separatedBy: ":") }
@@ -48,6 +50,14 @@ struct FreelanceHost: View {
         case "edit", "offers": return "show:" + p[1]
         case "offer", "compare": return "offers:" + p[1]
         case "chat", "freelancer": return "offer:" + p[1] + ":" + p[2]
+        // FL-L04: the market and my orders.
+        case "market", "orders": return "list"
+        case "svc": return "market"
+        case "order": return "orders"
+        // FL-L07: consultations.
+        case "consults", "cmarket": return "list"
+        case "consult": return "consults"
+        case "book": return bookFrom
         case "agreement", "invites", "preview": return "show:" + p[1]
         case "dispute", "dispute-new": return "agreement:" + p[1]
         default: return "list"
@@ -92,12 +102,29 @@ struct FreelanceHost: View {
                     DisputePage(projectUuid: p[1], milestoneUuid: p[2], disputeUuid: nil, onBack: { page = back() }, onOpened: { page = "dispute:\(p[1]):\($0)" })
                 case "favorites":
                     FavoritesPage(onBack: { page = "list" })
+                case "market":
+                    MarketPage(onBack: { page = back() }, onOpen: { page = "svc:\($0)" }, onOrders: { page = "orders" }, onConsultations: { page = "cmarket" })
+                case "svc":
+                    ServicePage(uuid: p[1], onBack: { page = back() }, onOrdered: { listVersion += 1; page = "order:\($0)" })
+                case "cmarket":
+                    ConsultationsMarketPage(onBack: { page = back() }, onOpen: { bookFrom = page; page = "book:\($0)" }, onMine: { page = "consults" })
+                case "consults":
+                    MyConsultationsPage(onBack: { page = back() }, onOpen: { page = "consult:\($0)" })
+                case "consult":
+                    ConsultationPage(uuid: p[1], onBack: { page = back() })
+                case "book":
+                    BookConsultationPage(offerUuid: p[1], onBack: { page = back() }, onBooked: { page = "consult:\($0)" })
+                case "orders":
+                    MyOrdersPage(onBack: { page = back() }, onOpen: { page = "order:\($0)" }, onBrowse: { page = "market" })
+                case "order":
+                    MyOrderPage(uuid: p[1], onBack: { page = back() }, onOpenWork: { page = "agreement:\($0)" }, onOrderAgain: { page = "svc:\($0)" })
                 case "chat":
                     FreelanceChatPage(roomUuid: p[3], onBack: { page = back() })
                 case "freelancer":
-                    FreelancerProfilePage(projectUuid: p[1], offerUuid: p[2], onBack: { page = back() })
+                    FreelancerProfilePage(projectUuid: p[1], offerUuid: p[2], onBack: { page = back() }, onBookConsultation: { bookFrom = page; page = "book:\($0)" })
                 default:
-                    ProjectList(version: listVersion, onExit: onExit, onNew: { page = "new" }, onOpen: { page = "show:\($0)" }, onFavorites: { page = "favorites" })
+                    ProjectList(version: listVersion, onExit: onExit, onNew: { page = "new" }, onOpen: { page = "show:\($0)" }, onFavorites: { page = "favorites" },
+                                onMarket: { page = "market" }, onOrders: { page = "orders" }, onConsultations: { page = "consults" }, onConsultMarket: { page = "cmarket" })
                 }
             }
             .id(page)
@@ -357,6 +384,10 @@ private struct ProjectList: View {
     let onNew: () -> Void
     let onOpen: (String) -> Void
     let onFavorites: () -> Void
+    var onMarket: () -> Void = {}
+    var onOrders: () -> Void = {}
+    var onConsultations: () -> Void = {}
+    var onConsultMarket: () -> Void = {}
     @State private var filter: String?
     // A new filter is a new list (it starts from the first page); the next pages come while I scroll.
     @StateObject private var paged = PagedRows<FreelanceProjectDto>(key: { $0.uuid })
@@ -367,6 +398,9 @@ private struct ProjectList: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     FlChip(text: L("fl_favorites"), selected: false, icon: "heart.fill", action: onFavorites)
+                    // FL-L07: my paid consultations.
+                    FlChip(text: L("cs_market_title"), selected: false, icon: "video.bubble.left.fill", action: onConsultMarket)
+                    FlChip(text: L("cs_mine_title"), selected: false, icon: "calendar.badge.checkmark", action: onConsultations)
                     ForEach(flFilters, id: \.self) { f in
                         FlChip(text: f.map(flStatusLabel) ?? L("fl_filter_all"), selected: filter == f, icon: filterIcon(f)) { filter = f }
                     }
@@ -380,6 +414,8 @@ private struct ProjectList: View {
                     LazyVStack(spacing: 10) {
                         // FL-708: shown only while a warning / restriction is active or its appeal waits.
                         SanctionsCard(refreshKey: version)
+                        // FL-L04: order a ready-made service instead of waiting for offers.
+                        MarketBanner(onBrowse: onMarket, onOrders: onOrders)
                         if paged.rows.isEmpty && paged.error == nil {
                             WaEmpty(icon: "briefcase.fill", tone: .blue, title: L("fl_empty_title"), text: L("fl_empty_text"))
                         }
