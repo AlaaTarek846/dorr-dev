@@ -302,16 +302,19 @@ struct PrivacySettingsRow: View {
     let title: String
     var subtitle: String?
     var value: String?
+    /// A figure at the end of the row (how many).
+    var trailing: String?
     var last = false
     var checked: Bool?
     var onChecked: ((Bool) -> Void)?
     var onTap: (() -> Void)?
 
-    init(icon: String, title: String, subtitle: String? = nil, value: String? = nil, last: Bool = false, checked: Bool? = nil, onTap: (() -> Void)? = nil) {
+    init(icon: String, title: String, subtitle: String? = nil, value: String? = nil, trailing: String? = nil, last: Bool = false, checked: Bool? = nil, onTap: (() -> Void)? = nil) {
         self.icon = icon
         self.title = title
         self.subtitle = subtitle
         self.value = value
+        self.trailing = trailing
         self.last = last
         self.checked = checked
         self.onTap = onTap
@@ -338,6 +341,9 @@ struct PrivacySettingsRow: View {
                     if let subtitle { Text(verbatim: subtitle).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                if let trailing, !trailing.isEmpty {
+                    Text(verbatim: trailing).font(.dorr(13.5, .heavy)).foregroundStyle(wa.settingsInk).padding(.trailing, 2)
+                }
                 if let checked, let onChecked {
                     Toggle("", isOn: Binding(get: { checked }, set: onChecked)).labelsHidden().tint(wa.accent)
                 } else if onTap != nil {

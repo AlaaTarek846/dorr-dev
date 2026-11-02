@@ -92,8 +92,16 @@ final class ChatRealtime: NSObject, ObservableObject {
         client.connection.delegate = self
         pusher = client
         client.connect()
-        let channel = client.subscribe("private-Modules.User.Models.User.\(id)")
+        let userChannel = "private-Modules.User.Models.User.\(id)"
+        let channel = client.subscribe(userChannel)
         bind(channel, Self.events)
+        // A freelance notice (`freelance.dispute.decided`, `freelance.delivery.submitted`…) means a screen on show may be stale:
+        // one reload, no timer. (Chat messages have their own channel and events.)
+        client.bind { (event: PusherEvent) in
+            guard event.channelName == userChannel, event.eventName.hasPrefix("freelance."),
+                  event.eventName != "freelance.message", event.eventName != "freelance.read" else { return }
+            Task { @MainActor in NetworkMonitor.shared.noticeArrived() }
+        }
         publicChannels.forEach { subscribePublic(client, $0.key, $0.value) }
         watchedRides.forEach { subscribeRide(client, $0) }
         watchedAds.forEach { subscribeAd(client, $0) }

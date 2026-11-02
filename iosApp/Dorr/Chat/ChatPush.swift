@@ -31,6 +31,8 @@ enum ChatDeepLink: Equatable {
     /// Watch & Earn (`type = watch_earn`): an ad of mine changed → its stats; my rewards arrived; a comment report was
     /// decided ([role]: `reporter` = the advertiser who reported, `author` = who wrote the comment).
     case watchEarn(event: String, adId: String?, role: String?)
+    /// A freelance notification (an offer, the agreement, a dispute…): the Freelance page it belongs to.
+    case freelance(String)
 }
 
 @MainActor
@@ -125,6 +127,9 @@ final class ChatPush: NSObject, ObservableObject {
         if type == "watch_earn" { return .watchEarn(event: event ?? "", adId: s("ad_id"), role: s("role")) }
         if let conversation { return .conversation(conversation) }
         if type == "ride", let ride = s("ride_uuid") { return .ride(ride) }
+        if let event, event.hasPrefix("freelance.") {
+            return .freelance(FreelanceLink.pageFor(event: event, project: s("project"), offer: s("offer"), dispute: s("dispute"), consultation: s("consultation")))
+        }
         if let event, let kind = event.split(separator: ".").first.map(String.init), ["bus", "marine", "hire", "lesson", "loyalty"].contains(kind) {
             return .service(kind: kind, uuid: ["booking_uuid", "hire_uuid", "enrollment_uuid"].lazy.compactMap(s).first)
         }

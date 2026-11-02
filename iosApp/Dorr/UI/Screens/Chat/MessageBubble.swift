@@ -186,7 +186,9 @@ private struct Bubble: View {
         // Cards that bring their own background (wallet cards, the green money request). A sticker floats on the
         // wallpaper: no bubble, no shadow.
         let bare = dto.type == "sticker" && !dto.deleted
-        let isCard = (["wallet_transfer", "wallet_qr", "money_request", "moment_card"].contains(dto.type) || bare) && !dto.deleted
+        // A send-money gift sits in the bubble like a message (chat colours), not as a card of its own.
+        let sendMoneyGift = dto.type == "wallet_transfer" && !dto.deleted && dto.meta?.str("gift") != nil
+        let isCard = (["wallet_transfer", "wallet_qr", "money_request", "moment_card"].contains(dto.type) || bare) && !dto.deleted && !sendMoneyGift
         let media = ["image", "video"].contains(dto.type) && !dto.deleted
         let shape = bubbleShape
         VStack(alignment: mine ? .trailing : .leading, spacing: 0) {
@@ -425,7 +427,12 @@ private struct BubbleContent: View {
                 LocationCard(meta: dto.meta, m: m, mine: mine)
             }
         case "contact": ContactCard(meta: dto.meta, m: m, mine: mine, actions: actions)
-        case "wallet_transfer": TransferReceiptCard(meta: dto.meta, m: m)
+        case "wallet_transfer":
+            if let gift = giftOf(dto.meta?.str("gift")) {
+                SendMoneyGiftCard(meta: dto.meta, m: m, mine: mine, gift: gift)
+            } else {
+                TransferReceiptCard(meta: dto.meta, m: m)
+            }
         case "wallet_qr": WalletQrCard(meta: dto.meta, m: m, mine: mine, actions: actions)
         case "call": CallLine(meta: dto.meta, m: m, mine: mine)
         case "story_reply":
@@ -1137,14 +1144,6 @@ private struct TransferReceiptCard: View {
         let currency = meta?.str("currency_symbol") ?? meta?.str("currency")
         let reversed = meta?.at("is_reversed")?.bool == true
         VStack(alignment: .leading, spacing: 0) {
-            // A money gift: the same receipt, drawn as a card for the occasion (it unwraps as it appears).
-            if let gift = giftOf(meta?.str("gift")) {
-                VStack(spacing: 2) {
-                    Text(verbatim: gift.0).font(.system(size: 46)).scaleEffect(0.6 + 0.4 * check)
-                    Text(verbatim: gift.1).font(.dorr(17, .heavy)).foregroundStyle(.white)
-                }
-                .frame(maxWidth: .infinity).padding(.bottom, 10)
-            }
             HStack(spacing: 10) {
                 Image(systemName: reversed ? "exclamationmark.circle.fill" : "checkmark.circle.fill").font(.system(size: 22)).foregroundStyle(ch.red)
                     .frame(width: 34, height: 34).background(ch.surface, in: Circle()).scaleEffect(check)
@@ -1168,6 +1167,79 @@ private struct TransferReceiptCard: View {
         .padding(16)
         .frame(width: 262)
         .background(ch.headerBrush, in: RoundedRectangle(cornerRadius: 20))
+        .task { withAnimation(.spring(response: 0.5, dampingFraction: 0.35)) { check = 1 } }
+    }
+}
+
+/// Send-money with an occasion: the same receipt sections as a bank slip, in the chat's colours, smaller.
+private struct SendMoneyGiftCard: View {
+    @ObservedObject private var ch = Ch.shared
+    let meta: JSONAny?
+    let m: UiMessage
+    let mine: Bool
+    let gift: (String, String)
+    @State private var check: CGFloat = 0
+
+    var body: some View {
+        let amount = meta?.int("amount_minor") ?? 0
+        let currency = meta?.str("currency_symbol") ?? meta?.str("currency")
+        let reversed = meta?.at("is_reversed")?.bool == true
+        let ref = meta?.str("transaction_id") ?? ""
+        let refShort = String(ref.prefix(8)).uppercased()
+        let ink = mine ? ch.outText : ch.ink
+        let mut = mine ? ch.outText.opacity(0.75) : ch.mut
+        let well = mine ? ch.outText.opacity(0.16) : ch.surfaceMuted
+        let line = mine ? ch.outText.opacity(0.25) : ch.line
+        let mark = mine ? ch.outText : ch.red
+        VStack(spacing: 0) {
+            Text(verbatim: gift.0).font(.system(size: 28)).scaleEffect(0.85 + 0.15 * check)
+            Text(verbatim: gift.1).font(.dorr(14, .heavy)).foregroundStyle(ink)
+            Text(L("ch_transfer_receipt")).font(.dorr(11, .semibold)).foregroundStyle(mut)
+            VStack(spacing: 2) {
+                HStack(spacing: 8) {
+                    Image(systemName: reversed ? "exclamationmark.circle" : "checkmark.circle.fill").font(.system(size: 13)).foregroundStyle(mark)
+                        .frame(width: 22, height: 22).background(mark.opacity(0.12), in: Circle()).overlay(Circle().stroke(mark, lineWidth: 1.5)).scaleEffect(check)
+                    Text(L(reversed ? "ch_transfer_reversed" : "ch_transfer_done")).font(.dorr(12, .heavy)).foregroundStyle(ink).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                Text(verbatim: formatMinor(amount, nil)).font(.dorr(18, .heavy)).foregroundStyle(ink).kerning(-0.4)
+                    .environment(\.layoutDirection, .leftToRight).padding(.top, 2)
+                if let currency, !currency.isEmpty {
+                    Rectangle().fill(line).frame(width: 40, height: 1).padding(.top, 2)
+                    Text(verbatim: currency).font(.dorr(10, .semibold)).foregroundStyle(mut).padding(.top, 2)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(well, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.top, 8)
+            HStack(spacing: 8) {
+                Image(systemName: "wallet.pass.fill").font(.system(size: 13)).foregroundStyle(mark).frame(width: 28, height: 28).background(mark.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 0) {
+                    if let to = meta?.str("recipient_name") { Text(L("ch_transfer_to", to)).font(.dorr(11, .semibold)).foregroundStyle(mut).lineLimit(1) }
+                    if let number = meta?.str("recipient_wallet_number") { Text(verbatim: number).font(.dorr(11.5, .bold)).foregroundStyle(ink) }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 7)
+            .background(well, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.top, 8)
+            Rectangle().fill(line).frame(height: 1).padding(.top, 8)
+            HStack(spacing: 4) {
+                BubbleFooter(m: m, mine: mine, overlay: false)
+                Spacer(minLength: 0)
+                if !refShort.isEmpty {
+                    Text(verbatim: "#" + refShort).font(.dorr(10, .semibold)).foregroundStyle(mut)
+                    Button {
+                        UIPasteboard.general.string = ref.isEmpty ? refShort : ref
+                        AppToast.show(L("ch_copied"))
+                    } label: { Image(systemName: "doc.on.doc").font(.system(size: 11)).foregroundStyle(mut) }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 6)
+        }
+        .padding(10)
+        .frame(width: 220)
         .task { withAnimation(.spring(response: 0.5, dampingFraction: 0.35)) { check = 1 } }
     }
 }

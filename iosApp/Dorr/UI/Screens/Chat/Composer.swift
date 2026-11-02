@@ -896,7 +896,7 @@ private struct AttachSheet: View {
             default:
                 ChSheetCard {
                     let items = attachItems(isGroup: isGroup, isChannel: isChannel)
-                    VStack(spacing: 20) {
+                    VStack(spacing: 12) {
                         ForEach(0..<((items.count + 2) / 3), id: \.self) { row in
                             HStack(spacing: 0) {
                                 ForEach(0..<3, id: \.self) { col in
@@ -906,7 +906,7 @@ private struct AttachSheet: View {
                             }
                         }
                     }
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 6)
                 }
             }
         }
@@ -1085,13 +1085,14 @@ private struct AttachButton: View {
 
     var body: some View {
         Button(action: item.action) {
-            VStack(spacing: 8) {
-                Image(systemName: item.icon).font(.system(size: 24)).foregroundStyle(.white)
-                    .frame(width: 62, height: 62)
+            VStack(spacing: 6) {
+                Image(systemName: item.icon).font(.system(size: 19)).foregroundStyle(.white)
+                    .frame(width: 50, height: 50)
                     .background(LinearGradient(colors: item.colors, startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
-                    .shadow(color: item.colors.last!.opacity(0.45), radius: 8, y: 4)
-                Text(verbatim: item.label).font(.dorr(12.5, .semibold)).foregroundStyle(ch.ink).lineLimit(1)
+                    .shadow(color: item.colors.last!.opacity(0.45), radius: 6, y: 3)
+                Text(verbatim: item.label).font(.dorr(11, .semibold)).foregroundStyle(ch.ink).lineLimit(1)
             }
+            .frame(width: 76)
         }
         .buttonStyle(AiPressStyle())
         .scaleEffect(pop).opacity(pop)
@@ -1195,7 +1196,11 @@ private struct LocationShareSheet: View {
         ChSheetCard {
             Text(L("ch_attach_location")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
             row("location.fill", L("ch_location_current"), L("ch_location_current_sub"), Color(hex: 0x2563EB), 0, onCurrent)
-            Text(L("ch_live_title")).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut).padding(.leading, 4).padding(.top, 14).padding(.bottom, 6)
+            HStack(spacing: 6) {
+                Image(systemName: "location.north.fill").font(.system(size: 13)).foregroundStyle(ch.red)
+                Text(L("ch_live_title")).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
+            }
+            .padding(.leading, 4).padding(.top, 14).padding(.bottom, 6)
             ForEach(Array([(900, "ch_live_15m"), (3600, "ch_live_1h"), (28800, "ch_live_8h")].enumerated()), id: \.offset) { i, o in
                 row("location.north.fill", L(o.1), L("ch_live_sub"), ch.success, i + 1) { onLive(o.0) }
             }
@@ -1205,7 +1210,7 @@ private struct LocationShareSheet: View {
     private func row(_ icon: String, _ title: String, _ sub: String, _ color: Color, _ i: Int, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 18)).foregroundStyle(.white).frame(width: 42, height: 42).background(color, in: Circle())
+                ChIconBadge(icon: icon, color: color, iconTint: ch.red)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: title).font(.dorr(15, .bold)).foregroundStyle(ch.ink)
                     Text(verbatim: sub).font(.dorr(12)).foregroundStyle(ch.mut)
@@ -1237,7 +1242,7 @@ private struct PollComposerSheet: View {
         let ready = !question.trimmingCharacters(in: .whitespaces).isEmpty && filled.count >= 2
         ChSheetCard {
             HStack(spacing: 12) {
-                Image(systemName: "chart.bar.fill").font(.system(size: 18)).foregroundStyle(.white).frame(width: 40, height: 40).background(Color(hex: 0xF59E0B), in: Circle())
+                ChIconBadge(icon: "chart.bar.fill", color: ch.success, iconTint: ch.red)
                 Text(L("ch_poll_new")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
             }
             ScrollView {
@@ -1248,7 +1253,9 @@ private struct PollComposerSheet: View {
                         HStack(spacing: 6) {
                             ChField(placeholder: L("ch_poll_option_hint", i + 1), text: Binding(get: { options[safe: i] ?? "" }, set: { if i < options.count { options[i] = $0 } }), icon: "circle", limit: 100)
                             if options.count > 2 {
-                                Button { options.remove(at: i) } label: { Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(ch.mut).frame(width: 34, height: 34) }
+                                Button { options.remove(at: i) } label: {
+                                    Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(ch.danger).frame(width: 34, height: 34).background(ch.danger.opacity(0.12), in: Circle())
+                                }
                                     .buttonStyle(.plain).transition(.scale)
                             }
                         }
@@ -1260,12 +1267,16 @@ private struct PollComposerSheet: View {
                                 Image(systemName: "plus").font(.system(size: 17, weight: .bold))
                                 Text(L("ch_poll_add_option")).font(.dorr(14, .heavy))
                             }
-                            .foregroundStyle(ch.red).padding(.horizontal, 8).padding(.vertical, 10)
+                            .foregroundStyle(ch.red).padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(ch.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
                     Toggle(isOn: $multiple) { Text(L("ch_poll_allow_many")).font(.dorr(14, .semibold)).foregroundStyle(ch.ink) }
-                        .tint(ch.red).padding(.horizontal, 4)
+                        .tint(ch.red).padding(.horizontal, 12).padding(.vertical, 10)
+                        .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(ch.line, lineWidth: 1))
+                        .padding(.top, 6)
                 }
                 .padding(.top, 14)
             }
@@ -1292,9 +1303,7 @@ private struct RequestMoneySheet: View {
         let minor = parseAmountToMinor(amount)
         ChSheetCard {
             VStack(spacing: 0) {
-                Image(systemName: "doc.plaintext.fill").font(.system(size: 26)).foregroundStyle(.white)
-                    .frame(width: 58, height: 58)
-                    .background(LinearGradient(colors: [Color(hex: 0x10B981), Color(hex: 0x047857)], startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
+                ChIconBadge(icon: "doc.plaintext.fill", color: ch.success, size: 58, iconTint: ch.red)
                 Text(L("ch_money_request_from", peerName)).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).multilineTextAlignment(.center).padding(.top, 10)
                 TextField("0.00", text: $amount).keyboardType(.decimalPad).font(.dorr(34, .heavy)).foregroundStyle(ch.ink)
                     .multilineTextAlignment(.center).tint(Color(hex: 0x10B981))

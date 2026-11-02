@@ -84,6 +84,8 @@ final class CallController: NSObject, ObservableObject {
     @Published private(set) var isVideo = false
     @Published private(set) var micOn = true
     @Published private(set) var cameraOn = false
+    /// Rear camera is in use (flipped from the default front camera).
+    @Published private(set) var flippedCamera = false
     @Published private(set) var speakerOn = false
     /// The call screen shrunk to a small window I can drag (⌄) while I use the app.
     @Published var minimized = false
@@ -147,6 +149,7 @@ final class CallController: NSObject, ObservableObject {
         self.peerKey = peerKey
         isVideo = video
         cameraOn = video
+        flippedCamera = false
         speakerOn = video
         micOn = true
         error = nil
@@ -165,6 +168,7 @@ final class CallController: NSObject, ObservableObject {
         peerKey = nil
         isVideo = video
         cameraOn = video
+        flippedCamera = false
         speakerOn = true
         micOn = true
         error = nil
@@ -222,6 +226,7 @@ final class CallController: NSObject, ObservableObject {
             take(dto)
             isVideo = dto.type == "video"
             cameraOn = isVideo
+            flippedCamera = false
             speakerOn = isVideo
             micOn = true
             title = dto.conversationType == "group" ? (dto.groupName ?? "") : (dto.initiator?.name ?? "")
@@ -363,6 +368,7 @@ final class CallController: NSObject, ObservableObject {
     func toggleCamera() {
         if !cameraOn && !cameraAllowed() { return }
         cameraOn.toggle()
+        if !cameraOn { flippedCamera = false }
         Task {
             await applyCamera()
             refreshVideos()
@@ -372,7 +378,7 @@ final class CallController: NSObject, ObservableObject {
     func flipCamera() {
         guard let track = room?.localParticipant.firstCameraVideoTrack as? LocalVideoTrack,
               let capturer = track.capturer as? CameraCapturer else { return }
-        Task { _ = try? await capturer.switchCameraPosition() }
+        Task { if (try? await capturer.switchCameraPosition()) != nil { flippedCamera.toggle() } }
     }
 
     func toggleSpeaker() {
@@ -596,6 +602,7 @@ final class CallController: NSObject, ObservableObject {
         room = nil
         if BroadcastManager.shared.isBroadcasting { BroadcastManager.shared.requestStop() }
         sharingScreen = false
+        flippedCamera = false
         linkToken = nil
         live = nil
         recording = nil
@@ -640,6 +647,7 @@ final class CallController: NSObject, ObservableObject {
             take(dto)
             isVideo = dto.type == "video"
             cameraOn = isVideo
+            flippedCamera = false
             speakerOn = isVideo
             micOn = true
             let caller = data["caller"]
@@ -679,11 +687,11 @@ extension CallController: RoomDelegate {
         }
     }
 
-    /// The room dropped us (network gone for good, kicked, room closed): the call is over in every phase, not only once
-    /// it was answered.
+    /// The room dropped us (network gone for good, kicked, room closed): the call is over once it was answered. While it
+    /// still rings, LiveKit may close an empty room — hanging up then left a ringing row and the next tap was call_busy.
     nonisolated func room(_ room: Room, didDisconnectWithError error: LiveKitError?) {
         Task { @MainActor in
-            guard self.room === room, let phase = self.phase, phase != .ended else { return }
+            guard self.room === room, let phase = self.phase, phase == .active || phase == .connecting else { return }
             self.hangUp()
         }
     }

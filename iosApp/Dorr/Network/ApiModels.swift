@@ -20,10 +20,13 @@ struct Ignored: Decodable {
 struct PaginationDto: Codable {
     let currentPage: Int
     let hasMorePages: Bool
+    /// How many there are in all (some lists say).
+    let total: Int?
 
     enum CodingKeys: String, CodingKey {
         case currentPage = "current_page"
         case hasMorePages = "has_more_pages"
+        case total
     }
 
     /// Read through either decoder (the snake-case one camel-cases the keys first).
@@ -34,6 +37,7 @@ struct PaginationDto: Codable {
         let camel = try decoder.container(keyedBy: CamelKeys.self)
         currentPage = (try? c.decode(Int.self, forKey: .currentPage)) ?? (try? camel.decode(Int.self, forKey: .currentPage)) ?? 1
         hasMorePages = (try? c.decode(Bool.self, forKey: .hasMorePages)) ?? (try? camel.decode(Bool.self, forKey: .hasMorePages)) ?? false
+        total = try? c.decode(Int.self, forKey: .total)
     }
 }
 

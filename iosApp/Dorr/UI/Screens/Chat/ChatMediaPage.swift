@@ -43,7 +43,7 @@ struct ChatMediaPage: View {
 
     var body: some View {
         ZStack {
-            ChPage(title: L("ch_media_title"), onBack: { host.pop() }) {
+            ChSettingsPage(title: L("ch_media_title"), onBack: { host.pop() }) {
                 VStack(spacing: 0) {
                     tabsRow
                     if tab.key == "media" || tab.key == "docs" { filterRow }
