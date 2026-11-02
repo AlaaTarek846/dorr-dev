@@ -1,0 +1,54 @@
+# XcodeGen spec — the .xcodeproj is generated from this file and is not committed.
+#   brew install xcodegen && cd freelanceAppIOS && xcodegen
+# The iOS twin of freelanceApp/ («دُرر للمحترفين» / Dorr Pro): the freelancer's own app on the `freelance_api` guard
+# (/api/freelance/v1/*), separate from the client app (iosApp/) exactly as freelanceApp is separate from androidApp.
+name: DorrPro
+options:
+  bundleIdPrefix: com.dorr
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+  createIntermediateGroups: true
+  projectFormat: xcode15_0
+configFiles:
+  Debug: Config/DorrPro.xcconfig
+  Release: Config/DorrPro.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # freelanceApp: versionName 0.1.0, versionCode 1.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  PusherSwift:
+    # The live connection (Android: pusher-java-client), settings from `freelance/v1/realtime-config`.
+    url: https://github.com/pusher/pusher-websocket-swift
+    exactVersion: 10.1.5
+  OneSignal:
+    # Push notifications (Android: OneSignal 5.1.x), the app id from `realtime-config`.
+    url: https://github.com/OneSignal/OneSignal-XCFramework
+    exactVersion: 5.2.10
+targets:
+  DorrPro:
+    type: application
+    platform: iOS
+    sources:
+      - path: DorrPro
+    dependencies:
+      - package: PusherSwift
+        product: PusherSwift
+      - package: OneSignal
+        products: [OneSignalFramework]
+    preBuildScripts:
+      # freelanceApp's strings → Localizable.strings, so a build never ships stale text.
+      - name: Sync strings from freelanceApp
+        script: python3 "$SRCROOT/scripts/sync_strings.py"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        INFOPLIST_FILE: DorrPro/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrPro/DorrPro.entitlements
+        OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -solver-expression-time-threshold=60"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO

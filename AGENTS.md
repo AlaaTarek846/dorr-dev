@@ -35,6 +35,7 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Provider SPA | `/provider` → `/api/provider/v1/*` (guard: `provider_api`) — mirrors User auth; **no AI chat** |
 | Driver app | `driverApp/` (separate Gradle project) → `/api/driver/v1/*` (guard: `driver_api`, `Modules/Driver`) — a driver is **not** a Provider |
 | Freelancer app | `freelanceApp/` (separate Gradle project, `com.dorr.freelance`, shares `driverApp/core`) → `/api/freelance/v1/*` (guard: `freelance_api`, `Modules/Freelance`) — guide [docs/modules/freelance/APP.md](docs/modules/freelance/APP.md) |
+| Freelancer iOS app | `freelanceAppIOS/` (SwiftUI, XcodeGen target `DorrPro`, `com.dorr.freelance`) — the iOS twin of `freelanceApp/`, same API — guide [freelanceAppIOS/README.md](freelanceAppIOS/README.md) |
 | Rides | `Modules/Rides` — plan [docs/rides-plan.md](docs/rides-plan.md), tables [docs/rides-structure.md](docs/rides-structure.md), **tasks [docs/rides_tasks.md](docs/rides_tasks.md)** (reserve a task with your name before starting; tick it when done) |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
 | Modules | `Modules/Admin`, `User`, `AI`, `Provider`, `Driver`, `Rides`, … |
@@ -109,3 +110,17 @@ Native twin in `iosApp/` (Swift + SwiftUI, same API). Read [docs/modules/ios/REA
 - **Build check:** `cd iosApp && xcodegen && xcodebuild -project Dorr.xcodeproj -scheme Dorr -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.
 
 Claude Code enforces this with a `PostToolUse` hook (`.claude/settings.json` → `.claude/hooks/android-ios-sync.sh`). Other agents (Cursor, etc.) must follow this section by hand.
+
+---
+
+## Freelancer iOS App — freelanceApp → freelanceAppIOS sync rule (mandatory)
+
+Native twin in `freelanceAppIOS/` (Swift + SwiftUI, same `/api/freelance/v1/*` API). Read [freelanceAppIOS/README.md](freelanceAppIOS/README.md) before touching it.
+
+**Any change to `freelanceApp/` must be made in `freelanceAppIOS/` in the same task.** Android is the reference.
+
+- **Strings** sync automatically: edit only the `freelanceApp` XML; `freelanceAppIOS/scripts/sync_strings.py` regenerates `Localizable.strings` on every Xcode build. Never edit the generated files.
+- **Code:** port the same behavior to the twin file (same file name: `ui/screens/OfferScreens.kt` → `DorrPro/UI/Screens/Work/OfferScreens.swift`, `net/WalletApi.kt` → `DorrPro/Net/WalletApi.swift`), keeping names (screens, API functions, DTO fields, store keys).
+- **Platform-only differences** (no system back key, Face ID, App Store links…) are listed in the README; don't silently skip anything else.
+- **Fast check:** `cd freelanceAppIOS && scripts/typecheck.sh <changed paths>`.
+- **Build check:** `cd freelanceAppIOS && xcodegen && xcodebuild -project DorrPro.xcodeproj -scheme DorrPro -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.
