@@ -18,7 +18,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -264,8 +265,8 @@ private fun CertificateForm(initial: CertificateDto, onBack: () -> Unit, onChang
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             text = { Text(stringResource(R.string.common_delete_confirm)) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete), color = settingsAccent()) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete)) } },
+            dismissButton = { DialogButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

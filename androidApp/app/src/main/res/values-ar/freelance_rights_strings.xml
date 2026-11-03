@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L13: الملكية والتراخيص كما يراها العميل (prefix rights_). -->
+<resources>
+    <string name="rights_title">الملكية والترخيص</string>
+    <string name="rights_offer_intro">مين صاحب الشغل بعد ما تدفع، وإيه اللي تقدر تعمله بيه.</string>
+    <string name="rights_clauses_title">ده معناه بالنسبة لك</string>
+    <string name="rights_portfolio_wish">المحترف حابب يعرض الشغل بعد ما يخلص في معرض أعماله. ده مش هيحصل غير بموافقتك.</string>
+    <string name="rights_compare">الملكية</string>
+    <string name="rights_state_pending">لسه ما انتقلتش</string>
+    <string name="rights_state_partial">انتقلت جزئيًا</string>
+    <string name="rights_state_granted">انتقلت بالكامل</string>
+    <string name="rights_parts_n">%1$d من %2$d أجزاء انتقلت حقوقها ليك</string>
+    <string name="rights_preview_only">لحد ما الجزء يتعتمد ويتدفع تقدر تعاينه وتراجعه بس. حقوقه بتنتقل ليك لما تعتمده ويتدفع.</string>
+    <string name="rights_terms_show">اقرا النص كامل</string>
+    <string name="rights_terms_hide">إخفاء النص</string>
+    <string name="rights_terms_version">الإصدار %1$d</string>
+    <string name="rights_portfolio_title">عرضه في معرض أعماله</string>
+    <string name="rights_portfolio_hint">اسمح للمحترف يعرض الشغل ده بعد ما يخلص في معرض أعماله العام. تقدر ترجع في موافقتك في أي وقت وبيختفي فورًا.</string>
+    <string name="rights_portfolio_asked">المحترف طلب موافقتك على عرض الشغل ده في معرض أعماله.</string>
+    <string name="rights_delivery_confirmed">المحترف أكد إن الشغل بتاعه · %1$s</string>
+    <string name="rights_materials_title">خامات من برّه ذكرها</string>
+    <string name="rights_report">أبلّغ عن العمل ده</string>
+    <string name="rights_report_title">الإبلاغ عن عمل</string>
+    <string name="rights_report_body">استخدم ده بس لو العمل مش بتاع المحترف، زي إنه بتاعك أو بتاع حد تاني. بنراجع كل بلاغ.</string>
+    <string name="rights_report_hint">إيه اللي حصل؟ قول ليه مش بتاعه (١٠ حروف على الأقل)</string>
+    <string name="rights_report_send">إرسال البلاغ</string>
+    <string name="fl_dr_rights">حقوق الشغل (مش بتاعه أو ما اتسلمتليش حقوقه)</string>
+    <string name="rights_preview_locked">للمعاينة فقط لحد ما الجزء يتعتمد ويتدفع</string>
+</resources>

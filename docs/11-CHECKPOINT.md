@@ -63,6 +63,10 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Freelance FL-L16 consultation video session (2026-11-02):** backend (room, attendance, recording into the bucket then our storage, signed downloads, deletion after a week / after the staff's decision, no-show complaint), tests, admin session panel, DORR app Android + iOS, freelancer app. Open: the bucket (`CHAT_RECORDINGS_*` empty until the owner sets it — sessions run unrecorded until then), device testing (postponed by the owner), iOS build in Xcode.
+- **Freelance FL-L12 professional community (2026-11-02):** backend (feed per country, posts / questions / works, comments + replies, reactions, saves, follows, reports with auto-hide, staff decisions and mutes), tests, admin moderation page and freelancer app screens. The academy was dropped. Open: device check of the new screens.
+- **Freelance FL-L13 ownership and licences (2026-11-02):** backend (3 models per offer/service, agreement snapshot with the standard text, rights per approved part, delivery declaration + materials, portfolio leave, rights reports, dispute reason `rights`), tests, admin page, freelancer app and DORR app Android + iOS (iOS not built here). Open: device check of the new screens, legal review of the standard texts per country.
+- **Freelance FL-L09 batches A + B (2026-11-02):** special offers to past clients (A) and the loyalty program (B: per-freelancer discount steps applied by the server to offers, one-time services and consultations) — backend, tests (525 Freelance tests green), freelancer app, DORR app Android + iOS (iOS not built here). Admin pages for loyalty programs and special offers done (own permissions, read only). Open: device check of the new app screens.
 - **Chat educational & work groups (2026-10-29):** every non-AI task of `docs/groups_tasks.md` is done, the parents included (D8: an ordinary account linked to the child with the teacher's approval, never a member of the class chat). Admin page `admin.chat.groups` (`chat-groups.view/update`), tool switches in chat settings. The Android work and parent screens have not been built with Gradle yet. The AI tasks are still open: GR-023, 029, 046 (summary), 047, 048, 054.
 - **Chat group kinds (2026-10-27):** GR-001/002 of `docs/groups_tasks.md` — ordinary / educational / work, fixed at creation, switch + limit in chat settings, Android picker. The rest of the educational and work tools follow that file.
 - **Chat hidden members (2026-10-27):** paid group setting (once, never switched off) — numbers hidden from each other, no private chats from the group, names shown. Price per country in admin chat settings; Android switch on «جروب جديد» and in the group settings. `ParticipantDirectory::isHiddenFrom()`.
@@ -438,3 +442,74 @@ php artisan route:list  # Verify API routes
 npm run dev             # Vite dev server only
 npm run build           # Production frontend build
 ```
+
+### Freelancer app redesign — batches A + B (2026-11-02)
+
+- **Navigation:** new tabs Home · Opportunities · My work · Community (per country) · Me.
+- **Header:** shown on every tab.
+- **Home:** a dashboard fed by one call to `GET freelance/v1/home`, with banners, numbers, items waiting for an answer, current work and matching projects.
+- **Admin:** promo banners managed at `admin/v1/freelance-promos` (permissions `freelance-promos.*`).
+- **Tests:** `FreelancerHomeTest` (5).
+- **Not verified:** not run on a device.
+- **Next:** batches C to H in [APP-REDESIGN-PLAN.md](modules/freelance/APP-REDESIGN-PLAN.md).
+
+### Freelancer app redesign — batches C to H (2026-11-03)
+
+- **Status:** all eight batches of [APP-REDESIGN-PLAN.md](modules/freelance/APP-REDESIGN-PLAN.md) are done.
+- **What changed, by batch:**
+  - C: opportunities.
+  - D: my work.
+  - E: store pages.
+  - F: «Me».
+  - G: notifications.
+  - H: finishing touches.
+- **Verification:** `freelanceApp` compiles. Nothing has been run on a device yet.
+- **Not committed.**
+
+### Client freelance redesign — batch A (2026-11-03)
+
+- **Plan:** [CLIENT-APP-REDESIGN-PLAN.md](modules/freelance/CLIENT-APP-REDESIGN-PLAN.md) (owner: no bottom bar, promos from the same admin table with an audience field, iOS in every batch, the app's own colour, «Services» not «Market»).
+- **Done:** the hub, the shared look, typed pages on a stack with per-page state, My projects without the shortcut chips (Android + iOS).
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build (Windows). Nothing run on a device. Not committed.
+- **Next:** batch B — `GET mobile/v1/freelance/home`, the `audience` field on `freelance_promos`, and the hub's numbers / priorities / slider.
+
+### Client freelance redesign — batch B (2026-11-03)
+
+- **Done:** `GET mobile/v1/freelance/home`, the promo `audience` (migration `2026_11_22_100000`, admin picker and filter), the hub's dashboard on Android and iOS.
+- **Verification:** `FreelanceClientHomeTest` (5) and `FreelancerHomeTest` (5) pass; `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch C — my projects (list, card, filters, project page, invitations).
+
+### Client freelance redesign — batch C (2026-11-03)
+
+- **Done:** `scope=active|ended` on `GET mobile/v1/freelance/projects`; My projects, the project card, the project page (parts + fixed main step + «More») and the invitations page on Android and iOS.
+- **Verification:** `FreelanceClientProjectsTest` passes; `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch D — offers, compare, the freelancer's profile, the agreement and its stages.
+
+### Client freelance redesign — batch D (2026-11-03)
+
+- **Done:** offers list, offer page (fixed foot), compare, freelancer profile, favourites, and the agreement head with the parts as steps, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch E — services and consultations (browse, one service, booking).
+
+### Client freelance redesign — batch E (2026-11-03)
+
+- **Done:** one «Services» page (ready-made services + consultations as two parts), pull to refresh, the shared head on the service page and the booking, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch F — «My activity» (orders, subscriptions, consultations, special offers).
+
+### Client freelance redesign — batch F (2026-11-03)
+
+- **Done:** one «My activity» page (orders with subscriptions, consultations, special offers) on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch G — favourites, my discounts, receipts, sanctions and clean-up.
+
+### Client freelance redesign — batch G (2026-11-03)
+
+- **Done:** «My receipts», the hub's tools in rows of three, the shared head everywhere but the chat, one avatar and one status pill, unused strings removed, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch H (last) — skeletons, empty and error states, accessibility, dark mode.
+
+### Client freelance redesign — batch H (2026-11-03)
+
+- **Status:** all eight batches of [CLIENT-APP-REDESIGN-PLAN.md](modules/freelance/CLIENT-APP-REDESIGN-PLAN.md) are done.
+- **Verification:** `androidApp` compiles; the Freelance PHP suite passed after the last backend change (batch C, 568). iOS written without an Xcode build. Nothing run on a device. Not committed.

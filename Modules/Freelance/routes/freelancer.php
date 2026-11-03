@@ -48,6 +48,9 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
     // The Freelance service's privacy policy and terms, read before sign-in too (falls back to the general pages).
     Route::get('legal-pages', [FreelanceLegalPageController::class, 'show'])->middleware('throttle:60,1');
 
+    // FL-L13: anyone who finds a portfolio work on the website that is theirs may report it (no sign-in).
+    Route::post('public/rights-claims', [\Modules\Freelance\Http\Controllers\RightsClaimController::class, 'store'])->middleware('throttle:5,10,freelance-public-rights-claim');
+
     // Anyone may read a verified freelancer's public works (the website).
     Route::get('public/freelancers/{uuid}/portfolio', [PortfolioViewController::class, 'show'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-public-portfolio');
 
@@ -125,7 +128,53 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             Route::post('{uuid}/cancel', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'cancel'])->whereUuid('uuid');
             Route::post('{uuid}/accept', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'accept'])->whereUuid('uuid');
             Route::post('{uuid}/decline', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerConsultationController::class, 'decline'])->whereUuid('uuid');
+            // FL-L16: the video session - its state and recordings, a ticket into the room, in / out.
+            Route::get('{uuid}/session', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/session/join', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'join'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
+            Route::post('{uuid}/session/connected', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'connected'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
+            Route::post('{uuid}/session/leave', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'leave'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
         });
+        // FL-L09: special offers to clients I finished work with - who, what I can offer, the price preview, sending, mine and withdrawing.
+        Route::prefix('special-offers')->middleware('freelance.feature:special_offers')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'index']);
+            Route::get('clients', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'clients']);
+            Route::get('compose', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'compose']);
+            Route::get('quote', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'quote'])->middleware('throttle:120,1,freelance-special-offer-quote');
+            Route::post('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'store'])
+                ->middleware(['freelance.verified', 'throttle:20,1,freelance-special-offer-send']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/withdraw', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSpecialOfferController::class, 'withdraw'])->whereUuid('uuid');
+        });
+        // FL-L09 (part B): my loyalty program - the steps of discount a returning client earns, on / off, my clients on a step and the numbers.
+        Route::prefix('loyalty')->middleware('freelance.feature:loyalty')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerLoyaltyController::class, 'show']);
+            Route::put('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerLoyaltyController::class, 'update'])->middleware('throttle:30,1,freelance-loyalty-save');
+            Route::post('{action}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerLoyaltyController::class, 'toggle'])->whereIn('action', ['enable', 'disable']);
+        });
+        // FL-L13: ownership and licences - what the offer and service forms need, and my finished works I may show in my portfolio.
+        Route::get('rights', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerRightsController::class, 'options']);
+        // FL-L12: the professional community - freelancers only, per country; writing needs a verified account and no mute.
+        Route::prefix('community')->middleware('freelance.feature:community')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'home']);
+            Route::get('feed', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'feed']);
+            Route::post('posts', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'store'])->middleware('throttle:10,1,freelance-community-post');
+            Route::get('posts/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'show'])->whereUuid('uuid');
+            Route::put('posts/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'update'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-community-edit');
+            Route::delete('posts/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'destroy'])->whereUuid('uuid');
+            Route::get('posts/{uuid}/comments', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'comments'])->whereUuid('uuid');
+            Route::post('posts/{uuid}/comments', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'comment'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-community-comment');
+            Route::post('posts/{uuid}/accept', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'accept'])->whereUuid('uuid');
+            Route::match(['post', 'delete'], 'posts/{uuid}/save', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'save'])->whereUuid('uuid');
+            Route::put('{type}/{uuid}/reaction', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'react'])->whereIn('type', ['posts', 'comments'])->whereUuid('uuid')->middleware('throttle:120,1,freelance-community-react');
+            Route::get('comments/{uuid}/replies', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'replies'])->whereUuid('uuid');
+            Route::put('comments/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'updateComment'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-community-edit');
+            Route::delete('comments/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'destroyComment'])->whereUuid('uuid');
+            Route::get('members/{uuid}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'member'])->whereUuid('uuid');
+            Route::match(['post', 'delete'], 'members/{uuid}/follow', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'follow'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-community-follow');
+            Route::get('members/{uuid}/{which}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'people'])->whereUuid('uuid')->whereIn('which', ['followers', 'following']);
+            Route::post('reports', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'report'])->middleware('throttle:10,1,freelance-community-report');
+        });
+        Route::get('rights/portfolio-sources', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerRightsController::class, 'portfolioSources'])->middleware('freelance.feature:rights');
         Route::prefix('service-orders')->middleware('freelance.feature:projects')->group(function () {
             Route::get('/', [FreelancerServiceController::class, 'orders']);
             Route::get('{uuid}', [FreelancerServiceController::class, 'order'])->whereUuid('uuid');
@@ -162,6 +211,8 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             // FL-401: the agreement on my chosen offer.
             Route::get('{uuid}/agreement', [FreelancerAgreementController::class, 'show'])->whereUuid('uuid');
             Route::post('{uuid}/agreement/approve', [FreelancerAgreementController::class, 'approve'])->whereUuid('uuid');
+            // FL-L13: asking the client's leave to show the finished work in my portfolio.
+            Route::post('{uuid}/agreement/rights/portfolio-request', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerRightsController::class, 'askPortfolio'])->whereUuid('uuid')->middleware(['freelance.feature:rights', 'throttle:10,1,freelance-rights-ask']);
             // FL-601 / FL-602: the versions delivered (files kept as uploaded, downloaded by the two people of the agreement only).
             Route::get('{uuid}/milestones/{milestone}/deliveries', [MilestoneDeliveryController::class, 'index'])->whereUuid(['uuid', 'milestone']);
             Route::get('{uuid}/milestones/{milestone}/deliveries/{delivery}/files/{media}', [MilestoneDeliveryController::class, 'file'])->whereUuid(['uuid', 'milestone', 'delivery'])->whereNumber('media');
@@ -216,6 +267,9 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
 
         // FL-509: my earnings from projects.
         Route::get('earnings', [FreelancerAgreementController::class, 'earnings'])->middleware('freelance.feature:projects');
+
+        // The app's home in one answer (the redesign): promos, numbers, what waits for an answer, the next consultation, the work.
+        Route::get('home', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerHomeController::class, 'show'])->middleware('freelance.feature:freelance');
 
         // FL-L01 phase 4: my performance (what shows depends on my plan; a plan with none gets `locked`, not an error).
         Route::get('insights', [FreelancerInsightController::class, 'show'])->middleware('freelance.feature:projects');

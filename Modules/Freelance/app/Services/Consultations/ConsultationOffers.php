@@ -17,6 +17,7 @@ use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Offers\ClientOfferViews;
 use Modules\Freelance\Services\Offers\FreelancerOffers;
+use Modules\Freelance\Services\Offers\Loyalty;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Projects\FreelanceReviews;
 use Modules\User\Models\User;
@@ -218,10 +219,17 @@ class ConsultationOffers
         ];
     }
 
-    /** @return array<string, mixed> what a client sees before booking one consultation */
-    public function presentForClient(Offer $offer): array
+    /**
+     * What a client sees before booking one consultation. For a signed-in client each length carries the loyalty step they hold with this
+     * freelancer (FL-L09): `price_minor` is already the price after it, `list_price_minor` the usual one (null: no discount).
+     *
+     * @return array<string, mixed>
+     */
+    public function presentForClient(Offer $offer, ?User $client = null): array
     {
         $f = $offer->freelancer;
+        $loyalty = app(Loyalty::class);
+        $step = $client === null ? null : $loyalty->discountFor($f, (int) $client->id);
         $country = Country::query()->with('currency')->find((int) $offer->country_id);
         $stats = app(FreelanceReviews::class)->stats($f);
         $rules = $this->rules((int) $offer->country_id);
@@ -239,7 +247,13 @@ class ConsultationOffers
             ],
             'title' => $offer->title,
             'about' => $offer->about,
-            'options' => array_map(fn ($o) => ['minutes' => $o['minutes']] + $this->cost($f, $o['price_minor']), $offer->lengths()),
+            'options' => array_map(function ($o) use ($f, $step) {
+                $price = $step === null ? (int) $o['price_minor'] : Loyalty::discounted((int) $o['price_minor'], $step['bp']);
+                $off = $price < (int) $o['price_minor'];
+
+                return ['minutes' => $o['minutes']] + $this->cost($f, $price) + ['list_price_minor' => $off ? (int) $o['price_minor'] : null, 'loyalty_bp' => $off ? $step['bp'] : null];
+            }, $offer->lengths()),
+            'loyalty' => $client === null ? null : $loyalty->view($f, $client),
             'currency' => $country?->currency?->code,
             'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
             'timezone' => $offer->timezone ?: 'UTC',

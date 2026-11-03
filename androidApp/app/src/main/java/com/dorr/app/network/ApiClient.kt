@@ -144,6 +144,10 @@ object ApiClient {
     val freelance: FreelanceApi by lazy { retrofit.create(FreelanceApi::class.java) }
     val freelanceServices: FreelanceServicesApi by lazy { retrofit.create(FreelanceServicesApi::class.java) }
     val freelanceConsultations: FreelanceConsultationsApi by lazy { retrofit.create(FreelanceConsultationsApi::class.java) }
+    val freelanceSpecialOffers: FreelanceSpecialOffersApi by lazy { retrofit.create(FreelanceSpecialOffersApi::class.java) }
+    val freelanceHome: FreelanceHomeApi by lazy { retrofit.create(FreelanceHomeApi::class.java) }
+    val freelanceLoyalty: FreelanceLoyaltyApi by lazy { retrofit.create(FreelanceLoyaltyApi::class.java) }
+    val freelanceRights: FreelanceRightsApi by lazy { retrofit.create(FreelanceRightsApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }

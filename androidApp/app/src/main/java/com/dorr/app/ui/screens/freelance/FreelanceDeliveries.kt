@@ -131,8 +131,10 @@ internal fun DeliveryReview(projectUuid: String, m: FreelanceMilestoneDto) {
                 Column(Modifier.fillMaxWidth().padding(start = 8.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(stringResource(R.string.fl_dl_version, v.number) + (v.deliveredAt?.let { " · " + it.take(10) } ?: ""), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     v.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
+                    // FL-L13: the freelancer's word that the work is theirs, and the outside material they listed.
+                    DeliveryRightsLines(v.rights)
                     v.files.forEach { f ->
-                        if (f.isImage) DeliveredImage(f) else Text(
+                        if (f.previewOnly && !f.isImage) PreviewOnlyFile(f) else if (f.isImage) DeliveredImage(f) else Text(
                             "📎 ${f.name}", color = settingsAccent(), fontSize = 12.sp,
                             modifier = Modifier.clickable { scope.launch { if (!openDelivered(context, f)) error = fileError } }.padding(vertical = 3.dp),
                         )
@@ -164,6 +166,7 @@ internal fun DeliveryReview(projectUuid: String, m: FreelanceMilestoneDto) {
 private fun DeliveredImage(f: FreelanceDeliveryFileDto) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var zoom by remember(f.id) { mutableStateOf(false) }
     var bitmap by remember(f.id) { mutableStateOf<android.graphics.Bitmap?>(null) }
     LaunchedEffect(f.id) {
         bitmap = withContext(Dispatchers.IO) {
@@ -181,8 +184,12 @@ private fun DeliveredImage(f: FreelanceDeliveryFileDto) {
     if (b == null) Text("🖼 ${f.name}", color = settingsMut(), fontSize = 12.sp)
     else Image(
         b.asImageBitmap(), f.name, contentScale = ContentScale.FillWidth,
-        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).clip(RoundedCornerShape(12.dp)).clickable { scope.launch { openDelivered(context, f) } },
+        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).clip(RoundedCornerShape(12.dp)).clickable {
+            // FL-L13: a preview never leaves the app; an approved file opens as before.
+            if (f.previewOnly) zoom = true else scope.launch { openDelivered(context, f) }
+        },
     )
+    if (zoom && b != null) RightsImageViewer(b.asImageBitmap(), f.name) { zoom = false }
 }
 
 /** Downloads one file of a delivery with the client's own sign-in (never a public link) and opens it. */

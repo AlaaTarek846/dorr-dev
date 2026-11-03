@@ -17,6 +17,7 @@ use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Rights\Rights;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
@@ -52,7 +53,8 @@ class FreelancerServices
         $country = Country::query()->with('currency')->findOrFail((int) $freelancer->country_id);
 
         return DB::transaction(function () use ($freelancer, $country, $data) {
-            $service = Service::query()->create($this->fields($data) + [
+            // FL-L13: a new service always carries terms (the defaults when nothing was chosen) where the switch is on.
+            $service = Service::query()->create($this->fields($data + ['rights' => null], null, (int) $country->id) + [
                 'freelancer_id' => $freelancer->id,
                 'country_id' => $country->id,
                 'currency_code' => (string) $country->currency?->code,
@@ -74,7 +76,7 @@ class FreelancerServices
             if ($s->status === Service::SUSPENDED) {
                 throw $this->state($s);
             }
-            $s->fill($this->fields($data, $s));
+            $s->fill($this->fields($data, $s, (int) $s->country_id));
             if (array_key_exists('tiers', $data)) {
                 $this->writeTiers($s, $data['tiers'] ?? []);
             } else {
@@ -212,6 +214,8 @@ class FreelancerServices
             'title' => $s->title,
             'description' => $s->description,
             'requirements' => $s->requirements,
+            // FL-L13: who owns the work once it is paid and what the client may do with it (null: no terms).
+            'rights' => Rights::summary(app(Rights::class)->effective($s->rights, (int) $s->country_id)),
             // FL-L05: once, or monthly (the prices are then per month).
             'billing' => $s->billing ?? Service::ONCE,
             'specialty' => $s->specialty === null ? null : ['id' => $s->specialty->id, 'name' => $s->specialty->translations->firstWhere('locale', app()->getLocale())?->name ?? $s->specialty->translations->first()?->name],
@@ -332,9 +336,12 @@ class FreelancerServices
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function fields(array $data, ?Service $current = null): array
+    private function fields(array $data, ?Service $current = null, ?int $countryId = null): array
     {
         $out = [];
+        if (array_key_exists('rights', $data)) {
+            $out['rights'] = app(Rights::class)->forListing((int) ($countryId ?? $current?->country_id), is_array($data['rights']) ? $data['rights'] : null);
+        }
         foreach (['title', 'description', 'requirements'] as $key) {
             if (array_key_exists($key, $data)) {
                 $text = $data[$key] === null ? null : trim(strip_tags((string) $data[$key]));

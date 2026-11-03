@@ -76,6 +76,39 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-services/{uuid}/reject', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'reject'])->whereUuid('uuid');
         Route::post('freelance-services/{uuid}/suspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'suspend'])->whereUuid('uuid');
         Route::post('freelance-services/{uuid}/unsuspend', [\Modules\Freelance\Http\Controllers\Admin\FreelanceServiceAdminController::class, 'unsuspend'])->whereUuid('uuid');
+        // FL-L09: special offers to past clients, read-only.
+        Route::get('freelance-special-offers', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSpecialOfferAdminController::class, 'index']);
+        Route::get('freelance-special-offers/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceSpecialOfferAdminController::class, 'show'])->whereUuid('uuid');
+        // FL-L09 (part B): the loyalty programs freelancers run, read-only.
+        Route::get('freelance-loyalty', [\Modules\Freelance\Http\Controllers\Admin\FreelanceLoyaltyAdminController::class, 'index']);
+        // FL-L13: ownership and licences - the numbers, the standard text of each model per country, and the reports of works someone says are theirs.
+        Route::get('freelance-rights/overview', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'overview']);
+        Route::get('freelance-rights/terms', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'terms']);
+        Route::put('freelance-rights/terms', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'saveTerms']);
+        Route::delete('freelance-rights/terms/{id}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'resetTerms'])->whereNumber('id');
+        Route::get('freelance-rights/claims', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'claims']);
+        Route::get('freelance-rights/claims/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'claim'])->whereUuid('uuid');
+        Route::post('freelance-rights/claims/{uuid}/decide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRightsAdminController::class, 'decide'])->whereUuid('uuid');
+        // The promo banners on the freelancer app's home.
+        Route::get('freelance-promos', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'index']);
+        Route::post('freelance-promos', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'store']);
+        Route::get('freelance-promos/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'show'])->whereUuid('uuid');
+        Route::post('freelance-promos/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'update'])->whereUuid('uuid');
+        Route::post('freelance-promos/{uuid}/toggle', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'toggle'])->whereUuid('uuid');
+        Route::delete('freelance-promos/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelancePromoAdminController::class, 'destroy'])->whereUuid('uuid');
+
+        // FL-L12: the professional community - numbers, reports, posts, hiding and mutes.
+        Route::get('freelance-community/overview', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'overview']);
+        Route::get('freelance-community/reports', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'reports']);
+        Route::get('freelance-community/reports/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'report'])->whereUuid('uuid');
+        Route::post('freelance-community/reports/{uuid}/decide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'decide'])->whereUuid('uuid');
+        Route::get('freelance-community/posts', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'posts']);
+        Route::get('freelance-community/posts/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'post'])->whereUuid('uuid');
+        Route::post('freelance-community/{type}/{uuid}/hide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'hide'])->whereIn('type', ['posts', 'comments'])->whereUuid('uuid');
+        Route::post('freelance-community/{type}/{uuid}/unhide', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'unhide'])->whereIn('type', ['posts', 'comments'])->whereUuid('uuid');
+        Route::get('freelance-community/mutes', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'mutes']);
+        Route::post('freelance-community/mutes', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'mute']);
+        Route::delete('freelance-community/mutes/{id}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceCommunityAdminController::class, 'lift'])->whereNumber('id');
         // FL-L07: paid consultations - every booking (complaints first), one, and deciding a complaint.
         Route::get('freelance-consultation-offers', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'offers']);
         Route::get('freelance-consultation-offers/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'offer'])->whereUuid('uuid');
@@ -86,6 +119,9 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('freelance-consultations', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'index']);
         Route::get('freelance-consultations/{uuid}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'show'])->whereUuid('uuid');
         Route::post('freelance-consultations/{uuid}/resolve', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'resolve'])->whereUuid('uuid');
+        // FL-L16: the video session - attendance, recordings (watched in the page, every viewing written down), closing / opening the room.
+        Route::get('freelance-consultations/{uuid}/session', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'session'])->whereUuid('uuid');
+        Route::post('freelance-consultations/{uuid}/session/{action}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'sessionAction'])->whereUuid('uuid')->whereIn('action', ['close', 'reopen']);
         Route::get('freelance-risk/overview',[\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'overview']);
         Route::get('freelance-risk/accounts', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'accounts']);
         Route::get('freelance-audit', [\Modules\Freelance\Http\Controllers\Admin\FreelanceAuditController::class, 'index']);

@@ -202,7 +202,7 @@ struct FlTabs: View {
                 Button { onSelect(i) } label: {
                     HStack(spacing: 5) {
                         Image(systemName: t.icon).font(.system(size: 13, weight: .semibold))
-                        Text(verbatim: t.label).font(.dorr(12.5, .bold)).lineLimit(1)
+                        Text(verbatim: t.label).font(.dorr(12.5, .bold)).lineLimit(1).truncationMode(.tail)
                         if t.badge > 0 {
                             Text(verbatim: "\(t.badge)").font(.dorr(10.5, .heavy)).foregroundStyle(on ? .white : wa.accent)
                                 .padding(.horizontal, 6).padding(.vertical, 1)
@@ -210,12 +210,14 @@ struct FlTabs: View {
                         }
                     }
                     .foregroundStyle(ink)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .padding(.vertical, 10).padding(.horizontal, 4)
                     .background(on ? wa.accent : .clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                // Read out as a tab, and which one is on show.
+                .accessibilityAddTraits(on ? [.isSelected] : [])
             }
         }
         .padding(4)
@@ -392,20 +394,30 @@ final class FreelanceLink: ObservableObject {
     func show(_ page: String) { pending = page }
 
     /// The page a client's freelance notification belongs to. `event` is the delivered one ("freelance.offer.received"); the
-    /// ids come from the notification's data (`project`, `offer`, `dispute`). Without a project the list opens.
-    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = nil) -> String {
+    /// ids come from the notification's data (`project`, `offer`, `dispute`). Without a project the hub opens.
+    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = nil, specialOffer: String? = nil, service: String? = nil) -> String {
         let name = (event ?? "").hasPrefix("freelance.") ? String((event ?? "").dropFirst("freelance.".count)) : (event ?? "")
         let group = name.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        // FL-L09: a loyalty step unlocked opens "My discounts".
+        if group == "loyalty" { return "loyalty" }
+        // FL-L09: a special offer from a freelancer I worked with opens it (or my special offers).
+        if group == "special_offer" { return specialOffer.flatMap { $0.isEmpty ? nil : "spo:\($0)" } ?? "spos" }
+        // A monthly service: a renewal or a cancel request opens my orders; my turn on the waiting list opens the service.
+        if group == "retainer" { return "orders" }
+        if group == "waitlist" { return service.flatMap { $0.isEmpty ? nil : "svc:\($0)" } ?? "market" }
         // FL-L07: a consultation has no project: it opens the booking (or my consultations).
         if group == "consultation" { return consultation.flatMap { $0.isEmpty ? nil : "consult:\($0)" } ?? "consults" }
-        guard let project, !project.isEmpty else { return "list" }
+        guard let project, !project.isEmpty else { return "home" }
         switch group {
+        // A message from the freelancer: their offer page (its chat button carries the unread count).
+        case "message": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
         case "offer": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
         case "interview": return "offers:\(project)"
         case "invitation": return "invites:\(project)"
         case "dispute": return dispute.map { $0.isEmpty ? "agreement:\(project)" : "dispute:\(project):\($0)" } ?? "agreement:\(project)"
-        case "agreement", "milestone", "change", "report", "review", "payment": return "agreement:\(project)"
-        case "sanction": return "list"
+        // FL-L13: the rights of a part passed, or the freelancer asks to show a finished work: the agreement (the claim notice has no project).
+        case "agreement", "milestone", "change", "report", "review", "payment", "rights": return "agreement:\(project)"
+        case "sanction": return "home"
         default: return "show:\(project)"
         }
     }

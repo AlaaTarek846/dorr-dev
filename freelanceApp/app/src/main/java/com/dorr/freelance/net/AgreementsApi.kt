@@ -117,7 +117,7 @@ data class AgreementDto(
     val scope: String? = null,
     val includes: String? = null,
     val excludes: String? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val money: AgreementMoneyDto = AgreementMoneyDto(),
     val terms: AgreementTermsDto = AgreementTermsDto(),
@@ -130,6 +130,8 @@ data class AgreementDto(
     val can: AgreementCanDto = AgreementCanDto(),
     /** FL-605: how often the client asked for a progress report, and whether the next one is late. */
     val reports: ReportSummaryDto = ReportSummaryDto(),
+    /** FL-L13: the ownership terms the agreement keeps (null: none, or the feature is off). */
+    val rights: AgreementRightsDto? = null,
 )
 
 data class ReportSummaryDto(
@@ -175,6 +177,8 @@ data class DeliveryDto(
     @SerializedName("delivered_at") val deliveredAt: String? = null,
     @SerializedName("revision_reason") val revisionReason: String? = null,
     val files: List<DeliveryFileDto> = emptyList(),
+    /** FL-L13: my word and the outside material I listed. */
+    val rights: DeliveryRightsDto? = null,
 )
 
 data class DeliveryFileDto(
@@ -227,7 +231,7 @@ data class DisputeDto(
     val details: String = "",
     val mine: Boolean = false,
     val milestone: DisputePartDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decision: DisputeDecisionDto? = null,
     val evidence: List<DisputeEvidenceDto> = emptyList(),
     val can: DisputeCanDto = DisputeCanDto(),
@@ -242,7 +246,7 @@ data class DisputeEvidenceDto(val id: Int = 0, val mine: Boolean = false, val bo
 data class DisputeCanDto(val evidence: Boolean = false, val appeal: Boolean = false)
 
 data class EarningsDto(
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     @SerializedName("available_minor") val availableMinor: Long = 0,
     @SerializedName("pending_minor") val pendingMinor: Long = 0,
     @SerializedName("next_release_at") val nextReleaseAt: String? = null,
@@ -255,7 +259,7 @@ data class EarningDto(
     val id: Int = 0,
     val kind: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     val status: String = "",
     val project: EarningProjectDto? = null,
     val milestone: String? = null,
@@ -352,7 +356,7 @@ data class ReceiptDto(
     @SerializedName("reason_text") val reasonText: String? = null,
     val project: RefDto? = null,
     val milestone: RefDto? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     @SerializedName("fee_minor") val feeMinor: Long = 0,
     @SerializedName("total_minor") val totalMinor: Long = 0,
@@ -372,7 +376,7 @@ data class MyProjectDto(
     val status: String,
     val project: MyProjectRef = MyProjectRef(),
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     @SerializedName("milestones_count") val milestonesCount: Int = 0,
     @SerializedName("milestones_done") val milestonesDone: Int = 0,

@@ -1029,6 +1029,9 @@ internal fun ConfirmDialog(
     onDismiss: () -> Unit,
     loading: Boolean = false,
     confirmLabel: String = stringResource(R.string.addr_yes),
+    dismissLabel: String = stringResource(R.string.common_cancel),
+    extraLabel: String? = null,
+    onExtra: (() -> Unit)? = null,
 ) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     LocaleAwareDialog(
@@ -1117,7 +1120,7 @@ internal fun ConfirmDialog(
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        stringResource(R.string.account_delete_in_progress),
+                                        stringResource(R.string.common_in_progress),
                                         color = Color.White,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
@@ -1138,11 +1141,25 @@ internal fun ConfirmDialog(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                stringResource(R.string.common_cancel),
+                                dismissLabel,
                                 color = (if (dark) AccountDark.accent else settingsAccent()).copy(alpha = if (loading) 0.5f else 1f),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                             )
+                        }
+                    }
+                    // A third way out, quieter than the two buttons (e.g. «Leave without saving»).
+                    if (extraLabel != null && onExtra != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable(enabled = !loading, onClick = onExtra),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(extraLabel, color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

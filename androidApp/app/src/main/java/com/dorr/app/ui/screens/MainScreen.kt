@@ -128,11 +128,11 @@ fun MainScreen(
     // Passenger rides open their own map screen, not the generic service page.
     var ridesOpen by rememberSaveable { mutableStateOf(false) }
     // Freelance work (FL-201): my projects and the project form, over everything.
-    var freelanceOpen by rememberSaveable { mutableStateOf(false) }
+    var freelanceOpen by com.dorr.app.ui.screens.freelance.FreelanceLink::open
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
         when (service.moduleName) {
             "passenger_ride" -> ridesOpen = true
-            "freelance" -> freelanceOpen = true
+            "freelance" -> { com.dorr.app.ui.screens.freelance.FreelanceLink.stack = "home"; freelanceOpen = true }
             else -> serviceDetail = service to color
         }
     }

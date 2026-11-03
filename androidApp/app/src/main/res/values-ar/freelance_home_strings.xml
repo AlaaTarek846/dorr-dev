@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The client's freelance hub (the redesign, batch A) -->
+    <string name="flh_title">العمل الحر</string>
+    <string name="flh_subtitle">انشر مشروعك أو اطلب خدمة جاهزة</string>
+    <string name="flh_new_title">عندك شغل محتاج محترف؟</string>
+    <string name="flh_new_body">انشر مشروعك واستقبل عروض من محترفين موثّقين.</string>
+    <string name="flh_new_action">انشر مشروع</string>
+    <string name="flh_sections">الأقسام</string>
+    <string name="flh_tools">أدواتي</string>
+    <string name="flh_services">الخدمات</string>
+    <string name="flh_projects_line">تابع مشاريعك والعروض عليها</string>
+    <string name="flh_services_line">خدمات جاهزة بسعر ثابت</string>
+    <string name="flh_consult_line">احجز جلسة مع خبير</string>
+    <string name="flh_favorites">المفضلة</string>
+    <!-- Batch B: the hub's dashboard -->
+    <string name="flh_att_title">مستني ردّك</string>
+    <string name="flh_att_review">تسليم مستني مراجعتك</string>
+    <string name="flh_att_fund">مرحلة محتاجة تمويل</string>
+    <string name="flh_att_offers">عروض جديدة</string>
+    <string name="flh_att_fix">مشروع محتاج تعديل</string>
+    <string name="flh_numbers">أرقامي</string>
+    <string name="flh_stat_projects">مشاريع جارية</string>
+    <string name="flh_stat_offers">عروض جديدة</string>
+    <string name="flh_stat_orders">طلبات شغالة</string>
+    <string name="flh_stat_consults">استشارات جاية</string>
+    <string name="flh_stat_funded">موّلت الشهر ده</string>
+    <string name="flh_running">مشاريعك الجارية</string>
+    <string name="flh_see_all">الكل</string>
+    <string name="flh_suggested">خدمات مقترحة لك</string>
+    <string name="flh_next_consult">استشارتك الجاية</string>
+    <string name="flh_with">مع %1$s</string>
+    <string name="flh_consult_pending">مستنية موافقة المحترف</string>
+    <string name="flh_journey_title">إزاي بتشتغل؟</string>
+    <string name="flh_step_1">انشر مشروعك وحدّد ميزانيتك</string>
+    <string name="flh_step_2">استقبل عروض المحترفين وقارن بينهم</string>
+    <string name="flh_step_3">اختار المحترف وموّل أول مرحلة</string>
+    <string name="flh_step_4">استلم الشغل وادفع بس لما توافق عليه</string>
+    <!-- Batch C: my projects and the project page -->
+    <string name="flp_scope_active">شغالة</string>
+    <string name="flp_scope_ended">منتهية</string>
+    <string name="flp_empty_ended_title">مفيش مشاريع منتهية</string>
+    <string name="flp_empty_ended_text">المشاريع اللي خلصت أو اتلغت أو اترفضت بتظهر هنا.</string>
+    <string name="flp_offers_n">%1$d عرض</string>
+    <string name="flp_tab_details">التفاصيل</string>
+    <string name="flp_tab_offers">العروض</string>
+    <string name="flp_tab_work">الشغل</string>
+    <string name="flp_more">المزيد</string>
+    <string name="flp_more_title">خيارات المشروع</string>
+    <string name="flp_no_offers_yet">لسه مفيش عروض. هيوصلك إشعار أول ما يوصل عرض.</string>
+    <!-- Batch D: offers and the agreement -->
+    <string name="flo_picked">%1$d من %2$d مختارين للمقارنة</string>
+    <string name="flo_clear">مسح</string>
+    <string name="flo_more_title">خيارات العرض</string>
+    <string name="fla_now">دلوقتي: %1$s (%2$s)</string>
+    <string name="fla_all_done">كل المراحل خلصت (%1$d من %2$d)</string>
+    <!-- Batch F: my activity -->
+    <string name="fla_activity">نشاطي</string>
+    <string name="fla_activity_line">طلباتك واستشاراتك والعروض اللي وصلتك</string>
+    <!-- Batch G: my receipts -->
+    <string name="flr_title">إيصالاتي</string>
+    <string name="flr_line">كل دفعة أو مبلغ رجعلك في شغلك</string>
+    <string name="flr_empty_title">مفيش إيصالات لسه</string>
+    <string name="flr_empty_body">بيظهر هنا إيصال لكل دفعة أو مبلغ رجعلك في شغلك.</string>
+    <!-- Batch H: finishing touches -->
+    <string name="flx_retry">حاول تاني</string>
+</resources>

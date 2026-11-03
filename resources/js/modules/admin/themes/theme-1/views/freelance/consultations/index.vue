@@ -159,6 +159,8 @@
                     <div v-if="current.resolution.note" class="pre-line">{{ current.resolution.note }}</div>
                 </div>
 
+                <SessionPanel :uuid="current.uuid" :evidence="current.status === 'disputed'" :can-update="canUpdate" />
+
                 <template v-if="current.can?.resolve && canUpdate">
                     <h6 class="fw-semibold fs-13 mb-2">{{ t('freelance.consultations.your_decision') }}</h6>
                     <div class="row g-2 mb-2">
@@ -192,6 +194,7 @@ import FlStatusFilter from '../../../../../../../components/freelance/FlStatusFi
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import OffersPanel from './OffersPanel.vue';
+import SessionPanel from './SessionPanel.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 

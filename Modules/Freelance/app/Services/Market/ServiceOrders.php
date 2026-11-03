@@ -22,6 +22,7 @@ use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Offers\FreelancerOffers;
+use Modules\Freelance\Services\Offers\Loyalty;
 use Modules\Freelance\Services\Offers\OfferChecks;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Projects\Agreements;
@@ -154,6 +155,10 @@ class ServiceOrders
             'features' => array_values((array) ($snap['tier']['features'] ?? [])),
             'addons' => array_values((array) ($snap['addons'] ?? [])),
             'price_minor' => $o->price_minor,
+            // FL-L09: the usual price and the loyalty discount taken off it (null: none).
+            'list_price_minor' => $snap['loyalty']['list_price_minor'] ?? null,
+            'loyalty_bp' => $snap['loyalty']['bp'] ?? null,
+            'saving_minor' => isset($snap['loyalty']) ? max(0, (int) $snap['loyalty']['list_price_minor'] - (int) $o->price_minor) : null,
             'currency' => $o->currency_code,
             'decimals' => (int) ($snap['decimals'] ?? 2),
             'delivery_days' => $o->delivery_days,
@@ -195,16 +200,18 @@ class ServiceOrders
         }
         $pick = $this->catalog->pick($s, (string) $data['level'], $data['addons'] ?? []);
         $tier = $pick['tier'];
+        // FL-L09: a client back for more gets the loyalty step they earned off the price (a monthly service keeps one price for every month).
+        $deal = $s->monthly() ? null : app(Loyalty::class)->apply($freelancer, (int) $client->id, $pick['price_minor']);
         $bought = [
             'title' => $s->title,
             'level' => $tier->level,
             'tier' => ['name' => $tier->name, 'description' => $tier->description, 'features' => array_values((array) $tier->features)],
             'addons' => $pick['addons']->map(fn ($a) => ['title' => $a->title, 'price_minor' => $a->price_minor, 'extra_days' => $a->extra_days])->values()->all(),
             'decimals' => (int) ($s->country?->currency?->decimal_places ?? 2),
-            'price_minor' => $pick['price_minor'],
+            'price_minor' => $deal['price_minor'] ?? $pick['price_minor'],
             'delivery_days' => $pick['delivery_days'],
             'revisions' => $pick['revisions'],
-        ];
+        ] + (($deal['loyalty_bp'] ?? null) === null ? [] : ['loyalty' => ['bp' => $deal['loyalty_bp'], 'list_price_minor' => $deal['list_price_minor']]]);
         $hours = max(1, (int) ($this->policies->for((int) $s->country_id, $s->freelance_specialty_id)->get('services.answer_hours') ?? 48));
         $order = $this->book($s, $client, $bought, $note, $requestId, now()->addHours($hours));
 
@@ -226,7 +233,7 @@ class ServiceOrders
      * Inside a transaction: the private project, the accepted offer and the agreement sent for what was bought (a level with its extras,
      * at a price) - an order, or (FL-L05) one month of a subscription at its kept terms.
      *
-     * @param  array{title: string, level: string, tier: array{name: string, description: ?string, features: list<string>}, addons: list<array{title: string, price_minor: int, extra_days: int}>, decimals: int, price_minor: int, delivery_days: int, revisions: int}  $bought
+     * @param  array{title: string, level: string, tier: array{name: string, description: ?string, features: list<string>}, addons: list<array{title: string, price_minor: int, extra_days: int}>, decimals: int, price_minor: int, delivery_days: int, revisions: int, loyalty?: array{bp: int, list_price_minor: int}}  $bought
      */
     public function book(Service $s, User $client, array $bought, ?string $note, ?string $requestId, \DateTimeInterface $answerBy): Order
     {
@@ -258,9 +265,13 @@ class ServiceOrders
             'project_id' => $project->id,
             'freelancer_id' => $freelancer->id,
             'price_minor' => $preview['price_minor'],
+            'list_price_minor' => $bought['loyalty']['list_price_minor'] ?? null,
+            'loyalty_bp' => $bought['loyalty']['bp'] ?? null,
             'currency_code' => $s->currency_code,
             'duration_days' => $bought['delivery_days'],
             'details' => $this->details($bought['tier']['name'], $features, $addons, $note),
+            // FL-L13: the service's own terms are the order's.
+            'rights' => $s->rights,
             'status' => OfferStatus::Accepted,
             'accepted_at' => now(),
             'commission_minor' => $preview['commission_minor'],
@@ -289,7 +300,8 @@ class ServiceOrders
             'project_id' => $project->id,
             'request_id' => $requestId,
             'level' => $bought['level'],
-            'snapshot' => ['title' => $bought['title'], 'tier' => $bought['tier'], 'addons' => $addons, 'decimals' => $bought['decimals']],
+            'snapshot' => ['title' => $bought['title'], 'tier' => $bought['tier'], 'addons' => $addons, 'decimals' => $bought['decimals']]
+                + (isset($bought['loyalty']) ? ['loyalty' => $bought['loyalty']] : []),
             'price_minor' => $bought['price_minor'],
             'currency_code' => $s->currency_code,
             'delivery_days' => $bought['delivery_days'],

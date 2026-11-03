@@ -51,7 +51,7 @@ class FreelanceSubscriptions
         $country = $this->countryOf($freelancer);
         $enabled = $country !== null && $this->plans->enabled($country->id);
         $currency = $country?->currency;
-        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'plans' => []];
+        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'plans' => []];
         if (! $enabled) {
             return $out;
         }

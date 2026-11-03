@@ -18,6 +18,7 @@ use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Plans\FreelanceOfferCredits;
 use Modules\Freelance\Services\Plans\FreelancePlans;
 use Modules\Freelance\Services\Projects\ProjectOffersWindow;
+use Modules\Freelance\Services\Rights\Rights;
 use Modules\Freelance\Services\Verification\FreelancerGate;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -140,7 +141,9 @@ class FreelancerOffers
             Freelancer::query()->whereKey($freelancer->id)->lockForUpdate()->first();
             $this->assertCanSend($freelancer, $locked);
 
-            $preview = $this->preview($locked, (int) $data['price_minor'], $freelancer);
+            // FL-L09: a client who earned a loyalty step with this freelancer gets it off the price asked.
+            $deal = app(Loyalty::class)->apply($freelancer, (int) $locked->client_id, (int) $data['price_minor']);
+            $preview = $this->preview($locked, $deal['price_minor'], $freelancer);
             // Once the month's free offers are used up the offer is paid for by the bought batch that ends first.
             $quota = $this->quota($freelancer);
             $credit = $quota['enabled'] && $quota['limit'] !== null && $quota['left'] <= 0 ? app(FreelanceOfferCredits::class)->pick($freelancer) : null;
@@ -148,10 +151,14 @@ class FreelancerOffers
                 'project_id' => $locked->id,
                 'freelancer_id' => $freelancer->id,
                 'price_minor' => $preview['price_minor'],
+                'list_price_minor' => $deal['list_price_minor'],
+                'loyalty_bp' => $deal['loyalty_bp'],
                 'currency_code' => $locked->currency_code,
                 'duration_days' => (int) $data['duration_days'],
                 'details' => trim(strip_tags((string) $data['details'])),
                 'answers' => $answers,
+                // FL-L13: who owns the work once it is paid and what the client may do with it (null where the switch is off).
+                'rights' => app(Rights::class)->forListing((int) $locked->country_id, $data['rights'] ?? null),
                 'status' => OfferStatus::Submitted,
                 'commission_minor' => $preview['commission_minor'],
                 'net_minor' => $preview['net_minor'],
@@ -204,7 +211,9 @@ class FreelancerOffers
             $this->assertChangeable($locked);
             $project = $locked->project;
 
-            $price = (int) ($data['price_minor'] ?? $locked->price_minor);
+            // FL-L09: the price asked is the one before the loyalty discount (the offer keeps both).
+            $listed = (int) ($locked->list_price_minor ?? $locked->price_minor);
+            $price = (int) ($data['price_minor'] ?? $listed);
             $min = $this->policies->for($project->country_id, $project->freelance_specialty_id)->get('project.min_budget_minor');
             if ($min !== null && $price < (int) $min) {
                 throw new FreelanceException('offer_below_min', 422, ['min' => number_format($min / 100, 2).' '.$project->currency_code], ['min_minor' => (int) $min]);
@@ -212,7 +221,9 @@ class FreelancerOffers
             $details = array_key_exists('details', $data) ? trim(strip_tags((string) $data['details'])) : $locked->details;
             $days = (int) ($data['duration_days'] ?? $locked->duration_days);
             $answersChanged = $newAnswers !== null && $newAnswers !== $locked->answers;
-            if ($price === $locked->price_minor && $days === $locked->duration_days && $details === $locked->details && ! $answersChanged) {
+            // FL-L13: the terms are part of the offer, so they can be changed while it is open (no change when the switch is off).
+            $rights = array_key_exists('rights', $data) ? app(Rights::class)->forListing((int) $project->country_id, is_array($data['rights']) ? $data['rights'] : null) : $locked->rights;
+            if ($price === $listed && $days === $locked->duration_days && $details === $locked->details && ! $answersChanged && $rights === $locked->rights) {
                 throw new FreelanceException('offer_unchanged', 422);
             }
 
@@ -223,9 +234,11 @@ class FreelancerOffers
                 'commission_minor' => $locked->commission_minor, 'net_minor' => $locked->net_minor,
             ]);
 
-            $preview = $this->preview($project, $price, $freelancer);
+            $deal = app(Loyalty::class)->apply($freelancer, (int) $project->client_id, $price);
+            $preview = $this->preview($project, $deal['price_minor'], $freelancer);
             $locked->update([
-                'price_minor' => $preview['price_minor'], 'duration_days' => $days, 'details' => $details,
+                'price_minor' => $preview['price_minor'], 'list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'],
+                'duration_days' => $days, 'details' => $details, 'rights' => $rights,
             ] + ($newAnswers !== null ? ['answers' => $newAnswers] : []) + [
                 'commission_minor' => $preview['commission_minor'], 'net_minor' => $preview['net_minor'], 'fees' => $preview['commission'],
             ]);
@@ -306,9 +319,15 @@ class FreelancerOffers
             'uuid' => $offer->uuid,
             'status' => $offer->status->value,
             'price_minor' => $offer->price_minor,
+            // FL-L09: the price asked and the loyalty discount taken off it (null: none).
+            'list_price_minor' => $offer->list_price_minor,
+            'loyalty_bp' => $offer->loyalty_bp,
+            'saving_minor' => $offer->list_price_minor === null ? null : max(0, $offer->list_price_minor - $offer->price_minor),
             'currency' => $offer->currency_code,
             'duration_days' => $offer->duration_days,
             'details' => $offer->details,
+            // FL-L13: who owns the work once it is paid and what the client may do with it (null: no terms).
+            'rights' => Rights::summary(app(Rights::class)->effective($offer->rights, (int) $offer->project?->country_id)),
             // FL-307: each of the project's questions with this offer's answer.
             'answers' => collect((array) $offer->project?->questions)->values()->map(fn ($q, $i) => ['question' => $q, 'answer' => ((array) $offer->answers)[$i] ?? null])->all(),
             'attachments' => $offer->getMedia('attachments')->map(fn (Media $m) => ['id' => $m->id, 'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($m), 'mime' => $m->mime_type, 'size' => $m->size, 'path' => "{$filesPath}/{$m->id}"])->values()->all(),

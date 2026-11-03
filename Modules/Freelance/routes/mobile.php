@@ -24,6 +24,8 @@ use Modules\Freelance\Http\Controllers\PortfolioViewController;
 Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:60,1', 'remember-locale', \Modules\Chat\Http\Middleware\RememberTimezone::class])->group(function () {
         Route::get('config', [FreelanceConfigController::class, 'show']);
+        // The client redesign, batch B: the freelance hub in one answer (banners, numbers, what waits, running projects, services).
+        Route::get('home', [\Modules\Freelance\Http\Controllers\Client\ClientHomeController::class, 'show']);
         // FL-708: my warnings, limits and suspensions, and appealing one.
         Route::get('sanctions', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'index']);
         Route::post('sanctions/{uuid}/appeal', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'appeal'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-sanction-appeal');
@@ -38,6 +40,7 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::get('/', [ClientProjectController::class, 'index']);
             Route::post('/', [ClientProjectController::class, 'store'])->middleware('throttle:30,1,freelance-project-create');
             Route::get('budget-rules', [ClientProjectController::class, 'budgetRules']);
+            Route::get('cost-quote', [ClientProjectController::class, 'costQuote']);
             Route::get('{uuid}', [ClientProjectController::class, 'show'])->whereUuid('uuid');
             Route::put('{uuid}', [ClientProjectController::class, 'update'])->whereUuid('uuid');
             Route::delete('{uuid}', [ClientProjectController::class, 'destroy'])->whereUuid('uuid');
@@ -92,6 +95,8 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
             Route::post('{uuid}/agreement/send', [ClientAgreementController::class, 'send'])->whereUuid('uuid');
+            // FL-L13: letting the freelancer show the finished work in their portfolio, and taking that back.
+            Route::put('{uuid}/agreement/rights/portfolio', [\Modules\Freelance\Http\Controllers\Client\ClientRightsController::class, 'portfolio'])->whereUuid('uuid')->middleware(['freelance.feature:rights', 'throttle:20,1,freelance-rights-portfolio']);
             Route::post('{uuid}/agreement/cancel', [ClientAgreementController::class, 'cancel'])->whereUuid('uuid');
             Route::get('{uuid}/offers', [ClientProjectController::class, 'offers'])->whereUuid('uuid');
             Route::get('{uuid}/offers/compare', [ClientProjectController::class, 'compareOffers'])->whereUuid('uuid');
@@ -142,7 +147,30 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
                 ->middleware('throttle:10,1,freelance-consultation-review');
             Route::post('{uuid}/complain', [\Modules\Freelance\Http\Controllers\Client\ClientConsultationController::class, 'complain'])->whereUuid('uuid')
                 ->middleware('throttle:10,1,freelance-consultation-complain');
+            // FL-L16: the video session - its state and recordings, a ticket into the room, in / out, and "the freelancer did not come".
+            Route::get('{uuid}/session', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/session/join', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'join'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
+            Route::post('{uuid}/session/connected', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'connected'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
+            Route::post('{uuid}/session/leave', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'leave'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-consultation-session');
+            Route::post('{uuid}/no-show', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'noShow'])->whereUuid('uuid')->middleware('throttle:5,1,freelance-consultation-no-show');
         });
+        // FL-L09: special offers from freelancers I worked with - reading, taking (the work starts at once), saying no, stopping them.
+        // No feature switch on reading and answering: an offer sent before the switch went off can still be answered until it ends.
+        Route::prefix('special-offers')->group(function () {
+            Route::get('/', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'index']);
+            Route::get('waiting', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'waiting']);
+            Route::get('{uuid}', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'show'])->whereUuid('uuid');
+            Route::post('{uuid}/accept', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'accept'])->whereUuid('uuid')
+                ->middleware('throttle:10,1,freelance-special-offer-accept');
+            Route::post('{uuid}/decline', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'decline'])->whereUuid('uuid');
+            Route::put('freelancers/{uuid}/mute', [\Modules\Freelance\Http\Controllers\Client\ClientSpecialOfferController::class, 'mute'])->whereUuid('uuid');
+        });
+        // FL-L13: reporting a work shown on Dorr that is not the freelancer's own.
+        Route::post('rights/claims', [\Modules\Freelance\Http\Controllers\Client\ClientRightsController::class, 'claim'])->middleware(['freelance.feature:rights', 'throttle:10,1,freelance-rights-claim']);
+        // FL-L09 (part B): the freelancers I keep working with who discount returning clients, and one freelancer's program. Reading only -
+        // the discount is taken by itself when I order, book or accept an offer. The program says nothing where the switch is off.
+        Route::get('loyalty', [\Modules\Freelance\Http\Controllers\Client\ClientLoyaltyController::class, 'index']);
+        Route::get('freelancers/{uuid}/loyalty', [\Modules\Freelance\Http\Controllers\Client\ClientLoyaltyController::class, 'show'])->whereUuid('uuid');
         Route::prefix('service-orders')->middleware('freelance.feature:projects')->group(function () {
             Route::get('/', [ClientServiceController::class, 'orders']);
             Route::get('{uuid}', [ClientServiceController::class, 'showOrder'])->whereUuid('uuid');
@@ -182,3 +210,7 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
 Route::get('mobile/v1/freelance/portfolio-images/{media}', [PortfolioViewController::class, 'image'])->whereNumber('media')->middleware(['signed', 'throttle:120,1,freelance-portfolio-image'])->name('freelance.portfolio.image'); // the module's routes are named `api.` + this
 // FL-L04: a ready-made service's image link — signed and short-lived, like the portfolio's.
 Route::get('mobile/v1/freelance/service-images/{media}', [ClientServiceController::class, 'image'])->whereNumber('media')->middleware(['signed:relative', 'throttle:120,1,freelance-service-image'])->name('freelance.service.image');
+// FL-L16: a consultation recording's link - signed for a few minutes and for one viewer; every use is written down.
+Route::get('freelance/v1/consultation-recordings/{recording}', [\Modules\Freelance\Http\Controllers\ConsultationSessionController::class, 'file'])->whereUuid('recording')->middleware(['signed:relative', 'throttle:30,1,freelance-consultation-recording'])->name('freelance.consultation.recording');
+// FL-L12: a community post's image link - signed and short-lived; the post must still be shown.
+Route::get('freelance/v1/community-images/{media}', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCommunityController::class, 'image'])->whereNumber('media')->middleware(['signed:relative', 'throttle:240,1,freelance-community-image'])->name('freelance.community.image');

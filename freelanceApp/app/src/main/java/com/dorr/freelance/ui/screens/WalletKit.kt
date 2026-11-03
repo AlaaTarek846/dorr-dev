@@ -45,7 +45,7 @@ fun formatMinor(minor: Long, currency: String?): String {
 
 /** "12.5" or "12,5" → 1250 minor units; null when it is not a positive amount with at most two decimals. */
 fun parseMinor(text: String): Long? {
-    val clean = text.trim().replace(',', '.')
+    val clean = text.filterNot { it == '‎' || it == '‏' }.trim().replace(',', '.')
     if (!Regex("""^\d{1,9}(\.\d{1,2})?$""").matches(clean)) return null
     val parts = clean.split('.')
     val whole = parts[0].toLong()

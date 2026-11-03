@@ -28,6 +28,8 @@ class FreelanceApp : Application(), ImageLoaderFactory {
         Session.attach(this)
         AppearanceStore.attach(this)
         Realtime.attach(this)
+        // FL-L16: the consultation video session (app-wide, like the DORR app's calls).
+        com.dorr.freelance.session.SessionCallController.attach(this)
         // The live connection and the push id follow the session: on while signed in, off the moment it ends (sign-out, or a 401).
         appScope.launch { Session.signedIn.collect { signedIn -> if (signedIn) Realtime.start() else Realtime.stop() } }
     }

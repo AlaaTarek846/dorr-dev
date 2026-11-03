@@ -52,7 +52,7 @@ import com.dorr.freelance.ui.kit.settingsInk
 import com.dorr.freelance.ui.kit.settingsMut
 import kotlinx.coroutines.launch
 
-private val REASONS = listOf("not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "other")
+private val REASONS = listOf("not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "rights", "other")
 
 @Composable
 private fun reasonLabel(reason: String): String = stringResource(
@@ -63,6 +63,7 @@ private fun reasonLabel(reason: String): String = stringResource(
         "quality" -> R.string.dp_r_quality
         "out_of_scope" -> R.string.dp_r_out_of_scope
         "no_response" -> R.string.dp_r_no_response
+        "rights" -> R.string.dp_r_rights
         else -> R.string.dp_r_other
     },
 )

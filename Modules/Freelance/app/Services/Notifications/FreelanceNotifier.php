@@ -68,6 +68,9 @@ class FreelanceNotifier
         'freelancer.service.suspended' => ['service', 'reason'],
         'freelancer.order.received' => ['service', 'name'],
         'freelancer.waitlist.joined' => ['service', 'name'],
+        // FL-L09: special offers to past clients
+        'freelancer.special_offer.accepted' => ['name', 'title'],
+        'freelancer.special_offer.declined' => ['name', 'title'],
         // FL-L05: monthly service subscriptions
         'freelancer.retainer.renewed' => ['service', 'name', 'cycle'],
         'freelancer.retainer.cancel_requested' => ['service', 'date'],
@@ -124,6 +127,35 @@ class FreelanceNotifier
         'client.consultation.refunded' => ['name', 'amount'],
         'client.consultation.complaint_closed' => ['name'],
         'client.waitlist.turn' => ['service', 'hours'],
+        // FL-L09: a special offer from a freelancer I worked with
+        'client.special_offer.received' => ['name', 'title'],
+        'client.special_offer.ending' => ['name', 'title'],
+        // FL-L09 (part B): a client reached a step of a freelancer's loyalty program
+        'client.loyalty.unlocked' => ['name', 'percent'],
+        // FL-L13: ownership and licences — the rights of a part pass, and the leave to show a finished work in the portfolio
+        'client.rights.granted' => ['project'],
+        'client.rights.portfolio_requested' => ['project', 'name'],
+        'client.rights.claim_closed' => ['title', 'outcome'],
+        'freelancer.rights.portfolio_granted' => ['project'],
+        'freelancer.rights.portfolio_revoked' => ['project'],
+        // FL-L16: the consultation's video session
+        'freelancer.consultation.session_joined' => ['name', 'time'],
+        'freelancer.consultation.session_ending' => ['name', 'minutes'],
+        'freelancer.consultation.session_closed' => ['name'],
+        'freelancer.consultation.session_reopened' => ['name'],
+        'freelancer.consultation.recording_ready' => ['name', 'date'],
+        'client.consultation.session_joined' => ['name', 'time'],
+        'client.consultation.session_ending' => ['name', 'minutes'],
+        'client.consultation.session_closed' => ['name'],
+        'client.consultation.session_reopened' => ['name'],
+        'client.consultation.recording_ready' => ['name', 'date'],
+        // FL-L12: the professional community
+        'freelancer.community.commented' => ['name'],
+        'freelancer.community.replied' => ['name'],
+        'freelancer.community.followed' => ['name'],
+        'freelancer.community.answer_accepted' => ['name'],
+        'freelancer.community.hidden' => ['reason'],
+        'freelancer.community.muted' => ['date', 'reason'],
         'client.agreement.declined' => ['project', 'name'],
         'client.agreement.expired' => ['project'],
         'client.milestone.delivered' => ['project', 'name'],

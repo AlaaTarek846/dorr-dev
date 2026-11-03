@@ -4,6 +4,7 @@ namespace Modules\Freelance\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use Modules\User\Models\User;
 
@@ -37,9 +38,12 @@ class FreelanceConsultation extends Model
 
     protected $fillable = [
         'uuid', 'freelancer_id', 'offer_id', 'client_id', 'country_id', 'request_id', 'minutes', 'starts_at', 'ends_at', 'topic', 'title', 'price_minor',
-        'client_fee_minor', 'commission_minor', 'net_minor', 'currency_code', 'policy', 'status', 'cancelled_by', 'cancel_reason', 'late_cancel',
+        'list_price_minor', 'loyalty_bp', 'client_fee_minor', 'commission_minor', 'net_minor', 'currency_code', 'policy', 'status', 'cancelled_by', 'cancel_reason', 'late_cancel',
         'cancelled_at', 'complaint', 'complained_at', 'resolution', 'resolution_note', 'resolved_by', 'resolved_at', 'confirmed_at', 'settled_at',
         'refunded_at', 'reminded_at', 'ended_told_at', 'conversation_id', 'calendar_item_id', 'accepted_at', 'respond_by',
+        // FL-L16: the video session and its recordings
+        'recording_consent_at', 'freelancer_consent_at', 'room_name', 'session_opened_at', 'session_closed_at', 'session_closed_by', 'ending_told_at',
+        'recordings_delete_at', 'recordings_deleted_at',
     ];
 
     protected static function booted(): void
@@ -50,10 +54,12 @@ class FreelanceConsultation extends Model
     protected function casts(): array
     {
         return [
-            'minutes' => 'integer', 'price_minor' => 'integer', 'client_fee_minor' => 'integer', 'commission_minor' => 'integer', 'net_minor' => 'integer',
+            'minutes' => 'integer', 'price_minor' => 'integer', 'list_price_minor' => 'integer', 'loyalty_bp' => 'integer', 'client_fee_minor' => 'integer', 'commission_minor' => 'integer', 'net_minor' => 'integer',
             'policy' => 'array', 'late_cancel' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'cancelled_at' => 'datetime',
             'complained_at' => 'datetime', 'resolved_at' => 'datetime', 'confirmed_at' => 'datetime', 'settled_at' => 'datetime',
             'refunded_at' => 'datetime', 'reminded_at' => 'datetime', 'ended_told_at' => 'datetime', 'accepted_at' => 'datetime', 'respond_by' => 'datetime',
+            'recording_consent_at' => 'datetime', 'freelancer_consent_at' => 'datetime', 'session_opened_at' => 'datetime', 'session_closed_at' => 'datetime',
+            'ending_told_at' => 'datetime', 'recordings_delete_at' => 'datetime', 'recordings_deleted_at' => 'datetime',
         ];
     }
 
@@ -71,6 +77,18 @@ class FreelanceConsultation extends Model
     public function offer(): BelongsTo
     {
         return $this->belongsTo(FreelanceConsultationOffer::class, 'offer_id');
+    }
+
+    /** FL-L16: who came in and left the video session. */
+    public function attendance(): HasMany
+    {
+        return $this->hasMany(FreelanceConsultationAttendance::class, 'consultation_id');
+    }
+
+    /** FL-L16: the session's recordings, one part per stretch. */
+    public function recordings(): HasMany
+    {
+        return $this->hasMany(FreelanceConsultationRecording::class, 'consultation_id');
     }
 
     /** What the client pays: the price and the client fee. */

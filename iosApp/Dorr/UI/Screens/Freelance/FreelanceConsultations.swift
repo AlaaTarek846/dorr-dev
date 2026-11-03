@@ -3,7 +3,8 @@ import SwiftUI
 // androidApp `freelance/FreelanceConsultations.kt` — FL-L07, paid consultations on the client's side, listed like the ready-made
 // services: the list of consultations on offer, booking one (a length, a day, a time, what it is about — then a last look at the money
 // before it is held), my consultations in three lists, and one consultation (when, cancelling with the refund said plainly, saying it
-// went well, or reporting a problem). The session itself is a video call (FL-L16), so there is no room. Times come from the server as
+// went well, or reporting a problem). The session itself is a video call (FL-L16, FreelanceConsultationSession.swift): its card on the
+// consultation and the full-screen room. Times come from the server as
 // UTC instants and are shown on the phone's own clock. Each page reads once when it opens and when the connection returns; countdowns
 // read the phone's clock.
 
@@ -57,22 +58,6 @@ private func starWord(_ n: Int) -> String {
     case 3: return L("cs_star_3")
     case 4: return L("cs_star_4")
     default: return L("cs_star_5")
-    }
-}
-
-private struct CsPill: View {
-    @Environment(\.wa) private var wa
-    let text: String
-    let color: Color
-    var solid = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle().fill(solid ? Color.white : color).frame(width: 6, height: 6)
-            Text(verbatim: text).font(.dorr(11.5, .bold)).foregroundStyle(solid ? .white : color).lineLimit(1)
-        }
-        .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(solid ? color : color.opacity(wa.night ? 0.22 : 0.12), in: Capsule())
     }
 }
 
@@ -181,6 +166,8 @@ struct ConsultationsMarketPage: View {
     let onBack: () -> Void
     let onOpen: (String) -> Void
     let onMine: () -> Void
+    /// Inside «Services» the page's head and «My consultations» are the hub's.
+    var embedded = false
     @State private var typed = ""
     @State private var search = ""
     @State private var closed = false
@@ -188,23 +175,25 @@ struct ConsultationsMarketPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("cs_market_title"), onBack: onBack)
+            if !embedded { FlPageHeader(title: L("cs_market_title"), onBack: onBack) }
             ScrollView {
                 LazyVStack(spacing: 12) {
                     HStack(spacing: 6) {
                         DorrTextArea(value: Binding(get: { typed }, set: { typed = String($0.prefix(80)) }), placeholder: L("cs_market_search"), icon: "magnifyingglass", singleLine: true)
                         if !typed.isEmpty { RemoveButton { typed = "" } }
                     }
-                    Button(action: onMine) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "calendar.badge.checkmark").font(.system(size: 15)).foregroundStyle(wa.accent)
-                            Text(L("cs_mine_title")).font(.dorr(13, .heavy)).foregroundStyle(wa.accent).frame(maxWidth: .infinity, alignment: .leading)
-                            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.accent)
+                    if !embedded {
+                        Button(action: onMine) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "calendar.badge.checkmark").font(.system(size: 15)).foregroundStyle(wa.accent)
+                                Text(L("cs_mine_title")).font(.dorr(13, .heavy)).foregroundStyle(wa.accent).frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.accent)
+                            }
+                            .padding(12)
+                            .background(wa.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
-                        .padding(12)
-                        .background(wa.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                     if closed {
                         WaEmpty(icon: "video.bubble.left.fill", tone: .blue, title: L("cs_market_title"), text: L("cs_market_closed"))
                     } else if !paged.loaded {
@@ -221,6 +210,8 @@ struct ConsultationsMarketPage: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 6)
             }
+            // Pulling down reads the list again (the client's own gesture, not a timer).
+            .refreshable { await paged.reload() }
             .scrollDismissesKeyboard(.interactively)
         }
         // The search goes out once typing pauses.
@@ -296,7 +287,10 @@ struct BookConsultationPage: View {
     let offerUuid: String
     let onBack: () -> Void
     let onBooked: (String) -> Void
+    /// FL-L09: booked through a freelancer's special offer — its discounted prices, and the booking is confirmed at once.
+    var special: String? = nil
     @State private var offer: ConsultOfferDto?
+    @State private var specialOffer: ClientSpecialOfferDto?
     @State private var error: String?
     @State private var minutes = 0
     @State private var slots: [String]?
@@ -306,6 +300,8 @@ struct BookConsultationPage: View {
     @State private var confirming = false
     @State private var busy = false
     @State private var bookError: String?
+    // FL-L16: the session is recorded — booking waits for the client's yes.
+    @State private var consent = false
     // One id for this booking: a second tap (or a retry after a weak network) is the same booking.
     @State private var requestId = UUID().uuidString
 
@@ -323,6 +319,7 @@ struct BookConsultationPage: View {
     }
 
     private var option: ConsultOptionDto? { offer?.options?.first { $0.minutes == minutes } }
+    private var deal: SpecialOfferLengthDto? { specialOffer?.consultation?.lengths?.first { $0.minutes == minutes } }
     private var ready: Bool { option != nil && slot != nil && topic.trimmingCharacters(in: .whitespacesAndNewlines).count >= 10 }
 
     private func loadSlots() async {
@@ -346,10 +343,15 @@ struct BookConsultationPage: View {
         let t = topic.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             do {
-                let c = try await FreelanceConsultationsApi.book(offer: offerUuid, minutes: minutes, startsAt: s, topic: t, requestId: requestId).data
+                let booked: String?
+                if let special {
+                    booked = try await FreelanceSpecialOffersApi.accept(special, requestId: requestId, minutes: minutes, startsAt: s, topic: t, recordingConsent: true).data?.result?.consultation
+                } else {
+                    booked = try await FreelanceConsultationsApi.book(offer: offerUuid, minutes: minutes, startsAt: s, topic: t, requestId: requestId).data?.uuid
+                }
                 confirming = false
-                AppToast.show(L("cs_booked"))
-                if let c { onBooked(c.uuid) }
+                AppToast.show(L(special != nil ? "spc_booked" : "cs_booked"))
+                if let booked { onBooked(booked) }
             } catch {
                 let f = error.apiFailure
                 bookError = f.message ?? L("fl_error_generic")
@@ -365,7 +367,7 @@ struct BookConsultationPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("cs_book_title"), onBack: onBack)
+            FlPageHeader(title: L("cs_book_title"), onBack: onBack)
             if let o = offer {
                 ScrollView { content(o).padding(.horizontal, 16).padding(.vertical, 6) }.scrollDismissesKeyboard(.interactively)
                 bottomBar(o)
@@ -376,6 +378,7 @@ struct BookConsultationPage: View {
         .task(id: network.reconnectTick) {
             do {
                 let o = try await FreelanceConsultationsApi.offer(offerUuid).data
+                if let special { specialOffer = try await FreelanceSpecialOffersApi.show(special).data }
                 offer = o
                 if minutes == 0 { minutes = o?.options?.first?.minutes ?? 0 }
                 error = nil
@@ -418,6 +421,10 @@ struct BookConsultationPage: View {
             .padding(16)
             .settingsSurface(22)
 
+            if let sp = specialOffer { SpecialDealBanner(offer: sp) }
+            // FL-L09: the loyalty program and where I stand (a special offer's price is final, so it stands alone).
+            if special == nil { LoyaltyCard(view: o.loyalty) }
+
             // What clients said, from projects and consultations.
             if let reviews = f?.reviews, !reviews.isEmpty {
                 CsCard(title: L("cs_reviews_title", f?.reviewsCount ?? 0), icon: "star.fill") {
@@ -444,7 +451,13 @@ struct BookConsultationPage: View {
                             VStack(spacing: 2) {
                                 Image(systemName: "timer").font(.system(size: 15)).foregroundStyle(on ? .white : wa.accent)
                                 Text(L("cs_minutes", op.minutes)).font(.dorr(13, .heavy)).foregroundStyle(on ? .white : wa.settingsInk).lineLimit(1)
-                                Text(verbatim: mkMoney(op.totalMinor, o.decimals, o.currency)).font(.dorr(11, .bold)).foregroundStyle(on ? .white.opacity(0.9) : wa.settingsMut).lineLimit(1)
+                                let opDeal = specialOffer?.consultation?.lengths?.first { $0.minutes == op.minutes }
+                                if opDeal != nil {
+                                    Text(verbatim: mkMoney(op.totalMinor, o.decimals, o.currency)).font(.dorr(10)).strikethrough().foregroundStyle(on ? .white.opacity(0.7) : wa.settingsMut.opacity(0.7)).lineLimit(1)
+                                }
+                                Text(verbatim: mkMoney(opDeal?.totalMinor ?? op.totalMinor, o.decimals, o.currency)).font(.dorr(11, .bold))
+                                    .foregroundStyle(on ? .white.opacity(0.9) : (opDeal != nil ? csGreen : wa.settingsMut)).lineLimit(1)
+                                if opDeal == nil { LoyaltyMini(bp: op.loyaltyBp, onAccent: on) }
                             }
                             .frame(maxWidth: .infinity).padding(.vertical, 12).padding(.horizontal, 6)
                             .background(on ? wa.accent : wa.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -495,7 +508,7 @@ struct BookConsultationPage: View {
 
             // The rules, said before paying.
             CsCard(title: L("cs_rules_title"), icon: "hammer.fill") {
-                ForEach([("lock.fill", L("cs_rule_held")), ("hourglass", L("cs_rule_accept", rules.responseHours ?? 24)),
+                ForEach([("lock.fill", L("cs_rule_held")), ("hourglass", special != nil ? L("spc_rule_instant") : L("cs_rule_accept", rules.responseHours ?? 24)),
                          ("calendar.badge.exclamationmark", L("cs_rule_cancel", rules.freeCancelHours ?? 24)),
                          ("exclamationmark.bubble.fill", L("cs_rule_problem", rules.complaintHours ?? 24))], id: \.1) { icon, line in
                     HStack(alignment: .top, spacing: 10) {
@@ -512,7 +525,7 @@ struct BookConsultationPage: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(L("cs_total")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
-                Text(verbatim: option.map { mkMoney($0.totalMinor, o.decimals, o.currency) } ?? "—").font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                Text(verbatim: (deal?.totalMinor ?? option?.totalMinor).map { mkMoney($0, o.decimals, o.currency) } ?? "—").font(.dorr(18, .heavy)).foregroundStyle(deal != nil ? csGreen : wa.settingsInk).lineLimit(1)
                 if let s = slot { Text(verbatim: "\(longDay(s)) · \u{200E}\(hm(s))").font(.dorr(11, .bold)).foregroundStyle(wa.accent).lineLimit(1) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -525,7 +538,8 @@ struct BookConsultationPage: View {
     private func confirmSheet(_ o: ConsultOfferDto, _ op: ConsultOptionDto, _ s: String) -> some View {
         FlSheet(icon: "calendar.badge.checkmark", title: L("cs_confirm_title"), text: L("cs_confirm_body"), footer: AnyView(VStack(spacing: 10) {
             if let bookError { FlNotice(text: bookError, icon: "xmark", color: csRed) }
-            SettingsPrimaryButton(text: L("cs_confirm_cta"), loading: busy, action: book)
+            RecordingConsentRow(checked: consent) { consent = $0 }
+            SettingsPrimaryButton(text: L("cs_confirm_cta"), enabled: consent, loading: busy, action: book)
         })) {
             VStack(alignment: .leading, spacing: 9) {
                 HStack(spacing: 10) {
@@ -536,13 +550,20 @@ struct BookConsultationPage: View {
                     }
                 }
                 Rectangle().fill(wa.settingsMut.opacity(0.15)).frame(height: 1)
-                CsLine(label: L("cs_minutes", op.minutes), value: mkMoney(op.priceMinor, o.decimals, o.currency))
-                if (op.clientFeeMinor ?? 0) > 0 { CsLine(label: L("mk_fee"), value: mkMoney(op.clientFeeMinor, o.decimals, o.currency)) }
-                CsLine(label: L("mk_total"), value: mkMoney(op.totalMinor, o.decimals, o.currency), strong: true)
+                CsLine(label: L("cs_minutes", op.minutes), value: mkMoney(deal?.priceMinor ?? op.listPriceMinor ?? op.priceMinor, o.decimals, o.currency))
+                if let d = deal {
+                    CsLine(label: L("spc_you_save"), value: "− " + mkMoney((d.listPriceMinor ?? 0) - (d.priceMinor ?? 0), o.decimals, o.currency))
+                } else {
+                    // FL-L09: the loyalty discount off the length's usual price.
+                    LoyaltyDiscountLine(bp: op.loyaltyBp, saving: mkMoney((op.listPriceMinor ?? op.priceMinor ?? 0) - (op.priceMinor ?? 0), o.decimals, o.currency))
+                }
+                let fee = deal?.clientFeeMinor ?? op.clientFeeMinor ?? 0
+                if fee > 0 { CsLine(label: L("mk_fee"), value: mkMoney(fee, o.decimals, o.currency)) }
+                CsLine(label: L("mk_total"), value: mkMoney(deal?.totalMinor ?? op.totalMinor, o.decimals, o.currency), strong: true)
             }
             .padding(14)
             .background(wa.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            FlNotice(text: L("cs_confirm_safe", o.rules?.responseHours ?? 24), icon: "lock.fill", color: csGreen)
+            FlNotice(text: special != nil ? L("spc_confirm_instant") : L("cs_confirm_safe", o.rules?.responseHours ?? 24), icon: "lock.fill", color: csGreen)
         }
     }
 }
@@ -579,18 +600,19 @@ struct MyConsultationsPage: View {
     @EnvironmentObject private var network: NetworkMonitor
     let onBack: () -> Void
     let onOpen: (String) -> Void
+    /// Inside «My activity» the head is the hub's and the statuses are chips.
+    var embedded = false
     @State private var tab = 0
     @StateObject private var paged = PagedRows<ConsultDto>(key: { $0.uuid })
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("cs_mine_title"), onBack: onBack)
-            FlTabs(tabs: [
+            if !embedded { FlPageHeader(title: L("cs_mine_title"), onBack: onBack) }
+            FlPartTabs(tabs: [
                 FlTab(icon: "calendar.badge.checkmark", label: L("cs_tab_upcoming")),
                 FlTab(icon: "checkmark.circle.fill", label: L("cs_tab_past")),
                 FlTab(icon: "calendar.badge.exclamationmark", label: L("cs_tab_cancelled")),
-            ], selected: tab) { tab = $0 }
-            .padding(.horizontal, 16).padding(.vertical, 4)
+            ], selected: tab, compact: embedded) { tab = $0 }
             ScrollView {
                 LazyVStack(spacing: 10) {
                     if !paged.loaded {
@@ -636,7 +658,7 @@ private struct ConsultTile: View {
                     HStack {
                         Text(verbatim: "\u{200E}\(hm(c.startsAt)) – \(hm(c.endsAt))").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk)
                         Spacer(minLength: 4)
-                        CsPill(text: label, color: color)
+                        FlDotPill(text: label, color: color)
                     }
                     HStack(spacing: 6) {
                         MkAvatar(url: c.freelancer?.avatarUrl, name: c.freelancer?.name, size: 20)
@@ -651,9 +673,9 @@ private struct ConsultTile: View {
                             Text(verbatim: u).font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut)
                         }
                         if c.can?.confirm == true {
-                            CsPill(text: L("cs_needs_you"), color: csAmber)
+                            FlDotPill(text: L("cs_needs_you"), color: csAmber)
                         } else if c.review?.canRate == true {
-                            CsPill(text: L("cs_rate_needs"), color: csAmber)
+                            FlDotPill(text: L("cs_rate_needs"), color: csAmber)
                         }
                     }
                 }
@@ -683,6 +705,10 @@ struct ConsultationPage: View {
     @State private var rating = false
     @State private var stars = 0
     @State private var opinion = ""
+    // FL-L16: one more read when the session card asks (the room opened by the clock, a no-show sent) or the session screen closed.
+    @State private var reloads = 0
+    @ObservedObject private var session = ConsultSession.shared
+    @Environment(\.layoutDirection) private var direction
 
     /// Runs one step; `then` gets the new state (after it went well it opens the rating, when it can be rated).
     private func act(_ done: String, then: ((ConsultDto) -> Void)? = nil, _ call: @escaping () async throws -> ConsultDto?) {
@@ -711,20 +737,24 @@ struct ConsultationPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("cs_detail_title"), onBack: onBack)
+            FlPageHeader(title: L("cs_detail_title"), onBack: onBack)
             if let x = c {
                 ScrollView { content(x).padding(.horizontal, 16).padding(.vertical, 6) }
             } else {
                 FlLoading(error: error)
             }
         }
-        .task(id: network.reconnectTick) {
+        .task(id: "\(network.reconnectTick)|\(reloads)|\(session.closedCount)") {
             do {
                 c = try await FreelanceConsultationsApi.show(uuid).data
                 error = nil
             } catch {
                 self.error = flError(error)
             }
+        }
+        // FL-L16: the video session, full screen over the page while I am in it.
+        .fullScreenCover(isPresented: Binding(get: { session.uuid == uuid && session.phase != nil }, set: { _ in })) {
+            ConsultSessionScreen().environment(\.wa, wa).environment(\.layoutDirection, direction)
         }
         .dorrDialog(isPresented: Binding(get: { cancelling || confirming }, set: { if !$0 && !busy { cancelling = false; confirming = false } })) {
             if let x = c, cancelling {
@@ -772,6 +802,9 @@ struct ConsultationPage: View {
             ConsultHead(c: x)
             if let error { FlNotice(text: error, icon: "xmark", color: csRed) }
             ConsultNotes(c: x)
+            if let s = x.session {
+                ConsultSessionCard(uuid: uuid, c: x, s: s) { fresh in if let fresh { c = fresh } else { reloads += 1 } }
+            }
             if x.can?.confirm == true || x.can?.complain == true {
                 HStack(spacing: 10) {
                     if x.can?.confirm == true { FlAction(text: L("cs_confirm_ok"), icon: "hand.thumbsup.fill", tone: .primary) { confirming = true } }
@@ -787,7 +820,8 @@ struct ConsultationPage: View {
                 }
             }
             CsCard(title: L("cs_money"), icon: "banknote") {
-                CsLine(label: L("cs_minutes", x.minutes ?? 30), value: mkMoney(x.money?.priceMinor, x.decimals, x.currency))
+                CsLine(label: L("cs_minutes", x.minutes ?? 30), value: mkMoney(x.listPriceMinor ?? x.money?.priceMinor, x.decimals, x.currency))
+                LoyaltyDiscountLine(bp: x.loyaltyBp, saving: mkMoney(x.savingMinor ?? 0, x.decimals, x.currency))
                 if (x.money?.clientFeeMinor ?? 0) > 0 { CsLine(label: L("mk_fee"), value: mkMoney(x.money?.clientFeeMinor, x.decimals, x.currency)) }
                 CsLine(label: L("mk_total"), value: mkMoney(x.money?.totalMinor, x.decimals, x.currency), strong: true)
             }
@@ -836,7 +870,7 @@ private struct ConsultHead: View {
         let (label, color) = csPhase(c.phase)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                CsPill(text: label, color: color, solid: true)
+                FlDotPill(text: label, color: color, solid: true)
                 Spacer()
                 Text(L("cs_minutes", c.minutes ?? 30)).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut)
             }

@@ -14,7 +14,7 @@ import retrofit2.http.Query
 /**
  * FL-L07, paid consultations under `/api/freelance/v1/consultations`: my consultation listings (like ready-made services: a title, lengths
  * with a price each and weekly hours in my time zone, reviewed by the staff before clients see them), the bookings clients made, and
- * answering or cancelling one. The session itself is a video call (FL-L16), so there is no room.
+ * answering or cancelling one. The session itself is a video call (FL-L16, ConsultationSessionApi).
  */
 interface ConsultationsApi {
     /** What the form needs: lengths, limits, the rules and my numbers. */
@@ -72,7 +72,7 @@ data class ConsultationInfoDto(
     @SerializedName("max_active") val maxActive: Int = 5,
     /** The staff look at a new or changed one before clients see it. */
     val review: Boolean = true,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val price: ConsultationPriceLimitsDto = ConsultationPriceLimitsDto(),
     @SerializedName("suggested_weekly") val suggestedWeekly: List<ConsultationHoursDto> = emptyList(),
@@ -90,7 +90,7 @@ data class ConsultationOfferDto(
     val options: List<ConsultationOptionDto> = emptyList(),
     val weekly: List<ConsultationHoursDto> = emptyList(),
     val timezone: String? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** Open to clients right now. */
     val live: Boolean = false,
@@ -163,7 +163,7 @@ data class ConsultationDto(
     @SerializedName("ends_at") val endsAt: String,
     val offer: String? = null,
     val topic: String? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val money: ConsultationMoneyDto = ConsultationMoneyDto(),
     val client: ConsultationPersonDto? = null,
@@ -177,6 +177,8 @@ data class ConsultationDto(
     val review: ConsultationReviewDto = ConsultationReviewDto(),
     val can: ConsultationCanDto = ConsultationCanDto(),
     @SerializedName("created_at") val createdAt: String? = null,
+    /** FL-L16: the video session — the room, who came, the recordings (ConsultationSessionApi). */
+    val session: ConsultationSessionDto? = null,
 )
 
 data class ConsultationReviewDto(

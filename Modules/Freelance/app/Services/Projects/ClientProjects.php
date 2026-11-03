@@ -39,9 +39,14 @@ class ClientProjects
     ) {}
 
     /** @return LengthAwarePaginator<Project> newest first, optionally one status */
-    public function mine(User $client, ?string $status, int $perPage): LengthAwarePaginator
+    /** @param  'active'|'ended'|null  $scope  the running ones or the ended ones (a status narrows it further) */
+    public function mine(User $client, ?string $status, int $perPage, ?string $scope = null): LengthAwarePaginator
     {
+        $ended = [Status::Closed->value, Status::Rejected->value, Status::Cancelled->value];
+
         return Project::query()->where('client_id', $client->id)
+            ->when($scope === 'active', fn ($q) => $q->whereNotIn('status', $ended))
+            ->when($scope === 'ended', fn ($q) => $q->whereIn('status', $ended))
             ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->with(['specialty.translations', 'skills.translations', 'media'])
             ->latest('id')->paginate($perPage);
@@ -353,6 +358,24 @@ class ClientProjects
             'max_minor' => $max === null ? null : (int) $max,
             'currency' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
         ];
+    }
+
+    /**
+     * What a client pays in all for a price in their country (the price, the client fee and the total), for the form's cost-limit check
+     * before the draft exists. The same sum as an offer's cost ([ClientOfferViews::cost]).
+     *
+     * @return array{price_minor: int, client_fee_minor: int, total_minor: int, currency: string}
+     */
+    public function costQuote(int $countryId, ?int $specialtyId, int $amountMinor): array
+    {
+        $probe = (new Project)->forceFill([
+            'country_id' => $countryId,
+            'freelance_specialty_id' => $specialtyId,
+            'currency_code' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
+        ]);
+        $c = app(ClientOfferViews::class)->cost($probe, $amountMinor);
+
+        return ['price_minor' => $c['price_minor'], 'client_fee_minor' => $c['client_fee_minor'], 'total_minor' => $c['total_minor'], 'currency' => $c['currency']];
     }
 
     /** @return list<string> what still has to be filled in before the project can be sent */
