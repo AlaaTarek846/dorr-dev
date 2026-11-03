@@ -395,17 +395,22 @@ final class FreelanceLink: ObservableObject {
 
     /// The page a client's freelance notification belongs to. `event` is the delivered one ("freelance.offer.received"); the
     /// ids come from the notification's data (`project`, `offer`, `dispute`). Without a project the hub opens.
-    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = nil, specialOffer: String? = nil) -> String {
+    nonisolated static func pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = nil, specialOffer: String? = nil, service: String? = nil) -> String {
         let name = (event ?? "").hasPrefix("freelance.") ? String((event ?? "").dropFirst("freelance.".count)) : (event ?? "")
         let group = name.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
         // FL-L09: a loyalty step unlocked opens "My discounts".
         if group == "loyalty" { return "loyalty" }
         // FL-L09: a special offer from a freelancer I worked with opens it (or my special offers).
         if group == "special_offer" { return specialOffer.flatMap { $0.isEmpty ? nil : "spo:\($0)" } ?? "spos" }
+        // A monthly service: a renewal or a cancel request opens my orders; my turn on the waiting list opens the service.
+        if group == "retainer" { return "orders" }
+        if group == "waitlist" { return service.flatMap { $0.isEmpty ? nil : "svc:\($0)" } ?? "market" }
         // FL-L07: a consultation has no project: it opens the booking (or my consultations).
         if group == "consultation" { return consultation.flatMap { $0.isEmpty ? nil : "consult:\($0)" } ?? "consults" }
         guard let project, !project.isEmpty else { return "home" }
         switch group {
+        // A message from the freelancer: their offer page (its chat button carries the unread count).
+        case "message": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
         case "offer": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
         case "interview": return "offers:\(project)"
         case "invitation": return "invites:\(project)"

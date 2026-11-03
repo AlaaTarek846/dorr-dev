@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- FL-L09: العروض الخاصة من المحترفين اللي اشتغلت معاهم (جهة العميل). -->
 <resources>
-    <string name="spc_chip">عروض خاصة</string>
-    <string name="spc_banner_title">عندك %1$d عروض خاصة</string>
+    <string name="spc_chip">العروض</string>
+    <plurals name="spc_banner_title">
+        <item quantity="zero">مفيش عروض خاصة</item>
+        <item quantity="one">عندك عرض خاص</item>
+        <item quantity="two">عندك عرضين خاصين</item>
+        <item quantity="few">عندك %1$d عروض خاصة</item>
+        <item quantity="many">عندك %1$d عرض خاص</item>
+        <item quantity="other">عندك %1$d عرض خاص</item>
+    </plurals>
     <string name="spc_banner_body">محترفين اشتغلت معاهم عملولك عرض. شوفه قبل ما ينتهي.</string>
     <string name="spc_title">العروض الخاصة</string>
     <string name="spc_tab_open">مستنية</string>
@@ -41,7 +48,7 @@
     <string name="spc_pick_time">اختار ميعاد</string>
     <string name="spc_decline">مش دلوقتي</string>
     <string name="spc_accept_title">تقبل العرض ده؟</string>
-    <string name="spc_accept_body">أنت و%1$s هتبدأوا الشغل على طول بالشروط دي.</string>
+    <string name="spc_accept_body">أنت و ⁨%1$s⁩ هتبدأوا الشغل على طول بالشروط دي.</string>
     <string name="spc_accept_cta">أيوه، ابدأ الشغل</string>
     <string name="spc_accept_safe">مفيش دفع دلوقتي. بتموّل كل مرحلة من محفظتك، وماتنزلش للمحترف غير لما توافق على التسليم.</string>
     <string name="spc_accepted">الشغل بدأ.</string>

@@ -29,6 +29,7 @@ private func agreementHint(_ status: String) -> String {
     switch status {
     case "pending_approval": return L("fl_ag_hint_pending")
     case "active": return L("fl_ag_hint_active")
+    case "completed": return L("fl_ag_hint_completed")
     case "declined", "cancelled", "expired": return L("fl_ag_hint_ended")
     default: return L("fl_ag_hint_draft")
     }

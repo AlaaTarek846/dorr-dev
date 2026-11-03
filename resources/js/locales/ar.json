@@ -5653,7 +5653,8 @@
             },
             "side": {
                 "client": "العميل",
-                "freelancer": "المحترف"
+                "freelancer": "المحترف",
+                "system": "النظام"
             },
             "status": {
                 "open": "مفتوح",

@@ -1,5 +1,6 @@
 package com.dorr.freelance.ui.screens
 
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.rounded.Update
 
@@ -199,11 +200,11 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
         if (offer.can.withdraw && onChanged != null) Text(stringResource(R.string.offer_withdraw), color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { confirmWithdraw = true }.padding(vertical = 8.dp))
         ErrorBanner(error, Modifier.fillMaxWidth())
     }
-    if (confirmWithdraw) androidx.compose.material3.AlertDialog(
+    if (confirmWithdraw) com.dorr.freelance.ui.kit.AlertDialog(
         onDismissRequest = { if (!busy) confirmWithdraw = false },
         text = { Text(stringResource(R.string.offer_withdraw_confirm)) },
         confirmButton = {
-            androidx.compose.material3.TextButton(onClick = {
+            DialogButton(onClick = {
                 busy = true
                 scope.launch {
                     val result = apiCall { ApiClient.offers.withdraw(offer.uuid) }
@@ -213,7 +214,7 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
                 }
             }) { Text(stringResource(R.string.offer_withdraw), color = Color(0xFFDC2626)) }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWithdraw = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        dismissButton = { DialogButton(onClick = { confirmWithdraw = false }) { Text(stringResource(R.string.common_cancel)) } },
     )
 }
 
@@ -416,7 +417,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
         ErrorBanner(error, Modifier.fillMaxWidth())
     }
 
-    if (showTemplates) androidx.compose.material3.AlertDialog(
+    if (showTemplates) com.dorr.freelance.ui.kit.AlertDialog(
         onDismissRequest = { showTemplates = false },
         title = { Text(stringResource(R.string.offer_templates)) },
         text = {
@@ -434,13 +435,13 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 }
             }
         },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = { showTemplates = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        confirmButton = { DialogButton(onClick = { showTemplates = false }) { Text(stringResource(R.string.common_cancel)) } },
     )
     if (savingTemplate) {
         var name by remember { mutableStateOf("") }
         var saveError by remember { mutableStateOf<String?>(null) }
         val savedText = stringResource(R.string.offer_template_saved)
-        androidx.compose.material3.AlertDialog(
+        com.dorr.freelance.ui.kit.AlertDialog(
             onDismissRequest = { savingTemplate = false },
             title = { Text(stringResource(R.string.offer_save_template)) },
             text = {
@@ -450,7 +451,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 }
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(enabled = name.isNotBlank(), onClick = {
+                DialogButton(enabled = name.isNotBlank(), onClick = {
                     scope.launch {
                         val result = apiCall { ApiClient.offers.saveTemplate(com.dorr.freelance.net.OfferTemplateRequest(name.trim(), details.trim())) }
                         if (result is ApiResult.Ok) {
@@ -459,9 +460,9 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                             savingTemplate = false
                         } else saveError = result.errorText(offlineText) ?: genericError
                     }
-                }) { Text(stringResource(R.string.offer_template_keep), color = settingsAccent()) }
+                }) { Text(stringResource(R.string.offer_template_keep)) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { savingTemplate = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { savingTemplate = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }
@@ -815,12 +816,12 @@ fun OfferDetailScreen(
         ErrorBanner(error, Modifier.fillMaxWidth())
     }
 
-    if (confirmWithdraw) androidx.compose.material3.AlertDialog(
+    if (confirmWithdraw) com.dorr.freelance.ui.kit.AlertDialog(
         onDismissRequest = { if (!busy) confirmWithdraw = false },
         text = { Text(stringResource(R.string.offer_withdraw_confirm)) },
         confirmButton = {
-            androidx.compose.material3.TextButton(onClick = {
-                val current = offer ?: return@TextButton
+            DialogButton(onClick = {
+                val current = offer ?: return@DialogButton
                 busy = true
                 scope.launch {
                     val result = apiCall { ApiClient.offers.withdraw(current.uuid) }
@@ -830,7 +831,7 @@ fun OfferDetailScreen(
                 }
             }) { Text(stringResource(R.string.offer_withdraw), color = Color(0xFFDC2626)) }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmWithdraw = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        dismissButton = { DialogButton(onClick = { confirmWithdraw = false }) { Text(stringResource(R.string.common_cancel)) } },
     )
 }
 

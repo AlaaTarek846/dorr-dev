@@ -204,6 +204,7 @@ private struct ChatBubble: View {
     @Environment(\.wa) private var wa
     let m: FreelanceChatMessageDto
     let onReport: () -> Void
+    @Environment(\.layoutDirection) private var dir
 
     var body: some View {
         if m.kind == "system" {
@@ -222,6 +223,7 @@ private struct ChatBubble: View {
                 .background { if mine { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(wa.accent) } }
                 .modifier(SurfaceIf(on: !mine))
                 .fixedSize(horizontal: true, vertical: false)
+                .environment(\.layoutDirection, dir)
                 // FL-709: the three dots beside the other person's message open a small menu (report).
                 if !mine && m.kind != "deleted" {
                     Menu {
@@ -230,9 +232,11 @@ private struct ChatBubble: View {
                         Image(systemName: "ellipsis").rotationEffect(.degrees(90)).font(.system(size: 15, weight: .bold)).foregroundStyle(wa.settingsMut)
                             .frame(width: 32, height: 32).contentShape(Circle())
                     }
+                    .environment(\.layoutDirection, dir)
                 }
                 if !mine { Spacer(minLength: 0) }
             }
+            .environment(\.layoutDirection, .leftToRight)
         }
     }
 }
@@ -473,8 +477,8 @@ struct InvitationsPage: View {
             )) {
                 DorrTextArea(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("fl_inv_search"), icon: "magnifyingglass", singleLine: true)
                 HStack(spacing: 8) {
-                    FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2") { all = false }
-                    FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill") { all = true }
+                    FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2", fit: true) { all = false }
+                    FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill", fit: true) { all = true }
                 }
                 if searching {
                     ForEach(0..<3, id: \.self) { _ in WaSkeleton(cornerRadius: 14).frame(height: 56) }

@@ -29,7 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.EventBusy
@@ -215,7 +215,7 @@ internal fun ConsultTeaser(items: List<ConsultTeaserDto>, onBook: (String) -> Un
                         color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = accent, modifier = Modifier.size(22.dp))
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = accent, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -262,7 +262,7 @@ internal fun ConsultationsMarketPage(onBack: () -> Unit, onOpen: (String) -> Uni
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.08f)).clickable(onClick = onMine).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Rounded.EventAvailable, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.cs_mine_title), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.ChevronRight, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                 }
             }
             when {

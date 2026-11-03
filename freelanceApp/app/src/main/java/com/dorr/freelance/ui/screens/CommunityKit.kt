@@ -438,7 +438,7 @@ internal fun ImageViewer(images: List<CommunityImageDto>, start: Int, onDismiss:
                 Spacer(Modifier.weight(1f))
                 if (images.size > 1) {
                     Text(
-                        "${pager.currentPage + 1} / ${images.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        "\u200E${pager.currentPage + 1} / ${images.size}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }

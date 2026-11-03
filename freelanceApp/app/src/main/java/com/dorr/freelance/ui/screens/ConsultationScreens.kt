@@ -42,7 +42,8 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.VideoChat
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -265,22 +266,21 @@ fun ConsultationsScreen(onBack: () -> Unit, onOpenEditor: (String?) -> Unit, onO
     }
 
     deleting?.let { o ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.cns_delete_title), fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.cns_delete_body, o.title.orEmpty()), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    busyUuid = o.uuid
-                    scope.launch {
-                        val r = apiCall { ApiClient.consultations.delete(o.uuid) }
-                        busyUuid = null
-                        if (r is ApiResult.Ok) { loadOffers(); loadInfo() } else error = r.errorText(offlineText) ?: genericError
-                    }
-                }) { Text(stringResource(R.string.common_delete), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) }
+        com.dorr.freelance.ui.kit.ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.cns_delete_title),
+            message = stringResource(R.string.cns_delete_body, o.title.orEmpty()),
+            confirmLabel = stringResource(R.string.common_delete),
+            onConfirm = {
+                deleting = null
+                busyUuid = o.uuid
+                scope.launch {
+                    val r = apiCall { ApiClient.consultations.delete(o.uuid) }
+                    busyUuid = null
+                    if (r is ApiResult.Ok) { loadOffers(); loadInfo() } else error = r.errorText(offlineText) ?: genericError
+                }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            onDismiss = { deleting = null },
         )
     }
 }
@@ -618,13 +618,13 @@ fun ConsultationEditorScreen(uuid: String?, onBack: () -> Unit) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     val v = String.format(Locale.US, "%02d:%02d", state.hour, state.minute)
                     if (isFrom) range.from = v else range.to = v
                     picking = null
-                }) { Text(stringResource(R.string.common_ok), color = settingsAccent(), fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.common_ok), fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { picking = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }
@@ -796,7 +796,7 @@ fun ConsultationScreen(uuid: String, onBack: () -> Unit, onOpenSession: (String)
                 }
             },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                DialogButton(enabled = !busy, onClick = {
                     busy = true
                     scope.launch {
                         val body = ConsultationCancelRequest(reason.trim().ifEmpty { null })
@@ -812,7 +812,7 @@ fun ConsultationScreen(uuid: String, onBack: () -> Unit, onOpenSession: (String)
                     }
                 }) { Text(stringResource(if (declining) R.string.cns_decline_confirm else R.string.cns_cancel_confirm), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(enabled = !busy, onClick = { cancelling = false; declining = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(enabled = !busy, onClick = { cancelling = false; declining = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

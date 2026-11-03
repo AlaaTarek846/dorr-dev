@@ -264,6 +264,14 @@ class ClientProjectController extends Controller
         return ApiResponse::success($this->projects->budgetRules($countryId, isset($data['specialty_id']) ? (int) $data['specialty_id'] : null), __('api.retrieved'));
     }
 
+    /** GET projects/cost-quote?amount_minor=&specialty_id= — what the client pays in all for that price, fee included (the form's cost-limit check). */
+    public function costQuote(Request $request): JsonResponse
+    {
+        $data = $request->validate(['amount_minor' => ['required', 'integer', 'min:1', 'max:100000000000'], 'specialty_id' => ['nullable', 'integer']]);
+        $countryId = FreelanceCountry::of($this->me($request)) ?? abort(403);
+
+        return ApiResponse::success($this->projects->costQuote($countryId, isset($data['specialty_id']) ? (int) $data['specialty_id'] : null, (int) $data['amount_minor']), __('api.retrieved'));
+    }
     /** @return array<string, mixed> a draft may be saved half done: only the shape is checked here, completeness on submit */
     private function rules(): array
     {

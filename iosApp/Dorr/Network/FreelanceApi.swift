@@ -26,6 +26,14 @@ struct FreelanceBudgetRulesDto: Codable, Equatable {
     var currency: String?
 }
 
+/// What the client pays in all for a price: the price, the client fee and the total.
+struct FreelanceCostQuoteDto: Codable, Equatable {
+    var priceMinor: Int
+    var clientFeeMinor: Int
+    var totalMinor: Int
+    var currency: String?
+}
+
 struct FreelanceNamedDto: Codable, Equatable, Hashable {
     var id: Int
     var name: String?
@@ -821,6 +829,10 @@ enum FreelanceApi {
 
     static func budgetRules(specialtyId: Int?) async throws -> ApiEnvelope<FreelanceBudgetRulesDto> {
         try await ApiClient.snake("\(base)/projects/budget-rules", query: ["specialty_id": specialtyId.map(String.init)])
+    }
+
+    static func costQuote(amountMinor: Int, specialtyId: Int?) async throws -> ApiEnvelope<FreelanceCostQuoteDto> {
+        try await ApiClient.snake("\(base)/projects/cost-quote", query: ["amount_minor": String(amountMinor), "specialty_id": specialtyId.map(String.init)])
     }
 
     static func project(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {

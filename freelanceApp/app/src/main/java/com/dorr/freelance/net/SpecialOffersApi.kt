@@ -56,7 +56,7 @@ data class PastClientDto(
 )
 
 data class SpecialOfferComposeDto(
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** Which kinds can be sent now (custom · service · consultation). */
     val kinds: Map<String, Boolean> = emptyMap(),
@@ -152,7 +152,7 @@ data class SpecialOfferDto(
     @SerializedName("discount_bp") val discountBp: Int? = null,
     @SerializedName("delivery_days") val deliveryDays: Int? = null,
     val revisions: Int? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val money: SpecialOfferMoneyDto? = null,
     @SerializedName("expires_at") val expiresAt: String? = null,

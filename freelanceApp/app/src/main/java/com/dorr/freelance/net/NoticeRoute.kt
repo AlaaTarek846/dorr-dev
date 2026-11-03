@@ -37,6 +37,11 @@ object NoticeRoute {
             // booking too — its session card has "join", the time left and the recordings.
             e.startsWith("freelance.consultation") -> field("consultation")?.let(Routes::consultation) ?: Routes.CONSULTATIONS
             e.startsWith("freelance.service.") -> field("service")?.let { Routes.service(it) } ?: Routes.SERVICES
+            // A client's monthly service: a renewal opens its order (or my orders); someone waiting for a place opens the service.
+            e.startsWith("freelance.retainer") -> field("order")?.let(Routes::serviceOrder) ?: Routes.SERVICE_ORDERS
+            e.startsWith("freelance.waitlist") -> field("service")?.let { Routes.service(it) } ?: Routes.SERVICES
+            // A sanction (and its appeal) is shown on Home, in the card above the numbers.
+            e.startsWith("freelance.sanction") -> Routes.HOME
             e.startsWith("freelance.dispute") -> {
                 val dispute = field("dispute")
                 if (project != null && dispute != null) "dispute/$project/$dispute" else project?.let(Routes::agreement)

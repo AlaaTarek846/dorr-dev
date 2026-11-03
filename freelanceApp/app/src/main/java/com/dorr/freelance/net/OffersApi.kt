@@ -88,7 +88,7 @@ data class OfferBreakdownDto(
     @SerializedName("price_minor") val priceMinor: Long = 0,
     @SerializedName("commission_minor") val commissionMinor: Long = 0,
     @SerializedName("net_minor") val netMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     /** FL-L09: the price I asked and the loyalty discount taken off it (`priceMinor` is what the client pays). */
     @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
     @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
@@ -121,7 +121,7 @@ data class OfferDto(
     @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
     @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
     @SerializedName("saving_minor") val savingMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val details: String = "",
     val answers: List<OfferAnswerDto> = emptyList(),

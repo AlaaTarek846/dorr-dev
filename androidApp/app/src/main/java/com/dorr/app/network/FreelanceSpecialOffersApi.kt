@@ -70,7 +70,7 @@ data class ClientSpecialOfferDto(
     @SerializedName("discount_bp") val discountBp: Int? = null,
     @SerializedName("delivery_days") val deliveryDays: Int? = null,
     val revisions: Int? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val money: SpecialOfferClientMoneyDto? = null,
     @SerializedName("expires_at") val expiresAt: String? = null,

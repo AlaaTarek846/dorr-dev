@@ -133,7 +133,9 @@ internal fun ConsultationSessionCard(c: ConsultationDto, onJoin: () -> Unit) {
     InfoCard(title = stringResource(R.string.ses_card_title), icon = Icons.Rounded.VideoChat) {
         if (s.recorded) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SvcPill(stringResource(R.string.ses_recorded), SvcTone(Color(0xFFDC2626), Color(0xFFDC2626).copy(alpha = if (settingsNight()) 0.22f else 0.1f)))
+                // Recording only counts when the room can really record (same rule as the client app).
+                if (s.recordingAvailable) SvcPill(stringResource(R.string.ses_recorded), SvcTone(Color(0xFFDC2626), Color(0xFFDC2626).copy(alpha = if (settingsNight()) 0.22f else 0.1f)))
+                else if (live) SvcPill(stringResource(R.string.ses_not_recorded), serviceTone("paused"))
                 if (s.recordingsHeld) SvcPill(stringResource(R.string.ses_held), serviceTone("pending_review"))
             }
         }

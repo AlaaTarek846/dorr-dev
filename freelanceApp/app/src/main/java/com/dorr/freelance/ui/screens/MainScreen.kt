@@ -122,7 +122,7 @@ fun MainScreen(actions: MainActions) {
     // The community's switch went off while its tab was open: back home.
     LaunchedEffect(tabs.size, tab) { if (tabs.none { it.key == tab }) ShellState.tab = Tabs.HOME }
 
-    AppShell(onSelectTab = { ShellState.open(it) }, onOpenWallet = actions.openWallet, onOpenNotifications = actions.openNotifications) {
+    AppShell(showHeader = tab == Tabs.HOME, onSelectTab = { ShellState.open(it) }, onOpenWallet = actions.openWallet, onOpenNotifications = actions.openNotifications) {
         // A tab slides in from the side it sits on, with a fade, like the pages do.
         AnimatedContent(
             targetState = tab,
@@ -141,8 +141,8 @@ fun MainScreen(actions: MainActions) {
             when (shown) {
                 Tabs.OPPORTUNITIES -> OpportunitiesTab(actions)
                 Tabs.WORK -> WorkTab(actions)
-                Tabs.COMMUNITY -> CommunityScreen(nav = actions.community, onBack = null)
-                Tabs.ME -> AccountScreen(actions)
+                Tabs.COMMUNITY -> CommunityScreen(nav = actions.community, onBack = { ShellState.tab = Tabs.HOME })
+                Tabs.ME -> AccountScreen(actions, onBack = { ShellState.tab = Tabs.HOME })
                 else -> HomeScreen(actions, failed)
             }
         }
@@ -174,7 +174,7 @@ private fun OpportunitiesTab(actions: MainActions) {
         if (withInvitations) add(Segment("invitations", stringResource(R.string.opp_invitations), Icons.Rounded.MarkEmailUnread, home?.attention?.invitationsPending ?: 0))
     }
     val (segment, select) = rememberSegment(segments.map { it.key }, "projects")
-    HubTabFrame(stringResource(R.string.tab_opportunities), stringResource(R.string.opp_subtitle), segments, segment, select) {
+    HubTabFrame(stringResource(R.string.tab_opportunities), stringResource(R.string.opp_subtitle), segments, segment, select, onBack = { ShellState.tab = Tabs.HOME }) {
         when (segment) {
             "invitations" -> InvitationsScreen(onBack = {}, onOpenProject = actions.openProject, embedded = true)
             else -> ProjectsTab(onBack = {}, onOpenProject = actions.openProject, embedded = true)
@@ -194,7 +194,7 @@ private fun WorkTab(actions: MainActions) {
         if (home?.on("consultations") != false) add(Segment("consultations", stringResource(R.string.work_seg_consultations), Icons.Rounded.VideoChat, a?.consultationsPending ?: 0))
     }
     val (segment, select) = rememberSegment(segments.map { it.key }, "projects")
-    HubTabFrame(stringResource(R.string.tab_work), stringResource(R.string.work_subtitle), segments, segment, select) {
+    HubTabFrame(stringResource(R.string.tab_work), stringResource(R.string.work_subtitle), segments, segment, select, onBack = { ShellState.tab = Tabs.HOME }) {
         when (segment) {
             "offers" -> MyOffersScreen(onBack = null, onOpenProject = actions.openOffer, embedded = true)
             "orders" -> ServiceOrdersScreen(onBack = {}, onOpenOrder = actions.openServiceOrder, embedded = true)

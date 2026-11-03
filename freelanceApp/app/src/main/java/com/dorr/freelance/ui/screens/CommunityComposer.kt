@@ -331,7 +331,7 @@ fun CommunityComposeScreen(startKind: String, editUuid: String?, nav: CommunityN
                 Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (text.length < bodyMin) Text(stringResource(R.string.cm_body_min, bodyMin), color = settingsMut(), fontSize = 11.5.sp, modifier = Modifier.weight(1f))
                     else Spacer(Modifier.weight(1f))
-                    Text("${body.length} / $bodyMax", color = if (body.length >= bodyMax) Color(0xFFDC2626) else settingsMut(), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("\u200E${body.length} / $bodyMax", color = if (body.length >= bodyMax) Color(0xFFDC2626) else settingsMut(), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                 }
                 inlineError?.let { msg ->
                     Row(
@@ -357,7 +357,7 @@ fun CommunityComposeScreen(startKind: String, editUuid: String?, nav: CommunityN
                     Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.cm_images_title), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    Text("$imageCount / $maxImages", color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("\u200E$imageCount / $maxImages", color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 ImageThumbs(
                     existing = existing.map { it }, pending = pending.toList(), canAdd = !editing && imageCount < maxImages, busy = busy,

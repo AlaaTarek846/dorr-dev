@@ -182,6 +182,7 @@
     <string name="fl_ag_hint_pending">اتبعت. أول ما المحترف يوافق الشغل يبدأ.</string>
     <string name="fl_ag_hint_active">الطرفين وافقوا. مينفعش يتعدل دلوقتي.</string>
     <string name="fl_ag_hint_ended">الاتفاق دا انتهى. تقدر تختار عرض تاني.</string>
+    <string name="fl_ag_hint_completed">كل المراحل خلصت واتعتمدت.</string>
     <string name="fl_ag_answer_by">المحترف يرد قبل %1$s</string>
     <string name="fl_ag_review_days">أيام مراجعة التسليم</string>
     <string name="fl_ag_free_revisions">تعديلات مجانية</string>
@@ -532,4 +533,15 @@
     <string name="fl_ms_split_intro">قسّم السعر على أجزاء. كل جزء بيتدفع لما توافق عليه.</string>
     <string name="fl_ms_revision_intro">قول للمحترف يعدّل إيه وهيبعتلك نسخة جديدة.</string>
     <string name="fl_dispute_reason">السبب</string>
+    <!-- Project form: what is wrong with the money, and the question before leaving a changed form -->
+    <string name="fl_err_range">أعلى الميزانية لازم يكون أكبر من أقلها.</string>
+    <string name="fl_err_below_min">الميزانية أقل من الحد المسموح (%1$s %2$s).</string>
+    <string name="fl_err_above_max">الميزانية أعلى من الحد المسموح (%1$s %2$s).</string>
+    <string name="fl_err_cap_below">أقصى مبلغ هتدفعه لازم يكون على الأقل قد الميزانية.</string>
+    <string name="fl_err_cap_below_fees">أقصى مبلغ هتدفعه لازم يغطّي الميزانية + رسوم الخدمة، يعني %1$s %2$s على الأقل.</string>
+    <string name="fl_leave_title">تحفظ التغييرات؟</string>
+    <string name="fl_leave_body">لو خرجت من غير حفظ، التغييرات اللي عملتها هتضيع.</string>
+    <string name="fl_leave_save">احفظ</string>
+    <string name="fl_leave_keep">كمّل تعديل</string>
+    <string name="fl_leave_discard">اخرج من غير حفظ</string>
 </resources>

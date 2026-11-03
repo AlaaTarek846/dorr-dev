@@ -462,6 +462,7 @@ internal fun TextLink(text: String, onClick: () -> Unit) {
 private fun agreementHint(status: String): Int = when (status) {
     "pending_approval" -> R.string.fl_ag_hint_pending
     "active" -> R.string.fl_ag_hint_active
+    "completed" -> R.string.fl_ag_hint_completed
     "declined", "cancelled", "expired" -> R.string.fl_ag_hint_ended
     else -> R.string.fl_ag_hint_draft
 }

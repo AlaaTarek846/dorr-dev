@@ -34,7 +34,8 @@ struct FreelanceHome: View {
                     .padding(.horizontal, 16)
                     if let promos = h?.promos, !promos.isEmpty { PromoSlider(promos: promos, open: open) }
                     VStack(alignment: .leading, spacing: 14) {
-                        NewProjectCard { open(.newProject) }
+                        // A banner already sits above (often the same ask), so the card waits for the hub to say there is none; it stays when the read failed.
+                        if (h != nil && (h?.promos ?? []).isEmpty) || (h == nil && failed) { NewProjectCard { open(.newProject) } }
                         if let h {
                             if h.isNew == true {
                                 StartJourney(servicesOn: h.on("services"), onPost: { open(.newProject) }, onServices: { open(.services) })

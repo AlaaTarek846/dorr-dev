@@ -70,7 +70,7 @@ struct SpecialOffersBanner: View {
                         .background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                         .scaleEffect(glow ? 1.12 : 1)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L("spc_banner_title", count)).font(.dorr(15, .heavy)).foregroundStyle(.white)
+                        Text(Lp("spc_banner_title", count, count)).font(.dorr(15, .heavy)).foregroundStyle(.white)
                         Text(L("spc_banner_body")).font(.dorr(12)).foregroundStyle(.white.opacity(0.9)).lineSpacing(3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

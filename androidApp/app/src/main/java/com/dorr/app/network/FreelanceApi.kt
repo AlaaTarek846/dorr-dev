@@ -36,6 +36,9 @@ interface FreelanceApi {
     @GET("mobile/v1/freelance/projects/budget-rules")
     suspend fun budgetRules(@Header("Authorization") auth: String, @Query("specialty_id") specialtyId: Int?): ApiEnvelope<FreelanceBudgetRulesDto>
 
+    @GET("mobile/v1/freelance/projects/cost-quote")
+    suspend fun costQuote(@Header("Authorization") auth: String, @Query("amount_minor") amountMinor: Long, @Query("specialty_id") specialtyId: Int?): ApiEnvelope<FreelanceCostQuoteDto>
+
     @GET("mobile/v1/freelance/projects/{uuid}")
     suspend fun project(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
 
@@ -279,7 +282,15 @@ data class FreelanceSkillDto(val id: Int, val name: String = "")
 data class FreelanceBudgetRulesDto(
     @SerializedName("min_minor") val minMinor: Long? = null,
     @SerializedName("max_minor") val maxMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
+)
+
+/** What the client pays in all for a price: the price, the client fee and the total. */
+data class FreelanceCostQuoteDto(
+    @SerializedName("price_minor") val priceMinor: Long = 0,
+    @SerializedName("client_fee_minor") val clientFeeMinor: Long = 0,
+    @SerializedName("total_minor") val totalMinor: Long = 0,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )
 
 data class FreelanceProjectDto(
@@ -365,7 +376,7 @@ data class FreelanceOfferDto(
     val uuid: String,
     val status: String = "submitted",
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val details: String = "",
     /** FL-307: each of the project's questions with this offer's answer. */
@@ -425,7 +436,7 @@ data class FreelanceClientCostDto(
     @SerializedName("price_minor") val priceMinor: Long = 0,
     @SerializedName("client_fee_minor") val clientFeeMinor: Long = 0,
     @SerializedName("total_minor") val totalMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )
 
 data class FreelanceCompareDto(val offers: List<FreelanceOfferDto> = emptyList(), val best: FreelanceCompareBestDto = FreelanceCompareBestDto())
@@ -542,7 +553,7 @@ data class FreelanceBudgetDto(
     val type: String = "fixed",
     @SerializedName("min_minor") val minMinor: Long? = null,
     @SerializedName("max_minor") val maxMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )
 
 data class FreelanceAttachmentDto(val id: Int, val name: String = "", val mime: String? = null, val size: Long = 0, val path: String? = null)
@@ -584,7 +595,7 @@ data class FreelanceAgreementDto(
     val includes: String? = null,
     val excludes: String? = null,
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val money: FreelanceAgreementMoneyDto = FreelanceAgreementMoneyDto(),
     val terms: FreelanceAgreementTermsDto = FreelanceAgreementTermsDto(),
@@ -726,7 +737,7 @@ data class FreelanceDisputeDto(
     val mine: Boolean = false,
     @SerializedName("respond_by") val respondBy: String? = null,
     val milestone: FreelanceDisputePartDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decision: FreelanceDisputeDecisionDto? = null,
     val appeal: FreelanceDisputeAppealDto? = null,
     @SerializedName("resolved_at") val resolvedAt: String? = null,
@@ -846,7 +857,7 @@ data class FreelanceReceiptDto(
     @SerializedName("reason_text") val reasonText: String? = null,
     val project: FreelanceRefDto? = null,
     val milestone: FreelanceRefDto? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     @SerializedName("fee_minor") val feeMinor: Long = 0,
     @SerializedName("total_minor") val totalMinor: Long = 0,

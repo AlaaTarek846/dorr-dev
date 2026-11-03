@@ -288,6 +288,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 | GET | `/` | مشاريعي، الأحدث الأول، `status` اختياري، `page` و`per_page` (15) |
 | POST | `/` | مسودة جديدة. الشكل بس بيتشيك (المسودة ممكن تبقى ناقصة). لحد 20 مشروع مفتوح (`freelance_project_limit`) |
 | GET | `budget-rules?specialty_id=` | `min_minor` / `max_minor` / `currency` لدولة العميل (وللتخصص لو اتبعت، وقاعدته بتغلب) |
+| GET | `cost-quote?amount_minor=&specialty_id=` | اللي العميل بيدفعه في الآخر لسعر معيّن (السعر + رسم العميل = الإجمالي + العملة) — لفحص «الحد الأقصى للتكلفة» في النموذج قبل وجود المسودة |
 | GET | `{uuid}` | المشروع مع `missing` و`can{edit,submit,withdraw,cancel,delete}` و`timeline` |
 | PUT | `{uuid}` | تعديل (مسودة أو مطلوب تعديل بس، وإلا `freelance_project_invalid_state` 409). اللي يتبعت بس هو اللي يتغيّر |
 | DELETE | `{uuid}` | حذف المسودة بس |
@@ -560,7 +561,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 ## المشاريع الخاصة والدعوات (FL-205)
 
 - العميل (`mobile/v1/freelance/projects/{uuid}`، سويتش `invitations`): `GET invitations` (`summary{sent,accepted,declined,max,can_invite,can_make_public}` + القائمة)، `POST invitations {freelancers:[uuid]}` (حد أقصى سياسة `invitations.max_per_project`، الافتراضي 10)، `DELETE invitations/{invitation}`، `GET invitees?q=&all=1`، `POST make-public`.
-- المحترف (`freelance/v1`): `GET invitations` (`page`/`per_page`/`status=sent|accepted|declined`)، `POST invitations/{uuid}/accept|decline` (يتطلب حساب موثّق)؛ `GET projects/{uuid}` فيه `invitation{uuid,status}`.
+- المحترف (`freelance/v1`): `GET invitations` (`page`/`per_page`/`status=sent|accepted|declined`)، `POST invitations/{uuid}/accept|decline` (يتطلب حساب موثّق، بيرجّع الدعوة اللي اتردّ عليها بس: `uuid` + `status` + `can`...، مش القائمة كلها)؛ `GET projects/{uuid}` فيه `invitation{uuid,status}`.
 - المشروع الخاص يظهر للمدعوّين فقط؛ التقديم من غيرهم `freelance_project_invite_only`.
 - أخطاء: `invitations_limit`, `invitation_not_open`, `invitation_closed`, `invitation_project_public`, `invitation_project_not_published`, `invitation_accepted_exists`.
 - العميل يختار عرضًا واحدًا بالطريقة العادية؛ لو محدش قبل يقدر يحوّل المشروع لعام.

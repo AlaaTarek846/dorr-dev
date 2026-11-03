@@ -886,11 +886,11 @@ private fun AiMessageBubble(
     // expanded/collapsed state across recompositions/list scrolling.
     val hasAudioAttachment = message.attachments.orEmpty().any { it.mimeType?.startsWith("audio/") == true }
     var transcriptExpanded by remember(message.id) { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.Absolute.Right else Arrangement.Absolute.Left) {
         Column(
             Modifier
                 .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (isUser) 18.dp else 4.dp, bottomEnd = if (isUser) 4.dp else 18.dp))
+                .clip(com.dorr.app.ui.components.absoluteCorners(topLeft = 18.dp, topRight = 18.dp, bottomRight = if (isUser) 4.dp else 18.dp, bottomLeft = if (isUser) 18.dp else 4.dp))
                 .background(
                     when {
                         message.isError -> Color(0xFFFEE2E2)

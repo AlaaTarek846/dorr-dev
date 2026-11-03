@@ -72,7 +72,7 @@ data class ConsultationInfoDto(
     @SerializedName("max_active") val maxActive: Int = 5,
     /** The staff look at a new or changed one before clients see it. */
     val review: Boolean = true,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val price: ConsultationPriceLimitsDto = ConsultationPriceLimitsDto(),
     @SerializedName("suggested_weekly") val suggestedWeekly: List<ConsultationHoursDto> = emptyList(),
@@ -90,7 +90,7 @@ data class ConsultationOfferDto(
     val options: List<ConsultationOptionDto> = emptyList(),
     val weekly: List<ConsultationHoursDto> = emptyList(),
     val timezone: String? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** Open to clients right now. */
     val live: Boolean = false,
@@ -163,7 +163,7 @@ data class ConsultationDto(
     @SerializedName("ends_at") val endsAt: String,
     val offer: String? = null,
     val topic: String? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val money: ConsultationMoneyDto = ConsultationMoneyDto(),
     val client: ConsultationPersonDto? = null,

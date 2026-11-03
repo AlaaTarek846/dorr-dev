@@ -85,7 +85,7 @@ import com.dorr.freelance.ui.kit.settingsCard
 import com.dorr.freelance.ui.kit.settingsNight
 import com.dorr.freelance.ui.kit.settingsSurface
 import com.dorr.freelance.ui.wallet.formatMinor
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -355,7 +355,7 @@ private fun AccountListPage(title: String, onBack: () -> Unit, entries: List<Men
 
 /** My account: the settings (language, appearance, font, contact, about), rating the app, support, signing out and deleting the account — the DORR app's pages. */
 @Composable
-fun AccountScreen(actions: MainActions) {
+fun AccountScreen(actions: MainActions, onBack: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -491,6 +491,7 @@ fun AccountScreen(actions: MainActions) {
             Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 SettingsScreenTitle(stringResource(R.string.tab_me), Modifier.weight(1f))
                 AccountCircle(Icons.Rounded.Settings, stringResource(R.string.account_settings)) { settingsOpen = true }
+                if (onBack != null) { Spacer(Modifier.width(8.dp)); RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), mirrored = true, onClick = onBack) }
             }
             MeHero(onEdit = { accountPage = ACCOUNT_PROFILE }, onCoach = actions.openCoach)
             Spacer(Modifier.height(12.dp))

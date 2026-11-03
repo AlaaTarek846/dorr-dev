@@ -31,7 +31,13 @@ let flRed = Color(hex: 0xDC2626)
 let flAmber = Color(hex: 0xD97706)
 
 /// "‎1234.50 SAR" (left-to-right mark first so the number keeps its place in Arabic).
-func flAmount(_ minor: Int?, _ currency: String?) -> String { "\u{200E}\(flMoney(minor)) \(currency ?? "")" }
+func flAmount(_ minor: Int?, _ currency: String?) -> String { "\u{200E}\(flMoney(minor)) \(flCurrencySign(currency))" }
+
+/// A currency code as the sign people know ("SAR" shows as «﷼»); any other code stays as it is. Mirrors Android's `CurrencyLabelAdapter`.
+func flCurrencySign(_ code: String?) -> String {
+    let c = (code ?? "").trimmingCharacters(in: .whitespaces)
+    return c.uppercased() == "SAR" ? "\u{FDFC}" : c
+}
 
 @MainActor
 struct FreelanceHost: View {
@@ -93,7 +99,8 @@ struct FreelanceHost: View {
         case .offers(let p):
             OffersPage(projectUuid: p, onBack: back, onOpen: { open(.offer(p, $0)) }, onCompare: { open(.compare(p, $0)) })
         case .compare(let p, let ids):
-            ComparePage(projectUuid: p, ids: ids, onBack: back, onOpen: { open(.offer(p, $0)) })
+            ComparePage(projectUuid: p, ids: ids, onBack: back, onOpen: { open(.offer(p, $0)) },
+                        onChosen: { listVersion += 1; go(stack.after({ $0 == .project(p) }, .agreement(p))) })
         case .offer(let p, let o):
             // The work is agreed: its agreement opens over the project (back from it is the project, not the offers).
             OfferPage(projectUuid: p, offerUuid: o, onBack: back, onProfile: { open(.freelancer(p, o)) },
@@ -224,14 +231,18 @@ struct FlChip: View {
     let text: String
     let selected: Bool
     var icon: String?
+    /// true: the text may take two lines and the chip fills its share of the row (several chips side by side, a long label is not cut).
+    var fit = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let icon { Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(selected ? .white : wa.accent) }
-                Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(1).fixedSize()
+                if fit { Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(2).multilineTextAlignment(.center) }
+                else { Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(1).fixedSize() }
             }
+            .frame(maxWidth: fit ? .infinity : nil)
             .padding(.horizontal, 14).padding(.vertical, 8)
             // A comfortable finger (40pt at least), read out with whether it is the one picked.
             .frame(minHeight: 40)
@@ -240,6 +251,14 @@ struct FlChip: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
+}
+
+/// A count in the app's language digits (a bare "\(n)" would stay Latin next to «٣ سنين»).
+func flNum(_ n: Int) -> String {
+    let f = NumberFormatter()
+    f.numberStyle = .none
+    f.locale = Locale(identifier: AppLocale.current)
+    return f.string(from: NSNumber(value: n)) ?? String(n)
 }
 
 /// A notice (green) and an error (red) under a page's cards.
@@ -397,8 +416,8 @@ struct FlPill: View {
 
 private func budgetText(_ p: FreelanceProjectDto) -> String? {
     guard let b = p.budget, let min = b.minMinor else { return nil }
-    if b.type == "range", let max = b.maxMinor { return "\u{200E}\(flMoney(min)) – \(flMoney(max)) \(b.currency ?? "")" }
-    return "\u{200E}\(flMoney(min)) \(b.currency ?? "")"
+    if b.type == "range", let max = b.maxMinor { return "\u{200E}\(flMoney(min)) – \(flMoney(max)) \(flCurrencySign(b.currency))" }
+    return "\u{200E}\(flMoney(min)) \(flCurrencySign(b.currency))"
 }
 
 private func untitled(_ p: FreelanceProjectDto) -> String { (p.title?.isEmpty == false ? p.title : nil) ?? L("fl_untitled") }
@@ -483,7 +502,7 @@ struct ProjectCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: filterIcon(p.state)).font(.system(size: 18)).foregroundStyle(color)
+                        Image(systemName: p.state == "published" && p.visibility == "private" ? "lock.fill" : filterIcon(p.state)).font(.system(size: 18)).foregroundStyle(color)
                             .frame(width: 44, height: 44)
                             .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: FlCorners.icon, style: .continuous))
                         VStack(alignment: .leading, spacing: 3) {
@@ -1174,6 +1193,18 @@ private struct IssuesCard: View {
 // MARK: - The form
 
 @MainActor
+/// androidApp `FormProblem` — one line under a field: what is wrong with what was typed.
+private struct FormProblem: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.circle").font(.system(size: 13)).foregroundStyle(Color(hex: 0xDC2626))
+            Text(verbatim: text).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)).lineSpacing(3)
+        }
+    }
+}
+
 private struct ProjectForm: View {
     @Environment(\.wa) private var wa
     let uuid: String?
@@ -1195,11 +1226,51 @@ private struct ProjectForm: View {
     @State private var questions: [String] = []
     @State private var attachments: [FreelanceAttachmentDto] = []
     @State private var rules: FreelanceBudgetRulesDto?
+    /// What the lowest budget costs in all (the client fee included), asked of the server a moment after typing stops.
+    @State private var lowCost: FreelanceCostQuoteDto?
     @State private var pickSpecialty = false
     @State private var picking = false
     @State private var busy = false
     @State private var uploading = false
     @State private var error: String?
+    @State private var initial: String?
+    @State private var leaving = false
+
+    private func moneyOrNil(_ text: String) -> Int? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        return t.isEmpty ? nil : flParseMoney(t)
+    }
+
+    /// What is wrong with the money, said next to the field as it is typed — so it is fixed before the draft is saved, not found at review.
+    private var amountProblem: String? {
+        let low = moneyOrNil(budgetMin)
+        let high = budgetType == "range" ? moneyOrNil(budgetMax) : nil
+        if let low, let min = rules?.minMinor, low < min { return L("fl_err_below_min", flMoney(min), rules?.currency ?? "") }
+        if let top = high ?? low, let max = rules?.maxMinor, top > max { return L("fl_err_above_max", flMoney(max), rules?.currency ?? "") }
+        return nil
+    }
+
+    private var rangeProblem: String? {
+        if budgetType == "range", let low = moneyOrNil(budgetMin), let high = moneyOrNil(budgetMax), high <= low { return L("fl_err_range") }
+        return nil
+    }
+
+    private var capProblem: String? {
+        guard let cap = moneyOrNil(maxCost), let low = moneyOrNil(budgetMin) else { return nil }
+        if cap < low { return L("fl_err_cap_below") }
+        if let q = lowCost, q.totalMinor > cap { return L("fl_err_cap_below_fees", flMoney(q.totalMinor), q.currency ?? "") }
+        return nil
+    }
+
+    /// A form left as it was opens no question; a changed one asks before it is left (a back tap would lose the changes).
+    private var signature: String {
+        [title, description, specialty.map { "\($0.id)" } ?? "", skills.map { "\($0.id)" }.joined(separator: ","), budgetType, budgetMin, budgetMax,
+         maxCost, duration, visibility, questions.joined(separator: "\u{1F}")].joined(separator: "\u{1E}")
+    }
+
+    private var dirty: Bool { initial != nil && signature != initial }
+
+    private func tryBack() { if dirty { leaving = true } else { onBack() } }
 
     private func request() -> FreelanceProjectRequest? {
         func money(_ text: String) -> Int?? {
@@ -1224,6 +1295,7 @@ private struct ProjectForm: View {
 
     /// Saves the draft; `then` gets the project's uuid (a new draft gets one on its first save).
     private func save(then: @escaping (String) -> Void) {
+        if let problem = amountProblem ?? rangeProblem ?? capProblem { error = problem; return }
         guard let body = request() else { error = L("fl_budget_invalid"); return }
         busy = true
         error = nil
@@ -1266,13 +1338,21 @@ private struct ProjectForm: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FlPageHeader(title: L(uuid == nil ? "fl_new_project" : "fl_edit"), onBack: onBack)
+            FlPageHeader(title: L(uuid == nil ? "fl_new_project" : "fl_edit"), onBack: tryBack)
             if !loaded {
                 FlLoading(error: error)
             } else {
                 ScrollView { form.padding(.horizontal, 16) }.scrollDismissesKeyboard(.interactively)
                 SettingsPrimaryButton(text: L("fl_save_draft"), loading: busy) { save(then: onSaved) }.padding(16)
             }
+        }
+        .onChange(of: loaded) { now in if now && initial == nil { initial = signature } }
+        .dorrDialog(isPresented: $leaving) {
+            ConfirmDialog(icon: "square.and.arrow.down.fill", title: L("fl_leave_title"), message: L("fl_leave_body"),
+                          confirmLabel: L("fl_leave_save"), dismissLabel: L("fl_leave_keep"), confirmTint: wa.accent,
+                          extraLabel: L("fl_leave_discard"), onExtra: { leaving = false; onBack() },
+                          onConfirm: { leaving = false; save(then: onSaved) },
+                          onDismiss: { leaving = false })
         }
         .task {
             current = uuid
@@ -1299,6 +1379,13 @@ private struct ProjectForm: View {
         }
         // The budget limits follow the specialty (its own rule wins over the country's).
         .task(id: specialty?.id) { rules = try? await FreelanceApi.budgetRules(specialtyId: specialty?.id).data }
+        .task(id: "\(moneyOrNil(budgetMin) ?? 0)|\(specialty?.id ?? 0)") {
+            lowCost = nil
+            guard let low = moneyOrNil(budgetMin), low > 0 else { return }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if Task.isCancelled { return }
+            lowCost = try? await FreelanceApi.costQuote(amountMinor: low, specialtyId: specialty?.id).data
+        }
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { upload(url) }
         }
@@ -1349,6 +1436,7 @@ private struct ProjectForm: View {
                         DorrTextArea(value: $budgetMax, label: L("fl_budget_to", currency), icon: "banknote", singleLine: true).keyboardType(.decimalPad)
                     }
                 }
+                if let p = amountProblem ?? rangeProblem { FormProblem(text: p) }
                 if let r = rules {
                     let lines = [r.minMinor.map { L("fl_budget_min_rule", flMoney($0), r.currency ?? "") },
                                  r.maxMinor.map { L("fl_budget_max_rule", flMoney($0), r.currency ?? "") }].compactMap { $0 }
@@ -1356,6 +1444,7 @@ private struct ProjectForm: View {
                 }
                 // FL-210: the most I will pay in all.
                 DorrTextArea(value: $maxCost, label: L("fl_cost_cap_field", currency), icon: "dollarsign.circle.fill", singleLine: true).keyboardType(.decimalPad)
+                if let p = capProblem { FormProblem(text: p) }
                 Text(L("fl_cost_cap_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
             }
             VStack(alignment: .leading, spacing: 10) {

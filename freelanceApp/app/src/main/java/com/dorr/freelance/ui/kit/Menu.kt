@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -128,6 +128,7 @@ fun ConfirmDialog(
     loading: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    dismissLabel: String = stringResource(R.string.common_cancel),
 ) {
     val dark = settingsNight()
     val ink = if (dark) AccountDark.accent else settingsAccent()
@@ -174,7 +175,7 @@ fun ConfirmDialog(
                                 .border(1.5.dp, if (dark) AccountDark.line else ink.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                                 .clickable(enabled = !loading, onClick = onDismiss),
                             contentAlignment = Alignment.Center,
-                        ) { Text(stringResource(R.string.common_cancel), color = ink.copy(alpha = if (loading) 0.5f else 1f), fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                        ) { Text(dismissLabel, color = ink.copy(alpha = if (loading) 0.5f else 1f), fontSize = 15.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
             }

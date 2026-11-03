@@ -29,7 +29,7 @@ interface LoyaltyApi {
 
 data class LoyaltyDashDto(
     val available: Boolean = true,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** Null until I set one up. */
     val program: LoyaltyProgramDto? = null,

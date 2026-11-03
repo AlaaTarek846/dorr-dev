@@ -40,6 +40,7 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::get('/', [ClientProjectController::class, 'index']);
             Route::post('/', [ClientProjectController::class, 'store'])->middleware('throttle:30,1,freelance-project-create');
             Route::get('budget-rules', [ClientProjectController::class, 'budgetRules']);
+            Route::get('cost-quote', [ClientProjectController::class, 'costQuote']);
             Route::get('{uuid}', [ClientProjectController::class, 'show'])->whereUuid('uuid');
             Route::put('{uuid}', [ClientProjectController::class, 'update'])->whereUuid('uuid');
             Route::delete('{uuid}', [ClientProjectController::class, 'destroy'])->whereUuid('uuid');

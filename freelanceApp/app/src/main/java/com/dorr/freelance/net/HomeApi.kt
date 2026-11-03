@@ -41,7 +41,7 @@ data class PromoDto(
 )
 
 data class HomeStatsDto(
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("earned_month_minor") val earnedMonthMinor: Long = 0,
     /** Earned but still held (released after the client's review time). */

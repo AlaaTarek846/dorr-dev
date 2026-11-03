@@ -74,7 +74,7 @@ data class ConsultTeaserDto(
     val uuid: String,
     val title: String? = null,
     @SerializedName("from_minor") val fromMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val minutes: List<Int> = emptyList(),
 )
 
@@ -85,7 +85,7 @@ data class ConsultCardDto(
     val about: String? = null,
     val minutes: List<Int> = emptyList(),
     @SerializedName("from_minor") val fromMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("next_slot") val nextSlot: String? = null,
     val freelancer: ConsultFreelancerDto = ConsultFreelancerDto(),
@@ -97,7 +97,7 @@ data class ConsultOfferDto(
     val title: String? = null,
     val about: String? = null,
     val options: List<ConsultOptionDto> = emptyList(),
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val timezone: String? = null,
     @SerializedName("next_slot") val nextSlot: String? = null,
@@ -175,7 +175,7 @@ data class ConsultDto(
     @SerializedName("starts_at") val startsAt: String,
     @SerializedName("ends_at") val endsAt: String,
     val topic: String? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** FL-L09: the usual price and the loyalty discount taken off it; null: none. */
     @SerializedName("list_price_minor") val listPriceMinor: Long? = null,

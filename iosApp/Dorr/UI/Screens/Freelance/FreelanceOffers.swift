@@ -288,8 +288,12 @@ struct ComparePage: View {
     let ids: [String]
     let onBack: () -> Void
     let onOpen: (String) -> Void
+    let onChosen: () -> Void
     @State private var data: FreelanceCompareDto?
     @State private var error: String?
+    /// The one being chosen right here (its sheet), so the client need not go back to the offer page.
+    @State private var choosing: FreelanceOfferDto?
+    @State private var busy = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -309,6 +313,11 @@ struct ComparePage: View {
                                         PlanBadge(badge: o.freelancer?.badge)
                                         Text(verbatim: o.freelancer?.name ?? "—").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2).multilineTextAlignment(.center)
                                         OfferStatusPill(status: o.state)
+                                        if o.can?.choose == true {
+                                            Text(L("fl_choose_offer")).font(.dorr(12, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
+                                                .frame(maxWidth: .infinity).padding(.vertical, 8).background(wa.accent, in: Capsule())
+                                                .onTapGesture { choosing = o }
+                                        }
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(10)
@@ -320,21 +329,21 @@ struct ComparePage: View {
                         row(L("fl_price"), offers) { cell(flAmount($0.priceMinor, $0.currency), best: best.price == $0.uuid) }
                         row(L("fl_you_pay"), offers) { o in cell(o.clientCost.map { flAmount($0.totalMinor, $0.currency) } ?? "—") }
                         row(L("fl_duration"), offers) { cell(L("fl_days", $0.durationDays ?? 0), best: best.duration == $0.uuid) }
-                        row(L("fl_profile_complete"), offers) { cell("\($0.freelancer?.completeness ?? 0)%", best: best.completeness == $0.uuid) }
+                        row(L("fl_profile_complete"), offers) { cell("\(flNum($0.freelancer?.completeness ?? 0))%", best: best.completeness == $0.uuid) }
                         row(L("fl_skills_fit"), offers) { o in
                             cell(skillsMatch(o.freelancer) ?? "—", best: best.skills == o.uuid && !(o.freelancer?.matchingSkills ?? []).isEmpty)
                         }
                         row(L("fl_verified"), offers) { cell(L($0.freelancer?.verified == true ? "fl_yes" : "fl_no")) }
                         row(L("fl_experience_years"), offers) { o in cell(o.freelancer?.yearsOfExperience.map { L("fl_years", $0) } ?? "—") }
-                        row(L("fl_portfolio"), offers) { cell("\($0.freelancer?.portfolioCount ?? 0)") }
+                        row(L("fl_portfolio"), offers) { cell(flNum($0.freelancer?.portfolioCount ?? 0)) }
                         // FL-L13: the ownership model each one offers.
                         if offers.contains(where: { $0.rights != nil }) { row(L("rights_compare"), offers) { cell($0.rights?.modelLabel ?? "—") } }
                         // FL-703: what they finished, and on time.
                         row(L("fl_st_completed"), offers) { o in
                             let similar = (o.freelancer?.similarProjects).flatMap { $0 > 0 ? " · " + L("fl_st_similar", $0) : nil } ?? ""
-                            cell("\(o.freelancer?.completedProjects ?? 0)" + similar)
+                            cell(flNum(o.freelancer?.completedProjects ?? 0) + similar)
                         }
-                        row(L("fl_st_on_time"), offers) { o in cell(o.freelancer?.onTimeRate.map { "\($0)%" } ?? "—") }
+                        row(L("fl_st_on_time"), offers) { o in cell(o.freelancer?.onTimeRate.map { "\(flNum($0))%" } ?? "—") }
                         row(L("fl_rating_label"), offers) { cell(ratingText($0.freelancer)) }
                         row(L("fl_offer_details"), offers) { cell($0.details ?? "", small: true) }
                         // FL-307: the same question, each one's answer.
@@ -352,6 +361,11 @@ struct ComparePage: View {
                 FlLoading(error: error)
             }
         }
+        .dorrDialog(isPresented: Binding(get: { choosing != nil }, set: { if !$0 && !busy { choosing = nil } }), bottom: true) {
+            if let o = choosing {
+                ChooseSheet(o: o, busy: busy, onDismiss: { if !busy { choosing = nil } }, onConfirm: { choose(o) })
+            }
+        }
         .task(id: network.reconnectTick) {
             do {
                 data = try await FreelanceApi.compareOffers(projectUuid, ids: ids.joined(separator: ",")).data
@@ -359,6 +373,21 @@ struct ComparePage: View {
             } catch {
                 self.error = flError(error)
             }
+        }
+    }
+
+    private func choose(_ o: FreelanceOfferDto) {
+        busy = true
+        Task {
+            do {
+                _ = try await FreelanceApi.decideOffer(projectUuid, o.uuid, action: "choose", reason: nil)
+                choosing = nil
+                onChosen()
+            } catch {
+                self.error = flError(error)
+                choosing = nil
+            }
+            busy = false
         }
     }
 
@@ -467,9 +496,9 @@ struct OfferPage: View {
                         if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                         Text(verbatim: ratingText(f)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                         Text(L("fl_see_profile")).font(.dorr(12, .bold)).foregroundStyle(wa.accent)
+                        OfferStatusPill(status: o.state)
                     }
                     Spacer(minLength: 0)
-                    OfferStatusPill(status: o.state)
                 }
                 .padding(14)
                 .settingsSurface(18)

@@ -158,6 +158,7 @@ object ChatPush {
                                 data.optString("dispute").takeIf { it.isNotBlank() && it != "null" },
                                 data.optString("consultation").takeIf { it.isNotBlank() && it != "null" },
                                 data.optString("special_offer").takeIf { it.isNotBlank() && it != "null" },
+                                data.optString("service").takeIf { it.isNotBlank() && it != "null" },
                             ),
                         )
                         conversation != null -> ChatDeepLink.Conversation(conversation)

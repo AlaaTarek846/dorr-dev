@@ -17,7 +17,7 @@ interface FreelanceHomeApi {
 data class FlHomeDto(
     val service: Boolean = false,
     val features: Map<String, Boolean> = emptyMap(),
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val promos: List<FlPromoDto> = emptyList(),
     val stats: FlHomeStatsDto = FlHomeStatsDto(),

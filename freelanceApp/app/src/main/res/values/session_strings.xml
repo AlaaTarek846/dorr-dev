@@ -17,6 +17,7 @@
     <string name="ses_in_room_yes">In</string>
     <string name="ses_in_room_no">Not in</string>
     <string name="ses_recorded">Recorded</string>
+    <string name="ses_not_recorded">Not recorded for now</string>
     <string name="ses_recorded_note">This session is recorded: the client agreed when booking and you when accepting.</string>
     <string name="ses_recording_off">Recording is not set up yet, so the session runs without one.</string>
     <string name="ses_attendance">Attendance</string>

@@ -1960,6 +1960,7 @@
 "common_back" = "Back";
 "common_cancel" = "Cancel";
 "common_close" = "Close";
+"common_in_progress" = "Please wait…";
 "common_save" = "Save";
 "common_yes" = "Yes";
 "contact_email" = "Email";
@@ -2597,6 +2598,7 @@
 "fl_ag_form_intro" = "Write what the work covers, what it includes and what it does not. Sending it is your approval.";
 "fl_ag_free_revisions" = "Free revisions";
 "fl_ag_hint_active" = "Both approved it. It can’t change now.";
+"fl_ag_hint_completed" = "All the parts are done and approved.";
 "fl_ag_hint_draft" = "Say what the work covers, then send it. Sending is your approval.";
 "fl_ag_hint_ended" = "This agreement ended. You can choose another offer.";
 "fl_ag_hint_pending" = "Sent. When the freelancer approves, the work starts.";
@@ -2772,6 +2774,11 @@
 "fl_edit" = "Edit";
 "fl_empty_text" = "Describe what you need and freelancers will send offers.";
 "fl_empty_title" = "No projects yet";
+"fl_err_above_max" = "The budget is above the allowed maximum (%1$@ %2$@).";
+"fl_err_below_min" = "The budget is below the allowed minimum (%1$@ %2$@).";
+"fl_err_cap_below" = "The most you will pay must be at least the budget.";
+"fl_err_cap_below_fees" = "The most you will pay must cover the budget plus the service fee, which is at least %1$@ %2$@.";
+"fl_err_range" = "The top of the budget must be more than its bottom.";
 "fl_error_generic" = "Something went wrong. Try again.";
 "fl_ev_awarded" = "You chose an offer";
 "fl_ev_cancelled" = "Cancelled";
@@ -2850,6 +2857,11 @@
 "fl_iv_title" = "Interview";
 "fl_iv_waiting" = "Waiting for the other side";
 "fl_languages" = "Languages";
+"fl_leave_body" = "If you leave without saving, the changes you made are lost.";
+"fl_leave_discard" = "Leave without saving";
+"fl_leave_keep" = "Keep editing";
+"fl_leave_save" = "Save";
+"fl_leave_title" = "Save your changes?";
 "fl_member_since" = "On DORR since";
 "fl_missing" = "Still to fill in: %1$@";
 "fl_ms_add" = "Add a part";
@@ -4632,9 +4644,10 @@
 "spc_accepted" = "The work has started.";
 "spc_badge" = "A special offer for you · %1$@";
 "spc_banner_body" = "Freelancers you worked with made you an offer. Take a look before it ends.";
-"spc_banner_title" = "%1$ld special offers for you";
+"spc_banner_title##one" = "You have a special offer";
+"spc_banner_title##other" = "You have %1$ld special offers";
 "spc_booked" = "Your consultation is confirmed.";
-"spc_chip" = "Special offers";
+"spc_chip" = "Offers";
 "spc_confirm_instant" = "The time is confirmed at once and the money is held in your wallet until the session.";
 "spc_days_label" = "Delivery";
 "spc_deal_instant" = "Confirmed at once — no waiting for the freelancer.";

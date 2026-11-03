@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.freelance
 import androidx.compose.foundation.background
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.CloudOff
@@ -143,20 +144,21 @@ internal fun FlSheet(
 ) {
     LocaleAwareBottomSheet(
         onDismissRequest = onDismiss,
-        fullHeight = fullHeight || footer != null,
+        // Sized to its content (no half-way stop that leaves the last button scrolled out of sight); a tall one fills the screen.
+        fullHeight = true,
         containerColor = if (settingsNight()) AccountDark.card else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         if (footer == null) {
             Column(
-                Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+                Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 FlIntro(icon, title, body)
                 content()
             }
         } else {
-            Column(Modifier.fillMaxWidth().imePadding()) {
+            Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding()) {
                 Column(
                     Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),

@@ -33,7 +33,7 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -151,16 +151,14 @@ fun ConsultationSessionScreen(uuid: String, onBack: () -> Unit) {
     }
 
     if (confirmLeave) {
-        AlertDialog(
-            onDismissRequest = { confirmLeave = false },
-            title = { Text(stringResource(R.string.ses_leave_title), fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.ses_leave_body), fontSize = 13.sp, lineHeight = 19.sp) },
-            confirmButton = {
-                TextButton(onClick = { confirmLeave = false; SessionCallController.leave() }) {
-                    Text(stringResource(R.string.ses_leave), color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text(stringResource(R.string.ses_keep_in)) } },
+        com.dorr.freelance.ui.kit.ConfirmDialog(
+            icon = Icons.Rounded.CallEnd,
+            title = stringResource(R.string.ses_leave_title),
+            message = stringResource(R.string.ses_leave_body),
+            confirmLabel = stringResource(R.string.ses_leave),
+            dismissLabel = stringResource(R.string.ses_keep_in),
+            onConfirm = { confirmLeave = false; SessionCallController.leave() },
+            onDismiss = { confirmLeave = false },
         )
     }
 }

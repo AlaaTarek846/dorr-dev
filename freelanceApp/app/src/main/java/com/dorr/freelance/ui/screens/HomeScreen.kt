@@ -326,7 +326,7 @@ private fun HeroCard(s: HeroSlide) {
     val accent = settingsAccent()
     val deep = Color(accent.red * 0.62f, accent.green * 0.62f, accent.blue * 0.62f)
     Box(
-        Modifier.fillMaxWidth().height(156.dp)
+        Modifier.fillMaxWidth().height(156.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceIn(1f, 1.6f))
             .semantics(mergeDescendants = true) {}
             .clip(Corners.hero)
             .background(Brush.linearGradient(listOf(accent, deep)))
@@ -368,7 +368,7 @@ private fun HeroCard(s: HeroSlide) {
 @Composable
 private fun StatsRow(h: HomeDto, actions: MainActions) {
     val s = h.stats
-    val money = { minor: Long -> formatMinor(minor, null) + (s.currency?.let { " $it" } ?: "") }
+    val money = { minor: Long -> formatMinor(minor, null) + (s.currency?.let { " ${if (it.equals("SAR", true)) "﷼" else it}" } ?: "") }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(stringResource(R.string.home_numbers), action = stringResource(R.string.home_more_numbers), onAction = actions.openInsights)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

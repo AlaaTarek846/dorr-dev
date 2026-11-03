@@ -11,6 +11,12 @@ import androidx.compose.runtime.setValue
 object FreelanceLink {
     var pending by mutableStateOf<String?>(null)
 
+    /** The freelance screens are open over the main screen. Held here, not in the main screen: that one is rebuilt when the notifications list closes, and a flag kept in it was lost. */
+    var open by mutableStateOf(false)
+
+    /** The open pages (see FlStack), also held here for the same reason: the notification that opened a page set it in the copy of the screen that was then replaced. */
+    var stack by mutableStateOf("home")
+
     fun show(page: String) {
         pending = page
     }
@@ -19,17 +25,22 @@ object FreelanceLink {
      * The page a client's freelance notification belongs to. [event] is the delivered one ("freelance.offer.received"); the ids come
      * from the notification's data (`project`, `offer`, `dispute`). Without a project the hub opens.
      */
-    fun pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = null, specialOffer: String? = null): String {
+    fun pageFor(event: String?, project: String?, offer: String?, dispute: String?, consultation: String? = null, specialOffer: String? = null, service: String? = null): String {
         val name = event?.removePrefix("freelance.").orEmpty()
         val group = name.substringBefore('.')
         // FL-L09: a special offer from a freelancer I worked with opens it (or my special offers).
         if (group == "special_offer") return specialOffer?.takeIf { it.isNotBlank() }?.let { "spo:$it" } ?: "spos"
         // FL-L09: a loyalty step unlocked opens "My discounts".
         if (group == "loyalty") return "loyalty"
+        // A monthly service: a renewal or a cancel request opens my orders; my turn on the waiting list opens the service.
+        if (group == "retainer") return "orders"
+        if (group == "waitlist") return service?.takeIf { it.isNotBlank() }?.let { "svc:$it" } ?: "market"
         // FL-L07: a consultation has no project: it opens the booking (or my consultations).
         if (group == "consultation") return consultation?.takeIf { it.isNotBlank() }?.let { "consult:$it" } ?: "consults"
         if (project.isNullOrBlank()) return "home"
         return when (group) {
+            // A message from the freelancer: their offer page (its chat button carries the unread count).
+            "message" -> if (!offer.isNullOrBlank()) "offer:$project:$offer" else "offers:$project"
             "offer" -> if (!offer.isNullOrBlank()) "offer:$project:$offer" else "offers:$project"
             "interview" -> "offers:$project"
             "invitation" -> "invites:$project"

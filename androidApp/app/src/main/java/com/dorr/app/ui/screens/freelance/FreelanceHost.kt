@@ -76,6 +76,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.FreelanceBudgetRulesDto
+import com.dorr.app.network.FreelanceCostQuoteDto
 import com.dorr.app.network.FreelanceCancelRequest
 import com.dorr.app.network.FreelanceCostCapRequest
 import com.dorr.app.network.FreelanceIssueDto
@@ -134,7 +135,7 @@ fun FreelanceHost(onExit: () -> Unit) {
     // FL-L13: no screenshots or recordings anywhere in the freelance work section (cleared on leaving it).
     FreelanceScreenShield()
     // The open pages (see [FlStack]): the hub first, the page on screen last; kept as their keys while the app is in the background.
-    var written by rememberSaveable { mutableStateOf(FlStack.start.write()) }
+    var written by FreelanceLink::stack
     val stack = remember(written) { FlStack.read(written) }
     var listVersion by remember { mutableStateOf(0) }
     // What each open page keeps (a filter, the scroll) while a page is over it; dropped when the page is left.
@@ -183,7 +184,10 @@ fun FreelanceHost(onExit: () -> Unit) {
                 is FlRoute.Preview -> PreviewPage(route.project, onBack = ::back, onEdit = { replace(FlRoute.EditProject(route.project)) }, onSent = { listVersion++; back() })
                 is FlRoute.Invitations -> InvitationsPage(route.project, onBack = ::back, onOpenOffer = { open(FlRoute.Offer(route.project, it)) }, onMadePublic = { listVersion++; back() })
                 is FlRoute.Offers -> OffersPage(route.project, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) }, onCompare = { open(FlRoute.Compare(route.project, it)) })
-                is FlRoute.Compare -> ComparePage(route.project, route.offers, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) })
+                is FlRoute.Compare -> ComparePage(
+                    route.project, route.offers, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) },
+                    onChosen = { listVersion++; go(stack.after({ it == FlRoute.Project(route.project) }, FlRoute.Agreement(route.project))) },
+                )
                 is FlRoute.Offer -> OfferPage(
                     route.project, route.offer, onBack = ::back,
                     onProfile = { open(FlRoute.Freelancer(route.project, route.offer)) },
@@ -274,11 +278,12 @@ private fun StatusPill(status: String) {
 }
 
 @Composable
-internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+/** [fit] true: the text may take two lines so several chips share one row (a long label is not cut). */
+internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, modifier: Modifier = Modifier, fit: Boolean = false, onClick: () -> Unit) {
     val accent = settingsAccent()
     val ink = if (selected) Color.White else settingsInk()
     Row(
-        Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
+        modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
             // A comfortable finger (40dp at least), read out with whether it is the one picked.
             .clickable(role = androidx.compose.ui.semantics.Role.Tab, onClick = onClick)
             .semantics { this.selected = selected }
@@ -286,7 +291,8 @@ internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.gra
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (icon != null) Icon(icon, null, tint = if (selected) Color.White else settingsAccent(), modifier = Modifier.size(16.dp))
-        Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+        if (fit) Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, modifier = Modifier.weight(1f, fill = false))
+        else Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
     }
 }
 
@@ -381,7 +387,7 @@ internal fun ProjectCard(p: FreelanceProjectDto, onClick: () -> Unit) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(44.dp).clip(FlCorners.icon).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                    Icon(filterIcon(p.status), null, tint = color, modifier = Modifier.size(22.dp))
+                    Icon(if (p.status == "published" && p.visibility == "private") Icons.Rounded.Lock else filterIcon(p.status), null, tint = color, modifier = Modifier.size(22.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
@@ -1107,8 +1113,49 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
         )
     }
 
+    // What is wrong with the money, said next to the field as it is typed — so it is fixed before the draft is saved, not found at review.
+    val low = budgetMin.takeIf { it.isNotBlank() }?.let { parseMoney(it) }
+    val high = if (budgetType == "range") budgetMax.takeIf { it.isNotBlank() }?.let { parseMoney(it) } else null
+    val cap = maxCost.takeIf { it.isNotBlank() }?.let { parseMoney(it) }
+    val rangeText = stringResource(R.string.fl_err_range)
+    val belowMinText = rules?.minMinor?.let { stringResource(R.string.fl_err_below_min, money(it), rules?.currency.orEmpty()) }
+    val aboveMaxText = rules?.maxMinor?.let { stringResource(R.string.fl_err_above_max, money(it), rules?.currency.orEmpty()) }
+    val capText = stringResource(R.string.fl_err_cap_below)
+    val amountProblem = when {
+        low != null && rules?.minMinor != null && low < rules!!.minMinor!! -> belowMinText
+        (high ?: low) != null && rules?.maxMinor != null && (high ?: low)!! > rules!!.maxMinor!! -> aboveMaxText
+        else -> null
+    }
+    val rangeProblem = if (budgetType == "range" && low != null && high != null && high <= low) rangeText else null
+    // What the lowest budget costs in all (the client fee included), asked of the server a moment after typing stops.
+    var lowCost by remember { mutableStateOf<FreelanceCostQuoteDto?>(null) }
+    LaunchedEffect(low, specialty?.id) {
+        lowCost = null
+        if (low == null || low <= 0) return@LaunchedEffect
+        delay(400)
+        lowCost = runCatching { ApiClient.freelance.costQuote(auth(), low, specialty?.id).data }.getOrNull()
+    }
+    val capBelowFeesText = lowCost?.let { stringResource(R.string.fl_err_cap_below_fees, money(it.totalMinor), it.currency) }
+    val capProblem = when {
+        cap == null || low == null -> null
+        cap < low -> capText
+        lowCost != null && cap < lowCost!!.totalMinor -> capBelowFeesText
+        else -> null
+    }
+    val problem = amountProblem ?: rangeProblem ?: capProblem
+
+    // A form left as it was opens no question; a changed one asks before it is left (a back tap would lose the changes).
+    fun signature() = listOf(title, description, specialty?.id, skills.map { it.id }, budgetType, budgetMin, budgetMax, maxCost, duration, visibility, questions.toList()).toString()
+    var initial by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(loaded) { if (loaded && initial == null) initial = signature() }
+    val dirty = initial != null && signature() != initial
+    var leaving by remember { mutableStateOf(false) }
+    fun tryBack() { if (dirty) leaving = true else onBack() }
+    BackHandler { tryBack() }
+
     /** Saves the draft; [then] gets the project's uuid (a new draft gets one on its first save). */
     fun save(then: (String) -> Unit) {
+        if (problem != null) { error = problem; return }
         val body = request() ?: run { error = badBudget; return }
         busy = true
         error = null
@@ -1152,7 +1199,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     }
 
     Column(Modifier.fillMaxSize()) {
-        FlPageHeader(stringResource(if (uuid == null) R.string.fl_new_project else R.string.fl_edit), onBack)
+        FlPageHeader(stringResource(if (uuid == null) R.string.fl_new_project else R.string.fl_edit), ::tryBack)
         if (!loaded) {
             FlLoading(error)
             return@Column
@@ -1179,13 +1226,14 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     DorrTextField(
                         budgetMin, { budgetMin = it }, label = stringResource(if (budgetType == "range") R.string.fl_budget_from else R.string.fl_budget_amount, currency), icon = Icons.Rounded.Payments,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = amountProblem != null, modifier = Modifier.weight(1f),
                     )
                     if (budgetType == "range") DorrTextField(
                         budgetMax, { budgetMax = it }, label = stringResource(R.string.fl_budget_to, currency), icon = Icons.Rounded.Payments,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = rangeProblem != null, modifier = Modifier.weight(1f),
                     )
                 }
+                (amountProblem ?: rangeProblem)?.let { FormProblem(it) }
                 rules?.let { r ->
                     val parts = listOfNotNull(
                         r.minMinor?.let { stringResource(R.string.fl_budget_min_rule, money(it), r.currency) },
@@ -1196,8 +1244,9 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 // FL-210: the most I will pay in all.
                 DorrTextField(
                     maxCost, { maxCost = it }, label = stringResource(R.string.fl_cost_cap_field, currency), icon = Icons.Rounded.Savings,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = capProblem != null, modifier = Modifier.fillMaxWidth(),
                 )
+                capProblem?.let { FormProblem(it) }
                 Text(stringResource(R.string.fl_cost_cap_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1257,6 +1306,21 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     if (pickSpecialty) SpecialtyDialog(onDismiss = { pickSpecialty = false }) { picked ->
         specialty = picked
         pickSpecialty = false
+    }
+    if (leaving) ConfirmDialog(
+        icon = Icons.Rounded.Save, title = stringResource(R.string.fl_leave_title), message = stringResource(R.string.fl_leave_body),
+        confirmLabel = stringResource(R.string.fl_leave_save), dismissLabel = stringResource(R.string.fl_leave_keep),
+        onDismiss = { leaving = false }, onConfirm = { leaving = false; save(onSaved) },
+        extraLabel = stringResource(R.string.fl_leave_discard), onExtra = { leaving = false; onBack() },
+    )
+}
+
+/** One line under a field: what is wrong with what was typed. */
+@Composable
+private fun FormProblem(text: String) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Rounded.ErrorOutline, null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+        Text(text, color = Color(0xFFDC2626), fontSize = 12.sp, lineHeight = 18.sp)
     }
 }
 

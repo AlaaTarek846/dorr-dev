@@ -31,7 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.History
@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -178,10 +179,10 @@ internal fun SpecialOffersBanner(count: Int, onOpen: () -> Unit) {
             Icon(Icons.Rounded.LocalOffer, null, tint = Color.White, modifier = Modifier.size(24.dp))
         }
         Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.spc_banner_title, count), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text(pluralStringResource(R.plurals.spc_banner_title, count, count), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.spc_banner_body), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, lineHeight = 17.sp)
         }
-        Icon(Icons.Rounded.ChevronRight, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }
 

@@ -32,7 +32,8 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Work
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -336,8 +337,8 @@ fun ServiceOrderScreen(uuid: String, onBack: () -> Unit, onOpenWork: (String) ->
             onDismissRequest = { if (!busy) declining = false },
             title = { Text(stringResource(R.string.svo_decline_title), fontWeight = FontWeight.ExtraBold) },
             text = { DorrTextField(reason, { reason = it.take(500) }, label = stringResource(R.string.svo_decline_reason), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(enabled = !busy, onClick = { answer("decline") }) { Text(stringResource(R.string.svo_decline_confirm), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) } },
-            dismissButton = { TextButton(enabled = !busy, onClick = { declining = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(enabled = !busy, onClick = { answer("decline") }) { Text(stringResource(R.string.svo_decline_confirm), fontWeight = FontWeight.Bold) } },
+            dismissButton = { DialogButton(enabled = !busy, onClick = { declining = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

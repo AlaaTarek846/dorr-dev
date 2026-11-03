@@ -215,9 +215,9 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
         },
     ) {
         DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.fl_inv_search), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category) { all = false }
-            Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps) { all = true }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category, Modifier.weight(1f), fit = true) { all = false }
+            Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps, Modifier.weight(1f), fit = true) { all = true }
         }
         if (searching) repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(14.dp)) }
         else if (found.isEmpty()) FlNotice(stringResource(R.string.fl_inv_none_found), Icons.Rounded.Info, settingsMut())

@@ -182,6 +182,7 @@
     <string name="fl_ag_hint_pending">Sent. When the freelancer approves, the work starts.</string>
     <string name="fl_ag_hint_active">Both approved it. It can’t change now.</string>
     <string name="fl_ag_hint_ended">This agreement ended. You can choose another offer.</string>
+    <string name="fl_ag_hint_completed">All the parts are done and approved.</string>
     <string name="fl_ag_answer_by">The freelancer answers by %1$s</string>
     <string name="fl_ag_review_days">Days to review a delivery</string>
     <string name="fl_ag_free_revisions">Free revisions</string>
@@ -532,4 +533,15 @@
     <string name="fl_ms_split_intro">Split the price into parts. Each part is paid when you approve it.</string>
     <string name="fl_ms_revision_intro">Tell the freelancer what to change and they will send a new version.</string>
     <string name="fl_dispute_reason">Reason</string>
+    <!-- Project form: what is wrong with the money, and the question before leaving a changed form -->
+    <string name="fl_err_range">The top of the budget must be more than its bottom.</string>
+    <string name="fl_err_below_min">The budget is below the allowed minimum (%1$s %2$s).</string>
+    <string name="fl_err_above_max">The budget is above the allowed maximum (%1$s %2$s).</string>
+    <string name="fl_err_cap_below">The most you will pay must be at least the budget.</string>
+    <string name="fl_err_cap_below_fees">The most you will pay must cover the budget plus the service fee, which is at least %1$s %2$s.</string>
+    <string name="fl_leave_title">Save your changes?</string>
+    <string name="fl_leave_body">If you leave without saving, the changes you made are lost.</string>
+    <string name="fl_leave_save">Save</string>
+    <string name="fl_leave_keep">Keep editing</string>
+    <string name="fl_leave_discard">Leave without saving</string>
 </resources>

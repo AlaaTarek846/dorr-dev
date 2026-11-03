@@ -84,10 +84,10 @@
     <string name="cm_react_support">بدعمك</string>
 
     <string name="cm_time_now">دلوقتي</string>
-    <string name="cm_time_minutes">من %1$d د</string>
-    <string name="cm_time_hours">من %1$d س</string>
-    <string name="cm_time_days">من %1$d يوم</string>
-    <string name="cm_time_weeks">من %1$d أسبوع</string>
+    <string name="cm_time_minutes">منذ %1$d دقيقة</string>
+    <string name="cm_time_hours">منذ %1$d ساعة</string>
+    <string name="cm_time_days">منذ %1$d يوم</string>
+    <string name="cm_time_weeks">منذ %1$d أسبوع</string>
 
     <string name="cm_post_title">المنشور</string>
     <string name="cm_question_title">السؤال</string>

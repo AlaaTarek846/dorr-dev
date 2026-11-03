@@ -5653,7 +5653,8 @@
             },
             "side": {
                 "client": "Client",
-                "freelancer": "Freelancer"
+                "freelancer": "Freelancer",
+                "system": "System"
             },
             "status": {
                 "open": "Open",

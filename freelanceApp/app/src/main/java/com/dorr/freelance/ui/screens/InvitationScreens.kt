@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
 import com.dorr.freelance.R
+import com.dorr.freelance.net.HomeHub
 import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.InvitationDto
 import com.dorr.freelance.net.PagedRows
@@ -146,7 +147,11 @@ fun InvitationsScreen(onBack: () -> Unit, onOpenProject: (String) -> Unit, embed
             list != null -> list.forEach { i ->
                 InvitationCard(
                     i, onOpen = { i.project?.uuid?.let(onOpenProject) },
-                    onAnswered = { s -> paged.update({ it.uuid == i.uuid }) { it.copy(status = s, can = it.can.copy(accept = false, decline = false, offer = s == "accepted" && !it.offered)) } },
+                    onAnswered = { s ->
+                        paged.update({ it.uuid == i.uuid }) { it.copy(status = s, can = it.can.copy(accept = false, decline = false, offer = s == "accepted" && !it.offered)) }
+                        // The tab badge and the counts follow the answer (one read, not a timer).
+                        scope.launch { HomeHub.refresh() }
+                    },
                     onError = { error = it },
                 )
             }

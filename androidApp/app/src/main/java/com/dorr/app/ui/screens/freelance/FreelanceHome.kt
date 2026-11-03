@@ -121,7 +121,8 @@ internal fun FreelanceHome(version: Int, onExit: () -> Unit, open: (FlRoute) -> 
                 }
                 if (h != null && h.promos.isNotEmpty()) PromoSlider(h.promos, open)
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    NewProjectCard { open(FlRoute.NewProject) }
+                    // A banner already sits above (often the same ask), so the card waits for the hub to say there is none; it stays when the read failed.
+                    if (h?.promos?.isEmpty() == true || (h == null && failed)) NewProjectCard { open(FlRoute.NewProject) }
                     when {
                         h == null && !failed -> HomeSkeleton()
                         h == null -> FlRetry(stringResource(R.string.fl_error_generic))

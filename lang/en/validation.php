@@ -37,6 +37,18 @@ return [
     'gif_video_only' => 'Only a video can be sent as a GIF.',
 
     'custom' => [
+        'started_on' => ['before_or_equal' => 'The start date must be today or earlier.'],
+        'ended_on' => [
+            'before_or_equal' => 'The end date must be today or earlier.',
+            'after_or_equal' => 'The end date must be on or after the start date.',
+        ],
+        'completed_on' => ['before_or_equal' => 'The completion date must be today or earlier.'],
+        'paused_until' => ['after_or_equal' => 'The pause end date must be today or later.'],
+        'starts_on' => ['after_or_equal' => 'The start date must be today or later.'],
+        'ends_on' => ['after_or_equal' => 'The end date must be on or after the start date.'],
+        'date_of_birth' => [
+            'before' => 'You must be at least 16 years old.',
+        ],
         'code' => [
             'unique' => 'This code is already in use.',
         ],
@@ -83,6 +95,18 @@ return [
     ],
 
     'attributes' => [
+        'credential_url' => 'verification link',
+        'issuer' => 'issuer',
+        'issued_on' => 'issue date',
+        'expires_on' => 'expiry date',
+        'external_url' => 'link',
+        'video_url' => 'video link',
+        'completed_on' => 'completion date',
+        'started_on' => 'start date',
+        'ended_on' => 'end date',
+        'paused_until' => 'pause end date',
+        'rate_min_minor' => 'minimum rate',
+        'rate_max_minor' => 'maximum rate',
         'file' => 'file',
         'avatar' => 'avatar',
         'name' => 'name',

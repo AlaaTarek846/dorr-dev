@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -119,7 +120,7 @@ private fun AppealDialog(s: SanctionDto, onDone: (SanctionsDto) -> Unit, onDismi
             }
         },
         confirmButton = {
-            TextButton(enabled = note.trim().length >= 5 && !busy, onClick = {
+            DialogButton(enabled = note.trim().length >= 5 && !busy, onClick = {
                 busy = true
                 error = null
                 scope.launch {
@@ -128,8 +129,8 @@ private fun AppealDialog(s: SanctionDto, onDone: (SanctionsDto) -> Unit, onDismi
                     if (done != null) onDone(done) else error = r.errorText(offlineText) ?: genericError
                     busy = false
                 }
-            }) { Text(stringResource(R.string.sc_appeal_send), color = settingsAccent()) }
+            }) { Text(stringResource(R.string.sc_appeal_send)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        dismissButton = { DialogButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
     )
 }

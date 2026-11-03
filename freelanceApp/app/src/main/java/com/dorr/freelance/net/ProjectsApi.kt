@@ -76,5 +76,5 @@ data class ProjectBudgetDto(
     val type: String = "fixed",
     @SerializedName("min_minor") val minMinor: Long? = null,
     @SerializedName("max_minor") val maxMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )

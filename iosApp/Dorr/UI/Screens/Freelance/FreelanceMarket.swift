@@ -22,7 +22,8 @@ func mkMoney(_ minor: Int?, _ decimals: Int?, _ currency: String?) -> String {
     f.minimumFractionDigits = d
     f.maximumFractionDigits = d
     let text = f.string(from: value as NSDecimalNumber) ?? "0"
-    return "\u{200E}" + ((currency ?? "").isEmpty ? text : "\(text) \(currency!)")
+    let sign = flCurrencySign(currency)
+    return "\u{200E}" + (sign.isEmpty ? text : "\(text) \(sign)")
 }
 
 private func mkLevelName(_ level: String?) -> String {

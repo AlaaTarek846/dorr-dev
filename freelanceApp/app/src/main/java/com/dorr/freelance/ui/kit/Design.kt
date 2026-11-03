@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Loyalty
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.VideoChat
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -117,10 +118,13 @@ internal fun SegmentTabs(segments: List<Segment>, selected: String, onSelect: (S
 
 /** A hub tab (Opportunities, My work): its title and line, the parts switch, then the open part filling the rest. */
 @Composable
-internal fun HubTabFrame(title: String, subtitle: String?, segments: List<Segment>, selected: String, onSelect: (String) -> Unit, content: @Composable () -> Unit) {
+internal fun HubTabFrame(title: String, subtitle: String?, segments: List<Segment>, selected: String, onSelect: (String) -> Unit, onBack: (() -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 10.dp)) {
-            Text(title, color = settingsInk(), fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = settingsInk(), fontSize = 22.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                if (onBack != null) com.dorr.freelance.ui.screens.RoundIcon(Icons.AutoMirrored.Rounded.ArrowBack, androidx.compose.ui.res.stringResource(com.dorr.freelance.R.string.common_back), mirrored = true, onClick = onBack)
+            }
             subtitle?.let { Text(it, color = settingsMut(), fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp)) }
             if (segments.size > 1) SegmentTabs(segments, selected, onSelect, Modifier.padding(top = 12.dp))
         }

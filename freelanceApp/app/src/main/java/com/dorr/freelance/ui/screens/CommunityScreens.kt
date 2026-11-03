@@ -1157,7 +1157,7 @@ private fun CommentBar(
             }
         }
         if (text.length > max * 0.8) {
-            Text("${text.length} / $max", color = if (text.length >= max) Color(0xFFDC2626) else settingsMut(), fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
+            Text("\u200E${text.length} / $max", color = if (text.length >= max) Color(0xFFDC2626) else settingsMut(), fontSize = 11.sp, modifier = Modifier.align(Alignment.End))
         }
     }
 }

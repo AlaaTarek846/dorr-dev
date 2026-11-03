@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- FL-L09: special offers from freelancers I worked with (the client's side). -->
 <resources>
-    <string name="spc_chip">Special offers</string>
-    <string name="spc_banner_title">%1$d special offers for you</string>
+    <string name="spc_chip">Offers</string>
+    <plurals name="spc_banner_title">
+        <item quantity="one">You have a special offer</item>
+        <item quantity="other">You have %1$d special offers</item>
+    </plurals>
     <string name="spc_banner_body">Freelancers you worked with made you an offer. Take a look before it ends.</string>
     <string name="spc_title">Special offers</string>
     <string name="spc_tab_open">Waiting</string>

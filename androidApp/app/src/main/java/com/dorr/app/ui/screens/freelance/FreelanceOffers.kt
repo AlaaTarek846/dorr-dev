@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -326,11 +327,15 @@ private fun OfferPriceRow(o: FreelanceOfferDto) {
 // ---------------------------------------------------------------- side by side
 
 @Composable
-internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> Unit, onOpen: (String) -> Unit) {
+internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> Unit, onOpen: (String) -> Unit, onChosen: () -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
+    val scope = rememberCoroutineScope()
     var data by remember { mutableStateOf<FreelanceCompareDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // The one being chosen right here (its sheet), so the client need not go back to the offer page.
+    var choosing by remember { mutableStateOf<FreelanceOfferDto?>(null) }
+    var busy by remember { mutableStateOf(false) }
 
     LaunchedEffect(projectUuid, ids, reconnect) {
         try {
@@ -363,22 +368,26 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
                         Text(o.freelancer?.name ?: "—", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         PlanBadge(o.freelancer?.badge)
                         OfferStatusPill(o.status)
+                        if (o.can.choose) Text(
+                            stringResource(R.string.fl_choose_offer), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(999.dp)).background(settingsAccent()).clickable { choosing = o }.padding(vertical = 8.dp),
+                        )
                     }
                 }
             }
             CompareRow(stringResource(R.string.fl_price), d) { o -> Cell("‎${money(o.priceMinor)} ${o.currency}", best = d.best.price == o.uuid) }
             CompareRow(stringResource(R.string.fl_you_pay), d) { o -> Cell(o.clientCost?.let { "‎${money(it.totalMinor)} ${it.currency}" } ?: "—") }
             CompareRow(stringResource(R.string.fl_duration), d) { o -> Cell(stringResource(R.string.fl_days, o.durationDays), best = d.best.duration == o.uuid) }
-            CompareRow(stringResource(R.string.fl_profile_complete), d) { o -> Cell("${o.freelancer?.completeness ?: 0}%", best = d.best.completeness == o.uuid) }
+            CompareRow(stringResource(R.string.fl_profile_complete), d) { o -> Cell("${num(o.freelancer?.completeness ?: 0)}%", best = d.best.completeness == o.uuid) }
             CompareRow(stringResource(R.string.fl_skills_fit), d) { o -> Cell(skillsMatch(o.freelancer) ?: "—", best = d.best.skills == o.uuid && (o.freelancer?.matchingSkills?.isNotEmpty() == true)) }
             CompareRow(stringResource(R.string.fl_verified), d) { o -> Cell(stringResource(if (o.freelancer?.verified == true) R.string.fl_yes else R.string.fl_no)) }
             CompareRow(stringResource(R.string.fl_experience_years), d) { o -> Cell(o.freelancer?.yearsOfExperience?.let { stringResource(R.string.fl_years, it) } ?: "—") }
-            CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell("${o.freelancer?.portfolioCount ?: 0}") }
+            CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell(num(o.freelancer?.portfolioCount ?: 0)) }
             // FL-L13: the ownership model each one offers.
             if (d.offers.any { it.rights != null }) CompareRow(stringResource(R.string.rights_compare), d) { o -> Cell(o.rights?.modelLabel ?: "—") }
             // FL-703: what they finished, and on time.
-            CompareRow(stringResource(R.string.fl_st_completed), d) { o -> Cell("${o.freelancer?.completedProjects ?: 0}" + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")) }
-            CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(o.freelancer?.onTimeRate?.let { "$it%" } ?: "—") }
+            CompareRow(stringResource(R.string.fl_st_completed), d) { o -> Cell(num(o.freelancer?.completedProjects ?: 0) + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")) }
+            CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(o.freelancer?.onTimeRate?.let { "${num(it)}%" } ?: "—") }
             CompareRow(stringResource(R.string.fl_rating_label), d) { o -> Cell(ratingText(o.freelancer)) }
             CompareRow(stringResource(R.string.fl_offer_details), d) { o -> Cell(o.details, small = true) }
             // FL-307: the same question, each one's answer.
@@ -388,7 +397,28 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
             Spacer(Modifier.height(16.dp))
         }
     }
+    choosing?.let { o ->
+        ChooseSheet(o, busy = busy, onDismiss = { if (!busy) choosing = null }, onConfirm = {
+            busy = true
+            scope.launch {
+                try {
+                    ApiClient.freelance.decideOffer(auth(), projectUuid, o.uuid, "choose", FreelanceDecisionRequest(null))
+                    choosing = null
+                    onChosen()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    error = e.message(generic)
+                    choosing = null
+                }
+                busy = false
+            }
+        })
+    }
 }
+
+/** A count in the app's language digits (a bare "${n}" would stay Latin next to «٣ سنين»). */
+private fun num(n: Int): String = java.text.NumberFormat.getIntegerInstance().format(n)
 
 @Composable
 private fun CompareRow(label: String, d: FreelanceCompareDto, cell: @Composable (FreelanceOfferDto) -> Unit) {
@@ -477,8 +507,9 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                     f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
                     Text(ratingText(f), color = settingsMut(), fontSize = 12.sp)
                     Text(stringResource(R.string.fl_see_profile), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    // Under the name, not beside it: a wide pill ("In the shortlist") squeezed the name into one letter per line.
+                    OfferStatusPill(o.status)
                 }
-                OfferStatusPill(o.status)
             }
             Card {
                 OfferPriceRow(o)

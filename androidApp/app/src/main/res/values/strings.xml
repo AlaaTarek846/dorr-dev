@@ -216,6 +216,7 @@
     <string name="account_logout_sub">Leave this device</string>
     <string name="account_delete_sub">Restorable by signing in again</string>
     <string name="account_delete_in_progress">Deleting…</string>
+    <string name="common_in_progress">Please wait…</string>
     <string name="account_delete_done">Your account was deleted. Sign in again with the same phone number to restore it.</string>
     <string name="account_delete_failed">We couldn\'t delete your account. Please try again.</string>
     <string name="account_deleted_title">Account Deleted</string>

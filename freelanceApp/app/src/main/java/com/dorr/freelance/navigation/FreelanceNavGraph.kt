@@ -6,7 +6,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -205,12 +206,12 @@ fun FreelanceNavGraph() {
             title = { Text(stringResource(R.string.gate_title)) },
             text = { Text(stepText(step, null)) },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     Gate.dismiss()
                     nav.navigate(Routes.VERIFICATION) { launchSingleTop = true }
                 }) { Text(stringResource(R.string.gate_open)) }
             },
-            dismissButton = { TextButton(onClick = { Gate.dismiss() }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = { DialogButton(onClick = { Gate.dismiss() }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
