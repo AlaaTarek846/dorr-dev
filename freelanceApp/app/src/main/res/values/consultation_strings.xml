@@ -89,7 +89,7 @@
     <string name="cns_pending_banner">%1$d consultation request(s) waiting for your answer</string>
     <string name="cns_pending_home">New request from %1$s</string>
     <string name="cns_note_upcoming">The money is held and the time is yours. The session is a video call; it opens here at the time.</string>
-    <string name="cns_note_live">It is time now. The video call starts here soon.</string>
+    <string name="cns_note_live">It is time now. Join the video session from the card below.</string>
     <string name="cns_note_ended">If the client reports nothing, the money is yours on %1$s.</string>
     <string name="cns_note_completed">Done and paid. The money is in your earnings.</string>
     <string name="cns_note_disputed">The client reported a problem. The Dorr team is looking at it and will tell you both.</string>

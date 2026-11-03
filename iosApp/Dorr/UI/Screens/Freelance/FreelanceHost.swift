@@ -1,10 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// androidApp `freelance/FreelanceHost.kt` — freelance work for the client (FL-201 / FL-202): my projects, the
-// project form (a draft saved as it is typed, its files) and one project with what can be done now (send for
-// review, take it back, cancel, delete). Every project is reviewed before it is published. Nothing is asked on a
-// timer: each page reads once when it opens and when the connection comes back.
+// androidApp `freelance/FreelanceHost.kt` — freelance work for the client (FL-201 / FL-202): the hub (`FreelanceHome`)
+// and the pages that open over it — my projects, the project form (a draft saved as it is typed, its files) and one
+// project with what can be done now (send for review, take it back, cancel, delete), the services, consultations and the
+// rest. Every project is reviewed before it is published. Nothing is asked on a timer: each page reads once when it opens
+// and when the connection comes back.
 
 /// "1234.50" from minor units (the country's currency has two decimals).
 func flMoney(_ minor: Int?) -> String {
@@ -35,111 +36,114 @@ func flAmount(_ minor: Int?, _ currency: String?) -> String { "\u{200E}\(flMoney
 @MainActor
 struct FreelanceHost: View {
     let onExit: () -> Void
-    // "list", "new", "edit:<uuid>", "show:<uuid>", "preview:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
-    @State private var page = "list"
+    // The open pages (see `FlStack`): the hub first, the page on screen last.
+    @State private var stack = FlStack.start
     @State private var listVersion = 0
-    // FL-L07: where booking a consultation was opened from (back returns there).
-    @State private var bookFrom = "list"
     @ObservedObject private var link = FreelanceLink.shared
 
-    private var parts: [String] { page.components(separatedBy: ":") }
-
-    private func back() -> String {
-        let p = parts
-        switch p[0] {
-        case "edit", "offers": return "show:" + p[1]
-        case "offer", "compare": return "offers:" + p[1]
-        case "chat", "freelancer": return "offer:" + p[1] + ":" + p[2]
-        // FL-L04: the market and my orders.
-        case "market", "orders": return "list"
-        case "svc": return "market"
-        case "order": return "orders"
-        // FL-L07: consultations.
-        case "consults", "cmarket": return "list"
-        case "consult": return "consults"
-        case "book": return bookFrom
-        case "agreement", "invites", "preview": return "show:" + p[1]
-        case "dispute", "dispute-new": return "agreement:" + p[1]
-        default: return "list"
-        }
-    }
+    private func go(_ next: FlStack) { stack = next }
+    private func open(_ route: FlRoute) { go(stack.open(route)) }
+    private func replace(_ route: FlRoute) { go(stack.replace(route)) }
+    private func back() { if stack.routes.count > 1 { go(stack.back()) } else { onExit() } }
 
     var body: some View {
-        let p = parts
         ZStack {
             PinkBackdrop()
-            Group {
-                switch p[0] {
-                case "new":
-                    ProjectForm(uuid: nil, onBack: { page = "list" }, onSaved: { page = "show:\($0)"; listVersion += 1 })
-                case "edit":
-                    ProjectForm(uuid: p[1], onBack: { page = "show:" + p[1] }, onSaved: { page = "show:\($0)"; listVersion += 1 })
-                case "show":
-                    ProjectDetails(uuid: p[1], onBack: { page = "list" }, onEdit: { page = "edit:\($0)" },
-                                   onGone: { page = "list"; listVersion += 1 }, onPreview: { page = "preview:" + p[1] },
-                                   onCopied: { listVersion += 1; page = "show:\($0)" }, onOffers: { page = "offers:" + p[1] },
-                                   onOpenOffer: { page = "offer:\(p[1]):\($0)" }, onAgreement: { page = "agreement:" + p[1] },
-                                   onInvitations: { page = "invites:" + p[1] })
-                case "preview":
-                    PreviewPage(uuid: p[1], onBack: { page = back() }, onEdit: { page = "edit:" + p[1] }, onSent: { listVersion += 1; page = "show:" + p[1] })
-                case "invites":
-                    InvitationsPage(projectUuid: p[1], onBack: { page = back() }, onOpenOffer: { page = "offer:\(p[1]):\($0)" },
-                                    onMadePublic: { listVersion += 1; page = "show:" + p[1] })
-                case "offers":
-                    OffersPage(projectUuid: p[1], onBack: { page = back() }, onOpen: { page = "offer:\(p[1]):\($0)" },
-                               onCompare: { page = "compare:\(p[1]):" + $0.joined(separator: ",") })
-                case "compare":
-                    ComparePage(projectUuid: p[1], ids: p[2].components(separatedBy: ","), onBack: { page = back() }, onOpen: { page = "offer:\(p[1]):\($0)" })
-                case "offer":
-                    OfferPage(projectUuid: p[1], offerUuid: p[2], onBack: { page = back() }, onProfile: { page = "freelancer:\(p[1]):\(p[2])" },
-                              onChat: { page = "chat:\(p[1]):\(p[2]):\($0)" }, onChosen: { listVersion += 1; page = "agreement:" + p[1] })
-                case "agreement":
-                    AgreementPage(projectUuid: p[1], onBack: { page = back() }, onEnded: { listVersion += 1 },
-                                  onDispute: { m, d in page = d.map { "dispute:\(p[1]):\($0)" } ?? "dispute-new:\(p[1]):\(m)" })
-                case "dispute":
-                    DisputePage(projectUuid: p[1], milestoneUuid: nil, disputeUuid: p[2], onBack: { page = back() }, onOpened: { _ in })
-                case "dispute-new":
-                    DisputePage(projectUuid: p[1], milestoneUuid: p[2], disputeUuid: nil, onBack: { page = back() }, onOpened: { page = "dispute:\(p[1]):\($0)" })
-                case "favorites":
-                    FavoritesPage(onBack: { page = "list" })
-                case "market":
-                    MarketPage(onBack: { page = back() }, onOpen: { page = "svc:\($0)" }, onOrders: { page = "orders" }, onConsultations: { page = "cmarket" })
-                case "svc":
-                    ServicePage(uuid: p[1], onBack: { page = back() }, onOrdered: { listVersion += 1; page = "order:\($0)" })
-                case "cmarket":
-                    ConsultationsMarketPage(onBack: { page = back() }, onOpen: { bookFrom = page; page = "book:\($0)" }, onMine: { page = "consults" })
-                case "consults":
-                    MyConsultationsPage(onBack: { page = back() }, onOpen: { page = "consult:\($0)" })
-                case "consult":
-                    ConsultationPage(uuid: p[1], onBack: { page = back() })
-                case "book":
-                    BookConsultationPage(offerUuid: p[1], onBack: { page = back() }, onBooked: { page = "consult:\($0)" })
-                case "orders":
-                    MyOrdersPage(onBack: { page = back() }, onOpen: { page = "order:\($0)" }, onBrowse: { page = "market" })
-                case "order":
-                    MyOrderPage(uuid: p[1], onBack: { page = back() }, onOpenWork: { page = "agreement:\($0)" }, onOrderAgain: { page = "svc:\($0)" })
-                case "chat":
-                    FreelanceChatPage(roomUuid: p[3], onBack: { page = back() })
-                case "freelancer":
-                    FreelancerProfilePage(projectUuid: p[1], offerUuid: p[2], onBack: { page = back() }, onBookConsultation: { bookFrom = page; page = "book:\($0)" })
-                default:
-                    ProjectList(version: listVersion, onExit: onExit, onNew: { page = "new" }, onOpen: { page = "show:\($0)" }, onFavorites: { page = "favorites" },
-                                onMarket: { page = "market" }, onOrders: { page = "orders" }, onConsultations: { page = "consults" }, onConsultMarket: { page = "cmarket" })
-                }
+            // The hub and the lists stay alive under the page on screen, so they keep what they hold (a filter, the scroll)
+            // until they are left; a page of one item is drawn afresh when it is back on screen (see `FlRoute.keepsAlive`).
+            ForEach(stack.routes.filter { $0.keepsAlive || $0 == stack.top }, id: \.key) { route in
+                let onTop = route == stack.top
+                page(route)
+                    .opacity(onTop ? 1 : 0)
+                    .allowsHitTesting(onTop)
+                    .accessibilityHidden(!onTop)
             }
-            .id(page)
         }
+        // FL-L13: no screenshots or recordings of the freelance work section (Android FLAG_SECURE twin; see StoryViewer).
+        .screenshotShield(true)
         // A tapped notification names the page it belongs to (also when this screen is already open).
         .onAppear(perform: openLinked)
         .onChange(of: link.pending) { _ in openLinked() }
         #if DEBUG
-        .task { if let start = UserDefaults.standard.string(forKey: "DorrFreelancePage") { page = start } }
+        .task { if let start = UserDefaults.standard.string(forKey: "DorrFreelancePage") { stack = FlStack.read(start) } }
         #endif
+    }
+
+    @ViewBuilder
+    private func page(_ route: FlRoute) -> some View {
+        switch route {
+        case .home:
+            FreelanceHome(version: listVersion, onExit: onExit, open: open)
+        case .projects:
+            ProjectList(version: listVersion, onBack: back, onNew: { open(.newProject) }, onOpen: { open(.project($0)) })
+        case .newProject:
+            ProjectForm(uuid: nil, onBack: back, onSaved: { listVersion += 1; replace(.project($0)) })
+        case .editProject(let p):
+            ProjectForm(uuid: p, onBack: back, onSaved: { listVersion += 1; replace(.project($0)) })
+        case .project(let p):
+            ProjectDetails(uuid: p, onBack: back, onEdit: { open(.editProject($0)) },
+                           onGone: { listVersion += 1; back() }, onPreview: { open(.preview(p)) },
+                           onCopied: { listVersion += 1; replace(.project($0)) }, onOffers: { open(.offers(p)) },
+                           onOpenOffer: { open(.offer(p, $0)) }, onAgreement: { open(.agreement(p)) },
+                           onInvitations: { open(.invitations(p)) })
+        case .preview(let p):
+            PreviewPage(uuid: p, onBack: back, onEdit: { replace(.editProject(p)) }, onSent: { listVersion += 1; back() })
+        case .invitations(let p):
+            InvitationsPage(projectUuid: p, onBack: back, onOpenOffer: { open(.offer(p, $0)) }, onMadePublic: { listVersion += 1; back() })
+        case .offers(let p):
+            OffersPage(projectUuid: p, onBack: back, onOpen: { open(.offer(p, $0)) }, onCompare: { open(.compare(p, $0)) })
+        case .compare(let p, let ids):
+            ComparePage(projectUuid: p, ids: ids, onBack: back, onOpen: { open(.offer(p, $0)) })
+        case .offer(let p, let o):
+            // The work is agreed: its agreement opens over the project (back from it is the project, not the offers).
+            OfferPage(projectUuid: p, offerUuid: o, onBack: back, onProfile: { open(.freelancer(p, o)) },
+                      onChat: { open(.chat(p, o, $0)) }, onChosen: { listVersion += 1; go(stack.after({ $0 == .project(p) }, .agreement(p))) })
+        case .agreement(let p):
+            AgreementPage(projectUuid: p, onBack: back, onEnded: { listVersion += 1 },
+                          onDispute: { m, d in open(d.map { .dispute(p, $0) } ?? .newDispute(p, m)) })
+        case .dispute(let p, let d):
+            DisputePage(projectUuid: p, milestoneUuid: nil, disputeUuid: d, onBack: back, onOpened: { _ in })
+        case .newDispute(let p, let m):
+            DisputePage(projectUuid: p, milestoneUuid: m, disputeUuid: nil, onBack: back, onOpened: { replace(.dispute(p, $0)) })
+        case .favorites:
+            FavoritesPage(onBack: back)
+        case .receipts:
+            ReceiptsPage(onBack: back)
+        // «Services»: the ready-made services and the consultations as two parts of one page.
+        case .services, .consultMarket:
+            ServicesPage(start: route == .consultMarket ? 1 : 0, onBack: back, onOpenService: { open(.service($0)) }, onOrders: { open(.orders) },
+                         onBook: { open(.book($0)) }, onMine: { open(.consultations) })
+        case .service(let u):
+            ServicePage(uuid: u, onBack: back, onOrdered: { listVersion += 1; replace(.order($0)) })
+        case .consultation(let u):
+            ConsultationPage(uuid: u, onBack: back)
+        case .book(let o):
+            BookConsultationPage(offerUuid: o, onBack: back, onBooked: { replace(.consultation($0)) })
+        case .specialOffer(let u):
+            SpecialOfferPage(uuid: u, onBack: back,
+                             onOpenWork: { listVersion += 1; open(.agreement($0)) }, onOpenOrder: { listVersion += 1; open(.order($0)) },
+                             onOpenConsultation: { open(.consultation($0)) }, onBook: { special, consult in open(.specialBook(special, consult)) })
+        case .specialBook(let special, let o):
+            BookConsultationPage(offerUuid: o, onBack: back, onBooked: { listVersion += 1; replace(.consultation($0)) }, special: special)
+        case .loyalty:
+            LoyaltyPage(onBack: back)
+        // «My activity»: my orders, my consultations and the special offers as three parts of one page.
+        case .orders, .consultations, .specialOffers:
+            ActivityPage(start: route == .consultations ? 1 : (route == .specialOffers ? 2 : 0), onBack: back,
+                         onOpenOrder: { open(.order($0)) }, onBrowse: { open(.services) },
+                         onOpenConsultation: { open(.consultation($0)) }, onOpenSpecial: { open(.specialOffer($0)) })
+        case .order(let u):
+            MyOrderPage(uuid: u, onBack: back, onOpenWork: { open(.agreement($0)) }, onOrderAgain: { open(.service($0)) })
+        case .chat(_, _, let room):
+            FreelanceChatPage(roomUuid: room, onBack: back)
+        case .freelancer(let p, let o):
+            FreelancerProfilePage(projectUuid: p, offerUuid: o, onBack: back, onBookConsultation: { open(.book($0)) })
+        }
     }
 
     private func openLinked() {
         guard let linked = link.pending else { return }
-        page = linked
+        stack = FlStack.read(linked)
         link.pending = nil
     }
 }
@@ -229,9 +233,12 @@ struct FlChip: View {
                 Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(selected ? .white : wa.settingsInk).lineLimit(1).fixedSize()
             }
             .padding(.horizontal, 14).padding(.vertical, 8)
+            // A comfortable finger (40pt at least), read out with whether it is the one picked.
+            .frame(minHeight: 40)
             .background(selected ? wa.accent : wa.accent.opacity(0.08), in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
@@ -248,16 +255,34 @@ struct FlNotices: View {
 
 /// What a page shows until it is read: the skeleton, or the failure when the read failed.
 struct FlLoading: View {
-    @Environment(\.wa) private var wa
     let error: String?
 
     var body: some View {
         if let error {
-            Text(verbatim: error).font(.dorr(14)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).padding(24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            FlRetry(message: error).frame(maxHeight: .infinity, alignment: .top)
         } else {
             FlSkeletonDetail()
         }
+    }
+}
+
+/// androidApp `FlRetry` — a read that failed: what went wrong and «Try again», which reads the screens on show once more (the
+/// same as a pull — never a timer).
+struct FlRetry: View {
+    @Environment(\.wa) private var wa
+    @EnvironmentObject private var network: NetworkMonitor
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "icloud.slash").font(.system(size: 24, weight: .semibold)).foregroundStyle(wa.accent)
+                .frame(width: 56, height: 56).background(wa.accent.opacity(0.10), in: Circle())
+                .accessibilityHidden(true)
+            Text(verbatim: message).font(.dorr(14)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).lineSpacing(3)
+            FlAction(text: L("flx_retry"), icon: "arrow.clockwise") { network.noticeArrived() }.frame(width: 200)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
     }
 }
 
@@ -314,7 +339,9 @@ struct FlBottomPanel<Content: View>: View {
 
 // MARK: - My projects
 
-private let flFilters: [String?] = [nil, "draft", "pending_review", "changes_requested", "published", "awarded", "in_progress", "rejected", "cancelled"]
+/// The statuses under «Running» and under «Ended» (nil: all of that part).
+private let flActiveFilters: [String?] = [nil, "draft", "pending_review", "changes_requested", "published", "awarded", "in_progress"]
+private let flEndedFilters: [String?] = [nil, "closed", "rejected", "cancelled"]
 
 func flStatusLabel(_ status: String) -> String {
     switch status {
@@ -352,6 +379,7 @@ private func filterIcon(_ status: String?) -> String {
     case "awarded": return "person.2.fill"
     case "in_progress": return "arrow.triangle.2.circlepath"
     case "rejected": return "nosign"
+    case "closed": return "checkmark.seal.fill"
     default: return "xmark.circle.fill"
     }
 }
@@ -375,49 +403,50 @@ private func budgetText(_ p: FreelanceProjectDto) -> String? {
 
 private func untitled(_ p: FreelanceProjectDto) -> String { (p.title?.isEmpty == false ? p.title : nil) ?? L("fl_untitled") }
 
+/// My projects (the client redesign, batch C): «Running» and «Ended» side by side, the statuses of that part as chips, «New project»
+/// in the head, pulling down reads the list again. Each card says where the project stands and, on a coloured line, what is wanted
+/// from me.
 @MainActor
 private struct ProjectList: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     let version: Int
-    let onExit: () -> Void
+    let onBack: () -> Void
     let onNew: () -> Void
     let onOpen: (String) -> Void
-    let onFavorites: () -> Void
-    var onMarket: () -> Void = {}
-    var onOrders: () -> Void = {}
-    var onConsultations: () -> Void = {}
-    var onConsultMarket: () -> Void = {}
+    @State private var ended = false
     @State private var filter: String?
-    // A new filter is a new list (it starts from the first page); the next pages come while I scroll.
+    // A new part or filter is a new list (it starts from the first page); the next pages come while I scroll.
     @StateObject private var paged = PagedRows<FreelanceProjectDto>(key: { $0.uuid })
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_my_projects"), onBack: onExit)
+            FlPageHeader(title: L("fl_my_projects"), onBack: onBack,
+                         trailing: AnyView(FlHeaderAction(text: L("fl_new_project"), icon: "plus", action: onNew)))
+            FlTabs(tabs: [FlTab(icon: "arrow.triangle.2.circlepath", label: L("flp_scope_active")), FlTab(icon: "archivebox.fill", label: L("flp_scope_ended"))],
+                   selected: ended ? 1 : 0) { i in
+                if (i == 1) != ended { ended = i == 1; filter = nil }
+            }
+            .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    FlChip(text: L("fl_favorites"), selected: false, icon: "heart.fill", action: onFavorites)
-                    // FL-L07: my paid consultations.
-                    FlChip(text: L("cs_market_title"), selected: false, icon: "video.bubble.left.fill", action: onConsultMarket)
-                    FlChip(text: L("cs_mine_title"), selected: false, icon: "calendar.badge.checkmark", action: onConsultations)
-                    ForEach(flFilters, id: \.self) { f in
+                    ForEach(ended ? flEndedFilters : flActiveFilters, id: \.self) { f in
                         FlChip(text: f.map(flStatusLabel) ?? L("fl_filter_all"), selected: filter == f, icon: filterIcon(f)) { filter = f }
                     }
                 }
-                .padding(.horizontal, 14).padding(.vertical, 4)
+                .padding(.horizontal, 14).padding(.vertical, 10)
             }
             if !paged.loaded && paged.error == nil {
                 FlSkeletonList()
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 10) {
+                    LazyVStack(spacing: 12) {
                         // FL-708: shown only while a warning / restriction is active or its appeal waits.
                         SanctionsCard(refreshKey: version)
-                        // FL-L04: order a ready-made service instead of waiting for offers.
-                        MarketBanner(onBrowse: onMarket, onOrders: onOrders)
                         if paged.rows.isEmpty && paged.error == nil {
-                            WaEmpty(icon: "briefcase.fill", tone: .blue, title: L("fl_empty_title"), text: L("fl_empty_text"))
+                            WaEmpty(icon: ended ? "archivebox.fill" : "briefcase.fill", tone: .blue,
+                                    title: L(ended ? "flp_empty_ended_title" : "fl_empty_title"), text: L(ended ? "flp_empty_ended_text" : "fl_empty_text"))
+                            if !ended && filter == nil { FlAction(text: L("flh_new_action"), icon: "plus", tone: .primary, action: onNew) }
                         }
                         ForEach(Array(paged.rows.enumerated()), id: \.element.uuid) { i, p in
                             ProjectCard(p: p) { onOpen(p.uuid) }.onAppear { paged.appeared(i) }
@@ -425,59 +454,94 @@ private struct ProjectList: View {
                         PagedSpinner(paged: paged)
                         PagedError(paged: paged)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .padding(.horizontal, 16).padding(.top, 2).padding(.bottom, 20)
                 }
+                // Pulling down reads the list again (the client's own gesture, not a timer).
+                .refreshable { await paged.reload() }
             }
-            SettingsPrimaryButton(text: L("fl_new_project"), action: onNew).padding(16)
         }
-        .task(id: "\(filter ?? "")") {
+        .task(id: "\(ended)|\(filter ?? "")") {
             let status = filter
-            paged.reset { page in try await FreelanceApi.projects(status: status, page: page) }
+            let scope = ended ? "ended" : "active"
+            paged.reset { page in try await FreelanceApi.projects(status: status, page: page, scope: scope) }
         }
-        .task(id: "\(filter ?? "")|\(network.reconnectTick)|\(version)") { await paged.reload() }
+        .task(id: "\(ended)|\(filter ?? "")|\(network.reconnectTick)|\(version)") { await paged.reload() }
     }
 }
 
-private struct ProjectCard: View {
+/// A project on a list (my projects, the hub): its status on its colour, the title and specialty, the budget, the days and the
+/// offers, the parts done when the work is running, and — on a coloured line under it — what is wanted from me now.
+struct ProjectCard: View {
     @Environment(\.wa) private var wa
     let p: FreelanceProjectDto
     let onClick: () -> Void
 
     var body: some View {
         let color = flStatusColor(p.state)
+        let offers = p.offers?.count ?? 0
         Button(action: onClick) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "briefcase.fill").font(.system(size: 18)).foregroundStyle(color)
-                        .frame(width: 44, height: 44)
-                        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(verbatim: untitled(p)).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
-                        if let s = p.specialty { Text(verbatim: s.name ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: filterIcon(p.state)).font(.system(size: 18)).foregroundStyle(color)
+                            .frame(width: 44, height: 44)
+                            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: FlCorners.icon, style: .continuous))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(verbatim: untitled(p)).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
+                            if let s = p.specialty { Text(verbatim: s.name ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        FlPill(text: flStatusLabel(p.state), color: color)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    FlPill(text: flStatusLabel(p.state), color: color)
-                }
-                if let b = budgetText(p) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "banknote").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.accent)
-                        Text(verbatim: b).font(.dorr(13, .heavy)).foregroundStyle(wa.accent)
+                    HStack(spacing: 14) {
+                        if let b = budgetText(p) { CardFact(icon: "banknote", text: b, color: wa.accent, bold: true) }
+                        if let d = p.durationDays { CardFact(icon: "clock", text: L("fl_days", d), color: wa.settingsMut) }
+                        if (p.state == "published" || p.state == "awarded") && offers > 0 { CardFact(icon: "doc.text.fill", text: L("flp_offers_n", offers), color: flGreen, bold: true) }
+                    }
+                    // FL-211: where the work stands.
+                    if let g = p.progress {
+                        FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
+                        Text(verbatim: [L("fl_progress_parts", g.approved ?? 0, g.total ?? 0),
+                                        (g.inReview ?? 0) > 0 ? L("fl_progress_review", g.inReview ?? 0) : nil].compactMap { $0 }.joined(separator: "  ·  "))
+                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
                     }
                 }
-                // FL-211: where the work stands, and what is due from me.
-                if let g = p.progress {
-                    FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
-                    Text(verbatim: [L("fl_progress_parts", g.approved ?? 0, g.total ?? 0),
-                                    (g.inReview ?? 0) > 0 ? L("fl_progress_review", g.inReview ?? 0) : nil].compactMap { $0 }.joined(separator: "  ·  "))
-                        .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                .padding(14)
+                // What is due from me, on its own line at the foot of the card.
+                if let next = p.nextAction {
+                    HStack(spacing: 8) {
+                        Image(systemName: "bell.badge.fill").font(.system(size: 13))
+                        Text(verbatim: flNextActionLabel(next)).font(.dorr(12.5, .heavy)).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(flAmber)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(flAmber.opacity(0.10))
                 }
-                if let next = p.nextAction { NextActionLine(code: next) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .settingsSurface(20)
+            .settingsSurface(FlCorners.card)
+            .clipShape(RoundedRectangle(cornerRadius: FlCorners.card, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A small fact on a project card: an icon and a line.
+private struct CardFact: View {
+    let icon: String
+    let text: String
+    let color: Color
+    var bold = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+            Text(verbatim: text).font(.dorr(12.5, bold ? .heavy : .semibold)).lineLimit(1)
+        }
+        .foregroundStyle(color)
     }
 }
 
@@ -503,10 +567,12 @@ private struct NextActionLine: View {
     let code: String
 
     var body: some View {
-        FlNotice(text: L("fl_next_label", nextActionLabel(code)), icon: "bell.badge.fill", color: flAmber)
+        FlNotice(text: L("fl_next_label", flNextActionLabel(code)), icon: "bell.badge.fill", color: flAmber)
     }
+}
 
-    private func nextActionLabel(_ code: String) -> String {
+/// What is wanted from the client now (`next_action`), in words.
+private func flNextActionLabel(_ code: String) -> String {
         switch code {
         case "finish_draft": return L("fl_next_finish_draft")
         case "submit": return L("fl_next_submit")
@@ -517,7 +583,6 @@ private struct NextActionLine: View {
         case "fund_milestone": return L("fl_next_fund_milestone")
         default: return L("fl_next_dispute")
         }
-    }
 }
 
 // MARK: - One project
@@ -581,6 +646,9 @@ private struct ProjectDetails: View {
     @State private var cancelNote = ""
     @State private var capDialog = false
     @State private var capError: String?
+    // The part of the page on show (nil: the one where the next step is), and «More».
+    @State private var tab: String?
+    @State private var more = false
 
     private func act(_ block: @escaping () async throws -> FreelanceProjectDto?, after: (() -> Void)? = nil, successNotice: String? = nil) {
         busy = true
@@ -615,15 +683,25 @@ private struct ProjectDetails: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_project"), onBack: onBack)
+            FlPageHeader(title: L("fl_project"), onBack: onBack)
             if let p = project {
                 ScrollView { content(p).padding(.horizontal, 16) }
+                footer(p)
             } else {
                 FlLoading(error: error)
             }
         }
         .task(id: network.reconnectTick) {
             do { project = try await FreelanceApi.project(uuid).data } catch { self.error = flError(error) }
+        }
+        .dorrDialog(isPresented: Binding(get: { more }, set: { if !$0 { more = false } }), bottom: true) {
+            if let p = project {
+                FlSheet(icon: "ellipsis.circle.fill", title: L("flp_more_title"), text: untitled(p)) {
+                    ForEach(moreSteps(p, primary: primaryStep(p)?.key), id: \.key) { step in
+                        FlAction(text: step.text, icon: step.icon, tone: step.tone, enabled: !busy) { more = false; step.action() }
+                    }
+                }
+            }
         }
         .dorrDialog(isPresented: Binding(get: { confirm == "delete" }, set: { if !$0 { confirm = nil } })) {
             ConfirmDialog(icon: "trash.fill", title: L("fl_delete_draft"), message: L("fl_delete_confirm"), loading: busy,
@@ -649,142 +727,193 @@ private struct ProjectDetails: View {
         }
     }
 
+    /// A step on the project page: the main one at the foot, the others under «More».
+    private struct Step {
+        let key: String
+        let text: String
+        let icon: String
+        var tone: FlTone = .soft
+        var enabled = true
+        let action: () -> Void
+    }
+
+    /// The one step that moves the project on from where it stands (nil when nothing is up to me).
+    private func primaryStep(_ p: FreelanceProjectDto) -> Step? {
+        let can = p.can ?? FreelanceProjectCanDto()
+        // FL-210: a last look before it goes out (it also says what doesn't add up).
+        if can.submit == true { return Step(key: "submit", text: L("fl_review_and_send"), icon: "paperplane.fill", tone: .primary, enabled: (p.missing ?? []).isEmpty, action: onPreview) }
+        if p.state == "published" && (p.offers?.count ?? 0) > 0 { return Step(key: "offers", text: L("fl_compare_choose"), icon: "arrow.left.arrow.right", tone: .primary, action: onOffers) }
+        if let ag = p.agreement {
+            return Step(key: "agreement", text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), icon: "person.2.fill", tone: .primary, action: onAgreement)
+        }
+        if p.state == "published" && p.invitations?.canInvite == true { return Step(key: "invitations", text: L("fl_inv_manage"), icon: "person.badge.plus", tone: .primary, action: onInvitations) }
+        if can.edit == true { return Step(key: "edit", text: L("fl_edit"), icon: "pencil", tone: .primary) { onEdit(p.uuid) } }
+        return nil
+    }
+
+    /// What else can be done with the project, in the order it is wanted (stepping back last).
+    private func moreSteps(_ p: FreelanceProjectDto, primary: String?) -> [Step] {
+        let can = p.can ?? FreelanceProjectCanDto()
+        var out: [Step] = []
+        if can.edit == true && primary != "edit" { out.append(Step(key: "edit", text: L("fl_edit"), icon: "pencil") { onEdit(p.uuid) }) }
+        if let inv = p.invitations, p.state == "published", primary != "invitations" {
+            out.append(Step(key: "invitations", text: L(inv.canInvite == true ? "fl_inv_manage" : "fl_inv_see"), icon: "person.badge.plus", action: onInvitations))
+        }
+        if can.setCostCap == true {
+            out.append(Step(key: "cap", text: L(p.maxCostMinor == nil ? "fl_cost_cap_set" : "fl_cost_cap_change"), icon: "dollarsign.circle.fill") { capError = nil; capDialog = true })
+        }
+        // FL-209: ask for it again from this one.
+        if can.duplicate == true {
+            out.append(Step(key: "copy", text: L("fl_copy_project"), icon: "doc.on.doc") {
+                busy = true
+                error = nil
+                Task {
+                    do { if let copy = try await FreelanceApi.duplicate(p.uuid).data { onCopied(copy.uuid) } } catch { self.error = flError(error) }
+                    busy = false
+                }
+            })
+        }
+        if can.withdraw == true { out.append(Step(key: "withdraw", text: L("fl_withdraw"), icon: "arrow.uturn.backward", tone: .warn) { act({ try await FreelanceApi.withdraw(p.uuid).data }) }) }
+        if can.cancel == true { out.append(Step(key: "cancel", text: L("fl_cancel_project"), icon: "xmark.circle.fill", tone: .danger) { cancelCode = nil; cancelNote = ""; confirm = "cancel" }) }
+        if can.delete == true { out.append(Step(key: "delete", text: L("fl_delete_draft"), icon: "trash.fill", tone: .danger) { confirm = "delete" }) }
+        return out
+    }
+
+    /// The parts of the page: the details always; the offers while they are taken (or there are some); the work once agreed.
+    private func tabs(_ p: FreelanceProjectDto) -> [String] {
+        var out = ["details"]
+        if p.state == "published" || p.state == "awarded" || (p.offers?.count ?? 0) > 0 { out.append("offers") }
+        if p.agreement != nil || !(p.milestones ?? []).isEmpty { out.append("work") }
+        return out
+    }
+
+    private func currentTab(_ p: FreelanceProjectDto, _ tabs: [String]) -> String {
+        if let tab, tabs.contains(tab) { return tab }
+        let wanted: String?
+        switch p.nextAction {
+        case "review_offers": wanted = "offers"
+        case "send_agreement", "review_delivery", "fund_milestone", "dispute": wanted = "work"
+        default: wanted = nil
+        }
+        if let wanted, tabs.contains(wanted) { return wanted }
+        return "details"
+    }
+
+    /// The main step for where the project stands, always in reach; the rest under «More».
+    @ViewBuilder
+    private func footer(_ p: FreelanceProjectDto) -> some View {
+        let primary = primaryStep(p)
+        let others = moreSteps(p, primary: primary?.key)
+        if primary != nil || !others.isEmpty {
+            HStack(spacing: 10) {
+                if let primary {
+                    FlAction(text: primary.text, icon: primary.icon, tone: .primary, enabled: primary.enabled && !busy, loading: busy && primary.key == "submit", action: primary.action)
+                }
+                if !others.isEmpty {
+                    if primary == nil {
+                        FlAction(text: L("flp_more_title"), icon: "ellipsis") { more = true }
+                    } else {
+                        Button { more = true } label: {
+                            Image(systemName: "ellipsis").font(.system(size: 17, weight: .bold)).foregroundStyle(wa.accent)
+                                .frame(width: 48, height: 48)
+                                .background(wa.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(L("flp_more"))
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(wa.night ? wa.darkCard : Color.white)
+        }
+    }
+
     @ViewBuilder
     private func content(_ p: FreelanceProjectDto) -> some View {
-        let can = p.can ?? FreelanceProjectCanDto()
         let offers = p.offers ?? FreelanceOffersDto()
         let missing = p.missing ?? []
-        let color = flStatusColor(p.state)
+        let primary = primaryStep(p)?.key
+        let parts = tabs(p)
+        let current = currentTab(p, parts)
         VStack(alignment: .leading, spacing: 12) {
-            FlCard {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "briefcase.fill").font(.system(size: 20)).foregroundStyle(color)
-                        .frame(width: 48, height: 48)
-                        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(verbatim: untitled(p)).font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
-                        FlPill(text: flStatusLabel(p.state), color: color)
+            ProjectHero(p: p)
+            if parts.count > 1 {
+                FlTabs(tabs: parts.map { (t: String) -> FlTab in
+                    switch t {
+                    case "offers": return FlTab(icon: "doc.text.fill", label: L("flp_tab_offers"), badge: p.state == "published" ? (offers.count ?? 0) : 0)
+                    case "work": return FlTab(icon: "person.2.fill", label: L("flp_tab_work"))
+                    default: return FlTab(icon: "doc.plaintext", label: L("flp_tab_details"))
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if let reason = p.statusReason, !reason.isEmpty { FlNotice(text: L("fl_reviewer_note", reason), icon: "info.circle.fill", color: color) }
-                if p.state == "pending_review" { FlNotice(text: L("fl_under_review_hint"), icon: "hourglass", color: flAmber) }
-                if p.state == "rejected" { FlNotice(text: L("fl_rejected_hint"), icon: "nosign", color: flRed) }
-                if let next = p.nextAction { NextActionLine(code: next) }
-                HStack(spacing: 8) {
-                    FlStat(icon: "banknote", label: L("fl_budget"), value: budgetText(p) ?? "—").layoutPriority(1.4)
-                    FlStat(icon: "clock", label: L("fl_duration"), value: p.durationDays.map { L("fl_days", $0) } ?? "—")
-                    FlStat(icon: "doc.text.fill", label: L("fl_offers"), value: "\(offers.count ?? 0)")
-                }
+                }, selected: parts.firstIndex(of: current) ?? 0) { tab = parts[$0] }
             }
-            // FL-211: the stages of the work, each with where it stands.
-            if let stages = p.milestones, !stages.isEmpty {
-                FlCard(icon: "flag.fill", title: L("fl_stages")) {
-                    if let g = p.progress {
-                        FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
-                        Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0) + "  ·  " +
-                             L("fl_progress_money", "\u{200E}" + flMoney(g.approvedMinor ?? 0), flMoney(g.priceMinor ?? 0), p.budget?.currency ?? ""))
-                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                    }
-                    ForEach(stages) { m in
-                        let mc = milestoneStatusColor(m.status ?? "unfunded")
-                        HStack(spacing: 10) {
-                            Text(verbatim: "\(m.position ?? 1)").font(.dorr(12, .heavy)).foregroundStyle(.white)
-                                .frame(width: 24, height: 24).background(mc, in: Circle())
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(verbatim: m.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-                                Text(verbatim: "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(p.budget?.currency ?? "")" + (m.durationDays.map { "  ·  " + L("fl_days", $0) } ?? ""))
-                                    .font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(verbatim: milestoneStatusLabel(m.status ?? "unfunded")).font(.dorr(12, .bold)).foregroundStyle(mc)
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 10)
-                        .background(mc.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                }
-            }
-            // FL-401: the agreement with the chosen freelancer.
-            if let ag = p.agreement {
-                FlCard(icon: "person.2.fill", title: L("fl_agreement")) {
-                    Text(verbatim: agreementStatusLabel(ag.status ?? "draft")).font(.dorr(13, .bold)).foregroundStyle(agreementStatusColor(ag.status ?? "draft"))
-                    FlAction(text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), icon: "person.2.fill", tone: .primary, action: onAgreement)
-                }
-            }
-            // FL-205: a private project is filled by invitation.
-            if let inv = p.invitations, p.state == "published" {
-                FlCard(icon: "envelope.badge.fill", title: L("fl_inv_title")) {
-                    Text(verbatim: L("fl_inv_summary", inv.sent ?? 0, inv.accepted ?? 0, inv.declined ?? 0)).font(.dorr(13)).foregroundStyle(wa.settingsMut)
-                    FlAction(text: L(inv.canInvite == true ? "fl_inv_manage" : "fl_inv_see"), icon: "person.badge.plus", action: onInvitations)
-                }
-            }
-            if p.state == "published" || p.state == "awarded" {
+            FlNotices(notice: notice, error: error)
+
+            switch current {
+            case "offers":
                 FlCard(icon: "doc.text.fill", title: L("fl_offers") + ((offers.count ?? 0) > 0 ? " (\(offers.count ?? 0))" : "")) {
                     FlNotice(text: offersLine(p, offers), icon: offers.accepting == true ? "checkmark.circle.fill" : "lock.fill",
                              color: p.state == "awarded" ? Color(hex: 0x7C3AED) : (offers.accepting == true ? flGreen : flAmber))
                     // FL-305 / FL-309: compare them and choose one.
                     if let chosen = offers.chosen { FlAction(text: L("fl_see_chosen"), icon: "star.fill", tone: .primary) { onOpenOffer(chosen) } }
-                    if (offers.count ?? 0) > 0 {
+                    if (offers.count ?? 0) > 0 && primary != "offers" {
                         FlAction(text: L(p.state == "published" ? "fl_compare_choose" : "fl_see_offers"), icon: "arrow.left.arrow.right", action: onOffers)
                     }
+                    if (offers.count ?? 0) == 0 { Text(L("flp_no_offers_yet")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3) }
                     if offers.canClose == true { FlAction(text: L("fl_offers_close"), icon: "lock.fill", tone: .warn) { act({ try await FreelanceApi.closeOffers(p.uuid).data }) } }
                     if offers.canReopen == true {
                         FlAction(text: L("fl_offers_reopen", offers.reopensLeft ?? 0), icon: "lock.open.fill") { act({ try await FreelanceApi.reopenOffers(p.uuid).data }) }
                     }
                 }
-            }
-            FlCard(icon: "doc.plaintext", title: L("fl_description")) { ProjectSummary(p: p) }
-            if let files = p.attachments, !files.isEmpty {
-                FlCard(icon: "paperclip", title: L("fl_files")) {
-                    ForEach(files, id: \.id) { a in
-                        HStack(spacing: 8) {
-                            Image(systemName: "doc.text").font(.system(size: 15)).foregroundStyle(wa.accent)
-                            Text(verbatim: a.name ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                            Spacer(minLength: 0)
+            case "work":
+                // FL-401: the agreement with the chosen freelancer.
+                if let ag = p.agreement {
+                    FlCard(icon: "person.2.fill", title: L("fl_agreement")) {
+                        Text(verbatim: agreementStatusLabel(ag.status ?? "draft")).font(.dorr(13, .bold)).foregroundStyle(agreementStatusColor(ag.status ?? "draft"))
+                        if primary != "agreement" {
+                            FlAction(text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), icon: "person.2.fill", tone: .primary, action: onAgreement)
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
-            }
-            if !missing.isEmpty { FlNotice(text: L("fl_missing", missing.map(missingLabel).joined(separator: "، ")), icon: "exclamationmark.triangle.fill", color: flAmber) }
-            FlNotices(notice: notice, error: error)
-
-            // FL-210: a last look before it goes out (it also says what doesn't add up).
-            if can.submit == true { FlAction(text: L("fl_review_and_send"), icon: "paperplane.fill", tone: .primary, enabled: missing.isEmpty, loading: busy, action: onPreview) }
-            if can.edit == true { FlAction(text: L("fl_edit"), icon: "pencil") { onEdit(p.uuid) } }
-            if can.setCostCap == true {
-                FlAction(text: L(p.maxCostMinor == nil ? "fl_cost_cap_set" : "fl_cost_cap_change"), icon: "dollarsign.circle.fill") { capError = nil; capDialog = true }
-            }
-            // FL-209: ask for it again from this one.
-            if can.duplicate == true {
-                FlAction(text: L("fl_copy_project"), icon: "doc.on.doc") {
-                    busy = true
-                    error = nil
-                    Task {
-                        do { if let copy = try await FreelanceApi.duplicate(p.uuid).data { onCopied(copy.uuid) } } catch { self.error = flError(error) }
-                        busy = false
+                // FL-211: the stages of the work, each with where it stands.
+                if let stages = p.milestones, !stages.isEmpty { StagesCard(p: p, stages: stages) }
+            default:
+                FlCard(icon: "doc.plaintext", title: L("fl_description")) { ProjectSummary(p: p) }
+                if let files = p.attachments, !files.isEmpty {
+                    FlCard(icon: "paperclip", title: L("fl_files")) {
+                        ForEach(files, id: \.id) { a in
+                            HStack(spacing: 8) {
+                                Image(systemName: "doc.text").font(.system(size: 15)).foregroundStyle(wa.accent)
+                                Text(verbatim: a.name ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 9)
+                            .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
                     }
                 }
-            }
-            if can.withdraw == true { FlAction(text: L("fl_withdraw"), icon: "arrow.uturn.backward", tone: .warn) { act({ try await FreelanceApi.withdraw(p.uuid).data }) } }
-            if can.cancel == true { FlAction(text: L("fl_cancel_project"), icon: "xmark.circle.fill", tone: .danger) { cancelCode = nil; cancelNote = ""; confirm = "cancel" } }
-            if can.delete == true { FlAction(text: L("fl_delete_draft"), icon: "trash.fill", tone: .danger) { confirm = "delete" } }
-
-            if let events = p.timeline, !events.isEmpty {
-                FlCard(icon: "clock.arrow.circlepath", title: L("fl_history")) {
-                    ForEach(Array(events.enumerated()), id: \.offset) { _, e in
-                        HStack(alignment: .top, spacing: 8) {
-                            Circle().fill(wa.accent).frame(width: 7, height: 7).padding(.top, 6)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(verbatim: eventLabel(e.type ?? "")).font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
-                                Text(verbatim: "\u{200E}" + String((e.at ?? "").prefix(16)).replacingOccurrences(of: "T", with: " ")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                // FL-205: a private project is filled by invitation.
+                if let inv = p.invitations, p.state == "published" {
+                    FlCard(icon: "envelope.badge.fill", title: L("fl_inv_title")) {
+                        Text(verbatim: L("fl_inv_summary", inv.sent ?? 0, inv.accepted ?? 0, inv.declined ?? 0)).font(.dorr(13)).foregroundStyle(wa.settingsMut)
+                        if primary != "invitations" { FlAction(text: L(inv.canInvite == true ? "fl_inv_manage" : "fl_inv_see"), icon: "person.badge.plus", action: onInvitations) }
+                    }
+                }
+                if !missing.isEmpty { FlNotice(text: L("fl_missing", missing.map(missingLabel).joined(separator: "، ")), icon: "exclamationmark.triangle.fill", color: flAmber) }
+                if let events = p.timeline, !events.isEmpty {
+                    FlCard(icon: "clock.arrow.circlepath", title: L("fl_history")) {
+                        ForEach(Array(events.enumerated()), id: \.offset) { _, e in
+                            HStack(alignment: .top, spacing: 8) {
+                                Circle().fill(wa.accent).frame(width: 7, height: 7).padding(.top, 6)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(verbatim: eventLabel(e.type ?? "")).font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
+                                    Text(verbatim: "\u{200E}" + String((e.at ?? "").prefix(16)).replacingOccurrences(of: "T", with: " ")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                                }
                             }
                         }
                     }
                 }
             }
-            Spacer(minLength: 20)
+            Spacer(minLength: 16)
         }
     }
 
@@ -796,6 +925,81 @@ private struct ProjectDetails: View {
         case "admin": return L("fl_offers_closed_admin")
         case "max_offers": return L("fl_offers_closed_full")
         default: return L("fl_offers_closed_deadline")
+        }
+    }
+}
+
+/// The head of the project page: a band of its status colour, the status, title and specialty, three figures and what the staff said.
+private struct ProjectHero: View {
+    @Environment(\.wa) private var wa
+    let p: FreelanceProjectDto
+
+    var body: some View {
+        let c = flStatusColor(p.state)
+        VStack(alignment: .leading, spacing: 0) {
+            c.frame(height: 5)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    FlPill(text: flStatusLabel(p.state), color: c)
+                    if let s = p.specialty { Text(verbatim: s.name ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                }
+                Text(verbatim: untitled(p)).font(.dorr(19, .heavy)).foregroundStyle(wa.settingsInk)
+                HStack(spacing: 8) {
+                    FlStat(icon: "banknote", label: L("fl_budget"), value: budgetText(p) ?? "—").layoutPriority(1.4)
+                    FlStat(icon: "clock", label: L("fl_duration"), value: p.durationDays.map { L("fl_days", $0) } ?? "—")
+                    FlStat(icon: "doc.text.fill", label: L("fl_offers"), value: "\(p.offers?.count ?? 0)")
+                }
+                if let g = p.progress {
+                    FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
+                    Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                }
+                if let reason = p.statusReason, !reason.isEmpty { FlNotice(text: L("fl_reviewer_note", reason), icon: "info.circle.fill", color: c) }
+                if p.state == "pending_review" { FlNotice(text: L("fl_under_review_hint"), icon: "hourglass", color: flAmber) }
+                if p.state == "rejected" { FlNotice(text: L("fl_rejected_hint"), icon: "nosign", color: flRed) }
+                if let next = p.nextAction { NextActionLine(code: next) }
+            }
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingsSurface(FlCorners.card)
+        .clipShape(RoundedRectangle(cornerRadius: FlCorners.card, style: .continuous))
+    }
+}
+
+/// FL-211: the stages of the work, each with where it stands, joined by a line the way the work runs, and the money passed so far.
+private struct StagesCard: View {
+    @Environment(\.wa) private var wa
+    let p: FreelanceProjectDto
+    let stages: [FreelanceProjectPartDto]
+
+    var body: some View {
+        FlCard(icon: "flag.fill", title: L("fl_stages")) {
+            if let g = p.progress {
+                FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
+                Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0) + "  ·  " +
+                     L("fl_progress_money", "\u{200E}" + flMoney(g.approvedMinor ?? 0), flMoney(g.priceMinor ?? 0), p.budget?.currency ?? ""))
+                    .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            }
+            ForEach(Array(stages.enumerated()), id: \.offset) { i, m in
+                let mc = milestoneStatusColor(m.status ?? "unfunded")
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(spacing: 0) {
+                        Text(verbatim: "\(m.position ?? 1)").font(.dorr(12, .heavy)).foregroundStyle(.white)
+                            .frame(width: 26, height: 26).background(mc, in: Circle())
+                        if i < stages.count - 1 { mc.opacity(0.35).frame(width: 2, height: 30) }
+                    }
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text(verbatim: m.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                            Spacer(minLength: 6)
+                            Text(verbatim: milestoneStatusLabel(m.status ?? "unfunded")).font(.dorr(12, .bold)).foregroundStyle(mc)
+                        }
+                        Text(verbatim: "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(p.budget?.currency ?? "")" + (m.durationDays.map { "  ·  " + L("fl_days", $0) } ?? ""))
+                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    }
+                    .padding(.top, 2)
+                }
+            }
         }
     }
 }
@@ -898,7 +1102,7 @@ private struct PreviewPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_preview_title"), onBack: onBack)
+            FlPageHeader(title: L("fl_preview_title"), onBack: onBack)
             if let pv = preview {
                 ScrollView { content(pv).padding(.horizontal, 16) }
             } else {
@@ -1062,7 +1266,7 @@ private struct ProjectForm: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L(uuid == nil ? "fl_new_project" : "fl_edit"), onBack: onBack)
+            FlPageHeader(title: L(uuid == nil ? "fl_new_project" : "fl_edit"), onBack: onBack)
             if !loaded {
                 FlLoading(error: error)
             } else {

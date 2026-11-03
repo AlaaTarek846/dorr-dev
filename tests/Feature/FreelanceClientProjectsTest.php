@@ -185,6 +185,19 @@ class FreelanceClientProjectsTest extends TestCase
         $this->getJson(self::API.'?status=cancelled')->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_the_list_splits_running_and_ended_projects(): void
+    {
+        $sent = $this->draft();
+        $this->postJson(self::API."/{$sent}/submit")->assertOk();
+        $this->postJson(self::API."/{$sent}/cancel", ['reason' => 'Found someone'])->assertOk();
+        $draft = $this->draft(['title' => 'Logo']);
+
+        $this->assertSame([$draft], array_column($this->getJson(self::API.'?scope=active')->assertOk()->json('data'), 'uuid'));
+        $this->assertSame([$sent], array_column($this->getJson(self::API.'?scope=ended')->assertOk()->json('data'), 'uuid'));
+        $this->getJson(self::API.'?scope=ended&status=draft')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(self::API.'?scope=old')->assertUnprocessable();
+    }
+
     public function test_bad_choices_are_refused(): void
     {
         $off = FreelanceSkill::query()->create(['slug' => 'off', 'status' => 'pending']);

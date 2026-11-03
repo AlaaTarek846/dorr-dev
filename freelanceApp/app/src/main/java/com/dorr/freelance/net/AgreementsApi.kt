@@ -130,6 +130,8 @@ data class AgreementDto(
     val can: AgreementCanDto = AgreementCanDto(),
     /** FL-605: how often the client asked for a progress report, and whether the next one is late. */
     val reports: ReportSummaryDto = ReportSummaryDto(),
+    /** FL-L13: the ownership terms the agreement keeps (null: none, or the feature is off). */
+    val rights: AgreementRightsDto? = null,
 )
 
 data class ReportSummaryDto(
@@ -175,6 +177,8 @@ data class DeliveryDto(
     @SerializedName("delivered_at") val deliveredAt: String? = null,
     @SerializedName("revision_reason") val revisionReason: String? = null,
     val files: List<DeliveryFileDto> = emptyList(),
+    /** FL-L13: my word and the outside material I listed. */
+    val rights: DeliveryRightsDto? = null,
 )
 
 data class DeliveryFileDto(

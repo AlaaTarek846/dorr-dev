@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09: special offers from freelancers I worked with (the client's side). -->
+<resources>
+    <string name="spc_chip">Special offers</string>
+    <string name="spc_banner_title">%1$d special offers for you</string>
+    <string name="spc_banner_body">Freelancers you worked with made you an offer. Take a look before it ends.</string>
+    <string name="spc_title">Special offers</string>
+    <string name="spc_tab_open">Waiting</string>
+    <string name="spc_tab_accepted">Accepted</string>
+    <string name="spc_tab_past">Past</string>
+    <string name="spc_empty_open">No offers waiting</string>
+    <string name="spc_empty_other">Nothing here yet</string>
+    <string name="spc_empty_body">When a freelancer you finished work with sends you a special offer, it shows here and we tell you at once.</string>
+
+    <string name="spc_kind_custom">Custom work</string>
+    <string name="spc_kind_service">Service</string>
+    <string name="spc_kind_consultation">Consultation</string>
+    <string name="spc_status_sent">Waiting for you</string>
+    <string name="spc_status_accepted">Accepted</string>
+    <string name="spc_status_declined">Declined</string>
+    <string name="spc_status_withdrawn">Withdrawn</string>
+    <string name="spc_status_expired">Expired</string>
+    <string name="spc_left_days">Ends in %1$d days</string>
+    <string name="spc_left_hours">Ends in %1$d h</string>
+    <string name="spc_left_minutes">Ends in %1$d min</string>
+    <string name="spc_off">%1$d%% off</string>
+    <string name="spc_badge">A special offer for you · %1$s</string>
+
+    <string name="spc_detail_title">Special offer</string>
+    <string name="spc_what">What\'s offered</string>
+    <string name="spc_money">What you pay</string>
+    <string name="spc_price">Price</string>
+    <string name="spc_you_save">You save</string>
+    <string name="spc_days_label">Delivery</string>
+    <string name="spc_revisions_label">Free revisions</string>
+    <string name="spc_how_work">Accept and the work starts at once — fund the first part from your wallet and the freelancer begins. Your money stays with DORR until you approve the delivery.</string>
+    <string name="spc_how_consult">Pick a time from the freelancer\'s free hours. The booking is confirmed at once at the discounted price.</string>
+    <string name="spc_muted_note">You stopped special offers from this freelancer.</string>
+
+    <string name="spc_accept">Accept the offer</string>
+    <string name="spc_pick_time">Pick a time</string>
+    <string name="spc_decline">Not now</string>
+    <string name="spc_accept_title">Accept this offer?</string>
+    <string name="spc_accept_body">You and %1$s start working right away on these terms.</string>
+    <string name="spc_accept_cta">Yes, start the work</string>
+    <string name="spc_accept_safe">Nothing is paid now. You fund each part from your wallet, and it is released only when you approve the delivery.</string>
+    <string name="spc_accepted">The work has started.</string>
+    <string name="spc_decline_title">Decline the offer?</string>
+    <string name="spc_decline_body">The freelancer is told. A reason helps them make a better one next time.</string>
+    <string name="spc_decline_reason">Reason (optional)</string>
+    <string name="spc_decline_cta">Decline</string>
+    <string name="spc_declined">You declined the offer.</string>
+    <string name="spc_mute_check">Stop special offers from %1$s</string>
+    <string name="spc_mute_hint">You can allow them again from any of their offers.</string>
+    <string name="spc_mute">Stop offers from this freelancer</string>
+    <string name="spc_unmute">Allow offers from this freelancer again</string>
+    <string name="spc_muted">You won\'t get special offers from them.</string>
+    <string name="spc_unmuted">Their special offers are allowed again.</string>
+    <string name="spc_open_work">Open the work</string>
+    <string name="spc_open_order">Open the order</string>
+    <string name="spc_open_consultation">Open the consultation</string>
+
+    <string name="spc_deal_title">Special offer · %1$d%% off</string>
+    <string name="spc_deal_instant">Confirmed at once — no waiting for the freelancer.</string>
+    <string name="spc_rule_instant">Booked through a special offer: the time is yours as soon as you book.</string>
+    <string name="spc_confirm_instant">The time is confirmed at once and the money is held in your wallet until the session.</string>
+    <string name="spc_booked">Your consultation is confirmed.</string>
+</resources>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L16: جلسة فيديو الاستشارة (ناحية المحترف). -->
+<resources>
+    <!-- الكارت في صفحة الاستشارة -->
+    <string name="ses_card_title">جلسة الفيديو</string>
+    <string name="ses_opens_in">الغرفة بتفتح بعد</string>
+    <string name="ses_opens_at">بتفتح الساعة %1$s، قبل الميعاد بـ%2$d دقايق.</string>
+    <string name="ses_join">ادخل الجلسة</string>
+    <string name="ses_back_to">ارجع للجلسة</string>
+    <string name="ses_room_open_note">الغرفة مفتوحة لحد %1$s. لو خرجت بالغلط تقدر ترجع طول ما الوقت موجود.</string>
+    <string name="ses_unavailable">جلسات الفيديو مش متاحة دلوقتي. جرّب كمان شوية.</string>
+    <string name="ses_closed_staff">الإدارة قفلت الغرفة.</string>
+    <string name="ses_over">الجلسة خلصت.</string>
+    <string name="ses_in_room_title">في الغرفة</string>
+    <string name="ses_side_client">العميل</string>
+    <string name="ses_side_me">إنت</string>
+    <string name="ses_in_room_yes">جوه</string>
+    <string name="ses_in_room_no">برّه</string>
+    <string name="ses_recorded">بتتسجل</string>
+    <string name="ses_recorded_note">الجلسة دي بتتسجل: العميل وافق وهو بيحجز وإنت وافقت وإنت بتقبل.</string>
+    <string name="ses_recording_off">التسجيل لسه مش متظبط، فالجلسة هتمشي من غير تسجيل.</string>
+    <string name="ses_attendance">الحضور</string>
+    <string name="ses_still_in">لسه جوه</string>
+    <string name="ses_recordings">التسجيلات</string>
+    <string name="ses_part">جزء %1$d</string>
+    <string name="ses_rec_processing">بيتجهز</string>
+    <string name="ses_rec_recording">بيتسجل دلوقتي</string>
+    <string name="ses_rec_deleted">اتمسح</string>
+    <string name="ses_rec_ready">جاهز</string>
+    <string name="ses_download">تنزيل</string>
+    <string name="ses_watch">مشاهدة</string>
+    <string name="ses_download_started">بيتنزل… تابعه في الإشعارات.</string>
+    <string name="ses_link_failed">مقدرناش نفتح التسجيل. جرّب تاني.</string>
+    <string name="ses_delete_at">التسجيلات هتتمسح يوم %1$s. نزّل اللي محتاجه قبلها.</string>
+    <string name="ses_held">محفوظ لحد قرار الإدارة</string>
+    <string name="ses_held_note">فيه شكوى، فالتسجيلات محفوظة لحد قرار الإدارة، وبتتمسح بعده بأسبوع.</string>
+    <string name="ses_deleted_all">التسجيلات اتمسحت يوم %1$s.</string>
+    <string name="ses_accept_consent">قبولك للطلب معناه إنك موافق إن الجلسة تتسجل.</string>
+    <string name="ses_size_mb">%1$s ميجا</string>
+
+    <!-- شاشة الجلسة -->
+    <string name="ses_title">جلسة الاستشارة</string>
+    <string name="ses_connecting">بنوصّلك…</string>
+    <string name="ses_ongoing">في الجلسة</string>
+    <string name="ses_waiting_other">مستنيين %1$s يدخل…</string>
+    <string name="ses_the_client">العميل</string>
+    <string name="ses_ends_in">بتخلص بعد %1$s</string>
+    <string name="ses_warn">الجلسة هتخلص بعد %1$d دقايق.</string>
+    <string name="ses_rec_badge">بيتسجل</string>
+    <string name="ses_mute">اكتم المايك</string>
+    <string name="ses_unmute">شغّل المايك</string>
+    <string name="ses_camera">الكاميرا</string>
+    <string name="ses_switch_camera">اقلب الكاميرا</string>
+    <string name="ses_speaker">السماعة</string>
+    <string name="ses_leave">اخرج</string>
+    <string name="ses_leave_title">تخرج من الجلسة؟</string>
+    <string name="ses_leave_body">تقدر ترجع تاني طول ما الوقت لسه موجود.</string>
+    <string name="ses_keep_in">خليني</string>
+    <string name="ses_ended_time">وقت الجلسة خلص.</string>
+    <string name="ses_ended">خرجت من الجلسة.</string>
+    <string name="ses_mic_needed">اسمح بالمايك عشان تدخل الجلسة.</string>
+    <string name="ses_channel">جلسة الاستشارة</string>
+    <string name="ses_close">قفل</string>
+</resources>

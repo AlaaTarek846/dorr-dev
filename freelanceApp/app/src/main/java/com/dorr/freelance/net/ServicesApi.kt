@@ -106,6 +106,8 @@ data class ServiceDto(
     @SerializedName("status_reason") val statusReason: String? = null,
     val orders: ServiceOrderCountsDto = ServiceOrderCountsDto(),
     val can: ServiceCanDto = ServiceCanDto(),
+    /** FL-L13: the terms every order of it starts from (null where the feature is off). */
+    val rights: RightsSummaryDto? = null,
     @SerializedName("published_at") val publishedAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null,
 )
@@ -152,6 +154,8 @@ data class ServiceRequest(
     val billing: String,
     val tiers: List<ServiceTierRequest>,
     val addons: List<ServiceAddonRequest>,
+    /** FL-L13: sent only when the feature is on. */
+    val rights: RightsInputDto? = null,
 )
 
 data class ServiceTierRequest(

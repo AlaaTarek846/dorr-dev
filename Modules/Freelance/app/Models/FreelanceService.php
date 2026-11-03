@@ -51,7 +51,7 @@ class FreelanceService extends Model implements HasMedia
     public const LEVELS = ['basic', 'standard', 'premium'];
 
     protected $fillable = [
-        'uuid', 'freelancer_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'requirements', 'billing', 'currency_code', 'status',
+        'uuid', 'freelancer_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'requirements', 'rights', 'billing', 'currency_code', 'status',
         'status_reason', 'submitted_at', 'published_at', 'reviewed_at', 'reviewed_by',
     ];
 
@@ -62,7 +62,7 @@ class FreelanceService extends Model implements HasMedia
 
     protected function casts(): array
     {
-        return ['submitted_at' => 'datetime', 'published_at' => 'datetime', 'reviewed_at' => 'datetime'];
+        return ['submitted_at' => 'datetime', 'published_at' => 'datetime', 'reviewed_at' => 'datetime', 'rights' => 'array'];
     }
 
     protected function webpSkipCollections(): array

@@ -30,7 +30,8 @@ interface FreelanceApi {
     suspend fun skills(@Header("Authorization") auth: String, @Query("q") q: String?, @Query("per_page") perPage: Int = 30, @Query("specialty_id") specialtyId: Int? = null): ApiEnvelope<List<FreelanceSkillDto>>
 
     @GET("mobile/v1/freelance/projects")
-    suspend fun projects(@Header("Authorization") auth: String, @Query("status") status: String? = null, @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15): ApiEnvelope<List<FreelanceProjectDto>>
+    /** `scope` = active (draft to in progress) · ended (closed, rejected, cancelled); a `status` narrows it further. */
+    suspend fun projects(@Header("Authorization") auth: String, @Query("status") status: String? = null, @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15, @Query("scope") scope: String? = null): ApiEnvelope<List<FreelanceProjectDto>>
 
     @GET("mobile/v1/freelance/projects/budget-rules")
     suspend fun budgetRules(@Header("Authorization") auth: String, @Query("specialty_id") specialtyId: Int?): ApiEnvelope<FreelanceBudgetRulesDto>
@@ -379,8 +380,13 @@ data class FreelanceOfferDto(
     @SerializedName("client_cost") val clientCost: FreelanceClientCostDto? = null,
     /** FL-210: dearer than the most I said I'd pay. */
     @SerializedName("over_cap") val overCap: Boolean = false,
+    /** FL-L09: the usual price and the loyalty discount (basis points) taken off it for me; null: none. */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
     /** The room about this offer (FL-308): null until the client opens it. */
     val chat: FreelanceOfferChatDto? = null,
+    /** FL-L13: who owns the work once it is paid and what I may do with it (null: the feature is off). */
+    val rights: FreelanceRightsSummaryDto? = null,
 )
 
 data class FreelanceOfferChatDto(val uuid: String, val unread: Int = 0, @SerializedName("can_write") val canWrite: Boolean = false)
@@ -507,6 +513,8 @@ data class FreelancerProfileDto(
     @SerializedName("is_favorite") val isFavorite: Boolean = false,
     val badge: FreelancePlanBadgeDto? = null,
     @SerializedName("skill_badges") val skillBadges: List<FreelanceSkillBadgeDto> = emptyList(),
+    /** FL-L09: the freelancer's loyalty program as it stands for me (null: none). */
+    val loyalty: FlLoyaltyViewDto? = null,
 )
 
 /** `kind` = project · consultation; `project` is its title either way. */
@@ -593,6 +601,8 @@ data class FreelanceAgreementDto(
     val can: FreelanceAgreementCanDto = FreelanceAgreementCanDto(),
     /** FL-605: how often I asked for a progress report, and whether the next one is late. */
     val reports: FreelanceReportSummaryDto = FreelanceReportSummaryDto(),
+    /** FL-L13: the ownership terms kept with the agreement (null: it has none). */
+    val rights: FreelanceAgreementRightsDto? = null,
 )
 
 data class FreelanceReportSummaryDto(
@@ -648,6 +658,8 @@ data class FreelanceDeliveryDto(
     @SerializedName("delivered_at") val deliveredAt: String? = null,
     @SerializedName("revision_reason") val revisionReason: String? = null,
     val files: List<FreelanceDeliveryFileDto> = emptyList(),
+    /** FL-L13: the freelancer's word that the work is theirs, and the outside material they listed. */
+    val rights: FreelanceDeliveryRightsDto? = null,
 )
 
 data class FreelanceDeliveryFileDto(
@@ -656,6 +668,8 @@ data class FreelanceDeliveryFileDto(
     val mime: String = "",
     val size: Long = 0,
     @SerializedName("is_image") val isImage: Boolean = false,
+    /** FL-L13: the part is not approved yet and the agreement has rights terms: only a small preview, never a download. */
+    @SerializedName("preview_only") val previewOnly: Boolean = false,
     /** Under mobile/v1/freelance/. */
     val path: String = "",
 )

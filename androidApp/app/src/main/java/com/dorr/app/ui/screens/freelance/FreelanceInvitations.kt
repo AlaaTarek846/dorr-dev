@@ -54,6 +54,7 @@ import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -139,14 +140,14 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_inv_title), onBack)
+        FlPageHeader(stringResource(R.string.fl_inv_title), onBack)
         val d = data
         if (d == null) {
             FlLoading(error)
             return@Column
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            FlIntro(Icons.Rounded.MarkEmailUnread, stringResource(R.string.fl_inv_title), stringResource(R.string.fl_inv_how, d.summary.max))
+            FlHint(stringResource(R.string.fl_inv_how, d.summary.max))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FlStat(Icons.Rounded.Send, stringResource(R.string.fl_inv_s_sent), d.summary.sent.toString(), Modifier.weight(1f))
                 FlStat(Icons.Rounded.CheckCircle, stringResource(R.string.fl_inv_s_accepted), d.summary.accepted.toString(), Modifier.weight(1f))
@@ -175,58 +176,66 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                             modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(c.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp),
                         )
                     }
-                    i.offer?.let { FlAction(stringResource(R.string.fl_inv_see_offer), Icons.Rounded.RequestQuote, FlTone.Primary) { onOpenOffer(it) } }
-                    if (i.canWithdraw) FlAction(stringResource(R.string.fl_inv_withdraw), Icons.Rounded.Undo, FlTone.Danger) {
-                        act { data = ApiClient.freelance.withdrawInvitation(auth(), projectUuid, i.uuid).data }
+                    // Its offer and taking it back, side by side.
+                    if (i.offer != null || i.canWithdraw) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        i.offer?.let { FlAction(stringResource(R.string.fl_inv_see_offer), Icons.Rounded.RequestQuote, FlTone.Primary, modifier = Modifier.weight(1f)) { onOpenOffer(it) } }
+                        if (i.canWithdraw) FlAction(stringResource(R.string.fl_inv_withdraw), Icons.Rounded.Undo, FlTone.Danger, enabled = !busy, modifier = Modifier.weight(1f)) {
+                            act { data = ApiClient.freelance.withdrawInvitation(auth(), projectUuid, i.uuid).data }
+                        }
                     }
                 }
             }
 
-            if (d.summary.canInvite) {
-                if (!picking) FlAction(stringResource(R.string.fl_inv_add), Icons.Rounded.PersonAdd, FlTone.Primary) { picking = true }
-                else {
-                    FlHeading(Icons.Rounded.PersonSearch, stringResource(R.string.fl_inv_pick))
-                    DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.fl_inv_search), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth())
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category) { all = false }
-                        Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps) { all = true }
-                    }
-                    FlHint(stringResource(R.string.fl_inv_order_hint))
-                    if (searching) repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(14.dp)) }
-                    else if (found.isEmpty()) FlNotice(stringResource(R.string.fl_inv_none_found), Icons.Rounded.Info, settingsMut())
-                    found.forEach { f ->
-                        val on = f.uuid in ticked
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = if (on) 0.14f else 0.06f)).clickable { if (on) ticked.remove(f.uuid) else ticked.add(f.uuid) }.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
-                            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(f.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
-                                    PlanBadge(f.badge, Modifier.padding(start = 6.dp))
-                                }
-                                Text(inviteeLine(f), color = settingsMut(), fontSize = 11.5.sp)
-                            }
-                        }
-                    }
-                    FlAction(stringResource(R.string.fl_inv_send, ticked.size), Icons.Rounded.Send, FlTone.Primary, loading = busy, enabled = ticked.isNotEmpty()) {
-                        act {
-                            data = ApiClient.freelance.invite(auth(), projectUuid, FreelanceInviteRequest(ticked.toList())).data
-                            ticked.clear()
-                            picking = false
-                            notice = sentText
-                            reloads++
-                        }
-                    }
-                    FlAction(stringResource(R.string.fl_not_now), null) { picking = false; ticked.clear() }
-                }
-            }
             if (d.summary.canMakePublic) Card(Icons.Rounded.Public, stringResource(R.string.fl_inv_public_title)) {
                 Text(stringResource(R.string.fl_inv_public_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
                 FlAction(stringResource(R.string.fl_inv_public), Icons.Rounded.Public, FlTone.Warn) { confirmPublic = true }
             }
             Spacer(Modifier.height(20.dp))
+        }
+        // Inviting more, always in reach while there is room.
+        if (d.summary.canInvite) Box(Modifier.fillMaxWidth().background(if (settingsNight()) com.dorr.app.ui.screens.AccountDark.bg else Color.White).padding(horizontal = 16.dp, vertical = 10.dp)) {
+            FlAction(stringResource(R.string.fl_inv_add), Icons.Rounded.PersonAdd, FlTone.Primary) { picking = true }
+        }
+    }
+
+    // The picker over the page: a search, this specialty or everyone, the freelancers to tick, and «send» kept at the foot.
+    if (picking) FlSheet(
+        Icons.Rounded.PersonSearch, stringResource(R.string.fl_inv_pick), stringResource(R.string.fl_inv_order_hint),
+        onDismiss = { if (!busy) { picking = false; ticked.clear() } },
+        footer = {
+            FlAction(stringResource(R.string.fl_inv_send, ticked.size), Icons.Rounded.Send, FlTone.Primary, loading = busy, enabled = ticked.isNotEmpty()) {
+                act {
+                    data = ApiClient.freelance.invite(auth(), projectUuid, FreelanceInviteRequest(ticked.toList())).data
+                    ticked.clear()
+                    picking = false
+                    notice = sentText
+                    reloads++
+                }
+            }
+        },
+    ) {
+        DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.fl_inv_search), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip(stringResource(R.string.fl_inv_same_specialty), !all, Icons.Rounded.Category) { all = false }
+            Chip(stringResource(R.string.fl_inv_all), all, Icons.Rounded.Apps) { all = true }
+        }
+        if (searching) repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(14.dp)) }
+        else if (found.isEmpty()) FlNotice(stringResource(R.string.fl_inv_none_found), Icons.Rounded.Info, settingsMut())
+        found.forEach { f ->
+            val on = f.uuid in ticked
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = if (on) 0.14f else 0.06f)).clickable { if (on) ticked.remove(f.uuid) else ticked.add(f.uuid) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(f.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+                        PlanBadge(f.badge, Modifier.padding(start = 6.dp))
+                    }
+                    Text(inviteeLine(f), color = settingsMut(), fontSize = 11.5.sp)
+                }
+            }
         }
     }
 

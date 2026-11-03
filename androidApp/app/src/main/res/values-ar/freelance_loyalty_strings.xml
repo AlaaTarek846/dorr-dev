@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09 (part B): برنامج الولاء كما يراه العميل (prefix loyc_). -->
+<resources>
+    <string name="loyc_chip">خصوماتي</string>
+    <string name="loyc_title">خصوماتي</string>
+    <string name="loyc_intro_title">مكافأة على رجوعك</string>
+    <string name="loyc_intro_body">المحترفين اللي اشتغلت معاهم بيدوك خصم بيكبر مع كل شغلانة جديدة. الخصم بيتطبق لوحده من غير ما تكتب حاجة.</string>
+    <string name="loyc_empty_title">لسه مفيش خصومات</string>
+    <string name="loyc_empty_body">خلّص شغلانة مع محترف عنده برنامج ولاء وخصمك هيظهر هنا.</string>
+    <string name="loyc_badge">خصم %1$s%%</string>
+    <string name="loyc_works_n">%1$d شغلانة خلصت سوا</string>
+    <string name="loyc_no_discount">لسه من غير خصم</string>
+    <string name="loyc_next_line">باقي %1$d لخصم %2$s%%</string>
+    <string name="loyc_step_percent">%1$s%%</string>
+    <string name="loyc_step_after">بعد %1$d</string>
+    <string name="loyc_card_title">خصم الولاء</string>
+    <string name="loyc_card_hint">بيتخصم من السعر لوحده على مشاريعه وخدماته واستشاراته.</string>
+    <string name="loyc_status_current">شريحتك: خصم %1$s%% متطبق لوحده.</string>
+    <string name="loyc_status_top">إنت على أعلى شريحة عنده: خصم %1$s%%.</string>
+    <string name="loyc_status_start">خلّص %1$d مع المحترف ده وخد خصم %2$s%% على اللي بعدها.</string>
+    <string name="loyc_status_none">كمّل شغل معاه وهتفتح لك خصم.</string>
+    <string name="loyc_line_discount">خصم الولاء %1$s%%</string>
+    <string name="loyc_line_saving">وفّرت %1$s</string>
+    <string name="loyc_offer_note">السعر فيه خصم الولاء بتاعك %1$s%%.</string>
+</resources>

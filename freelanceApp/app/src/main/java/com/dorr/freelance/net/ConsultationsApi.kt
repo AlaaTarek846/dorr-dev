@@ -14,7 +14,7 @@ import retrofit2.http.Query
 /**
  * FL-L07, paid consultations under `/api/freelance/v1/consultations`: my consultation listings (like ready-made services: a title, lengths
  * with a price each and weekly hours in my time zone, reviewed by the staff before clients see them), the bookings clients made, and
- * answering or cancelling one. The session itself is a video call (FL-L16), so there is no room.
+ * answering or cancelling one. The session itself is a video call (FL-L16, ConsultationSessionApi).
  */
 interface ConsultationsApi {
     /** What the form needs: lengths, limits, the rules and my numbers. */
@@ -177,6 +177,8 @@ data class ConsultationDto(
     val review: ConsultationReviewDto = ConsultationReviewDto(),
     val can: ConsultationCanDto = ConsultationCanDto(),
     @SerializedName("created_at") val createdAt: String? = null,
+    /** FL-L16: the video session — the room, who came, the recordings (ConsultationSessionApi). */
+    val session: ConsultationSessionDto? = null,
 )
 
 data class ConsultationReviewDto(

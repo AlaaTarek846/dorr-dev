@@ -240,6 +240,11 @@ struct FreelanceOfferDto: Codable, Equatable, Identifiable {
     var chat: FreelanceOfferChatDto?
     /// FL-210: dearer than the most I said I'd pay.
     var overCap: Bool?
+    /// FL-L09: the usual price and the loyalty discount (basis points) taken off it for me; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    /// FL-L13: who owns the work once it is paid and what I may do with it (nil: the feature is off).
+    var rights: FreelanceRightsSummaryDto?
 
     var id: String { uuid }
     var state: String { status ?? "submitted" }
@@ -336,6 +341,8 @@ struct FreelancerProfileDto: Codable, Equatable {
     var skillBadges: [FreelanceSkillBadgeDto]?
     /// FL-L07: the paid consultations listed now (empty: none).
     var consultations: [ConsultTeaserDto]?
+    /// FL-L09: the freelancer's loyalty program as it stands for me (nil: none).
+    var loyalty: FlLoyaltyViewDto?
 }
 
 struct FreelanceChatPeerDto: Codable, Equatable {
@@ -388,6 +395,8 @@ struct FreelanceDeliveryFileDto: Codable, Equatable {
     var mime: String?
     var size: Int?
     var isImage: Bool?
+    /// FL-L13: not approved yet under rights terms: only a small preview, never a download.
+    var previewOnly: Bool?
     /// Under mobile/v1/freelance/.
     var path: String?
 }
@@ -399,6 +408,8 @@ struct FreelanceDeliveryDto: Codable, Equatable {
     var deliveredAt: String?
     var revisionReason: String?
     var files: [FreelanceDeliveryFileDto]?
+    /// FL-L13: the freelancer's word that the work is theirs, and the outside material they listed.
+    var rights: FreelanceDeliveryRightsDto?
 }
 
 struct FreelanceMilestoneCanDto: Codable, Equatable {
@@ -618,6 +629,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var can: FreelanceAgreementCanDto?
     /// FL-605: how often I asked for a progress report, and whether the next one is late.
     var reports: FreelanceReportSummaryDto?
+    /// FL-L13: the ownership terms kept with the agreement (nil: it has none).
+    var rights: FreelanceAgreementRightsDto?
 
     var state: String { status ?? "draft" }
 }
@@ -801,8 +814,9 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/skills", query: ["q": q, "per_page": String(perPage), "specialty_id": specialtyId.map(String.init)])
     }
 
-    static func projects(status: String? = nil, page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceProjectDto]> {
-        try await ApiClient.snake("\(base)/projects", query: ["status": status, "page": String(page), "per_page": String(perPage)])
+    /// `scope` = active (draft to in progress) · ended (closed, rejected, cancelled); a `status` narrows it further.
+    static func projects(status: String? = nil, page: Int = 1, perPage: Int = 15, scope: String? = nil) async throws -> ApiEnvelope<[FreelanceProjectDto]> {
+        try await ApiClient.snake("\(base)/projects", query: ["status": status, "page": String(page), "per_page": String(perPage), "scope": scope])
     }
 
     static func budgetRules(specialtyId: Int?) async throws -> ApiEnvelope<FreelanceBudgetRulesDto> {

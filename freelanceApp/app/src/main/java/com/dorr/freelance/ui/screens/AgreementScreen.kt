@@ -110,13 +110,23 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
     var withdrawNote by remember { mutableStateOf("") }
 
     // FL-601: a delivery carries files; it goes as one multipart request.
-    fun deliver(uuid: String, text: String, files: List<PickedFile>) {
+    fun deliver(uuid: String, text: String, files: List<PickedFile>, materials: List<MaterialRow>?) {
         busy = true
         error = null
         scope.launch {
             val plain = "text/plain".toMediaTypeOrNull()
             val parts = files.map { MultipartBody.Part.createFormData("files[]", it.name, it.bytes.toRequestBody(it.type.toMediaTypeOrNull())) }
-            val result = apiCall { ApiClient.agreements.deliver(projectUuid, uuid, mapOf("note" to text.toRequestBody(plain)), parts) }
+            val fields = mutableMapOf("note" to text.toRequestBody(plain))
+            // FL-L13: my word that the work is mine to hand over, and the outside material I listed.
+            if (materials != null) {
+                fields["rights_confirmed"] = "1".toRequestBody(plain)
+                materials.forEachIndexed { i, m ->
+                    fields["materials[$i][name]"] = m.name.trim().toRequestBody(plain)
+                    if (m.source.isNotBlank()) fields["materials[$i][source]"] = m.source.trim().toRequestBody(plain)
+                    if (m.license.isNotBlank()) fields["materials[$i][license]"] = m.license.trim().toRequestBody(plain)
+                }
+            }
+            val result = apiCall { ApiClient.agreements.deliver(projectUuid, uuid, fields, parts) }
             if (result is ApiResult.Ok) { agreement = result.data; deliverFor = null } else error = result.errorText(offlineText) ?: genericError
             busy = false
         }
@@ -227,6 +237,8 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                     a.includes?.takeIf { it.isNotBlank() }?.let { FieldLabel(stringResource(R.string.ag_includes)); Text(it, color = settingsInk(), fontSize = 14.sp, lineHeight = 21.sp) }
                     a.excludes?.takeIf { it.isNotBlank() }?.let { FieldLabel(stringResource(R.string.ag_excludes)); Text(it, color = settingsInk(), fontSize = 14.sp, lineHeight = 21.sp) }
                 }
+                // FL-L13: who owns the work, where the passing of the rights stands, the portfolio leave.
+                a.rights?.let { r -> AgreementRightsCard(r, projectUuid) { updated -> agreement = updated } }
             }
             1 -> {
                 if (a.milestones.isEmpty()) Text(stringResource(R.string.ag_no_parts), color = settingsMut(), fontSize = 13.sp)
@@ -305,7 +317,7 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
     }
 
     deliverFor?.let { target ->
-        DeliverDialog(busy = busy, error = error, onDismiss = { deliverFor = null }, onSend = { text, files -> deliver(target, text, files) })
+        DeliverDialog(busy = busy, error = error, rightsRequired = agreement?.rights != null, onDismiss = { deliverFor = null }, onSend = { text, files, materials -> deliver(target, text, files, materials) })
     }
 
     if (declining) FormSheet(Icons.Rounded.Cancel, stringResource(R.string.ag_decline), stringResource(R.string.ag_decline_hint), onDismiss = { if (!busy) declining = false }) {

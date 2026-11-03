@@ -1,6 +1,13 @@
 package com.dorr.freelance.ui.screens
 
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.style.TextOverflow
+import com.dorr.freelance.ui.kit.settingsSurface
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.HourglassEmpty
@@ -82,18 +89,19 @@ fun InvitationAnswer(uuid: String, onAnswered: (String) -> Unit, onError: (Strin
             busy = false
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsPrimaryButton(text = stringResource(R.string.inv_accept), loading = busy, modifier = Modifier.weight(1f), onClick = { answer(true) })
-        Text(
-            stringResource(R.string.inv_decline), color = Color(0xFFDC2626), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable(enabled = !busy) { answer(false) }.padding(12.dp),
-        )
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(18.dp)).border(1.5.dp, Color(0xFFDC2626).copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                .clickable(enabled = !busy) { answer(false) },
+            contentAlignment = Alignment.Center,
+        ) { Text(stringResource(R.string.inv_decline), color = Color(0xFFDC2626), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
+        SettingsPrimaryButton(text = stringResource(R.string.inv_accept), loading = busy, modifier = Modifier.weight(1.4f), onClick = { answer(true) })
     }
 }
 
 /** My invitations (FL-205), fifteen at a time while I scroll. Read when shown, when a notice arrives and when the connection comes back - nothing on a timer. */
 @Composable
-fun InvitationsScreen(onBack: () -> Unit, onOpenProject: (String) -> Unit) {
+fun InvitationsScreen(onBack: () -> Unit, onOpenProject: (String) -> Unit, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -105,7 +113,7 @@ fun InvitationsScreen(onBack: () -> Unit, onOpenProject: (String) -> Unit) {
     LaunchedEffect(reconnect, filter) { paged.reload() }
     LaunchedEffect(filter) { com.dorr.freelance.net.Realtime.changed.collect { paged.reload() } }
 
-    Page(title = stringResource(R.string.inv_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }) {
+    Page(title = stringResource(R.string.inv_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }, embedded = embedded) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf<String?>(null, "sent", "accepted", "declined").forEach { f ->
                 val selected = filter == f
@@ -136,35 +144,57 @@ fun InvitationsScreen(onBack: () -> Unit, onOpenProject: (String) -> Unit) {
                 modifier = Modifier.padding(top = 110.dp),
             )
             list != null -> list.forEach { i ->
-                Card {
-                    Row(Modifier.fillMaxWidth().clickable { i.project?.uuid?.let(onOpenProject) }, verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.Rounded.MarkEmailUnread, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(22.dp)) }
-                        Spacer(Modifier.width(12.dp))
-                        Text(i.project?.title.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            invitationStatusLabel(i.status), color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clip(RoundedCornerShape(50)).background(settingsAccent().copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
-                        )
-                    }
-                    i.project?.summary?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp, maxLines = 3) }
-                    if (!i.open && i.status == "sent") Text(stringResource(R.string.inv_closed), color = settingsMut(), fontSize = 12.sp)
-                    if (i.can.accept) InvitationAnswer(
-                        i.uuid,
-                        onAnswered = { s -> paged.update({ it.uuid == i.uuid }) { it.copy(status = s, can = it.can.copy(accept = false, decline = false, offer = s == "accepted" && !it.offered)) } },
-                        onError = { error = it },
-                    )
-                    if (i.can.offer) Text(
-                        stringResource(R.string.inv_send_offer), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { i.project?.uuid?.let(onOpenProject) }.padding(vertical = 4.dp),
-                    )
-                }
+                InvitationCard(
+                    i, onOpen = { i.project?.uuid?.let(onOpenProject) },
+                    onAnswered = { s -> paged.update({ it.uuid == i.uuid }) { it.copy(status = s, can = it.can.copy(accept = false, decline = false, offer = s == "accepted" && !it.offered)) } },
+                    onError = { error = it },
+                )
             }
         }
         PagedFooter(paged) { scope.launch { paged.loadMore() } }
         ErrorBanner(error ?: paged.failure?.let { it.errorText(offlineText) ?: genericError }, Modifier.fillMaxWidth())
+    }
+}
+
+/**
+ * One invitation: who it is from (a private project), its status, the project's title and short text with the budget and the days, then
+ * the answer buttons while it waits, or the step to send my offer once I said yes.
+ */
+@Composable
+private fun InvitationCard(i: InvitationDto, onOpen: () -> Unit, onAnswered: (String) -> Unit, onError: (String) -> Unit) {
+    val blue = Color(0xFF3B82F6)
+    val tint = when (i.status) { "accepted" -> Color(0xFF16A34A); "declined" -> Color(0xFFDC2626); else -> blue }
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onOpen).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(blue.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.MarkEmailUnread, contentDescription = null, tint = blue, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.inv_private), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(
+                invitationStatusLabel(i.status), color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+        }
+        Text(i.project?.title.orEmpty(), color = settingsInk(), fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+        i.project?.summary?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        i.project?.let { p ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                budgetText(p.budget)?.let { InvitationFact(Icons.Rounded.Payments, it, strong = true) }
+                p.durationDays?.let { InvitationFact(Icons.Rounded.Schedule, stringResource(R.string.projects_days, it)) }
+            }
+        }
+        if (!i.open && i.status == "sent") Text(stringResource(R.string.inv_closed), color = Color(0xFFD97706), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        if (i.can.accept) InvitationAnswer(i.uuid, onAnswered = onAnswered, onError = onError)
+        if (i.can.offer) SettingsPrimaryButton(text = stringResource(R.string.inv_send_offer), onClick = onOpen)
+    }
+}
+
+@Composable
+private fun InvitationFact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, strong: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = if (strong) settingsAccent() else settingsMut(), modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(text, color = if (strong) settingsInk() else settingsMut(), fontSize = 12.5.sp, fontWeight = if (strong) FontWeight.ExtraBold else FontWeight.SemiBold, maxLines = 1)
     }
 }

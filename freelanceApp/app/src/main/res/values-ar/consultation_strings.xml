@@ -89,7 +89,7 @@
     <string name="cns_pending_banner">%1$d طلب استشارة مستني ردك</string>
     <string name="cns_pending_home">طلب جديد من %1$s</string>
     <string name="cns_note_upcoming">الفلوس محجوزة والميعاد بتاعك. الجلسة مكالمة فيديو بتفتح من هنا في الميعاد.</string>
-    <string name="cns_note_live">جه الميعاد. مكالمة الفيديو هتبدأ من هنا قريب.</string>
+    <string name="cns_note_live">جه الميعاد. ادخل جلسة الفيديو من الكارت اللي تحت.</string>
     <string name="cns_note_ended">لو العميل ما بلّغش عن مشكلة، الفلوس هتنزلك %1$s.</string>
     <string name="cns_note_completed">خلصت واتدفعت. الفلوس في أرباحك.</string>
     <string name="cns_note_disputed">العميل بلّغ عن مشكلة. فريق دُرر بيراجعها وهيبلّغكم إنتوا الاتنين.</string>

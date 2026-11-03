@@ -30,9 +30,11 @@ class ClientProjectController extends Controller
     {
         $data = $request->validate([
             'status' => ['nullable', Rule::enum(FreelanceProjectStatus::class)],
+            // The client redesign, batch C: the running ones (draft to in progress) or the ended ones (closed, rejected, cancelled).
+            'scope' => ['nullable', Rule::in(['active', 'ended'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
-        $page = $this->projects->mine($this->me($request), $data['status'] ?? null, (int) ($data['per_page'] ?? 15));
+        $page = $this->projects->mine($this->me($request), $data['status'] ?? null, (int) ($data['per_page'] ?? 15), $data['scope'] ?? null);
 
         return ApiResponse::fromPaginator($page, $page->getCollection()->map(fn (FreelanceProject $p) => $this->projects->present($p))->values(), __('api.retrieved'));
     }

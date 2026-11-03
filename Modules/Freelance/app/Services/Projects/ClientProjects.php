@@ -39,9 +39,14 @@ class ClientProjects
     ) {}
 
     /** @return LengthAwarePaginator<Project> newest first, optionally one status */
-    public function mine(User $client, ?string $status, int $perPage): LengthAwarePaginator
+    /** @param  'active'|'ended'|null  $scope  the running ones or the ended ones (a status narrows it further) */
+    public function mine(User $client, ?string $status, int $perPage, ?string $scope = null): LengthAwarePaginator
     {
+        $ended = [Status::Closed->value, Status::Rejected->value, Status::Cancelled->value];
+
         return Project::query()->where('client_id', $client->id)
+            ->when($scope === 'active', fn ($q) => $q->whereNotIn('status', $ended))
+            ->when($scope === 'ended', fn ($q) => $q->whereIn('status', $ended))
             ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->with(['specialty.translations', 'skills.translations', 'media'])
             ->latest('id')->paginate($perPage);

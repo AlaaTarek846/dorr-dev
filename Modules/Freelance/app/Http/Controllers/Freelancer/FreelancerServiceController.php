@@ -171,7 +171,7 @@ class FreelancerServiceController extends Controller
             'addons.*.title' => ['required', 'string', 'min:2', 'max:80'],
             'addons.*.price_minor' => ['required', 'integer', 'min:1', 'max:100000000000'],
             'addons.*.extra_days' => ['nullable', 'integer', 'min:0', 'max:60'],
-        ];
+        ] + FreelancerOfferController::rightsRules();
     }
 
     private function answer(FreelanceService $s, ?string $message = null, int $status = 200): JsonResponse

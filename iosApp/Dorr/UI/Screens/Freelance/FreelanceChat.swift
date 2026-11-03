@@ -427,9 +427,15 @@ struct InvitationsPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_inv_title"), onBack: onBack)
+            FlPageHeader(title: L("fl_inv_title"), onBack: onBack)
             if let d = data {
                 ScrollView { content(d).padding(.horizontal, 16) }
+                // Inviting more, always in reach while there is room.
+                if d.summary?.canInvite == true {
+                    FlAction(text: L("fl_inv_add"), icon: "person.badge.plus", tone: .primary) { picking = true }
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(wa.night ? wa.darkCard : Color.white)
+                }
             } else {
                 FlLoading(error: error)
             }
@@ -451,6 +457,54 @@ struct InvitationsPage: View {
             }
             searching = false
         }
+        // The picker over the page: a search, this specialty or everyone, the freelancers to tick, and «send» kept at the foot.
+        .dorrDialog(isPresented: Binding(get: { picking }, set: { if !$0, !busy { picking = false; ticked = [] } }), bottom: true) {
+            FlSheet(icon: "person.crop.circle.badge.questionmark", title: L("fl_inv_pick"), text: L("fl_inv_order_hint"), footer: AnyView(
+                FlAction(text: L("fl_inv_send", ticked.count), icon: "paperplane.fill", tone: .primary, enabled: !ticked.isEmpty, loading: busy) {
+                    let chosen = ticked
+                    act {
+                        data = try await FreelanceApi.invite(projectUuid, freelancers: chosen).data
+                        ticked = []
+                        picking = false
+                        notice = L("fl_inv_sent")
+                        reloads += 1
+                    }
+                }
+            )) {
+                DorrTextArea(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("fl_inv_search"), icon: "magnifyingglass", singleLine: true)
+                HStack(spacing: 8) {
+                    FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2") { all = false }
+                    FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill") { all = true }
+                }
+                if searching {
+                    ForEach(0..<3, id: \.self) { _ in WaSkeleton(cornerRadius: 14).frame(height: 56) }
+                } else if found.isEmpty {
+                    FlNotice(text: L("fl_inv_none_found"), icon: "info.circle.fill", color: wa.settingsMut)
+                }
+                ForEach(found, id: \.uuid) { f in
+                    let on = ticked.contains(f.uuid)
+                    Button {
+                        if on { ticked.removeAll { $0 == f.uuid } } else { ticked.append(f.uuid) }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(on ? wa.accent : wa.settingsMut)
+                            VStack(alignment: .leading, spacing: 0) {
+                                HStack(spacing: 6) {
+                                    Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                    PlanBadge(badge: f.badge)
+                                }
+                                Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .background(wa.accent.opacity(on ? 0.14 : 0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
         .dorrDialog(isPresented: $confirmPublic) {
             ConfirmDialog(icon: "xmark", title: L("fl_inv_public"), message: L("fl_inv_public_confirm"), loading: busy,
                           onConfirm: { act { _ = try await FreelanceApi.makePublic(projectUuid); confirmPublic = false; onMadePublic() } },
@@ -463,7 +517,7 @@ struct InvitationsPage: View {
         let s = d.summary ?? FreelanceInvitationsSummaryDto()
         let invitations = d.invitations ?? []
         VStack(alignment: .leading, spacing: 12) {
-            FlIntro(icon: "envelope.badge.fill", title: L("fl_inv_title"), text: L("fl_inv_how", s.max ?? 10))
+            FlHint(text: L("fl_inv_how", s.max ?? 10))
             HStack(spacing: 8) {
                 FlStat(icon: "paperplane.fill", label: L("fl_inv_s_sent"), value: "\(s.sent ?? 0)")
                 FlStat(icon: "checkmark.circle.fill", label: L("fl_inv_s_accepted"), value: "\(s.accepted ?? 0)")
@@ -490,67 +544,21 @@ struct InvitationsPage: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         FlPill(text: inviteStatusLabel(i.status), color: c)
                     }
-                    if let offer = i.offer { FlAction(text: L("fl_inv_see_offer"), icon: "doc.text.fill", tone: .primary) { onOpenOffer(offer) } }
-                    if i.canWithdraw == true {
-                        FlAction(text: L("fl_inv_withdraw"), icon: "arrow.uturn.backward", tone: .danger) {
-                            act { data = try await FreelanceApi.withdrawInvitation(projectUuid, i.uuid).data }
+                    // Its offer and taking it back, side by side.
+                    if i.offer != nil || i.canWithdraw == true {
+                        HStack(spacing: 8) {
+                            if let offer = i.offer { FlAction(text: L("fl_inv_see_offer"), icon: "doc.text.fill", tone: .primary) { onOpenOffer(offer) } }
+                            if i.canWithdraw == true {
+                                FlAction(text: L("fl_inv_withdraw"), icon: "arrow.uturn.backward", tone: .danger, enabled: !busy) {
+                                    act { data = try await FreelanceApi.withdrawInvitation(projectUuid, i.uuid).data }
+                                }
+                            }
                         }
                     }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .settingsSurface(20)
-            }
-            if s.canInvite == true {
-                if !picking {
-                    FlAction(text: L("fl_inv_add"), icon: "person.badge.plus", tone: .primary) { picking = true }
-                } else {
-                    FlHeading(icon: "person.crop.circle.badge.questionmark", text: L("fl_inv_pick"))
-                    DorrTextArea(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("fl_inv_search"), icon: "magnifyingglass", singleLine: true)
-                    HStack(spacing: 8) {
-                        FlChip(text: L("fl_inv_same_specialty"), selected: !all, icon: "square.grid.2x2") { all = false }
-                        FlChip(text: L("fl_inv_all"), selected: all, icon: "square.grid.2x2.fill") { all = true }
-                    }
-                    FlHint(text: L("fl_inv_order_hint"))
-                    if searching {
-                        ForEach(0..<3, id: \.self) { _ in WaSkeleton(cornerRadius: 14).frame(height: 56) }
-                    } else if found.isEmpty {
-                        FlNotice(text: L("fl_inv_none_found"), icon: "info.circle.fill", color: wa.settingsMut)
-                    }
-                    ForEach(found, id: \.uuid) { f in
-                        let on = ticked.contains(f.uuid)
-                        Button {
-                            if on { ticked.removeAll { $0 == f.uuid } } else { ticked.append(f.uuid) }
-                        } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 20)).foregroundStyle(on ? wa.accent : wa.settingsMut)
-                                VStack(alignment: .leading, spacing: 0) {
-                                    HStack(spacing: 6) {
-                                        Text(verbatim: f.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                                        PlanBadge(badge: f.badge)
-                                    }
-                                    Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 12).padding(.vertical, 10)
-                            .background(wa.accent.opacity(on ? 0.14 : 0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    FlAction(text: L("fl_inv_send", ticked.count), icon: "paperplane.fill", tone: .primary, enabled: !ticked.isEmpty, loading: busy) {
-                        let chosen = ticked
-                        act {
-                            data = try await FreelanceApi.invite(projectUuid, freelancers: chosen).data
-                            ticked = []
-                            picking = false
-                            notice = L("fl_inv_sent")
-                            reloads += 1
-                        }
-                    }
-                    FlAction(text: L("fl_not_now")) { picking = false; ticked = [] }
-                }
             }
             if s.canMakePublic == true {
                 FlCard(icon: "globe", title: L("fl_inv_public_title")) {

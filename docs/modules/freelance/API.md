@@ -600,7 +600,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - داخل غرفة الشات، للطرفين: `GET chat/conversations/{uuid}/interviews`، `POST …/interviews {starts_at, duration_minutes: 10|15|20|30|45|60, note?}`، `POST …/interviews/{interview}/confirm|decline|cancel` (برفيكس العميل `mobile/v1/freelance/` والمحترف `freelance/v1/`).
 - الحالات: `proposed, confirmed, declined, cancelled, superseded`. اللي اقترح مبيردش على اقتراحه (403 `interview_not_yours_to_answer`). الاقتراح الجديد بيلغي المفتوح.
 - الوقت من 5 دقايق لـ 30 يوم قدام (`interview_time_invalid`). عند التأكيد: عنصر في تقويم العميل + رسالة نظام في الغرفة (`kind=system`)؛ تذكير قبل البداية بـ 15 دقيقة.
-- مفيش مكالمة في شات الفريلانس؛ الكلام في الغرفة نفسها (NEEDS-DECISION: مكالمة لو اتطلبت).
+- المقابلة القصيرة جدولة وتذكير فقط، والكلام في الغرفة نفسها؛ مفيش مكالمة فيديو (قرار المالك).
 
 ## التسليم بملفات والمعاينة وقائمة القبول (FL-601 → FL-604)
 
@@ -869,3 +869,214 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 **الأدمن:** `PUT freelance-plans/{plan}` بقى بياخد `badge` (bool) · `boost` (0–3) · `analytics` (0–2) · `services_max` (1–1000 أو `null`)، والرد وقايمة الباقات فيهم نفس الحقول. مسجّل في الـaudit. صلاحية `freelance-plans.update`.
 
 **اختبار:** `tests/Feature/FreelancePerksTest.php` (12 اختبار: ضبط الأدمن، متى تظهر المزايا وتختفي، عقوبة العمل، ترتيب الخدمات والعروض والدعوات والشارة، حد الخدمات، الإحصائيات المقفولة والأساسية والكاملة وأرقامها).
+
+## العروض الخاصة للعملاء السابقين (FL-L09 — الدفعة أ) — 2026-11-02
+
+**الفكرة:** المحترف يبعت **عرض خاص** لعميل **خلّص معاه شغل قبل كده** (اتفاق `completed` أو استشارة `completed`) — والعرض هو موافقة المحترف، **فقبول العميل بيبدأ الشغل على طول**. ميزة الدولة `special_offers` (مقفولة لو مفيش قاعدة؛ لو اتقفلت ما يتبعتش عروض جديدة، والعميل يقدر يرد على اللي وصلته لحد ما تنتهي). الجداول: `freelance_special_offers` و`freelance_special_offer_mutes`. أي خصم **على حساب المحترف** (هو اللي بيحط السعر)؛ العمولة ورسوم العميل بيتحسبوا على السعر المعروض زي أي مشروع.
+
+**الأنواع (`kind`):**
+- `custom` — شغل جديد: `title` (5+)، `description` (30+)، `price_minor` (≥ `project.min_budget_minor` لو متحدد)، `delivery_days` (1–365)، `revisions` (0–20)، `specialty_id?` (من تخصصاته، وإلا الأساسي). القبول = مشروع **خاص** (`visibility = private`) + عرض المحترف مقبول + اتفاق **`active`** على طول (العميل بعته = موافقته، والمحترف = عرضه)، والتعديلات المجانية = `revisions`، والعميل بعدها يموّل المرحلة زي أي مشروع. الحدث `project.special_offer`.
+- `service` — مستوى من خدمة منشورة (مش شهرية) بسعر **أقل** من سعره العادي (`price_not_lower` لو مش أقل): `service`, `level`, `price_minor`. القبول = نفس طلب FL-L04 (`freelance_service_orders`) بالسعر الخاص **ومقبول من المحترف على طول** (اتفاق `active`). الأيام والتعديلات = المستوى.
+- `consultation` — استشارة منشورة بخصم على كل المدد: `consultation`, `discount_bp` (500–9000 = 5%–90%). القبول بياخد `minutes` + `starts_at` + `topic` (10+) ويحجز بالسعر بعد الخصم، **والحجز بيتأكد على طول (`booked`)** من غير ما المحترف يوافق — والطلبات `pending` التانية على نفس الساعات بتترفض وفلوسها ترجع (نفس منطق قبول FL-L07). مفيش إشعار `consultation.requested` للمحترف (بيوصله `special_offer.accepted`).
+
+**الحدود (سياسة، مجموعة `special_offers`):** `special_offers.daily_limit` (10 في اليوم للمحترف → `freelance_special_offer_daily_limit` 429) · `special_offers.open_per_client` (1 مفتوح لنفس العميل → `freelance_special_offer_client_has_open` 409) · `special_offers.cooldown_days` (7 بعد رفض العميل → `freelance_special_offer_cooldown` 409 ومعاه `until`) · `special_offers.max_valid_days` (14؛ `valid_days` من 1 لده، الافتراضي 7 → `freelance_special_offer_valid_days` 422). ممنوع أي وسيلة تواصل في العنوان والوصف والرسالة (`freelance_offer_contact_blocked`). `request_id` بيخلّي الضغطة المكررة عرض واحد.
+
+**المحترف** (`/api/freelance/v1/special-offers`، middleware `freelance.feature:special_offers`):
+- `GET clients[?search=]` → عملاؤه السابقين (الأحدث أولاً): `{key (32 حرف، ثابت ومش رقم العميل), name, avatar_url, works, projects, consultations, last_title, last_at, open_offer, can_send, blocked_reason: has_open|cooldown|null, blocked_until}`. العميل اللي وقّف عروضه **ما بيظهرش**. مفيش موبايل ولا إيميل.
+- `GET compose` → `{currency, decimals, kinds{custom, service, consultation}, services[{uuid, title, levels[{level, label, name, price_minor, delivery_days, revisions, features}]}], consultations[{uuid, title, lengths[{minutes, price_minor}]}], specialties, rules{daily_limit, open_per_client, cooldown_days, max_valid_days, default_valid_days, min_discount_bp, max_discount_bp}, min_price_minor, today_left, stats{sent, seen, accepted, accept_rate}, counts{open, accepted, past}}`.
+- `GET quote?price_minor=&specialty_id=` → `{price_minor, commission_minor, net_minor, client_fee_minor, client_total_minor, currency, lines}`.
+- `POST /` `{client, kind, title?, description?, message?, specialty_id?, service?, level?, consultation?, price_minor?, discount_bp?, delivery_days?, revisions?, valid_days?, request_id?}` (محتاج `freelance.verified`) → 201 · العميل بيوصله `special_offer.received`.
+- `GET /[?tab=open|accepted|past]` (+ `counts` و`stats` في الرد) · `GET {uuid}` (فيه `viewed_at`) · `POST {uuid}/withdraw` (لو لسه مستني).
+
+**العميل** (`/api/mobile/v1/freelance/special-offers`، من غير مفتاح ميزة عشان يقدر يرد على اللي وصله):
+- `GET /[?tab=]` (+ `counts`) · `GET waiting` → `{count}` (الشارة في الصفحة الرئيسية للعمل الحر) · `GET {uuid}` (أول فتح بيسجّل `viewed_at` للمحترف).
+- `POST {uuid}/accept {request_id?, minutes?, starts_at?, topic?}` (الـ3 الأخيرة إجبارية للاستشارة) → `result{project, service_order, consultation}` · المحترف بيوصله `special_offer.accepted`. الضغطة التانية على عرض اتقبل بترجّع نفس النتيجة.
+- `POST {uuid}/decline {reason? (≤300), mute?}` → المحترف بيوصله `special_offer.declined` (والسبب بيظهرله). `mute = true` بيوقف عروضه.
+- `PUT freelancers/{uuid}/mute {on}` (لمحترف بعتله عرض قبل كده بس) — الإيقاف بيقفل كمان العروض المستنية.
+- الرد (للطرفين، كل واحد من ناحيته): `{uuid, kind, kind_label, status (العرض اللي عدّى وقته بيبان expired حتى قبل الـsweep), status_label, title, message, description, specialty, service{uuid,title,level,level_label,tier_name,features}|null, consultation{uuid,title,lengths[{minutes, list_price_minor, price_minor, client_fee_minor, total_minor}]}|null, price_minor, list_price_minor, saving_minor, discount_bp, delivery_days, revisions, currency, decimals, money (العميل: price/client_fee/total + lines؛ المحترف: price/commission/net + lines), expires_at, sent_at, viewed_at (للمحترف), answered_at, decline_reason, freelancer|client, result, muted (للعميل), can{accept, decline}|{withdraw}}`. الاتفاق فيه `special_offer` (uuid العرض اللي جه منه).
+
+**الساعة:** الأمر `freelance:sweep-special-offers` (كل ساعة) بيعلّم المنتهي `expired`، وبيبعت للعميل **مرة واحدة** `special_offer.ending` لما يفضل أقل من يوم (لعرض عمره يوم على الأقل).
+
+**الأدمن:** `GET freelance-special-offers[?status=&kind=&search=]` (+ `counts` لكل حالة) · `GET freelance-special-offers/{uuid}` — قراءة بس، صلاحية `freelance-projects.view`. الحدود في «الأسعار والقواعد» (مجموعة «العروض الخاصة») والمفتاح في «مفاتيح الخصائص».
+
+**الإشعارات:** المحترف `special_offer.accepted|declined` (`{name, title}`)، العميل `special_offer.received|ending` (`{name, title}`). الـdata فيها `special_offer` (والـ`project`/`consultation` بعد القبول).
+
+**اختبار:** `tests/Feature/FreelanceSpecialOffersTest.php` (8 اختبارات: العملاء السابقين بس، الشغل المخصوص بيبدأ اتفاق `active`، الخدمة بسعر أقل بتبقى طلب مقبول، الاستشارة بخصم بتتأكد على طول، عرض مفتوح واحد ومهلة بعد الرفض وإيقاف العميل، الحد اليومي ووسائل التواصل والمدة، التذكير والانتهاء، المفتاح والناس التانيين والأدمن).
+
+## برنامج الولاء (FL-L09 — الدفعة ب) — 2026-11-02
+
+**الفكرة:** كل محترف يحدد بنفسه **شرائح خصم** بتكبر مع عدد الشغل اللي خلّصه مع نفس العميل («بعد 2 شغلانة 5%، بعد 5 10%…»)، والخصم **بيتطبق لوحده** على عروض المشاريع والخدمات الجاهزة والاستشارات من غير ما العميل يطلب. قرارات المالك: الولاء = **خصم**، **على حساب المحترف** (بيتخصم من السعر اللي بيطلبه، والعمولة ورسوم العميل بتتحسب على السعر **بعد** الخصم زي أي مشروع)، على **سعر المشروع**، **لكل محترف لوحده**، ويشمل **كل حاجة**. ميزة الدولة `loyalty` (مقفولة لو مفيش قاعدة؛ لو اتقفلت الخصم يقف على طول). الجدول `freelance_loyalty_programs` (`freelancer_id` فريد، `enabled`، `tiers` JSON) + عمودين `list_price_minor` و`loyalty_bp` على `freelance_offers` و`freelance_consultations` (migration `2026_11_17_100000`). الخدمة `Services/Offers/Loyalty.php`.
+
+**اللي بيتعد:** الشغل المخلّص مع نفس المحترف = اتفاقات `completed` + استشارات `completed` (نفس تاريخ العروض الخاصة). الشريحة = أعلى `after` وصله العميل.
+
+**الحدود (سياسة، مجموعة `loyalty`):** `loyalty.max_discount_bp` (3000 = 30% افتراضي، نوع نسبة) · `loyalty.max_tiers` (4، من 1 لـ10). أقل خصم 1% (`MIN_BP = 100`) وأبعد شريحة بعد 50 شغلانة. الشرائح لازم تترتب: كل واحدة بعد اللي قبلها وبخصم أكبر. الأخطاء: `freelance_loyalty_tiers_required` · `_tiers_many` (ومعاه `max`) · `_after_invalid` · `_discount_invalid` · `_tiers_order` · `_not_set_up` (تشغيل برنامج ما اتحفظش).
+
+**ينطبق فين (بتتحسب في السيرفر، التطبيق بيعرض بس):**
+- **عرض مشروع:** `FreelancerOffers::send/edit` بيطبّق الخطوة على `client_id` بتاع المشروع؛ العرض بيحفظ `list_price_minor` (اللي كتبه المحترف) و`loyalty_bp`، و`price_minor` بعد الخصم. تعديل العرض بيبدأ من `list_price_minor`. `POST .../offers/preview` بيرجّع `loyalty{bp, after, works}|null` والتفاصيل محسوبة على السعر بعد الخصم.
+- **خدمة جاهزة (مرة واحدة):** `GET services/{uuid}` للعميل فيه `loyalty` (البرنامج زي ما العميل شايفه) وكل مستوى `loyalty_price_minor`؛ `GET services/{uuid}/quote` بيرجّع `price_minor` بعد الخصم + `list_price_minor`, `loyalty_bp`, `saving_minor`؛ الطلب بيحفظ الخصم في `snapshot.loyalty` وفي العرض الداخلي المقبول. **الخدمات الشهرية برّه البرنامج** (سعر ثابت كل شهر).
+- **استشارة:** `GET consultation-offers/{uuid}` فيه `options[]` بـ`price_minor` بعد الخصم + `list_price_minor`, `loyalty_bp`، و`loyalty`؛ الحجز بيحفظهم، والرد فيه `list_price_minor`, `loyalty_bp`, `saving_minor`.
+- **العرض الخاص مالوش خصم فوقه:** سعره كلمة المحترف النهائية (مفيش تراكم).
+- العميل بيشوف في ملف المحترف (`offers/{uuid}/freelancer`) نفس الكائن `loyalty`.
+
+**المحترف** (`/api/freelance/v1/loyalty`، middleware `freelance.feature:loyalty`):
+- `GET /` → `{available, currency, decimals, program{enabled, tiers[{after, discount_bp}]}|null, rules{min_discount_bp, max_discount_bp, max_tiers, max_after}, presets[{key, name, tiers}] (جاهزة ومقصوصة على الحدود), stats{past_clients, in_program, uses, saved_minor, by_tier[]}, clients[…] (أول 30، من غير وسائل تواصل)}`.
+- `PUT /` `{enabled, tiers[{after, discount_bp}]}` (throttle) → نفس شكل `GET`.
+- `POST enable` · `POST disable` (التشغيل محتاج برنامج محفوظ).
+
+**العميل** (`/api/mobile/v1/freelance`، من غير مفتاح ميزة — لو اتقفلت في الدولة الرد بيبقى null):
+- `GET loyalty` → كل محترف خلّصت معاه شغل وعنده برنامج شغال، الأعلى خصماً أولاً: `[{freelancer{uuid,name,headline,avatar_url}, works, tiers[{after, discount_bp, reached}], current{after,discount_bp}|null, next{after,discount_bp,remaining}|null, progress (0–1)}]`.
+- `GET freelancers/{uuid}/loyalty` → `{loyalty: {works, tiers, current, next, progress}|null}` (الغلاف بيحوّل null لـ`[]` فبنلفّه).
+
+**الإشعار:** العميل `loyalty.unlocked` (`{name, percent}`، الـdata فيها `loyalty` = uuid المحترف) لما شغلانة تخلص وتوصله **بالظبط** على `after` شريحة (من مستمعين على `FreelanceAgreement` و`FreelanceConsultation` لما تبقى `completed`). بيفتح «خصوماتي».
+
+**الأدمن:** `GET admin/v1/freelance-loyalty[?search=&enabled=]` — قراءة بس، صلاحية **`freelance-loyalty.view`** (والعروض الخاصة `freelance-special-offers.view`، الاتنين في `AdminPermissionSeeder`). كل صف: `{id, freelancer, enabled, tiers, uses, saved_minor, currency, updated_at}`، و`totals` = `{freelancers, uses, saved[{currency, decimals, saved_minor}]}` (الموفّر لكل عملة). الصفحتين في لوحة الأدمن: «العروض الخاصة» و«برامج الولاء» (قايمة العمل الحر). الحدود في «الأسعار والقواعد» (مجموعة «الولاء») والمفتاح في «مفاتيح الخصائص».
+
+**اختبار:** `tests/Feature/FreelanceLoyaltyTest.php` (7 اختبارات، 188 تأكيد: الحدود والتحقق، خصم عرض المشروع مع التعديل ورؤية العميل والغريب، طلب الخدمة والاستشارة والإحصائيات والأدمن، عدم التراكم مع العرض الخاص واستبعاد الشهرية، خطوات العميل وإشعار الفتح، البرنامج مقفول ومفتاح الدولة، التقريب).
+
+## حقوق الملكية والتراخيص (FL-L13) — 2026-11-02
+
+**الفكرة:** المحترف بيقول في **كل عرض وكل خدمة جاهزة** مين صاحب الشغل بعد الدفع وإيه اللي يقدر العميل يعمله بيه. 3 نماذج: `transfer` (نقل كامل بعد الدفع — **الافتراضي**) · `license` (ترخيص استخدام بشروط) · `retained` (المحترف محتفظ بالملكية والعميل بياخد حق استخدام). الشروط بتتنقل من العرض/الخدمة للاتفاق **لقطة ثابتة** مع **النص القياسي بتاع اليوم ده** (من الأدمن، لكل دولة وبالعربي والإنجليزي)، فتعديل النص بعد كده يوصل للاتفاقات الجديدة بس. الميزة مفتاحها `rights` لكل دولة (`freelance.feature:rights`)؛ لو مقفولة العروض والاتفاقات القديمة بتشتغل زي ما كانت و`rights` فيها `null`. الاستشارات مش داخلة (مفيهاش ملفات). التوقيع الإلكتروني خارج النطاق.
+
+**شكل الشروط (`rights`، في الطلب وفي رد العرض/الخدمة):** `{model: transfer|license|retained, commercial: bool, exclusive: bool, term_months: int|null (1–120), territory: worldwide|country, portfolio: bool}`. الأخطاء: `freelance_rights_model_invalid` · `freelance_rights_territory_invalid` · `freelance_rights_term_invalid` (422). **`transfer`** بيتجاهل أي حدود (كله تجاري، حصري، للأبد، العالم). **`retained`** مفيهوش حصري ولا مدة. لو مفيش `rights` في الطلب = الافتراضي (`transfer`). `portfolio` هنا **أمنية المحترف** بس؛ موافقة العميل منفصلة (تحت).
+
+**المحترف** (`/api/freelance/v1`):
+- `GET rights` → `{enabled, default{…}, models[{model, label, summary, terms{title, body, version}}] (النص القياسي لدولته بلغة الطلب), limits{max_term_months, max_materials}}`.
+- العرض: `POST projects/{uuid}/offers` و`PUT offers/{uuid}` بيقبلوا `rights{…}` (التعديل لو الشروط زي ما هي = `freelance_offer_unchanged`). رد العرض فيه `rights` ملخّص `{model, model_label, summary, clauses[], details{commercial, exclusive, term_months, territory}, portfolio}` (`null` لو الميزة مقفولة).
+- الخدمة: `POST/PUT services` بيقبلوا نفس `rights`؛ الطلب بيورّث الشروط للعرض فللاتفاق. الخدمة اللي اتعملت من غير شروط = الافتراضي.
+- **التسليم:** `POST projects/{uuid}/milestones/{m}/deliver` (multipart) فيه `rights_confirmed` (لازم true) و`materials[i][name|source|license]` (خامات من برّه، حد أقصى `max_materials`). من غير الإقرار = `freelance_rights_declaration_required` (422) وبدون ما يتسجل تسليم. الاتفاقات اللي من غير شروط ما بتطلبش إقرار. الإقرار والخامات بيتحفظوا مع التسليم وبيظهروا للعميل في `deliveries[].rights{confirmed_at, materials[]}`.
+- **المعرض:** `GET rights/portfolio-sources` → شغلي المخلّص اللي العميل سمح بعرضه `[{uuid (الاتفاق), title, completed_at, used}]`. `POST profile/portfolio` و`PUT` بيقبلوا `agreement_uuid` (يربط العنصر بالشغلانة)؛ أخطاء: `freelance_rights_portfolio_source_invalid` · `_not_finished` · `_not_allowed` (422). العنصر في رد المحترف فيه `agreement` (uuid) و`withdrawn_by_client` (العميل سحب السماح → العنصر بيختفي من العرض العام ويفضل عند صاحبه).
+- `POST projects/{uuid}/agreement/rights/portfolio-request` (throttle) → بيبعت إشعار للعميل يطلب السماح؛ مش قبل `ask_again_days` (3) = `freelance_rights_portfolio_asked_recently` (429)، ولو مسموح أصلاً `freelance_rights_portfolio_already_allowed` (409). بيرجّع الاتفاق.
+
+**الاتفاق** (للطرفين، `GET …/agreement` و`GET …/agreement` عند المحترف): `rights` = `{model, model_label, summary, clauses[], details, terms{title, body, version}, portfolio{wanted, allowed, asked_at}, parts{total, granted}, state: pending|partial|granted, can{portfolio_toggle (العميل), portfolio_request (المحترف)}}` أو `null`. **الحقوق بتنتقل جزء جزء:** الجزء `Approved` (اتعتمد واتدفع) = حقوقه عدّت (`parts.granted`)، وقبل كده العميل **بيعاين ويراجع بس**. لما جزء يتعتمد بيتسجل `rights.granted` في سجل الموافقات (`freelance.trail.rights_granted`) والعميل بيتبلّغ.
+
+**العميل** (`/api/mobile/v1/freelance`):
+- العروض والخدمات: نفس `rights` الملخّص (`GET projects/{uuid}/offers`، `GET services/{uuid}`، …).
+- `PUT projects/{uuid}/agreement/rights/portfolio {allowed: bool}` (`freelance.feature:rights`، throttle) → السماح/سحب السماح بعرض الشغل المخلّص في معرض المحترف؛ بيرجّع الاتفاق، والمحترف بيتبلّغ، والحدث في السجل (`rights.portfolio_granted/revoked`). السماح دايماً بيبدأ **false**.
+- `POST rights/claims {subject_type: portfolio_item|service, subject: uuid, details (10–2000)}` → بلاغ إن العمل مش بتاع المحترف (201 `{uuid, status}`)؛ مكرر = `freelance_rights_claim_exists` (409)، العمل مش ظاهر = `freelance_rights_claim_subject_not_found` (404).
+- نزاع بسبب `rights` (فئة `rights`): `POST …/milestones/{m}/dispute {reason: rights, details}`.
+
+**من برّه دُرر (من غير تسجيل):** `POST /api/freelance/v1/public/rights-claims {subject (uuid عنصر المعرض), contact, name?, details (20–2000)}` (throttle 5/10 دقايق).
+
+**الأدمن** (`/api/admin/v1/freelance-rights`، صلاحية `freelance-rights.view|update` في `AdminPermissionSeeder`): `GET overview` (الاتفاقات حسب النموذج، المعرض: مطلوب/مسموح/عناصر، نزاعات الحقوق، البلاغات) · `GET terms[?country_id=]` (3 صفوف + `countries` في الميتا) · `PUT terms` `{country_id?, model, title_ar, title_en, body_ar, body_en}` (كل حفظ بيزوّد `version`) · `DELETE terms/{id}` (رجوع للنص الافتراضي) · `GET claims[?status=]` + `counts` · `GET claims/{uuid}` · `POST claims/{uuid}/decide {decision: uphold|dismiss, note?}`. القبول بيخفي عنصر المعرض (أو بيوقف الخدمة) وبيبلّغ المبلّغ لو عميل؛ القرار مرتين = `freelance_rights_claim_closed` (409). تفاصيل النزاع في الأدمن (`freelance-disputes/{uuid}`) فيها `agreement.rights` بالشروط اللي اتفق عليها الطرفين.
+
+**الإشعارات** (الأنواع `freelance_rights_*`، الـdata فيها `project` = uuid المشروع): `rights.granted` (للعميل، + `milestone`) · `rights.portfolio_requested` (للعميل) · `rights.portfolio_granted/revoked` (للمحترف) · `rights.claim_closed` (للعميل، الـdata فيها `rights_claim`).
+
+**حدود معروفة:** التسوية الجزئية والاسترداد **ما بيمنحوش** حقوق · لا يمكن منع تصوير الشاشة بكاميرا تانية (القفل على الموبايل بيمنع اللقطة والتسجيل بس) · العروض الخاصة من نوع شغل مخصص بتاخد الشروط الافتراضية · النصوص القياسية قوالب استرشادية ومحتاجة مراجعة قانونية لكل دولة قبل الإطلاق.
+
+**معاينة بس قبل الدفع:** للعميل، طول ما الجزء مش `Approved` (واتفاقه فيه شروط): `deliveries[].files[].preview_only = true`، و`GET …/deliveries/{d}/files/{media}` بيرجّع **صورة JPEG مصغّرة (أطول ضلع 800px، من غير علامة مائية، `Cache-Control: private, no-store`)** للصور، وأي نوع تاني = `freelance_rights_preview_only` (403). المحترف دايماً بياخد الملف كامل، وبعد الاعتماد العميل بياخد الملف كامل. تطبيق دُرر بيمنع لقطة الشاشة في قسم الشغل (Android `FLAG_SECURE`، iOS إخفاء المحتوى وقت التصوير).
+
+**اختبار:** `tests/Feature/FreelanceRightsTest.php` (14 اختبار، 208 تأكيد).
+
+---
+
+## المجتمع المهني (FL-L12) — 2026-11-02
+
+**الفكرة (قرارات المالك):** فيد منشورات بشكل LinkedIn **للمحترفين بس** (العميل ما يشوفوش)، جوه تطبيق المحترف بس، ومالوش علاقة بالشات ولا بمجتمعات الشات. الأكاديمية اتشالت. الفيد **لكل دولة** (المحترف بيشوف منشورات دولته). مفتاح الدولة `community` (`freelance.feature:community`). الكتابة (نشر/تعليق/تفاعل) محتاجة حساب **موثّق** ومن غير كتم من الإدارة؛ القراءة لأي محترف داخل.
+
+**الحماية:** ممنوع وسائل التواصل في المنشور والتعليق بنفس قاعدة الشات (`ContactGuard`: إيميل/لينك/رقم/حساب سوشيال) = `freelance_community_contact_blocked` (422، `data.found`). حد يومي (`config freelance.community`): 5 منشورات و60 تعليق و20 بلاغ في 24 ساعة (429: `freelance_community_daily_posts|_comments|_reports`). لما **3 أعضاء مختلفين** يبلّغوا عن حاجة بتتخفى لوحدها لحد ما الإدارة تقرر (`hidden.under_review = true`). الإدارة تقدر تكتم عضو (`freelance_community_muted` 403، `data.until`) لحد 90 يوم.
+
+**المحترف** (`/api/freelance/v1/community`، الصفحات بـ`cursor` و`meta.next_cursor` + `meta.has_more`):
+
+| Method | Path | ملاحظات |
+|---|---|---|
+| GET | `community` | `{me{uuid,name,headline,bio,avatar_url,badge,specialties[],posts,followers,following,saved}, can_write, muted{until,reason}\|null, limits{body_min,body_max,comment_max,max_images,posts_per_day,posts_today,comments_per_day,comments_today}, kinds[{key,label}], reactions[{key,label}], report_reasons[{key,label}], rules[], specialties[{id,name}], my_specialties[]}` |
+| GET | `community/feed?tab=for_you\|following\|specialty\|mine\|saved&kind=post\|question\|work&specialty_id=&search=&member=<uuid>&cursor=&per_page=` | قايمة منشورات (شكل المنشور تحت) |
+| POST | `community/posts` (multipart) | `kind` (post افتراضي)، `body` (10–3000)، `specialty_id?` (الافتراضي تخصصي الأساسي)، `portfolio_item` (uuid، لازم مع `work`: عنصر من معرضي ظاهر)، `images[]` (لحد 4، jpg/png/webp، 5MB) → 201 منشور |
+| GET | `community/posts/{uuid}` | `{post, comments[]}` + `meta.next_cursor` (أفضل إجابة الأول ثم الأقدم، وكل تعليق فيه `first_replies[]` لحد 3) |
+| PUT | `community/posts/{uuid}` | `{body?, specialty_id?, remove_images[]?}` (صاحبه بس) |
+| DELETE | `community/posts/{uuid}` | صاحبه بس |
+| GET | `community/posts/{uuid}/comments?cursor=` | تعليقات أكتر |
+| POST | `community/posts/{uuid}/comments` | `{body (≤1500), parent? (uuid تعليق — الرد على رد بيتحط تحت نفس التعليق: مستوى واحد)}` → 201 تعليق |
+| POST | `community/posts/{uuid}/accept` | `{comment: uuid\|null}` أفضل إجابة على **سؤال** (صاحبه بس) |
+| POST/DELETE | `community/posts/{uuid}/save` | حفظ / شيل من المحفوظات |
+| PUT | `community/{posts\|comments}/{uuid}/reaction` | `{kind: like\|celebrate\|insightful\|support\|null}` → `{reactions, my_reaction, top[]}` |
+| GET | `community/comments/{uuid}/replies?cursor=` | الردود |
+| PUT/DELETE | `community/comments/{uuid}` | `{body}` تعديل / مسح (صاحبه) |
+| GET | `community/members/{uuid}` | كارت العضو: `{uuid,name,headline,bio,avatar_url,badge,verified,specialties[],posts,followers,following,is_me,is_following}`؛ منشوراته من `feed?member=` |
+| POST/DELETE | `community/members/{uuid}/follow` | متابعة / إلغاء → كارت العضو |
+| GET | `community/members/{uuid}/followers\|following?cursor=` | `[{uuid,name,headline,avatar_url,badge,is_me}]` |
+| POST | `community/reports` | `{subject_type: post\|comment, subject: uuid, reason: spam\|contact\|abuse\|off_topic\|misleading\|other, details?}` → 201؛ مكرر = 409 `freelance_community_report_exists`، على حاجتي = 422 `_report_own` |
+
+**شكل المنشور:** `{uuid, kind, kind_label, body, author{uuid,name,headline,avatar_url,badge,is_me,is_following}, specialty{id,name}|null, images[{id,url}] (روابط موقّعة 30 دقيقة), work{uuid,title,image_url}|null, reactions, top_reactions[], my_reaction, comments, saved, accepted_comment (uuid|null), hidden{reason,under_review}|null (صاحبه بس بيشوف المخفي), edited, created_at, can{edit,delete,report,accept}}`.
+**شكل التعليق:** `{uuid, body, author{…}, parent, reactions, my_reaction, replies, accepted, hidden, edited, created_at, can{edit,delete,report}, first_replies[]?}`.
+
+**الإشعارات للمحترف** (`freelance_community_*`، الـdata فيها `community_post` / `community_comment` / `community_member`): `community.commented` · `community.replied` · `community.followed` · `community.answer_accepted` · `community.hidden` · `community.muted`. التطبيق بيعيد تحميل المنشور لما يفتح الإشعار، **مفيش polling** (سحب للتحديث + تحميل مرة عند الفتح).
+
+**الأدمن** (`/api/admin/v1/freelance-community`، صلاحية `freelance-community.view|update`): `GET overview` (`posts{total,week,hidden}`, `comments{total,week}`, `members{posting_month,muted}`, `reports{open,upheld,dismissed}`) · `GET reports[?status=]` + `counts` · `GET reports/{uuid}` · `POST reports/{uuid}/decide {decision: uphold|dismiss, note?, mute_days? (0–90)}` (القبول بيخفي ويقفل باقي البلاغات على نفس الحاجة، والرفض بيرجّع اللي اتخفى بالبلاغات لما مايبقاش فيه بلاغ مفتوح) · `GET posts[?status=&kind=&search=&country_id=]` · `GET posts/{uuid}` (بكل التعليقات) · `POST {posts|comments}/{uuid}/hide {reason}` · `POST {posts|comments}/{uuid}/unhide` · `GET mutes` · `POST mutes {freelancer_id, days, reason}` · `DELETE mutes/{id}`.
+
+**الواجهات:** تطبيق المحترف (تفاصيل في [APP.md](APP.md)) وصفحة الأدمن «المجتمع المهني» (`views/freelance/community`). **اختبار:** `tests/Feature/FreelanceCommunityTest.php` (10 اختبارات).
+
+**الجداول:** `freelance_community_posts` (+ صور media `images` على الديسك الخاص) · `_comments` · `_reactions` · `_saves` · `_follows` · `_reports` · `_mutes` — migration `2026_11_19_100000`.
+
+---
+
+## جلسة فيديو الاستشارة (FL-L16) — 2026-11-02
+
+**قرارات المالك:** الجلسة فيديو LiveKit (نفس بنية مكالمات الشات)، **التسجيل إجباري** (العميل بيوافق وهو بيحجز، والمحترف وهو بيقبل، والعرض الخاص = موافقة المحترف)، التسجيل بيترفع لـbucket (S3-compatible، إعدادات `CHAT_RECORDINGS_*`) وبعدين **بيتنقل للـstorage الخاص بتاعنا ويتمسح من الـbucket**، والطرفين بينزّلوه، **وبيتمسح بعد أسبوع** من نهاية الجلسة؛ لو فيه شكوى بيتحفظ لحد حكم الأدمن ويتمسح بعد أسبوع من الحكم. الأدمن بيشوف الفيديو في الشكوى وكل مشاهدة/تنزيل بيتسجل. تطبيق المحترف فيه نسخة من كود المكالمة. التجربة على الموبايل مؤجلة.
+
+**الحجز:** `POST mobile/v1/freelance/consultations` و`POST special-offers/{uuid}/accept` (استشارة) بقوا محتاجين `recording_consent: true`، من غيره = `freelance_consultation_recording_consent_required` (422).
+
+**الغرفة:** `consult-{uuid}` (اتنين بالكتير)، بتفتح قبل الميعاد بـ`open_before_minutes` (5) لحد `ends_at`، والسيرفر بيقفلها في الآخر (بيطلّع الكل). الخروج بالغلط مش مشكلة: أي طرف يرجع طول ما الوقت موجود. الأدمن يقدر يقفلها بدري ويفتحها تاني لو لسه فيه وقت.
+
+**الطرفين** (العميل `mobile/v1/freelance/consultations/{uuid}/…`، المحترف `freelance/v1/consultations/{uuid}/…`):
+
+| Method | Path | ملاحظات |
+|---|---|---|
+| GET | `{uuid}/session` | حالة الجلسة (شكلها تحت)؛ وهي كمان جوه رد الاستشارة في `session` |
+| POST | `{uuid}/session/join` | `{url, token, room, identity, starts_at, ends_at, server_time, warn_before_end_minutes, recording (bool), other{side,name,in_room}}`؛ التوكن صالح لحد `ends_at`. أخطاء (409): `freelance_consultation_session_not_yet` (`data.opens_at`) · `_session_over` · `_session_closed` (الأدمن) · `_session_not_booked`؛ LiveKit مش متظبط = `_session_unavailable` (503) |
+| POST | `{uuid}/session/connected` | التطبيق دخل الغرفة فعلاً: بيبدأ الحضور، والتسجيل لو مش شغال، والطرف التاني بيوصله إشعار أول مرة |
+| POST | `{uuid}/session/leave` | التطبيق خرج؛ لو الاتنين برّه جزء التسجيل بيخلص والدخول تاني بيبدأ جزء جديد |
+| POST | `{uuid}/no-show` (العميل بس) | بعد الميعاد بـ`no_show_minutes` (10) ولو المحترف ما دخلش خالص → شكوى للإدارة بسجل الحضور؛ غير كده `freelance_consultation_no_show_invalid` (409) |
+
+**شكل `session`:** `{available, room_open, opens_at, starts_at, ends_at, closed{by: time|staff, at}|null, recorded: true, recording_available (الـbucket متظبط), consent{client, freelancer}, in_room{client, freelancer}, attendance[{side, joined_at, left_at}], recordings[{uuid, part, status: recording|processing|moving|stored|deleted, duration_seconds, size_bytes, started_at, stopped_at, download_url, watch_url}], recordings_delete_at, recordings_held, recordings_deleted_at, can{join, no_show, close, reopen}}`. `download_url` / `watch_url` روابط موقّعة 15 دقيقة لنفس الشخص (`GET freelance/v1/consultation-recordings/{uuid}?viewer=&viewer_id=&action=download|watch&signature=…`)، الـwatch بيدعم Range للمشغّل، وكل استخدام بيتسجل. **مفيش polling:** التطبيق بيعرف النهاية من `ends_at` بساعة الجهاز (مع `server_time`)، والإشعارات بتقول «الطرف التاني دخل» و«الجلسة هتخلص بعد 5 دقايق» و«التسجيل جاهز».
+
+**الإشعارات** (للطرفين، `data.consultation` = uuid): `consultation.session_joined` · `consultation.session_ending` · `consultation.session_closed` · `consultation.session_reopened` · `consultation.recording_ready` (فيه تاريخ المسح).
+
+**الأدمن** (`admin/v1/freelance-consultations/{uuid}/…`، صلاحية `freelance-consultations`): `GET session` (نفس الشكل بروابط watch باسم الأدمن + `views[{part, viewer, viewer_id, action, at}]`) · `POST session/close` · `POST session/reopen` (update).
+
+**الساعة:** `freelance:sync-consultation-sessions` كل دقيقة: تنبيه قبل النهاية، قفل الغرف اللي وقتها خلص، إعادة محاولة التسجيل لو حد جوه ومفيش تسجيل، متابعة LiveKit، نقل الملف من الـbucket لـ`storage/app/private/freelance/consultation-recordings/{consultation}/{part}.mp4` (`local`) ومسحه من الـbucket، ومسح الملفات بعد أسبوع.
+
+**من غير bucket:** الجلسة بتشتغل عادي من غير تسجيل (`recording_available = false`) لحد ما `CHAT_RECORDINGS_*` تتملي.
+
+**الجداول:** أعمدة جديدة في `freelance_consultations` (`recording_consent_at`, `freelancer_consent_at`, `room_name`, `session_opened_at`, `session_closed_at`, `session_closed_by`, `ending_told_at`, `recordings_delete_at`, `recordings_deleted_at`) · `freelance_consultation_attendance` · `freelance_consultation_recordings` · `freelance_consultation_recording_views` — migration `2026_11_20_100000`.
+
+## رئيسية تطبيق المحترف وبانرات الأدمن (إعادة التصميم — الدفعة ب) — 2026-11-02
+
+- **المحترف:** `GET freelance/v1/home` (ميزة `freelance`) بيرجع الرئيسية في طلب واحد:
+  - `features` (سويتشات الدولة، عشان التطبيق يخفي التاب أو الكارت اللي ميزته مقفولة).
+  - `promos[]`: `{uuid, title, body, cta, image_path, target_type: none|screen|url, target}` باللغة الحالية.
+  - `stats`: `currency, decimals, earned_month_minor` (أرباح اتصرفت من أول الشهر)، `pending_minor` (أرباح لسه محجوزة)، `live_offers` (submitted/viewed/shortlisted، من غير عروض الخدمات الجاهزة)، `active_projects`، `rating` (null لحد ما التقييمات تكفي)، `reviews_count`، `completed_projects`.
+  - `attention`: `orders_awaiting` (لو ميزة `services`)، `consultations_pending` (لو `consultations`)، `invitations_pending` (لو `invitations`)، `revisions` (مراحل رجعت للتعديل في اتفاقات شغالة).
+  - `next_consultation`: طلب مستني ردي الأول، وإلا أقرب استشارة محجوزة لسه ماخلصتش: `{uuid, status, title, minutes, client_name, starts_at, ends_at}` أو `null`.
+  - `work[]` (لحد `freelance.home.work_max` = 3): الاتفاقات الشغالة بالمرحلة الحالية `{project_uuid, title, client_name, milestone: {title, status, due_at}}`، الأقرب ميعادًا الأول (`due_at` = بداية المرحلة + أيامها).
+  - التطبيق بيقراه عند الفتح ورجوع الاتصال ووصول إشعار بس (مفيش مؤقت).
+- **البانر بيظهر لو:** شغال، وبين `starts_at` و`ends_at` (الفاضي = من غير حد)، ودولته هي دولة المحترف أو من غير دولة، ولو بيفتح صفحة فميزتها مفتوحة في الدولة. الترتيب `sort_order` ثم الأحدث، ولحد `freelance.home.promos_max` = 6.
+- **الصفحات المسموحة (`target` لـ `screen`):** `projects, invitations, plans, insights, services, consultations, special_offers, loyalty, community, skill_tests, verification, coach, portfolio, wallet, availability, capacity`. الـ `url` لازم `https`.
+- **الأدمن** (مجموعة صلاحيات `freelance-promos`: `view / create / update / delete`، وكل تغيير بيتسجل في الـ audit):
+  - `GET admin/v1/freelance-promos[?state=showing|scheduled|ended|off&country_id=&search=&per_page=]` → كل بانر بـ `state`، و`screens` في الرد.
+  - `POST admin/v1/freelance-promos` (multipart): `title[ar|en]` (إجباري، 80)، `body[ar|en]` (160)، `cta[ar|en]` (30)، `target_type`، `target`، `country_id?`، `starts_at?`، `ends_at?` (بعد البداية)، `sort_order` (0–1000)، `is_active`، `image?` (jpg/png/webp لحد 2MB، على الـ public disk).
+  - `GET|POST admin/v1/freelance-promos/{uuid}`: التعديل multipart، و`remove_image=1` بيشيل الصورة.
+  - `POST …/{uuid}/toggle` و`DELETE …/{uuid}`.
+- **الجدول:** `freelance_promos` (migration `2026_11_21_100000`). الاختبار: `FreelancerHomeTest` (5).
+
+## رئيسية فريلانس العميل وجمهور البانرات (إعادة تصميم العميل — الدفعة ب) — 2026-11-03
+
+- **العميل:** `GET mobile/v1/freelance/home` (حارس `user_api`) بيرجع المحور في طلب واحد:
+  - `service`، `features` (سويتشات دولة العميل)، `currency`، `decimals`.
+  - `promos[]`: نفس شكل بانرات المحترف، بس اللي جمهورها `client` أو `both`.
+  - `stats`: `running_projects` (منشور/اتعيّن/شغال)، `new_offers` (عروض `submitted` على مشاريعي المنشورة)، `running_orders` (طلبات خدمات مستنية أو شغالة، لو `services`)، `upcoming_consultations` (pending/booked لسه ماخلصتش، لو `consultations`)، `funded_month_minor` (المراحل اللي اتموّلت من أول الشهر).
+  - `attention`: `new_offers`، `to_review` (تسليم مستني اعتمادي)، `to_fund` (اتفاق شغال فيه مرحلة مش ممولة ومفيش حاجة تانية شغالة — نفس قاعدة `next_action`)، `to_fix` (مشروع رجع للتعديل أو اترفض): كل واحد `{count, project_uuid}` (مشروع الأحدث)؛ و`special_offers` (عدد).
+  - `next_consultation`: أقرب محجوزة لسه ماخلصتش، وإلا أقرب مستنية المحترف: `{uuid, status, title, minutes, freelancer_name, starts_at, ends_at}` أو `null`.
+  - `projects[]` (لحد `freelance.home.client_projects_max` = 3): مشاريعي الجارية بنفس شكل قائمة المشاريع (الأحدث تعديلًا).
+  - `services[]` (لحد `freelance.home.client_services_max` = 8، لو `services`): كروت الخدمات الجاهزة بترتيب «موصى به».
+  - `is_new`: مفيش أي مشروع ولا طلب لسه.
+  - التطبيق بيقراه عند الفتح والسحب للتحديث ووصول إشعار فريلانس ورجوع الاتصال بس (مفيش مؤقت).
+- **جمهور البانر:** عمود `audience` في `freelance_promos` (`freelancer` | `client` | `both`، الافتراضي `freelancer` فالبانرات القديمة فضلت للمحترف) — migration `2026_11_22_100000`. كل تطبيق بيعرض بتاعه + `both`.
+- **صفحات العميل (`target` لـ `screen` لما الجمهور `client`):** `projects, new_project, services, orders, consultations, my_consultations, special_offers, loyalty, favorites`. للجمهور `both` الصفحات اللي في الاتنين بس: `projects, services, consultations, special_offers, loyalty`.
+- **الأدمن:** `audience` في الإضافة والتعديل (تغيير الجمهور لوحده بيعيد التحقق من الصفحة)، وفلتر `?audience=` في القائمة، و`screens_by_audience` في الرد (و`screens` فضلت للمحترف زي ما هي).
+- **الاختبار:** `FreelanceClientHomeTest` (5).
+
+## قائمة مشاريع العميل: شغالة / منتهية (إعادة تصميم العميل — الدفعة ج) — 2026-11-03
+
+- `GET mobile/v1/freelance/projects?scope=active|ended[&status=]`: `active` = كل الحالات غير المنتهية (مسودة لحد شغال)، `ended` = `closed` و`rejected` و`cancelled`. الـ`status` بيضيّق جوه الجزء. قيمة تانية = 422. من غير `scope` الرد زي ما كان.
+- الاختبار: `FreelanceClientProjectsTest::test_the_list_splits_running_and_ended_projects`.

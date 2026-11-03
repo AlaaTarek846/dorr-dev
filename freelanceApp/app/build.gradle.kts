@@ -95,6 +95,9 @@ dependencies {
     implementation("com.pusher:pusher-java-client:2.4.4")
     // Phone notifications — the server already sends through OneSignal; the app id comes from realtime-config.
     implementation("com.onesignal:OneSignal:5.1.6")
+    // FL-L16: the consultation's video session — the same LiveKit SDK and version as androidApp's chat calls (a copy of its call
+    // code lives in this app; driverApp/core stays without it, so the drivers' app does not carry the library).
+    implementation("io.livekit:livekit-android:2.5.0")
 
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")

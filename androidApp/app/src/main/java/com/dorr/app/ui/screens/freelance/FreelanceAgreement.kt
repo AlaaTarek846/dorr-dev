@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.width
 import com.dorr.app.ui.screens.profile.settingsSurface
 import androidx.compose.material3.Icon
@@ -107,7 +108,8 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
     var cancelCode by remember { mutableStateOf<String?>(null) }
     var cancelNote by remember { mutableStateOf("") }
     var reloads by remember { mutableStateOf(0) }
-    var tab by rememberSaveable { mutableStateOf(0) }
+    // The part on show (null: the parts when one waits for me — funding, approving — else the overview).
+    var tab by rememberSaveable { mutableStateOf<Int?>(null) }
     // FL-402: the parts, while the client splits them (title, amount as typed).
     var splitting by remember { mutableStateOf(false) }
     val parts = remember { androidx.compose.runtime.mutableStateListOf<Pair<String, String>>() }
@@ -154,7 +156,7 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
     fun body() = FreelanceAgreementRequest(scopeText.trim(), includes.trim().ifBlank { null }, excludes.trim().ifBlank { null }, reportDays)
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_agreement), onBack)
+        FlPageHeader(stringResource(R.string.fl_agreement), onBack)
         val a = agreement
         if (a == null) {
             FlLoading(error)
@@ -163,9 +165,12 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
         val recordsKey = "${a.status}:${a.version}:" + a.milestones.joinToString(",") { it.status }
         val activity = a.status == "active" || a.status == "completed"
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // The head: who, where it stands and the figures.
+            // The head: a band of its status colour, who, where it stands, the figures and the parts as steps.
             val sc = agreementStatusColor(a.status)
-            Card {
+            val current = tab ?: if (a.milestones.any { it.can.fund || it.can.approve || it.can.revision || it.can.cancelAccept }) 1 else 0
+            Column(Modifier.fillMaxWidth().settingsSurface(FlCorners.card)) {
+                Box(Modifier.fillMaxWidth().height(5.dp).background(sc))
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(sc.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Handshake, null, tint = sc, modifier = Modifier.size(24.dp))
@@ -184,12 +189,7 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                     FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_total), "‎${money(a.money.totalMinor)} ${a.currency}", Modifier.weight(1.5f))
                     FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, a.durationDays), Modifier.weight(1f))
                 }
-                val done = a.milestones.count { it.status == "approved" }
-                if (a.milestones.isNotEmpty() && activity) {
-                    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.15f))) {
-                        if (done > 0) Box(Modifier.fillMaxWidth((done.toFloat() / a.milestones.size).coerceAtMost(1f)).height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent()))
-                    }
-                    Text(stringResource(R.string.fl_progress_parts, done, a.milestones.size), color = settingsMut(), fontSize = 12.sp)
+                if (a.milestones.isNotEmpty() && activity) StageSteps(a.milestones) { tab = 1 }
                 }
             }
             FlTabs(
@@ -198,9 +198,9 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                     FlTab(Icons.Rounded.Flag, stringResource(R.string.fl_tab_parts), a.milestones.size),
                     FlTab(Icons.Rounded.History, stringResource(R.string.fl_tab_activity)),
                 ),
-                tab,
+                current,
             ) { tab = it }
-            when (tab) {
+            when (current) {
                 0 -> {
                     Card(Icons.Rounded.Payments, stringResource(R.string.fl_ag_money)) {
                         Field(stringResource(R.string.fl_price), "‎${money(a.money.priceMinor)} ${a.currency}")
@@ -212,6 +212,12 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                         }
                         a.terms.reviewDays?.let { Field(stringResource(R.string.fl_ag_review_days), stringResource(R.string.fl_days, it)) }
                         a.terms.freeRevisions?.let { Field(stringResource(R.string.fl_ag_free_revisions), it.toString()) }
+                    }
+                    // FL-L13: who owns the work and how far the rights have passed; the portfolio leave is the client's alone.
+                    a.rights?.let { r ->
+                        AgreementRightsCard(r, busy) { allowed ->
+                            act({ ApiClient.freelanceRights.setPortfolio(auth(), projectUuid, com.dorr.app.network.FreelancePortfolioAllowRequest(allowed)).also { notice = it.message }.data })
+                        }
                     }
                     if (a.can.edit) {
                         // The terms are a form: the same look as the organizer form.
@@ -407,6 +413,42 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
         loading = busy, onDismiss = { confirmCancel = false },
         onConfirm = { act({ ApiClient.freelance.cancelAgreement(auth(), projectUuid).data }, after = { confirmCancel = false; onEnded() }) },
     )
+}
+
+/**
+ * The parts of the work as steps in a row — a circle each on its status colour (a tick when approved), joined by a line — and, under them,
+ * the part being worked on now and where it stands. A tap opens the parts.
+ */
+@Composable
+private fun StageSteps(parts: List<com.dorr.app.network.FreelanceMilestoneDto>, onOpen: () -> Unit) {
+    val done = parts.count { it.status == "approved" }
+    val now = parts.firstOrNull { it.status != "approved" && it.status != "cancelled" }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.06f)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpen)
+            .padding(12.dp).semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            parts.forEachIndexed { i, m ->
+                val mc = milestoneStatusColor(m.status)
+                val isNow = m.uuid == now?.uuid
+                Box(
+                    Modifier.size(if (isNow) 30.dp else 26.dp).clip(RoundedCornerShape(50))
+                        .background(if (m.status == "approved" || isNow) mc else mc.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (m.status == "approved") Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    else Text(m.position.toString(), color = if (isNow) Color.White else mc, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                }
+                if (i < parts.lastIndex) Box(Modifier.weight(1f).height(3.dp).padding(horizontal = 3.dp).clip(RoundedCornerShape(999.dp)).background(if (m.status == "approved") milestoneStatusColor("approved") else settingsMut().copy(alpha = 0.25f)))
+            }
+        }
+        Text(
+            if (now == null) stringResource(R.string.fla_all_done, done, parts.size)
+            else stringResource(R.string.fla_now, now.title, milestoneStatusLabel(now.status)) + "  ·  " + stringResource(R.string.fl_progress_parts, done, parts.size),
+            color = settingsInk(), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 2,
+        )
+    }
 }
 
 @Composable

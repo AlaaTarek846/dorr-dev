@@ -65,7 +65,11 @@ data class OfferPreviewDto(
     val quota: OfferQuotaDto = OfferQuotaDto(),
     @SerializedName("min_price_minor") val minPriceMinor: Long? = null,
     val breakdown: OfferBreakdownDto? = null,
+    /** FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask). */
+    val loyalty: OfferLoyaltyDto? = null,
 )
+
+data class OfferLoyaltyDto(val bp: Int = 0, val after: Int = 0, val works: Int = 0)
 
 data class OfferBlockedDto(val code: String = "", val message: String = "")
 
@@ -85,6 +89,10 @@ data class OfferBreakdownDto(
     @SerializedName("commission_minor") val commissionMinor: Long = 0,
     @SerializedName("net_minor") val netMinor: Long = 0,
     val currency: String = "",
+    /** FL-L09: the price I asked and the loyalty discount taken off it (`priceMinor` is what the client pays). */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
 )
 
 data class OfferCheckRequest(
@@ -109,6 +117,10 @@ data class OfferDto(
     val uuid: String,
     val status: String = "submitted",
     @SerializedName("price_minor") val priceMinor: Long = 0,
+    /** FL-L09: the price I asked and the loyalty discount taken off it (null: none). */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
     val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val details: String = "",
@@ -126,6 +138,8 @@ data class OfferDto(
     val chat: OfferChatDto? = null,
     /** FL-401: the agreement the client sent on it. */
     val agreement: OfferAgreementDto? = null,
+    /** FL-L13: who owns the work once it is paid and what the client may do with it (null where the feature is off). */
+    val rights: RightsSummaryDto? = null,
     @SerializedName("created_at") val createdAt: String? = null,
 )
 
@@ -139,6 +153,8 @@ data class OfferUpdateRequest(
     @SerializedName("price_minor") val priceMinor: Long,
     @SerializedName("duration_days") val durationDays: Int,
     val details: String,
+    /** FL-L13: sent only when the feature is on. */
+    val rights: RightsInputDto? = null,
 )
 
 data class OfferRevisionDto(

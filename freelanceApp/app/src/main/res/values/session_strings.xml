@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L16: the consultation's video session (the freelancer's side). -->
+<resources>
+    <!-- The card on the consultation -->
+    <string name="ses_card_title">Video session</string>
+    <string name="ses_opens_in">The room opens in</string>
+    <string name="ses_opens_at">Opens at %1$s, %2$d minutes before the start.</string>
+    <string name="ses_join">Join the session</string>
+    <string name="ses_back_to">Back to the session</string>
+    <string name="ses_room_open_note">The room is open until %1$s. If you leave by mistake you can come back while the time lasts.</string>
+    <string name="ses_unavailable">Video sessions are not available right now. Try again in a little while.</string>
+    <string name="ses_closed_staff">The administration closed the room.</string>
+    <string name="ses_over">The session is over.</string>
+    <string name="ses_in_room_title">In the room</string>
+    <string name="ses_side_client">Client</string>
+    <string name="ses_side_me">You</string>
+    <string name="ses_in_room_yes">In</string>
+    <string name="ses_in_room_no">Not in</string>
+    <string name="ses_recorded">Recorded</string>
+    <string name="ses_recorded_note">This session is recorded: the client agreed when booking and you when accepting.</string>
+    <string name="ses_recording_off">Recording is not set up yet, so the session runs without one.</string>
+    <string name="ses_attendance">Attendance</string>
+    <string name="ses_still_in">still in</string>
+    <string name="ses_recordings">Recordings</string>
+    <string name="ses_part">Part %1$d</string>
+    <string name="ses_rec_processing">Getting ready</string>
+    <string name="ses_rec_recording">Recording now</string>
+    <string name="ses_rec_deleted">Deleted</string>
+    <string name="ses_rec_ready">Ready</string>
+    <string name="ses_download">Download</string>
+    <string name="ses_watch">Watch</string>
+    <string name="ses_download_started">Downloading… follow it in the notifications.</string>
+    <string name="ses_link_failed">Could not open the recording. Try again.</string>
+    <string name="ses_delete_at">The recordings are deleted on %1$s. Download what you need before then.</string>
+    <string name="ses_held">Kept until the administration decides</string>
+    <string name="ses_held_note">There is a complaint, so the recordings are kept until the administration decides, then deleted a week later.</string>
+    <string name="ses_deleted_all">The recordings were deleted on %1$s.</string>
+    <string name="ses_accept_consent">Accepting means you agree to the session being recorded.</string>
+    <string name="ses_size_mb">%1$s MB</string>
+
+    <!-- The session screen -->
+    <string name="ses_title">Consultation session</string>
+    <string name="ses_connecting">Connecting…</string>
+    <string name="ses_ongoing">In the session</string>
+    <string name="ses_waiting_other">Waiting for %1$s to join…</string>
+    <string name="ses_the_client">the client</string>
+    <string name="ses_ends_in">Ends in %1$s</string>
+    <string name="ses_warn">The session ends in %1$d minutes.</string>
+    <string name="ses_rec_badge">REC</string>
+    <string name="ses_mute">Mute</string>
+    <string name="ses_unmute">Unmute</string>
+    <string name="ses_camera">Camera</string>
+    <string name="ses_switch_camera">Switch camera</string>
+    <string name="ses_speaker">Speaker</string>
+    <string name="ses_leave">Leave</string>
+    <string name="ses_leave_title">Leave the session?</string>
+    <string name="ses_leave_body">You can come back while the time lasts.</string>
+    <string name="ses_keep_in">Stay</string>
+    <string name="ses_ended_time">The session\'s time is over.</string>
+    <string name="ses_ended">You left the session.</string>
+    <string name="ses_mic_needed">Allow the microphone to join the session.</string>
+    <string name="ses_channel">Consultation session</string>
+    <string name="ses_close">Close</string>
+</resources>

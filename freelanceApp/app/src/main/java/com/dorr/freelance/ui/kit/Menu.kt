@@ -82,6 +82,42 @@ fun MenuRow(entry: MenuEntry) {
     }
 }
 
+/**
+ * Rows grouped in one card (the settings look): each row an icon tile, a title and a line, a chevron; a hairline between rows. Used by the
+ * «Me» tab and «My profile».
+ */
+@Composable
+fun MenuGroup(entries: List<MenuEntry>, modifier: Modifier = Modifier) {
+    if (entries.isEmpty()) return
+    val dark = settingsNight()
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp), elevation = 4.dp)) {
+        entries.forEachIndexed { index, entry ->
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = entry.onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PinkIcon(entry.icon)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(entry.label), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (entry.danger) settingsAccent() else settingsInk())
+                    entry.subtitle?.let { Text(stringResource(it), fontSize = 11.5.sp, color = settingsMut(), maxLines = 2) }
+                }
+                if (entry.trailing != null) entry.trailing.invoke()
+                else Icon(
+                    Icons.Rounded.ChevronRight, contentDescription = null,
+                    tint = if (dark) AccountDark.chevron else settingsMut().copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp).graphicsLayer { if (rtl) scaleX = -1f },
+                )
+            }
+            if (index < entries.lastIndex) Spacer(
+                Modifier.padding(start = 60.dp, end = 14.dp).fillMaxWidth().height(1.dp)
+                    .background(if (dark) AccountDark.line else androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.06f)),
+            )
+        }
+    }
+}
+
 /** A yes / cancel question (sign out, delete the account). */
 @Composable
 fun ConfirmDialog(

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.RequestQuote
@@ -56,6 +57,15 @@ import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
 import com.dorr.freelance.R
 import com.dorr.freelance.net.ApiClient
+import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Handshake
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Loyalty
+import androidx.compose.material.icons.rounded.MarkEmailUnread
+import androidx.compose.material.icons.rounded.Storefront
+import androidx.compose.material.icons.rounded.VideoChat
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.dorr.freelance.net.NotificationDto
 import com.dorr.freelance.net.NoticeRoute
 import com.dorr.freelance.net.Realtime
@@ -84,12 +94,18 @@ private data class NotificationItem(
     val unread: Boolean,
     /** The screen the notice leads to (see [NoticeRoute]); null when it has none of its own. */
     val route: String?,
+    /** 0 today, 1 yesterday, 2 earlier this week, 3 older — on the phone's calendar. */
+    val day: Int = 0,
 )
 
 private fun NotificationDto.toItem(): NotificationItem {
     val minutes = runCatching { Duration.between(OffsetDateTime.parse(createdAtIso), OffsetDateTime.now()).toMinutes().toInt() }.getOrDefault(0)
     val route = NoticeRoute.resolve(event) { key -> data?.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() } }
-    return NotificationItem(id, title, message, event, minutes.coerceAtLeast(0), unread = readAt == null, route = route)
+    val daysBack = runCatching {
+        java.time.temporal.ChronoUnit.DAYS.between(OffsetDateTime.parse(createdAtIso).atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate(), java.time.LocalDate.now())
+    }.getOrDefault(0L)
+    val day = when { daysBack <= 0 -> 0; daysBack == 1L -> 1; daysBack < 7 -> 2; else -> 3 }
+    return NotificationItem(id, title, message, event, minutes.coerceAtLeast(0), unread = readAt == null, route = route, day = day)
 }
 
 /** The icon and colour of a notice from its event: verification, the wallet, the wallet PIN, anything else. */
@@ -98,7 +114,16 @@ private fun typeStyle(event: String?): Pair<ImageVector, Color> = when {
     event?.startsWith("wallet.") == true -> Icons.Rounded.AccountBalanceWallet to Color(0xFF16A34A)
     event?.startsWith("freelance.verification") == true -> Icons.Rounded.Verified to Color(0xFF2563EB)
     event?.startsWith("freelance.offer") == true -> Icons.Rounded.RequestQuote to Color(0xFFD97706)
+    event?.contains("consultation") == true -> Icons.Rounded.VideoChat to Color(0xFF8B5CF6)
+    event?.contains("order") == true || event?.contains("service") == true -> Icons.Rounded.Storefront to Color(0xFF14B8A6)
+    event?.contains("special_offer") == true -> Icons.Rounded.LocalOffer to Color(0xFFF43F5E)
+    event?.contains("loyalty") == true -> Icons.Rounded.Loyalty to Color(0xFFF59E0B)
+    event?.contains("dispute") == true -> Icons.Rounded.Gavel to Color(0xFFDC2626)
+    event?.contains("agreement") == true || event?.contains("milestone") == true || event?.contains("payment") == true -> Icons.Rounded.Handshake to Color(0xFF3B82F6)
+    event?.contains("invitation") == true -> Icons.Rounded.MarkEmailUnread to Color(0xFF3B82F6)
     event?.startsWith("freelance.project") == true -> Icons.Rounded.Work to Color(0xFF16A34A)
+    // FL-L12: the professional community.
+    event?.startsWith("freelance.community") == true -> Icons.Rounded.Groups to Color(0xFF7C3AED)
     else -> Icons.Rounded.Notifications to Color(0xFF001B53)
 }
 
@@ -124,6 +149,7 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<NotificationItem?>(null) }
     val hasUnread = notifications.any { it.unread }
+    var onlyUnread by rememberSaveable { mutableStateOf(false) }
     val night = settingsNight()
 
     val listState = rememberLazyListState()
@@ -183,8 +209,16 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
         PinkBackdrop(Modifier.matchParentSize())
         Column(Modifier.fillMaxSize()) {
             SubHeader(stringResource(R.string.notifications_title), onBack)
-            if (hasUnread) {
-                TextButton(
+            // All / unread, and «mark all read» while something is unread.
+            val unreadCount = notifications.count { it.unread }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                com.dorr.freelance.ui.kit.PillChip(stringResource(R.string.notif_filter_all), !onlyUnread) { onlyUnread = false }
+                Spacer(Modifier.width(8.dp))
+                com.dorr.freelance.ui.kit.PillChip(
+                    stringResource(R.string.notif_filter_unread) + if (unreadCount > 0) "  $unreadCount" else "", onlyUnread, dot = unreadCount > 0 && !onlyUnread,
+                ) { onlyUnread = true }
+                Spacer(Modifier.weight(1f))
+                if (hasUnread) TextButton(
                     onClick = {
                         notifications.replaceAll { it.copy(unread = false) }
                         scope.launch {
@@ -192,13 +226,15 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
                             if (result is ApiResult.Ok) Realtime.setUnread(result.data.count)
                         }
                     },
-                    modifier = Modifier.align(Alignment.End).padding(end = 8.dp),
                 ) {
-                    Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.DoneAll, null, tint = if (night) AccountDark.accent else settingsAccent(), modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
-            if (loaded && notifications.isEmpty()) {
-                EmptyNotifications(Modifier.weight(1f))
+            val shown = if (onlyUnread) notifications.filter { it.unread } else notifications
+            if (loaded && shown.isEmpty() && !(onlyUnread && hasMore)) {
+                if (onlyUnread && notifications.isNotEmpty()) EmptyNotifications(Modifier.weight(1f), allRead = true) else EmptyNotifications(Modifier.weight(1f))
             } else {
                 LazyColumn(
                     state = listState,
@@ -206,7 +242,15 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(notifications, key = { it.id }) { item ->
+                    shown.forEachIndexed { index, item ->
+                    // A day's head above its first notice.
+                    if (index == 0 || shown[index - 1].day != item.day) item(key = "day-${item.day}") {
+                        Text(
+                            stringResource(when (item.day) { 0 -> R.string.notif_day_today; 1 -> R.string.notif_day_yesterday; 2 -> R.string.notif_day_week; else -> R.string.notif_day_older }),
+                            color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = if (index == 0) 0.dp else 8.dp, start = 4.dp),
+                        )
+                    }
+                    item(key = item.id) {
                         NotificationCard(item) {
                             val index = notifications.indexOfFirst { it.id == item.id }
                             if (index >= 0) notifications[index] = item.copy(unread = false)
@@ -217,6 +261,7 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenRoute: (String) -> Unit) {
                                 if (result is ApiResult.Ok) Realtime.setUnread(result.data.count)
                             }
                         }
+                    }
                     }
                     // The next page is loading (a spinner under the rows), or it failed (tap to try again).
                     if (loadingMore || pageFailed) item(key = "footer") {
@@ -271,7 +316,8 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
                     maxLines = 1, overflow = TextOverflow.Ellipsis, color = settingsInk(), modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(relativeTime(item.minutesAgo), fontSize = 12.sp, color = settingsMut())
+                Text(relativeTime(item.minutesAgo), fontSize = 11.5.sp, color = if (item.unread) settingsAccent() else settingsMut(), fontWeight = if (item.unread) FontWeight.Bold else FontWeight.Normal)
+                if (item.unread) Box(Modifier.padding(start = 6.dp, top = 4.dp).size(8.dp).clip(CircleShape).background(settingsAccent()))
             }
             Spacer(Modifier.height(4.dp))
             Text(item.body, fontSize = 12.sp, color = settingsMut(), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -304,15 +350,15 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
 }
 
 @Composable
-private fun EmptyNotifications(modifier: Modifier = Modifier) {
+private fun EmptyNotifications(modifier: Modifier = Modifier, allRead: Boolean = false) {
     val night = settingsNight()
     Column(modifier.fillMaxSize().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(100.dp).background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.Notifications, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(48.dp))
         }
         Spacer(Modifier.height(24.dp))
-        Text(stringResource(R.string.notifications_empty_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = settingsInk())
+        Text(stringResource(if (allRead) R.string.notif_all_read_title else R.string.notifications_empty_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = settingsInk())
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.notifications_empty_body), fontSize = 14.sp, color = settingsMut())
+        Text(stringResource(if (allRead) R.string.notif_all_read_body else R.string.notifications_empty_body), fontSize = 14.sp, color = settingsMut())
     }
 }

@@ -63,6 +63,13 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Loyalty
+import androidx.compose.material.icons.rounded.Quiz
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
@@ -76,6 +83,7 @@ import com.dorr.freelance.net.collectReconnectTick
 import com.dorr.freelance.ui.kit.AccountDark
 import com.dorr.freelance.ui.kit.settingsCard
 import com.dorr.freelance.ui.kit.settingsNight
+import com.dorr.freelance.ui.kit.settingsSurface
 import com.dorr.freelance.ui.wallet.formatMinor
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -104,61 +112,12 @@ import com.dorr.freelance.ui.components.AvatarImage
 import com.dorr.freelance.ui.components.ErrorBanner
 import com.dorr.freelance.ui.kit.ConfirmDialog
 import com.dorr.freelance.ui.kit.MenuEntry
-import com.dorr.freelance.ui.kit.MenuRow
 import com.dorr.freelance.ui.kit.SettingsScreenTitle
 import com.dorr.freelance.ui.kit.settingsAccent
 import com.dorr.freelance.ui.kit.settingsInk
 import com.dorr.freelance.ui.kit.settingsMut
 import com.dorr.freelance.ui.locale.LocalAppLanguage
 import kotlinx.coroutines.launch
-
-/** The person at the top of a menu tab: the photo, the name (with the verified tick), the phone and the account status. */
-@Composable
-private fun MeHeader(withBadges: Boolean = false) {
-    val me by Session.me.collectAsState()
-    val dark = settingsNight()
-    val accent = settingsAccent()
-    Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = if (withBadges) 0.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(56.dp)
-                .then(if (dark) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = accent.copy(alpha = 0.1f)))
-                .clip(CircleShape).background(settingsCard())
-                .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier),
-            contentAlignment = Alignment.Center,
-        ) { AvatarImage(url = me?.avatarUrl, size = 56.dp) }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    me?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_default_user),
-                    color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (withBadges && me?.status == "verified") {
-                    Spacer(Modifier.width(6.dp))
-                    Box(Modifier.size(15.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.account_verified), tint = Color.White, modifier = Modifier.size(10.dp))
-                    }
-                }
-            }
-            // A phone number keeps its left-to-right order inside Arabic text.
-            Text("‎" + me?.phone.orEmpty(), color = settingsMut(), fontSize = 12.sp, maxLines = 1)
-            if (withBadges) {
-                Row(
-                    Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50))
-                        .background(if (dark) AccountDark.well else accent.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.Star, contentDescription = null, tint = if (dark) AccountDark.accent else accent, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text(statusLabel(me?.status), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (dark) AccountDark.accent else accent)
-                }
-            } else {
-                Text(statusLabel(me?.status), color = accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
 
 /** The round header button (settings / back): a card-coloured circle with a small icon. */
 @Composable
@@ -188,8 +147,8 @@ private fun AnimatedRow(index: Int, content: @Composable () -> Unit) {
 /** The balance in a card with a "top up" pill: one request when the page opens and when the connection returns. */
 @Composable
 private fun AccountWalletCard(onOpenWallet: () -> Unit) {
-    val dark = settingsNight()
     val accent = settingsAccent()
+    val deep = Color(accent.red * 0.62f, accent.green * 0.62f, accent.blue * 0.62f)
     var balanceText by remember { mutableStateOf("0.00") }
     var currencyText by remember { mutableStateOf("") }
     val reconnect = collectReconnectTick()
@@ -199,37 +158,30 @@ private fun AccountWalletCard(onOpenWallet: () -> Unit) {
             currencyText = it.currencySymbol ?: it.currencyCode.orEmpty()
         }
     }
-    val shape = RoundedCornerShape(16.dp)
     Row(
-        Modifier.fillMaxWidth()
-            .then(if (dark) Modifier else Modifier.shadow(6.dp, shape, spotColor = accent.copy(alpha = 0.07f)))
-            .clip(shape).background(settingsCard())
-            .then(if (dark) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
-            .clickable(onClick = onOpenWallet).padding(12.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(accent, deep)))
+            .clickable(onClick = onOpenWallet).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = if (dark) AccountDark.accent else accent, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(stringResource(R.string.home_wallet_balance), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = settingsMut())
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Paid, null, tint = if (dark) AccountDark.accent else accent, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(balanceText, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = settingsInk())
+            Text(stringResource(R.string.home_wallet_balance), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.85f))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("\u200E" + balanceText, fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White)
                 if (currencyText.isNotBlank()) {
                     Spacer(Modifier.width(6.dp))
-                    Text(currencyText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = settingsMut())
+                    Text(currencyText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(bottom = 4.dp))
                 }
             }
         }
-        Box(
-            Modifier.shadow(6.dp, RoundedCornerShape(50), spotColor = accent.copy(alpha = 0.18f)).clip(RoundedCornerShape(50))
-                .background(accent).clickable(onClick = onOpenWallet).padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) { Text(stringResource(R.string.home_wallet_topup), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        Text(
+            stringResource(R.string.home_wallet_topup), color = accent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White).clickable(onClick = onOpenWallet).padding(horizontal = 14.dp, vertical = 8.dp),
+        )
     }
 }
 
@@ -237,7 +189,6 @@ private fun AccountWalletCard(onOpenWallet: () -> Unit) {
 @Composable
 private fun AccountStats() {
     val me by Session.me.collectAsState()
-    val dark = settingsNight()
     var works by remember { mutableStateOf<Int?>(null) }
     var skills by remember { mutableStateOf<Int?>(null) }
     val reconnect = collectReconnectTick()
@@ -245,10 +196,73 @@ private fun AccountStats() {
         (apiCall { ApiClient.portfolio.list() } as? ApiResult.Ok)?.data?.let { works = it.size }
         (apiCall { ApiClient.lists.mySkills() } as? ApiResult.Ok)?.data?.let { skills = it.size }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        AccountStat(Icons.Rounded.CheckCircle, if (dark) Color(0xFFA8C7FF) else Color(0xFF2563EB), if (dark) Color(0xFF1C2838) else Color(0xFFEFF6FF), "${me?.completeness?.percent ?: 0}%", stringResource(R.string.stat_completeness), Modifier.weight(1f))
-        AccountStat(Icons.Rounded.Work, if (dark) Color(0xFFF6C56B) else Color(0xFFD97706), if (dark) Color(0xFF2C2618) else Color(0xFFFEF3C7), works?.toString() ?: "-", stringResource(R.string.stat_works), Modifier.weight(1f))
-        AccountStat(Icons.Rounded.Bolt, if (dark) Color(0xFFA8C7FF) else Color(0xFF2563EB), if (dark) Color(0xFF1C2838) else Color(0xFFEFF6FF), skills?.toString() ?: "-", stringResource(R.string.stat_skills), Modifier.weight(1f))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.dorr.freelance.ui.kit.StatTile(Icons.Rounded.CheckCircle, "${me?.completeness?.percent ?: 0}%", stringResource(R.string.stat_completeness), com.dorr.freelance.ui.kit.Tints.blue, Modifier.weight(1f))
+        com.dorr.freelance.ui.kit.StatTile(Icons.Rounded.Work, works?.toString() ?: "-", stringResource(R.string.stat_works), com.dorr.freelance.ui.kit.Tints.amber, Modifier.weight(1f))
+        com.dorr.freelance.ui.kit.StatTile(Icons.Rounded.Bolt, skills?.toString() ?: "-", stringResource(R.string.stat_skills), com.dorr.freelance.ui.kit.Tints.violet, Modifier.weight(1f))
+    }
+}
+
+/**
+ * The head of «Me»: my photo inside a ring that fills with how complete my profile is, my name with the verified tick, my headline (or phone)
+ * and status, then «Edit my profile» and «Improve my profile».
+ */
+@Composable
+private fun MeHero(onEdit: () -> Unit, onCoach: () -> Unit) {
+    val me by Session.me.collectAsState()
+    val accent = settingsAccent()
+    val percent = (me?.completeness?.percent ?: 0).coerceIn(0, 100)
+    val track = settingsMut().copy(alpha = 0.18f)
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Canvas(Modifier.size(84.dp)) {
+                    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawArc(track, 0f, 360f, false, style = stroke)
+                    drawArc(accent, -90f, 360f * percent / 100f, false, style = stroke)
+                }
+                AvatarImage(url = me?.avatarUrl, size = 68.dp)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        me?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_default_user),
+                        color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (me?.status == "verified") {
+                        Spacer(Modifier.width(6.dp))
+                        Box(Modifier.size(17.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.account_verified), tint = Color.White, modifier = Modifier.size(11.dp))
+                        }
+                    }
+                }
+                Text(
+                    me?.headline?.takeIf { it.isNotBlank() } ?: ("\u200E" + me?.phone.orEmpty()),
+                    color = settingsMut(), fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                com.dorr.freelance.ui.kit.StatusPill(statusLabel(me?.status), if (me?.status == "verified") com.dorr.freelance.ui.kit.Tints.green else accent)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(14.dp)).background(accent).clickable(onClick = onEdit),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Person, null, tint = Color.White, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.me_edit_profile), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Row(
+                Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).clickable(onClick = onCoach),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.AutoAwesome, null, tint = accent, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.me_improve, percent), color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -275,6 +289,17 @@ private fun AccountStat(icon: ImageVector, iconTint: Color, iconBg: Color, value
     }
 }
 
+/** A group of rows under its small title; the rows slide in one after the other, counting on from [startIndex]. */
+@Composable
+private fun MeSection(title: Int, startIndex: Int, entries: List<MenuEntry>) {
+    if (entries.isEmpty()) return
+    Text(
+        stringResource(title), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold,
+        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp, start = 4.dp),
+    )
+    AnimatedRow(startIndex) { com.dorr.freelance.ui.kit.MenuGroup(entries) }
+}
+
 /** My profile, a page under the Account tab: the personal data and the lists that make the profile, under a title with a back circle. */
 @Composable
 private fun ProfileHubPage(actions: MainActions, onBack: () -> Unit) {
@@ -292,7 +317,7 @@ private fun ProfileHubPage(actions: MainActions, onBack: () -> Unit) {
             MenuEntry(Icons.Rounded.Work, R.string.portfolio_title, R.string.hub_portfolio_sub, onClick = actions.openPortfolio),
             MenuEntry(Icons.Rounded.EventAvailable, R.string.availability_title, R.string.availability_sub, onClick = actions.openAvailability),
             MenuEntry(Icons.Rounded.Badge, R.string.home_open_verification, R.string.hub_verification_sub, onClick = actions.openVerification),
-        ).forEach { MenuRow(it) }
+        ).let { com.dorr.freelance.ui.kit.MenuGroup(it) }
     }
 }
 
@@ -324,7 +349,7 @@ private fun AccountListPage(title: String, onBack: () -> Unit, entries: List<Men
             SettingsScreenTitle(title, Modifier.weight(1f))
             AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), flip = true, onClick = onBack)
         }
-        entries.forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
+        AnimatedRow(0) { com.dorr.freelance.ui.kit.MenuGroup(entries) }
     }
 }
 
@@ -444,40 +469,61 @@ fun AccountScreen(actions: MainActions) {
                 SettingsScreenTitle(stringResource(R.string.account_settings), Modifier.weight(1f))
                 AccountCircle(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back), flip = true) { settingsOpen = false }
             }
-            listOf(
+            MeSection(R.string.me_settings_prefs, 0, listOf(
                 MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = { settingsPage = 3 }),
                 MenuEntry(Icons.Rounded.Security, R.string.security_title, R.string.security_sub, onClick = { settingsPage = 7 }),
                 MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub, onClick = { showLanguage = true }),
                 MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = { settingsPage = 1 }),
                 MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = { settingsPage = 2 }),
+            ))
+            MeSection(R.string.me_settings_about, 1, listOf(
                 MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub, onClick = { showContact = true }),
                 MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub, onClick = { showAbout = true }),
                 MenuEntry(Icons.Rounded.Policy, R.string.account_legal, R.string.account_legal_sub, onClick = { settingsPage = 4 }),
+            ))
+            MeSection(R.string.me_settings_account, 2, listOf(
                 MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true, onClick = { showDelete = true }),
-            ).forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
+            ))
             ErrorBanner(error, Modifier.fillMaxWidth())
         }
     } else {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                SettingsScreenTitle(stringResource(R.string.tab_account), Modifier.weight(1f))
+                SettingsScreenTitle(stringResource(R.string.tab_me), Modifier.weight(1f))
                 AccountCircle(Icons.Rounded.Settings, stringResource(R.string.account_settings)) { settingsOpen = true }
             }
-            MeHeader(withBadges = true)
+            MeHero(onEdit = { accountPage = ACCOUNT_PROFILE }, onCoach = actions.openCoach)
             Spacer(Modifier.height(12.dp))
             AccountWalletCard(onOpenWallet = actions.openWallet)
-            Spacer(Modifier.height(10.dp))
-            AccountStats()
             Spacer(Modifier.height(12.dp))
-            listOf(
+            AccountStats()
+            // The rows in three groups (the redesign): my professional profile, my business and money, the app.
+            val home by com.dorr.freelance.net.HomeHub.home.collectAsState()
+            val on = { feature: String -> home?.on(feature) != false }
+            MeSection(R.string.me_section_profile, 0, listOf(
                 MenuEntry(Icons.Rounded.Person, R.string.tab_profile, R.string.account_profile_sub, onClick = { accountPage = ACCOUNT_PROFILE }),
-                MenuEntry(Icons.Rounded.WorkspacePremium, R.string.plans_title, R.string.plans_sub, onClick = actions.openPlans),
+                MenuEntry(Icons.Rounded.Work, R.string.portfolio_title, R.string.hub_portfolio_sub, onClick = actions.openPortfolio),
+                MenuEntry(Icons.Rounded.AutoAwesome, R.string.coach_title, R.string.me_coach_sub, onClick = actions.openCoach),
+                MenuEntry(Icons.Rounded.Badge, R.string.home_open_verification, R.string.hub_verification_sub, onClick = actions.openVerification),
+            ) + listOfNotNull(
+                if (on("skill_tests")) MenuEntry(Icons.Rounded.Quiz, R.string.skt_home_card, R.string.me_skill_tests_sub, onClick = actions.openSkillTests) else null,
+            ))
+            MeSection(R.string.me_section_business, 1, listOfNotNull(
+                if (on("services")) MenuEntry(Icons.Rounded.Storefront, R.string.svc_home_card, R.string.me_services_sub, onClick = actions.openServices) else null,
+                if (on("special_offers")) MenuEntry(Icons.Rounded.LocalOffer, R.string.spo_home_card, R.string.me_special_offers_sub, onClick = actions.openSpecialOffers) else null,
+                if (on("loyalty")) MenuEntry(Icons.Rounded.Loyalty, R.string.loy_home_card, R.string.me_loyalty_sub, onClick = actions.openLoyalty) else null,
+                if (on("subscriptions")) MenuEntry(Icons.Rounded.WorkspacePremium, R.string.plans_title, R.string.plans_sub, onClick = actions.openPlans) else null,
+                MenuEntry(Icons.Rounded.Insights, R.string.insights_home_card, R.string.me_insights_sub, onClick = actions.openInsights),
+                MenuEntry(Icons.Rounded.EventAvailable, R.string.availability_title, R.string.availability_sub, onClick = actions.openAvailability),
+                MenuEntry(Icons.Rounded.Speed, R.string.cap_home_card, R.string.me_capacity_sub, onClick = actions.openCapacity),
+            ))
+            MeSection(R.string.me_section_app, 2, listOf(
                 MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = { settingsOpen = true }),
-                MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = { accountPage = ACCOUNT_RATE }),
-                MenuEntry(Icons.Rounded.PersonAdd, R.string.invite_title, R.string.invite_sub, onClick = { accountPage = ACCOUNT_INVITE }),
                 MenuEntry(Icons.Rounded.SupportAgent, R.string.support_title, R.string.support_sub, onClick = { accountPage = ACCOUNT_SUPPORT }),
+                MenuEntry(Icons.Rounded.PersonAdd, R.string.invite_title, R.string.invite_sub, onClick = { accountPage = ACCOUNT_INVITE }),
+                MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = { accountPage = ACCOUNT_RATE }),
                 MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true, onClick = { showLogout = true }),
-            ).forEachIndexed { index, entry -> AnimatedRow(index) { MenuRow(entry) } }
+            ))
         }
     }
     }

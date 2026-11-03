@@ -9,6 +9,10 @@ import com.dorr.freelance.navigation.Routes
 object NoticeRoute {
     /** @param event the notice's event (`freelance.offer.viewed`…); @param field a value of the notice's data (`project`, `dispute`…) */
     fun resolve(event: String?, field: (String) -> String?): String? {
+        // FL-L12: a community notice (`freelance_community_*`) opens the post it is about, or the member who followed me.
+        if (event?.startsWith("freelance.community") == true || field("type")?.startsWith("freelance_community_") == true) {
+            return field("community_post")?.let(Routes::communityPost) ?: field("community_member")?.let(Routes::communityMember) ?: Routes.COMMUNITY
+        }
         val e = event ?: return null
         val project = field("project")
         return when {
@@ -19,12 +23,18 @@ object NoticeRoute {
             e == "freelance.portfolio.hidden" -> Routes.PORTFOLIO
             e == "freelance.quota.low" -> Routes.MY_OFFERS
             e.startsWith("freelance.subscription") -> Routes.PLANS
+            // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.
+            e.startsWith("freelance.rights") -> project?.let(Routes::agreement)
             e == "freelance.invitation.received" -> Routes.INVITATIONS
+            // FL-L09: an answer to my special offer opens it.
+            e.startsWith("freelance.special_offer") -> field("special_offer")?.let(Routes::specialOffer) ?: Routes.SPECIAL_OFFERS
             // FL-L04: a new order opens it; a decision on a service, my services.
             e == "freelance.order.received" -> field("order")?.let(Routes::serviceOrder) ?: Routes.SERVICE_ORDERS
             // FL-L07: a consultation notice opens the booking.
             // A listing the staff decided on opens its editor; a booking opens the booking.
             e.startsWith("freelance.consultation.listing") -> field("consultation_offer")?.let { Routes.consultationEdit(it) } ?: Routes.CONSULTATIONS
+            // FL-L16: the session's notices (session_joined · session_ending · session_closed · session_reopened · recording_ready) open the
+            // booking too — its session card has "join", the time left and the recordings.
             e.startsWith("freelance.consultation") -> field("consultation")?.let(Routes::consultation) ?: Routes.CONSULTATIONS
             e.startsWith("freelance.service.") -> field("service")?.let { Routes.service(it) } ?: Routes.SERVICES
             e.startsWith("freelance.dispute") -> {

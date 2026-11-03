@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09 (part B): my loyalty program (the freelancer's side). -->
+<resources>
+    <string name="loy_home_card">Loyalty program</string>
+    <string name="loy_title">Loyalty program</string>
+    <string name="loy_hero_title">Reward clients who come back</string>
+    <string name="loy_hero_body">Set a discount that grows with every work you finish together. It is taken by itself on your offers, services and consultations.</string>
+    <string name="loy_stat_clients">Past clients</string>
+    <string name="loy_stat_in_program">On a step</string>
+    <string name="loy_stat_uses">Discounts taken</string>
+    <string name="loy_saved_line">Total you gave your clients: %1$s</string>
+    <string name="loy_switch_title">Program is on</string>
+    <string name="loy_switch_on">Returning clients get their discount by itself.</string>
+    <string name="loy_switch_off">The program is paused: no discount is applied now.</string>
+    <string name="loy_switch_save_first">Save your steps first, then switch it on.</string>
+    <string name="loy_steps_title">Discount steps</string>
+    <string name="loy_steps_sub">The more a client comes back, the bigger their discount.</string>
+    <string name="loy_presets">Start from a ready-made ladder</string>
+    <string name="loy_step_n">Step %1$d</string>
+    <string name="loy_after">After (works)</string>
+    <string name="loy_discount">Discount (%)</string>
+    <string name="loy_remove">Remove step</string>
+    <string name="loy_add">Add a step</string>
+    <string name="loy_limit">Up to %1$d steps and a discount of up to %2$s%%.</string>
+    <string name="loy_problem_order">Each step must come after the one before it and give a bigger discount.</string>
+    <string name="loy_preview_title">How clients see it</string>
+    <string name="loy_preview_head">The more you come back to me, the bigger your discount.</string>
+    <string name="loy_tier_after">After %1$d works</string>
+    <string name="loy_example">Example: a %1$s job costs the client %2$s at the first step.</string>
+    <string name="loy_save">Save program</string>
+    <string name="loy_saved">Loyalty program saved</string>
+    <string name="loy_clients_title">Your clients on a step</string>
+    <string name="loy_clients_empty">No client has finished work with you yet. They will show here once they do.</string>
+    <string name="loy_client_works">%1$d works with you</string>
+    <string name="loy_client_next">%1$d more for %2$s%% off</string>
+    <string name="loy_client_none">No discount yet</string>
+    <string name="loy_tier_clients">%1$d clients</string>
+    <string name="loy_how_title">How it works</string>
+    <string name="loy_how_1">A client gets their discount by itself when they come back to you — they do not have to ask.</string>
+    <string name="loy_how_2">The discount is yours to give: it comes off the price you ask, and the commission is worked out on the price after it.</string>
+    <string name="loy_how_3">It covers project offers, ready-made services and consultations.</string>
+    <string name="loy_how_4">A special offer\'s price is final, so no discount goes on top of it. Monthly services stay out.</string>
+    <string name="loy_closed_title">Loyalty program is not available</string>
+    <string name="loy_closed_body">This is not open in your country now.</string>
+    <string name="loy_offer_note">A returning client (%1$d works with you): they get a %2$s%% loyalty discount off the price you type.</string>
+    <string name="loy_offer_line">Loyalty discount %1$s%%</string>
+</resources>

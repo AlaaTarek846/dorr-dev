@@ -1,5 +1,8 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.rounded.Update
+
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.material.icons.rounded.Cancel
@@ -146,6 +149,7 @@ internal fun MyOfferCard(offer: OfferDto, onClick: (() -> Unit)? = null, onEdit:
             )
         }
         Text("‎${formatMinor(offer.priceMinor, null)} ${offer.currency}  ·  " + stringResource(R.string.projects_days, offer.durationDays), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+        LoyaltyOfferLine(offer.loyaltyBp, offer.savingMinor, offer.currency)
         Text(stringResource(R.string.offer_net_line, "‎${formatMinor(offer.netMinor, null)} ${offer.currency}"), color = settingsMut(), fontSize = 12.sp)
         Text(offer.details, color = settingsInk(), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         offer.answers.forEach { a -> Text(a.question + "\n" + a.answer.orEmpty(), color = settingsMut(), fontSize = 12.sp) }
@@ -244,6 +248,9 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
     var showTemplates by remember { mutableStateOf(false) }
     var savingTemplate by remember { mutableStateOf(false) }
     var templateNotice by remember { mutableStateOf<String?>(null) }
+    // FL-L13: who owns the work once it is paid (null options: the feature is off in my country).
+    var rights by rememberSaveable(stateSaver = rightsFormSaver) { mutableStateOf(RightsForm()) }
+    val rightsOptions = rememberRightsOptions()
 
     LaunchedEffect(projectUuid, reconnect) {
         val result = apiCall { ApiClient.offers.preview(projectUuid) }
@@ -282,7 +289,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 "price_minor" to minor.toString().toRequestBody(text),
                 "duration_days" to duration.toRequestBody(text),
                 "details" to details.trim().toRequestBody(text),
-            ) + answers.mapIndexed { i, a -> "answers[$i]" to a.trim().toRequestBody(text) }
+            ) + answers.mapIndexed { i, a -> "answers[$i]" to a.trim().toRequestBody(text) } + (if (rightsOptions != null) rights.toFields() else emptyMap())
             val parts = files.map { MultipartBody.Part.createFormData("files[]", it.name, it.bytes.toRequestBody(it.type.toMediaTypeOrNull())) }
             val result = apiCall { ApiClient.offers.send(projectUuid, fields, parts) }
             busy = false
@@ -354,11 +361,13 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 5.dp),
             )
         }
+        // FL-L09: a returning client's loyalty step, said before the price is typed.
+        p.loyalty?.let { LoyaltyNote(it.bp, it.works) }
         DorrTextField(price, { price = it }, label = stringResource(R.string.offer_price), placeholder = "0.00", icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
         p.minPriceMinor?.let { Text(stringResource(R.string.offer_price_min, "\u200E${formatMinor(it, null)}"), color = settingsMut(), fontSize = 12.sp) }
         breakdown?.let { b ->
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.08f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.offer_commission, "\u200E${formatMinor(b.commissionMinor, null)} ${b.currency}"), color = settingsMut(), fontSize = 12.sp)
+                LoyaltyOfferLine(b.loyaltyBp, b.savingMinor, b.currency); Text(stringResource(R.string.offer_commission, "\u200E${formatMinor(b.commissionMinor, null)} ${b.currency}"), color = settingsMut(), fontSize = 12.sp)
                 Text(stringResource(R.string.offer_net, "\u200E${formatMinor(b.netMinor, null)} ${b.currency}"), color = settingsAccent(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
@@ -377,6 +386,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 DorrTextField(answers.getOrElse(i) { "" }, { if (i < answers.size) answers[i] = it.take(1000) }, label = "${i + 1}. $q", placeholder = stringResource(R.string.offer_answer), icon = Icons.Rounded.QuestionAnswer, singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
             }
         }
+        rightsOptions?.let { RightsEditor(rights, it) { r -> rights = r } }
         FieldLabel(stringResource(R.string.offer_files))
         Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             files.forEachIndexed { index, f ->
@@ -458,7 +468,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
 
 /** All my offers, newest first, fifteen at a time while I scroll (read when the page opens, when a notice arrives and when the connection returns). */
 @Composable
-fun MyOffersScreen(onBack: (() -> Unit)?, onOpenProject: (String) -> Unit, asTab: Boolean = false) {
+fun MyOffersScreen(onBack: (() -> Unit)?, onOpenProject: (String) -> Unit, asTab: Boolean = false, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -474,31 +484,23 @@ fun MyOffersScreen(onBack: (() -> Unit)?, onOpenProject: (String) -> Unit, asTab
     val body: @Composable () -> Unit = {
         val all = if (paged.loaded) paged.rows.toList() else null
         val list = all?.filter { filter == "all" || it.status == filter }
-        if (all != null && all.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all", "submitted", "viewed", "shortlisted", "accepted", "rejected", "withdrawn").forEach { s ->
-                val selected = filter == s
-                val ink = if (selected) Color.White else settingsInk()
-                Row(
-                    Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) settingsAccent() else settingsAccent().copy(alpha = 0.08f)).clickable { filter = s }.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        when (s) {
-                            "submitted" -> Icons.Rounded.Send
-                            "viewed" -> Icons.Rounded.Visibility
-                            "shortlisted" -> Icons.Rounded.Star
-                            "accepted" -> Icons.Rounded.CheckCircle
-                            "rejected" -> Icons.Rounded.Cancel
-                            "withdrawn" -> Icons.Rounded.Undo
-                            else -> Icons.Rounded.Apps
-                        },
-                        contentDescription = null, tint = if (selected) ink else settingsAccent(), modifier = Modifier.size(15.dp),
-                    )
-                    androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
-                    Text(if (s == "all") stringResource(R.string.projects_all) else offerStatusLabel(s), color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                }
-            }
-        }
+        if (all != null && all.isNotEmpty()) com.dorr.freelance.ui.kit.FilterChips(
+            listOf("all", "submitted", "viewed", "shortlisted", "accepted", "rejected", "withdrawn").map { st ->
+                com.dorr.freelance.ui.kit.FilterOption(
+                    st, if (st == "all") stringResource(R.string.projects_all) else offerStatusLabel(st),
+                    when (st) {
+                        "submitted" -> Icons.Rounded.Send
+                        "viewed" -> Icons.Rounded.Visibility
+                        "shortlisted" -> Icons.Rounded.Star
+                        "accepted" -> Icons.Rounded.CheckCircle
+                        "rejected" -> Icons.Rounded.Cancel
+                        "withdrawn" -> Icons.Rounded.Undo
+                        else -> Icons.Rounded.Apps
+                    },
+                )
+            },
+            filter, { filter = it },
+        )
         when {
             all == null && paged.failure == null -> SkeletonList()
             all != null && all.isEmpty() && paged.failure == null -> com.dorr.freelance.ui.components.EmptyState(
@@ -513,7 +515,8 @@ fun MyOffersScreen(onBack: (() -> Unit)?, onOpenProject: (String) -> Unit, asTab
         PagedFooter(paged) { scope.launch { paged.loadMore() } }
         ErrorBanner(paged.failure?.let { it.errorText(offlineText) ?: genericError }, Modifier.fillMaxWidth())
     }
-    if (asTab) com.dorr.freelance.ui.components.TabPage(title = stringResource(R.string.offer_my_offers), onBack = onBack, onNearEnd = nearEnd, content = body)
+    if (embedded) com.dorr.freelance.ui.components.EmbeddedPage(onNearEnd = nearEnd, content = body)
+    else if (asTab) com.dorr.freelance.ui.components.TabPage(title = stringResource(R.string.offer_my_offers), onBack = onBack, onNearEnd = nearEnd, content = body)
     else Page(title = stringResource(R.string.offer_my_offers), onBack = onBack ?: {}, onNearEnd = nearEnd, content = body)
 }
 
@@ -531,15 +534,19 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
     var breakdown by remember { mutableStateOf<OfferBreakdownDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var rights by rememberSaveable(stateSaver = rightsFormSaver) { mutableStateOf(RightsForm()) }
+    val rightsOptions = rememberRightsOptions()
 
     LaunchedEffect(projectUuid) {
         val result = apiCall { ApiClient.offers.mine(projectUuid) }
         val current = (result as? ApiResult.Ok)?.data?.offer
         if (current != null) {
             offer = current
-            price = formatMinor(current.priceMinor, null)
+            // The price I asked: a loyalty discount is taken off it again each time (FL-L09).
+            price = formatMinor(current.listPriceMinor ?: current.priceMinor, null)
             duration = current.durationDays.toString()
             details = current.details
+            current.rights?.let { rights = it.toForm() }
         } else error = (result as? ApiResult.Failed)?.let { result.errorText(offlineText) } ?: genericError
     }
     LaunchedEffect(price) {
@@ -560,7 +567,7 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
             DorrTextField(price, { price = it }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             breakdown?.let { b ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.08f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.offer_commission, "\u200E${formatMinor(b.commissionMinor, null)} ${b.currency}"), color = settingsMut(), fontSize = 12.sp)
+                    LoyaltyOfferLine(b.loyaltyBp, b.savingMinor, b.currency); Text(stringResource(R.string.offer_commission, "\u200E${formatMinor(b.commissionMinor, null)} ${b.currency}"), color = settingsMut(), fontSize = 12.sp)
                     Text(stringResource(R.string.offer_net, "\u200E${formatMinor(b.netMinor, null)} ${b.currency}"), color = settingsAccent(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
@@ -568,6 +575,7 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
             DorrTextField(details, { details = it.take(3000) }, label = stringResource(R.string.offer_details), singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
             Text(stringResource(R.string.offer_details_count, details.trim().length, DETAILS_MIN), color = if (details.trim().length < DETAILS_MIN) settingsMut() else Color(0xFF16A34A), fontSize = 11.sp)
         }
+        rightsOptions?.let { RightsEditor(rights, it) { r -> rights = r } }
         Text(stringResource(R.string.offer_edit_note), color = settingsMut(), fontSize = 12.sp)
         SettingsPrimaryButton(
             text = stringResource(R.string.offer_save_changes), loading = busy,
@@ -577,7 +585,7 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
                 busy = true
                 error = null
                 scope.launch {
-                    val result = apiCall { ApiClient.offers.update(current.uuid, com.dorr.freelance.net.OfferUpdateRequest(minor, duration.toInt(), details.trim())) }
+                    val result = apiCall { ApiClient.offers.update(current.uuid, com.dorr.freelance.net.OfferUpdateRequest(minor, duration.toInt(), details.trim(), if (rightsOptions != null) rights.toInput() else null)) }
                     busy = false
                     if (result is ApiResult.Ok) onDone() else error = result.errorText(offlineText) ?: genericError
                 }
@@ -587,29 +595,59 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
     }
 }
 
-/** An offer in my offers: small and easy to scan - what it is on, its state, the price and the time; the whole card opens the offer's page. */
+/**
+ * An offer in my offers, easy to scan: what it is on and its state, the price (and the loyalty discount) and the days, when it was sent, and
+ * the way it went — sent, seen, shortlisted, chosen — as four steps (an offer turned down or taken back shows the steps it reached, greyed).
+ */
 @Composable
 internal fun OfferListCard(offer: OfferDto, onClick: () -> Unit) {
     val tint = offerStatusColor(offer.status)
-    Row(
-        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(androidx.compose.material.icons.Icons.Rounded.LocalOffer, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        Row(verticalAlignment = Alignment.Top) {
+            Text(
+                offer.project?.title ?: stringResource(R.string.offer_mine), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp, modifier = Modifier.weight(1f),
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
+            com.dorr.freelance.ui.kit.StatusPill(offerStatusLabel(offer.status), tint)
         }
-        androidx.compose.foundation.layout.Spacer(Modifier.size(10.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(offer.project?.title ?: stringResource(R.string.offer_mine), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("\u200E${formatMinor(offer.priceMinor, null)} ${offer.currency}  ·  " + stringResource(R.string.projects_days, offer.durationDays), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            offer.createdAt?.take(10)?.let { Text("\u200E$it", color = settingsMut(), fontSize = 11.sp) }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            com.dorr.freelance.ui.kit.FactLine(androidx.compose.material.icons.Icons.Rounded.Payments, "‎${formatMinor(offer.priceMinor, null)} ${offer.currency}", strong = true)
+            com.dorr.freelance.ui.kit.FactLine(androidx.compose.material.icons.Icons.Rounded.Schedule, stringResource(R.string.projects_days, offer.durationDays))
+            publishedAgo(offer.createdAt)?.let { com.dorr.freelance.ui.kit.FactLine(androidx.compose.material.icons.Icons.Rounded.Update, it) }
         }
-        androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
-        Text(
-            offerStatusLabel(offer.status), color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 9.dp, vertical = 3.dp),
+        if ((offer.loyaltyBp ?: 0) > 0) Text(
+            stringResource(R.string.offer_card_loyalty, loyPercent(offer.loyaltyBp ?: 0)), color = com.dorr.freelance.ui.kit.Tints.green, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
         )
-        Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(20.dp))
+        OfferSteps(offer.status)
+    }
+}
+
+/** The four steps an offer goes through, lit up to where it got. */
+@Composable
+private fun OfferSteps(status: String) {
+    val reached = when (status) { "accepted" -> 4; "shortlisted" -> 3; "viewed" -> 2; else -> 1 }
+    val ended = status == "rejected" || status == "withdrawn"
+    val on = if (ended) settingsMut() else settingsAccent()
+    val labels = listOf(R.string.offer_step_sent, R.string.offer_step_seen, R.string.offer_step_shortlisted, R.string.offer_step_chosen)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            labels.indices.forEach { i ->
+                Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(999.dp)).background(if (i < reached) on else settingsMut().copy(alpha = 0.18f)))
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            labels.forEachIndexed { i, label ->
+                Text(
+                    stringResource(label), color = if (i < reached) (if (ended) settingsMut() else settingsInk()) else settingsMut().copy(alpha = 0.7f),
+                    fontSize = 10.sp, fontWeight = if (i == reached - 1) FontWeight.ExtraBold else FontWeight.Medium, maxLines = 1,
+                    modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
     }
 }
 
@@ -705,6 +743,9 @@ fun OfferDetailScreen(
                     }
                 }
             }
+
+            // FL-L13: who owns the work once it is paid and what the client may do with it.
+            o.rights?.let { RightsSummaryCard(it) }
 
             // Where it has been: sent, seen, shortlisted … with the day, on a line.
             val steps = o.timeline.mapNotNull { e ->

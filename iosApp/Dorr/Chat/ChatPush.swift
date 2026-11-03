@@ -124,7 +124,7 @@ final class ChatPush: NSObject, ObservableObject {
         if let conversation { return .conversation(conversation) }
         if type == "ride", let ride = s("ride_uuid") { return .ride(ride) }
         if let event, event.hasPrefix("freelance.") {
-            return .freelance(FreelanceLink.pageFor(event: event, project: s("project"), offer: s("offer"), dispute: s("dispute"), consultation: s("consultation")))
+            return .freelance(FreelanceLink.pageFor(event: event, project: s("project"), offer: s("offer"), dispute: s("dispute"), consultation: s("consultation"), specialOffer: s("special_offer")))
         }
         if let event, let kind = event.split(separator: ".").first.map(String.init), ["bus", "marine", "hire", "lesson", "loyalty"].contains(kind) {
             return .service(kind: kind, uuid: ["booking_uuid", "hire_uuid", "enrollment_uuid"].lazy.compactMap(s).first)

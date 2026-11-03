@@ -1,5 +1,7 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.foundation.layout.offset
+import com.dorr.app.ui.screens.profile.settingsNight
 import androidx.compose.material.icons.rounded.*
 import android.content.Context
 import android.content.Intent
@@ -190,14 +192,19 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_offers), onBack)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(stringResource(R.string.fl_filter_all), selected = !onlyShortlisted, icon = Icons.Rounded.Apps) { onlyShortlisted = false }
-            Chip(stringResource(R.string.fl_offer_st_shortlisted), selected = onlyShortlisted, icon = Icons.Rounded.Star) { onlyShortlisted = true }
+        FlPageHeader(stringResource(R.string.fl_offers), onBack)
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            FlTabs(
+                listOf(FlTab(Icons.Rounded.Apps, stringResource(R.string.fl_filter_all)), FlTab(Icons.Rounded.Star, stringResource(R.string.fl_offer_st_shortlisted))),
+                if (onlyShortlisted) 1 else 0,
+            ) { onlyShortlisted = it == 1 }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SORTS.forEach { s -> Chip(sortLabel(s), selected = sort == s, icon = sortIcon(s)) { sort = s } }
         }
-        if (sort == "recommended") FlHint(stringResource(R.string.fl_sort_recommended_hint), Modifier.padding(horizontal = 18.dp, vertical = 2.dp))
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (sort == "recommended") FlHint(stringResource(R.string.fl_sort_recommended_hint), Modifier.padding(horizontal = 18.dp).padding(bottom = 4.dp))
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val list = offers
             when {
                 list == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(150.dp), RoundedCornerShape(18.dp)) }
@@ -221,7 +228,21 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
             item { PagedSpinner(paged) }
             error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
         }
-        if (picked.size >= 2) SettingsPrimaryButton(text = stringResource(R.string.fl_compare_n, picked.size), modifier = Modifier.padding(16.dp), onClick = { onCompare(picked.toList()) })
+        }
+        // The offers picked to compare, and «Compare» — in reach as soon as one is picked.
+        if (picked.isNotEmpty()) Row(
+            Modifier.fillMaxWidth().background(if (settingsNight()) com.dorr.app.ui.screens.AccountDark.bg else Color.White).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.flo_picked, picked.size, COMPARE_MAX), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    stringResource(R.string.flo_clear), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(999.dp)).clickable { picked.clear() }.padding(vertical = 2.dp),
+                )
+            }
+            FlAction(stringResource(R.string.fl_compare_n, picked.size), Icons.Rounded.CompareArrows, FlTone.Primary, enabled = picked.size >= 2, modifier = Modifier.weight(1.3f)) { onCompare(picked.toList()) }
+        }
     }
 }
 
@@ -229,8 +250,8 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
 private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, onPick: () -> Unit, onClick: () -> Unit) {
     val f = o.freelancer
     Column(
-        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp))
-            .then(if (picked) Modifier.border(2.dp, settingsAccent(), RoundedCornerShape(20.dp)) else Modifier)
+        Modifier.fillMaxWidth().settingsSurface(FlCorners.card)
+            .then(if (picked) Modifier.border(2.dp, settingsAccent(), FlCorners.card) else Modifier)
             .clickable(onClick = onClick).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -249,10 +270,9 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
             }
             OfferStatusPill(o.status)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}", Modifier.weight(1.5f))
-            FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays), Modifier.weight(1f))
-        }
+        OfferPriceRow(o)
+        // FL-L09: the loyalty discount this freelancer gives me, with the usual price.
+        LoyaltyWasLine(o.loyaltyBp, o.listPriceMinor?.let { "‎${money(it)} ${o.currency}" })
         // FL-210: dearer than the most I said I'd pay.
         if (o.overCap) FlNotice(stringResource(R.string.fl_over_cap), Icons.Rounded.Warning, Red)
         Text(
@@ -266,6 +286,8 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
         )
         Text(o.details, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // FL-L13: who owns the work once it is paid.
+            o.rights?.let { RightsPill(it.modelLabel, it.model, Modifier.padding(end = 8.dp)) }
             if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(end = 10.dp))
             if (o.attachments.isNotEmpty()) {
                 Icon(Icons.Rounded.AttachFile, null, tint = settingsMut(), modifier = Modifier.size(14.dp))
@@ -279,6 +301,24 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
                 Icon(if (picked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.fl_compare), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
             }
+        }
+    }
+}
+
+/** The price of an offer big on the app's colour, and the days beside it. */
+@Composable
+private fun OfferPriceRow(o: FreelanceOfferDto) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.fl_price), color = settingsMut(), fontSize = 11.sp)
+            Text("‎${money(o.priceMinor)} ${o.currency}", color = settingsAccent(), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Icon(Icons.Rounded.Schedule, null, tint = settingsMut(), modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.fl_days, o.durationDays), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -304,14 +344,14 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_compare_title), onBack)
+        FlPageHeader(stringResource(R.string.fl_compare_title), onBack)
         val d = data
         if (d == null) {
             FlLoading(error)
             return@Column
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FlIntro(Icons.Rounded.CompareArrows, stringResource(R.string.fl_compare_title), stringResource(R.string.fl_compare_best_hint))
+            FlHint(stringResource(R.string.fl_compare_best_hint), Modifier.padding(horizontal = 4.dp))
             // The heads: who, tap to open the offer.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 d.offers.forEach { o ->
@@ -334,6 +374,8 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
             CompareRow(stringResource(R.string.fl_verified), d) { o -> Cell(stringResource(if (o.freelancer?.verified == true) R.string.fl_yes else R.string.fl_no)) }
             CompareRow(stringResource(R.string.fl_experience_years), d) { o -> Cell(o.freelancer?.yearsOfExperience?.let { stringResource(R.string.fl_years, it) } ?: "—") }
             CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell("${o.freelancer?.portfolioCount ?: 0}") }
+            // FL-L13: the ownership model each one offers.
+            if (d.offers.any { it.rights != null }) CompareRow(stringResource(R.string.rights_compare), d) { o -> Cell(o.rights?.modelLabel ?: "—") }
             // FL-703: what they finished, and on time.
             CompareRow(stringResource(R.string.fl_st_completed), d) { o -> Cell("${o.freelancer?.completedProjects ?: 0}" + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")) }
             CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(o.freelancer?.onTimeRate?.let { "$it%" } ?: "—") }
@@ -414,7 +456,7 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_offer), onBack)
+        FlPageHeader(stringResource(R.string.fl_offer), onBack)
         val o = offer
         if (o == null) {
             FlLoading(error)
@@ -439,14 +481,14 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
                 OfferStatusPill(o.status)
             }
             Card {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_price), "‎${money(o.priceMinor)} ${o.currency}", Modifier.weight(1.5f))
-                    FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, o.durationDays), Modifier.weight(1f))
-                }
+                OfferPriceRow(o)
+                LoyaltyWasLine(o.loyaltyBp, o.listPriceMinor?.let { "‎${money(it)} ${o.currency}" })
                 Field(stringResource(R.string.fl_offer_details), o.details)
                 o.answers.forEach { a -> Field(a.question, a.answer) }
                 if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp)
             }
+            // FL-L13: who owns the work once it is paid and what I may do with it.
+            RightsCard(o.rights)
             if (f != null) Card(Icons.Rounded.Person, stringResource(R.string.fl_freelancer_profile)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FlStat(Icons.Rounded.Verified, stringResource(R.string.fl_profile_complete), "${f.completeness}%", Modifier.weight(1f))
@@ -475,36 +517,51 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
             notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Green) }
             error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Red) }
 
-            // FL-308: talk to them before choosing (phone numbers and links are not allowed until the agreement).
-            if (o.can.chat || o.chat != null) FlAction(
-                stringResource(R.string.fl_chat_open) + if ((o.chat?.unread ?: 0) > 0) " (${o.chat?.unread})" else "", Icons.Rounded.Chat,
-                loading = busy && sheet == "chat",
-                onClick = {
-                    val existing = o.chat?.uuid
-                    if (existing != null) onChat(existing) else {
-                        busy = true
-                        sheet = "chat"
-                        error = null
-                        scope.launch {
-                            try {
-                                ApiClient.freelance.openChat(auth(), projectUuid, offerUuid).data?.uuid?.let(onChat) ?: run { error = generic }
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                error = e.message(generic)
-                            }
-                            busy = false
-                            sheet = null
-                        }
-                    }
-                },
-            )
             if (o.can.choose && o.overCap) FlNotice(stringResource(R.string.fl_over_cap_note), Icons.Rounded.Warning, Red)
-            if (o.can.choose) FlAction(stringResource(R.string.fl_choose_offer), Icons.Rounded.Handshake, FlTone.Primary, enabled = !o.overCap, loading = busy && sheet == null) { sheet = "choose" }
-            if (o.can.shortlist && o.status != "shortlisted") FlAction(stringResource(R.string.fl_shortlist), Icons.Rounded.StarBorder) { decide("shortlist") }
-            if (o.can.unshortlist) FlAction(stringResource(R.string.fl_unshortlist), Icons.Rounded.Star) { decide("unshortlist") }
+            Spacer(Modifier.height(16.dp))
+        }
+        // FL-308: talking to them before choosing (phone numbers and links are not allowed until the agreement).
+        val canTalk = o.can.chat || o.chat != null
+        fun openChat() {
+            val existing = o.chat?.uuid
+            if (existing != null) onChat(existing) else {
+                busy = true
+                sheet = "chat"
+                error = null
+                scope.launch {
+                    try {
+                        ApiClient.freelance.openChat(auth(), projectUuid, offerUuid).data?.uuid?.let(onChat) ?: run { error = generic }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error = e.message(generic)
+                    }
+                    busy = false
+                    sheet = null
+                }
+            }
+        }
+        val hasMore = (o.can.shortlist && o.status != "shortlisted") || o.can.unshortlist || o.can.reject
+        // Choose, talk and the rest, always in reach at the foot.
+        if (o.can.choose || canTalk || hasMore) Row(
+            Modifier.fillMaxWidth().background(if (settingsNight()) com.dorr.app.ui.screens.AccountDark.bg else Color.White).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (o.can.choose) FlAction(stringResource(R.string.fl_choose_offer), Icons.Rounded.Handshake, FlTone.Primary, enabled = !o.overCap, loading = busy && sheet == null, modifier = Modifier.weight(1f)) { sheet = "choose" }
+            if (canTalk) {
+                val talk = stringResource(R.string.fl_chat_open) + if ((o.chat?.unread ?: 0) > 0) " (${o.chat?.unread})" else ""
+                if (!o.can.choose) FlAction(talk, Icons.Rounded.Chat, loading = busy && sheet == "chat", modifier = Modifier.weight(1f)) { openChat() }
+                else FootIcon(Icons.Rounded.Chat, talk, badge = o.chat?.unread ?: 0) { openChat() }
+            }
+            if (hasMore) FootIcon(Icons.Rounded.MoreHoriz, stringResource(R.string.flo_more_title)) { sheet = "more" }
+        }
+    }
+
+    if (sheet == "more") offer?.let { o ->
+        FlSheet(Icons.Rounded.MoreHoriz, stringResource(R.string.flo_more_title), o.freelancer?.name ?: "", onDismiss = { sheet = null }) {
+            if (o.can.shortlist && o.status != "shortlisted") FlAction(stringResource(R.string.fl_shortlist), Icons.Rounded.StarBorder) { sheet = null; decide("shortlist") }
+            if (o.can.unshortlist) FlAction(stringResource(R.string.fl_unshortlist), Icons.Rounded.Star) { sheet = null; decide("unshortlist") }
             if (o.can.reject) FlAction(stringResource(R.string.fl_reject_offer), Icons.Rounded.Cancel, FlTone.Danger) { sheet = "reject" }
-            Spacer(Modifier.height(20.dp))
         }
     }
 
@@ -512,6 +569,19 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
     when {
         sheet == "choose" && current != null -> ChooseSheet(current, busy = busy, onDismiss = { if (!busy) sheet = null }, onConfirm = { decide("choose") })
         sheet == "reject" -> RejectSheet(busy = busy, onDismiss = { if (!busy) sheet = null }, onConfirm = { decide("reject", it) })
+    }
+}
+
+/** A square button at the foot of a page (talk, more), with a count when something waits. */
+@Composable
+internal fun FootIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, badge: Int = 0, onClick: () -> Unit) {
+    Box {
+        Box(
+            Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.10f))
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, label, tint = settingsAccent()) }
+        FlCountBadge(badge, Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
     }
 }
 
@@ -542,6 +612,7 @@ private fun ChooseSheet(o: FreelanceOfferDto, busy: Boolean, onDismiss: () -> Un
             if ((cost?.clientFeeMinor ?: 0L) > 0L) SumLine(stringResource(R.string.fl_client_fee), "‎${money(cost?.clientFeeMinor)} ${o.currency}")
             SumLine(stringResource(R.string.fl_total), "‎${money(cost?.totalMinor ?: o.priceMinor)} ${o.currency}", bold = true)
         }
+        LoyaltyOfferNote(o.loyaltyBp)
         FlAction(stringResource(R.string.fl_choose_confirm), Icons.Rounded.Handshake, FlTone.Primary, loading = busy, onClick = onConfirm)
         FlAction(stringResource(R.string.fl_not_now), null, onClick = onDismiss)
     }
@@ -593,6 +664,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     var profile by remember { mutableStateOf<FreelancerProfileDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    // FL-L13: the portfolio work being reported as not theirs.
+    var reporting by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(projectUuid, offerUuid, reconnect) {
         try {
@@ -605,7 +678,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_freelancer_profile), onBack)
+        FlPageHeader(stringResource(R.string.fl_freelancer_profile), onBack)
         val p = profile
         if (p == null) {
             FlLoading(error)
@@ -646,6 +719,13 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                 if (p.consultations.isNotEmpty()) Box(Modifier.padding(top = 8.dp)) { ConsultTeaser(p.consultations, onBookConsultation) }
                 Text(stringResource(R.string.fl_contact_in_dorr), color = settingsMut(), fontSize = 11.sp)
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlStat(Icons.Rounded.TaskAlt, stringResource(R.string.fl_st_completed), "${p.completedProjects ?: 0}", Modifier.weight(1f))
+                FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_st_on_time), p.onTimeRate?.let { "$it%" } ?: "—", Modifier.weight(1f))
+                FlStat(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio), "${p.portfolio.size}", Modifier.weight(1f))
+            }
+            // FL-L09: what returning clients get from this freelancer, and where I stand.
+            LoyaltyCard(p.loyalty)
             p.bio?.takeIf { it.isNotBlank() }?.let { Card(Icons.Rounded.Info, stringResource(R.string.fl_about)) { Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) } }
             if (p.specialties.isNotEmpty() || p.skills.isNotEmpty()) Card(Icons.Rounded.Bolt, stringResource(R.string.fl_skills)) {
                 if (p.specialties.isNotEmpty()) Field(stringResource(R.string.fl_specialty), p.specialties.joinToString("، ") { it.name })
@@ -689,6 +769,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                             Text(w.title.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             w.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                         }
+                        w.uuid?.let { id -> Icon(Icons.Rounded.Flag, stringResource(R.string.rights_report), tint = settingsMut(), modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable { reporting = id }.padding(8.dp)) }
                     }
                 }
             }
@@ -709,6 +790,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
             Spacer(Modifier.height(20.dp))
         }
     }
+
+    reporting?.let { id -> ReportWorkSheet("portfolio_item", id, onDismiss = { reporting = null }) }
 }
 
 // ---------------------------------------------------------------- the freelancers I keep (FL-306)
@@ -727,8 +810,9 @@ internal fun FavoritesPage(onBack: () -> Unit) {
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_favorites), onBack)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlPageHeader(stringResource(R.string.fl_favorites), onBack)
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val rows = list
             when {
                 rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
@@ -755,6 +839,7 @@ internal fun FavoritesPage(onBack: () -> Unit) {
             }
             item { PagedSpinner(paged) }
             error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
+        }
         }
     }
 }
