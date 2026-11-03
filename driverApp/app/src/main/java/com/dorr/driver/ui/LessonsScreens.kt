@@ -170,7 +170,7 @@ fun TrainerScreen(onBack: () -> Unit) {
                             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Chip("📞 " + stringResource(R.string.tr_call), tint = Pal.success) { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } }
                                 s.pickup?.let { p ->
-                                    Chip("🧭 " + stringResource(R.string.hj_navigate), tint = Plum) { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${p.lat},${p.lng}"))) } }
+                                    Chip("🧭 " + stringResource(R.string.hj_navigate), tint = Plum) { openNavigation(context, p.lat, p.lng) }
                                 }
                             }
                         }

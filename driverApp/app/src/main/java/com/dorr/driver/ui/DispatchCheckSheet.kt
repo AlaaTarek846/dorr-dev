@@ -149,5 +149,8 @@ private fun categoryReason(reason: String): String = when (reason) {
     "vehicle_too_old" -> stringResource(R.string.dc_cat_old)
     "vehicle_seats" -> stringResource(R.string.dc_cat_seats)
     "driver_gender" -> stringResource(R.string.dc_cat_gender)
+    // O-89: the dashboard didn't open its service to this vehicle here / the captain switched it off.
+    "vehicle_kind" -> stringResource(R.string.dc_cat_kind)
+    "service_switched_off" -> stringResource(R.string.dc_cat_service_off)
     else -> reason
 }

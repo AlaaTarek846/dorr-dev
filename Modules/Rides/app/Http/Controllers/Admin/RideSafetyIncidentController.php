@@ -78,7 +78,7 @@ class RideSafetyIncidentController extends Controller implements HasMiddleware
                 'id' => $i->ride->id,
                 'number' => $i->ride->number,
                 'status' => $i->ride->status->value,
-                'rider' => $i->ride->rider ? ['name' => $i->ride->rider->name, 'phone' => $i->ride->rider->phone] : null,
+                'rider' => $i->ride->rider ? ['name' => $i->ride->rider->name, 'is_verified' => \App\Support\AccountBadge::verified($i->ride->rider), 'phone' => $i->ride->rider->phone] : null,
                 'driver' => $i->ride->driver ? ['id' => $i->ride->driver->id, 'name' => $i->ride->driver->name, 'phone' => $i->ride->driver->phone] : null,
             ] : null,
             'ride_status' => $i->ride_status,

@@ -311,7 +311,7 @@ private fun TicketConversation(initial: SupportTicketDto) {
                         if (!mine) Text(m.agentName ?: stringResource(R.string.sp_team), color = Pal.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         m.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = if (mine) Color.White else Pal.ink, fontSize = 14.sp) }
                         if (m.imageUrl != null) Text("📎 " + stringResource(R.string.sp_attached), color = if (mine) Color.White else Pal.accent, fontSize = 12.sp)
-                        Text(m.createdAt?.take(16)?.replace('T', ' ').orEmpty(), color = (if (mine) Color.White else Pal.mut).copy(alpha = 0.7f), fontSize = 10.sp)
+                        Text(whenText(m.createdAt), color = (if (mine) Color.White else Pal.mut).copy(alpha = 0.7f), fontSize = 10.sp)
                     }
                 }
             }

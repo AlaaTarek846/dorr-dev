@@ -185,6 +185,11 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
                 if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
+            // As a parent (GR-018, 027): my children.
+            if (link == com.dorr.app.chat.ChatDeepLink.ParentChildren) {
+                if (host.current != ChRoute.ParentChildren) host.push(ChRoute.ParentChildren)
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
         }
     }
 
@@ -316,6 +321,10 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.StoryPrivacy -> StoryPrivacyPage()
         is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
         is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+        is ChRoute.GroupTasks -> GroupTasksPage(route.conversationId, route.spaceId, route.spaceName)
+        is ChRoute.Classroom -> ClassroomPage(route.conversationId)
+        is ChRoute.ParentChildren -> ParentChildrenPage()
+        is ChRoute.ParentChild -> ParentChildPage(route.linkId, route.title)
         ChRoute.Broadcasts -> BroadcastsPage()
         is ChRoute.Broadcast -> BroadcastPage(route.id)
         ChRoute.Tasks -> TasksPage()

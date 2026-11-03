@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.NorthEast
@@ -49,6 +51,10 @@ internal fun txMeta(type: String): Pair<ImageVector, Tone> = when (type) {
     "service_earning" -> Icons.Rounded.ShoppingBag to Tone.Green
     "manual_adjustment" -> Icons.Rounded.Tune to Tone.Gray
     "reversal" -> Icons.Rounded.Undo to Tone.Gray
+    // Watch & Earn: money moved into the ad wallet, back out of it, and the rewards for watching.
+    "ad_funding" -> Icons.Rounded.Campaign to Tone.Red
+    "ad_return" -> Icons.Rounded.Undo to Tone.Green
+    "reward" -> Icons.Rounded.EmojiEvents to Tone.Amber
     else -> Icons.AutoMirrored.Rounded.List to Tone.Gray
 }
 

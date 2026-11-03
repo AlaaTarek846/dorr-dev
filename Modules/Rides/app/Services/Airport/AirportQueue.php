@@ -297,6 +297,10 @@ class AirportQueue
         if ($this->eligibility->reasonNotToWork($driver) !== null) {
             return 'not_eligible';
         }
+        // O-89: the airport queue is a service of its own (open to this vehicle here, and switched on).
+        if (! app(\Modules\Rides\Services\Drivers\DriverServices::class)->offers($driver, 'airport')) {
+            return 'not_eligible';
+        }
 
         return null;
     }

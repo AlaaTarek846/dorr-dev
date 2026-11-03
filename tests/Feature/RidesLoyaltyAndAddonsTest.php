@@ -113,6 +113,11 @@ class RidesLoyaltyAndAddonsTest extends TestCase
         $equipped = $this->onlineDriver();
         $this->asDriver($equipped)->putJson('/api/driver/v1/preferences', ['pet_friendly' => true, 'child_seats' => 1])->assertOk()
             ->assertJsonPath('data.equipment.pet_friendly', true)->assertJsonPath('data.equipment.child_seats', 1);
+        // O-88: the rider is told how many equipped captains are around (none before, one now); nothing asked = null.
+        $this->assertSame(0, $quote['equipped_nearby']);
+        $this->assertNull($plain['equipped_nearby']);
+        $quote = $this->quote(['options' => ['pet' => true, 'child_seats' => 1, 'service_animal' => true, 'bags_small' => 1, 'bags_large' => 1]])->assertOk()->json('data.0');
+        $this->assertSame(1, $quote['equipped_nearby']);
         $this->fund($this->rider, 20000);
         $uuid = $this->book($quote, 'wallet')->assertCreated()->json('data.uuid');
         $this->assertSame(0, RideOffer::query()->where('driver_id', $plainCaptain->id)->count());
