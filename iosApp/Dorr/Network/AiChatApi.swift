@@ -195,6 +195,73 @@ struct AiSubscriptionPaymentDto: Codable, Equatable, Identifiable {
     var createdAt: String?
 }
 
+// Plan prices come as JSON numbers (`AiPlanPricingResource` casts them to float) while other money fields come as
+// decimal strings. Gson on Android turns a number into a String field by itself; here both shapes are read the same way,
+// otherwise one number fails the whole plan list.
+extension AiPlanDto {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        usageMinutes = try c.decodeIfPresent(Int.self, forKey: .usageMinutes)
+        cooldownMinutes = try c.decodeIfPresent(Int.self, forKey: .cooldownMinutes)
+        durationDays = try c.decodeIfPresent(Int.self, forKey: .durationDays)
+        price = c.lenientString(.price) ?? "0"
+        originalPrice = c.lenientString(.originalPrice)
+        discountPercent = try c.decodeIfPresent(Int.self, forKey: .discountPercent)
+        currency = try c.decodeIfPresent(String.self, forKey: .currency) ?? ""
+        badge = try c.decodeIfPresent(String.self, forKey: .badge)
+        isFeatured = try c.decodeIfPresent(Bool.self, forKey: .isFeatured)
+        features = try c.decodeIfPresent([String].self, forKey: .features)
+        isTrial = try c.decodeIfPresent(Bool.self, forKey: .isTrial)
+        isActive = try c.decodeIfPresent(Bool.self, forKey: .isActive)
+        sortOrder = try c.decodeIfPresent(Int.self, forKey: .sortOrder)
+        isCountrySpecificPrice = try c.decodeIfPresent(Bool.self, forKey: .isCountrySpecificPrice)
+    }
+}
+
+extension AiSubscriptionDto {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        plan = try c.decodeIfPresent(AiPlanDto.self, forKey: .plan)
+        startsAt = try c.decodeIfPresent(String.self, forKey: .startsAt)
+        endsAt = try c.decodeIfPresent(String.self, forKey: .endsAt)
+        status = try c.decode(String.self, forKey: .status)
+        autoRenew = try c.decodeIfPresent(Bool.self, forKey: .autoRenew)
+        inGracePeriod = try c.decodeIfPresent(Bool.self, forKey: .inGracePeriod)
+        graceEndsAt = try c.decodeIfPresent(String.self, forKey: .graceEndsAt)
+        daysRemaining = try c.decodeIfPresent(Int.self, forKey: .daysRemaining)
+        currentPlanPrice = c.lenientString(.currentPlanPrice)
+    }
+}
+
+extension AiSubscriptionPaymentDto {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        plan = try c.decodeIfPresent(AiPlanDto.self, forKey: .plan)
+        type = try c.decode(String.self, forKey: .type)
+        status = try c.decode(String.self, forKey: .status)
+        amount = c.lenientString(.amount) ?? "0"
+        currency = try c.decodeIfPresent(String.self, forKey: .currency) ?? ""
+        failureReason = try c.decodeIfPresent(String.self, forKey: .failureReason)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+    }
+}
+
+extension KeyedDecodingContainer {
+    /// A string field the server may also send as a number (Gson's coercion on Android).
+    func lenientString(_ key: Key) -> String? {
+        if let text = try? decodeIfPresent(String.self, forKey: key) { return text }
+        if let int = try? decodeIfPresent(Int.self, forKey: key) { return String(int) }
+        if let number = try? decodeIfPresent(Double.self, forKey: key) { return String(number) }
+        return nil
+    }
+}
+
 // MARK: - Reply language
 
 struct AiLanguageDto: Codable, Equatable, Identifiable {
