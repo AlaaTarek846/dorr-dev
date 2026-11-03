@@ -132,7 +132,7 @@ fun BusTripDetailScreen(uuid: String, onBack: () -> Unit) {
     LaunchedEffect(trip) {
         val t = trip ?: return@LaunchedEffect
         t.passengers.firstOrNull { it.call?.status == "ringing" && it.call.caller == "user" }?.let { p ->
-            RideCallSession.incoming(context, p.bookingUuid, p.call!!.uuid, p.name.orEmpty(), end = { b, c -> apiCall { DriverBackend.bus.endCall(b, c) } })
+            RideCallSession.incoming(context, p.bookingUuid, p.call!!.uuid, p.name.orEmpty(), end = { b, c -> apiCall { DriverBackend.bus.endCall(b, c) } }, peerVerified = p.isVerified)
         }
     }
 
@@ -237,6 +237,7 @@ fun BusTripDetailScreen(uuid: String, onBack: () -> Unit) {
                             context, p.bookingUuid, p.name.orEmpty(),
                             start = { callJoin(apiCall { DriverBackend.bus.startCall(p.bookingUuid) }) },
                             end = { b, c -> apiCall { DriverBackend.bus.endCall(b, c) } },
+                            peerVerified = p.isVerified,
                         )
                     },
                 )
@@ -479,7 +480,10 @@ private fun PassengerCard(p: BusPassengerDto, index: Int, open: Boolean, onBoard
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(p.name ?: "—", fontWeight = FontWeight.Bold, color = Pal.ink, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(p.name ?: "—", fontWeight = FontWeight.Bold, color = Pal.ink, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    RiderTick(p.isVerified, 14.dp)
+                }
                 Text(
                     stringResource(if (p.tripType == "round") R.string.bus_price_round else if (p.tripType == "return") R.string.bus_leg_back else R.string.bus_leg_out),
                     color = Pal.mut, fontSize = 12.sp,
@@ -556,6 +560,7 @@ private fun BusPassengerChat(p: BusPassengerDto, open: Boolean, onClose: () -> U
     }
     TripChatScreen(
         title = p.name.orEmpty(),
+        titleVerified = p.isVerified,
         subtitle = stringResource(R.string.bus_chat_subtitle, p.seats.joinToString(" · ") { it.seat.toString() }),
         messages = messages, quick = quick, open = canWrite,
         onSend = { body, key -> send(body, key) },
@@ -564,6 +569,7 @@ private fun BusPassengerChat(p: BusPassengerDto, open: Boolean, onClose: () -> U
                 context, p.bookingUuid, p.name.orEmpty(),
                 start = { callJoin(apiCall { DriverBackend.bus.startCall(p.bookingUuid) }) },
                 end = { b, c -> apiCall { DriverBackend.bus.endCall(b, c) } },
+                peerVerified = p.isVerified,
             )
         }) else null,
         onClose = onClose,

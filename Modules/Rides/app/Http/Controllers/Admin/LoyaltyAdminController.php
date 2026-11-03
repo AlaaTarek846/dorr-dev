@@ -103,7 +103,7 @@ class LoyaltyAdminController extends Controller implements HasMiddleware
         $account = $loyalty->account($user);
 
         return ApiResponse::success([
-            'user' => ['id' => $user->id, 'name' => $user->name, 'phone' => $user->phone],
+            'user' => ['id' => $user->id, 'name' => $user->name, 'is_verified' => \App\Support\AccountBadge::verified($user), 'phone' => $user->phone],
             'balance' => (int) $account->balance, 'lifetime' => (int) $account->lifetime, 'tier' => $account->tier?->localized('name'),
             'entries' => LoyaltyEntry::query()->where('user_id', $user->id)->orderByDesc('id')->limit(50)->get()->map(fn (LoyaltyEntry $e) => LoyaltyController::entry($e))->values(),
         ], __('api.retrieved'));

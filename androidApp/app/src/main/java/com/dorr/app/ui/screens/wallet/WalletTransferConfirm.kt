@@ -72,6 +72,9 @@ fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "")
     var idempotencyKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var sent by remember { mutableStateOf<WalletTransactionDto?>(null) }
     val amountMinor = parseAmountToMinor(amountText)
+    // Watch & Earn rewards are a source only where the country lets them be sent (D20); null = the server's order.
+    val rewardsOffered = balance?.rewardsTransferable == true && (balance.rewardMinor) > 0
+    var fromRewards by remember { mutableStateOf(false) }
 
     // DORR's optional cut (a preview only — the rate actually applied is decided at send time).
     val feePercentValue = who.feePercent.toDoubleOrNull() ?: 0.0
@@ -115,7 +118,8 @@ fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "")
                         onSubmit = { pin ->
                             val minor = amountMinor ?: return@requestPin PinOutcome.Close(genericError)
                             try {
-                                val result = ApiClient.wallet.transfer(walletAuth(), pin, idempotencyKey, TransferRequest(who.recipientToken, minor)).data
+                                val bucket = if (rewardsOffered && fromRewards) "reward" else null
+                                val result = ApiClient.wallet.transfer(walletAuth(), pin, idempotencyKey, TransferRequest(who.recipientToken, minor, bucket)).data
                                 idempotencyKey = UUID.randomUUID().toString()
                                 if (result == null) return@requestPin PinOutcome.Close(genericError)
                                 sent = result
@@ -131,6 +135,11 @@ fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "")
                                 val message = failure.message ?: genericError
                                 when {
                                     failure.errorCode in PIN_ERROR_CODES -> PinOutcome.Retry(message)
+                                    // This country keeps rewards in the app: the server says so, and the choice goes back to the default.
+                                    failure.errorCode == "rewards_not_transferable" -> {
+                                        fromRewards = false
+                                        PinOutcome.Close(message)
+                                    }
                                     // The 10-minute confirmation ran out: go back and look the person up again.
                                     failure.errorCode == "transfer_recipient_expired" -> {
                                         host.closeSheet()
@@ -166,7 +175,9 @@ fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "")
                         Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Wa.Mut, modifier = Modifier.size(15.dp))
                         Text(stringResource(R.string.wa_available), color = Wa.Mut, fontSize = 12.5.sp)
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                            Text(money(balance.totalMinor - balance.heldMinor) + " " + currency, color = Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                            // Rewards that can't be sent here aren't available for a transfer.
+                            val sendable = balance.totalMinor - balance.heldMinor - (if (balance.rewardsTransferable) 0L else balance.rewardMinor)
+                            Text(money(sendable.coerceAtLeast(0L)) + " " + currency, color = Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -187,6 +198,20 @@ fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "")
                     money(if (senderPaysFee) amountMinor + feeMinor else amountMinor - feeMinor) + " " + currency,
                     bold = true, ltr = true,
                 )
+            }
+        }
+        if (rewardsOffered && balance != null) {
+            Spacer(Modifier.height(12.dp))
+            WaCard(Modifier.fillMaxWidth().waRise(2), padding = 14.dp) {
+                Text(stringResource(R.string.we_transfer_source), color = Wa.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    com.dorr.app.ui.screens.watchearn.WeChip(stringResource(R.string.we_transfer_source_auto), !fromRewards, { fromRewards = false })
+                    com.dorr.app.ui.screens.watchearn.WeChip(
+                        stringResource(R.string.we_reward_balance) + " · " + money(balance.rewardMinor),
+                        fromRewards,
+                        { fromRewards = true },
+                    )
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -236,7 +261,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
                     contentAlignment = Alignment.Center,
                 ) { Text(initial, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold) }
             }
-            Text(who.nameMasked, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+            com.dorr.app.ui.components.VerifiedName(who.nameMasked, verified = who.isVerified, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, modifier = Modifier.padding(top = 12.dp), tickSize = 18.dp)
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(
                     Modifier.padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFF3F4F6)).padding(horizontal = 14.dp, vertical = 8.dp),

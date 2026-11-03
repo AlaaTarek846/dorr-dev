@@ -185,6 +185,10 @@ func txMeta(_ type: String) -> (icon: String, tone: Tone) {
     case "service_earning": return ("bag.fill", .green)
     case "manual_adjustment": return ("slider.horizontal.3", .gray)
     case "reversal": return ("arrow.uturn.backward", .gray)
+    // Watch & Earn: money moved into the ad wallet, back out of it, and the rewards for watching.
+    case "ad_funding": return ("megaphone.fill", .red)
+    case "ad_return": return ("arrow.uturn.backward", .green)
+    case "reward": return ("trophy.fill", .amber)
     default: return ("list.bullet", .gray)
     }
 }

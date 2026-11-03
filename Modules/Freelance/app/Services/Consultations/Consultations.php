@@ -557,14 +557,14 @@ class Consultations
             throw new FreelanceException('wallet_currency', 422, ['currency' => $c->currency_code], ['currency' => $c->currency_code]);
         }
         $needed = $c->totalMinor();
-        $available = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        $available = $wallet->spendableMinor();
         if ($available < $needed) {
             throw new FreelanceException('wallet_insufficient', 422, [
                 'needed' => $this->money($needed, $c), 'available' => $this->money($available, $c),
             ], ['needed_minor' => $needed, 'available_minor' => $available, 'shortfall_minor' => $needed - $available, 'currency' => $c->currency_code]);
         }
-        $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $needed);
-        foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $needed - $fromSpendOnly]] as [$bucket, $part]) {
+        // Rewards, then spend-only, then withdrawable (Wallet::SPEND_ORDER).
+        foreach ($wallet->spendParts($needed) as [$bucket, $part]) {
             if ($part <= 0) {
                 continue;
             }

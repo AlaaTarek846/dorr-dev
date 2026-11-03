@@ -249,7 +249,7 @@ private fun CompTable(p: SpCompetitionPageDto, go: (SpPage) -> Unit) {
             }
         }
     }
-    p.standingsUpdatedAt?.let { Text(stringResource(R.string.sp_updated_at, it.take(16).replace('T', ' ')), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp)) }
+    p.standingsUpdatedAt?.let { Text(stringResource(R.string.sp_updated_at, com.dorr.app.ui.screens.rides.localDateTime(it)), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp)) }
 }
 
 /** Home or away only: the same rows, re-ranked from the provider's split. */
@@ -399,7 +399,7 @@ private fun CompLeaders(leaders: Map<String, SpLeadersDto>, load: (String) -> Un
                     Text("${r.value}", color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 }
             }
-            l.fetchedAt?.let { Text(stringResource(R.string.sp_updated_at, it.take(16).replace('T', ' ')), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp)) }
+            l.fetchedAt?.let { Text(stringResource(R.string.sp_updated_at, com.dorr.app.ui.screens.rides.localDateTime(it)), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 }

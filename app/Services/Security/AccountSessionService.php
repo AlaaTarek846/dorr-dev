@@ -5,6 +5,7 @@ namespace App\Services\Security;
 use App\Models\AccountSession;
 use App\Models\NotificationDevice;
 use App\Models\SecurityEvent;
+use App\Services\General\LoginLocation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,10 @@ class AccountSessionService
         $knownDevice = $device->deviceId !== null
             && AccountSession::query()->of($owner)->where('device_id', $device->deviceId)->exists();
 
-        [$token, $session] = DB::transaction(function () use ($owner, $tokenName, $device) {
+        // Where the sign-in comes from (cached per IP; looked up outside the transaction).
+        $place = $device->ip ? app(LoginLocation::class)->locate($device->ip) : null;
+
+        [$token, $session] = DB::transaction(function () use ($owner, $tokenName, $device, $place) {
             if ($device->deviceId !== null) {
                 AccountSession::query()->of($owner)->active()->where('device_id', $device->deviceId)->get()
                     ->each(fn (AccountSession $old) => $this->end($old, AccountSession::REASON_REPLACED));
@@ -56,6 +60,10 @@ class AccountSessionService
                 'app_version' => $device->appVersion,
                 'ip' => $device->ip,
                 'country_code' => SecurityLog::countryOf($device->ip),
+                'latitude' => $place['lat'] ?? null,
+                'longitude' => $place['lng'] ?? null,
+                'ip_city' => $place['ip_city'] ?? null,
+                'city_id' => $place['city_id'] ?? null,
                 'user_agent' => $device->userAgent,
             ]);
 

@@ -49,6 +49,10 @@ internal fun problemText(context: Context, code: String?): String {
         "regulator_expired" -> R.string.problem_regulator_expired
         "regulator_vehicle_changed" -> R.string.problem_regulator_vehicle_changed
         "driving_limit" -> R.string.problem_driving_limit
+        "maintenance" -> R.string.problem_maintenance
+        "service_off_here" -> R.string.problem_service_off_here
+        "emergency_review" -> R.string.problem_emergency_review
+        "terms_pending" -> R.string.problem_terms_pending
         else -> R.string.problem_generic
     }
     return context.getString(id)

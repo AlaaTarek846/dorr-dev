@@ -152,6 +152,8 @@ object ApiClient {
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    // Educational groups: lessons, homework, tests, attendance (docs/groups_tasks.md GR-011..017).
+    val classroom: ClassroomApi by lazy { retrofit.create(ClassroomApi::class.java) }
     val aiChat: AiChatApi by lazy { retrofit.create(AiChatApi::class.java) }
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
     val aiAssistant: AiAssistantApi by lazy { retrofit.create(AiAssistantApi::class.java) }
@@ -163,11 +165,14 @@ object ApiClient {
     val backlog: BacklogApi by lazy { retrofit.create(BacklogApi::class.java) }
     val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
+    val verification: VerificationApi by lazy { retrofit.create(VerificationApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
     val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
     val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
+    /** Watch & Earn: the viewer, the advertiser and the ad wallet (docs/modules/watch-earn/API.md). */
+    val watchEarn: WatchEarnApi by lazy { retrofit.create(WatchEarnApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 

@@ -82,7 +82,7 @@ class RideAdminController extends Controller implements HasMiddleware
             'category' => $r->category?->translated('name'),
             // O-06 (LeeTaxi's list): the category's colour, the faces, the plate, and the points for the map.
             'category_color' => $r->category?->color,
-            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'phone' => $r->rider->phone, 'avatar' => rescue(fn () => $r->rider->getSingleMediaUrl('avatar'), null, false) ?: null] : null,
+            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'is_verified' => \App\Support\AccountBadge::verified($r->rider), 'phone' => $r->rider->phone, 'avatar' => rescue(fn () => $r->rider->getSingleMediaUrl('avatar'), null, false) ?: null] : null,
             'driver' => $r->driver ? ['id' => $r->driver->id, 'name' => $r->driver->name, 'phone' => $r->driver->phone, 'avatar' => rescue(fn () => $r->driver->getFirstMediaUrl('avatar'), null, false) ?: null] : null,
             'plate' => trim(($r->vehicle_snapshot['plate_letters'] ?? '').' '.($r->vehicle_snapshot['plate_number'] ?? '')) ?: null,
             'origin' => ['lat' => (float) $r->origin_lat, 'lng' => (float) $r->origin_lng],
@@ -166,7 +166,7 @@ class RideAdminController extends Controller implements HasMiddleware
             'payment_method' => $r->payment_method->value,
             'payment_status' => $r->payment_status->value,
             'currency' => ['code' => $r->currency?->code, 'symbol' => $r->currency?->symbol, 'decimal_places' => (int) ($r->currency?->decimal_places ?? 2)],
-            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'phone' => $r->rider->phone] : null,
+            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'is_verified' => \App\Support\AccountBadge::verified($r->rider), 'phone' => $r->rider->phone] : null,
             'driver' => $r->driver ? ['id' => $r->driver->id, 'name' => $r->driver->name, 'phone' => $r->driver->phone] : null,
             // R-13: booked for someone else — who was picked up, and when the rider confirmed their consent.
             'beneficiary' => $r->beneficiary,

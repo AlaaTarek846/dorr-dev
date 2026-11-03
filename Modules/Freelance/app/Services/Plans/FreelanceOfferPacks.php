@@ -13,7 +13,6 @@ use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\Freelance\Services\Offers\FreelancerOffers;
 use Modules\Freelance\Services\Policy\FreelanceLedger;
-use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Services\WalletService;
 
@@ -102,7 +101,7 @@ class FreelanceOfferPacks
 
             $uuid = (string) Str::uuid();
             $wallet = $this->wallets->firstOrCreateWallet($freelancer, $country)->fresh(['currency']);
-            $available = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+            $available = $wallet->spendableMinor();
             if ($available < $price) {
                 throw new FreelanceException('offer_pack_insufficient', 422, [
                     'needed' => $this->money($price, $country), 'available' => $this->money($available, $country),

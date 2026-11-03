@@ -64,8 +64,8 @@ class MilestonePayments
                 ], ['needed_minor' => $needed, 'available_minor' => $available, 'shortfall_minor' => $needed - $available, 'currency' => $agreement->currency_code]);
             }
 
-            $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $needed);
-            foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $needed - $fromSpendOnly]] as [$bucket, $part]) {
+            // Rewards, then spend-only, then withdrawable (Wallet::SPEND_ORDER).
+            foreach ($wallet->spendParts($needed) as [$bucket, $part]) {
                 if ($part <= 0) {
                     continue;
                 }
@@ -125,7 +125,7 @@ class MilestonePayments
 
     private function available(Wallet $wallet): int
     {
-        return max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        return $wallet->spendableMinor();
     }
 
     public static function money(int $minor, string $currency): string

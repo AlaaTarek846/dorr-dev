@@ -89,3 +89,10 @@ Broadcast::channel('freelance-chat.{uuid}', function ($person, string $uuid) {
 Broadcast::channel('Modules.Freelance.Models.Freelancer.{id}', function ($freelancer, $id) {
     return (int) $freelancer->id === (int) $id;
 }, ['guards' => ['freelance_api']]);
+
+// Watch & Earn: everyone with an ad open hears its new comments and reaction counts (comments are seen by every
+// viewer — docs/watch_earn_tasks.md D4). Any signed-in user, for an ad that exists.
+Broadcast::channel('watch-earn.ad.{uuid}', function ($user, string $uuid) {
+    return $user instanceof \Modules\User\Models\User
+        && \Modules\WatchEarn\Models\Ad::query()->where('uuid', $uuid)->exists();
+}, ['guards' => ['user_api']]);

@@ -14,7 +14,6 @@ use Modules\Freelance\Models\FreelanceSubscriptionInvoice as Invoice;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Policy\FreelanceLedger;
-use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Models\WalletTransaction;
 use Modules\Wallet\Services\WalletService;
@@ -474,7 +473,7 @@ class FreelanceSubscriptions
 
         if ($amount > 0) {
             $wallet = $this->wallets->firstOrCreateWallet($freelancer, $country)->fresh(['currency']);
-            $available = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+            $available = $wallet->spendableMinor();
             if ($available < $amount) {
                 throw new FreelanceException('subscription_insufficient', 422, [
                     'needed' => $this->money($amount, $country), 'available' => $this->money($available, $country),

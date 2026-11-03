@@ -15,6 +15,7 @@ final class ReferralPartyResource
             'id' => $id,
             'type' => $type,
             'name' => $model->name ?? null,
+            'is_verified' => \App\Support\AccountBadge::verified($model),
             'phone' => $model->phone ?? null,
             'email' => $model->email ?? null,
         ];

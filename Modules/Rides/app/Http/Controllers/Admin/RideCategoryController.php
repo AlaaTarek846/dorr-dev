@@ -21,7 +21,7 @@ use Modules\Rides\Models\RideCategory;
 class RideCategoryController extends Controller implements HasMiddleware
 {
     /** The flags a category may carry (RideCategory::flag). */
-    public const FLAGS = ['cash_allowed', 'surge_allowed', 'open_destination_allowed', 'multi_stop_allowed', 'requires_schedule', 'pin_required'];
+    public const FLAGS = ['cash_allowed', 'surge_allowed', 'open_destination_allowed', 'multi_stop_allowed', 'requires_schedule', 'pin_required', 'hourly_only'];
 
     /** @return list<Middleware> */
     public static function middleware(): array

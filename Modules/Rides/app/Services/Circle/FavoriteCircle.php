@@ -28,9 +28,28 @@ class FavoriteCircle
     ) {}
 
     /** The rider's favourite captains, to choose from when booking. @return list<array<string, mixed>> */
-    public function drivers(User $rider): array
+    public function drivers(User $rider, ?float $lat = null, ?float $lng = null): array
     {
-        return $this->safety->favorites($rider);
+        $gate = app(\Modules\Rides\Services\Drivers\DriverEligibility::class);
+        $presences = \Modules\Driver\Models\DriverPresence::query()
+            ->whereIn('driver_id', \Modules\Rides\Models\FavoriteDriver::query()->where('user_id', $rider->id)->pluck('driver_id'))
+            ->get()->keyBy('driver_id');
+
+        // O-81: who of them can take a ride right now, and how far (to 0.1 km) from the pickup — nearest first.
+        return collect($this->safety->favorites($rider))->map(function (array $f) use ($presences, $gate, $lat, $lng) {
+            $p = $presences->get($f['driver_id']);
+            $driver = \Modules\Driver\Models\Driver::query()->find($f['driver_id']);
+            $available = $p !== null && $driver !== null
+                && $p->status === \Modules\Driver\Enums\PresenceStatus::Online && $p->gps_enabled
+                && $p->last_seen_at !== null && $p->last_seen_at->gte(now()->subSeconds(900))
+                && \Modules\Rides\Models\RideActiveLock::query()->find(\Modules\Rides\Models\RideActiveLock::forDriver($driver->id)) === null
+                && $gate->reasonNotToWork($driver) === null;
+            $km = $available && $lat !== null && $lng !== null && $p->lat !== null
+                ? round(\Modules\Rides\Support\Geo::metres($lat, $lng, (float) $p->lat, (float) $p->lng) / 1000, 1)
+                : null;
+
+            return $f + ['available' => $available, 'distance_km' => $km];
+        })->sortBy(fn (array $f) => [$f['available'] ? 0 : 1, $f['distance_km'] ?? PHP_INT_MAX])->values()->all();
     }
 
     /**

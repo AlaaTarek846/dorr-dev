@@ -122,6 +122,8 @@ fun HomeScreen(
         item { com.dorr.app.ui.screens.sports.SportsHomeCard(onOpen = { com.dorr.app.ui.screens.sports.SportsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { com.dorr.app.ui.screens.events.EventsBanner(onOpen = { com.dorr.app.ui.screens.events.EventsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        // Watch & Earn (D17): a banner that opens the section.
+        item { com.dorr.app.ui.screens.watchearn.WatchEarnBanner(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }

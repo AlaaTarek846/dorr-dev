@@ -155,3 +155,11 @@ internal suspend fun popularPlaces(near: LatLng?): List<RidePoint> = withContext
             .map { RidePoint(it.lat, it.lng, it.address.ifBlank { it.name }, it.name.ifBlank { null }) }
     }.getOrDefault(emptyList())
 }
+
+/** O-83: a server time ("2026-10-27T09:30:00+00:00") as "27/10/2026 12:30" in the phone's own time zone — never the raw UTC. */
+internal fun localDateTime(iso: String?): String = iso?.let {
+    runCatching {
+        java.time.OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", java.util.Locale.US))
+    }.getOrNull()
+}.orEmpty()
