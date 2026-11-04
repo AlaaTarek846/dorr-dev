@@ -3168,7 +3168,7 @@
 "fl_rp_late" = "The report is late";
 "fl_rp_next" = "Next report due %1$@";
 "fl_rp_none" = "None";
-"fl_rp_percent" = "%1$ld%% ldone";
+"fl_rp_percent" = "%1$ld%% done";
 "fl_rp_title" = "Progress reports";
 "fl_rv_about" = "What clients said";
 "fl_rv_closed" = "The time to rate is over.";

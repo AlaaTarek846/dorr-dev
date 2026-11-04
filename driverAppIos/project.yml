@@ -1,0 +1,90 @@
+# XcodeGen spec — the .xcodeproj is generated from this file and is not committed.
+#   brew install xcodegen && cd driverAppIos && xcodegen
+# The iOS twin of driverApp/ («دُرر كابتن» / DORR Captain): the captain's own app on the `driver_api` guard
+# (/api/driver/v1/*), separate from the rider app (iosApp/) exactly as driverApp is separate from androidApp.
+name: DorrCaptain
+options:
+  bundleIdPrefix: com.dorr
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ar
+  createIntermediateGroups: true
+  projectFormat: xcode15_0
+configFiles:
+  Debug: Config/DorrCaptain.xcconfig
+  Release: Config/DorrCaptain.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # driverApp: versionName 0.1.0, versionCode 1.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  GoogleMaps:
+    # O-53: the map engine the admin picks — Google (Android: play-services-maps / maps-compose).
+    url: https://github.com/googlemaps/ios-maps-sdk
+    from: 9.4.0
+  MapboxMaps:
+    # …or Mapbox — the same release as Android (11.8.0); newer ones need Xcode 16.
+    url: https://github.com/mapbox/mapbox-maps-ios.git
+    exactVersion: 11.8.0
+  LiveKit:
+    # The in-app call with the rider (Android: livekit-android 2.5.0).
+    url: https://github.com/livekit/client-sdk-swift
+    exactVersion: 2.5.0
+  PusherSwift:
+    # The captain's live connection (Android: pusher-java-client), settings from `driver/v1/realtime-config`.
+    url: https://github.com/pusher/pusher-websocket-swift
+    exactVersion: 10.1.5
+  OneSignal:
+    # Push (Android: OneSignal 5.1.x), the app id from `realtime-config`.
+    url: https://github.com/OneSignal/OneSignal-XCFramework
+    exactVersion: 5.2.10
+targets:
+  DorrCaptain:
+    type: application
+    platform: iOS
+    sources:
+      - path: DorrCaptain
+    dependencies:
+      - package: GoogleMaps
+        products: [GoogleMaps]
+      - package: MapboxMaps
+        product: MapboxMaps
+      - package: LiveKit
+        product: LiveKit
+      - package: PusherSwift
+        product: PusherSwift
+      - package: OneSignal
+        products: [OneSignalFramework]
+      # Each push shaped as it arrives — a ride request rings with Accept / Decline (Android: DriverPushExtension).
+      - target: DorrCaptainNotifications
+    preBuildScripts:
+      # driverApp's strings → Localizable.strings, so a build never ships stale text.
+      - name: Sync strings from driverApp
+        script: python3 "$SRCROOT/scripts/sync_strings.py"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        INFOPLIST_FILE: DorrCaptain/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrCaptain/DorrCaptain.entitlements
+        OTHER_SWIFT_FLAGS: "$(inherited) -Xfrontend -solver-expression-time-threshold=60"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+  DorrCaptainNotifications:
+    # The notification service extension (Android: OneSignal's NotificationServiceExtension, live/DriverPushExtension.kt).
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DorrCaptainNotifications
+    dependencies:
+      - package: OneSignal
+        product: OneSignalExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(DORR_APP_BUNDLE_ID).notifications
+        INFOPLIST_FILE: DorrCaptainNotifications/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DorrCaptainNotifications/DorrCaptainNotifications.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES

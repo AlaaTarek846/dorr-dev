@@ -993,7 +993,7 @@
 "rp_late" = "A report is due and late";
 "rp_next" = "Next report due %1$@";
 "rp_note_hint" = "What was done since the last update";
-"rp_percent" = "%1$ld%% ldone";
+"rp_percent" = "%1$ld%% done";
 "rp_percent_hint" = "How much is done, 0–100 (optional)";
 "rp_send" = "Send a progress report";
 "rp_send_confirm" = "Send";

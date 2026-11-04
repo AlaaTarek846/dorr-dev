@@ -1,0 +1,12 @@
+// The backend this build talks to — driverApp's `dorr.apiHost` / `dorr.apiScheme` in local.properties. Put your own in
+// Config/Local.xcconfig (not committed; copy Local.xcconfig.example).
+DORR_API_HOST = unafraid-occupy-geography.ngrok-free.dev
+DORR_API_SCHEME = https
+
+// driverApp `dorr.mapsKey`: the Google Maps key — without it the Google map stays blank, the rest works.
+DORR_GOOGLE_MAPS_KEY =
+
+PRODUCT_BUNDLE_IDENTIFIER = com.dorr.driver
+DORR_APP_BUNDLE_ID = com.dorr.driver
+
+#include? "Local.xcconfig"
