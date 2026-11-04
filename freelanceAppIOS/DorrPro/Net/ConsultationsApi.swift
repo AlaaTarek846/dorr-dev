@@ -4,7 +4,7 @@ import Foundation
 
 /// FL-L07, paid consultations under `/api/freelance/v1/consultations`: my consultation listings (like ready-made services: a title,
 /// lengths with a price each and weekly hours in my time zone, reviewed by the staff before clients see them), the bookings clients
-/// made, and answering or cancelling one. The session itself is a video call (FL-L16), so there is no room.
+/// made, and answering or cancelling one. The session itself is a video call (FL-L16, ConsultationSessionApi).
 enum ConsultationsApi {
     private static let base = Api.freelance
 
@@ -59,7 +59,7 @@ struct ConsultationInfoDto: Decodable {
     var maxActive: Int?
     /// The staff look at a new or changed one before clients see it.
     var review: Bool?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var price: ConsultationPriceLimitsDto?
     var suggestedWeekly: [ConsultationHoursDto]?
@@ -78,7 +78,7 @@ struct ConsultationOfferDto: Decodable, Identifiable {
     var options: [ConsultationOptionDto]?
     var weekly: [ConsultationHoursDto]?
     var timezone: String?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     /// Open to clients right now.
     var live: Bool?
@@ -182,7 +182,7 @@ struct ConsultationDto: Decodable, Identifiable {
     var endsAt: String?
     var offer: String?
     var topic: String?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var money: ConsultationMoneyDto?
     var client: ConsultationPersonDto?
@@ -196,6 +196,8 @@ struct ConsultationDto: Decodable, Identifiable {
     var review: ConsultationReviewDto?
     var can: ConsultationCanDto?
     var createdAt: String?
+    /// FL-L16: the video session — the room, who came, the recordings (ConsultationSessionApi).
+    var session: ConsultationSessionDto?
 }
 
 struct ConsultationReviewDto: Decodable {

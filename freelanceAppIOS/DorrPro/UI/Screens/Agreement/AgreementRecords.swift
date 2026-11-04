@@ -47,21 +47,23 @@ struct ProjectReceiptsCard: View {
 
     private func receiptDialog(_ r: ReceiptDto) -> some View {
         let cur = r.currency ?? ""
-        return AgreementAlertCard(
-            title: r.title ?? "", titleBold: true, confirmLabel: L("rcp_share"),
-            onConfirm: { shareText(r.text ?? r.number ?? "") },
-            dismissLabel: L("common_ok"), onDismiss: { open = nil }
-        ) {
-            VStack(alignment: .leading, spacing: 4) {
-                ReceiptLine(label: L("rcp_number"), value: "\u{200E}\(r.number ?? "")")
-                ReceiptLine(label: L("rcp_date"), value: "\u{200E}" + agreementStamp(r.issuedAt))
-                ReceiptLine(label: L("rcp_part"), value: r.milestone?.title ?? "")
-                if (r.amountMinor ?? 0) > 0 { ReceiptLine(label: L("ag_price"), value: "\u{200E}\(formatMinor(r.amountMinor ?? 0, nil)) \(cur)") }
-                if (r.feeMinor ?? 0) > 0 { ReceiptLine(label: L("ag_commission"), value: "\u{200E}\(formatMinor(r.feeMinor ?? 0, nil)) \(cur)") }
-                ReceiptLine(label: L("ag_net"), value: "\u{200E}\(formatMinor(r.totalMinor ?? 0, nil)) \(cur)")
-                if let reason = r.reasonText { ReceiptLine(label: L("rcp_reason"), value: reason) }
-            }
-        }
+        return AlertDialog(
+            onDismissRequest: { open = nil },
+            title: { Text(verbatim: r.title ?? "").fontWeight(.heavy) },
+            text: {
+                VStack(alignment: .leading, spacing: 4) {
+                    ReceiptLine(label: L("rcp_number"), value: "\u{200E}\(r.number ?? "")")
+                    ReceiptLine(label: L("rcp_date"), value: "\u{200E}" + agreementStamp(r.issuedAt))
+                    ReceiptLine(label: L("rcp_part"), value: r.milestone?.title ?? "")
+                    if (r.amountMinor ?? 0) > 0 { ReceiptLine(label: L("ag_price"), value: "\u{200E}\(formatMinor(r.amountMinor ?? 0, nil)) \(cur)") }
+                    if (r.feeMinor ?? 0) > 0 { ReceiptLine(label: L("ag_commission"), value: "\u{200E}\(formatMinor(r.feeMinor ?? 0, nil)) \(cur)") }
+                    ReceiptLine(label: L("ag_net"), value: "\u{200E}\(formatMinor(r.totalMinor ?? 0, nil)) \(cur)")
+                    if let reason = r.reasonText { ReceiptLine(label: L("rcp_reason"), value: reason) }
+                }
+            },
+            confirmButton: { DialogButton(onClick: { shareText(r.text ?? r.number ?? "") }) { Text(L("rcp_share")) } },
+            dismissButton: { DialogButton(onClick: { open = nil }) { Text(L("common_ok")) } }
+        )
     }
 }
 

@@ -89,25 +89,19 @@ private struct AppealDialog: View {
 
     var body: some View {
         let ready = note.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5 && !busy
-        DialogCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L("sc_appeal_title")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
+        AlertDialog(
+            onDismissRequest: { if !busy { onDismiss() } },
+            title: { Text(L("sc_appeal_title")) },
+            text: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(L("sc_appeal_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                     DorrTextField(value: Binding(get: { note }, set: { note = String($0.prefix(1000)) }), placeholder: L("sc_appeal_note"), singleLine: false, minLines: 3)
                     if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Danger) }
                 }
-                HStack(spacing: 16) {
-                    Spacer()
-                    Button(L("common_cancel"), action: onDismiss).font(.dorr(14, .bold)).foregroundStyle(wa.settingsMut)
-                    Button(L("sc_appeal_send")) { send() }
-                        .font(.dorr(14, .bold))
-                        .foregroundStyle(wa.red.opacity(ready ? 1 : 0.4))
-                        .disabled(!ready)
-                }
-            }
-            .padding(20)
-        }
+            },
+            confirmButton: { DialogButton(onClick: { send() }, enabled: ready) { Text(L("sc_appeal_send")) } },
+            dismissButton: { DialogButton(onClick: onDismiss) { Text(L("common_cancel")) } }
+        )
     }
 
     private func send() {

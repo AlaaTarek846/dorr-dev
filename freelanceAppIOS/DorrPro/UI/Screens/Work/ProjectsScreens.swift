@@ -22,7 +22,7 @@ private extension String {
 private func minor(_ text: String) -> Int? { text.isBlankText ? nil : parseMinor(text) }
 
 /// "5 days ago" in the notification wording (the notices' time strings are reused).
-private func publishedAgo(_ iso: String?) -> String? {
+func publishedAgo(_ iso: String?) -> String? {
     guard let date = parseInstant(iso) else { return nil }
     let minutes = max(Int(Date().timeIntervalSince(date) / 60), 0)
     switch minutes {
@@ -35,7 +35,7 @@ private func publishedAgo(_ iso: String?) -> String? {
     }
 }
 
-private func budgetText(_ b: ProjectBudgetDto?) -> String? {
+func budgetText(_ b: ProjectBudgetDto?) -> String? {
     guard let low = b?.minMinor else { return nil }
     let range: String
     if b?.type == "range", let high = b?.maxMinor { range = "\(formatMinor(low, nil)) – \(formatMinor(high, nil))" } else { range = formatMinor(low, nil) }
@@ -64,6 +64,7 @@ private let starColor = Color(hex: 0xF59E0B)
 struct ProjectsTab: View {
     let onBack: () -> Void
     let onOpenProject: (String) -> Void
+    var embedded = false
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
@@ -84,6 +85,7 @@ struct ProjectsTab: View {
     @State private var failed: String?
     // A first page (new search, filter, reconnect) replaces whatever is still on its way; a later page waits for the one before it.
     @State private var generation = 0
+    @State private var refreshing = false
 
     private var reloadKey: String {
         "\(query)|\(filter.specialty?.id ?? -1)|\(filter.budgetMin)|\(filter.budgetMax)|\(filter.durationMax)|\(savedOnly)|\(reach)|\(String(describing: hasSpecialties))|\(network.reconnectTick)"
@@ -91,14 +93,13 @@ struct ProjectsTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("projects_title"), onBack: onBack)
+            if !embedded { SubHeader(title: L("projects_title"), onBack: onBack) }
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    DorrTextField(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("projects_search"), icon: "magnifyingglass")
-                        .frame(maxWidth: .infinity)
-                    filterButton
-                }
-                // Scrolls sideways: with five chips the last ones used to be squeezed off the screen.
+                // The search box with the filter button inside it (its number shows how many filters are on).
+                DorrTextField(value: Binding(get: { query }, set: { query = String($0.prefix(100)) }), placeholder: L("projects_search"), icon: "magnifyingglass",
+                              trailing: AnyView(searchTrailing))
+                    .frame(maxWidth: .infinity)
+                // Where to look: my specialties, all of them, or the ones I saved; then each filter that is on, removable on its own.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         if hasSpecialties == true {
@@ -108,16 +109,19 @@ struct ProjectsTab: View {
                             ProjectChip(text: L("projects_all"), selected: !savedOnly, icon: "square.grid.2x2.fill") { savedOnly = false }
                         }
                         ProjectChip(text: L("projects_saved"), selected: savedOnly, icon: "star.fill") { savedOnly = true }
-                        if filter.active > 0 {
-                            ProjectChip(text: L("projects_clear_filter", filter.active), selected: false, icon: "xmark") { filter = ProjectFilter() }
+                        if let sp = filter.specialty { FilterOnChip(text: sp.name ?? "") { filter.specialty = nil } }
+                        if !filter.budgetMin.isBlankText || !filter.budgetMax.isBlankText {
+                            let range = [filter.budgetMin, filter.budgetMax].filter { !$0.isBlankText }.joined(separator: " – ")
+                            FilterOnChip(text: L("projects_chip_budget", range)) { filter.budgetMin = ""; filter.budgetMax = "" }
                         }
+                        if let d = Int(filter.durationMax) { FilterOnChip(text: L("projects_chip_duration", d)) { filter.durationMax = "" } }
                     }
                 }
                 .padding(.top, 12)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             ScrollView {
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: 12) {
                     if loaded && rows.isEmpty && failed == nil { emptyView }
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, p in
                         ProjectCard(p: p, onOpen: { onOpenProject(p.uuid ?? "") }, onToggleSaved: { toggleSaved(p) })
@@ -125,7 +129,7 @@ struct ProjectsTab: View {
                     }
                     if !loaded && failed == nil {
                         SkeletonList()
-                    } else if loading {
+                    } else if loading && !refreshing {
                         ProgressView().tint(wa.red).frame(maxWidth: .infinity).padding(12)
                     }
                     if let failed {
@@ -141,6 +145,12 @@ struct ProjectsTab: View {
                 .padding(.bottom, 16)
             }
             .scrollDismissesKeyboard(.interactively)
+            // Pulling down asks once for the first page again (the freelancer's own gesture, not a timer).
+            .refreshable {
+                refreshing = true
+                await loadPage(1)
+                refreshing = false
+            }
         }
         .task(id: network.reconnectTick) {
             if let mine = await ListsApi.mySpecialties().value { hasSpecialties = !mine.isEmpty }
@@ -162,25 +172,27 @@ struct ProjectsTab: View {
         }
     }
 
-    private var filterButton: some View {
+    /// Inside the search box: × to empty it (while it has text) and the filter button, filled while a filter is on.
+    private var searchTrailing: some View {
         let on = filter.active > 0
-        return Button { sheet = true } label: {
-            ZStack(alignment: .topTrailing) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(on ? wa.red : .clear)
-                    Image(systemName: "line.3.horizontal.decrease").font(.system(size: 18, weight: .semibold)).foregroundStyle(on ? .white : wa.red)
+        return HStack(spacing: 0) {
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
+                        .frame(width: 30, height: 30).contentShape(Circle())
                 }
-                .frame(width: 48, height: 48)
-                .settingsSurface(16, elevation: 3)
-                if on {
-                    Text(verbatim: "\(filter.active)").font(.dorr(10, .heavy)).foregroundStyle(wa.red)
-                        .frame(width: 18, height: 18)
-                        .background(.white, in: Circle())
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("common_close"))
             }
+            Button { sheet = true } label: {
+                Image(systemName: "slider.horizontal.3").font(.system(size: 15, weight: .semibold)).foregroundStyle(on ? .white : wa.red)
+                    .frame(width: 34, height: 34)
+                    .background(on ? wa.red : wa.red.opacity(0.10), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 2)
+            .accessibilityLabel(L("projects_filter"))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(L("projects_filter"))
     }
 
     private var emptyView: some View {
@@ -198,6 +210,13 @@ struct ProjectsTab: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 10)
+            }
+            if filter.active > 0 {
+                Button { filter = ProjectFilter() } label: {
+                    Text(L("projects_clear_filter", filter.active)).font(.dorr(14, .bold)).foregroundStyle(wa.red).padding(10)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity)
@@ -268,9 +287,46 @@ struct ProjectChip: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(selected ? wa.red : wa.red.opacity(0.08), in: Capsule())
+            .background(selected ? wa.red : wa.settingsCard, in: Capsule())
+            .overlay(Capsule().stroke(selected ? wa.red : wa.settingsMut.opacity(0.22), lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A filter that is on, with its × to take it off.
+private struct FilterOnChip: View {
+    @Environment(\.wa) private var wa
+    let text: String
+    let onRemove: () -> Void
+
+    var body: some View {
+        Button(action: onRemove) {
+            HStack(spacing: 4) {
+                Text(verbatim: text).font(.dorr(12.5, .bold)).foregroundStyle(wa.red).lineLimit(1).fixedSize()
+                Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(wa.red)
+                    .frame(width: 15, height: 15)
+                    .accessibilityLabel(L("projects_remove_filter"))
+            }
+            .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 8)
+            .background(wa.red.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A small fact of a project: an icon and a short text (budget, days, files).
+private struct ProjectFact: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let text: String
+    var strong = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 12, weight: .semibold)).foregroundStyle(strong ? wa.red : wa.settingsMut).frame(width: 15, height: 15)
+            Text(verbatim: text).font(.dorr(12.5, strong ? .heavy : .semibold)).foregroundStyle(strong ? wa.settingsInk : wa.settingsMut).lineLimit(1)
+        }
     }
 }
 
@@ -292,6 +348,8 @@ private struct ProjectPill: View {
     }
 }
 
+/// One project in the list: its specialty and age on top, the title and a short text, the budget / days / files, up to three skills, then
+/// a footer with how open it is for offers, my offer or invitation, and the star.
 private struct ProjectCard: View {
     @Environment(\.wa) private var wa
     let p: ProjectDto
@@ -299,56 +357,67 @@ private struct ProjectCard: View {
     let onToggleSaved: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 0) {
-                Image(systemName: "briefcase.fill").font(.system(size: 17)).foregroundStyle(wa.red)
-                    .frame(width: 40, height: 40)
-                    .background(wa.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Spacer().frame(width: 10)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: p.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
-                    let sub = [p.specialty?.name, publishedAgo(p.publishedAt)].compactMap { $0 }.joined(separator: "  ·  ")
-                    if !sub.isEmpty { Text(verbatim: sub).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 0) {
+                    if let name = p.specialty?.name {
+                        Text(verbatim: name).font(.dorr(11, .bold)).foregroundStyle(wa.red).lineLimit(1)
+                            .padding(.horizontal, 10).padding(.vertical, 3)
+                            .background(wa.red.opacity(0.10), in: Capsule())
+                    }
+                    Spacer(minLength: 0)
+                    if let ago = publishedAgo(p.publishedAt) { Text(verbatim: ago).font(.dorr(11)).foregroundStyle(wa.settingsMut).lineLimit(1) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: p.title ?? "").font(.dorr(15.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3)
+                if let summary = p.summary, !summary.isBlankText {
+                    Text(verbatim: summary).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3).lineLimit(2)
+                }
+                FlowLayout(spacing: 14) {
+                    if let budget = budgetText(p.budget) { ProjectFact(icon: "banknote.fill", text: budget, strong: true) }
+                    if let days = p.durationDays { ProjectFact(icon: "clock", text: L("projects_days", days)) }
+                    if let files = p.attachmentsCount, files > 0 { ProjectFact(icon: "paperclip", text: "\(files)") }
+                }
+                let skills = p.skills ?? []
+                if !skills.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(Array(skills.prefix(3).enumerated()), id: \.offset) { _, s in
+                            ProjectPill(text: s.name ?? "", color: wa.settingsInk, fill: wa.settingsMut.opacity(0.12), size: 11, weight: .semibold, radius: 8, h: 8)
+                        }
+                        if skills.count > 3 {
+                            Text(verbatim: "+\(skills.count - 3)").font(.dorr(11, .bold)).foregroundStyle(wa.settingsMut).padding(.horizontal, 4).padding(.vertical, 3)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
+            // The footer: how open it is, my offer / invitation, and the star.
+            HStack(spacing: 8) {
+                if let line = offersLine(p) {
+                    let tint = line.open ? green : amber
+                    Circle().fill(tint).frame(width: 7, height: 7)
+                    Text(verbatim: line.text).font(.dorr(11.5, .bold)).foregroundStyle(tint).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if p.offered == true {
+                    ProjectPill(text: L("offer_sent_badge"), color: wa.red, size: 11)
+                } else if p.invitation != nil {
+                    ProjectPill(text: L("projects_invited_badge"), color: Color(hex: 0x3B82F6), size: 11)
+                }
                 Button(action: onToggleSaved) {
-                    Image(systemName: p.isFavorite == true ? "star.fill" : "star").font(.system(size: 20))
+                    Image(systemName: p.isFavorite == true ? "star.fill" : "star").font(.system(size: 19))
                         .foregroundStyle(p.isFavorite == true ? starColor : wa.settingsMut)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 34, height: 34)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L("projects_save"))
             }
-            if let summary = p.summary, !summary.isBlankText {
-                Text(verbatim: summary).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3).lineLimit(3)
-            }
-            HStack(spacing: 8) {
-                if let budget = budgetText(p.budget) {
-                    ProjectPill(text: budget, color: wa.red, fill: wa.red.opacity(0.10), size: 12.5, weight: .heavy, radius: 10, v: 5)
-                }
-                if let days = p.durationDays {
-                    ProjectPill(text: L("projects_days", days), color: wa.settingsInk, fill: wa.settingsMut.opacity(0.12), size: 12, weight: .semibold, radius: 10, v: 5)
-                }
-            }
-            let skills = p.skills ?? []
-            if !skills.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(Array(skills.prefix(4).enumerated()), id: \.offset) { _, s in
-                        ProjectPill(text: s.name ?? "", color: wa.red, fill: wa.red.opacity(0.10), size: 11, weight: .semibold)
-                    }
-                }
-            }
-            let line = offersLine(p)
-            if line != nil || p.offered == true {
-                HStack(spacing: 8) {
-                    if let line { ProjectPill(text: line.text, color: line.open ? green : amber) }
-                    if p.offered == true { ProjectPill(text: L("offer_sent_badge"), color: wa.red) }
-                }
-            }
+            .padding(.leading, 16).padding(.trailing, 8).padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(wa.settingsMut.opacity(0.06))
         }
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .settingsSurface(20)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
@@ -449,7 +518,52 @@ private struct SpecialtyOption: View {
 
 // MARK: - one project
 
-/// One project's page (FL-207): everything the client wrote, the budget and the time, and the star to save it.
+/// A section of the project page: a card with a small icon title over its content.
+private struct DetailSection<Content: View>: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.red)
+                    .frame(width: 28, height: 28)
+                    .background(wa.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                Text(verbatim: title).font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk)
+            }
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingsSurface(20)
+    }
+}
+
+/// One of the three facts under the title: a value and what it is.
+private struct DetailFact: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let value: String
+    let label: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(tint).frame(height: 17)
+            Text(verbatim: value).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
+            Text(verbatim: label).font(.dorr(10.5, .semibold)).foregroundStyle(wa.settingsMut).lineLimit(1)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+/// One project's page (FL-207): a head card (specialty, how open it is, the title, when it was posted, the star) with the budget, the
+/// days and the offers deadline; then what the client wrote (a long text folds), the skills, the client's questions and the files; an
+/// invitation waiting for my answer; and a bar fixed at the bottom with the main step — send an offer, or see mine (and its agreement).
 @MainActor
 struct ProjectDetailScreen: View {
     let uuid: String
@@ -464,17 +578,31 @@ struct ProjectDetailScreen: View {
     @State private var offerChecked = false
     @State private var project: ProjectDto?
     @State private var error: String?
+    @State private var expanded = false
     // FL-205: an invitation to a private project waits for my yes or no.
     @State private var invitation: InvitationRefDto?
 
     var body: some View {
-        Page(title: L("projects_project"), onBack: onBack) {
-            if let p = project {
-                content(p)
-            } else if error == nil {
-                SkeletonDetail()
+        ZStack {
+            PinkBackdrop()
+            VStack(spacing: 0) {
+                SubHeader(title: L("projects_project"), onBack: onBack)
+                ScrollView {
+                    VStack(spacing: 12) {
+                        if let p = project {
+                            content(p)
+                        } else if error == nil {
+                            SkeletonDetail()
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 20)
+                }
+                bottomBar
             }
         }
+        .navigationBarHidden(true)
         .messageToast(error)
         .task(id: "\(uuid)|\(network.reconnectTick)") {
             let result = await ProjectsApi.show(uuid)
@@ -486,13 +614,13 @@ struct ProjectDetailScreen: View {
                 error = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
             }
         }
-        // My offer, or the button to send one (FL-301): the form itself says why not when I can't.
+        // My offer on it (FL-301).
         .task(id: "\(uuid)|\(project != nil)|\(project?.offered == true)") {
             guard project != nil else { return }
             await loadMine()
             offerChecked = true
         }
-        // A notice arrived (the client saw, shortlisted, decided): read it once more — nothing on a timer.
+        // A notice (the client saw, shortlisted, decided) reads it once more — nothing on a timer.
         .onReceive(Realtime.shared.changed) { _ in
             if project != nil { Task { await loadMine() } }
         }
@@ -502,50 +630,111 @@ struct ProjectDetailScreen: View {
         if let data = await OffersApi.mine(uuid).value { myOffer = data.offer }
     }
 
+    /// The bar fixed at the bottom: the main step for this project.
+    @ViewBuilder
+    private var bottomBar: some View {
+        if let p = project, myOffer != nil || (offerChecked && p.offers?.accepting != false) {
+            VStack(spacing: 8) {
+                if let sent = myOffer {
+                    if let ag = sent.agreement {
+                        let status = ag.status ?? "pending_approval"
+                        OfferLinkRow(icon: "doc.text.fill", title: L("ag_title"), trailing: agreementStatusText(status),
+                                     tint: status == "pending_approval" ? amber : wa.red, onClick: onAgreement)
+                    }
+                    SettingsPrimaryButton(text: L("offer_view_mine"), action: onOpenOffer)
+                } else {
+                    SettingsPrimaryButton(text: L("offer_send_one"), action: onOffer)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(wa.settingsCard.ignoresSafeArea(edges: .bottom))
+            .overlay(alignment: .top) { Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1) }
+        }
+    }
+
     @ViewBuilder
     private func content(_ p: ProjectDto) -> some View {
         let offersInfo = offersLine(p)
         let open = offersInfo?.open == true
-        let stateTint = open ? green : wa.settingsMut
-        // The project and how open it is.
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 0) {
-                Image(systemName: "briefcase.fill").font(.system(size: 19)).foregroundStyle(wa.red)
-                    .frame(width: 44, height: 44)
-                    .background(wa.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                Spacer().frame(width: 12)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: p.title ?? "").font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk).lineSpacing(4)
-                    let sub = [p.specialty?.name, publishedAgo(p.publishedAt)].compactMap { $0 }.joined(separator: "  ·  ")
-                    if !sub.isEmpty { Text(verbatim: sub).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+        let stateTint = open ? green : amber
+        let blue = Color(hex: 0x3B82F6)
+        // The head card.
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 0) {
+                if let name = p.specialty?.name {
+                    Text(verbatim: name).font(.dorr(11.5, .bold)).foregroundStyle(wa.red).lineLimit(1)
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(wa.red.opacity(0.10), in: Capsule())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
                 Button { toggleFavorite(p) } label: {
-                    Image(systemName: p.isFavorite == true ? "star.fill" : "star").font(.system(size: 22))
+                    Image(systemName: p.isFavorite == true ? "star.fill" : "star").font(.system(size: 19))
                         .foregroundStyle(p.isFavorite == true ? starColor : wa.settingsMut)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 36, height: 36)
+                        .background(wa.settingsMut.opacity(0.08), in: Circle())
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L("projects_save"))
             }
+            Text(verbatim: p.title ?? "").font(.dorr(19, .black)).foregroundStyle(wa.settingsInk).lineSpacing(5)
             HStack(spacing: 8) {
-                OfferStat(value: budgetText(p.budget) ?? "—", label: L("projects_budget")).frame(maxWidth: .infinity)
-                OfferStat(value: p.durationDays.map { L("projects_days", $0) } ?? "—", label: L("projects_duration")).frame(maxWidth: .infinity)
+                if let ago = publishedAgo(p.publishedAt) { Text(L("projects_posted", ago)).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                if let offersInfo {
+                    HStack(spacing: 6) {
+                        Circle().fill(stateTint).frame(width: 6, height: 6)
+                        Text(verbatim: offersInfo.text).font(.dorr(11.5, .bold)).foregroundStyle(stateTint).lineLimit(1)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(stateTint.opacity(0.12), in: Capsule())
+                }
             }
-            if let offersInfo {
-                ProjectPill(text: offersInfo.text, color: stateTint, size: 12, h: 12, v: 5)
+            HStack(alignment: .top, spacing: 8) {
+                DetailFact(icon: "banknote.fill", value: budgetText(p.budget) ?? "—", label: L("projects_budget"), tint: Color(hex: 0x10B981))
+                DetailFact(icon: "clock", value: p.durationDays.map { L("projects_days", $0) } ?? "—", label: L("projects_duration"), tint: blue)
+                DetailFact(icon: "paperclip", value: "\(p.attachmentsCount ?? 0)", label: L("projects_files_label"), tint: Color(hex: 0x8B5CF6))
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .settingsSurface(20)
-        OfferSection(title: L("projects_description")) {
-            Text(verbatim: p.description ?? "").font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(6)
+        .settingsSurface(22)
+
+        // FL-205: an invitation to a private project waits for my yes or no.
+        if let inv = invitation {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "envelope.badge.fill").font(.system(size: 17)).foregroundStyle(blue).frame(width: 20, height: 20)
+                    Text(L("inv_banner", invitationStatusLabel(inv.status ?? "sent"))).font(.dorr(13.5, .bold)).foregroundStyle(wa.settingsInk)
+                }
+                if (inv.status ?? "sent") == "sent" {
+                    InvitationAnswer(uuid: inv.uuid ?? "", onAnswered: { s in invitation?.status = s }, onError: { error = $0 })
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(blue.opacity(0.25), lineWidth: 1))
+        }
+
+        DetailSection(icon: "doc.text.fill", title: L("projects_description")) {
+            let text = p.description ?? ""
+            let long = text.count > 420
+            Text(verbatim: text).font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(7)
+                .lineLimit(long && !expanded ? 7 : nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if long {
+                Button { expanded.toggle() } label: {
+                    Text(L(expanded ? "projects_read_less" : "projects_read_more")).font(.dorr(13, .bold)).foregroundStyle(wa.red)
+                        .padding(.vertical, 4).padding(.horizontal, 2)
+                }
+                .buttonStyle(.plain)
+            }
         }
         let skills = p.skills ?? []
         if !skills.isEmpty {
-            OfferSection(title: L("projects_skills")) {
+            DetailSection(icon: "sparkles", title: L("projects_skills")) {
                 FlowLayout(spacing: 6) {
                     ForEach(Array(skills.enumerated()), id: \.offset) { _, s in
                         ProjectPill(text: s.name ?? "", color: wa.red, fill: wa.red.opacity(0.10), size: 12, weight: .semibold, h: 12, v: 5)
@@ -555,7 +744,8 @@ struct ProjectDetailScreen: View {
         }
         let questions = p.questions ?? []
         if !questions.isEmpty {
-            OfferSection(title: L("offer_questions")) {
+            DetailSection(icon: "questionmark.circle", title: L("offer_questions")) {
+                Text(L("projects_questions_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                 ForEach(Array(questions.enumerated()), id: \.offset) { i, q in
                     HStack(alignment: .top, spacing: 10) {
                         Text(verbatim: "\(i + 1)").font(.dorr(11, .heavy)).foregroundStyle(wa.red)
@@ -568,32 +758,9 @@ struct ProjectDetailScreen: View {
             }
         }
         if let count = p.attachmentsCount, count > 0 {
-            HStack(spacing: 10) {
-                Image(systemName: "paperclip").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.red)
-                Text(L("projects_files_note", count)).font(.dorr(13)).foregroundStyle(wa.settingsInk)
-                Spacer(minLength: 0)
+            DetailSection(icon: "paperclip", title: L("projects_files_label")) {
+                Text(L("projects_files_note", count)).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .settingsSurface(16)
-        }
-        if let inv = invitation {
-            Card {
-                Text(L("inv_banner", invitationStatusLabel(inv.status ?? "sent"))).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
-                if (inv.status ?? "sent") == "sent" {
-                    InvitationAnswer(uuid: inv.uuid ?? "", onAnswered: { s in invitation?.status = s }, onError: { error = $0 })
-                }
-            }
-        }
-        if let sent = myOffer {
-            SettingsPrimaryButton(text: L("offer_view_mine"), action: onOpenOffer)
-            if let ag = sent.agreement {
-                let status = ag.status ?? "pending_approval"
-                OfferLinkRow(icon: "doc.text.fill", title: L("ag_title"), trailing: agreementStatusText(status),
-                             tint: status == "pending_approval" ? amber : wa.red, onClick: onAgreement)
-            }
-        } else if offerChecked && p.offers?.accepting != false {
-            SettingsPrimaryButton(text: L("offer_send_one"), action: onOffer)
         }
     }
 

@@ -4,6 +4,14 @@ import UniformTypeIdentifiers
 
 private let maxDeliveryFiles = 10
 
+/// FL-L13: one outside material I used (a font, an image, a template…): its name, where it comes from, its licence.
+struct MaterialRow: Identifiable, Equatable {
+    let id = UUID()
+    var name = ""
+    var source = ""
+    var license = ""
+}
+
 /// A file picked from the phone, kept until the delivery is sent (`PickedFile` of OfferScreens.kt, named apart for this area).
 struct AgreementPickedFile: Identifiable {
     let id = UUID()
@@ -27,10 +35,18 @@ struct DeliverDialog: View {
     @Environment(\.wa) private var wa
     let busy: Bool
     let error: String?
-    let onSend: (String, [AgreementPickedFile]) -> Void
+    var rightsRequired = false
+    /// The note, the files, and (only when the agreement carries ownership terms) the outside material with a name.
+    let onSend: (String, [AgreementPickedFile], [MaterialRow]?) -> Void
     @State private var note = ""
+    // FL-L13: an agreement that carries ownership terms asks for my word and the outside material at every delivery.
+    @State private var confirmed = false
+    @State private var materials: [MaterialRow] = []
+    @StateObject private var rightsOptions = RightsOptionsState()
     @State private var picks: [AgreementPickedFile] = []
     @State private var picking = false
+
+    private var maxMaterials: Int { (rightsRequired ? rightsOptions.value : nil)?.limits?.maxMaterials ?? 10 }
 
     var body: some View {
         DorrTextField(value: agreementLimit($note, 3000), label: L("ag_ms_deliver_hint"), icon: "text.alignleft", singleLine: false, minLines: 4)
@@ -59,9 +75,48 @@ struct DeliverDialog: View {
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result, picks.count < maxDeliveryFiles, let f = AgreementPickedFile.read(url) { picks.append(f) }
         }
+        if rightsRequired {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L("rights_delivery_title")).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
+                HStack(spacing: 10) {
+                    RedToggle(on: confirmed) { if !busy { confirmed.toggle() } }
+                    Text(L("rights_delivery_confirm")).font(.dorr(12.5)).foregroundStyle(wa.settingsInk).lineSpacing(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Text(L("rights_materials_title")).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut)
+                ForEach($materials) { $mt in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 0) {
+                            DorrTextField(value: Binding(get: { mt.name }, set: { mt.name = String($0.prefix(120)) }), label: L("rights_material_name"))
+                                .frame(maxWidth: .infinity)
+                            Button { if !busy { materials.removeAll { $0.id == mt.id } } } label: {
+                                Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
+                                    .frame(width: 32, height: 32).contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(L("ag_dl_remove"))
+                        }
+                        DorrTextField(value: Binding(get: { mt.source }, set: { mt.source = String($0.prefix(200)) }), label: L("rights_material_source"))
+                        DorrTextField(value: Binding(get: { mt.license }, set: { mt.license = String($0.prefix(120)) }), label: L("rights_material_license"))
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(wa.settingsMut.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                if materials.count < maxMaterials {
+                    ActionButton(L("rights_material_add"), "plus", .soft, enabled: !busy) { materials.append(MaterialRow()) }
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .settingsSurface(18)
+            // `if (rightsRequired) rememberRightsOptions()`: read only for an agreement with terms, again when the connection returns.
+            .rememberRightsOptions(rightsOptions)
+        }
         if let error { Text(verbatim: error).font(.dorr(12, .bold)).foregroundStyle(Color(hex: 0xDC2626)) }
-        ActionButton(L("ag_ms_deliver_send"), "icloud.and.arrow.up.fill", .primary, enabled: note.agreementTrimmed.count >= 5 && !busy, loading: busy) {
-            onSend(note.agreementTrimmed, picks)
+        ActionButton(L("ag_ms_deliver_send"), "icloud.and.arrow.up.fill", .primary,
+                     enabled: note.agreementTrimmed.count >= 5 && !busy && (!rightsRequired || confirmed), loading: busy) {
+            onSend(note.agreementTrimmed, picks, rightsRequired ? materials.filter { !$0.name.agreementTrimmed.isEmpty } : nil)
         }
     }
 }
@@ -132,6 +187,7 @@ struct DeliveriesBlock: View {
                     }
             }
             if let reason = v.revisionReason { Text(verbatim: L("ag_ms_revision_reason", reason)).font(.dorr(12)).foregroundStyle(Color(hex: 0xD97706)) }
+            DeliveryRightsView(d: v.rights)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

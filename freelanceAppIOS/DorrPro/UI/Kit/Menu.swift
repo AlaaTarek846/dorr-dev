@@ -48,6 +48,51 @@ struct MenuRow: View {
     }
 }
 
+/// Rows grouped in one card (the settings look): each row an icon tile, a title and a line, a chevron; a hairline between
+/// rows. Used by the «Me» tab and «My profile».
+struct MenuGroup: View {
+    @Environment(\.wa) private var wa
+    let entries: [MenuEntry]
+
+    var body: some View {
+        if !entries.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+                    Button(action: entry.action) {
+                        HStack(spacing: 12) {
+                            PinkIcon(icon: entry.icon)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(verbatim: entry.label).font(.dorr(14, .bold)).foregroundStyle(entry.danger ? wa.red : wa.settingsInk)
+                                if let subtitle = entry.subtitle {
+                                    Text(verbatim: subtitle).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineLimit(2)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            if let trailing = entry.trailing {
+                                trailing
+                            } else {
+                                Image(systemName: "chevron.forward").font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(wa.night ? Color(hex: 0x8B93A0) : wa.settingsMut.opacity(0.6))
+                                    .frame(width: 18, height: 18)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if index < entries.count - 1 {
+                        Rectangle().fill(wa.night ? wa.line : Color.black.opacity(0.06)).frame(height: 1)
+                            .padding(.leading, 60).padding(.trailing, 14)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .settingsSurface(20, elevation: 4)
+        }
+    }
+}
+
 // MARK: - Dialogs
 
 extension View {
@@ -139,6 +184,8 @@ struct ConfirmDialog: View {
     let confirmLabel: String
     let onConfirm: () -> Void
     let onDismiss: () -> Void
+    /// The cancel button's text (`common_cancel` when nil).
+    var dismissLabel: String?
 
     var body: some View {
         DialogCard {
@@ -168,7 +215,7 @@ struct ConfirmDialog: View {
                     .buttonStyle(.plain)
                     .allowsHitTesting(!loading)
                     Button(action: onDismiss) {
-                        Text(L("common_cancel")).font(.dorr(15, .bold)).foregroundStyle(wa.accent.opacity(loading ? 0.5 : 1))
+                        Text(verbatim: dismissLabel ?? L("common_cancel")).font(.dorr(15, .bold)).foregroundStyle(wa.accent.opacity(loading ? 0.5 : 1))
                             .frame(maxWidth: .infinity, minHeight: 46)
                             .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(wa.night ? wa.line : wa.accent.opacity(0.25), lineWidth: 1.5))

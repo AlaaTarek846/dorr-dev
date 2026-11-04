@@ -10,6 +10,7 @@ private let ORDER_TABS = ["awaiting", "active", "completed", "ended", "monthly"]
 struct ServiceOrdersScreen: View {
     let onBack: () -> Void
     let onOpenOrder: (String) -> Void
+    var embedded: Bool = false
 
     @EnvironmentObject private var network: NetworkMonitor
     @State private var tab = "awaiting"
@@ -39,9 +40,9 @@ struct ServiceOrdersScreen: View {
     private struct LoadKey: Equatable { let tab: String; let tick: Int }
 
     var body: some View {
-        Page(title: L("svo_title"), onBack: onBack, onNearEnd: { Task { if monthly { await subs.loadMore() } else { await paged.loadMore() } } }) {
-            Segmented(options: ORDER_TABS.map { ($0, orderTabLabel($0)) }, selected: tab,
-                      marks: tab != "awaiting" || paged.rows.isEmpty ? [] : ["awaiting"]) { tab = $0 }
+        Page(title: L("svo_title"), onBack: onBack, onNearEnd: { Task { if monthly { await subs.loadMore() } else { await paged.loadMore() } } }, embedded: embedded) {
+            let waiting = tab == "awaiting" && !paged.rows.isEmpty
+            FilterChips(options: ORDER_TABS.map { FilterOption(key: $0, label: orderTabLabel($0), dot: $0 == "awaiting" && waiting) }, selected: tab, onSelect: { tab = $0 })
             if monthly {
                 SubscriptionList(subs: subs, onOpenOrder: onOpenOrder)
             } else {
@@ -220,24 +221,16 @@ struct ServiceOrderScreen: View {
             }
         }
         .dorrDialog(isPresented: Binding(get: { declining }, set: { if !$0 && !busy { declining = false } })) {
-            DialogCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(L("svo_decline_title")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
+            AlertDialog(
+                onDismissRequest: { if !busy { declining = false } },
+                title: { Text(L("svo_decline_title")).fontWeight(.heavy) },
+                text: {
                     DorrTextField(value: Binding(get: { reason }, set: { reason = String($0.prefix(500)) }), label: L("svo_decline_reason"),
                                   singleLine: false, minLines: 3)
-                    HStack {
-                        Spacer()
-                        Button(L("common_cancel")) { declining = false }.foregroundStyle(wa.settingsMut).disabled(busy)
-                        Button { answer("decline") } label: {
-                            Text(L("svo_decline_confirm")).font(.dorr(15, .bold)).foregroundStyle(serviceTone("rejected", night: wa.night).ink)
-                        }
-                        .disabled(busy)
-                        .padding(.leading, 12)
-                    }
-                    .font(.dorr(15, .bold))
-                }
-                .padding(18)
-            }
+                },
+                confirmButton: { DialogButton(onClick: { answer("decline") }, enabled: !busy) { Text(L("svo_decline_confirm")).fontWeight(.bold) } },
+                dismissButton: { DialogButton(onClick: { declining = false }, enabled: !busy) { Text(L("common_cancel")) } }
+            )
         }
     }
 

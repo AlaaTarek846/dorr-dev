@@ -1,5 +1,7 @@
 import SwiftUI
 
+// freelanceApp `ui/screens/MainScreen.kt` (MainActions) + the `MainActions(...)` built in `navigation/FreelanceNavGraph.kt`.
+
 /// Where the tabs send the freelancer: a page over the tabs.
 struct MainActions {
     let openProfile: () -> Void
@@ -21,6 +23,7 @@ struct MainActions {
     // FL-L04
     let openServices: () -> Void
     let openServiceOrders: () -> Void
+    let openServiceOrder: (String) -> Void
     // FL-L01 phase 4: my performance numbers
     let openInsights: () -> Void
     // FL-L11: improve my profile
@@ -31,9 +34,16 @@ struct MainActions {
     let openCapacity: () -> Void
     // FL-L07: paid consultations
     let openConsultations: () -> Void
+    let openConsultation: (String) -> Void
+    let openConsultationEditor: (String?) -> Void
+    // FL-L09: special offers to past clients
+    let openSpecialOffers: () -> Void
+    let openLoyalty: () -> Void
+    // FL-L12: the professional community (a tab of the bar)
+    let community: CommunityNav
 
     @MainActor
-    static func navigating(_ nav: Nav) -> MainActions {
+    static func navigating(_ nav: Nav, community: CommunityNav) -> MainActions {
         MainActions(
             openProfile: { nav.push(.profile) },
             openSpecialties: { nav.push(.specialties) },
@@ -53,11 +63,17 @@ struct MainActions {
             openWallet: { nav.push(.wallet) },
             openServices: { nav.push(.services) },
             openServiceOrders: { nav.push(.serviceOrders) },
+            openServiceOrder: { nav.push(.serviceOrder($0)) },
             openInsights: { nav.push(.insights) },
             openCoach: { nav.push(.coach) },
             openSkillTests: { nav.push(.skillTests) },
             openCapacity: { nav.push(.capacity) },
-            openConsultations: { nav.push(.consultations) }
+            openConsultations: { nav.push(.consultations) },
+            openConsultation: { nav.push(.consultation($0)) },
+            openConsultationEditor: { nav.pushSingleTop(.consultationEdit($0)) },
+            openSpecialOffers: { nav.push(.specialOffers) },
+            openLoyalty: { nav.push(.loyalty) },
+            community: community
         )
     }
 }

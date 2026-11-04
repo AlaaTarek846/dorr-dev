@@ -54,7 +54,7 @@ struct MyServicesDto: Decodable {
     var services: [ServiceDto]?
     var counts: [String: Int]?
     var limits: ServiceLimitsDto?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var price: PriceRuleDto?
     /// The staff look at a service before clients see it.
@@ -83,7 +83,7 @@ struct ServiceDto: Decodable, Identifiable {
     /// FL-L05: once · monthly (the prices are then per month).
     var billing: String?
     var specialty: ServiceSpecialtyDto?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var startingPriceMinor: Int?
     var tiers: [ServiceTierDto]?
@@ -95,6 +95,8 @@ struct ServiceDto: Decodable, Identifiable {
     var statusReason: String?
     var orders: ServiceOrderCountsDto?
     var can: ServiceCanDto?
+    /// FL-L13: the terms every order of it starts from (nil where the feature is off).
+    var rights: RightsSummaryDto?
     var publishedAt: String?
     var updatedAt: String?
 }
@@ -152,6 +154,8 @@ struct ServiceRequest {
     let billing: String
     let tiers: [ServiceTierRequest]
     let addons: [ServiceAddonRequest]
+    /// FL-L13: sent only when the feature is on.
+    var rights: RightsInputDto? = nil
 
     var json: JsonBody {
         var body: JsonBody = [
@@ -160,6 +164,7 @@ struct ServiceRequest {
         ]
         if let requirements { body["requirements"] = requirements }
         if let specialtyId { body["specialty_id"] = specialtyId }
+        if let rights { body["rights"] = rights.json }
         return body
     }
 }
@@ -201,7 +206,7 @@ struct ServiceOrderDto: Decodable, Identifiable {
     var features: [String]?
     var addons: [ServiceOrderAddonDto]?
     var priceMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var deliveryDays: Int?
     var revisions: Int?
@@ -270,7 +275,7 @@ struct ServiceSubscriptionDto: Decodable, Identifiable {
     var level: String?
     var tierName: String?
     var priceMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     var deliveryDays: Int?
     var money: ServiceOrderMoneyDto?

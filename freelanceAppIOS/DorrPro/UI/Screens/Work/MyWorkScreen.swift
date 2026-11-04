@@ -9,20 +9,15 @@ private let groups = ["all", "active", "completed", "disputes", "closed"]
 struct MyWorkTab: View {
     let onBack: () -> Void
     let onOpenProject: (String) -> Void
+    var embedded = false
 
     @EnvironmentObject private var network: NetworkMonitor
     @State private var group = "all"
     @StateObject private var paged = PagedRows<MyProjectDto>(perPage: 15, key: { $0.uuid ?? "" })
 
     var body: some View {
-        TabPage(title: L("work_title"), onBack: onBack, onNearEnd: { Task { await paged.loadMore() } }) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(groups, id: \.self) { g in
-                        ProjectChip(text: L(workGroupLabel(g)), selected: group == g, icon: workGroupIcon(g)) { group = g }
-                    }
-                }
-            }
+        TabPage(title: L("work_title"), onBack: onBack, onNearEnd: { Task { await paged.loadMore() } }, embedded: embedded) {
+            FilterChips(options: groups.map { FilterOption(key: $0, label: L(workGroupLabel($0)), icon: workGroupIcon($0)) }, selected: group) { group = $0 }
             if !paged.loaded && paged.failure == nil {
                 SkeletonList()
             } else if paged.loaded && paged.rows.isEmpty && paged.failure == nil {
@@ -105,6 +100,8 @@ private func workStatusLabel(_ status: String) -> String {
     }
 }
 
+/// One project I was chosen for: its title and state (and a dispute when there is one), the price and the days, and how many of its parts
+/// are done on a bar in the state's colour; the colour also runs down the card's starting edge.
 private struct MyProjectCard: View {
     @Environment(\.wa) private var wa
     let p: MyProjectDto
@@ -117,55 +114,45 @@ private struct MyProjectCard: View {
         let count = p.milestonesCount ?? 0
         let done = p.milestonesDone ?? 0
         Button(action: onClick) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 0) {
-                    Image(systemName: "hammer.fill").font(.system(size: 18)).foregroundStyle(tint)
-                        .frame(width: 42, height: 42)
-                        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                    Spacer().frame(width: 10)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(verbatim: p.project?.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
-                        HStack(spacing: 6) {
-                            Text(verbatim: workStatusLabel(status)).font(.dorr(11, .bold)).foregroundStyle(tint)
-                                .padding(.horizontal, 10).padding(.vertical, 3)
-                                .background(tint.opacity(0.12), in: Capsule())
-                            if p.hasDispute == true {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "hammer.fill").font(.system(size: 10))
-                                    Text(L("work_dispute_badge")).font(.dorr(11, .bold))
+            HStack(spacing: 0) {
+                Rectangle().fill(tint).frame(width: 5)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 0) {
+                        Text(verbatim: p.project?.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3)
+                            .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 20, height: 20)
+                    }
+                    HStack(spacing: 6) {
+                        StatusPill(text: workStatusLabel(status), tint: tint)
+                        if p.hasDispute == true { StatusPill(text: L("work_dispute_badge"), tint: red, icon: "hammer.fill") }
+                    }
+                    HStack(spacing: 16) {
+                        FactLine(icon: "banknote.fill", text: "\u{200E}\(formatMinor(p.priceMinor ?? 0, nil)) \(p.currency ?? "")", strong: true)
+                        FactLine(icon: "clock", text: L("projects_days", p.durationDays ?? 0))
+                    }
+                    if count > 0 {
+                        let fraction = CGFloat(done) / CGFloat(count)
+                        VStack(spacing: 6) {
+                            HStack(spacing: 0) {
+                                Text(L("work_parts_done", done, count)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
+                                Text(verbatim: "\u{200E}\(Int(fraction * 100))%").font(.dorr(11.5, .heavy)).foregroundStyle(tint)
+                            }
+                            GeometryReader { proxy in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(wa.settingsMut.opacity(0.18))
+                                    Capsule().fill(tint).frame(width: proxy.size.width * min(max(fraction, 0), 1))
                                 }
-                                .foregroundStyle(red)
-                                .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(red.opacity(0.12), in: Capsule())
                             }
+                            .frame(height: 6)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 20, height: 20)
                 }
-                HStack(spacing: 8) {
-                    OfferStat(value: "\u{200E}\(formatMinor(p.priceMinor ?? 0, nil)) \(p.currency ?? "")", label: L("offer_stat_price")).frame(maxWidth: .infinity)
-                    OfferStat(value: L("projects_days", p.durationDays ?? 0), label: L("offer_stat_time")).frame(maxWidth: .infinity)
-                }
-                if count > 0 {
-                    let fraction = CGFloat(done) / CGFloat(count)
-                    VStack(spacing: 6) {
-                        HStack(spacing: 0) {
-                            Text(L("work_parts_done", done, count)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
-                            Text(verbatim: "\u{200E}\(Int(fraction * 100))%").font(.dorr(11.5, .heavy)).foregroundStyle(tint)
-                        }
-                        GeometryReader { proxy in
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(wa.settingsMut.opacity(0.18))
-                                Capsule().fill(tint).frame(width: proxy.size.width * min(max(fraction, 0), 1))
-                            }
-                        }
-                        .frame(height: 6)
-                    }
-                }
+                .padding(.leading, 12).padding(.trailing, 14).padding(.vertical, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            // The stripe follows the card's rounded corners; the surface (and its shadow) is drawn behind, unclipped.
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .settingsSurface(20)
             .contentShape(Rectangle())
         }

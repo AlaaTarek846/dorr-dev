@@ -342,7 +342,8 @@ private struct SupportBubble: View {
         let mine = message.sender == "user"
         let isAuto = message.isAuto ?? false
         let textColor: Color = mine ? .white : wa.settingsInk
-        let tailOnRight = mine == (direction == .leftToRight)
+        // Absolute sides: mine always sits on the right with its tail there, whatever the screen's direction.
+        let tailOnRight = mine
         let shape = SupportBubbleCorners(topLeft: 20, topRight: 20, bottomRight: tailOnRight ? 5 : 20, bottomLeft: tailOnRight ? 20 : 5)
         let fill: Color = mine ? wa.red : (isAuto ? wa.red.opacity(0.09) : (wa.night ? wa.darkCard : wa.settingsCard))
         let border: Color = mine ? .clear : (isAuto ? wa.red.opacity(0.35) : wa.settingsMut.opacity(0.18))
@@ -381,8 +382,11 @@ private struct SupportBubble: View {
             .background(fill, in: shape)
             .overlay(shape.stroke(border, lineWidth: 1))
             .frame(maxWidth: 290, alignment: mine ? .trailing : .leading)
+            .environment(\.layoutDirection, direction)
             if !mine { Spacer(minLength: 0) }
         }
+        // Arrangement.Absolute: mine on the right, theirs on the left, in Arabic too.
+        .environment(\.layoutDirection, .leftToRight)
         .scaleEffect(shown ? 1 : 0.92)
         .offset(y: shown ? 0 : 8)
         .opacity(shown ? 1 : 0)

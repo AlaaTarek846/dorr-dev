@@ -7,6 +7,11 @@ struct DorrProApp: App {
     @StateObject private var appearance = AppearanceState.shared
     @StateObject private var network = NetworkMonitor.shared
 
+    init() {
+        // FL-L16: the consultation video session (app-wide, like the DORR app's calls).
+        SessionCallController.shared.attach()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

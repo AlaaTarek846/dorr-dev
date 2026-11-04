@@ -33,7 +33,8 @@ enum SubscriptionApi {
 /// What the server sells here: `enabled` is false when the service has no plans in my country (the page then says so).
 struct PlansDto: Decodable {
     var enabled: Bool?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    var currencySymbol: String?
     /// Decimal places of `currency`: prices are whole minor units of it.
     var decimals: Int?
     var plans: [PlanDto]?
@@ -92,7 +93,8 @@ struct SubscriptionDto: Decodable {
     var active: Bool?
     var autoRenew: Bool?
     var priceMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    var currencySymbol: String?
     var periodEnd: String?
     var trialEndsAt: String?
     var graceUntil: String?
@@ -122,7 +124,8 @@ struct SubscriptionInvoiceDto: Decodable, Identifiable {
     var status: String?
     var amountMinor: Int?
     var creditMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    var currencySymbol: String?
     var createdAt: String?
 }
 
@@ -134,7 +137,8 @@ struct TakePlanRequest {
 /// The extra-offer packs sold in my country (FL-L01, phase 2). `unlimited`: my plan has no limit, so there is nothing to buy.
 struct OfferPacksDto: Decodable {
     var enabled: Bool?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    var currencySymbol: String?
     var decimals: Int?
     var unlimited: Bool?
     /// Days a bought offer lasts (0 = no end).
@@ -173,7 +177,8 @@ struct OfferPurchaseDto: Decodable {
     var pack: String?
     var quantity: Int?
     var priceMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    var currencySymbol: String?
     var createdAt: String?
 }
 

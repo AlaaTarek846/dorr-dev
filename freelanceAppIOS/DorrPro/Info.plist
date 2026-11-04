@@ -32,7 +32,12 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<!-- FL-L16: the consultation session keeps its sound while the app is in the background (Android: SessionCallService). -->
+		<string>audio</string>
+		<string>voip</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk to your client in a consultation session.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
@@ -48,7 +53,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Open your Dorr Pro wallet with Face ID instead of typing the PIN.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of your ID or a selfie for verification, or a picture for your portfolio.</string>
+	<string>Take a photo of your ID or a selfie for verification, a picture for your portfolio, or show your camera in a consultation session.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick pictures for your profile, portfolio and documents.</string>
 	<key>UILaunchScreen</key>

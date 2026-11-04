@@ -152,7 +152,14 @@ private struct CertificateForm: View {
             }
         }
         .messageToast(error)
-        .profileDeleteConfirm(isPresented: $confirmDelete, onConfirm: delete)
+        .dorrDialog(isPresented: $confirmDelete) {
+            AlertDialog(
+                onDismissRequest: { confirmDelete = false },
+                text: { Text(L("common_delete_confirm")) },
+                confirmButton: { DialogButton(onClick: { confirmDelete = false; delete() }) { Text(L("common_delete")) } },
+                dismissButton: { DialogButton(onClick: { confirmDelete = false }) { Text(L("common_cancel")) } }
+            )
+        }
         .fileImporter(isPresented: $picking, allowedContentTypes: [.jpeg, .png, .pdf]) { result in
             guard case .success(let picked) = result else { return }
             guard let file = copyProof(picked) else {
