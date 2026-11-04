@@ -600,6 +600,7 @@ private struct AiCodeBlock: View {
 
 struct AiMessageBubble: View {
     @Environment(\.wa) private var wa
+    @Environment(\.layoutDirection) private var direction
     let message: AiMessageDto
     let onImageTap: (AiAttachmentDto) -> Void
     @State private var transcriptOpen = false
@@ -641,6 +642,7 @@ struct AiMessageBubble: View {
                 if !isUser, let citations = message.citations, !citations.isEmpty { AiCitations(citations: citations) }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
+            .environment(\.layoutDirection, direction)
             .frame(maxWidth: 300, alignment: .leading)
             .background(isError ? Color(hex: 0xFEE2E2) : isUser ? c.red : c.surface,
                         in: UnevenBubble(mine: isUser))
@@ -655,6 +657,7 @@ struct AiMessageBubble: View {
             }
             if !isUser { Spacer(minLength: 40) }
         }
+        .environment(\.layoutDirection, .leftToRight)
     }
 
     @ViewBuilder private func attachment(_ a: AiAttachmentDto, isUser: Bool) -> some View {

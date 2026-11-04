@@ -27,7 +27,7 @@ data class InsightsDto(
     @SerializedName("allowed_days") val allowedDays: List<Int> = emptyList(),
     /** The days the numbers are for. */
     val days: Int? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** The lowest plan that opens more than mine; null at the top or where plans are not sold. */
     val upgrade: InsightsUpgradeDto? = null,

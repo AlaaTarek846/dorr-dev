@@ -67,6 +67,8 @@ struct MarketTierDto: Codable, Equatable {
     var deliveryDays: Int?
     var revisions: Int?
     var features: [String]?
+    /// FL-L09: this level's price after my loyalty step (nil: none).
+    var loyaltyPriceMinor: Int?
 }
 
 struct MarketAddonDto: Codable, Equatable {
@@ -121,6 +123,10 @@ struct MarketServiceDto: Codable, Equatable {
     var billing: String?
     /// FL-L05: how a monthly one runs; nil for one sold once.
     var subscription: MarketSubscriptionTermsDto?
+    /// FL-L09: the freelancer's loyalty program as it stands for me (nil: none, or a monthly service).
+    var loyalty: FlLoyaltyViewDto?
+    /// FL-L13: who owns the work once it is paid and what I may do with it (nil: the feature is off).
+    var rights: FreelanceRightsSummaryDto?
 }
 
 struct MarketQuoteDto: Codable, Equatable {
@@ -132,6 +138,10 @@ struct MarketQuoteDto: Codable, Equatable {
     var revisions: Int?
     var currency: String?
     var decimals: Int?
+    /// FL-L09: the usual price, the discount (basis points) and what it saves me; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    var savingMinor: Int?
 }
 
 struct MarketOrderServiceDto: Codable, Equatable {
@@ -175,6 +185,10 @@ struct MarketOrderDto: Codable, Equatable, Identifiable {
     var features: [String]?
     var addons: [MarketOrderAddonDto]?
     var priceMinor: Int?
+    /// FL-L09: the usual price and the loyalty discount taken off it; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    var savingMinor: Int?
     var currency: String?
     var decimals: Int?
     var deliveryDays: Int?
@@ -351,6 +365,9 @@ struct ConsultOptionDto: Codable, Equatable {
     var priceMinor: Int?
     var clientFeeMinor: Int?
     var totalMinor: Int?
+    /// FL-L09: the length's usual price and the loyalty discount (basis points) taken off `priceMinor`; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
 }
 
 struct ConsultRulesDto: Codable, Equatable {
@@ -371,6 +388,8 @@ struct ConsultOfferDto: Codable, Equatable {
     var timezone: String?
     var nextSlot: String?
     var rules: ConsultRulesDto?
+    /// FL-L09: the freelancer's loyalty program as it stands for me (nil: none).
+    var loyalty: FlLoyaltyViewDto?
 }
 
 struct ConsultSlotsDto: Codable, Equatable {
@@ -441,6 +460,10 @@ struct ConsultDto: Codable, Equatable, Identifiable {
     var topic: String?
     var currency: String?
     var decimals: Int?
+    /// FL-L09: the usual price and the loyalty discount taken off it; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    var savingMinor: Int?
     var money: ConsultMoneyDto?
     var freelancer: ConsultFreelancerDto?
     var rules: ConsultBookingRulesDto?
@@ -450,8 +473,92 @@ struct ConsultDto: Codable, Equatable, Identifiable {
     var resolution: ConsultResolutionDto?
     var review: ConsultReviewDto?
     var can: ConsultCanDto?
+    /// FL-L16: the video session (nil on older servers).
+    var session: ConsultSessionDto?
 
     var id: String { uuid }
+}
+
+// MARK: - FL-L16: the video session
+
+/// The session as one side sees it: the room's hours, who is in, who came when, and the recorded parts.
+struct ConsultSessionDto: Codable, Equatable {
+    /// LiveKit is set up on the server.
+    var available: Bool?
+    var roomOpen: Bool?
+    var opensAt: String?
+    var startsAt: String?
+    var endsAt: String?
+    /// by = time · staff
+    var closed: ConsultSessionClosedDto?
+    var recorded: Bool?
+    /// The recording bucket is set up (without it the session runs unrecorded).
+    var recordingAvailable: Bool?
+    var inRoom: ConsultSidesDto?
+    var attendance: [ConsultAttendanceDto]?
+    var recordings: [ConsultRecordingDto]?
+    var recordingsDeleteAt: String?
+    var recordingsHeld: Bool?
+    var recordingsDeletedAt: String?
+    var can: ConsultSessionCanDto?
+}
+
+struct ConsultSessionClosedDto: Codable, Equatable {
+    var by: String?
+    var at: String?
+}
+
+struct ConsultSidesDto: Codable, Equatable {
+    var client: Bool?
+    var freelancer: Bool?
+}
+
+struct ConsultAttendanceDto: Codable, Equatable {
+    /// client · freelancer
+    var side: String?
+    var joinedAt: String?
+    var leftAt: String?
+}
+
+struct ConsultRecordingDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var part: Int?
+    /// recording · processing · moving · stored · deleted
+    var status: String?
+    var durationSeconds: Int?
+    var sizeBytes: Int?
+    var startedAt: String?
+    var stoppedAt: String?
+    /// Signed for me, good for 15 minutes; only while `stored`.
+    var downloadUrl: String?
+    var watchUrl: String?
+
+    var id: String { uuid }
+}
+
+struct ConsultSessionCanDto: Codable, Equatable {
+    var join: Bool?
+    var noShow: Bool?
+}
+
+/// A ticket into the room: LiveKit's address and a token good until the end, the hours on the server's clock, and the other side.
+struct ConsultJoinDto: Codable, Equatable {
+    var url: String
+    var token: String
+    var room: String?
+    var identity: String?
+    var startsAt: String?
+    var endsAt: String?
+    var serverTime: String?
+    var warnBeforeEndMinutes: Int?
+    var recording: Bool?
+    var other: ConsultJoinOtherDto?
+}
+
+struct ConsultJoinOtherDto: Codable, Equatable {
+    var side: String?
+    var name: String?
+    var inRoom: Bool?
 }
 
 enum FreelanceConsultationsApi {
@@ -481,6 +588,8 @@ enum FreelanceConsultationsApi {
     static func book(offer: String, minutes: Int, startsAt: String, topic: String, requestId: String) async throws -> ApiEnvelope<ConsultDto> {
         try await ApiClient.snake("\(base)/consultations", method: "POST", body: [
             "offer": .string(offer), "minutes": .int(minutes), "starts_at": .string(startsAt), "topic": .string(topic), "request_id": .string(requestId),
+            // FL-L16: the session is recorded; booking needs the client's yes.
+            "recording_consent": .bool(true),
         ])
     }
 
@@ -499,5 +608,32 @@ enum FreelanceConsultationsApi {
 
     static func complain(_ uuid: String, text: String) async throws -> ApiEnvelope<ConsultDto> {
         try await ApiClient.snake("\(base)/consultations/\(uuid)/complain", method: "POST", body: ["text": .string(text)])
+    }
+
+    // FL-L16: the consultation's video session (a LiveKit room, recorded).
+
+    /// The room's state, who came, and the recordings with fresh signed links (good for 15 minutes).
+    static func session(_ uuid: String) async throws -> ApiEnvelope<ConsultSessionDto> {
+        try await ApiClient.snake("\(base)/consultations/\(uuid)/session")
+    }
+
+    /// A ticket into the room. 409 `freelance_consultation_session_not_yet` (`data.opens_at`) · `_over` · `_closed` · `_not_booked`; 503 `_unavailable`.
+    static func joinSession(_ uuid: String) async throws -> ApiEnvelope<ConsultJoinDto> {
+        try await ApiClient.snake("\(base)/consultations/\(uuid)/session/join", method: "POST", body: [:])
+    }
+
+    /// The app is in the room now: attendance starts, the recording starts, the other side is told the first time.
+    static func sessionConnected(_ uuid: String) async throws -> ApiEnvelope<ConsultSessionDto> {
+        try await ApiClient.snake("\(base)/consultations/\(uuid)/session/connected", method: "POST", body: [:])
+    }
+
+    /// The app left the room (coming back while time is left is fine).
+    static func leaveSession(_ uuid: String) async throws -> ApiEnvelope<ConsultSessionDto> {
+        try await ApiClient.snake("\(base)/consultations/\(uuid)/session/leave", method: "POST", body: [:])
+    }
+
+    /// The freelancer never came in (`can.no_show`): a complaint for the staff with the attendance as proof.
+    static func noShow(_ uuid: String) async throws -> ApiEnvelope<ConsultDto> {
+        try await ApiClient.snake("\(base)/consultations/\(uuid)/no-show", method: "POST", body: [:])
     }
 }

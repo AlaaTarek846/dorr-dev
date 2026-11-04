@@ -27,12 +27,12 @@ struct WalletHomeHost: View {
             .sheet(item: Binding(get: { sheetTx.map(WlSheetTx.init) }, set: { sheetTx = $0?.tx })) { item in
                 WlTxSheet(tx: item.tx, currency: balance?.currencyCode ?? "") { sheetTx = nil }
                     .environment(\.wa, wa)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
             }
             .sheet(isPresented: $explain) {
                 WlExplainSheet { explain = false }
                     .environment(\.wa, wa)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
             }
     }
 

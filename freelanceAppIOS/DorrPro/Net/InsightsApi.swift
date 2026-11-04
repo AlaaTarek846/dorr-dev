@@ -22,7 +22,7 @@ struct InsightsDto: Decodable {
     var allowedDays: [Int]?
     /// The days the numbers are for.
     var days: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     /// The lowest plan that opens more than mine; nil at the top or where plans are not sold.
     var upgrade: InsightsUpgradeDto?

@@ -57,6 +57,9 @@ data class PortfolioItemDto(
     @SerializedName("rights_confirmed") val rightsConfirmed: Boolean = false,
     val hidden: Boolean = false,
     @SerializedName("hidden_reason") val hiddenReason: String? = null,
+    /** FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back. */
+    val agreement: String? = null,
+    @SerializedName("withdrawn_by_client") val withdrawnByClient: Boolean = false,
 )
 
 data class PortfolioRefDto(val id: Int = 0, val name: String = "")

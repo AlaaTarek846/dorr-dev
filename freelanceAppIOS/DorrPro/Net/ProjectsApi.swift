@@ -67,5 +67,5 @@ struct ProjectBudgetDto: Decodable {
     var type: String?
     var minMinor: Int?
     var maxMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
 }

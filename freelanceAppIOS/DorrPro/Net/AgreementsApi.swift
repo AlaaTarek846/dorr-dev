@@ -112,7 +112,7 @@ struct AgreementDto: Decodable, Equatable {
     var scope: String?
     var includes: String?
     var excludes: String?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var durationDays: Int?
     var money: AgreementMoneyDto?
     var terms: AgreementTermsDto?
@@ -125,6 +125,8 @@ struct AgreementDto: Decodable, Equatable {
     var can: AgreementCanDto?
     /// FL-605: how often the client asked for a progress report, and whether the next one is late.
     var reports: ReportSummaryDto?
+    /// FL-L13: the ownership terms the agreement keeps (nil: none, or the feature is off).
+    var rights: AgreementRightsDto?
 }
 
 struct ReportSummaryDto: Decodable, Equatable {
@@ -190,6 +192,8 @@ struct DeliveryDto: Decodable, Equatable, Identifiable {
     var deliveredAt: String?
     var revisionReason: String?
     var files: [DeliveryFileDto]?
+    /// FL-L13: my word and the outside material I listed.
+    var rights: DeliveryRightsDto?
 }
 
 struct DeliveryFileDto: Decodable, Equatable, Identifiable {
@@ -270,7 +274,7 @@ struct DisputeDto: Decodable, Equatable {
     var details: String?
     var mine: Bool?
     var milestone: DisputePartDto?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decision: DisputeDecisionDto?
     var evidence: [DisputeEvidenceDto]?
     var can: DisputeCanDto?
@@ -301,7 +305,7 @@ struct DisputeCanDto: Decodable, Equatable {
 }
 
 struct EarningsDto: Decodable, Equatable {
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var availableMinor: Int?
     var pendingMinor: Int?
     var nextReleaseAt: String?
@@ -314,7 +318,7 @@ struct EarningDto: Decodable, Equatable, Identifiable {
     var id: Int?
     var kind: String?
     var amountMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var status: String?
     var project: EarningProjectDto?
     var milestone: String?
@@ -454,7 +458,7 @@ struct ReceiptDto: Decodable, Equatable, Identifiable {
     var reasonText: String?
     var project: RefDto?
     var milestone: RefDto?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var amountMinor: Int?
     var feeMinor: Int?
     var totalMinor: Int?
@@ -488,7 +492,7 @@ struct MyProjectDto: Decodable, Equatable, Identifiable {
     var status: String?
     var project: MyProjectRef?
     var priceMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var durationDays: Int?
     var milestonesCount: Int?
     var milestonesDone: Int?

@@ -91,6 +91,7 @@ private struct BreakdownBox: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
+            LoyaltyOfferLine(bp: b.loyaltyBp, savingMinor: b.savingMinor, currency: b.currency)
             Text(L("offer_commission", "\u{200E}\(formatMinor(b.commissionMinor ?? 0, nil)) \(b.currency ?? "")")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
             Text(L("offer_net", "\u{200E}\(formatMinor(b.netMinor ?? 0, nil)) \(b.currency ?? "")")).font(.dorr(15, .heavy)).foregroundStyle(wa.red)
         }
@@ -152,6 +153,9 @@ struct OfferFormScreen: View {
     @State private var savingTemplate = false
     @State private var templateNotice: String?
     @State private var picking = false
+    // FL-L13: who owns the work once it is paid (nil options: the feature is off in my country).
+    @State private var rights = RightsForm()
+    @StateObject private var rightsOptions = RightsOptionsState()
 
     var body: some View {
         Page(title: L("offer_title"), onBack: onBack) {
@@ -194,6 +198,7 @@ struct OfferFormScreen: View {
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result, files.count < MAX_OFFER_FILES, let f = readFile(url) { files.append(f) }
         }
+        .rememberRightsOptions(rightsOptions)
         .dorrDialog(isPresented: $showTemplates) { templatesDialog }
         .dorrDialog(isPresented: $savingTemplate) {
             SaveTemplateDialog(details: trimmed(details), onSaved: { t in
@@ -256,6 +261,8 @@ struct OfferFormScreen: View {
         if let credits = quota?.credits, credits > 0 { OfferPill(text: L("offer_quota_extra", credits)) }
         if quota?.enabled == true && quota?.limit == nil { OfferPill(text: L("offer_quota_unlimited")) }
         if let left = quota?.left { OfferPill(text: L("offer_quota_left", left, quota?.limit ?? left)) }
+        // FL-L09: a returning client's loyalty step, said before the price is typed.
+        if let loyalty = p.loyalty { LoyaltyNote(bp: loyalty.bp ?? 0, works: loyalty.works ?? 0) }
         DorrTextField(value: $price, label: L("offer_price"), placeholder: "0.00", icon: "banknote.fill", keyboard: .decimalPad)
         if let min = p.minPriceMinor {
             Text(L("offer_price_min", "\u{200E}\(formatMinor(min, nil))")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
@@ -285,6 +292,7 @@ struct OfferFormScreen: View {
                 )
             }
         }
+        if let options = rightsOptions.value { RightsEditor(form: rights, options: options) { rights = $0 } }
         FieldLabel(text: L("offer_files")).frame(maxWidth: .infinity, alignment: .leading)
         VStack(spacing: 8) {
             ForEach(Array(files.enumerated()), id: \.offset) { index, f in
@@ -344,47 +352,41 @@ struct OfferFormScreen: View {
     }
 
     private var templatesDialog: some View {
-        DialogCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L("offer_templates")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(Array(templates.enumerated()), id: \.offset) { _, t in
-                            HStack(spacing: 0) {
-                                Button {
-                                    details = t.details ?? ""
-                                    showTemplates = false
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(verbatim: t.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-                                        Text(verbatim: t.details ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(6)
-                                    .contentShape(Rectangle())
+        AlertDialog(
+            onDismissRequest: { showTemplates = false },
+            title: { Text(L("offer_templates")) },
+            text: {
+                VStack(spacing: 10) {
+                    ForEach(Array(templates.enumerated()), id: \.offset) { _, t in
+                        HStack(spacing: 0) {
+                            Button {
+                                details = t.details ?? ""
+                                showTemplates = false
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(verbatim: t.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                                    Text(verbatim: t.details ?? "").font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2)
                                 }
-                                .buttonStyle(.plain)
-                                Button {
-                                    guard let id = t.id else { return }
-                                    Task { if await OffersApi.deleteTemplate(id).value != nil { templates = templates.filter { $0.id != id } } }
-                                } label: {
-                                    Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(wa.settingsMut).frame(width: 30, height: 30).contentShape(Circle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(L("offer_template_delete"))
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(6)
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            Button {
+                                guard let id = t.id else { return }
+                                Task { if await OffersApi.deleteTemplate(id).value != nil { templates = templates.filter { $0.id != id } } }
+                            } label: {
+                                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(wa.settingsMut).frame(width: 30, height: 30).contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(L("offer_template_delete"))
                         }
                     }
                 }
-                .frame(maxHeight: 360)
-                .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Spacer()
-                    Button(L("common_cancel")) { showTemplates = false }.font(.dorr(14, .bold)).foregroundStyle(wa.settingsMut)
-                }
-            }
-            .padding(20)
-        }
+            },
+            confirmButton: { DialogButton(onClick: { showTemplates = false }) { Text(L("common_cancel")) } }
+        )
     }
 
     private func send() {
@@ -393,6 +395,7 @@ struct OfferFormScreen: View {
         error = nil
         var fields: [String: String] = ["price_minor": String(minor), "duration_days": duration, "details": trimmed(details)]
         for (i, a) in answers.enumerated() { fields["answers[\(i)]"] = trimmed(a) }
+        if rightsOptions.value != nil { fields.merge(rights.toFields()) { _, new in new } }
         let parts = files.map { FilePart(field: "files[]", filename: $0.name, mimeType: $0.type, data: $0.bytes) }
         Task {
             let result = await OffersApi.send(projectUuid, fields: fields, files: parts)
@@ -412,29 +415,25 @@ private struct SaveTemplateDialog: View {
     @State private var saveError: String?
 
     var body: some View {
-        DialogCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text(L("offer_save_template")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
+        AlertDialog(
+            onDismissRequest: onDismiss,
+            title: { Text(L("offer_save_template")) },
+            text: {
                 VStack(alignment: .leading, spacing: 6) {
                     DorrTextField(value: Binding(get: { name }, set: { name = String($0.prefix(80)) }), placeholder: L("offer_template_name"))
                     if let saveError { Text(verbatim: saveError).font(.dorr(12)).foregroundStyle(red) }
                 }
-                HStack(spacing: 16) {
-                    Spacer()
-                    Button(L("common_cancel"), action: onDismiss).font(.dorr(14, .bold)).foregroundStyle(wa.settingsMut)
-                    Button(L("offer_template_keep")) {
-                        Task {
-                            let result = await OffersApi.saveTemplate(OfferTemplateRequest(title: trimmed(name), details: details))
-                            if let t = result.value { onSaved(t) } else { saveError = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
-                        }
+            },
+            confirmButton: {
+                DialogButton(onClick: {
+                    Task {
+                        let result = await OffersApi.saveTemplate(OfferTemplateRequest(title: trimmed(name), details: details))
+                        if let t = result.value { onSaved(t) } else { saveError = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
                     }
-                    .font(.dorr(14, .bold))
-                    .foregroundStyle(wa.red.opacity(blank(name) ? 0.4 : 1))
-                    .disabled(blank(name))
-                }
-            }
-            .padding(20)
-        }
+                }, enabled: !blank(name)) { Text(L("offer_template_keep")) }
+            },
+            dismissButton: { DialogButton(onClick: onDismiss) { Text(L("common_cancel")) } }
+        )
     }
 }
 
@@ -443,9 +442,10 @@ private struct SaveTemplateDialog: View {
 /// All my offers, newest first, fifteen at a time while I scroll (read when the page opens, when a notice arrives and when the connection returns).
 @MainActor
 struct MyOffersScreen: View {
-    let onBack: () -> Void
+    let onBack: (() -> Void)?
     let onOpenProject: (String) -> Void
     var asTab = false
+    var embedded = false
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
@@ -456,10 +456,12 @@ struct MyOffersScreen: View {
 
     var body: some View {
         Group {
-            if asTab {
-                TabPage(title: L("offer_my_offers"), onBack: onBack, onNearEnd: nearEnd) { content }
+            if embedded {
+                EmbeddedPage(onNearEnd: nearEnd) { content }
+            } else if asTab {
+                TabPage(title: L("offer_my_offers"), onBack: onBack ?? {}, onNearEnd: nearEnd) { content }
             } else {
-                Page(title: L("offer_my_offers"), onBack: onBack, onNearEnd: nearEnd) { content }
+                Page(title: L("offer_my_offers"), onBack: onBack ?? {}, onNearEnd: nearEnd) { content }
             }
         }
         .messageToast(paged.failure.map { $0.errorText(L("login_error_offline")) ?? L("login_error_generic") })
@@ -475,13 +477,8 @@ struct MyOffersScreen: View {
         let all: [OfferDto]? = paged.loaded ? paged.rows : nil
         let list = all?.filter { filter == "all" || ($0.status ?? "submitted") == filter }
         if let all, !all.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Self.statuses, id: \.self) { s in
-                        ProjectChip(text: s == "all" ? L("projects_all") : offerStatusLabel(s), selected: filter == s, icon: Self.icon(s)) { filter = s }
-                    }
-                }
-            }
+            FilterChips(options: Self.statuses.map { FilterOption(key: $0, label: $0 == "all" ? L("projects_all") : offerStatusLabel($0), icon: Self.icon($0)) },
+                        selected: filter) { filter = $0 }
         }
         if all == nil && paged.failure == nil {
             SkeletonList()
@@ -528,6 +525,8 @@ struct EditOfferScreen: View {
     @State private var breakdown: OfferBreakdownDto?
     @State private var busy = false
     @State private var error: String?
+    @State private var rights = RightsForm()
+    @StateObject private var rightsOptions = RightsOptionsState()
 
     var body: some View {
         Page(title: L("offer_edit"), onBack: onBack) {
@@ -543,6 +542,7 @@ struct EditOfferScreen: View {
                                   label: L("offer_details"), singleLine: false, minLines: 5)
                     Text(L("offer_details_count", detailsLength, DETAILS_MIN)).font(.dorr(11)).foregroundStyle(detailsLength < DETAILS_MIN ? wa.settingsMut : green)
                 }
+                if let options = rightsOptions.value { RightsEditor(form: rights, options: options) { rights = $0 } }
                 Text(L("offer_edit_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
                 SettingsPrimaryButton(
                     text: L("offer_save_changes"),
@@ -558,9 +558,11 @@ struct EditOfferScreen: View {
             let result = await OffersApi.mine(projectUuid)
             if let current = result.value?.offer {
                 offer = current
-                price = formatMinor(current.priceMinor ?? 0, nil)
+                // The price I asked: a loyalty discount is taken off it again each time (FL-L09).
+                price = formatMinor(current.listPriceMinor ?? current.priceMinor ?? 0, nil)
                 duration = String(current.durationDays ?? 0)
                 details = current.details ?? ""
+                if let r = current.rights { rights = r.toForm() }
             } else if let e = result.error {
                 error = e.displayMessage
             } else {
@@ -573,6 +575,7 @@ struct EditOfferScreen: View {
             if Task.isCancelled { return }
             if let b = await OffersApi.preview(projectUuid, priceMinor: minor).value?.breakdown { breakdown = b }
         }
+        .rememberRightsOptions(rightsOptions)
     }
 
     private func save(_ current: OfferDto) {
@@ -580,14 +583,16 @@ struct EditOfferScreen: View {
         busy = true
         error = nil
         Task {
-            let result = await OffersApi.update(current.uuid ?? "", OfferUpdateRequest(priceMinor: minor, durationDays: Int(duration) ?? 0, details: trimmed(details)))
+            let result = await OffersApi.update(current.uuid ?? "", OfferUpdateRequest(priceMinor: minor, durationDays: Int(duration) ?? 0, details: trimmed(details),
+                                                                                        rights: rightsOptions.value != nil ? rights.toInput() : nil))
             busy = false
             if result.value != nil { onDone() } else { error = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
         }
     }
 }
 
-/// An offer in my offers: small and easy to scan - what it is on, its state, the price and the time; the whole card opens the offer's page.
+/// An offer in my offers, easy to scan: what it is on and its state, the price (and the loyalty discount) and the days, when it was sent,
+/// and the way it went — sent, seen, shortlisted, chosen — as four steps (an offer turned down or taken back shows the steps it reached, greyed).
 struct OfferListCard: View {
     @Environment(\.wa) private var wa
     let offer: OfferDto
@@ -597,31 +602,55 @@ struct OfferListCard: View {
         let status = offer.status ?? "submitted"
         let tint = offerStatusColor(status)
         Button(action: onClick) {
-            HStack(spacing: 0) {
-                Image(systemName: "tag.fill").font(.system(size: 17)).foregroundStyle(tint)
-                    .frame(width: 40, height: 40)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Spacer().frame(width: 10)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: offer.project?.title ?? L("offer_mine")).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                    Text(verbatim: "\u{200E}\(formatMinor(offer.priceMinor ?? 0, nil)) \(offer.currency ?? "")  ·  " + L("projects_days", offer.durationDays ?? 0))
-                        .font(.dorr(12, .bold)).foregroundStyle(wa.red).lineLimit(1)
-                    if let day = offer.createdAt?.prefix(10) { Text(verbatim: "\u{200E}\(day)").font(.dorr(11)).foregroundStyle(wa.settingsMut) }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(verbatim: offer.project?.title ?? L("offer_mine")).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3)
+                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                    StatusPill(text: offerStatusLabel(status), tint: tint)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(width: 8)
-                Text(verbatim: offerStatusLabel(status)).font(.dorr(11, .bold)).foregroundStyle(tint)
-                    .padding(.horizontal, 9).padding(.vertical, 3)
-                    .background(tint.opacity(0.12), in: Capsule())
-                Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 20, height: 20)
+                HStack(spacing: 16) {
+                    FactLine(icon: "banknote.fill", text: "\u{200E}\(formatMinor(offer.priceMinor ?? 0, nil)) \(offer.currency ?? "")", strong: true)
+                    FactLine(icon: "clock", text: L("projects_days", offer.durationDays ?? 0))
+                    if let ago = publishedAgo(offer.createdAt) { FactLine(icon: "clock.arrow.circlepath", text: ago) }
+                }
+                if (offer.loyaltyBp ?? 0) > 0 {
+                    Text(L("offer_card_loyalty", loyPercent(offer.loyaltyBp ?? 0))).font(.dorr(11.5, .bold)).foregroundStyle(Tints.green)
+                }
+                OfferSteps(status: status)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .settingsSurface(16)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .settingsSurface(20)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The four steps an offer goes through, lit up to where it got.
+private struct OfferSteps: View {
+    @Environment(\.wa) private var wa
+    let status: String
+
+    var body: some View {
+        let reached: Int = { switch status { case "accepted": return 4; case "shortlisted": return 3; case "viewed": return 2; default: return 1 } }()
+        let ended = status == "rejected" || status == "withdrawn"
+        let on = ended ? wa.settingsMut : wa.red
+        let labels = ["offer_step_sent", "offer_step_seen", "offer_step_shortlisted", "offer_step_chosen"]
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(labels.indices, id: \.self) { i in
+                    Capsule().fill(i < reached ? on : wa.settingsMut.opacity(0.18)).frame(height: 5).frame(maxWidth: .infinity)
+                }
+            }
+            HStack(spacing: 0) {
+                ForEach(Array(labels.enumerated()), id: \.offset) { i, label in
+                    Text(L(label)).font(.dorr(10, i == reached - 1 ? .heavy : .medium))
+                        .foregroundStyle(i < reached ? (ended ? wa.settingsMut : wa.settingsInk) : wa.settingsMut.opacity(0.7))
+                        .lineLimit(1).multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                }
+            }
+        }
     }
 }
 
@@ -658,11 +687,13 @@ struct OfferDetailScreen: View {
         .messageToast(error)
         .task(id: "\(network.reconnectTick)|\(projectUuid)") { await load() }
         .onReceive(Realtime.shared.changed) { _ in Task { await load() } }
-        .alert("", isPresented: $confirmWithdraw) {
-            Button(L("offer_withdraw"), role: .destructive) { withdraw() }
-            Button(L("common_cancel"), role: .cancel) {}
-        } message: {
-            Text(L("offer_withdraw_confirm"))
+        .dorrDialog(isPresented: Binding(get: { confirmWithdraw }, set: { if !$0 && !busy { confirmWithdraw = false } })) {
+            AlertDialog(
+                onDismissRequest: { if !busy { confirmWithdraw = false } },
+                text: { Text(L("offer_withdraw_confirm")) },
+                confirmButton: { DialogButton(onClick: { withdraw() }) { Text(L("offer_withdraw")).foregroundStyle(red) } },
+                dismissButton: { DialogButton(onClick: { confirmWithdraw = false }) { Text(L("common_cancel")) } }
+            )
         }
     }
 
@@ -755,6 +786,9 @@ struct OfferDetailScreen: View {
                 }
             }
         }
+
+        // FL-L13: who owns the work once it is paid and what the client may do with it.
+        if let r = o.rights { RightsSummaryCard(s: r) }
 
         // Where it has been: sent, seen, shortlisted … with the day, on a line.
         let steps: [(key: String, day: String)] = (o.timeline ?? []).compactMap { e in

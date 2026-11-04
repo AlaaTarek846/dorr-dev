@@ -27,7 +27,10 @@ class FreelancerInvitationController extends Controller
     {
         $this->invitations->respond($this->me($request), $uuid, $action === 'accept');
 
-        return ApiResponse::success($this->invitations->forFreelancer($this->me($request)), __('api.updated'));
+        // The one answered (what the apps read: uuid + status), not the whole list.
+        $answered = collect($this->invitations->forFreelancer($this->me($request)))->firstWhere('uuid', $uuid);
+
+        return ApiResponse::success($answered, __('api.updated'));
     }
 
     private function me(Request $request): Freelancer

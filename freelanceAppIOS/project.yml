@@ -20,6 +20,10 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 packages:
+  LiveKit:
+    # FL-L16: the consultation's video session (Android: livekit-android 2.5.0, the same as androidApp's chat calls).
+    url: https://github.com/livekit/client-sdk-swift
+    exactVersion: 2.5.0
   PusherSwift:
     # The live connection (Android: pusher-java-client), settings from `freelance/v1/realtime-config`.
     url: https://github.com/pusher/pusher-websocket-swift
@@ -35,6 +39,8 @@ targets:
     sources:
       - path: DorrPro
     dependencies:
+      - package: LiveKit
+        product: LiveKit
       - package: PusherSwift
         product: PusherSwift
       - package: OneSignal

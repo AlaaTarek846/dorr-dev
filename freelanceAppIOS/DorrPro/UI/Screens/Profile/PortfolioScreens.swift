@@ -70,6 +70,9 @@ struct PortfolioTab: View {
                 if item.hidden == true {
                     Text(verbatim: L("portfolio_hidden") + (item.hiddenReason.map { ": \($0)" } ?? "")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
                 }
+                if item.withdrawnByClient == true {
+                    Text(L("rights_pf_withdrawn")).font(.dorr(11)).foregroundStyle(Color(hex: 0xD97706)).lineLimit(2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: 6) {
@@ -142,6 +145,11 @@ struct PortfolioFormScreen: View {
     @State private var skillIds: [Int] = []
     @State private var visibility = "private"
     @State private var rights = false
+    // FL-L13: the finished work this one comes from (only one its client allowed), listed from the server.
+    @State private var agreementUuid: String?
+    @State private var sources: [PortfolioSourceDto] = []
+    /// Android `rememberRightsOptions()`: `value` is nil while it loads and where the feature is off.
+    @StateObject private var rightsOptions = RightsOptionsState()
     @State private var externalUrl = ""
     @State private var videoUrl = ""
     @State private var pending: [PendingImage] = []
@@ -167,7 +175,18 @@ struct PortfolioFormScreen: View {
             if loaded { form }
         }
         .messageToast(error)
-        .profileDeleteConfirm(isPresented: $confirmDelete, onConfirm: delete)
+        .dorrDialog(isPresented: $confirmDelete) {
+            AlertDialog(
+                onDismissRequest: { confirmDelete = false },
+                text: { Text(L("common_delete_confirm")) },
+                confirmButton: { DialogButton(onClick: { confirmDelete = false; delete() }) { Text(L("common_delete")) } },
+                dismissButton: { DialogButton(onClick: { confirmDelete = false }) { Text(L("common_cancel")) } }
+            )
+        }
+        .rememberRightsOptions(rightsOptions)
+        .task(id: rightsOptions.value != nil) {
+            if rightsOptions.value != nil && itemId == 0, let list = (await RightsApi.portfolioSources()).value { sources = list.filter { $0.used != true } }
+        }
         // One read of each list when the page opens.
         .task {
             if let list = await ListsApi.mySpecialties().value { specialties = list }
@@ -202,6 +221,35 @@ struct PortfolioFormScreen: View {
     @ViewBuilder
     private var form: some View {
         FormIntro(icon: "briefcase.fill", title: L("pf_intro_title"), text: L("pf_intro"))
+        // FL-L13: a finished work may be shown only when its client allowed it.
+        if rightsOptions.value != nil && currentId == 0 {
+            FormGroup {
+                FieldLabel(text: L("rights_pf_pick_title"))
+                if sources.isEmpty {
+                    Text(L("rights_pf_none")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                } else {
+                    ChipRow(
+                        options: sources.map { (value: $0.uuid ?? "", label: $0.title ?? "") },
+                        selected: Set([agreementUuid].compactMap { $0 }),
+                        onToggle: { id in
+                            agreementUuid = agreementUuid == id ? nil : id
+                            if agreementUuid != nil && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                title = sources.first { $0.uuid == id }?.title ?? ""
+                            }
+                        }
+                    )
+                }
+                Text(L("rights_pf_pick_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+            }
+        }
+        if let linked = item, linked.agreement != nil {
+            FormGroup {
+                Text(L("rights_pf_linked")).font(.dorr(12, .semibold)).foregroundStyle(wa.red)
+                if linked.withdrawnByClient == true {
+                    Text(L("rights_pf_withdrawn")).font(.dorr(12)).foregroundStyle(Color(hex: 0xD97706)).lineSpacing(3)
+                }
+            }
+        }
         FormGroup {
             DorrTextField(value: $title, label: L("pf_title"), icon: "briefcase.fill")
             DorrTextField(value: $description.profileTake(1000), label: L("pf_description"), icon: "text.alignleft", singleLine: false, minLines: 3)
@@ -301,6 +349,7 @@ struct PortfolioFormScreen: View {
         skillIds = (dto.skills ?? []).compactMap(\.id)
         visibility = dto.visibility ?? "private"
         rights = dto.rightsConfirmed ?? false
+        agreementUuid = dto.agreement
         externalUrl = dto.externalUrl ?? ""
         videoUrl = ""
     }
@@ -333,7 +382,7 @@ struct PortfolioFormScreen: View {
         error = nil
         func orNull(_ text: String) -> String? { text.isEmpty ? nil : text }
         // Gson leaves a null value out of the body (the server keeps that field).
-        let body: JsonBody = ([
+        var body: JsonBody = ([
             "title": title.trimmingCharacters(in: .whitespacesAndNewlines),
             "description": orNull(description.trimmingCharacters(in: .whitespacesAndNewlines)),
             "completed_on": orNull(completed),
@@ -344,6 +393,7 @@ struct PortfolioFormScreen: View {
             "external_url": orNull(externalUrl.trimmingCharacters(in: .whitespacesAndNewlines)),
             "video_url": orNull(videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)),
         ] as JsonBody).filter { $0.value != nil }
+        if currentId == 0, let agreementUuid { body["agreement_uuid"] = agreementUuid }
         Task {
             let saved = currentId == 0 ? await PortfolioApi.create(body) : await PortfolioApi.update(currentId, body)
             guard let dto = saved.value else {

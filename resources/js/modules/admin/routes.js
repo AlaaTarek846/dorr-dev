@@ -797,6 +797,36 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-consultations.view' },
             },
             {
+                path: 'freelance/loyalty',
+                name: 'admin.freelance.loyalty',
+                component: page('freelance/loyalty/index'),
+                meta: { middleware: [auth], permission: 'freelance-loyalty.view' },
+            },
+            {
+                path: 'freelance/rights',
+                name: 'admin.freelance.rights',
+                component: page('freelance/rights/index'),
+                meta: { middleware: [auth], permission: 'freelance-rights.view' },
+            },
+            {
+                path: 'freelance/promos',
+                name: 'admin.freelance.promos',
+                component: page('freelance/promos/index'),
+                meta: { middleware: [auth], permission: 'freelance-promos.view' },
+            },
+            {
+                path: 'freelance/community',
+                name: 'admin.freelance.community',
+                component: page('freelance/community/index'),
+                meta: { middleware: [auth], permission: 'freelance-community.view' },
+            },
+            {
+                path: 'freelance/special-offers',
+                name: 'admin.freelance.specialOffers',
+                component: page('freelance/special-offers/index'),
+                meta: { middleware: [auth], permission: 'freelance-special-offers.view' },
+            },
+            {
                 path: 'freelance/risk',
                 name: 'admin.freelance.risk',
                 component: page('freelance/risk/index'),

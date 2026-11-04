@@ -4592,6 +4592,250 @@
                 "disputed": "Disputed"
             }
         },
+        "rights": {
+            "title": "Ownership & licences",
+            "hint": "Who owns the work once it is paid, and what the client may do with it. The freelancer picks one of three models on each offer and ready-made service (default: full transfer after payment); the agreement keeps the terms and the standard text of the day it was made. Here you keep the standard texts per country and decide the reports of works someone says are theirs.",
+            "kpi": {
+                "agreements": "Agreements with terms",
+                "portfolio": "Portfolio allowed / wished",
+                "disputes": "Rights disputes open / all",
+                "claims": "Open reports"
+            },
+            "split": "Agreements by model",
+            "split_empty": "No agreement carries terms yet.",
+            "models": {
+                "transfer": "Full transfer",
+                "license": "Licence",
+                "retained": "Freelancer keeps ownership"
+            },
+            "tab_claims": "Reports",
+            "tab_texts": "Standard texts",
+            "country": "Country",
+            "all_countries": "All countries (the platform text)",
+            "texts_hint": "A country with no text of its own uses the one for all countries, then the platform text. A change reaches new agreements only: an agreement keeps the text it was made with.",
+            "loading": "Loading…",
+            "custom": "Own text · version {n}",
+            "from_general": "Uses the text for all countries",
+            "from_platform": "Uses the platform text",
+            "title_ar": "Title (Arabic)",
+            "title_en": "Title (English)",
+            "body_ar": "Text (Arabic)",
+            "body_en": "Text (English)",
+            "legal_note": "These are guidance templates, not legal advice. Have each country’s text reviewed by a lawyer before launch.",
+            "reset": "Back to the default text",
+            "subject": "Reported work",
+            "freelancer": "Freelancer",
+            "reporter": "Reported by",
+            "reported": "Reported",
+            "status": "Status",
+            "empty": "No reports here.",
+            "subject_type": {
+                "portfolio_item": "Portfolio work",
+                "service": "Ready-made service"
+            },
+            "reporter_type": {
+                "client": "Client",
+                "external": "Outside Dorr"
+            },
+            "claim_status": {
+                "open": "Open",
+                "upheld": "Upheld",
+                "dismissed": "Dismissed"
+            },
+            "decide": "Decide",
+            "open": "Open",
+            "contact": "How to reach them",
+            "details": "What they say",
+            "your_decision": "Your decision",
+            "decision": {
+                "uphold": "Uphold — take it down",
+                "dismiss": "Dismiss"
+            },
+            "decision_hint": {
+                "uphold": "The work is hidden (or the service suspended) and its owner is told.",
+                "dismiss": "The work stays up; the report is closed."
+            },
+            "note_hint": "A note for the record (optional)",
+            "confirm_decision": "Confirm decision",
+            "agreement": {
+                "title": "Ownership terms",
+                "none": "This agreement has no ownership terms (made before the feature, or it is switched off).",
+                "model": "Model",
+                "state": "Rights",
+                "parts": "{granted} of {total} parts passed",
+                "portfolio_yes": "The client allowed showing it in the portfolio",
+                "portfolio_no": "Not allowed in the portfolio",
+                "states": {
+                    "pending": "Not passed yet",
+                    "partial": "Partly passed",
+                    "granted": "Fully passed"
+                }
+            }
+        },
+        "community": {
+            "title": "Professional community",
+            "hint": "Freelancers share posts, questions and works and comment on them. Members report what breaks the rules: upholding a report hides the post or comment (and may mute its author for some days), dismissing it leaves it up. Here you also browse all posts, hide or show any post or comment, and manage muted members.",
+            "tab_overview": "Overview",
+            "tab_reports": "Reports",
+            "tab_posts": "Posts",
+            "tab_mutes": "Muted members",
+            "kpi": {
+                "posts": "Posts",
+                "hidden": "Hidden posts",
+                "comments": "Comments",
+                "posting": "Members posting this month",
+                "muted": "Muted now",
+                "open_reports": "Open reports"
+            },
+            "this_week": "{n} this week",
+            "reports_by_status": "Reports by status",
+            "report_status": {
+                "open": "Open",
+                "upheld": "Upheld",
+                "dismissed": "Dismissed"
+            },
+            "reason": "Reason",
+            "reported_text": "Reported text",
+            "author": "Author",
+            "reporter": "Reported by",
+            "reports_n": "Reports",
+            "status": "Status",
+            "reports_empty": "No reports here.",
+            "deleted_text": "(deleted)",
+            "subject_type": {
+                "post": "Post",
+                "comment": "Comment"
+            },
+            "item_status": {
+                "published": "Published",
+                "hidden": "Hidden",
+                "deleted": "Deleted"
+            },
+            "muted_until": "Muted until {date}",
+            "decide": "Decide",
+            "open": "Open",
+            "muted_now": "Muted until",
+            "view_post": "View the post",
+            "details": "What the reporter says",
+            "your_decision": "Your decision",
+            "decision": {
+                "uphold": "Uphold — hide it",
+                "dismiss": "Dismiss"
+            },
+            "decision_hint": {
+                "uphold": "The post or comment is hidden and its author is told; you may also mute the author.",
+                "dismiss": "It stays up; the report is closed."
+            },
+            "mute_days": "Mute the author for (days)",
+            "mute_days_hint": "0 = no mute, up to {max} days.",
+            "note_hint": "A note for the record (optional)",
+            "confirm_decision": "Confirm decision",
+            "search": "Search the text or the author name",
+            "all_statuses": "All statuses",
+            "all_kinds": "All kinds",
+            "kinds": {
+                "post": "Post",
+                "question": "Question",
+                "work": "Work"
+            },
+            "post": "Post",
+            "kind": "Kind",
+            "activity": "Activity",
+            "reactions": "Reactions",
+            "comments": "Comments",
+            "posts_empty": "No posts here.",
+            "by_reports": "Hidden by reports",
+            "mute_member": "Mute a member",
+            "freelancer_id": "Freelancer ID",
+            "days": "Days",
+            "mute_reason": "Reason",
+            "mute": "Mute",
+            "freelancer": "Freelancer",
+            "ends_at": "Muted until",
+            "muted_at": "Muted on",
+            "mutes_empty": "No member is muted now.",
+            "lift": "Lift",
+            "lift_confirm": "Lift the mute of {name}?",
+            "post_details": "Post details",
+            "loading": "Loading…",
+            "images_n": "{n} images",
+            "hidden_reason": "Hidden because",
+            "no_comments": "No comments.",
+            "unhide": "Show again",
+            "hide": "Hide",
+            "hide_reason": "Why hide it? (required)",
+            "confirm_hide": "Hide"
+        },
+        "loyalty": {
+            "title": "Loyalty programs",
+            "hint": "Each freelancer sets discount steps that grow with the works finished with the same client; the discount is applied by itself on offers, ready-made services and consultations. The limits are in Prices & rules → Loyalty. This page is read only.",
+            "kpi": {
+                "freelancers": "Programs on",
+                "uses": "Discounts taken",
+                "saved": "Saved for clients"
+            },
+            "search": "Search a freelancer name or phone",
+            "freelancer": "Freelancer",
+            "state": "Status",
+            "steps": "Steps",
+            "max": "Top discount",
+            "given": "Given",
+            "updated": "Updated",
+            "saved": "Saved for clients",
+            "open": "Open",
+            "on": "On",
+            "off": "Off",
+            "empty": "No programs yet.",
+            "step": "after {after} → {percent}%",
+            "after_n": "After {n} finished works",
+            "uses_n": "{n} discounts",
+            "ladder": "Steps"
+        },
+        "specialOffers": {
+            "title": "Special offers",
+            "hint": "Offers freelancers send to clients they finished work with: custom work, a service level at a lower price or a consultation at a discount. Use it to spot a freelancer pressing clients. The limits are in Prices & rules → Special offers. Read only.",
+            "search": "Search a title, client or freelancer",
+            "offer": "Offer",
+            "freelancer": "Freelancer",
+            "client": "Client",
+            "price": "Price",
+            "state": "Status",
+            "sent": "Sent",
+            "open": "Open",
+            "seen": "Seen",
+            "empty": "No special offers.",
+            "all_kinds": "All kinds",
+            "status": {
+                "sent": "Waiting",
+                "accepted": "Accepted",
+                "declined": "Declined",
+                "withdrawn": "Withdrawn",
+                "expired": "Expired"
+            },
+            "kind": {
+                "custom": "Custom work",
+                "service": "Service",
+                "consultation": "Consultation"
+            },
+            "expires": "Ends",
+            "description": "Description",
+            "message": "Message",
+            "service": "Service",
+            "money": "Money",
+            "usual": "Usual price",
+            "client_fee": "Client fee",
+            "commission": "Commission",
+            "net": "Freelancer net",
+            "delivery": "Delivery",
+            "days_n": "{n} days",
+            "minutes_n": "{n} min",
+            "discount_n": "{n}% off",
+            "timeline": "What happened",
+            "ev": {
+                "sent": "Sent",
+                "viewed": "Seen by the client"
+            }
+        },
         "consultations": {
             "title": "Consultations",
             "tabs": {
@@ -4615,7 +4859,15 @@
                 "reason": "Reason",
                 "reason_hint": "The freelancer reads this.",
                 "about": "What it covers",
-                "days": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+                "days": [
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat"
+                ],
                 "status": {
                     "pending_review": "Waiting for review",
                     "published": "Published",
@@ -4688,6 +4940,69 @@
                 "complained": "The client complained",
                 "settled": "Paid to the freelancer",
                 "refunded": "Given back to the client"
+            },
+            "room": {
+                "title": "Session and recording",
+                "evidence": "Evidence",
+                "evidence_hint": "The recording and attendance are the evidence for your decision on this complaint.",
+                "loading": "Loading the session…",
+                "reload": "Reload",
+                "close": "Close the session",
+                "reopen": "Open the session again",
+                "close_confirm": "Close the session now? Both sides are put out and cannot come back until you open it again.",
+                "recording_off": "Recording is not working: the storage settings (CHAT_RECORDINGS_*) are empty.",
+                "livekit_off": "Video calls are not set up (LiveKit): nobody can join the session.",
+                "state": "Room",
+                "window": "Room hours",
+                "in_room": "In the room now",
+                "consent": "{side} agreed to recording",
+                "no_consent": "Did not agree",
+                "states": {
+                    "open": "Open now",
+                    "not_yet": "Opens {at}",
+                    "closed_time": "Closed — time is over",
+                    "closed_staff": "Closed by the staff",
+                    "closed": "Closed"
+                },
+                "side": {
+                    "client": "Client",
+                    "freelancer": "Freelancer",
+                    "staff": "Staff"
+                },
+                "attendance": "Who came and left",
+                "no_attendance": "Nobody joined the session.",
+                "freelancer_never_came": "The freelancer never joined the session.",
+                "still_in": "still in the room",
+                "recordings": "Recordings",
+                "no_recordings": "No recordings.",
+                "part_n": "Part {n}",
+                "rec_status": {
+                    "recording": "Recording",
+                    "processing": "Processing",
+                    "moving": "Being saved",
+                    "stored": "Ready",
+                    "deleted": "Deleted"
+                },
+                "watch": "Watch",
+                "hide": "Hide",
+                "download": "Download",
+                "player_error": "The video could not be played (the link may have expired).",
+                "logged_hint": "Every watch and download is logged under your name.",
+                "deletion": "Deletion",
+                "deleted_at": "The recordings were deleted on {at}.",
+                "held": "Kept until the complaint is decided, then deleted a week after the decision.",
+                "delete_at": "The recordings will be deleted on {at}.",
+                "no_delete_date": "No deletion date yet.",
+                "views": "Watched and downloaded",
+                "no_views": "Nobody has watched or downloaded the recordings yet.",
+                "part": "Part",
+                "viewer": "By",
+                "action": "Action",
+                "at": "Time",
+                "view_action": {
+                    "watch": "Watched",
+                    "download": "Downloaded"
+                }
             }
         },
         "services": {
@@ -4885,7 +5200,8 @@
         "countries": {
             "title": "Countries",
             "hint": "Where the service is open: the freelance switch of each country, and whether the Service control page closed it there. The apps follow this result.",
-            "availability": "Service control", "search": "Country code or currency",
+            "availability": "Service control",
+            "search": "Country code or currency",
             "currency": "Currency",
             "features": "Features",
             "projects": "Projects",
@@ -5063,6 +5379,7 @@
             "quality": "Quality",
             "conduct": "Conduct",
             "scope": "Scope",
+            "rights": "Rights (ownership)",
             "other": "Other"
         },
         "document_types": {
@@ -5244,7 +5561,9 @@
                 "ratings": "Ratings",
                 "invitations": "Invitations",
                 "services": "Ready-made services",
-                "consultations": "Paid consultations"
+                "consultations": "Paid consultations",
+                "special_offers": "Special offers",
+                "loyalty": "Loyalty program"
             },
             "choice": {
                 "percent": "Percent",
@@ -5285,7 +5604,13 @@
                 "consultations__complaint_hours": "Hours after a consultation to complain",
                 "consultations__response_hours": "Hours for the freelancer to answer a request",
                 "consultations__min_notice_hours": "Least hours ahead to book a consultation",
-                "consultations__max_days_ahead": "Most days ahead to book a consultation"
+                "consultations__max_days_ahead": "Most days ahead to book a consultation",
+                "special_offers__daily_limit": "Special offers one freelancer sends a day",
+                "special_offers__open_per_client": "Special offers waiting for one client at once",
+                "special_offers__cooldown_days": "Days before a client who said no gets another",
+                "special_offers__max_valid_days": "Longest a special offer stays open (days)",
+                "loyalty__max_discount_bp": "Biggest loyalty discount a freelancer may give",
+                "loyalty__max_tiers": "Most steps in one loyalty program"
             }
         },
         "overview": {
@@ -5356,7 +5681,11 @@
                 "ai_assistant": "AI assistant",
                 "disputes": "Disputes",
                 "ratings": "Ratings",
-                "consultations": "Paid consultations"
+                "consultations": "Paid consultations",
+                "special_offers": "Special offers to past clients",
+                "loyalty": "Loyalty program (discount for returning clients)",
+                "rights": "Ownership & licences (rights of the work)",
+                "community": "Professional community"
             }
         },
         "projects": {
@@ -5482,7 +5811,8 @@
                 "appeals": "Appeals",
                 "lifted": "Lifted",
                 "expired": "Ended",
-                "all": "All", "clients": "Clients and risk"
+                "all": "All",
+                "clients": "Clients and risk"
             },
             "all_types": "All types",
             "all_sides": "Clients and freelancers",
@@ -5684,7 +6014,8 @@
             },
             "side": {
                 "client": "Client",
-                "freelancer": "Freelancer"
+                "freelancer": "Freelancer",
+                "system": "System"
             },
             "status": {
                 "open": "Open",
@@ -5774,8 +6105,17 @@
                 "when": "When",
                 "whole": "The whole project",
                 "empty": "Nothing in this period.",
-                "side": { "client": "Client", "freelancer": "Freelancer" },
-                "resp": { "client": "Client", "freelancer": "Freelancer", "shared": "Both", "none": "No one (force majeure)", "review": "Needs review" },
+                "side": {
+                    "client": "Client",
+                    "freelancer": "Freelancer"
+                },
+                "resp": {
+                    "client": "Client",
+                    "freelancer": "Freelancer",
+                    "shared": "Both",
+                    "none": "No one (force majeure)",
+                    "review": "Needs review"
+                },
                 "codes": {
                     "scope_changed": "Scope or budget changed",
                     "client_unresponsive": "Client not responding",
@@ -5802,6 +6142,94 @@
                 "fee_mismatch": "Client fees differ",
                 "commission_mismatch": "Commissions differ",
                 "earning_unpaid": "Earning not credited"
+            }
+        },
+        "promos": {
+            "title": "Home banners",
+            "hint": "Banners show on the home of the freelancer app, of the client's freelance hub in the user app, or both (pick «Shown on»); people swipe through them. Each has a title (and a line and a button text) in both languages, an optional image (2:1, e.g. 1200×600), the country it shows in (or all), the dates it shows between and what a tap opens: a page of the app or a web page. Banners for a page whose feature is off in a country stay hidden there.",
+            "search": "Search titles",
+            "add": "Add banner",
+            "edit": "Edit banner",
+            "delete": "Delete",
+            "delete_confirm": "Delete this banner?",
+            "banner": "Banner",
+            "opens": "Opens",
+            "country": "Country",
+            "all_countries": "All countries",
+            "period": "Shows",
+            "from": "From",
+            "to": "Until",
+            "now": "Now",
+            "open_ended": "No end",
+            "order": "Order",
+            "state": "State",
+            "empty": "No banners yet.",
+            "turn_on": "Turn on",
+            "turn_off": "Turn off",
+            "states": {
+                "all": "All",
+                "showing": "Showing",
+                "scheduled": "Scheduled",
+                "ended": "Ended",
+                "off": "Off"
+            },
+            "target": {
+                "none": "Nothing",
+                "screen": "A page of the app",
+                "url": "A web page"
+            },
+            "screen": "Page",
+            "link": "Link (https)",
+            "screens": {
+                "projects": "Open projects",
+                "invitations": "Invitations",
+                "plans": "Plans",
+                "insights": "My performance",
+                "services": "My services",
+                "consultations": "Consultations",
+                "special_offers": "Special offers",
+                "loyalty": "Loyalty",
+                "community": "Community",
+                "skill_tests": "Skill tests",
+                "verification": "Verification",
+                "coach": "Improve my profile",
+                "portfolio": "Portfolio",
+                "wallet": "Wallet",
+                "availability": "Availability",
+                "capacity": "Capacity"
+            },
+            "title_ar": "Title (Arabic)",
+            "title_en": "Title (English)",
+            "body_ar": "Line (Arabic)",
+            "body_en": "Line (English)",
+            "cta_ar": "Button (Arabic)",
+            "cta_en": "Button (English)",
+            "active": "On",
+            "starts_at": "Starts",
+            "ends_at": "Ends",
+            "image": "Image",
+            "image_hint": "JPG, PNG or WEBP up to 2 MB, wide (2:1). Without an image the app draws the banner in its own colour.",
+            "remove_image": "Remove the image",
+            "preview_title": "The banner's title",
+            "cancel": "Cancel",
+            "save": "Save",
+            "audience": "Shown on",
+            "audiences": {
+                "all": "All apps",
+                "freelancer": "Freelancer app",
+                "client": "Client (user app)",
+                "both": "Both"
+            },
+            "client_screens": {
+                "projects": "My projects",
+                "new_project": "New project",
+                "services": "Services",
+                "orders": "My orders",
+                "consultations": "Consultations",
+                "my_consultations": "My consultations",
+                "special_offers": "Special offers",
+                "loyalty": "My discounts",
+                "favorites": "Favourites"
             }
         }
     },

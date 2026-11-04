@@ -179,17 +179,17 @@ fun SupportHelpFlowScreen(
 
 @Composable
 private fun HelpBubble(text: String, mine: Boolean) {
-    val shape = RoundedCornerShape(
-        topStart = 20.dp, topEnd = 20.dp,
-        bottomStart = if (mine) 20.dp else 5.dp,
-        bottomEnd = if (mine) 5.dp else 20.dp,
+    val shape = com.dorr.app.ui.components.absoluteCorners(
+        topLeft = 20.dp, topRight = 20.dp,
+        bottomRight = if (mine) 5.dp else 20.dp,
+        bottomLeft = if (mine) 20.dp else 5.dp,
     )
     val visible = remember(text) { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = visible,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.94f) + slideInVertically(tween(220)) { it / 6 },
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.Absolute.Right else Arrangement.Absolute.Left) {
             Column(
                 Modifier
                     .widthIn(max = 300.dp)

@@ -60,6 +60,8 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         \Modules\Freelance\Console\SweepFreelanceWaitlist::class,
         \Modules\Freelance\Console\SweepServiceSubscriptions::class,
         \Modules\Freelance\Console\SweepConsultations::class,
+        \Modules\Freelance\Console\SyncConsultationSessions::class,
+        \Modules\Freelance\Console\SweepSpecialOffers::class,
     ];
 
     public function boot(): void
@@ -82,7 +84,24 @@ class FreelanceServiceProvider extends ModuleServiceProvider
                 $id = (int) $a->freelancer_id;
                 \Illuminate\Support\Facades\DB::afterCommit(fn () => $this->app->make(\Modules\Freelance\Services\Market\FreelanceCapacity::class)->promote($id));
             }
+            // FL-L09 (part B): a finished work can take the client to the next step of the freelancer's loyalty program.
+            if ($a->wasChanged('status') && $a->status === \Modules\Freelance\Models\FreelanceAgreement::COMPLETED) {
+                $this->tellLoyalty((int) $a->freelancer_id, (int) $a->client_id);
+            }
         });
+        \Modules\Freelance\Models\FreelanceConsultation::updated(function (\Modules\Freelance\Models\FreelanceConsultation $c) {
+            if ($c->wasChanged('status') && $c->status === \Modules\Freelance\Models\FreelanceConsultation::COMPLETED) {
+                $this->tellLoyalty((int) $c->freelancer_id, (int) $c->client_id);
+            }
+        });
+    }
+
+    /** After the change is saved: the client is told if this work took them to a step of the freelancer's loyalty program. */
+    private function tellLoyalty(int $freelancerId, int $clientId): void
+    {
+        \Illuminate\Support\Facades\DB::afterCommit(fn () => rescue(
+            fn () => $this->app->make(\Modules\Freelance\Services\Offers\Loyalty::class)->unlocked($freelancerId, $clientId),
+        ));
     }
 
     protected function configureSchedules(Schedule $schedule): void
@@ -108,6 +127,10 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         $schedule->command(\Modules\Freelance\Console\SweepServiceSubscriptions::class)->hourly()->withoutOverlapping();
         // FL-L07: reminders a little before, the question at the end, and paying out after the complaint hours.
         $schedule->command(\Modules\Freelance\Console\SweepConsultations::class)->everyFiveMinutes()->withoutOverlapping();
+        // FL-L16: video sessions - warn before the end, close at the end, follow / move the recordings home, delete them a week on.
+        $schedule->command(\Modules\Freelance\Console\SyncConsultationSessions::class)->everyMinute()->withoutOverlapping();
+        // FL-L09: special offers past their time end, and the day-before reminder.
+        $schedule->command(\Modules\Freelance\Console\SweepSpecialOffers::class)->hourly()->withoutOverlapping();
     }
 
     /**

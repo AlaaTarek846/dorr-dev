@@ -48,7 +48,7 @@ class FreelanceOfferPacks
         $enabled = $country !== null && $this->enabled($country->id);
         $currency = $country?->currency;
         $out = [
-            'enabled' => $enabled, 'currency' => $currency?->code, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'unlimited' => false,
+            'enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'unlimited' => false,
             'valid_days' => (int) config('freelance.offer_credit_valid_days', 0), 'credits' => $this->credits->summary($freelancer), 'packs' => [], 'purchases' => [],
         ];
         if (! $enabled) {

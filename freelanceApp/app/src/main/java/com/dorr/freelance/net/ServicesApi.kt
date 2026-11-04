@@ -69,7 +69,7 @@ data class MyServicesDto(
     val services: List<ServiceDto> = emptyList(),
     val counts: Map<String, Int> = emptyMap(),
     val limits: ServiceLimitsDto = ServiceLimitsDto(),
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val price: PriceRuleDto = PriceRuleDto(),
     /** The staff look at a service before clients see it. */
@@ -94,7 +94,7 @@ data class ServiceDto(
     /** FL-L05: once · monthly (the prices are then per month). */
     val billing: String = "once",
     val specialty: ServiceSpecialtyDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("starting_price_minor") val startingPriceMinor: Long? = null,
     val tiers: List<ServiceTierDto> = emptyList(),
@@ -106,6 +106,8 @@ data class ServiceDto(
     @SerializedName("status_reason") val statusReason: String? = null,
     val orders: ServiceOrderCountsDto = ServiceOrderCountsDto(),
     val can: ServiceCanDto = ServiceCanDto(),
+    /** FL-L13: the terms every order of it starts from (null where the feature is off). */
+    val rights: RightsSummaryDto? = null,
     @SerializedName("published_at") val publishedAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null,
 )
@@ -152,6 +154,8 @@ data class ServiceRequest(
     val billing: String,
     val tiers: List<ServiceTierRequest>,
     val addons: List<ServiceAddonRequest>,
+    /** FL-L13: sent only when the feature is on. */
+    val rights: RightsInputDto? = null,
 )
 
 data class ServiceTierRequest(
@@ -177,7 +181,7 @@ data class ServiceOrderDto(
     val features: List<String> = emptyList(),
     val addons: List<ServiceOrderAddonDto> = emptyList(),
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("delivery_days") val deliveryDays: Int = 0,
     val revisions: Int = 0,
@@ -222,7 +226,7 @@ data class ServiceSubscriptionDto(
     val level: String = "basic",
     @SerializedName("tier_name") val tierName: String? = null,
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("delivery_days") val deliveryDays: Int = 0,
     val money: ServiceOrderMoneyDto = ServiceOrderMoneyDto(),

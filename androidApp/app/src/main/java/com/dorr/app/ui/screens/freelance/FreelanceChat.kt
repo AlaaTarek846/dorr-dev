@@ -222,7 +222,7 @@ private fun ChatBubble(m: FreelanceChatMessageDto, onReport: () -> Unit) {
         return
     }
     val mine = m.mine == true
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.Absolute.Right else Arrangement.Absolute.Left) {
         Column(
             Modifier.widthIn(max = 280.dp).clip(RoundedCornerShape(16.dp))
                 .then(if (mine) Modifier.background(settingsAccent()) else Modifier.settingsSurface(RoundedCornerShape(16.dp)))

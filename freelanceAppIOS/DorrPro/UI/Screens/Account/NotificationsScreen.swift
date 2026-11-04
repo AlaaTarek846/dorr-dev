@@ -14,6 +14,8 @@ private struct NotificationItem: Identifiable, Equatable {
     var unread: Bool
     /// The screen the notice leads to (see [NoticeRoute]); nil when it has none of its own.
     let route: Route?
+    /// 0 today, 1 yesterday, 2 earlier this week, 3 older — on the phone's calendar.
+    var day: Int = 0
 }
 
 private extension NotificationDto {
@@ -23,8 +25,13 @@ private extension NotificationDto {
             guard let value = data?[key]?.str, !value.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
             return value
         }
+        let daysBack = parseInstant(createdAtIso).map { at -> Int in
+            let cal = Calendar.current
+            return cal.dateComponents([.day], from: cal.startOfDay(for: at), to: cal.startOfDay(for: Date())).day ?? 0
+        } ?? 0
+        let day = daysBack <= 0 ? 0 : daysBack == 1 ? 1 : daysBack < 7 ? 2 : 3
         return NotificationItem(id: id, title: title ?? "", body: message ?? "", event: event, minutesAgo: max(minutes, 0),
-                                unread: readAt == nil, route: route)
+                                unread: readAt == nil, route: route, day: day)
     }
 }
 
@@ -35,7 +42,16 @@ private func typeStyle(_ event: String?) -> (String, Color) {
     if e.hasPrefix("wallet.") { return ("wallet.pass.fill", Color(hex: 0x16A34A)) }
     if e.hasPrefix("freelance.verification") { return ("checkmark.seal.fill", Color(hex: 0x2563EB)) }
     if e.hasPrefix("freelance.offer") { return ("doc.text.magnifyingglass", Color(hex: 0xD97706)) }
+    if e.contains("consultation") { return ("video.fill", Color(hex: 0x8B5CF6)) }
+    if e.contains("order") || e.contains("service") { return ("storefront.fill", Color(hex: 0x14B8A6)) }
+    if e.contains("special_offer") { return ("tag.fill", Color(hex: 0xF43F5E)) }
+    if e.contains("loyalty") { return ("heart.circle.fill", Color(hex: 0xF59E0B)) }
+    if e.contains("dispute") { return ("hammer.fill", Color(hex: 0xDC2626)) }
+    if e.contains("agreement") || e.contains("milestone") || e.contains("payment") { return ("hand.raised.fill", Color(hex: 0x3B82F6)) }
+    if e.contains("invitation") { return ("envelope.badge.fill", Color(hex: 0x3B82F6)) }
     if e.hasPrefix("freelance.project") { return ("briefcase.fill", Color(hex: 0x16A34A)) }
+    // FL-L12: the professional community.
+    if e.hasPrefix("freelance.community") { return ("person.3.fill", Color(hex: 0x7C3AED)) }
     return ("bell.fill", Color(hex: 0x001B53))
 }
 
@@ -67,6 +83,7 @@ struct NotificationsScreen: View {
     @State private var hasMore = true
     @State private var loadingMore = false
     @State private var pageFailed = false
+    @State private var onlyUnread = false
 
     var body: some View {
         let hasUnread = notifications.contains { $0.unread }
@@ -74,26 +91,44 @@ struct NotificationsScreen: View {
             PinkBackdrop()
             VStack(spacing: 0) {
                 SubHeader(title: L("notifications_title"), onBack: onBack)
-                if hasUnread {
-                    HStack {
-                        Spacer()
+                // All / unread, and «mark all read» while something is unread.
+                let unreadCount = notifications.filter(\.unread).count
+                HStack(spacing: 0) {
+                    PillChip(text: L("notif_filter_all"), selected: !onlyUnread) { onlyUnread = false }
+                    Spacer().frame(width: 8)
+                    PillChip(text: L("notif_filter_unread") + (unreadCount > 0 ? "  \(unreadCount)" : ""), selected: onlyUnread,
+                             dot: unreadCount > 0 && !onlyUnread) { onlyUnread = true }
+                    Spacer(minLength: 0)
+                    if hasUnread {
                         Button(action: markAllRead) {
-                            Text(L("notifications_mark_all_read")).font(.dorr(14, .bold)).foregroundStyle(wa.accent)
-                                .padding(.horizontal, 12).padding(.vertical, 8)
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle").font(.system(size: 15, weight: .semibold))
+                                Text(L("notifications_mark_all_read")).font(.dorr(13, .bold))
+                            }
+                            .foregroundStyle(wa.night ? wa.accent : wa.red)
+                            .padding(.horizontal, 8).padding(.vertical, 8)
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.trailing, 8)
                 }
-                if loaded && notifications.isEmpty {
-                    EmptyNotifications().frame(maxHeight: .infinity)
+                .padding(.horizontal, 16)
+                let shown = onlyUnread ? notifications.filter(\.unread) : notifications
+                if loaded && shown.isEmpty && !(onlyUnread && hasMore) {
+                    EmptyNotifications(allRead: onlyUnread && !notifications.isEmpty).frame(maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 10) {
-                            ForEach(Array(notifications.enumerated()), id: \.element.id) { index, item in
+                            ForEach(Array(shown.enumerated()), id: \.element.id) { index, item in
+                                // A day's head above its first notice.
+                                if index == 0 || shown[index - 1].day != item.day {
+                                    Text(L(item.day == 0 ? "notif_day_today" : item.day == 1 ? "notif_day_yesterday" : item.day == 2 ? "notif_day_week" : "notif_day_older"))
+                                        .font(.dorr(12, .heavy)).foregroundStyle(wa.settingsMut)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.top, index == 0 ? 0 : 8).padding(.leading, 4)
+                                }
                                 NotificationCard(item: item) { open(item) }
                                     // Near the end of what is loaded (the last few rows are on screen)?
-                                    .onAppear { if index >= notifications.count - 4 { nearEnd() } }
+                                    .onAppear { if index >= shown.count - 4 { nearEnd() } }
                             }
                             // The next page is loading (a spinner under the rows), or it failed (tap to try again).
                             if loadingMore || pageFailed {
@@ -125,7 +160,7 @@ struct NotificationsScreen: View {
         .onReceive(Realtime.shared.changed) { _ in Task { await restart() } }
         .sheet(item: $selected) { item in
             NotificationDetailSheet(item: item)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -203,7 +238,9 @@ private struct NotificationCard: View {
                     HStack(alignment: .top, spacing: 8) {
                         Text(verbatim: item.title).font(.dorr(14, item.unread ? .bold : .semibold)).foregroundStyle(wa.settingsInk)
                             .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                        Text(verbatim: relativeTime(item.minutesAgo)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        Text(verbatim: relativeTime(item.minutesAgo)).font(.dorr(11.5, item.unread ? .bold : .regular))
+                            .foregroundStyle(item.unread ? wa.red : wa.settingsMut)
+                        if item.unread { Circle().fill(wa.red).frame(width: 8, height: 8).padding(.leading, -2).padding(.top, 4) }
                     }
                     Text(verbatim: item.body).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -249,8 +286,11 @@ private struct NotificationDetailSheet: View {
 }
 
 private struct EmptyNotifications: View {
+    var allRead = false
+
     var body: some View {
-        EmptyState(icon: "bell.fill", title: L("notifications_empty_title"), body: L("notifications_empty_body"))
+        EmptyState(icon: "bell.fill", title: L(allRead ? "notif_all_read_title" : "notifications_empty_title"),
+                   body: L(allRead ? "notif_all_read_body" : "notifications_empty_body"))
             .padding(.vertical, 40)
     }
 }

@@ -10,7 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -80,7 +81,7 @@ internal fun ReportMessageDialog(messageId: Int, onDone: (String) -> Unit, onDis
             }
         },
         confirmButton = {
-            TextButton(enabled = code != null && !busy, onClick = {
+            DialogButton(enabled = code != null && !busy, onClick = {
                 busy = true
                 error = null
                 scope.launch {
@@ -90,6 +91,6 @@ internal fun ReportMessageDialog(messageId: Int, onDone: (String) -> Unit, onDis
                 }
             }) { Text(stringResource(R.string.rm_send), color = Color(0xFFDC2626)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        dismissButton = { DialogButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
     )
 }

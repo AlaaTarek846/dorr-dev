@@ -75,8 +75,8 @@ struct AgreementScreen: View {
         }
         .formSheet(isPresented: agreementPresence($deliverFor), icon: "icloud.and.arrow.up.fill", title: L("ag_ms_deliver"),
                    text: L("ag_form_deliver_intro"), fullHeight: true, locked: busy) {
-            DeliverDialog(busy: busy, error: error) { text, files in
-                if let target = deliverFor { deliver(target, text, files) }
+            DeliverDialog(busy: busy, error: error, rightsRequired: agreement?.rights != nil) { text, files, materials in
+                if let target = deliverFor { deliver(target, text, files, materials) }
             }
         }
         .formSheet(isPresented: $declining, icon: "xmark.circle.fill", title: L("ag_decline"), text: L("ag_decline_hint"), locked: busy) {
@@ -165,6 +165,8 @@ struct AgreementScreen: View {
                     Text(verbatim: exc).font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(5)
                 }
             }
+            // FL-L13: who owns the work, where the passing of the rights stands, the portfolio leave.
+            if let r = a.rights { AgreementRightsCard(r: r, projectUuid: projectUuid) { updated in agreement = updated } }
         case 1:
             if milestones.isEmpty { Text(L("ag_no_parts")).font(.dorr(13)).foregroundStyle(wa.settingsMut) }
             // FL-402: the parts it is paid in.
@@ -223,12 +225,22 @@ struct AgreementScreen: View {
     }
 
     // FL-601: a delivery carries files; it goes as one multipart request.
-    private func deliver(_ uuid: String, _ text: String, _ files: [AgreementPickedFile]) {
+    private func deliver(_ uuid: String, _ text: String, _ files: [AgreementPickedFile], _ materials: [MaterialRow]?) {
         busy = true
         error = nil
         Task {
             let parts = files.map { FilePart(field: "files[]", filename: $0.name, mimeType: $0.type, data: $0.bytes) }
-            let result = await AgreementsApi.deliver(projectUuid, uuid, fields: ["note": text], files: parts)
+            var fields = ["note": text]
+            // FL-L13: my word that the work is mine to hand over, and the outside material I listed.
+            if let materials {
+                fields["rights_confirmed"] = "1"
+                for (i, m) in materials.enumerated() {
+                    fields["materials[\(i)][name]"] = m.name.agreementTrimmed
+                    if !m.source.agreementTrimmed.isEmpty { fields["materials[\(i)][source]"] = m.source.agreementTrimmed }
+                    if !m.license.agreementTrimmed.isEmpty { fields["materials[\(i)][license]"] = m.license.agreementTrimmed }
+                }
+            }
+            let result = await AgreementsApi.deliver(projectUuid, uuid, fields: fields, files: parts)
             if let data = result.value { agreement = data; deliverFor = nil } else { error = result.errorText(offline) ?? generic }
             busy = false
         }

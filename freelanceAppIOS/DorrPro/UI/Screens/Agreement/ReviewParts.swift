@@ -139,16 +139,25 @@ private struct ObjectionDialog: View {
     @State private var note = ""
 
     var body: some View {
-        AgreementAlertCard(
-            title: L("ob_title"), confirmLabel: L("ob_send"), confirmColor: Color(hex: 0xDC2626),
-            confirmEnabled: code != nil && note.agreementTrimmed.count >= 5 && !busy,
-            onConfirm: { onSend(ObjectionRequest(reason: code ?? "", note: note.agreementTrimmed)) },
-            dismissLabel: L("common_cancel"), onDismiss: onDismiss
-        ) {
-            Text(L("ob_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            ForEach(reasons, id: \.self) { r in AgreementPill(text: L(objectionReasonLabel(r)), on: code == r) { code = r } }
-            DorrTextField(value: agreementLimit($note, 500), placeholder: L("ob_note"), singleLine: false, minLines: 2)
-        }
+        AlertDialog(
+            onDismissRequest: { if !busy { onDismiss() } },
+            title: { Text(L("ob_title")) },
+            text: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("ob_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    ForEach(reasons, id: \.self) { r in AgreementPill(text: L(objectionReasonLabel(r)), on: code == r) { code = r } }
+                    DorrTextField(value: agreementLimit($note, 500), placeholder: L("ob_note"), singleLine: false, minLines: 2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            },
+            confirmButton: {
+                DialogButton(onClick: { onSend(ObjectionRequest(reason: code ?? "", note: note.agreementTrimmed)) },
+                             enabled: code != nil && note.agreementTrimmed.count >= 5 && !busy) {
+                    Text(L("ob_send")).foregroundStyle(Color(hex: 0xDC2626))
+                }
+            },
+            dismissButton: { DialogButton(onClick: onDismiss) { Text(L("common_cancel")) } }
+        )
     }
 }
 

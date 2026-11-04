@@ -53,16 +53,17 @@ class ClientServiceController extends Controller
         app(FreelanceProfileViews::class)->record((int) $service->freelancer_id, FreelanceProfileViews::SERVICE, 'market', $me->getKey(), (int) $service->getKey());
 
         // FL-L10: whether there is room for me with this freelancer, and my place in line.
-        return ApiResponse::success($this->catalog->detail($service) + ['capacity' => app(FreelanceCapacity::class)->forClient($me, $service)], __('api.retrieved'));
+        return ApiResponse::success($this->catalog->detail($service, $me) + ['capacity' => app(FreelanceCapacity::class)->forClient($me, $service)], __('api.retrieved'));
     }
 
     /** GET services/{uuid}/quote?level=&addons[]= — the price, the fee and the total before ordering. */
     public function quote(Request $request, string $uuid): JsonResponse
     {
         $data = $request->validate(['level' => ['required', Rule::in(FreelanceService::LEVELS)], 'addons' => ['nullable', 'array', 'max:20'], 'addons.*' => ['integer']]);
-        $service = $this->catalog->find($this->me($request), $uuid);
+        $me = $this->me($request);
+        $service = $this->catalog->find($me, $uuid);
 
-        return ApiResponse::success($this->catalog->quote($service, $data['level'], $data['addons'] ?? []), __('api.retrieved'));
+        return ApiResponse::success($this->catalog->quote($service, $data['level'], $data['addons'] ?? [], $me), __('api.retrieved'));
     }
 
     /** POST services/{uuid}/order {level, addons?, note?, request_id?} */

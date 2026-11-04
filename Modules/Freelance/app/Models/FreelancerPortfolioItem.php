@@ -30,7 +30,7 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     public const VISIBILITIES = [self::PUBLIC, self::CLIENTS_ONLY, self::PRIVATE];
 
     protected $fillable = [
-        'uuid', 'freelancer_id', 'title', 'description', 'completed_on', 'freelance_specialty_id', 'visibility', 'rights_confirmed_at',
+        'uuid', 'freelancer_id', 'agreement_id', 'title', 'description', 'completed_on', 'freelance_specialty_id', 'visibility', 'rights_confirmed_at',
         'external_url', 'video_provider', 'video_id', 'sort_order', 'hidden_by_admin_at', 'hidden_reason', 'hidden_by_admin_id',
     ];
 
@@ -67,6 +67,21 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     public function isHidden(): bool
     {
         return $this->hidden_by_admin_at !== null;
+    }
+
+    /** FL-L13: the finished work this item shows (null: a work made outside Dorr). */
+    public function agreement(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceAgreement::class, 'agreement_id');
+    }
+
+    /**
+     * FL-L13: an item made from a work done on Dorr is shown only while the client allows it — a client who took their leave back takes
+     * it off everyone's view at once (the item stays with its owner).
+     */
+    public function withdrawnByClient(): bool
+    {
+        return $this->agreement_id !== null && ! (bool) $this->agreement?->portfolio_allowed;
     }
 
     public function addImage(UploadedFile $file): Media

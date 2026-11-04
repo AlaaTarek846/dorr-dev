@@ -42,7 +42,8 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.VideoChat
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -117,7 +118,7 @@ import java.util.Locale
  * FL-L07, paid consultations on the freelancer's side, listed like ready-made services: the hub (my consultations with their state, my
  * numbers, the bookings in three lists), the editor of one consultation (title, lengths with a price, weekly hours in my phone's time
  * zone, sent to the staff for review), and one booking (when, who, what about, the money, answering or cancelling). The session itself is
- * a video call (FL-L16), so there is no room. Everything is read when a page opens, when the connection returns and when a notice arrives — never on a timer; the
+ * a video call (FL-L16: ConsultationSessionCard / ConsultationSessionScreen). Everything is read when a page opens, when the connection returns and when a notice arrives — never on a timer; the
  * countdowns read the phone's clock.
  */
 
@@ -180,13 +181,14 @@ private fun untilText(iso: String?): String? {
 private val HUB_TABS = listOf("offers", "upcoming", "past", "cancelled")
 
 @Composable
-fun ConsultationsScreen(onBack: () -> Unit, onOpenEditor: (String?) -> Unit, onOpenConsultation: (String) -> Unit) {
+fun ConsultationsScreen(onBack: () -> Unit, onOpenEditor: (String?) -> Unit, onOpenConsultation: (String) -> Unit, embedded: Boolean = false, onSwitchStore: ((String) -> Unit)? = null) {
     val context = LocalContext.current
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
-    var tab by rememberSaveable { mutableStateOf("offers") }
+    // Inside «My work» it opens on the bookings (the offers I sell are kept for the store); on its own page, on the offers.
+    var tab by rememberSaveable { mutableStateOf(if (embedded) "upcoming" else "offers") }
     var info by remember { mutableStateOf<ConsultationInfoDto?>(null) }
     val offers = remember { mutableStateListOf<ConsultationOfferDto>() }
     var offersLoaded by remember { mutableStateOf(false) }
@@ -224,14 +226,17 @@ fun ConsultationsScreen(onBack: () -> Unit, onOpenEditor: (String?) -> Unit, onO
         }
     }
 
-    Page(title = stringResource(R.string.cns_title), onBack = onBack, onNearEnd = { if (tab != "offers") scope.launch { paged.loadMore() } }) {
+    Page(title = stringResource(R.string.cns_title), onBack = onBack, onNearEnd = { if (tab != "offers") scope.launch { paged.loadMore() } }, embedded = embedded) {
+        if (!embedded) onSwitchStore?.let { com.dorr.freelance.ui.kit.StoreSwitcher("consultations", it) }
         val s = info
         if (s != null) {
-            HubHero(s, offers.count { it.live }, onNew = { onOpenEditor(null) })
+            if (!embedded) HubHero(s, offers.count { it.live }, onNew = { onOpenEditor(null) })
             if (s.stats.pending > 0) Notice(Icons.Rounded.NotificationsActive, stringResource(R.string.cns_pending_banner, s.stats.pending), phaseTone("pending"))
             if (!s.featureOn) Notice(Icons.Rounded.Info, stringResource(R.string.cns_feature_off), serviceTone("pending_review"))
         }
-        Segmented(HUB_TABS.map { it to tabLabel(it) }, tab, marks = if ((info?.stats?.pending ?: 0) > 0) setOf("upcoming") else emptySet()) { tab = it }
+        val pendingNow = (info?.stats?.pending ?: 0) > 0
+        val order = if (embedded) HUB_TABS.filter { it != "offers" } + "offers" else HUB_TABS
+        com.dorr.freelance.ui.kit.FilterChips(order.map { com.dorr.freelance.ui.kit.FilterOption(it, tabLabel(it), dot = it == "upcoming" && pendingNow) }, tab, { tab = it })
         if (tab == "offers") {
             when {
                 !offersLoaded && error == null -> SkeletonList()
@@ -261,22 +266,21 @@ fun ConsultationsScreen(onBack: () -> Unit, onOpenEditor: (String?) -> Unit, onO
     }
 
     deleting?.let { o ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.cns_delete_title), fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.cns_delete_body, o.title.orEmpty()), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    busyUuid = o.uuid
-                    scope.launch {
-                        val r = apiCall { ApiClient.consultations.delete(o.uuid) }
-                        busyUuid = null
-                        if (r is ApiResult.Ok) { loadOffers(); loadInfo() } else error = r.errorText(offlineText) ?: genericError
-                    }
-                }) { Text(stringResource(R.string.common_delete), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) }
+        com.dorr.freelance.ui.kit.ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.cns_delete_title),
+            message = stringResource(R.string.cns_delete_body, o.title.orEmpty()),
+            confirmLabel = stringResource(R.string.common_delete),
+            onConfirm = {
+                deleting = null
+                busyUuid = o.uuid
+                scope.launch {
+                    val r = apiCall { ApiClient.consultations.delete(o.uuid) }
+                    busyUuid = null
+                    if (r is ApiResult.Ok) { loadOffers(); loadInfo() } else error = r.errorText(offlineText) ?: genericError
+                }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            onDismiss = { deleting = null },
         )
     }
 }
@@ -292,50 +296,24 @@ private fun tabLabel(tab: String): String = when (tab) {
 /** The top of the hub: how many I have open, my numbers, and a new consultation. */
 @Composable
 private fun HubHero(s: ConsultationInfoDto, openNow: Int, onNew: () -> Unit) {
-    val accent = settingsAccent()
-    Column(
-        Modifier.fillMaxWidth().widthIn(max = 520.dp).clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.78f))))
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.VideoChat, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+    com.dorr.freelance.ui.kit.StoreHero(
+        Icons.Rounded.VideoChat, stringResource(R.string.cns_hero_title), null,
+        listOf(
+            com.dorr.freelance.ui.kit.HeroNumber(s.stats.upcoming.toString(), stringResource(R.string.cns_stat_upcoming)),
+            com.dorr.freelance.ui.kit.HeroNumber(s.stats.completed.toString(), stringResource(R.string.cns_stat_done)),
+            com.dorr.freelance.ui.kit.HeroNumber(svcMoney(s.stats.earnedMinor, s.decimals, null), stringResource(R.string.cns_stat_earned, s.currency.orEmpty()), 1.3f),
+        ),
+        status = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (openNow > 0) Color(0xFF86EFAC) else Color.White.copy(alpha = 0.5f)))
+                Text(
+                    if (openNow > 0) stringResource(R.string.cns_open_n, openNow) else stringResource(R.string.cns_open_none),
+                    color = Color.White.copy(alpha = 0.92f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                )
             }
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.cns_hero_title), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (openNow > 0) Color(0xFF86EFAC) else Color.White.copy(alpha = 0.5f)))
-                    Text(
-                        if (openNow > 0) stringResource(R.string.cns_open_n, openNow) else stringResource(R.string.cns_open_none),
-                        color = Color.White.copy(alpha = 0.92f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeroStat(s.stats.upcoming.toString(), stringResource(R.string.cns_stat_upcoming), Modifier.weight(1f))
-            HeroStat(s.stats.completed.toString(), stringResource(R.string.cns_stat_done), Modifier.weight(1f))
-            HeroStat(svcMoney(s.stats.earnedMinor, s.decimals, null), stringResource(R.string.cns_stat_earned, s.currency.orEmpty()), Modifier.weight(1.3f))
-        }
-        Row(
-            Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).clickable(onClick = onNew),
-            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Add, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.cns_new_offer), color = accent, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-@Composable
-private fun HeroStat(value: String, label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.14f)).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-        Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+        },
+        action = stringResource(R.string.cns_new_offer), actionIcon = Icons.Rounded.Add, onAction = onNew,
+    )
 }
 
 /** No consultation listed yet: how it works in three lines. */
@@ -640,13 +618,13 @@ fun ConsultationEditorScreen(uuid: String?, onBack: () -> Unit) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     val v = String.format(Locale.US, "%02d:%02d", state.hour, state.minute)
                     if (isFrom) range.from = v else range.to = v
                     picking = null
-                }) { Text(stringResource(R.string.common_ok), color = settingsAccent(), fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.common_ok), fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { picking = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }
@@ -733,7 +711,7 @@ private fun TimeChip(value: String, modifier: Modifier, bad: Boolean = false, on
 // ================================================================== one booking
 
 @Composable
-fun ConsultationScreen(uuid: String, onBack: () -> Unit) {
+fun ConsultationScreen(uuid: String, onBack: () -> Unit, onOpenSession: (String) -> Unit = {}) {
     val context = LocalContext.current
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
@@ -774,8 +752,12 @@ fun ConsultationScreen(uuid: String, onBack: () -> Unit) {
                 MoneyLine(stringResource(R.string.svo_net), svcMoney(x.money.netMinor, x.decimals, x.currency), strong = true)
             }
             StateNotes(x)
+            // FL-L16: the video session — the countdown, "join", who is in, and the recordings afterwards.
+            ConsultationSessionCard(x) { onOpenSession(x.uuid) }
             ClientRating(x)
             if (x.can.accept) {
+                // Accepting a request is agreeing to the recording (FL-L16).
+                SessionConsentLine()
                 SettingsPrimaryButton(
                     text = stringResource(R.string.cns_accept), modifier = Modifier.widthIn(max = 520.dp), enabled = !busy,
                     onClick = {
@@ -814,7 +796,7 @@ fun ConsultationScreen(uuid: String, onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                DialogButton(enabled = !busy, onClick = {
                     busy = true
                     scope.launch {
                         val body = ConsultationCancelRequest(reason.trim().ifEmpty { null })
@@ -830,7 +812,7 @@ fun ConsultationScreen(uuid: String, onBack: () -> Unit) {
                     }
                 }) { Text(stringResource(if (declining) R.string.cns_decline_confirm else R.string.cns_cancel_confirm), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(enabled = !busy, onClick = { cancelling = false; declining = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(enabled = !busy, onClick = { cancelling = false; declining = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

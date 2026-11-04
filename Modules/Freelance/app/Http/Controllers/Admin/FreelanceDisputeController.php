@@ -76,7 +76,9 @@ class FreelanceDisputeController extends Controller implements HasMiddleware
             'project' => ['uuid' => $d->project->uuid, 'title' => $d->project->title, 'status' => $d->project->status->value],
             'client' => ['id' => $a->client?->id, 'name' => $a->client?->name, 'is_verified' => \App\Support\AccountBadge::verified($a->client)],
             'freelancer' => ['id' => $a->freelancer?->id, 'name' => $a->freelancer?->name],
-            'agreement' => ['uuid' => $a->uuid, 'scope' => $a->scope, 'includes' => $a->includes, 'excludes' => $a->excludes, 'price_minor' => $a->price_minor, 'duration_days' => $a->duration_days],
+            'agreement' => ['uuid' => $a->uuid, 'scope' => $a->scope, 'includes' => $a->includes, 'excludes' => $a->excludes, 'price_minor' => $a->price_minor, 'duration_days' => $a->duration_days,
+                // FL-L13: the ownership terms both sides agreed to, as they were (null: the agreement has none).
+                'rights' => app(\Modules\Freelance\Services\Rights\Rights::class)->present($a, 'admin')],
             'part' => [
                 'delivery_note' => $m->delivery_note, 'revision_reason' => $m->revision_reason, 'revisions_used' => $m->revisions_used,
                 'net_minor' => $m->net_minor, 'commission_minor' => $m->commission_minor, 'held_minor' => app(\Modules\Freelance\Services\Projects\MilestonePayments::class)->held($m),

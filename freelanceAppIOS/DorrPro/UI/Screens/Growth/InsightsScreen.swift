@@ -109,12 +109,12 @@ private struct InsightsBody: View {
         Hero(data: data, dto: dto, period: period)
 
         HStack(spacing: 10) {
-            StatTile(icon: "paperplane.fill", value: String(offers.sent ?? 0), label: L("insights_stat_sent"))
-            StatTile(icon: "chart.line.uptrend.xyaxis", value: percent(offers.acceptRate), label: L("insights_stat_accept"))
+            InsightStatTile(icon: "paperplane.fill", value: String(offers.sent ?? 0), label: L("insights_stat_sent"))
+            InsightStatTile(icon: "chart.line.uptrend.xyaxis", value: percent(offers.acceptRate), label: L("insights_stat_accept"))
         }
         HStack(spacing: 10) {
-            StatTile(icon: "storefront.fill", value: String(services.received ?? 0), label: L("insights_services_received"))
-            StatTile(
+            InsightStatTile(icon: "storefront.fill", value: String(services.received ?? 0), label: L("insights_services_received"))
+            InsightStatTile(
                 icon: "star.fill",
                 value: reputation.rating.map { String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? L("insights_rating_new"),
                 label: L("insights_stat_rating")
@@ -174,7 +174,8 @@ private struct Hero: View {
     }
 }
 
-private struct StatTile: View {
+/// InsightsScreen.kt's private `StatTile` (renamed: the new kit has its own `StatTile`).
+private struct InsightStatTile: View {
     @Environment(\.wa) private var wa
     let icon: String
     let value: String

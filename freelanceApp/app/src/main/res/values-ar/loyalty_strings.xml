@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09 (part B): برنامج الولاء (جهة المحترف). -->
+<resources>
+    <string name="loy_home_card">برنامج الولاء</string>
+    <string name="loy_title">برنامج الولاء</string>
+    <string name="loy_hero_title">كافئ عملاءك الراجعين</string>
+    <string name="loy_hero_body">حدد خصم بيكبر مع كل شغلانة بتخلصوها سوا. بيتطبق لوحده على عروضك وخدماتك واستشاراتك.</string>
+    <string name="loy_stat_clients">عملاء سابقين</string>
+    <string name="loy_stat_in_program">على شريحة</string>
+    <string name="loy_stat_uses">خصومات اتاخدت</string>
+    <string name="loy_saved_line">إجمالي اللي وفّرته لعملائك: %1$s</string>
+    <string name="loy_switch_title">تشغيل البرنامج</string>
+    <string name="loy_switch_on">العملاء الراجعين بياخدوا خصمهم لوحده.</string>
+    <string name="loy_switch_off">البرنامج واقف: مفيش خصم بيتطبق دلوقتي.</string>
+    <string name="loy_switch_save_first">احفظ الشرائح الأول وبعدين شغّله.</string>
+    <string name="loy_steps_title">شرائح الخصم</string>
+    <string name="loy_steps_sub">كل ما العميل يرجعلك أكتر، خصمه بيكبر.</string>
+    <string name="loy_presets">ابدأ من نموذج جاهز</string>
+    <string name="loy_step_n">الشريحة %1$d</string>
+    <string name="loy_after">بعد (شغلانة)</string>
+    <string name="loy_discount">الخصم (%)</string>
+    <string name="loy_remove">احذف الشريحة</string>
+    <string name="loy_add">أضف شريحة</string>
+    <string name="loy_limit">أقصى حد: %1$d شرائح، وخصم لحد %2$s%%.</string>
+    <string name="loy_problem_order">كل شريحة لازم تيجي بعد اللي قبلها وتدي خصم أكبر.</string>
+    <string name="loy_preview_title">العميل هيشوفها كده</string>
+    <string name="loy_preview_head">كل ما ترجع تشتغل معايا، خصمك بيكبر.</string>
+    <string name="loy_tier_after">بعد %1$d شغلانة</string>
+    <string name="loy_example">مثال: شغلانة بـ %1$s العميل بيدفع فيها %2$s من أول شريحة.</string>
+    <string name="loy_save">احفظ البرنامج</string>
+    <string name="loy_saved">برنامج الولاء اتحفظ</string>
+    <string name="loy_clients_title">عملاؤك على الشرائح</string>
+    <string name="loy_clients_empty">لسه مفيش عميل خلّص معاك شغل. أول ما يحصل هيظهر هنا.</string>
+    <string name="loy_client_works">%1$d شغلانة معاك</string>
+    <string name="loy_client_next">باقي %1$d لخصم %2$s%%</string>
+    <string name="loy_client_none">لسه من غير خصم</string>
+    <string name="loy_tier_clients">%1$d عميل</string>
+    <string name="loy_how_title">إزاي بيشتغل؟</string>
+    <string name="loy_how_1">العميل بياخد الخصم لوحده لما يرجعلك — مش لازم يطلب.</string>
+    <string name="loy_how_2">الخصم على حسابك: بيتخصم من السعر اللي بتحطه، والعمولة بتتحسب على السعر بعد الخصم.</string>
+    <string name="loy_how_3">بيشمل عروض المشاريع والخدمات الجاهزة والاستشارات.</string>
+    <string name="loy_how_4">سعر العرض الخاص نهائي فمفيش خصم فوقه، والخدمات الشهرية برّه البرنامج.</string>
+    <string name="loy_closed_title">برنامج الولاء مش متاح</string>
+    <string name="loy_closed_body">الميزة دي مش مفتوحة في بلدك دلوقتي.</string>
+    <string name="loy_offer_note">عميل راجع (%1$d شغلانة معاك): هياخد خصم ولاء %2$s%% من السعر اللي هتكتبه.</string>
+    <string name="loy_offer_line">خصم الولاء %1$s%%</string>
+</resources>

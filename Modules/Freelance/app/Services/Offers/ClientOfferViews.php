@@ -185,6 +185,8 @@ class ClientOfferViews
             'is_favorite' => app(ClientFavorites::class)->has($project->client, $f->id),
             // FL-L07: the paid consultations listed and open now (empty: none).
             'consultations' => app(\Modules\Freelance\Services\Consultations\ConsultationOffers::class)->teaser($f),
+            // FL-L09 (part B): their loyalty program as it stands for this client (null: none).
+            'loyalty' => app(Loyalty::class)->view($f, $project->client),
         ] + $this->summary($f, $project);
     }
 
