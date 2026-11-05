@@ -487,29 +487,38 @@ struct MomentCardBubble<Footer: View>: View {
                     }
                     VStack(spacing: 0) {
                         if let b = dto.body, !b.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Text(verbatim: b).font(.dorr(14.5)).foregroundStyle(Color(hex: 0x111928)).frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12).background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16)).padding(.top, 10)
+                            Text(verbatim: b).font(.dorr(13.5)).foregroundStyle(.white).multilineTextAlignment(.center)
+                                .shadow(color: .black.opacity(0.7), radius: 5, y: 1)
+                                .frame(maxWidth: .infinity).padding(.horizontal, 12).padding(.vertical, 10)
+                                .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .padding(.top, 8)
                         }
                         let contributions = card?.at("contributions")?.arr ?? []
                         let used = Set(contributions.flatMap { c in (c.at("files")?.arr ?? []).compactMap { $0.at("attachment")?.dbl.map(Int.init) } })
                         ForEach(Array(contributions.enumerated()), id: \.offset) { _, c in
                             let files = (c.at("files")?.arr ?? []).compactMap { $0.at("attachment")?.dbl.map(Int.init) }
-                            VStack(alignment: .leading, spacing: 2) {
-                                if let n = c.str("name") { Text(verbatim: n).font(.dorr(12.5, .heavy)).foregroundStyle(momentColor(look.primaryColor, Ch.shared.red)) }
-                                if let t = c.str("text") { Text(verbatim: t).font(.dorr(14)).foregroundStyle(Color(hex: 0x111928)) }
+                            VStack(spacing: 2) {
+                                if let n = c.str("name") { Text(verbatim: n).font(.dorr(12.5, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center).shadow(color: .black.opacity(0.7), radius: 5, y: 1) }
+                                if let t = c.str("text") { Text(verbatim: t).font(.dorr(13.5)).foregroundStyle(.white).multilineTextAlignment(.center).shadow(color: .black.opacity(0.7), radius: 5, y: 1) }
                                 attachments(files)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10).background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16)).padding(.top, 8)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.top, 8)
                         }
                         attachments(Array((dto.attachments ?? []).indices).filter { !used.contains($0) })
                         if let g = card?.at("gift") {
-                            HStack(spacing: 6) {
-                                Text(verbatim: "🎁").font(.system(size: 16))
-                                Text(verbatim: formatMinor(Int(g.at("amount_minor")?.dbl ?? 0), g.str("currency_code"))).font(.dorr(14, .heavy)).foregroundStyle(Color(hex: 0x047857))
-                                    .environment(\.layoutDirection, .leftToRight)
+                            ZStack {
+                                Text(verbatim: formatMinor(Int(g.at("amount_minor")?.dbl ?? 0), g.str("currency_code")))
+                                    .font(.dorr(16, .heavy)).foregroundStyle(.white)
+                                    .shadow(color: .black.opacity(0.7), radius: 5, y: 1)
+                                HStack { Spacer(); Text(verbatim: "🎁").font(.system(size: 18)) }
                             }
-                            .padding(.horizontal, 14).padding(.vertical, 7).background(Color.white, in: Capsule()).padding(.top, 10)
+                            .environment(\.layoutDirection, .leftToRight)
+                            .frame(maxWidth: .infinity).padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .padding(.top, 8)
                         }
                     }
                     .scaleEffect(pop)
@@ -518,7 +527,7 @@ struct MomentCardBubble<Footer: View>: View {
             }
             footer().frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 6)
         }
-        .frame(width: 270)
+        .frame(width: 236)
     }
 
     /// The card's photos (a strip) and voices (play buttons), by their index in the message.
@@ -530,15 +539,32 @@ struct MomentCardBubble<Footer: View>: View {
         let voices = files.filter { $0.1.mimeType?.hasPrefix("image/") != true }
         ForEach(voices, id: \.0) { i, a in
             let key = "\(dto.id)#\(i)"
+            let progress = voicePlayer.playingId == key ? voicePlayer.progress : 0
+            let bars = (0..<26).map { 22 + (($0 * 37) % 68) }
             Button { if let u = ApiClient.mediaUrl(a.url) { voicePlayer.toggle(key, u) } } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: voicePlayer.isPlaying(key) ? "pause.fill" : "play.fill").font(.system(size: 15))
-                    Text(verbatim: L("mo_card_voice_play") + (a.durationMs.map { "  " + durationText($0) } ?? "")).font(.dorr(12.5, .bold))
+                HStack(spacing: 8) {
+                    Image(systemName: voicePlayer.isPlaying(key) ? "pause.fill" : "play.fill").font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white).frame(width: 34, height: 34).background(Color.white.opacity(0.22), in: Circle())
+                    HStack(alignment: .center, spacing: 2) {
+                        ForEach(Array(bars.enumerated()), id: \.offset) { i, v in
+                            Capsule().fill(Double(i) / Double(bars.count) < progress ? Color.white : Color.white.opacity(0.45))
+                                .frame(width: 2.5, height: 6 + CGFloat(v) / 100 * 18)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: 26)
+                    if let ms = a.durationMs {
+                        let s = Int(ms / 1000)
+                        Text(verbatim: String(format: "%02d:%02d", s / 60, s % 60)).font(.dorr(12, .bold)).foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.7), radius: 4, y: 1)
+                    }
+                    Image(systemName: "mic.fill").font(.system(size: 13)).foregroundStyle(.white)
                 }
-                .foregroundStyle(Color(hex: 0x111928)).padding(.horizontal, 12).padding(.vertical, 6).background(Color.white, in: Capsule())
+                .environment(\.layoutDirection, .leftToRight)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .buttonStyle(.plain)
-            .padding(.top, 6)
+            .padding(.top, 8)
         }
         if !photos.isEmpty {
             HStack(spacing: 4) {
@@ -551,12 +577,12 @@ struct MomentCardBubble<Footer: View>: View {
                                 Text(verbatim: "+\(photos.count - 3)").font(.dorr(18, .heavy)).foregroundStyle(.white)
                             }
                         }
-                        .frame(maxWidth: .infinity).frame(height: 80).clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(maxWidth: .infinity).frame(height: 64).clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, 8)
         }
     }
 }

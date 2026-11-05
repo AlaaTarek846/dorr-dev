@@ -204,8 +204,8 @@ class ConsultationListings
             'max_options' => ConsultationOffers::MAX_OPTIONS,
             'max_active' => $this->maxActive((int) $f->country_id),
             'review' => (bool) ($policy->get('consultations.require_review') ?? true),
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'price' => ['min_minor' => 100, 'max_minor' => $policy->get('project.max_budget_minor') === null ? null : (int) $policy->get('project.max_budget_minor')],
             'suggested_weekly' => array_values((array) ($f->availability?->weekly_hours ?? [])),
             'rules' => $this->offers->rules((int) $f->country_id),
@@ -238,8 +238,8 @@ class ConsultationListings
             'options' => array_map(fn ($x) => $x + ($f === null ? [] : $this->offers->earn($f, $x['price_minor'])), $o->lengths()),
             'weekly' => (array) $o->weekly,
             'timezone' => $o->timezone ?: 'UTC',
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'live' => $this->offers->open($o),
             'submitted_at' => $o->submitted_at?->toIso8601String(),
             'reviewed_at' => $o->reviewed_at?->toIso8601String(),
@@ -394,7 +394,7 @@ class ConsultationListings
         $max = $this->policies->for((int) $f->country_id, null)->get('project.max_budget_minor');
         foreach ($options as $x) {
             if ($max !== null && $x['price_minor'] > (int) $max) {
-                $currency = Country::query()->with('currency')->find((int) $f->country_id)?->currency?->code ?? '';
+                $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code();
                 throw new FreelanceException('service_above_max', 422, ['max' => number_format((int) $max / 100, 2).' '.$currency], ['max_minor' => (int) $max]);
             }
         }

@@ -130,12 +130,12 @@ fun MainScreen(
     // Furniture moving: «طلباتي», a new request and its follow-up, on their own pages.
     var movingOpen by rememberSaveable { mutableStateOf(false) }
     // Freelance work (FL-201): my projects and the project form, over everything.
-    var freelanceOpen by rememberSaveable { mutableStateOf(false) }
+    var freelanceOpen by com.dorr.app.ui.screens.freelance.FreelanceLink::open
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
         when (service.moduleName) {
             "passenger_ride" -> ridesOpen = true
             "moving" -> movingOpen = true
-            "freelance" -> freelanceOpen = true
+            "freelance" -> { com.dorr.app.ui.screens.freelance.FreelanceLink.stack = "home"; freelanceOpen = true }
             else -> serviceDetail = service to color
         }
     }

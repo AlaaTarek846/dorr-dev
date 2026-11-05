@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -106,6 +107,57 @@ object MapEngine {
 
     fun styleUri(night: Boolean): String =
         if (night && style == "mapbox/streets-v12") "mapbox://styles/mapbox/dark-v11" else "mapbox://styles/$style"
+
+    /** A still picture of the map around [at] (Mapbox Static Images, the admin's style) — for a chat bubble. */
+    fun staticUrl(at: LatLng, zoom: Float, widthDp: Int, heightDp: Int, night: Boolean): String? {
+        val t = token?.takeIf { it.isNotBlank() } ?: return null
+        val s = if (night && style == "mapbox/streets-v12") "mapbox/dark-v11" else style
+        return "https://api.mapbox.com/styles/v1/$s/static/%.6f,%.6f,%.1f,0/${widthDp}x$heightDp@2x?access_token=$t&attribution=false&logo=false"
+            .format(java.util.Locale.US, at.longitude, at.latitude, zoom)
+    }
+
+    /** The Google Maps key in the app (empty in a build without one — the Google map then stays blank). */
+    fun googleKey(context: Context): String = runCatching {
+        context.packageManager.getApplicationInfo(context.packageName, android.content.pm.PackageManager.GET_META_DATA)
+            .metaData?.getString("com.google.android.geo.API_KEY").orEmpty()
+    }.getOrDefault("")
+
+    /** A real map can be drawn here (Mapbox with its token, or Google with a key). */
+    fun canDraw(context: Context): Boolean = mapbox || googleKey(context).isNotBlank()
+}
+
+/** Google's map in the dark theme (the chat's location page and bubbles). */
+const val GoogleDarkStyle = """[{"elementType":"geometry","stylers":[{"color":"#1d2533"}]},{"elementType":"labels.text.fill","stylers":[{"color":"#9aa4b2"}]},{"elementType":"labels.text.stroke","stylers":[{"color":"#151b26"}]},{"featureType":"road","elementType":"geometry","stylers":[{"color":"#2c3646"}]},{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3a4558"}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#0e1626"}]},{"featureType":"poi","elementType":"geometry","stylers":[{"color":"#222b3a"}]},{"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#1f3329"}]},{"featureType":"transit","elementType":"geometry","stylers":[{"color":"#252f3f"}]}]"""
+
+/**
+ * A still map of one place, for a chat bubble: no gestures and no markers (the bubble draws its own pin over the
+ * centre). Google: the SDK's lite mode (a picture of the map, made for lists). Mapbox: a Static Images picture of
+ * the admin's style. Touches go to the bubble, never to the map. Check [MapEngine.canDraw] first.
+ */
+@Composable
+fun DorrMapPreview(at: LatLng, modifier: Modifier = Modifier, zoom: Float = 15f, night: Boolean = false) {
+    androidx.compose.foundation.layout.Box(modifier) {
+        if (MapEngine.mapbox) {
+            val url = remember(at, zoom, night) { MapEngine.staticUrl(at, zoom, 300, 170, night) }
+            coil.compose.AsyncImage(url, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.matchParentSize())
+        } else {
+            val cps = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(at, zoom) }
+            LaunchedEffect(at, zoom) { runCatching { cps.move(CameraUpdateFactory.newLatLngZoom(at, zoom)) } }
+            GoogleMap(
+                modifier = Modifier.matchParentSize(),
+                cameraPositionState = cps,
+                googleMapOptionsFactory = { com.google.android.gms.maps.GoogleMapOptions().liteMode(true).mapToolbarEnabled(false) },
+                properties = MapProperties(mapStyleOptions = if (night) remember { MapStyleOptions(GoogleDarkStyle) } else null),
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false, scrollGesturesEnabled = false, zoomGesturesEnabled = false, rotationGesturesEnabled = false, tiltGesturesEnabled = false),
+                // Lite mode opens Google Maps on a tap unless the tap is handled — the bubble handles it.
+                onMapClick = {},
+            )
+            // Over the map: it takes every touch, so a tap / long press reaches the bubble (as on any message).
+            androidx.compose.foundation.layout.Box(
+                Modifier.matchParentSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
+            )
+        }
+    }
 }
 
 /** What screens ask of a map's camera — the same with either engine. */
@@ -164,7 +216,8 @@ enum class PinKind { Pickup, Dropoff, Stop, Car }
  * A pin on the map. `id`: the same pin across updates (a car that moves) — it slides to its new place
  * instead of being drawn again.
  */
-data class MapPin(val at: LatLng, val kind: PinKind, val rotation: Float = 0f, val id: String? = null)
+/** [image]: a picture drawn instead of [kind]'s icon, centred on the place (a person's photo pin — the chat's live location). */
+data class MapPin(val at: LatLng, val kind: PinKind, val rotation: Float = 0f, val id: String? = null, val image: Bitmap? = null)
 
 data class MapLine(val points: List<LatLng>, val color: Color, val widthPx: Float)
 
@@ -190,10 +243,12 @@ fun DorrMap(
     padding: PaddingValues = PaddingValues(),
     night: Boolean = false,
     googleNightStyle: Int? = null,
+    /** Google's night look as JSON (when there's no raw style resource) — e.g. [GoogleDarkStyle]. */
+    googleNightJson: String? = null,
     onLoaded: () -> Unit = {},
 ) {
     if (MapEngine.mapbox) MapboxEngineMap(camera, modifier, pins, lines, zones, showMe, meAsCar, padding, night, onLoaded)
-    else GoogleEngineMap(camera, modifier, pins, lines, zones, showMe, meAsCar, padding, night, googleNightStyle, onLoaded)
+    else GoogleEngineMap(camera, modifier, pins, lines, zones, showMe, meAsCar, padding, night, googleNightStyle, onLoaded, googleNightJson)
 }
 
 // ---------------------------------------------------------------- Google
@@ -201,7 +256,7 @@ fun DorrMap(
 @Composable
 private fun GoogleEngineMap(
     camera: DorrCamera, modifier: Modifier, pins: List<MapPin>, lines: List<MapLine>, zones: List<MapZone>, showMe: Boolean, meAsCar: Boolean,
-    padding: PaddingValues, night: Boolean, nightStyle: Int?, onLoaded: () -> Unit,
+    padding: PaddingValues, night: Boolean, nightStyle: Int?, onLoaded: () -> Unit, nightJson: String? = null,
 ) {
     val context = LocalContext.current
     val cps = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(camera.target, camera.zoom) }
@@ -232,7 +287,11 @@ private fun GoogleEngineMap(
         cameraPositionState = cps,
         properties = MapProperties(
             isMyLocationEnabled = showMe && !meAsCar,
-            mapStyleOptions = if (night && nightStyle != null) remember(nightStyle) { MapStyleOptions.loadRawResourceStyle(context, nightStyle) } else null,
+            mapStyleOptions = when {
+                night && nightStyle != null -> remember(nightStyle) { MapStyleOptions.loadRawResourceStyle(context, nightStyle) }
+                night && nightJson != null -> remember(nightJson) { MapStyleOptions(nightJson) }
+                else -> null
+            },
         ),
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
         contentPadding = padding,
@@ -244,13 +303,13 @@ private fun GoogleEngineMap(
         lines.forEach { Polyline(points = it.points, color = it.color, width = it.widthPx) }
         pins.forEachIndexed { i, pin ->
             androidx.compose.runtime.key(pin.id ?: "$i:${pin.kind}") {
-                val icon = remember(pin.kind) { BitmapDescriptorFactory.fromBitmap(MapIcons.of(context, pin.kind)) }
+                val icon = remember(pin.kind, pin.image) { BitmapDescriptorFactory.fromBitmap(pin.image ?: MapIcons.of(context, pin.kind)) }
                 val state = remember { MarkerState(pin.at) }
                 // A moving car slides: the same marker, its position updated.
                 androidx.compose.runtime.SideEffect { if (state.position != pin.at) state.position = pin.at }
                 Marker(
                     state = state, icon = icon, rotation = pin.rotation, flat = pin.kind == PinKind.Car,
-                    anchor = if (pin.kind == PinKind.Car) androidx.compose.ui.geometry.Offset(0.5f, 0.5f) else androidx.compose.ui.geometry.Offset(0.5f, 1f),
+                    anchor = if (pin.kind == PinKind.Car || pin.image != null) androidx.compose.ui.geometry.Offset(0.5f, 0.5f) else androidx.compose.ui.geometry.Offset(0.5f, 1f),
                 )
             }
         }
@@ -396,16 +455,16 @@ private fun MapboxEngineMap(
         loose.clear()
         val keep = HashSet<String>()
         pins.forEach { pin ->
-            val anchor = if (pin.kind == PinKind.Car) com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.CENTER else com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.BOTTOM
+            val anchor = if (pin.kind == PinKind.Car || pin.image != null) com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.CENTER else com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.BOTTOM
             val id = pin.id
             if (id == null) {
-                loose += pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
+                loose += pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(pin.image ?: MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
                 return@forEach
             }
             keep += id
             val existing = byId[id]
             if (existing == null) {
-                byId[id] = pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
+                byId[id] = pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(pin.image ?: MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
             } else {
                 existing.point = pin.at.point()
                 existing.iconRotate = pin.rotation.toDouble()

@@ -37,8 +37,12 @@ struct ConversationPage: View {
     @State private var highlight: String?
     @State private var infoFor: MessageDto?
     @State private var votesFor: MessageDto?
+    /// «View live location»: the live location message whose map is open.
+    @State private var liveFor: String?
     @State private var viewOnceFiles: [AttachmentDto]?
     @State private var atBottom = true
+    /// The message box's height: it floats over the list, which leaves that much room at its end.
+    @State private var bottomHeight: CGFloat = 0
     @State private var lockPassed = false
 
     @State private var searching = false
@@ -109,6 +113,8 @@ struct ConversationPage: View {
                     }
                 }
                 .animation(.easeInOut(duration: 0.22), value: searching)
+                // Above what follows: the pinned bar tucks up under its rounded bottom.
+                .zIndex(1)
                 if searching {
                     SearchKindChips(selected: kinds) { k in if kinds.contains(k) { kinds.remove(k) } else { kinds.insert(k) } }
                     // Search by what the words mean (DORR AI), not only the words themselves.
@@ -143,8 +149,17 @@ struct ConversationPage: View {
                 if c?.isGroup == true && ChatFeatures.shared.allows("voice_rooms") { VoiceRoomBar(host: host, conversationId: state.id, title: c?.title) }
                 // Someone I haven't saved: «Add» (then they see my stories too).
                 if let c { NotInContactsBanner(host: host, conversation: c) { fresh in state.conversation = fresh; host.upsert(fresh) }.id(c.id) }
+                // The message box floats over the end of the list (as in WhatsApp): the messages and the wallpaper show
+                // beside it and scroll under it; the list keeps its height free at the end.
                 ZStack(alignment: .bottomTrailing) {
                     messagesArea
+                    BottomArea(host: host, state: state)
+                        .frame(maxWidth: .infinity)
+                        .background(GeometryReader { g in
+                            Color.clear
+                                .onAppear { bottomHeight = g.size.height }
+                                .onChange(of: g.size.height) { bottomHeight = $0 }
+                        })
                     if searching, let results = searchResults {
                         SearchResults(query: searchQuery, results: results) { id in
                             closeSearch()
@@ -156,7 +171,6 @@ struct ConversationPage: View {
                 }
                 .frame(maxHeight: .infinity)
                 .animation(.spring(response: 0.35, dampingFraction: 0.6), value: atBottom)
-                BottomArea(host: host, state: state)
             }
             .blur(radius: state.focused != nil ? 14 : 0)
             .animation(.easeOut(duration: 0.26), value: state.focused != nil)
@@ -177,6 +191,9 @@ struct ConversationPage: View {
         .background(ch.bg.ignoresSafeArea())
         .dorrDialog(isPresented: Binding(get: { infoFor != nil }, set: { if !$0 { infoFor = nil } }), bottom: true) {
             if let m = infoFor { MessageInfoSheet(message: m) { infoFor = nil } }
+        }
+        .fullScreenCover(isPresented: Binding(get: { liveFor != nil }, set: { if !$0 { liveFor = nil } })) {
+            if let id = liveFor { LiveLocationPage(state: state, messageId: id) { liveFor = nil } }
         }
         .dorrDialog(isPresented: Binding(get: { votesFor != nil }, set: { if !$0 { votesFor = nil } }), bottom: true) {
             if let m = votesFor { PollVotesSheet(message: m) { votesFor = nil } }
@@ -275,7 +292,8 @@ struct ConversationPage: View {
                         // Page back in history when the top comes into view.
                         Color.clear.frame(height: 1).onAppear { Task { await state.loadOlder() } }
                     }
-                    .padding(.top, 8).padding(.bottom, 12)
+                    // Flipped: `top` is the visual bottom — room for the message box floating over it.
+                    .padding(.top, 8 + bottomHeight).padding(.bottom, 12)
                     .animation(.spring(response: 0.35, dampingFraction: 0.85), value: state.messages.map(\.id))
                 }
                 .flipped()
@@ -318,6 +336,7 @@ struct ConversationPage: View {
         }
         .buttonStyle(.plain)
         .padding(14)
+        .padding(.bottom, bottomHeight)
     }
 
     private var actions: BubbleActions {
@@ -357,6 +376,7 @@ struct ConversationPage: View {
                 }
             },
             onStopLive: { state.stopLive($0) },
+            onOpenLive: { liveFor = $0.id },
             onJoinGroup: { host.joinToken = $0 },
             onPay: { payFor = $0.dto },
             onDeclineRequest: { state.declineRequest($0) },
@@ -492,7 +512,7 @@ private struct ConversationHeader: View {
                 HStack(spacing: 8) {
                     ChAvatar(url: c?.avatar, name: c?.title, key: peerKey ?? state.id, size: 34, isGroup: c?.isGroup == true, online: presence?.online == true)
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(verbatim: c?.title ?? "").font(.dorr(16, .bold)).foregroundStyle(.white).lineLimit(1)
+                        Text(verbatim: ltrTitle(c?.title)).font(.dorr(16, .bold)).foregroundStyle(.white).lineLimit(1)
                         HStack(spacing: 5) {
                             Text(verbatim: subtitle(c, presence, activity)).font(.dorr(12.5)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
                             if activity != nil { TypingDots(color: .white, dot: 4) }
@@ -693,37 +713,129 @@ private struct SearchResults: View {
     }
 }
 
+/// One line: a short mark per pin (the shown one lit), the pin (every pinned message in a list), and the message as
+/// its kind reads (androidApp `PinnedBanner`). Tap: go to it, and the bar moves on to the next pin; swipe sideways:
+/// the next / previous pin without leaving my place.
 private struct PinnedBanner: View {
     @ObservedObject private var ch = Ch.shared
     @ObservedObject var state: ConversationState
     let onJump: (String) -> Void
     @State private var index = 0
+    @State private var step = 1
+    @State private var listOpen = false
+    /// How far the bar slides up under the header.
+    private let tuck: CGFloat = 30
+    @Environment(\.layoutDirection) private var direction
+    /// Swiped left (step +1): the next one comes in from the screen's right.
+    private var fromRight: Bool { step > 0 }
+    /// The screen's right / left as SwiftUI edges (leading is the right in Arabic).
+    private var rightEdge: Edge { direction == .rightToLeft ? .leading : .trailing }
+    private var leftEdge: Edge { direction == .rightToLeft ? .trailing : .leading }
 
     var body: some View {
         let pinned = state.pinned
         if !pinned.isEmpty {
-            let current = pinned[index % pinned.count]
-            let (_, label) = previewOf(current.type, deleted: current.isDeleted == true)
-            HStack(spacing: 10) {
-                Image(systemName: "pin.fill").font(.system(size: 15)).foregroundStyle(ch.red).rotationEffect(.degrees(35))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: L("ch_pinned_message") + (pinned.count > 1 ? " \(index % pinned.count + 1)/\(pinned.count)" : ""))
-                        .font(.dorr(12, .heavy)).foregroundStyle(ch.red)
-                    Text(verbatim: current.body.flatMap { $0.isEmpty ? nil : plainChatText($0) } ?? label).font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(1)
-                        .id(current.id).transition(.opacity)
+            let at = ((index % pinned.count) + pinned.count) % pinned.count
+            let current = pinned[at]
+            HStack(spacing: 0) {
+                if pinned.count > 1 {
+                    VStack(spacing: 2) {
+                        ForEach(pinned.indices, id: \.self) { i in
+                            RoundedRectangle(cornerRadius: 2).fill(i == at ? ch.red : ch.red.opacity(0.28))
+                        }
+                    }
+                    .frame(width: 3).padding(.vertical, 2).padding(.trailing, 8)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Button { listOpen = true } label: {
+                    Image(systemName: "pin.fill").font(.system(size: 15)).foregroundStyle(ch.red).rotationEffect(.degrees(35))
+                        .frame(width: 34, height: 34).background(ch.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("ch_pinned_list"))
+                .padding(.trailing, 10)
+                PinnedPreview(m: current)
+                    .id(current.id)
+                    // Sideways, the way the finger went: swiped left, the next one comes in from the right.
+                    .transition(.asymmetric(insertion: .move(edge: fromRight ? rightEdge : leftEdge).combined(with: .opacity),
+                                            removal: .move(edge: fromRight ? leftEdge : rightEdge).combined(with: .opacity)))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipped()
             }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(ch.surface, in: RoundedRectangle(cornerRadius: 16))
+            .fixedSize(horizontal: false, vertical: true)
+            // Full width, tucked up under the header's rounded bottom (the header draws over it): it reads as
+            // hanging from the header instead of a separate card.
+            .padding(.leading, 18).padding(.trailing, 20).padding(.top, 6 + tuck).padding(.bottom, 8)
+            .background(ch.surface, in: BottomRoundedRectangle(radius: 22))
             .shadow(color: .black.opacity(0.1), radius: 5, y: 2)
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.top, -tuck)
             .contentShape(Rectangle())
-            .onTapGesture {
-                onJump(current.id)
-                withAnimation { index += 1 } // tapping again cycles through the pins
-            }
+            // Tap: go to the pin shown. Swiping only changes which one is shown.
+            .onTapGesture { onJump(current.id) }
+            .gesture(DragGesture(minimumDistance: 20).onEnded { v in
+                guard pinned.count > 1, abs(v.translation.width) > 48, abs(v.translation.width) > abs(v.translation.height) else { return }
+                step = v.translation.width < 0 ? 1 : -1
+                withAnimation(.easeOut(duration: 0.25)) { index += step }
+            })
             .transition(.move(edge: .top).combined(with: .opacity))
+            .dorrDialog(isPresented: $listOpen, bottom: true) {
+                PinnedListSheet(state: state) { id in listOpen = false; onJump(id) }
+            }
+        }
+    }
+}
+
+/// One pinned message in a line: the chat list's icon for its kind, its words, a small picture when it has one.
+private struct PinnedPreview: View {
+    @ObservedObject private var ch = Ch.shared
+    let m: MessageDto
+
+    var body: some View {
+        let s = replySummary(m)
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                if let icon = s.icon { Image(systemName: icon).font(.system(size: 13)).foregroundStyle(ch.mut) }
+                Text(verbatim: m.isDeleted == true ? L("ch_deleted") : s.text).font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let thumb = s.thumb {
+                ChatImage(url: ApiClient.mediaUrl(thumb)).frame(width: 34, height: 34).clipShape(RoundedRectangle(cornerRadius: 8))
+            } else if s.map {
+                MiniMap().frame(width: 34, height: 34).clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+}
+
+/// Every pinned message: tap one to go to it, or take its pin off.
+private struct PinnedListSheet: View {
+    @ObservedObject private var ch = Ch.shared
+    @ObservedObject var state: ConversationState
+    let onJump: (String) -> Void
+
+    var body: some View {
+        ChSheetCard {
+            Text(L("ch_pinned_list")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 10)
+            ForEach(state.pinned, id: \.id) { m in
+                let me = m.sender?.key == myKey()
+                HStack(spacing: 4) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(verbatim: me ? L("ch_you") : m.sender?.name ?? "").font(.dorr(12.5, .heavy))
+                            .foregroundStyle(me ? ch.red : Ch.colorFor(m.sender?.key)).lineLimit(1)
+                        PinnedPreview(m: m)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Button { state.unpin(m) } label: {
+                        Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(ch.mut).frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("ch_unpin"))
+                }
+                .padding(.leading, 12).padding(.trailing, 4).padding(.vertical, 8)
+                .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14))
+                .contentShape(Rectangle())
+                .onTapGesture { onJump(m.id) }
+                .padding(.vertical, 4)
+            }
         }
     }
 }
@@ -784,7 +896,7 @@ private struct NoticeBar: View {
     }
 }
 
-/// A stranger's first message: accept, or delete (optionally block).
+/// A stranger's first message: who wants to talk, two plain facts, then accept — or delete / block.
 private struct RequestBar: View {
     @ObservedObject private var ch = Ch.shared
     @ObservedObject var host: ChatHost
@@ -793,41 +905,94 @@ private struct RequestBar: View {
     @State private var accepting = false
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(L("ch_request_title", c.title ?? "")).font(.dorr(15.5, .heavy)).foregroundStyle(ch.ink)
-            Text(L("ch_request_text")).font(.dorr(12.5)).foregroundStyle(ch.mut).multilineTextAlignment(.center)
-            HStack(spacing: 10) {
-                pill(L("ch_block"), bg: ch.danger.opacity(0.1), fg: ch.danger) { reject(block: true) }
-                pill(L("ch_reject"), bg: ch.surfaceMuted, fg: ch.ink) { reject(block: false) }
-                // One tap only: a second accept would hit a conversation that's no longer a request.
-                ChPrimaryButton(text: L("ch_accept"), enabled: !accepting, full: false) {
-                    guard !accepting else { return }
-                    accepting = true
-                    Task {
-                        if let fresh = try? await ChatApi.accept(c.id).data {
-                            state.conversation = fresh
-                            host.upsert(fresh)
-                            state.markRead()
-                        }
-                        accepting = false
+        VStack(spacing: 0) {
+            Image(systemName: "person").font(.system(size: 19, weight: .medium)).foregroundStyle(ch.mut)
+                .frame(width: 40, height: 40).background(ch.surfaceMuted, in: Circle())
+            Text(L("ch_request_label")).font(.dorr(12)).foregroundStyle(ch.mut).padding(.top, 6)
+            Text(verbatim: spacedPhone(c.title ?? "")).font(.dorr(16.5, .heavy)).foregroundStyle(ch.ink).lineLimit(1)
+            // Two short facts side by side; the second wraps under the first only on a narrow phone.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { facts }
+                VStack(spacing: 6) { facts }
+            }
+            .padding(.top, 8)
+            // One tap only: a second accept would hit a conversation that's no longer a request.
+            button(L("ch_accept"), icon: "checkmark", fg: .white, primary: true) {
+                guard !accepting else { return }
+                accepting = true
+                Task {
+                    if let fresh = try? await ChatApi.accept(c.id).data {
+                        state.conversation = fresh
+                        host.upsert(fresh)
+                        state.markRead()
                     }
+                    accepting = false
                 }
             }
-            .padding(.top, 10)
+            .opacity(accepting ? 0.5 : 1)
+            .disabled(accepting)
+            .padding(.top, 12)
+            HStack(spacing: 8) {
+                button(L("ch_reject"), icon: "trash", fg: ch.ink) { reject(block: false) }
+                button(L("ch_block"), icon: "nosign", fg: ch.danger) { reject(block: true) }
+            }
+            .padding(.top, 8)
         }
-        .padding(18)
+        .padding(.horizontal, 14).padding(.vertical, 14)
         .frame(maxWidth: .infinity)
-        .background(ch.surface, in: RoundedRectangle(cornerRadius: 24))
+        .background(ch.surface, in: RoundedRectangle(cornerRadius: 22))
         .shadow(color: .black.opacity(0.12), radius: 10, y: 3)
-        .padding(12)
+        .padding(.horizontal, 12).padding(.vertical, 10)
     }
 
-    private func pill(_ text: String, bg: Color, fg: Color, _ action: @escaping () -> Void) -> some View {
+    @ViewBuilder
+    private var facts: some View {
+        fact("exclamationmark.circle", L("ch_request_not_contact"))
+        fact("eye.slash", L("ch_request_no_read"))
+    }
+
+    private func fact(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 11))
+            Text(verbatim: text).font(.dorr(11, .semibold)).lineLimit(1)
+        }
+        .foregroundStyle(ch.mut)
+        .padding(.horizontal, 9).padding(.vertical, 5)
+        .background(ch.surfaceMuted, in: Capsule())
+    }
+
+    private func button(_ text: String, icon: String, fg: Color, primary: Bool = false, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(verbatim: text).font(.dorr(14, .heavy)).foregroundStyle(fg).padding(.horizontal, 18).padding(.vertical, 11)
-                .background(bg, in: RoundedRectangle(cornerRadius: 14))
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 15, weight: .semibold))
+                Text(verbatim: text).font(.dorr(14, .heavy))
+            }
+            .foregroundStyle(fg)
+            .frame(maxWidth: .infinity).padding(.vertical, 10)
+            .background {
+                if primary {
+                    RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [ch.red, ch.redDeep], startPoint: .leading, endPoint: .trailing))
+                } else {
+                    RoundedRectangle(cornerRadius: 14).fill(ch.surfaceMuted)
+                }
+            }
         }
         .buttonStyle(.plain)
+    }
+
+    /// A number shown as «+20 127 773 8694» (country code from the cached countries, then the rest in groups: the
+    /// last four, threes before them). Anything else, or a code we don't know, stays as it is. Kept left-to-right.
+    private func spacedPhone(_ raw: String) -> String {
+        let digits = raw.filter(\.isNumber)
+        guard raw.trimmingCharacters(in: .whitespaces).range(of: #"^\+?[\d\s\-()]{8,20}$"#, options: .regularExpression) != nil else { return raw }
+        let dial = CountryCache.resolveForPhone(digits)?.dialCode.filter(\.isNumber) ?? ""
+        guard !dial.isEmpty else { return "\u{2066}+\(digits)\u{2069}" }
+        var rest = Substring(digits.dropFirst(dial.count))
+        var groups: [Substring] = []
+        if rest.count > 4 { groups.append(rest.suffix(4)); rest = rest.dropLast(4) }
+        while rest.count > 3 { groups.append(rest.suffix(3)); rest = rest.dropLast(3) }
+        if !rest.isEmpty { groups.append(rest) }
+        return "\u{2066}+\(dial) \(groups.reversed().joined(separator: " "))\u{2069}"
     }
 
     private func reject(block: Bool) {
@@ -1028,36 +1193,78 @@ private struct MessageInfoSheet: View {
     }
 }
 
-/// Who voted for what — one section per option, the most voted first.
+/// Who voted for what — one card per option, the most voted first. The first card stays open; the arrow on the others drops the people out underneath, a page at a time.
 private struct PollVotesSheet: View {
     @ObservedObject private var ch = Ch.shared
     let message: MessageDto
     let onDismiss: () -> Void
     @State private var rows: [PollOptionVotersDto]?
+    @State private var open: Set<Int> = []
+    @State private var pages: [Int: Int] = [:]
+    private let pageSize = 8
 
     var body: some View {
+        let sorted = (rows ?? []).sorted { ($0.voters?.count ?? 0) > ($1.voters?.count ?? 0) }
+        let firstId = sorted.first?.id
         ChSheetCard {
             HStack(spacing: 12) {
                 Image(systemName: "chart.bar.fill").font(.system(size: 18)).foregroundStyle(.white).frame(width: 40, height: 40).background(ch.red, in: Circle())
                 Text(verbatim: message.poll?.question ?? message.body ?? "").font(.dorr(17, .heavy)).foregroundStyle(ch.ink).lineLimit(2)
             }
-            if let rows {
+            if rows != nil {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(rows.sorted { ($0.voters?.count ?? 0) > ($1.voters?.count ?? 0) }.enumerated()), id: \.element.id) { i, option in
-                            HStack {
-                                Text(verbatim: option.text).font(.dorr(14.5, .heavy)).foregroundStyle(ch.ink)
-                                Spacer()
-                                Text(L("ch_poll_votes_count", option.voters?.count ?? 0)).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
-                            }
-                            .padding(.top, 12).padding(.bottom, 4)
-                            ForEach(option.voters ?? [], id: \.key) { person in
-                                HStack(spacing: 10) {
-                                    ChAvatar(url: person.avatar, name: person.name, key: person.key, size: 36)
-                                    Text(verbatim: person.isMe ? L("ch_you") : person.name ?? "").font(.dorr(14, .semibold)).foregroundStyle(ch.ink)
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(sorted.enumerated()), id: \.element.id) { i, option in
+                            let voters = option.voters ?? []
+                            let expanded = open.contains(option.id)
+                            let pagesCount = max(1, (voters.count + pageSize - 1) / pageSize)
+                            let page = min(pages[option.id] ?? 0, pagesCount - 1)
+                            let slice = Array(voters.dropFirst(page * pageSize).prefix(pageSize))
+                            VStack(alignment: .leading, spacing: 0) {
+                                Button {
+                                    if option.id == firstId { return }
+                                    if expanded { open.remove(option.id) } else { open.insert(option.id) }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Text(verbatim: option.text).font(.dorr(14.5, .heavy)).foregroundStyle(ch.ink).frame(maxWidth: .infinity, alignment: .leading)
+                                        Text(L("ch_poll_votes_count", voters.count)).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
+                                        Image(systemName: "chevron.down").font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(option.id == firstId ? ch.mut : ch.ink)
+                                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                                    }
+                                    .padding(.horizontal, 12).padding(.vertical, 12)
                                 }
-                                .padding(.vertical, 5)
+                                .buttonStyle(.plain)
+                                if expanded {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        ForEach(slice, id: \.key) { person in
+                                            HStack(spacing: 10) {
+                                                ChAvatar(url: person.avatar, name: person.name, key: person.key, size: 36)
+                                                Text(verbatim: person.isMe ? L("ch_you") : person.name ?? "").font(.dorr(14, .semibold)).foregroundStyle(ch.ink)
+                                            }
+                                            .padding(.vertical, 5)
+                                        }
+                                        if pagesCount > 1 {
+                                            HStack(spacing: 10) {
+                                                Button { pages[option.id] = page - 1 } label: {
+                                                    Image(systemName: "chevron.left").font(.system(size: 14, weight: .bold)).foregroundStyle(page > 0 ? ch.ink : ch.mut)
+                                                }
+                                                .buttonStyle(.plain).disabled(page == 0)
+                                                Text(L("ch_pdf_page", page + 1, pagesCount)).font(.dorr(12, .bold)).foregroundStyle(ch.mut)
+                                                Button { pages[option.id] = page + 1 } label: {
+                                                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold)).foregroundStyle(page < pagesCount - 1 ? ch.ink : ch.mut)
+                                                }
+                                                .buttonStyle(.plain).disabled(page >= pagesCount - 1)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.top, 4)
+                                            .environment(\.layoutDirection, .leftToRight)
+                                        }
+                                    }
+                                    .padding(.horizontal, 12).padding(.bottom, 10)
+                                }
                             }
+                            .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .chStagger(i)
                         }
                     }
@@ -1067,7 +1274,13 @@ private struct PollVotesSheet: View {
                 ProgressView().tint(ch.red).frame(maxWidth: .infinity).frame(height: 120)
             }
         }
-        .task { rows = (try? await ChatApi.votes(message.id).data) ?? [] }
+        .task {
+            let loaded = (try? await ChatApi.votes(message.id).data) ?? []
+            rows = loaded
+            if let id = loaded.sorted(by: { ($0.voters?.count ?? 0) > ($1.voters?.count ?? 0) }).first?.id {
+                open.insert(id)
+            }
+        }
     }
 }
 

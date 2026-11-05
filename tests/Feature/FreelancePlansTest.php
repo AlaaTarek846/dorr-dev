@@ -146,7 +146,8 @@ class FreelancePlansTest extends TestCase
 
     // ------------------------------------------------------------------ the defaults
 
-    public function test_the_seeder_prices_every_country_in_its_currency_and_never_overwrites(): void
+    /** One price for the whole world (`freelance.money`): only the money country's row gets prices (Saudi in these tests). */
+    public function test_the_seeder_prices_the_money_country_only_and_never_overwrites(): void
     {
         FreelancePlanPrice::query()->delete();
         FreelancePlan::query()->delete();
@@ -157,15 +158,15 @@ class FreelancePlansTest extends TestCase
 
         $added = app(FreelancePlanDefaults::class)->seed();
         $this->assertSame(3, $added['plans']);
-        $this->assertSame(8, $added['prices']);
+        $this->assertSame(4, $added['prices']);
 
         $plus = FreelancePlan::query()->where('slug', 'plus')->firstOrFail();
         $price = fn (Country $c, string $period, FreelancePlan $p) => FreelancePlanPrice::query()->where(['plan_id' => $p->id, 'country_id' => $c->id, 'period' => $period])->value('price_minor');
         // 9 USD in SAR (3.83 each → 34), a year = 12 × 34 less 20% = 326.4 → 325.
         $this->assertSame(3400, $price($this->saudi, 'monthly', $plus));
         $this->assertSame(32500, $price($this->saudi, 'yearly', $plus));
-        // A currency with only the placeholder rate uses the table: 9 USD = 1,350 JPY, no decimals.
-        $this->assertSame(1350, $price($japan, 'monthly', $plus));
+        // Any other country gets no price of its own: it pays the world's.
+        $this->assertNull($price($japan, 'monthly', $plus));
         $this->assertSame(0, FreelancePlan::query()->where('slug', 'free')->firstOrFail()->prices()->count());
         $this->assertSame(['offers_monthly' => 40, 'commission_bp' => 800, 'trial_days' => 14], $plus->only(['offers_monthly', 'commission_bp', 'trial_days']));
 

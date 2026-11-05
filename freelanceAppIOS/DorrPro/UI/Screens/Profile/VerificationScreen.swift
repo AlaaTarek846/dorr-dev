@@ -87,7 +87,7 @@ struct VerificationScreen: View {
                 }
 
                 let blockers = (current.submitBlockers ?? []).compactMap { blockerText($0, required) }
-                if editable && !blockers.isEmpty {
+                if editable && current.status != "verified" && !blockers.isEmpty {
                     Card { ForEach(blockers, id: \.self) { Text(verbatim: "• \($0)").font(.dorr(13)).foregroundStyle(wa.settingsMut) } }
                 }
                 if editable && current.status != "verified" {

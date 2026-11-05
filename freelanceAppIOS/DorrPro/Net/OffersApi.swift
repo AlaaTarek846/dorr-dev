@@ -33,7 +33,16 @@ enum OffersApi {
 
     /// Changes an offer still open: only what is sent changes.
     static func update(_ uuid: String, _ body: OfferUpdateRequest) async -> ApiResult<OfferDto> {
-        await Api.call("PUT", base + "offers/\(uuid)", body: ["price_minor": body.priceMinor, "duration_days": body.durationDays, "details": body.details])
+        await Api.call("PUT", base + "offers/\(uuid)", body: {
+            var json: JsonBody = ["price_minor": body.priceMinor, "duration_days": body.durationDays, "details": body.details]
+            if let r = body.rights {
+                // Gson leaves out the empty ones (no time limit: no `term_months`).
+                let fields: [String: Any?] = ["model": r.model, "commercial": r.commercial, "exclusive": r.exclusive, "term_months": r.termMonths,
+                                              "territory": r.territory, "portfolio": r.portfolio]
+                json["rights"] = fields.compactMapValues { $0 }
+            }
+            return json
+        }())
     }
 
     static func withdraw(_ uuid: String) async -> ApiResult<OfferDto> { await Api.call("POST", base + "offers/\(uuid)/withdraw") }
@@ -52,6 +61,14 @@ struct OfferPreviewDto: Decodable {
     var quota: OfferQuotaDto?
     var minPriceMinor: Int?
     var breakdown: OfferBreakdownDto?
+    /// FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask).
+    var loyalty: OfferLoyaltyDto?
+}
+
+struct OfferLoyaltyDto: Decodable {
+    var bp: Int?
+    var after: Int?
+    var works: Int?
 }
 
 struct OfferBlockedDto: Decodable {
@@ -74,7 +91,11 @@ struct OfferBreakdownDto: Decodable {
     var priceMinor: Int?
     var commissionMinor: Int?
     var netMinor: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
+    /// FL-L09: the price I asked and the loyalty discount taken off it (`priceMinor` is what the client pays).
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    var savingMinor: Int?
 }
 
 struct OfferCheckRequest {
@@ -118,7 +139,11 @@ struct OfferDto: Decodable, Identifiable {
     /// Default `submitted`.
     var status: String?
     var priceMinor: Int?
-    var currency: String?
+    /// FL-L09: the price I asked and the loyalty discount taken off it (nil: none).
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    var savingMinor: Int?
+    @CurrencyLabel var currency: String?
     var durationDays: Int?
     var details: String?
     var answers: [OfferAnswerDto]?
@@ -135,6 +160,8 @@ struct OfferDto: Decodable, Identifiable {
     var chat: OfferChatDto?
     /// FL-401: the agreement the client sent on it.
     var agreement: OfferAgreementDto?
+    /// FL-L13: who owns the work once it is paid and what the client may do with it (nil where the feature is off).
+    var rights: RightsSummaryDto?
     var createdAt: String?
 }
 
@@ -158,6 +185,8 @@ struct OfferUpdateRequest {
     let priceMinor: Int
     let durationDays: Int
     let details: String
+    /// FL-L13: sent only when the feature is on.
+    var rights: RightsInputDto? = nil
 }
 
 struct OfferRevisionDto: Decodable {

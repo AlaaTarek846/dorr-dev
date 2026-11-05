@@ -23,17 +23,25 @@ struct ReportMessageDialog: View {
     @State private var error: String?
 
     var body: some View {
-        AgreementAlertCard(
-            title: L("rm_title"), confirmLabel: L("rm_send"), confirmColor: Color(hex: 0xDC2626), confirmEnabled: code != nil && !busy,
-            onConfirm: send, dismissLabel: L("common_cancel"), onDismiss: onDismiss
-        ) {
-            Text(L("rm_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            ForEach(messageReportReasons, id: \.0) { key, label in
-                AgreementPill(text: L(label), on: code == key) { code = key }
-            }
-            DorrTextField(value: agreementLimit($note, 500), placeholder: L("cr_note_hint"), singleLine: false, minLines: 2)
-            if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
-        }
+        AlertDialog(
+            onDismissRequest: { if !busy { onDismiss() } },
+            title: { Text(L("rm_title")) },
+            text: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L("rm_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    ForEach(messageReportReasons, id: \.0) { key, label in
+                        AgreementPill(text: L(label), on: code == key) { code = key }
+                    }
+                    DorrTextField(value: agreementLimit($note, 500), placeholder: L("cr_note_hint"), singleLine: false, minLines: 2)
+                    if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            },
+            confirmButton: {
+                DialogButton(onClick: send, enabled: code != nil && !busy) { Text(L("rm_send")).foregroundStyle(Color(hex: 0xDC2626)) }
+            },
+            dismissButton: { DialogButton(onClick: onDismiss) { Text(L("common_cancel")) } }
+        )
     }
 
     private func send() {

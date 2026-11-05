@@ -75,7 +75,7 @@
     <string name="cs_note_declined_taken">المحترف وافق على طلب تاني لنفس الميعاد، وكل فلوسك رجعت محفظتك. اختار ميعاد تاني.</string>
     <string name="cs_note_upcoming_free">الإلغاء مجاني لحد %1$s. الجلسة مكالمة فيديو بتفتح من هنا في الميعاد.</string>
     <string name="cs_note_upcoming_late">فاضل أقل من يوم: الإلغاء دلوقتي مش بيرجّع الفلوس.</string>
-    <string name="cs_note_live">جه الميعاد. مكالمة الفيديو هتبدأ من هنا قريب.</string>
+    <string name="cs_note_live">جه الميعاد. ادخل الجلسة من الكارت اللي تحت.</string>
     <string name="cs_note_ended">لو ما قلتش حاجة، الفلوس هتنزل للمحترف %1$s. فيه مشكلة؟ بلّغ قبلها.</string>
     <string name="cs_note_completed">تمت واتدفعت. شكراً!</string>
     <string name="cs_note_disputed">بلاغك مع فريق دُرر، والفلوس محجوزة لحد ما يقرروا.</string>

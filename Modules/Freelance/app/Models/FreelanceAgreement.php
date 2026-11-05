@@ -27,8 +27,8 @@ class FreelanceAgreement extends Model
 
     protected $fillable = [
         'uuid', 'project_id', 'offer_id', 'client_id', 'freelancer_id', 'scope', 'includes', 'excludes', 'price_minor', 'currency_code',
-        'duration_days', 'policy', 'money', 'status', 'version', 'sent_at', 'client_approved_at', 'freelancer_approved_at', 'activated_at',
-        'completed_at', 'expires_at', 'end_reason', 'report_every_days', 'next_report_due_at', 'last_report_at', 'report_reminded_at', 'report_late_notified_at',
+        'duration_days', 'policy', 'money', 'rights', 'portfolio_allowed', 'portfolio_asked_at', 'status', 'version', 'sent_at', 'client_approved_at', 'freelancer_approved_at', 'activated_at',
+        'completed_at', 'expires_at', 'end_reason', 'report_every_days', 'next_report_due_at', 'last_report_at', 'report_reminded_at', 'report_late_notified_at', 'health_state', 'health_alerted_at',
     ];
 
     protected static function booted(): void
@@ -43,6 +43,10 @@ class FreelanceAgreement extends Model
         return [
             'policy' => 'array',
             'money' => 'array',
+            // FL-L13: the agreed terms + the standard text of that day, and whether the client lets the work be shown in the portfolio.
+            'rights' => 'array',
+            'portfolio_allowed' => 'boolean',
+            'portfolio_asked_at' => 'datetime',
             'price_minor' => 'integer',
             'duration_days' => 'integer',
             'version' => 'integer',
@@ -57,6 +61,7 @@ class FreelanceAgreement extends Model
             'last_report_at' => 'datetime',
             'report_reminded_at' => 'datetime',
             'report_late_notified_at' => 'datetime',
+            'health_alerted_at' => 'datetime',
         ];
     }
 

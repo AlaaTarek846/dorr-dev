@@ -30,7 +30,7 @@ class FreelancerPortfolio
     /** @return Collection<int, Item> */
     public function mine(Freelancer $freelancer): Collection
     {
-        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations'])->orderBy('sort_order')->orderBy('id')->get();
+        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations', 'agreement:id,uuid,portfolio_allowed'])->orderBy('sort_order')->orderBy('id')->get();
     }
 
     /** @param  array<string, mixed>  $data */
@@ -41,7 +41,7 @@ class FreelancerPortfolio
         }
 
         return DB::transaction(function () use ($freelancer, $data) {
-            $item = $freelancer->portfolioItems()->create($this->fields($data, null) + ['sort_order' => (int) $freelancer->portfolioItems()->max('sort_order') + 1]);
+            $item = $freelancer->portfolioItems()->create($this->fields($data, null, $freelancer) + ['sort_order' => (int) $freelancer->portfolioItems()->max('sort_order') + 1]);
             $this->syncSkills($item, $data['skill_ids'] ?? []);
 
             return $item->load(['media', 'skills.translations', 'specialty.translations']);
@@ -52,7 +52,7 @@ class FreelancerPortfolio
     public function update(Item $item, array $data): Item
     {
         return DB::transaction(function () use ($item, $data) {
-            $item->update($this->fields($data, $item));
+            $item->update($this->fields($data, $item, $item->freelancer));
             if (array_key_exists('skill_ids', $data)) {
                 $this->syncSkills($item, $data['skill_ids'] ?? []);
             }
@@ -130,7 +130,10 @@ class FreelancerPortfolio
 
         return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations'])
             ->whereIn('visibility', $client ? [Item::PUBLIC, Item::CLIENTS_ONLY] : [Item::PUBLIC])
-            ->whereNull('hidden_by_admin_at')->orderBy('sort_order')->orderBy('id')->get();
+            ->whereNull('hidden_by_admin_at')
+            // FL-L13: a work made from one done on Dorr is shown only while its client allows it.
+            ->where(fn ($q) => $q->whereNull('agreement_id')->orWhereHas('agreement', fn ($a) => $a->where('portfolio_allowed', true)))
+            ->orderBy('sort_order')->orderBy('id')->get();
     }
 
     /** @return array<string, mixed> */
@@ -162,6 +165,9 @@ class FreelancerPortfolio
             'sort_order' => $item->sort_order,
             'hidden' => $item->isHidden(),
             'hidden_reason' => $item->hidden_reason,
+            // FL-L13: the finished work it shows (null: made outside Dorr) and whether its client took their leave back.
+            'agreement' => $item->agreement?->uuid,
+            'withdrawn_by_client' => $item->withdrawnByClient(),
         ] : []);
     }
 
@@ -171,7 +177,7 @@ class FreelancerPortfolio
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function fields(array $data, ?Item $current): array
+    private function fields(array $data, ?Item $current, Freelancer $freelancer): array
     {
         $out = array_intersect_key($data, array_flip(['title', 'completed_on', 'external_url']));
         if (array_key_exists('description', $data)) {
@@ -192,6 +198,16 @@ class FreelancerPortfolio
 
         if (array_key_exists('video_url', $data)) {
             [$out['video_provider'], $out['video_id']] = $this->parseVideo($data['video_url']);
+        }
+
+        // FL-L13: a work done on Dorr goes in only with the client's leave (once it is finished).
+        if (array_key_exists('agreement_uuid', $data)) {
+            $uuid = $data['agreement_uuid'];
+            if ($uuid === null || $uuid === '') {
+                $out['agreement_id'] = null;
+            } elseif ($current?->agreement?->uuid !== $uuid) {
+                $out['agreement_id'] = app(\Modules\Freelance\Services\Rights\Rights::class)->portfolioSource($freelancer, (string) $uuid)->id;
+            }
         }
 
         // Shown beyond the owner only with the rights confirmed.

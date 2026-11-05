@@ -41,7 +41,7 @@
     <string name="fl_visibility">Who sees it</string>
     <string name="fl_public">Public</string>
     <string name="fl_private">Private</string>
-    <string name="fl_public_hint">Every freelancer in your country can see it and send an offer.</string>
+    <string name="fl_public_hint">Every freelancer, from any country, can see it and send an offer.</string>
     <string name="fl_private_hint">Only freelancers you invite see it.</string>
     <string name="fl_files">Files</string>
     <string name="fl_add_file">Add a file</string>
@@ -182,6 +182,7 @@
     <string name="fl_ag_hint_pending">Sent. When the freelancer approves, the work starts.</string>
     <string name="fl_ag_hint_active">Both approved it. It can’t change now.</string>
     <string name="fl_ag_hint_ended">This agreement ended. You can choose another offer.</string>
+    <string name="fl_ag_hint_completed">All the parts are done and approved.</string>
     <string name="fl_ag_answer_by">The freelancer answers by %1$s</string>
     <string name="fl_ag_review_days">Days to review a delivery</string>
     <string name="fl_ag_free_revisions">Free revisions</string>
@@ -368,7 +369,7 @@
     <string name="fl_inv_pick">Pick who to invite</string>
     <string name="fl_inv_search">Search by name</string>
     <string name="fl_inv_same_specialty">Same specialty as the project</string>
-    <string name="fl_inv_all">Everyone in my country</string>
+    <string name="fl_inv_all">All freelancers</string>
     <string name="fl_inv_none_found">No one found.</string>
     <string name="fl_inv_send">Send %1$d invitation(s)</string>
     <string name="fl_inv_sent">Invitations sent.</string>
@@ -532,4 +533,15 @@
     <string name="fl_ms_split_intro">Split the price into parts. Each part is paid when you approve it.</string>
     <string name="fl_ms_revision_intro">Tell the freelancer what to change and they will send a new version.</string>
     <string name="fl_dispute_reason">Reason</string>
+    <!-- Project form: what is wrong with the money, and the question before leaving a changed form -->
+    <string name="fl_err_range">The top of the budget must be more than its bottom.</string>
+    <string name="fl_err_below_min">The budget is below the allowed minimum (%1$s %2$s).</string>
+    <string name="fl_err_above_max">The budget is above the allowed maximum (%1$s %2$s).</string>
+    <string name="fl_err_cap_below">The most you will pay must be at least the budget.</string>
+    <string name="fl_err_cap_below_fees">The most you will pay must cover the budget plus the service fee, which is at least %1$s %2$s.</string>
+    <string name="fl_leave_title">Save your changes?</string>
+    <string name="fl_leave_body">If you leave without saving, the changes you made are lost.</string>
+    <string name="fl_leave_save">Save</string>
+    <string name="fl_leave_keep">Keep editing</string>
+    <string name="fl_leave_discard">Leave without saving</string>
 </resources>

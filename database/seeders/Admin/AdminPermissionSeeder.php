@@ -332,6 +332,7 @@ class AdminPermissionSeeder extends Seeder
             // Freelance (docs/freelance_tasks.md).
             'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-checklist-templates' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -347,6 +348,11 @@ class AdminPermissionSeeder extends Seeder
             'freelance-plans' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-services' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-consultations' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-loyalty' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-rights' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-community' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-promos' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
+            'freelance-special-offers' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-risk' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-audit' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.

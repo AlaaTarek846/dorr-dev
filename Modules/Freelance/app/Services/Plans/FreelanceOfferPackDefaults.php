@@ -27,7 +27,8 @@ class FreelanceOfferPackDefaults
             ]);
             $packs += $pack->wasRecentlyCreated ? 1 : 0;
 
-            foreach (Country::query()->with('currency')->get() as $country) {
+            // One price for the whole world, in the freelance currency: only the international row gets prices.
+            foreach ([app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->country()] as $country) {
                 $minor = $this->plans->monthlyMinor((float) $def['usd'], $country->currency);
                 if ($minor === null) {
                     continue;

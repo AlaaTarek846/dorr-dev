@@ -502,21 +502,31 @@ private struct GatewayWebView: UIViewRepresentable {
 final class TopupLauncher: ObservableObject {
     static let shared = TopupLauncher()
 
+    /// `minor` -1: the whole wallet; `international`: the freelance wallet in dollars (`mobile/v1/freelance/wallet`).
     struct Pending: Identifiable {
         let id = UUID()
         let minor: Int
+        let international: Bool
         let onClosed: () -> Void
     }
 
     @Published private(set) var pending: Pending?
 
-    func open(_ minor: Int, onClosed: @escaping () -> Void = {}) {
-        pending = Pending(minor: minor, onClosed: onClosed)
+    func open(_ minor: Int, international: Bool = false, onClosed: @escaping () -> Void = {}) {
+        WalletCountry.setInternational(international)
+        pending = Pending(minor: minor, international: international, onClosed: onClosed)
+    }
+
+    /// The whole freelance international wallet (balance, top-up, statement, PIN), over the current screen.
+    func openInternationalWallet(onClosed: @escaping () -> Void = {}) {
+        WalletCountry.setInternational(true)
+        pending = Pending(minor: -1, international: true, onClosed: onClosed)
     }
 
     func close() {
         let done = pending?.onClosed
         pending = nil
+        WalletCountry.setInternational(false)
         done?()
     }
 }
@@ -529,9 +539,16 @@ struct TopupOverlay: View {
     var body: some View {
         ZStack {
             if let pending = launcher.pending {
-                TopupVisit(minor: pending.minor)
-                    .id(pending.id)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                Group {
+                    if pending.minor < 0 {
+                        // The whole wallet, behind its PIN gate like the wallet tab.
+                        WalletScreen(onExit: { TopupLauncher.shared.close() })
+                    } else {
+                        TopupVisit(minor: pending.minor)
+                    }
+                }
+                .id(pending.id)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.easeOut(duration: 0.42), value: launcher.pending?.id)
@@ -541,6 +558,8 @@ struct TopupOverlay: View {
 @MainActor
 private struct TopupVisit: View {
     @StateObject private var host: WalletHost
+    // It lands straight on the top-up, so the PIN comes first, exactly like opening the wallet.
+    @State private var unlocked = false
 
     init(minor: Int) {
         _host = StateObject(wrappedValue: WalletHost(start: .topupAmount(minor), onExit: { TopupLauncher.shared.close() }))
@@ -548,8 +567,12 @@ private struct TopupVisit: View {
 
     var body: some View {
         WalletChrome(host: host) {
-            WalletPagesFor(host: host)
-            WaSheetHost(host: host)
+            if !unlocked {
+                WaGate(onUnlocked: { withAnimation(.easeOut(duration: 0.3)) { unlocked = true } }, onCancel: { host.onExit() })
+            } else {
+                WalletPagesFor(host: host)
+                WaSheetHost(host: host)
+            }
         }
     }
 }

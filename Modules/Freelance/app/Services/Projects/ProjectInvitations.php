@@ -75,7 +75,7 @@ class ProjectInvitations
     }
 
     /**
-     * Freelancers the client may invite: verified, of the project's country, not invited yet (or whose invitation was taken back or ran
+     * Freelancers the client may invite: verified, of any country where the service is open (owner 2026-11-04), not invited yet (or whose invitation was taken back or ran
      * out). Without `$all` and a search, those of the project's specialty.
      *
      * @return list<array<string, mixed>>
@@ -87,7 +87,7 @@ class ProjectInvitations
             ->merge(Offer::query()->where('project_id', $project->id)->pluck('freelancer_id'))->unique()->values();
 
         return Freelancer::query()
-            ->where('status', FreelancerStatus::Verified->value)->where('country_id', $project->country_id)->whereNotIn('id', $taken)
+            ->where('status', FreelancerStatus::Verified->value)->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries())->whereNotIn('id', $taken)
             ->when($q !== null && trim($q) !== '', fn (Builder $b) => $b->where('name', 'like', '%'.addcslashes(trim($q), '%_\\').'%'))
             ->when(! $all && ($q === null || trim($q) === '') && $project->freelance_specialty_id !== null,
                 fn (Builder $b) => $b->whereHas('specialties', fn ($s) => $s->where('freelance_specialties.id', $project->freelance_specialty_id)))
@@ -115,9 +115,10 @@ class ProjectInvitations
             $live = Invitation::query()->where('project_id', $p->id)->whereIn('status', Invitation::LIVE)->count();
             $found = Freelancer::query()->whereIn('uuid', array_unique($uuids))->get()->keyBy('uuid');
             $offered = Offer::query()->where('project_id', $p->id)->pluck('freelancer_id')->all();
+            $open = app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries();
             foreach (array_unique($uuids) as $uuid) {
                 $f = $found[$uuid] ?? null;
-                if ($f === null || (int) $f->country_id !== (int) $p->country_id || $f->status !== FreelancerStatus::Verified) {
+                if ($f === null || ! in_array((int) $f->country_id, $open, true) || $f->status !== FreelancerStatus::Verified) {
                     $skipped[] = ['uuid' => $uuid, 'reason' => 'not_found'];
 
                     continue;

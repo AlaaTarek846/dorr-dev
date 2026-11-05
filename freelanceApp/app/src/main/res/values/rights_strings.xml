@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L13: ownership and licences (the freelancer's side). -->
+<resources>
+    <string name="rights_title">Ownership &amp; licence</string>
+    <string name="rights_editor_sub">Say who owns the work once it is paid and what the client may do with it. If you say nothing, the whole work becomes the client\'s after payment.</string>
+    <string name="rights_default">Default</string>
+    <string name="rights_commercial">The client may use it commercially</string>
+    <string name="rights_exclusive">Exclusive: I will not give it to anyone else</string>
+    <string name="rights_term">Licence term (months)</string>
+    <string name="rights_term_hint">Leave empty for no time limit</string>
+    <string name="rights_territory">Where it may be used</string>
+    <string name="rights_territory_worldwide">Worldwide</string>
+    <string name="rights_territory_country">The client\'s country only</string>
+    <string name="rights_portfolio_wish">I would like to show this work in my portfolio (the client decides)</string>
+    <string name="rights_read_terms">Read the standard text</string>
+    <string name="rights_hide_terms">Hide the standard text</string>
+    <string name="rights_terms_version">Version %1$d</string>
+
+    <string name="rights_state_pending">Not passed yet</string>
+    <string name="rights_state_partial">Partly passed</string>
+    <string name="rights_state_granted">Fully passed</string>
+    <string name="rights_parts">%1$d of %2$d parts passed to the client</string>
+    <string name="rights_preview_only">Until a part is approved and paid, the client can only preview and review it. The rights of each part pass when it is approved.</string>
+    <string name="rights_portfolio_allowed">The client allows you to show this work in your portfolio.</string>
+    <string name="rights_portfolio_not_allowed">You may not show this work in your portfolio unless the client allows it.</string>
+    <string name="rights_portfolio_ask">Ask the client\'s permission</string>
+    <string name="rights_portfolio_asked">You asked on %1$s.</string>
+    <string name="rights_portfolio_ask_done">Your request was sent to the client.</string>
+
+    <string name="rights_delivery_title">Before you deliver</string>
+    <string name="rights_delivery_confirm">I confirm this work is mine, or I have the right to hand it over, and I listed any outside material I used.</string>
+    <string name="rights_materials_title">Outside material (fonts, images, code, templates…)</string>
+    <string name="rights_material_name">Name</string>
+    <string name="rights_material_source">Where it comes from</string>
+    <string name="rights_material_license">Its licence</string>
+    <string name="rights_material_add">Add material</string>
+    <string name="rights_delivery_confirmed">You confirmed the work is yours to hand over.</string>
+    <string name="rights_materials_used">Outside material:</string>
+
+    <string name="rights_pf_pick_title">From a finished work</string>
+    <string name="rights_pf_pick_hint">Only works whose client allowed you to show them are listed. Ask the client from the agreement once it is completed.</string>
+    <string name="rights_pf_none">No finished work is allowed yet.</string>
+    <string name="rights_pf_linked">Linked to a finished work.</string>
+    <string name="rights_pf_withdrawn">The client took their permission back, so this work is hidden from everyone.</string>
+    <string name="rights_pf_used">in your portfolio</string>
+
+    <string name="dp_r_rights">Rights (ownership)</string>
+</resources>

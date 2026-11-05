@@ -181,6 +181,7 @@ struct ChatScreen: View {
 
 private struct Bubble: View {
     @Environment(\.wa) private var wa
+    @Environment(\.layoutDirection) private var direction
     let m: ChatMessageDto
     let onReport: () -> Void
 
@@ -204,6 +205,7 @@ private struct Bubble: View {
                     if mine { RoundedRectangle(cornerRadius: 16, style: .continuous).fill(wa.red) } else { Color.clear.settingsSurface(16) }
                 }
                 .frame(maxWidth: 280, alignment: mine ? .trailing : .leading)
+                .environment(\.layoutDirection, direction)
                 // FL-709: the three dots beside the other person's message open a small menu (report).
                 if !mine && m.kind != "deleted" {
                     Menu {
@@ -215,6 +217,8 @@ private struct Bubble: View {
                 }
                 if !mine { Spacer(minLength: 0) }
             }
+            // Arrangement.Absolute: mine on the right, theirs on the left, in Arabic too.
+            .environment(\.layoutDirection, .leftToRight)
         }
     }
 

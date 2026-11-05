@@ -14,6 +14,7 @@ struct MyServicesScreen: View {
     let onBack: () -> Void
     let onOpenService: (String?) -> Void
     let onOpenOrders: () -> Void
+    var onSwitchStore: ((String) -> Void)? = nil
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
@@ -39,6 +40,7 @@ struct MyServicesScreen: View {
 
     var body: some View {
         Page(title: L("svc_title"), onBack: onBack) {
+            if let onSwitchStore { StoreSwitcher(current: "services", onOpen: onSwitchStore) }
             if closed {
                 EmptyState(icon: "storefront", title: L("svc_title"), body: L("svc_unavailable")).padding(.top, 80)
             } else if let d = data {
@@ -54,7 +56,12 @@ struct MyServicesScreen: View {
                     let statuses = ["all", "published", "pending_review", "draft", "paused", "rejected", "suspended"]
                         .filter { $0 == "all" || (counts[$0] ?? 0) > 0 }
                     if statuses.count > 2 {
-                        ServicesFilterRow(statuses: statuses, selected: filter, counts: counts, total: services.count) { filter = $0 }
+                        FilterChips(
+                            options: statuses.map { st in
+                                FilterOption(key: st, label: (st == "all" ? L("svc_all") : serviceStatusLabel(st)) + "  " + String(st == "all" ? services.count : counts[st] ?? 0))
+                            },
+                            selected: filter, onSelect: { filter = $0 }
+                        )
                     }
                     let shown = services.filter { filter == "all" || ($0.status ?? "draft") == filter }
                     if shown.isEmpty {
@@ -73,66 +80,22 @@ struct MyServicesScreen: View {
 }
 
 private struct ServicesHeroCard: View {
-    @Environment(\.wa) private var wa
     let d: MyServicesDto
     let live: Int
     let waiting: Int
     let onNew: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: "storefront.fill").font(.system(size: 20)).foregroundStyle(.white)
-                    .frame(width: 46, height: 46)
-                    .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(L("svc_hero_title")).font(.dorr(17, .heavy)).foregroundStyle(.white)
-                    Text(L("svc_hero_body")).font(.dorr(12)).foregroundStyle(.white.opacity(0.88)).lineSpacing(2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            HStack(spacing: 8) {
-                HeroStat(value: d.counts?["published"] ?? 0, label: L("svc_stat_published"))
-                HeroStat(value: d.counts?["pending_review"] ?? 0, label: L("svc_stat_review"))
-                HeroStat(value: waiting, label: L("svc_stat_waiting"))
-            }
-            HStack(spacing: 0) {
-                Text(L("svc_hero_live", live, d.limits?.maxActive ?? 5)).font(.dorr(12, .semibold)).foregroundStyle(.white.opacity(0.9))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button(action: onNew) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").font(.system(size: 14, weight: .bold))
-                        Text(L("svc_new")).font(.dorr(13, .heavy))
-                    }
-                    .foregroundStyle(wa.red)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: 520, alignment: .leading)
-        .background(LinearGradient(colors: [wa.red, wa.red.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct HeroStat: View {
-    let value: Int
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Text(verbatim: "\(value)").font(.dorr(20, .black)).foregroundStyle(.white)
-            Text(verbatim: label).font(.dorr(11)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        StoreHero(
+            icon: "storefront.fill", title: L("svc_hero_title"), body: L("svc_hero_body"),
+            numbers: [
+                HeroNumber(value: "\(d.counts?["published"] ?? 0)", label: L("svc_stat_published")),
+                HeroNumber(value: "\(d.counts?["pending_review"] ?? 0)", label: L("svc_stat_review")),
+                HeroNumber(value: "\(waiting)", label: L("svc_stat_waiting")),
+            ],
+            action: L("svc_new"), actionIcon: "plus", onAction: onNew,
+            footnote: L("svc_hero_live", live, d.limits?.maxActive ?? 5)
+        )
     }
 }
 
@@ -188,37 +151,6 @@ private struct HowItWorks: View {
             }
         }
         EmptyState(icon: "storefront", title: L("svc_empty_title"), body: L("svc_empty_body")).padding(.top, 12)
-    }
-}
-
-private struct ServicesFilterRow: View {
-    @Environment(\.wa) private var wa
-    let statuses: [String]
-    let selected: String
-    let counts: [String: Int]
-    let total: Int
-    let onSelect: (String) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(statuses, id: \.self) { s in
-                    let on = s == selected
-                    let n = s == "all" ? total : counts[s] ?? 0
-                    Button { onSelect(s) } label: {
-                        HStack(spacing: 6) {
-                            Text(verbatim: s == "all" ? L("svc_all") : serviceStatusLabel(s)).font(.dorr(13, .bold))
-                                .foregroundStyle(on ? Color.white : wa.settingsInk).lineLimit(1)
-                            Text(verbatim: "\(n)").font(.dorr(12, .bold)).foregroundStyle(on ? Color.white.opacity(0.85) : wa.settingsMut)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(on ? wa.red : wa.red.opacity(0.08), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
     }
 }
 
@@ -344,6 +276,8 @@ private struct ServiceForm {
     var specialtyId: Int?
     /// FL-L05: once · monthly
     var billing = "once"
+    /// FL-L13: the terms every order of it starts from.
+    var rights = RightsForm()
     var tiers: [TierForm] = SERVICE_LEVELS.map { TierForm(level: $0, enabled: $0 == "basic") }
     var addons: [AddonForm] = []
     var pending: [PendingImage] = []
@@ -358,6 +292,7 @@ private struct ServiceForm {
         f.requirements = s.requirements ?? ""
         f.specialtyId = s.specialty?.id
         f.billing = s.billing ?? "once"
+        f.rights = s.rights?.toForm() ?? RightsForm()
         f.tiers = SERVICE_LEVELS.map { level in
             guard let t = (s.tiers ?? []).first(where: { ($0.level ?? "basic") == level }) else { return TierForm(level: level, enabled: false) }
             return TierForm(level: level, enabled: true, name: t.name ?? "", description: t.description ?? "",
@@ -385,6 +320,8 @@ struct ServiceEditorScreen: View {
     @State private var form = ServiceForm()
     @State private var service: ServiceDto?
     @State private var meta: MyServicesDto?
+    /// FL-L13: a nil value = the feature is off in my country (Android `rememberRightsOptions()`).
+    @StateObject private var rightsOptions = RightsOptionsState()
     @State private var specialties: [MySpecialtyDto] = []
     @State private var busy = false
     @State private var error: String?
@@ -497,7 +434,8 @@ struct ServiceEditorScreen: View {
                                    priceMinor: (prices[t.level] ?? nil) ?? 0, deliveryDays: t.days, revisions: t.revisions, features: t.features)
             },
             addons: form.addons.filter { !trimmed($0.title).isEmpty && inputToMinor($0.price, decimals) != nil }
-                .map { ServiceAddonRequest(title: trimmed($0.title), priceMinor: inputToMinor($0.price, decimals) ?? 0, extraDays: $0.days) }
+                .map { ServiceAddonRequest(title: trimmed($0.title), priceMinor: inputToMinor($0.price, decimals) ?? 0, extraDays: $0.days) },
+            rights: rightsOptions.value != nil ? form.rights.toInput() : nil
         )
         Task {
             let id = currentUuid
@@ -568,6 +506,7 @@ struct ServiceEditorScreen: View {
             }
         }
         .messageToast(error)
+        .rememberRightsOptions(rightsOptions)
         .task {
             guard !started else { return }
             started = true
@@ -699,6 +638,11 @@ struct ServiceEditorScreen: View {
                         .buttonStyle(.plain)
                 }
             }
+        }
+
+        // FL-L13: who owns the work once an order is paid.
+        if let o = rightsOptions.value {
+            RightsEditor(form: form.rights, options: o, readOnly: readOnly) { r in form.rights = r }
         }
 
         // How clients will see it.

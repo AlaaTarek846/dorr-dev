@@ -31,6 +31,10 @@ class WalletBalanceController extends Controller
 
         $owner = WalletOwner::of($request);
         $wallet = $this->wallets->firstOrCreateWallet($owner, $country);
+        // Just created: read the row back so the balances are its zeros, not nulls.
+        if ($wallet->wasRecentlyCreated) {
+            $wallet->refresh();
+        }
 
         $currency = $wallet->currency ?? $country->currency;
         $held = $wallet->held_withdrawable_minor + $wallet->held_spend_only_minor + (int) $wallet->held_reward_minor;
@@ -56,12 +60,17 @@ class WalletBalanceController extends Controller
             'reward_minor' => (int) $wallet->reward_minor,
             'rewards_transferable' => (bool) WalletSetting::query()->where('country_id', $country->id)->value('rewards_transferable'),
             'held_minor' => $held,
+            // False when dollars are already this owner's local money (freelance works in them): no separate international wallet to swipe to.
+            'international_wallet' => ! class_exists(\Modules\Freelance\Services\Policy\FreelanceMoney::class)
+                || app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->localCountryFor($owner) === null,
             // Read-only heads-up: balances in other countries can't be spent here.
             'other_wallets' => Wallet::query()
                 ->with(['country:id,code', 'currency:id,code'])
                 ->where('owner_type', OwnerType::aliasFor($owner))
                 ->where('owner_id', $owner->getKey())
                 ->where('country_id', '!=', $country->id)
+                // Only wallets one can switch to: a hidden row's wallet (the freelance international wallet) has its own screens.
+                ->whereHas('country', fn ($q) => $q->where('status', true))
                 ->get()
                 ->map(fn (Wallet $other) => [
                     'country_code' => $other->country?->code,

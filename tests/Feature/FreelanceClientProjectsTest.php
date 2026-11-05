@@ -127,6 +127,16 @@ class FreelanceClientProjectsTest extends TestCase
         $this->assertSame(['project.created', 'project.submitted', 'project.withdrawn', 'project.submitted'], $project->events()->orderBy('id')->pluck('type')->all());
     }
 
+    public function test_the_cost_quote_adds_the_client_fee_to_a_price_for_the_form(): void
+    {
+        FreelanceFeatureRule::query()->create(['feature' => 'client_fee', 'country_id' => $this->saudi->id, 'enabled' => true]);
+        FreelanceFeatures::forget();
+        app(FreelancePolicies::class)->save($this->saudi->id, null, ['client_fee.type' => 'percent', 'client_fee.value' => 200]);
+        $this->getJson(self::API.'/cost-quote?amount_minor=60000')->assertOk()
+            ->assertJsonPath('data.price_minor', 60000)->assertJsonPath('data.client_fee_minor', 1200)->assertJsonPath('data.total_minor', 61200)->assertJsonPath('data.currency', 'SAR');
+        $this->getJson(self::API.'/cost-quote')->assertUnprocessable();
+    }
+
     public function test_the_budget_follows_the_country_and_the_specialty_minimum_and_maximum(): void
     {
         $policies = app(FreelancePolicies::class);
@@ -183,6 +193,19 @@ class FreelanceClientProjectsTest extends TestCase
         $this->deleteJson(self::API."/{$draft}")->assertOk();
         $this->assertDatabaseMissing('freelance_projects', ['uuid' => $draft]);
         $this->getJson(self::API.'?status=cancelled')->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_the_list_splits_running_and_ended_projects(): void
+    {
+        $sent = $this->draft();
+        $this->postJson(self::API."/{$sent}/submit")->assertOk();
+        $this->postJson(self::API."/{$sent}/cancel", ['reason' => 'Found someone'])->assertOk();
+        $draft = $this->draft(['title' => 'Logo']);
+
+        $this->assertSame([$draft], array_column($this->getJson(self::API.'?scope=active')->assertOk()->json('data'), 'uuid'));
+        $this->assertSame([$sent], array_column($this->getJson(self::API.'?scope=ended')->assertOk()->json('data'), 'uuid'));
+        $this->getJson(self::API.'?scope=ended&status=draft')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(self::API.'?scope=old')->assertUnprocessable();
     }
 
     public function test_bad_choices_are_refused(): void

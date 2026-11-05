@@ -124,7 +124,7 @@ private fun NotificationDto.toItem(): NotificationItem {
     val ride = data?.get("ride_uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
     val service = com.dorr.app.ui.screens.rides.ServiceLink.of(event) { k -> data?.get(k)?.takeIf { it.isJsonPrimitive }?.asString }
     fun text(k: String) = data?.get(k)?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() && it != "null" }
-    val freelance = event?.takeIf { it.startsWith("freelance.") }?.let { com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(it, text("project"), text("offer"), text("dispute"), text("consultation")) }
+    val freelance = event?.takeIf { it.startsWith("freelance.") }?.let { com.dorr.app.ui.screens.freelance.FreelanceLink.pageFor(it, text("project"), text("offer"), text("dispute"), text("consultation"), text("special_offer"), text("service")) }
     val moving = text("request")?.takeIf { text("type")?.startsWith("moving_") == true }
     return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null, rideUuid = ride, service = service, freelancePage = freelance, movingUuid = moving)
 }

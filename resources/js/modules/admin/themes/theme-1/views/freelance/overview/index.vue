@@ -123,6 +123,7 @@ const AREAS = [
         { route: 'admin.freelance.policies', perm: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
         { route: 'admin.freelance.plans', perm: 'freelance-plans.view', icon: 'ri-vip-crown-2-line', label: 'freelance.plans.title' },
         { route: 'admin.freelance.document-types', perm: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+        { route: 'admin.freelance.checklistTemplates', perm: 'freelance-checklist-templates.view', icon: 'ri-list-check-2', label: 'freelance.checklist_templates.title' },
         { route: 'admin.freelance.skills', perm: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
         { route: 'admin.freelance.skillTests', perm: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
         { route: 'admin.freelance.specialties', perm: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },

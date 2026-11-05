@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.rounded.*
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,16 +50,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
- * The project's receipts (FL-511): one per money movement that concerns the client, newest first. Read when shown, when the agreement
- * changes (`refreshKey`) and when the connection comes back; a receipt opens with its details and can be shared as text.
+ * The receipts (FL-511): one per money movement that concerns the client, newest first — of one project, or of all my work when
+ * [projectUuid] is null («My receipts»). Read when shown, when the agreement changes (`refreshKey`) and when the connection comes back;
+ * a receipt opens with its details and can be shared as text. [showEmpty]: say so when there is none (else nothing is drawn).
  */
 @Composable
-internal fun ReceiptsCard(projectUuid: String, refreshKey: String) {
+internal fun ReceiptsCard(projectUuid: String?, refreshKey: String, showEmpty: Boolean = false) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var list by remember { mutableStateOf<List<FreelanceReceiptDto>>(emptyList()) }
     var open by remember { mutableStateOf<FreelanceReceiptDto?>(null) }
+    var loaded by remember { mutableStateOf(false) }
     LaunchedEffect(refreshKey, reconnect) {
         try {
             list = ApiClient.freelance.receipts(auth(), project = projectUuid).data.orEmpty()
@@ -66,8 +69,15 @@ internal fun ReceiptsCard(projectUuid: String, refreshKey: String) {
             throw e
         } catch (_: Throwable) {
         }
+        loaded = true
     }
-    if (list.isEmpty()) return
+    if (list.isEmpty()) {
+        if (showEmpty && loaded) com.dorr.app.ui.screens.wallet.WaEmpty(
+            Icons.Rounded.Receipt, com.dorr.app.ui.screens.wallet.Tone.Blue, stringResource(R.string.flr_empty_title), stringResource(R.string.flr_empty_body),
+        )
+        else if (showEmpty) FlSkeletonList(count = 3, height = 64.dp)
+        return
+    }
     Card(Icons.Rounded.Receipt, stringResource(R.string.fl_rcp_title)) {
         list.forEach { r ->
             Row(Modifier.fillMaxWidth().clickable {
@@ -129,6 +139,19 @@ internal fun TrailCard(projectUuid: String, refreshKey: String) {
                     stringResource(if (s.mine) R.string.fl_trail_by_you else when (s.actor) { "freelancer" -> R.string.fl_trail_by_freelancer; "admin" -> R.string.fl_trail_by_admin; "system" -> R.string.fl_trail_by_system; else -> R.string.fl_trail_by_client }),
                     "‎" + s.at?.take(16)?.replace('T', ' ').orEmpty(),
                 ).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+/** «My receipts» (the client redesign, batch G): every receipt of my freelance work in one list; a pull reads it again. */
+@Composable
+internal fun ReceiptsPage(onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        FlPageHeader(stringResource(R.string.flr_title), onBack, subtitle = stringResource(R.string.flr_line))
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                ReceiptsCard(projectUuid = null, refreshKey = "all", showEmpty = true)
             }
         }
     }

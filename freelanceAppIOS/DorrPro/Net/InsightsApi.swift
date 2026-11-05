@@ -22,7 +22,7 @@ struct InsightsDto: Decodable {
     var allowedDays: [Int]?
     /// The days the numbers are for.
     var days: Int?
-    var currency: String?
+    @CurrencyLabel var currency: String?
     var decimals: Int?
     /// The lowest plan that opens more than mine; nil at the top or where plans are not sold.
     var upgrade: InsightsUpgradeDto?
@@ -41,8 +41,16 @@ struct InsightsDataDto: Decodable {
     var reputation: InsightReputationDto?
     /// How often my profile and ready-made services were looked at (FL-L11).
     var views: InsightViewsDto?
+    /// FS-103: how many client lists I am in (absent in older answers). Never says whose.
+    var saved: InsightSavedDto?
     /// The full level only.
     var specialties: [InsightSpecialtyDto]?
+}
+
+/// `lists` = the lists I am in in total; `new` = how many of them were added in the period.
+struct InsightSavedDto: Decodable {
+    var lists: Int?
+    var new: Int?
 }
 
 /// Visits to my profile (seen from an offer, or from my portfolio) and to my ready-made services, in the period and in the period of the same

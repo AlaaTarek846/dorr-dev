@@ -28,7 +28,7 @@ func formatMinor(_ minor: Int64, _ currency: String?) -> String { formatMinor(In
 
 /// "12.5" or "12,5" → 1250 minor units; nil when it is not a positive amount with at most two decimals.
 func parseMinor(_ text: String) -> Int? {
-    let clean = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
+    let clean = text.filter { $0 != "\u{200E}" && $0 != "\u{200F}" }.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
     guard clean.range(of: #"^[0-9]{1,9}(\.[0-9]{1,2})?$"#, options: .regularExpression) != nil else { return nil }
     let parts = clean.split(separator: ".", omittingEmptySubsequences: false)
     let whole = Int(parts[0]) ?? 0

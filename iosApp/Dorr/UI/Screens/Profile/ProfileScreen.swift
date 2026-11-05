@@ -579,6 +579,12 @@ struct ConfirmDialog: View {
     let message: String
     var loading = false
     var confirmLabel = L("addr_yes")
+    var dismissLabel = L("common_cancel")
+    /// The colour of the main button (the brand red when none).
+    var confirmTint: Color?
+    /// A third way out, quieter than the two buttons (e.g. «Leave without saving»).
+    var extraLabel: String?
+    var onExtra: (() -> Void)?
     let onConfirm: () -> Void
     let onDismiss: () -> Void
 
@@ -598,20 +604,20 @@ struct ConfirmDialog: View {
                         HStack(spacing: 8) {
                             if loading {
                                 ProgressView().tint(.white).scaleEffect(0.8)
-                                Text(L("account_delete_in_progress")).font(.dorr(14, .bold))
+                                Text(L("common_in_progress")).font(.dorr(14, .bold))
                             } else {
                                 Text(verbatim: confirmLabel).font(.dorr(15, .bold))
                             }
                         }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 46)
-                        .background(wa.red.opacity(loading ? 0.6 : 1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background((confirmTint ?? wa.red).opacity(loading ? 0.6 : 1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .shadow(color: Color(hex: 0x001B53).opacity(0.22), radius: 8, y: 3)
                     }
                     .buttonStyle(.plain)
                     .allowsHitTesting(!loading)
                     Button(action: onDismiss) {
-                        Text(L("common_cancel")).font(.dorr(15, .bold)).foregroundStyle(wa.accent.opacity(loading ? 0.5 : 1))
+                        Text(verbatim: dismissLabel).font(.dorr(15, .bold)).foregroundStyle(wa.accent.opacity(loading ? 0.5 : 1))
                             .frame(maxWidth: .infinity, minHeight: 46)
                             .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(wa.night ? wa.line : AppColors.otpPinkBorder, lineWidth: 1.5))
@@ -620,6 +626,16 @@ struct ConfirmDialog: View {
                     .allowsHitTesting(!loading)
                 }
                 .padding(.top, 16)
+                if let extraLabel, let onExtra {
+                    Button(action: onExtra) {
+                        Text(verbatim: extraLabel).font(.dorr(14, .bold)).foregroundStyle(Color(hex: 0xDC2626))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .allowsHitTesting(!loading)
+                    .padding(.top, 6)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 18)

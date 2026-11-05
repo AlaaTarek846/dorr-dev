@@ -38,8 +38,13 @@ interface ProjectsApi {
     suspend fun unfavorite(@Path("uuid") uuid: String): Response<ApiEnvelope<ProjectDto>>
 }
 
+/** Where something comes from (freelance work is open across countries): ISO code and the name in my language. */
+data class CountryRefDto(val code: String? = null, val name: String? = null)
+
 data class ProjectDto(
     val uuid: String,
+    /** The client's country (projects of every open country are listed). */
+    val country: CountryRefDto? = null,
     val title: String? = null,
     val specialty: NamedDto? = null,
     val skills: List<NamedDto> = emptyList(),
@@ -76,5 +81,5 @@ data class ProjectBudgetDto(
     val type: String = "fixed",
     @SerializedName("min_minor") val minMinor: Long? = null,
     @SerializedName("max_minor") val maxMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )

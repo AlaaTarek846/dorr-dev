@@ -23,6 +23,8 @@ class MilestoneDeliveries
 
     public const MAX_CHECKS = 10;
 
+    public const PREVIEW_SIDE = 800;
+
     public const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
     /** The file types that may be delivered (checked again here, whatever the request said). */
@@ -32,14 +34,15 @@ class MilestoneDeliveries
      * A new version for the part: the note and the files. Called inside the delivering transaction, so a refused file leaves nothing behind.
      *
      * @param  list<UploadedFile>  $files
+     * @param  array<string, mixed>|null  $rights  FL-L13: the freelancer's word that the work is theirs (kept with the version)
      */
-    public function record(Milestone $m, string $note, array $files): Delivery
+    public function record(Milestone $m, string $note, array $files, ?array $rights = null): Delivery
     {
         if (count($files) > self::MAX_FILES) {
             throw new FreelanceException('delivery_too_many_files', 422, ['max' => self::MAX_FILES]);
         }
         $number = (int) Delivery::query()->where('milestone_id', $m->id)->max('number') + 1;
-        $delivery = Delivery::query()->create(['milestone_id' => $m->id, 'number' => $number, 'note' => trim(strip_tags($note)), 'created_at' => now()]);
+        $delivery = Delivery::query()->create(['milestone_id' => $m->id, 'number' => $number, 'note' => trim(strip_tags($note)), 'rights' => $rights, 'created_at' => now()]);
         foreach ($files as $file) {
             $delivery->addFile($file);
         }
@@ -70,21 +73,54 @@ class MilestoneDeliveries
     /**
      * @return list<array<string, mixed>> newest first; the files carry the path the apps download them from
      */
-    public function list(Milestone $m, string $filesPath): array
+    public function list(Milestone $m, string $filesPath, bool $previewOnly = false): array
     {
         return Delivery::query()->where('milestone_id', $m->id)->orderByDesc('number')->with('media')->get()->map(fn (Delivery $d) => [
             'uuid' => $d->uuid,
             'number' => $d->number,
             'note' => $d->note,
+            // FL-L13: the freelancer's word that the work is theirs and the outside material they listed (null: none was asked).
+            'rights' => $d->rights === null ? null : ['confirmed_at' => $d->rights['confirmed_at'] ?? null, 'materials' => array_values((array) ($d->rights['materials'] ?? []))],
             'delivered_at' => $d->created_at?->toIso8601String(),
             'revision_reason' => $d->revision_reason,
             'revision_requested_at' => $d->revision_requested_at?->toIso8601String(),
             'files' => $d->getMedia('files')->map(fn (Media $f) => [
                 'id' => $f->id, 'name' => self::displayName($f), 'mime' => $f->mime_type, 'size' => $f->size,
                 'is_image' => in_array($f->mime_type, self::IMAGE_MIMES, true),
+                // FL-L13: before the part is approved and paid the client only previews: a small picture, no download.
+                'preview_only' => $previewOnly,
                 'path' => "{$filesPath}/{$d->uuid}/files/{$f->id}",
             ])->values()->all(),
         ])->all();
+    }
+
+    /** FL-L13: the client of an agreement with ownership terms only previews a part until it is approved (and so paid). */
+    public static function previewOnly(Milestone $m, string $side): bool
+    {
+        return $side === 'client' && \Modules\Freelance\Services\Rights\Rights::has($m->agreement) && $m->status !== Status::Approved;
+    }
+
+    /**
+     * A small copy of an image for a preview (longest side {@see self::PREVIEW_SIDE}, JPEG): enough to judge the work, not to use it.
+     *
+     * @return array{0: string, 1: string}|null the bytes and the type, null when it can not be made
+     */
+    public static function preview(Media $f): ?array
+    {
+        $img = @imagecreatefromstring((string) @file_get_contents($f->getPath()));
+        if ($img === false) {
+            return null;
+        }
+        [$w, $h] = [imagesx($img), imagesy($img)];
+        $scale = min(1, self::PREVIEW_SIDE / max($w, $h));
+        $out = imagecreatetruecolor(max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale)));
+        imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));
+        imagecopyresampled($out, $img, 0, 0, 0, 0, imagesx($out), imagesy($out), $w, $h);
+        ob_start();
+        imagejpeg($out, null, 60);
+        $bytes = (string) ob_get_clean();
+
+        return [$bytes, 'image/jpeg'];
     }
 
     public function file(Milestone $m, string $deliveryUuid, int $mediaId): Media

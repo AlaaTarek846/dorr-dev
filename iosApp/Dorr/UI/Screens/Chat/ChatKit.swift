@@ -177,6 +177,8 @@ struct ChField: View {
     var keyboard: UIKeyboardType = .default
     /// An ✕ that empties it while there is text.
     var clearable = false
+    /// Ready to type in as soon as it shows (the emoji panel's search).
+    var autofocus = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -193,7 +195,7 @@ struct ChField: View {
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(ch.fieldFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(focused ? ch.red : ch.fieldLine, lineWidth: focused ? 1.5 : 1))
-        .onAppear { focused = lines.lowerBound == 1 && false }
+        .onAppear { if autofocus { DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { focused = true } } }
     }
 }
 

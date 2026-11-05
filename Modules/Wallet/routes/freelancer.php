@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Freelance\Http\Middleware\UseFreelanceWallet;
 use Modules\Wallet\Http\Controllers\Provider\WithdrawalController;
 use Modules\Wallet\Http\Controllers\Provider\WithdrawalMethodController;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
@@ -11,9 +12,12 @@ use Modules\Wallet\Http\Middleware\RequiresWalletPin;
  * owner's decision (2026-10-20), withdrawing the earnings — on the `freelance_api` guard. The withdrawal
  * routes are the captain's (driver.php): a request holds the money, an admin approves it. No
  * user-to-user transfers (FL-508 → FL-L15).
+ *
+ * The money is the international wallet (owner, 2026-11-04): UseFreelanceWallet swaps the request's country for the
+ * hidden international row, so the freelancer has one wallet, in the freelance currency (`freelance.money`).
  */
 Route::middleware('locale')->prefix('freelance/v1')->group(function () {
-    Route::middleware(['auth:freelance_api', 'ensure-phone-verified:freelance_api', 'throttle:60,1', 'country', 'remember-locale'])->group(function () {
+    Route::middleware(['auth:freelance_api', 'ensure-phone-verified:freelance_api', 'throttle:60,1', 'country', UseFreelanceWallet::class, 'remember-locale'])->group(function () {
         require __DIR__.'/customer.php';
 
         Route::get('wallet/withdrawal-methods', [WithdrawalMethodController::class, 'index']);

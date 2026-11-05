@@ -52,7 +52,7 @@ private struct NotificationItem: Identifiable, Equatable {
             service = (kind, ["booking_uuid", "hire_uuid", "enrollment_uuid"].lazy.compactMap(value).first)
         }
         if event.hasPrefix("freelance.") {
-            freelancePage = FreelanceLink.pageFor(event: event, project: value("project"), offer: value("offer"), dispute: value("dispute"), consultation: value("consultation"))
+            freelancePage = FreelanceLink.pageFor(event: event, project: value("project"), offer: value("offer"), dispute: value("dispute"), consultation: value("consultation"), specialOffer: value("special_offer"), service: value("service"))
         }
         if value("type")?.hasPrefix("moving_") == true { movingUuid = value("request") }
     }

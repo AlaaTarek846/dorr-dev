@@ -15,7 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.WorkspacePremium
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,9 +68,9 @@ import java.util.Locale
 import java.util.UUID
 
 /** A price in the currency's own decimals ("34.00 SAR", "7.500 KWD", "1,350 JPY") — digits stay Latin and left-to-right in Arabic text too. */
-private fun planMoney(minor: Long, decimals: Int, currency: String?): String {
+private fun planMoney(minor: Long, decimals: Int, currency: String?, symbol: String? = null): String {
     val text = String.format(Locale.US, "%,.${decimals}f", BigDecimal.valueOf(minor, decimals))
-    return "‎" + listOf(text, currency.orEmpty()).filter { it.isNotBlank() }.joinToString(" ")
+    return "‎" + listOf(text, symbol?.takeIf { it.isNotBlank() } ?: currency.orEmpty()).filter { it.isNotBlank() }.joinToString(" ")
 }
 
 private val LIVE = setOf("trialing", "active", "past_due")
@@ -86,6 +87,13 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
     val doneText = stringResource(R.string.plans_done)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shortText = stringResource(R.string.plans_short_go_wallet)
+    // Not enough in the wallet: straight to it (the message says what is missing), instead of leaving a button to find.
+    fun goToWallet(message: String?) {
+        android.widget.Toast.makeText(context, message?.takeIf { it.isNotBlank() } ?: shortText, android.widget.Toast.LENGTH_LONG).show()
+        onOpenWallet()
+    }
 
     var catalog by remember { mutableStateOf<PlansDto?>(null) }
     var mine by remember { mutableStateOf<MySubscriptionDto?>(null) }
@@ -135,6 +143,7 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             } else {
                 error = result.errorText(offlineText) ?: genericError
                 needsMoney = (result as? ApiResult.Failed)?.error?.errorCode?.endsWith("_insufficient") == true
+                if (needsMoney) goToWallet(error)
             }
             busy = false
         }
@@ -155,6 +164,7 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             } else {
                 error = result.errorText(offlineText) ?: genericError
                 needsMoney = (result as? ApiResult.Failed)?.error?.errorCode?.endsWith("_insufficient") == true
+                if (needsMoney) goToWallet(error)
             }
             busy = false
         }
@@ -226,14 +236,14 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
                             color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            listOfNotNull(longDate(i.createdAt).ifBlank { null }, if (i.creditMinor > 0) stringResource(R.string.plans_invoice_credit, planMoney(i.creditMinor, data.decimals, i.currency)) else null).joinToString(" · "),
+                            listOfNotNull(longDate(i.createdAt).ifBlank { null }, if (i.creditMinor > 0) stringResource(R.string.plans_invoice_credit, planMoney(i.creditMinor, data.decimals, i.currency, i.currencySymbol)) else null).joinToString(" · "),
                             color = settingsMut(), fontSize = 11.sp,
                         )
                     }
                     if (i.status == "failed") {
                         Text(stringResource(R.string.plans_invoice_failed), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     } else {
-                        Text(planMoney(i.amountMinor, data.decimals, i.currency), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(planMoney(i.amountMinor, data.decimals, i.currency, i.currencySymbol), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
@@ -249,7 +259,7 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
         val price = (if (period == "yearly") plan.prices.yearly else plan.prices.monthly) ?: 0L
         val periodName = stringResource(if (period == "yearly") R.string.plans_period_yearly else R.string.plans_period_monthly)
         val unit = stringResource(if (period == "yearly") R.string.plans_per_year else R.string.plans_per_month)
-        val money = planMoney(price, decimals, currency)
+        val money = planMoney(price, decimals, currency, catalog?.currencySymbol)
         val sub = mine?.subscription?.takeIf { it.status in LIVE }
         val message = when {
             sub == null && plan.trialDays > 0 -> stringResource(R.string.plans_confirm_trial, plan.name, plan.trialDays, money, unit)
@@ -262,18 +272,18 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             title = { Text(plan.name, fontWeight = FontWeight.ExtraBold) },
             text = { Text(message, lineHeight = 20.sp) },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     confirm = null
                     act { ApiClient.subscription.take(TakePlanRequest(plan.slug, period)) }
-                }) { Text(stringResource(R.string.plans_confirm_ok), color = settingsAccent(), fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.plans_confirm_ok), fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { confirm = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
     buying?.let { pack ->
         val p = packs
-        val money = planMoney(pack.priceMinor, p?.decimals ?: 2, p?.currency)
+        val money = planMoney(pack.priceMinor, p?.decimals ?: 2, p?.currency, p?.currencySymbol)
         val validDays = p?.validDays ?: 0
         AlertDialog(
             onDismissRequest = { buying = null },
@@ -285,12 +295,12 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     buying = null
                     buy(pack, buyRequest)
-                }) { Text(stringResource(R.string.plans_confirm_ok), color = settingsAccent(), fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.plans_confirm_ok), fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(onClick = { buying = null }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { buying = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
@@ -300,12 +310,12 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             title = { Text(stringResource(R.string.plans_cancel_confirm_title), fontWeight = FontWeight.ExtraBold) },
             text = { Text(stringResource(R.string.plans_cancel_confirm, live?.plan?.name.orEmpty(), longDate(live?.periodEnd)), lineHeight = 20.sp) },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     confirmCancel = false
                     act { ApiClient.subscription.cancel() }
-                }) { Text(stringResource(R.string.plans_cancel_renewal), color = settingsAccent(), fontWeight = FontWeight.Bold) }
+                }) { Text(stringResource(R.string.plans_cancel_renewal), fontWeight = FontWeight.Bold) }
             },
-            dismissButton = { TextButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { confirmCancel = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }
@@ -339,7 +349,7 @@ private fun ExtraOffersCard(p: OfferPacksDto, busy: Boolean, onBuy: (OfferPackDt
                     Text(pack.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.plans_pack_offers, pack.offers), color = settingsMut(), fontSize = 12.sp)
                 }
-                Text(planMoney(pack.priceMinor, p.decimals, p.currency), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                Text(planMoney(pack.priceMinor, p.decimals, p.currency, p.currencySymbol), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     stringResource(R.string.plans_pack_buy), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
@@ -457,9 +467,9 @@ private fun PlanCard(plan: PlanDto, plans: PlansDto, period: String, live: Subsc
             Text(stringResource(R.string.plans_free_price), color = settingsInk(), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
         } else {
             val unit = stringResource(if (period == "yearly") R.string.plans_per_year else R.string.plans_per_month)
-            Text(stringResource(R.string.plans_price_line, planMoney(price, plans.decimals, plans.currency), unit), color = settingsInk(), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.plans_price_line, planMoney(price, plans.decimals, plans.currency, plans.currencySymbol), unit), color = settingsInk(), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             if (period == "yearly") plan.yearlySavingMinor?.takeIf { it > 0 }?.let {
-                Text(stringResource(R.string.plans_saves, planMoney(it, plans.decimals, plans.currency)), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.plans_saves, planMoney(it, plans.decimals, plans.currency, plans.currencySymbol)), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -248,6 +248,8 @@ data class WalletBalanceDto(
     @SerializedName("held_minor") val heldMinor: Long,
     /** Balances in other countries — shown read-only, not spendable here. */
     @SerializedName("other_wallets") val otherWallets: List<OtherWalletDto>? = null,
+    /** False when dollars are already this owner's local money (freelance works in them): there is no separate dollar wallet to swipe to. */
+    @SerializedName("international_wallet") val internationalWallet: Boolean = true,
 )
 
 data class OtherWalletDto(

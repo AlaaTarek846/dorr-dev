@@ -82,11 +82,16 @@ data class MarketFreelancerDto(
 
 data class MarketSpecialtyDto(val id: Int = 0, val name: String? = null)
 
+/** Where something comes from (freelance work is open across countries): ISO code and the name in my language. */
+data class FlCountryRefDto(val code: String? = null, val name: String? = null)
+
 data class MarketServiceCardDto(
     val uuid: String = "",
+    /** The freelancer's country (the market mixes every open country). */
+    val country: FlCountryRefDto? = null,
     val title: String = "",
     val specialty: MarketSpecialtyDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("starting_price_minor") val startingPriceMinor: Long? = null,
     @SerializedName("delivery_days") val deliveryDays: Int? = null,
@@ -106,7 +111,7 @@ data class MarketServiceDto(
     val description: String = "",
     val requirements: String? = null,
     val specialty: MarketSpecialtyDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("starting_price_minor") val startingPriceMinor: Long? = null,
     val tiers: List<MarketTierDto> = emptyList(),
@@ -119,6 +124,10 @@ data class MarketServiceDto(
     val billing: String = "once",
     /** FL-L05: how a monthly one runs; null for one sold once. */
     val subscription: MarketSubscriptionTermsDto? = null,
+    /** FL-L09: the freelancer's loyalty program as it stands for me (null: none, or a monthly service). */
+    val loyalty: FlLoyaltyViewDto? = null,
+    /** FL-L13: who owns the work once it is paid and what I may do with it (null: the feature is off). */
+    val rights: FreelanceRightsSummaryDto? = null,
 )
 
 data class MarketSubscriptionTermsDto(
@@ -138,7 +147,7 @@ data class MarketSubscriptionDto(
     val level: String = "basic",
     @SerializedName("tier_name") val tierName: String? = null,
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     val money: MarketOrderMoneyDto = MarketOrderMoneyDto(),
     val cycle: Int = 1,
@@ -173,6 +182,8 @@ data class MarketTierDto(
     @SerializedName("delivery_days") val deliveryDays: Int = 1,
     val revisions: Int = 0,
     val features: List<String> = emptyList(),
+    /** FL-L09: this level's price after my loyalty step (null: none). */
+    @SerializedName("loyalty_price_minor") val loyaltyPriceMinor: Long? = null,
 )
 
 data class MarketAddonDto(val id: Int = 0, val title: String = "", @SerializedName("price_minor") val priceMinor: Long = 0, @SerializedName("extra_days") val extraDays: Int = 0)
@@ -186,8 +197,12 @@ data class MarketQuoteDto(
     @SerializedName("total_minor") val totalMinor: Long = 0,
     @SerializedName("delivery_days") val deliveryDays: Int = 0,
     val revisions: Int = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
+    /** FL-L09: the usual price, the discount (basis points) and what it saves me; null: none. */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
 )
 
 data class MarketOrderRequest(
@@ -207,7 +222,11 @@ data class MarketOrderDto(
     val features: List<String> = emptyList(),
     val addons: List<MarketOrderAddonDto> = emptyList(),
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    /** FL-L09: the usual price and the loyalty discount taken off it; null: none. */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     @SerializedName("delivery_days") val deliveryDays: Int = 0,
     val revisions: Int = 0,

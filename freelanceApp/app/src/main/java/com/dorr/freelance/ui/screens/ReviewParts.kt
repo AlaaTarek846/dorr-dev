@@ -35,7 +35,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -159,9 +160,9 @@ private fun ObjectionDialog(reasons: List<String>, busy: Boolean, onSend: (Objec
             }
         },
         confirmButton = {
-            TextButton(enabled = code != null && note.trim().length >= 5 && !busy, onClick = { onSend(ObjectionRequest(code.orEmpty(), note.trim())) }) { Text(stringResource(R.string.ob_send), color = Color(0xFFDC2626)) }
+            DialogButton(enabled = code != null && note.trim().length >= 5 && !busy, onClick = { onSend(ObjectionRequest(code.orEmpty(), note.trim())) }) { Text(stringResource(R.string.ob_send), color = Color(0xFFDC2626)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+        dismissButton = { DialogButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
     )
 }
 

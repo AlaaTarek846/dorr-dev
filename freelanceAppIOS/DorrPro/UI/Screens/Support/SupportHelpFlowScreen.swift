@@ -134,7 +134,8 @@ private struct HelpBubble: View {
     @State private var shown = false
 
     var body: some View {
-        let tailOnRight = mine == (direction == .leftToRight)
+        // Absolute sides: mine always sits on the right with its tail there, whatever the screen's direction.
+        let tailOnRight = mine
         let shape = SupportBubbleCorners(topLeft: 20, topRight: 20, bottomRight: tailOnRight ? 5 : 20, bottomLeft: tailOnRight ? 20 : 5)
         HStack {
             if mine { Spacer(minLength: 0) }
@@ -145,8 +146,11 @@ private struct HelpBubble: View {
                 .background(mine ? wa.red : (wa.night ? wa.darkCard : wa.settingsCard), in: shape)
                 .overlay(shape.stroke(mine ? .clear : wa.settingsMut.opacity(0.18), lineWidth: 1))
                 .frame(maxWidth: 300, alignment: mine ? .trailing : .leading)
+                .environment(\.layoutDirection, direction)
             if !mine { Spacer(minLength: 0) }
         }
+        // Arrangement.Absolute: mine on the right, the bot on the left, in Arabic too.
+        .environment(\.layoutDirection, .leftToRight)
         .scaleEffect(shown ? 1 : 0.94)
         .offset(y: shown ? 0 : 8)
         .opacity(shown ? 1 : 0)

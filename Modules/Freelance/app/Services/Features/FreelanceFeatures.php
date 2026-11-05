@@ -27,7 +27,7 @@ class FreelanceFeatures
         'bidding', 'free_offer_quota',
         'milestones', 'chat',
         'wallet_payment', 'client_fee', 'commission',
-        'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations',
+        'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations', 'special_offers', 'loyalty', 'rights', 'community',
     ];
 
     /** The service first, then the features — what the admin switches page lists. */
@@ -62,6 +62,23 @@ class FreelanceFeatures
             'service' => $service,
             'features' => collect(self::FEATURES)->mapWithKeys(fn (string $f) => [$f => $service && $this->rule($countryId, $f)])->all(),
         ];
+    }
+
+    /**
+     * The countries where the service is open (and `$feature` too, when given): freelance work is open across countries (owner,
+     * 2026-11-04), so a freelancer sees the projects, services, consultations and posts of every one of them, not only their own.
+     * The switches stay per country: what a closed country's people posted is not shown.
+     *
+     * @return list<int>
+     */
+    public function openCountries(?string $feature = null): array
+    {
+        return $this->rules()
+            ->filter(fn (FreelanceFeatureRule $r) => $r->feature === self::SERVICE && $r->enabled)
+            ->map(fn (FreelanceFeatureRule $r) => (int) $r->country_id)
+            ->unique()
+            ->filter(fn (int $id) => $feature === null ? ! $this->closedByAvailability($id) : $this->allows($id, $feature))
+            ->values()->all();
     }
 
     public static function forget(): void

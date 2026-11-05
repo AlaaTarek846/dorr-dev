@@ -118,6 +118,9 @@ struct ChatComposer: View {
     @State private var text = ""
     @State private var loaded = false
     @State private var mentioned: [Int: String] = [:]
+    /// The card of the link in the field (androidApp `ComposerLinkPreview`), and the link whose card I closed.
+    @State private var linkCard: LinkPreviewDto?
+    @State private var linkDismissed: String?
     @State private var sendMenu = false
     @State private var sheet: String?
     @State private var locked = false
@@ -126,6 +129,10 @@ struct ChatComposer: View {
     @State private var holding = false
     @State private var now = Date()
     @FocusState private var focused: Bool
+    /// The emoji / stickers / GIFs panel under the message box (androidApp `ExpressionDock`).
+    @State private var exprOpen = false
+    /// The keyboard is on screen (to shrink the emoji panel while its search is typed in).
+    @State private var keyboardUp = false
     @Environment(\.layoutDirection) private var direction
 
     private let cancelAt: CGFloat = 110
@@ -141,38 +148,73 @@ struct ChatComposer: View {
             }
             // ✓ fix spelling (on a tap, spec 36).
             ProofreadBar(host: host, text: text, enabled: !recorder.recording) { text = $0 }
+            // The card of a link being typed (the server fetches it once; the message then carries the same card).
+            if let card = linkCard, linkDismissed != linkInText {
+                ComposerLinkCard(card: card) { linkDismissed = linkInText }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             // «/» quick replies.
             QuickReplySuggestions(host: host, query: quickQuery) { reply in
                 text = reply.body
                 UISelectionFeedbackGenerator().selectionChanged()
             }
             mentionSuggestions
-            if let target = state.editing ?? state.replyTo {
-                ContextBar(target: target, isEdit: state.editing != nil) {
-                    if state.editing != nil { text = "" }
-                    state.replyTo = nil
-                    state.editing = nil
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
             HStack(alignment: .bottom, spacing: 6) {
-                ZStack {
-                    if recorder.recording {
-                        RecordingBar(recorder: recorder, dragX: dragX, locked: locked) {
-                            recorder.cancel()
-                            locked = false
-                            state.sendTyping(stop: true)
+                // The message box: the reply / edit card on top, then the field (or the recording bar).
+                VStack(spacing: 0) {
+                    if let target = state.editing ?? state.replyTo {
+                        ContextBar(target: target, isEdit: state.editing != nil) {
+                            if state.editing != nil { text = "" }
+                            state.replyTo = nil
+                            state.editing = nil
                         }
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                    } else {
-                        field.transition(.move(edge: .leading).combined(with: .opacity))
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                    ZStack {
+                        if recorder.recording {
+                            RecordingBar(recorder: recorder, dragX: dragX, locked: locked) {
+                                recorder.cancel()
+                                locked = false
+                                state.sendTyping(stop: true)
+                            }
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        } else {
+                            field.transition(.move(edge: .leading).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: recorder.recording)
                 }
-                .animation(.easeInOut(duration: 0.2), value: recorder.recording)
+                // Solid, in the app's surface colour (as WhatsApp's box): the wallpaper shows around it, not through it.
+                .background(ch.surface, in: RoundedRectangle(cornerRadius: 22))
+                .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
                 sendButton
+            }
+            // Emoji · stickers · GIFs, in the keyboard's place: the message box stays above it.
+            if exprOpen {
+                ExpressionPanel(onDismiss: { exprOpen = false }, onEmoji: { text += $0 }, onPick: { pick in
+                    state.send(Outgoing(type: pick.type, extra: pick.extra.mapValues { JSONAny.from($0) }))
+                }, docked: true,
+                // Searching GIFs / stickers brings the keyboard up under it: the panel shrinks to leave the chat room.
+                height: keyboardUp ? 250 : min(max(LastKeyboard.height > 0 ? LastKeyboard.height : 300, 240), 420),
+                onBackspace: { if !text.isEmpty { text.removeLast() } })
+                .padding(.horizontal, -10).padding(.top, 6)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 5)
+        // Typing again: the keyboard comes back and the panel steps aside.
+        .onChange(of: focused) { on in if on && exprOpen { withAnimation { exprOpen = false } } }
+        // The keyboard's own height, kept once seen, so the panel matches it.
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+            if let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                let bottom = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first?.safeAreaInsets.bottom ?? 0
+                if frame.height - bottom > 200 { LastKeyboard.height = frame.height - bottom }
+            }
+            withAnimation(.easeOut(duration: 0.2)) { keyboardUp = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.2)) { keyboardUp = false }
+        }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: state.replyTo?.id)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: state.editing?.id)
         .onAppear {
@@ -197,6 +239,15 @@ struct ChatComposer: View {
             if let insert { text = insert; state.composerInsert = nil }
         }
         .onChange(of: mentionQuery != nil) { on in if on { Task { await state.loadMembers() } } }
+        // A link typed / pasted: its card, once it's complete (half a second without changes).
+        .task(id: linkInText) {
+            linkCard = nil
+            guard let url = linkInText else { return }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            let card = (try? await ChatApi.linkPreview(url))?.data ?? nil
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { linkCard = card }
+        }
         // Slow mode: the seconds left tick down on the send button.
         .task(id: state.slowUntil) {
             while let until = state.slowUntil, until > Date() {
@@ -241,10 +292,18 @@ struct ChatComposer: View {
                 }
                 .buttonStyle(.plain).padding(.bottom, 3)
             }
-            // Emoji · stickers · GIFs — the face winks when the panel opens.
-            Button { sheet = "expressions" } label: {
-                let wink = sheet == "expressions"
-                Image(systemName: "face.smiling").font(.system(size: 19)).foregroundStyle(wink ? ch.red : ch.mut)
+            // Emoji · stickers · GIFs, in the keyboard's place (as in WhatsApp). Open: the keyboard icon brings it back.
+            Button {
+                if exprOpen {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { exprOpen = false }
+                    focused = true
+                } else {
+                    focused = false
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { exprOpen = true }
+                }
+            } label: {
+                let wink = exprOpen
+                Image(systemName: wink ? "keyboard" : "face.smiling").font(.system(size: 19)).foregroundStyle(wink ? ch.red : ch.mut)
                     .rotationEffect(.degrees(wink ? 18 : 0)).scaleEffect(wink ? 1.15 : 1)
                     .animation(.spring(response: 0.3, dampingFraction: 0.4), value: wink)
                     .frame(width: 34, height: 34)
@@ -253,9 +312,12 @@ struct ChatComposer: View {
         }
         .padding(.horizontal, 4)
         .frame(minHeight: 44)
-        // Slightly see-through: the wallpaper shows around and under the message box.
-        .background(ch.surface.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
+    }
+
+    /// The first link in the field, without the punctuation that may follow it.
+    private var linkInText: String? {
+        guard let r = text.range(of: #"(https?://\S+|www\.\S+)"#, options: .regularExpression) else { return nil }
+        return String(text[r]).trimmingCharacters(in: CharacterSet(charactersIn: ".,)!?"))
     }
 
     /// «/…» typed alone: the shortcut so far (nil otherwise, or while editing).
@@ -468,7 +530,13 @@ struct ChatComposer: View {
             if urgent { extra["urgent"] = .bool(true) }
             // Hidden until they unlock it, and never in a notification.
             if sensitive { extra["sensitive"] = .bool(true) }
-            state.send(Outgoing(type: "text", body: body, extra: extra))
+            // The link's card already above the field goes with it (only while it's still that link).
+            let shown = linkDismissed == linkInText ? nil : linkCard
+            let card = shown.flatMap { c -> LinkPreviewDto? in
+                let bare = (c.url.components(separatedBy: "://").last ?? c.url).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                return body.range(of: bare, options: .caseInsensitive) != nil ? c : nil
+            }
+            state.send(Outgoing(type: "text", body: body, extra: extra), linkPreview: card)
         }
         text = ""
         mentioned = [:]
@@ -503,10 +571,6 @@ struct ChatComposer: View {
             }
         case "scheduled":
             ScheduledListSheet(host: host, state: state) { sheet = nil }
-        case "expressions":
-            ExpressionPanel(onDismiss: { sheet = nil }, onEmoji: { text += $0 }) { pick in
-                state.send(Outgoing(type: pick.type, extra: pick.extra.mapValues { JSONAny.from($0) }))
-            }
         default:
             EmptyView()
         }
@@ -546,7 +610,45 @@ private struct RecordHalo: View {
     }
 }
 
-/// Above the field: what I'm replying to, or the message I'm editing.
+/// The keyboard's height (above the home indicator) once it has been seen: the emoji panel takes the same.
+private enum LastKeyboard {
+    @MainActor static var height: CGFloat = 0
+}
+
+/// While typing a message with a link: its card over the field (androidApp `ComposerLinkPreview`); the ✕ hides it for
+/// this link.
+private struct ComposerLinkCard: View {
+    @ObservedObject private var ch = Ch.shared
+    let card: LinkPreviewDto
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Group {
+                if let image = card.image {
+                    ChatImage(url: ApiClient.mediaUrl(image))
+                } else {
+                    Image(systemName: "globe").font(.system(size: 22)).foregroundStyle(ch.red)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity).background(ch.red.opacity(0.1))
+                }
+            }
+            .frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: card.title ?? card.siteName ?? "").font(.dorr(13, .heavy)).foregroundStyle(ch.ink).lineLimit(1)
+                Text(verbatim: card.description ?? card.url).font(.dorr(11.5)).foregroundStyle(ch.mut).lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(ch.mut).frame(width: 30, height: 30) }
+                .buttonStyle(.plain)
+        }
+        .padding(8)
+        .background(ch.surface, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 4)
+    }
+}
+
+/// Inside the message box, above the field: what I'm replying to, or the message I'm editing — its icon and words,
+/// and a picture on the side when it has one (the × on its corner, as WhatsApp does).
 private struct ContextBar: View {
     @ObservedObject private var ch = Ch.shared
     let target: MessageDto
@@ -554,24 +656,113 @@ private struct ContextBar: View {
     let onClose: () -> Void
 
     var body: some View {
-        let accent = isEdit ? ch.red : Ch.colorFor(target.sender?.key)
-        let (_, label) = previewOf(target.type, deleted: false)
+        let mine = target.sender?.key == myKey()
+        // Me (and editing) in the app colour; someone else in their own name colour, as in group chats.
+        let accent = isEdit || mine ? ch.red : Ch.colorFor(target.sender?.key)
+        let s = replySummary(target)
         HStack(spacing: 0) {
-            Rectangle().fill(accent).frame(width: 5)
+            Rectangle().fill(accent).frame(width: 4)
             VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: isEdit ? L("ch_editing") : target.sender?.key == myKey() ? L("ch_you") : target.sender?.name ?? "")
-                    .font(.dorr(13, .heavy)).foregroundStyle(accent)
-                Text(verbatim: target.body.flatMap { $0.isEmpty ? nil : plainChatText($0) } ?? label).font(.dorr(13)).foregroundStyle(ch.mut).lineLimit(1)
+                Text(verbatim: isEdit ? L("ch_editing") : mine ? L("ch_you") : target.sender?.name ?? "")
+                    .font(.dorr(13, .heavy)).foregroundStyle(accent).lineLimit(1)
+                HStack(spacing: 4) {
+                    // The same icons as the chat list's last-message line.
+                    if let icon = s.icon { Image(systemName: icon).font(.system(size: 13)).foregroundStyle(ch.mut) }
+                    Text(verbatim: s.text).font(.dorr(13)).foregroundStyle(ch.mut).lineLimit(s.icon == nil ? 3 : 1)
+                }
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(ch.soft).padding(10) }.buttonStyle(.plain)
+            if s.thumb != nil || s.map || s.contact != nil {
+                ZStack(alignment: .topTrailing) {
+                    Group {
+                        if let thumb = s.thumb {
+                            ChatImage(url: ApiClient.mediaUrl(thumb))
+                        } else if s.map {
+                            MiniMap()
+                        } else {
+                            ChAvatar(url: nil, name: s.contact, key: s.contact, size: 40).frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(width: 52, height: 52).clipped()
+                    Button(action: onClose) {
+                        Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                            .frame(width: 20, height: 20).background(Color.black.opacity(0.45), in: Circle())
+                    }
+                    .buttonStyle(.plain).padding(3)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(4)
+            } else {
+                Button(action: onClose) { Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(ch.soft).frame(width: 28, height: 28) }
+                    .buttonStyle(.plain).padding(6).frame(maxHeight: .infinity, alignment: .top)
+            }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .background(ch.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
-        .padding(.bottom, 6)
+        .background(ch.surfaceMuted)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 6).padding(.top, 6)
+    }
+}
+
+/// What a message shows in a one-line preview (the reply card, the pinned bar): the chat list's icon for its kind,
+/// its words, and a picture when it has one (androidApp `ReplySummary`).
+struct ReplySummary {
+    let icon: String?
+    let text: String
+    var thumb: String?
+    var map = false
+    var contact: String?
+}
+
+func replySummary(_ m: MessageDto) -> ReplySummary {
+    let (icon, label) = previewOf(m.type, deleted: false)
+    let body = m.body.flatMap { $0.isEmpty ? nil : plainChatText($0) }
+    let file = m.files.first
+    // A view-once message never shows what's in it, not even here.
+    let picture = m.viewOnce == true ? nil : file?.thumbnail ?? (["image", "sticker"].contains(m.type) ? file?.url : nil)
+    switch m.type {
+    case "text":
+        return ReplySummary(icon: nil, text: body ?? "")
+    case "image", "sticker", "gif":
+        return ReplySummary(icon: icon, text: body ?? label, thumb: picture)
+    case "video":
+        let ms = file?.durationMs ?? 0
+        return ReplySummary(icon: icon, text: body ?? (ms > 0 ? "\(label) (\(durationText(ms)))" : label), thumb: picture)
+    case "voice", "audio":
+        let meta = Int64(m.meta?.int("duration_ms") ?? 0)
+        let ms = meta > 0 ? meta : (file?.durationMs ?? 0)
+        return ReplySummary(icon: icon, text: ms > 0 ? "\(label) (\(durationText(ms)))" : label)
+    case "document":
+        return ReplySummary(icon: icon, text: m.folderInfo?.0 ?? file?.name ?? body ?? label)
+    case "location":
+        return ReplySummary(icon: icon, text: m.meta?.str("name") ?? label, map: true)
+    case "contact":
+        let name = m.meta?.str("name").flatMap { $0.isEmpty ? nil : $0 }
+        return ReplySummary(icon: icon, text: name.map { "\(label): \($0)" } ?? label, contact: name)
+    default:
+        return ReplySummary(icon: icon, text: body ?? label)
+    }
+}
+
+/// A small drawn map with a pin, like the location bubble's.
+struct MiniMap: View {
+    @ObservedObject private var ch = Ch.shared
+
+    var body: some View {
+        ZStack {
+            Canvas { gc, size in
+                gc.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(hex: 0xE8F0E3)))
+                var road = Path(); road.move(to: CGPoint(x: 0, y: size.height * 0.62)); road.addLine(to: CGPoint(x: size.width, y: size.height * 0.38))
+                gc.stroke(road, with: .color(.white), lineWidth: 6)
+                var side = Path(); side.move(to: CGPoint(x: size.width * 0.3, y: 0)); side.addLine(to: CGPoint(x: size.width * 0.44, y: size.height))
+                gc.stroke(side, with: .color(.white), lineWidth: 4)
+                var water = Path(); water.move(to: CGPoint(x: size.width * 0.75, y: 0)); water.addLine(to: CGPoint(x: size.width, y: size.height * 0.3))
+                gc.stroke(water, with: .color(Color(hex: 0xBFDBFE)), lineWidth: 8)
+            }
+            Image(systemName: "mappin").font(.system(size: 18, weight: .bold)).foregroundStyle(ch.red)
+        }
+        .environment(\.layoutDirection, .leftToRight)
     }
 }
 
@@ -613,9 +804,8 @@ private struct RecordingBar: View {
                     .offset(x: -dragX * 0.6 * (1))
             }
         }
+        // The message box around it draws the background and the shadow.
         .padding(.horizontal, 12).frame(height: 44)
-        .background(ch.surface.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
         .onAppear { withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { blink = true } }
     }
 }
@@ -832,6 +1022,8 @@ private struct AttachSheet: View {
     @State private var sub: String?
     /// The live length of the location being sent, for «Try again».
     @State private var pendingLive: Int?
+    /// The «Send location» page (map, nearby places, live — as in WhatsApp).
+    @State private var pickerOpen = false
     @State private var galleryItems: [PhotosPickerItem] = []
     @State private var viewOnceItem: [PhotosPickerItem] = []
     @State private var galleryOpen = false
@@ -847,8 +1039,6 @@ private struct AttachSheet: View {
         let isChannel = c?.isChannel == true
         Group {
             switch sub {
-            case "location":
-                LocationShareSheet(onDismiss: onDismiss, onCurrent: { shareLocation(live: nil) }, onLive: { shareLocation(live: $0) })
             case "poll":
                 PollComposerSheet(onDismiss: onDismiss) { question, options, multiple in
                     state.send(Outgoing(type: "poll", body: question, extra: ["poll_options": .from(options), "poll_multiple": .bool(multiple)]))
@@ -891,7 +1081,7 @@ private struct AttachSheet: View {
                 let off = sub == "location_off"
                 ChoiceSheet(title: L(off ? "ch_location_off_title" : "ch_location_denied_title"), subtitle: L(off ? "ch_location_off_sub" : "ch_location_denied_sub"), options: [
                     (L(off ? "ch_location_open_settings" : "ch_open_app_settings"), { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }),
-                    (L("ch_location_try_again"), { shareLocation(live: pendingLive) }),
+                    (L("ch_location_try_again"), { openLocation() }),
                 ], onDismiss: onDismiss)
             default:
                 ChSheetCard {
@@ -909,6 +1099,25 @@ private struct AttachSheet: View {
                     .padding(.vertical, 6)
                 }
             }
+        }
+        .fullScreenCover(isPresented: $pickerOpen) {
+            LocationPickerPage(
+                onDismiss: { pickerOpen = false; onDismiss() },
+                onSend: { pick in
+                    pickerOpen = false
+                    var extra: [String: JSONAny] = ["latitude": .number(pick.lat), "longitude": .number(pick.lng)]
+                    // A place from the list / the search: its name and address go with it (shown in the bubble).
+                    if let name = pick.name, !name.isEmpty { extra["location_name"] = .string(String(name.prefix(200))) }
+                    if let address = pick.address, !address.isEmpty { extra["address"] = .string(String(address.prefix(500))) }
+                    state.send(Outgoing(type: "location", extra: extra))
+                    onDismiss()
+                },
+                // Live: from where the phone is right now, for that long (the same path as before).
+                onLive: { seconds in
+                    pickerOpen = false
+                    shareLocation(live: seconds)
+                }
+            )
         }
         .photosPicker(isPresented: $galleryOpen, selection: $galleryItems, maxSelectionCount: 10, matching: .any(of: [.images, .videos]))
         .photosPicker(isPresented: $viewOnceOpen, selection: $viewOnceItem, maxSelectionCount: 1, matching: .any(of: [.images, .videos]))
@@ -966,7 +1175,7 @@ private struct AttachSheet: View {
             AttachItem(id: "document", icon: "doc.text.fill", label: L("ch_attach_document"), colors: [Color(hex: 0x60A5FA), Color(hex: 0x2563EB)]) { documentOpen = true },
             AttachItem(id: "folder", icon: "folder.fill", label: L("fg_attach_folder"), colors: [Color(hex: 0x93C5FD), Color(hex: 0x1D4ED8)]) { folderOpen = true },
             AttachItem(id: "gif", icon: "play.square.stack.fill", label: L("fg_attach_gif"), colors: [Color(hex: 0xC084FC), Color(hex: 0x9333EA)]) { gifOpen = true },
-            AttachItem(id: "location", icon: "mappin.and.ellipse", label: L("ch_attach_location"), colors: [Color(hex: 0x34D399), Color(hex: 0x059669)]) { withAnimation { sub = "location" } },
+            AttachItem(id: "location", icon: "mappin.and.ellipse", label: L("ch_attach_location"), colors: [Color(hex: 0x34D399), Color(hex: 0x059669)]) { openLocation() },
         ]
         if ChatAi.shared.imageGenerate {
             items.append(AttachItem(id: "aiImage", icon: "sparkles", label: L("ch_ai_image_title"), colors: [Color(hex: 0x818CF8), Color(hex: 0x4F46E5)]) { withAnimation { sub = "aiImage" } })
@@ -1043,7 +1252,26 @@ private struct AttachSheet: View {
         return ChatLocalFile(url: target, mime: mime, name: url.lastPathComponent)
     }
 
-    /// Location: «now» or live (15 min / 1 h / 8 h), then the permission.
+    /// Location: on and allowed → the «Send location» page; off / refused → a sheet that opens the settings.
+    private func openLocation() {
+        guard CLLocationManager.locationServicesEnabled() else {
+            withAnimation { sub = "location_off" }
+            return
+        }
+        switch CLLocationManager().authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            pickerOpen = true
+        case .denied, .restricted:
+            withAnimation { sub = "location_denied" }
+        default:
+            // Not asked yet: the system asks, then the page opens (or the «allow in settings» sheet).
+            Task {
+                if case .denied = await ChatLocationOnce.fetch() { withAnimation { sub = "location_denied" } } else { pickerOpen = true }
+            }
+        }
+    }
+
+    /// Live location (15 min / 1 h / 8 h) from where the phone is now — chosen on the location page.
     private func shareLocation(live: Int?) {
         pendingLive = live
         // Location turned off for the whole phone.
@@ -1182,48 +1410,6 @@ final class ContactPick: NSObject, CNContactPickerDelegate {
             if !shown.isEmpty { onPick?(shown, Array(phones)) }
             onPick = nil
         }
-    }
-}
-
-/// Send my location now, or share it live for 15 min / 1 h / 8 h.
-private struct LocationShareSheet: View {
-    @ObservedObject private var ch = Ch.shared
-    let onDismiss: () -> Void
-    let onCurrent: () -> Void
-    let onLive: (Int) -> Void
-
-    var body: some View {
-        ChSheetCard {
-            Text(L("ch_attach_location")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
-            row("location.fill", L("ch_location_current"), L("ch_location_current_sub"), Color(hex: 0x2563EB), 0, onCurrent)
-            HStack(spacing: 6) {
-                Image(systemName: "location.north.fill").font(.system(size: 13)).foregroundStyle(ch.red)
-                Text(L("ch_live_title")).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
-            }
-            .padding(.leading, 4).padding(.top, 14).padding(.bottom, 6)
-            ForEach(Array([(900, "ch_live_15m"), (3600, "ch_live_1h"), (28800, "ch_live_8h")].enumerated()), id: \.offset) { i, o in
-                row("location.north.fill", L(o.1), L("ch_live_sub"), ch.success, i + 1) { onLive(o.0) }
-            }
-        }
-    }
-
-    private func row(_ icon: String, _ title: String, _ sub: String, _ color: Color, _ i: Int, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                ChIconBadge(icon: icon, color: color, iconTint: ch.red)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: title).font(.dorr(15, .bold)).foregroundStyle(ch.ink)
-                    Text(verbatim: sub).font(.dorr(12)).foregroundStyle(ch.mut)
-                }
-                Spacer()
-            }
-            .padding(10)
-            .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.vertical, 3)
-        .chStagger(i)
     }
 }
 

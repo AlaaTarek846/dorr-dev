@@ -28,17 +28,26 @@ class MilestoneDeliveryController extends Controller
     {
         [$m, $side] = $this->context($request, $uuid, $milestone);
 
-        return ApiResponse::success($this->deliveries->list($m, "projects/{$uuid}/milestones/{$milestone}/deliveries"), __('api.retrieved'));
+        return ApiResponse::success($this->deliveries->list($m, "projects/{$uuid}/milestones/{$milestone}/deliveries", MilestoneDeliveries::previewOnly($m, $side)), __('api.retrieved'));
     }
 
     /**
      * GET …/deliveries/{delivery}/files/{media} — an image is shown in place, anything else is a download; nothing is ever opened or
      * run by the server, and the browser is told not to guess the type.
      */
-    public function file(Request $request, string $uuid, string $milestone, string $delivery, int $media): BinaryFileResponse
+    public function file(Request $request, string $uuid, string $milestone, string $delivery, int $media): BinaryFileResponse|\Illuminate\Http\Response
     {
-        [$m] = $this->context($request, $uuid, $milestone);
+        [$m, $side] = $this->context($request, $uuid, $milestone);
         $file = $this->deliveries->file($m, $delivery, $media);
+        // FL-L13: before the part is approved and paid the client gets a small picture and nothing else.
+        if (MilestoneDeliveries::previewOnly($m, $side)) {
+            $preview = in_array($file->mime_type, MilestoneDeliveries::IMAGE_MIMES, true) ? MilestoneDeliveries::preview($file) : null;
+            if ($preview === null) {
+                throw new \Modules\Freelance\Exceptions\FreelanceException('rights_preview_only', 403);
+            }
+
+            return response($preview[0], 200, ['Content-Type' => $preview[1], 'Content-Disposition' => 'inline', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
+        }
         $inline = in_array($file->mime_type, MilestoneDeliveries::IMAGE_MIMES, true);
 
         $response = response()->download($file->getPath(), MilestoneDeliveries::displayName($file), ['Content-Type' => $file->mime_type, 'X-Content-Type-Options' => 'nosniff'], $inline ? 'inline' : 'attachment');

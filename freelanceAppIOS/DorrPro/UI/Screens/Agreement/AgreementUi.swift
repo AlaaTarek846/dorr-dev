@@ -26,7 +26,8 @@ struct FormSheet<Content: View>: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background((wa.night ? wa.darkCard : Color.white).ignoresSafeArea())
-        .presentationDetents(fullHeight ? [.large] : [.medium, .large])
+        // AppLanguage.kt: every bottom sheet opens fully (skipPartiallyExpanded).
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 }

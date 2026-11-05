@@ -145,12 +145,16 @@ enum Api {
     static func raw(_ path: String, query: [String: String?] = [:]) async -> Result<Data, RawFailure> {
         switch await perform(path, method: "GET", query: query, body: nil, contentType: nil, headers: [:]) {
         case .success(let data): return .success(data)
-        case .failure(.offline): return .failure(RawFailure(status: 0))
-        case .failure(.http(let status, _)): return .failure(RawFailure(status: status))
+        case .failure(.offline): return .failure(RawFailure(status: 0, body: nil))
+        case .failure(.http(let status, let body)): return .failure(RawFailure(status: status, body: body))
         }
     }
 
-    struct RawFailure: Error { let status: Int }
+    struct RawFailure: Error {
+        let status: Int
+        /// The refusal's body (its message and `error_code`), nil with no answer.
+        let body: Data?
+    }
 
     private enum Failure: Error {
         case offline
@@ -221,6 +225,8 @@ enum Api {
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
+            // FL-L16: the server's clock, once (countdowns to a session read the phone's clock corrected by it).
+            if let date = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Date").flatMap(ServerClock.httpDate) { ServerClock.observeHeader(date) }
             // A completed round-trip proves we are online.
             await NetworkMonitor.shared.reportReachable()
         } catch let error as URLError {

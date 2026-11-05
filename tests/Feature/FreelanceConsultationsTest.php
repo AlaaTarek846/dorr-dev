@@ -119,7 +119,7 @@ class FreelanceConsultationsTest extends TestCase
         $this->asMona();
 
         return $this->postJson(self::CLIENT.'/consultations', [
-            'offer' => $this->offer, 'minutes' => $minutes, 'starts_at' => $at, 'topic' => 'I need help choosing the colours of my brand.',
+            'offer' => $this->offer, 'minutes' => $minutes, 'starts_at' => $at, 'topic' => 'I need help choosing the colours of my brand.', 'recording_consent' => true,
         ])->assertCreated()->json('data');
     }
 
@@ -284,7 +284,7 @@ class FreelanceConsultationsTest extends TestCase
         $this->setUpOffer();
         $this->asMona();
         // No money: nothing requested.
-        $this->postJson(self::CLIENT.'/consultations', ['offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-02T09:00:00Z', 'topic' => 'I need help choosing the colours of my brand.'])
+        $this->postJson(self::CLIENT.'/consultations', ['offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-02T09:00:00Z', 'topic' => 'I need help choosing the colours of my brand.', 'recording_consent' => true])
             ->assertStatus(422)->assertJsonPath('error_code', 'freelance_wallet_insufficient');
         $this->assertSame(0, FreelanceConsultation::query()->count());
 
@@ -323,7 +323,7 @@ class FreelanceConsultationsTest extends TestCase
         // The time is gone, for this length and any that would overlap it.
         $slots = $this->getJson(self::CLIENT."/consultation-offers/{$this->offer}/slots?minutes=60")->assertOk()->json('data.slots');
         $this->assertSame('2026-11-02T09:30:00+00:00', $slots[0]);
-        $this->postJson(self::CLIENT.'/consultations', ['offer' => $this->offer, 'minutes' => 60, 'starts_at' => '2026-11-02T09:00:00Z', 'topic' => 'Another question about my brand colours.'])
+        $this->postJson(self::CLIENT.'/consultations', ['offer' => $this->offer, 'minutes' => 60, 'starts_at' => '2026-11-02T09:00:00Z', 'topic' => 'Another question about my brand colours.', 'recording_consent' => true])
             ->assertStatus(409)->assertJsonPath('error_code', 'freelance_consultation_slot_taken');
 
         $this->asSara();
@@ -344,7 +344,7 @@ class FreelanceConsultationsTest extends TestCase
         $this->app['auth']->forgetGuards();
         Sanctum::actingAs($omar->refresh(), [], 'user_api');
         $second = $this->postJson(self::CLIENT.'/consultations', [
-            'offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-09T09:30:00Z', 'topic' => 'Can you look at my logo with me please?',
+            'offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-09T09:30:00Z', 'topic' => 'Can you look at my logo with me please?', 'recording_consent' => true,
         ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data');
         $this->assertSame($second['money']['total_minor'], $this->heldFor($second['uuid']));
 
@@ -361,7 +361,7 @@ class FreelanceConsultationsTest extends TestCase
 
         // And nobody can ask for those hours any more.
         $this->postJson(self::CLIENT.'/consultations', [
-            'offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-09T09:30:00Z', 'topic' => 'Can you look at my logo with me please?',
+            'offer' => $this->offer, 'minutes' => 30, 'starts_at' => '2026-11-09T09:30:00Z', 'topic' => 'Can you look at my logo with me please?', 'recording_consent' => true,
         ])->assertStatus(409)->assertJsonPath('error_code', 'freelance_consultation_slot_taken');
         $this->asSara();
         $this->getJson(self::API.'/consultations?tab=cancelled')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.status', 'declined');
@@ -501,7 +501,7 @@ class FreelanceConsultationsTest extends TestCase
         $this->assertNotContains('2026-11-09T09:00:00+00:00', $slots);
         // The accepted half hour ends at 09:30, so an hour can start then.
         $this->assertContains('2026-11-09T09:30:00+00:00', $slots);
-        $this->postJson(self::CLIENT.'/consultations', ['offer' => $second, 'minutes' => 30, 'starts_at' => '2026-11-09T09:00:00Z', 'topic' => 'Please look at my new logo with me.'])
+        $this->postJson(self::CLIENT.'/consultations', ['offer' => $second, 'minutes' => 30, 'starts_at' => '2026-11-09T09:00:00Z', 'topic' => 'Please look at my new logo with me.', 'recording_consent' => true])
             ->assertStatus(409)->assertJsonPath('error_code', 'freelance_consultation_slot_taken');
         $this->getJson(self::CLIENT.'/consultation-offers')->assertOk()->assertJsonCount(2, 'data');
 

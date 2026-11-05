@@ -3,7 +3,7 @@ import SwiftUI
 // freelanceApp `ui/screens/PlansScreen.kt`.
 
 /// A price in the currency's own decimals ("34.00 SAR", "7.500 KWD", "1,350 JPY") — digits stay Latin and left-to-right in Arabic text too.
-private func planMoney(_ minor: Int, _ decimals: Int, _ currency: String?) -> String {
+private func planMoney(_ minor: Int, _ decimals: Int, _ currency: String?, _ symbol: String? = nil) -> String {
     let f = NumberFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
     f.numberStyle = .decimal
@@ -14,7 +14,8 @@ private func planMoney(_ minor: Int, _ decimals: Int, _ currency: String?) -> St
     f.maximumFractionDigits = max(decimals, 0)
     let value = Decimal(minor) / pow(Decimal(10), max(decimals, 0))
     let text = f.string(from: value as NSDecimalNumber) ?? "\(value)"
-    return "\u{200E}" + [text, currency ?? ""].filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: " ")
+    let sign = symbol.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? (currency ?? "")
+    return "\u{200E}" + [text, sign].filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: " ")
 }
 
 private let LIVE: Set<String> = ["trialing", "active", "past_due"]
@@ -79,6 +80,11 @@ struct PlansScreen: View {
             } else {
                 error = result.errorText(offlineText) ?? genericError
                 needsMoney = result.error?.errorCode?.hasSuffix("_insufficient") == true
+                // Not enough in the wallet: straight to it, instead of leaving a button to find.
+                if needsMoney {
+                    AppToast.show(error.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? L("plans_short_go_wallet"), long: true)
+                    onOpenWallet()
+                }
             }
             busy = false
         }
@@ -99,6 +105,10 @@ struct PlansScreen: View {
             } else {
                 error = result.errorText(offlineText) ?? genericError
                 needsMoney = result.error?.errorCode?.hasSuffix("_insufficient") == true
+                if needsMoney {
+                    AppToast.show(error.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? L("plans_short_go_wallet"), long: true)
+                    onOpenWallet()
+                }
             }
             busy = false
         }
@@ -126,35 +136,57 @@ struct PlansScreen: View {
         .task { await firstLoad() }
         .messageToast(notice)
         .messageToast(needsMoney ? nil : error)
-        .alert(confirm?.name ?? "", isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), presenting: confirm) { plan in
-            Button(L("plans_confirm_ok")) {
-                let chosen = period
-                confirm = nil
-                act { await SubscriptionApi.take(TakePlanRequest(plan: plan.slug ?? "", period: chosen)) }
+        .dorrDialog(isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } })) {
+            if let plan = confirm {
+                AlertDialog(
+                    onDismissRequest: { confirm = nil },
+                    title: { Text(verbatim: plan.name ?? "").fontWeight(.heavy) },
+                    text: { Text(verbatim: confirmMessage(plan)).lineSpacing(4) },
+                    confirmButton: {
+                        DialogButton(onClick: {
+                            let chosen = period
+                            confirm = nil
+                            act { await SubscriptionApi.take(TakePlanRequest(plan: plan.slug ?? "", period: chosen)) }
+                        }) { Text(L("plans_confirm_ok")).fontWeight(.bold) }
+                    },
+                    dismissButton: { DialogButton(onClick: { confirm = nil }) { Text(L("common_cancel")) } }
+                )
             }
-            Button(L("common_cancel"), role: .cancel) { confirm = nil }
-        } message: { plan in
-            Text(verbatim: confirmMessage(plan))
         }
-        .alert(buying?.name ?? "", isPresented: Binding(get: { buying != nil }, set: { if !$0 { buying = nil } }), presenting: buying) { pack in
-            Button(L("plans_confirm_ok")) {
-                buying = nil
-                buy(pack, buyRequest)
+        .dorrDialog(isPresented: Binding(get: { buying != nil }, set: { if !$0 { buying = nil } })) {
+            if let pack = buying {
+                let money = planMoney(pack.priceMinor ?? 0, packs?.decimals ?? 2, packs?.currency, packs?.currencySymbol)
+                let validDays = packs?.validDays ?? 0
+                AlertDialog(
+                    onDismissRequest: { buying = nil },
+                    title: { Text(verbatim: pack.name ?? "").fontWeight(.heavy) },
+                    text: {
+                        Text(verbatim: L("plans_pack_confirm", pack.offers ?? 0, money) + (validDays > 0 ? "\n" + L("plans_pack_valid", validDays) : ""))
+                            .lineSpacing(4)
+                    },
+                    confirmButton: {
+                        DialogButton(onClick: {
+                            buying = nil
+                            buy(pack, buyRequest)
+                        }) { Text(L("plans_confirm_ok")).fontWeight(.bold) }
+                    },
+                    dismissButton: { DialogButton(onClick: { buying = nil }) { Text(L("common_cancel")) } }
+                )
             }
-            Button(L("common_cancel"), role: .cancel) { buying = nil }
-        } message: { pack in
-            let money = planMoney(pack.priceMinor ?? 0, packs?.decimals ?? 2, packs?.currency)
-            let validDays = packs?.validDays ?? 0
-            Text(verbatim: L("plans_pack_confirm", pack.offers ?? 0, money) + (validDays > 0 ? "\n" + L("plans_pack_valid", validDays) : ""))
         }
-        .alert(L("plans_cancel_confirm_title"), isPresented: $confirmCancel) {
-            Button(L("plans_cancel_renewal"), role: .destructive) {
-                confirmCancel = false
-                act { await SubscriptionApi.cancel() }
-            }
-            Button(L("common_cancel"), role: .cancel) { confirmCancel = false }
-        } message: {
-            Text(verbatim: L("plans_cancel_confirm", live?.plan?.name ?? "", growthLongDate(live?.periodEnd)))
+        .dorrDialog(isPresented: $confirmCancel) {
+            AlertDialog(
+                onDismissRequest: { confirmCancel = false },
+                title: { Text(L("plans_cancel_confirm_title")).fontWeight(.heavy) },
+                text: { Text(verbatim: L("plans_cancel_confirm", live?.plan?.name ?? "", growthLongDate(live?.periodEnd))).lineSpacing(4) },
+                confirmButton: {
+                    DialogButton(onClick: {
+                        confirmCancel = false
+                        act { await SubscriptionApi.cancel() }
+                    }) { Text(L("plans_cancel_renewal")).fontWeight(.bold) }
+                },
+                dismissButton: { DialogButton(onClick: { confirmCancel = false }) { Text(L("common_cancel")) } }
+            )
         }
     }
 
@@ -203,7 +235,7 @@ struct PlansScreen: View {
                             .font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
                         Text(verbatim: [
                             growthLongDate(i.createdAt).isEmpty ? nil : growthLongDate(i.createdAt),
-                            (i.creditMinor ?? 0) > 0 ? L("plans_invoice_credit", planMoney(i.creditMinor ?? 0, data.decimals ?? 2, i.currency)) : nil,
+                            (i.creditMinor ?? 0) > 0 ? L("plans_invoice_credit", planMoney(i.creditMinor ?? 0, data.decimals ?? 2, i.currency, i.currencySymbol)) : nil,
                         ].compactMap { $0 }.joined(separator: " · "))
                         .font(.dorr(11)).foregroundStyle(wa.settingsMut)
                     }
@@ -211,7 +243,7 @@ struct PlansScreen: View {
                     if i.status == "failed" {
                         Text(L("plans_invoice_failed")).font(.dorr(12, .bold)).foregroundStyle(wa.red)
                     } else {
-                        Text(verbatim: planMoney(i.amountMinor ?? 0, data.decimals ?? 2, i.currency)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
+                        Text(verbatim: planMoney(i.amountMinor ?? 0, data.decimals ?? 2, i.currency, i.currencySymbol)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
                     }
                 }
                 .padding(.vertical, 4)
@@ -233,7 +265,7 @@ struct PlansScreen: View {
         let price = (period == "yearly" ? plan.prices?.yearly : plan.prices?.monthly) ?? 0
         let periodName = L(period == "yearly" ? "plans_period_yearly" : "plans_period_monthly")
         let unit = L(period == "yearly" ? "plans_per_year" : "plans_per_month")
-        let money = planMoney(price, decimals, currency)
+        let money = planMoney(price, decimals, currency, catalog?.currencySymbol)
         let name = plan.name ?? ""
         let trialDays = plan.trialDays ?? 0
         guard let sub = live else {
@@ -275,7 +307,7 @@ private struct ExtraOffersCard: View {
                             Text(L("plans_pack_offers", pack.offers ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(verbatim: planMoney(pack.priceMinor ?? 0, p.decimals ?? 2, p.currency)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
+                        Text(verbatim: planMoney(pack.priceMinor ?? 0, p.decimals ?? 2, p.currency, p.currencySymbol)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
                         Spacer().frame(width: 10)
                         Button { onBuy(pack) } label: {
                             Text(L("plans_pack_buy")).font(.dorr(13, .bold)).foregroundStyle(wa.red).padding(6)
@@ -320,7 +352,7 @@ private struct MyPlanCard: View {
                     Text(verbatim: sub?.plan?.name ?? current?.name ?? "").font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                if let sub { StatusPill(status: sub.status ?? "") }
+                if let sub { PlanStatusPill(status: sub.status ?? "") }
             }
             if let sub {
                 Text(verbatim: line(sub)).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
@@ -371,7 +403,8 @@ private struct MyPlanCard: View {
 
 private func periodName(_ period: String?) -> String { L(period == "yearly" ? "plans_period_yearly" : "plans_period_monthly") }
 
-private struct StatusPill: View {
+/// PlansScreen.kt's private `StatusPill` (named apart from the kit's `StatusPill`).
+private struct PlanStatusPill: View {
     let status: String
 
     var body: some View {
@@ -415,9 +448,9 @@ private struct PlanCard: View {
             }
             if let price {
                 let unit = L(period == "yearly" ? "plans_per_year" : "plans_per_month")
-                Text(verbatim: L("plans_price_line", planMoney(price, decimals, plans.currency), unit)).font(.dorr(22, .heavy)).foregroundStyle(wa.settingsInk)
+                Text(verbatim: L("plans_price_line", planMoney(price, decimals, plans.currency, plans.currencySymbol), unit)).font(.dorr(22, .heavy)).foregroundStyle(wa.settingsInk)
                 if period == "yearly", let saving = plan.yearlySavingMinor, saving > 0 {
-                    Text(verbatim: L("plans_saves", planMoney(saving, decimals, plans.currency))).font(.dorr(12, .bold)).foregroundStyle(wa.red)
+                    Text(verbatim: L("plans_saves", planMoney(saving, decimals, plans.currency, plans.currencySymbol))).font(.dorr(12, .bold)).foregroundStyle(wa.red)
                 }
             } else {
                 Text(L("plans_free_price")).font(.dorr(22, .heavy)).foregroundStyle(wa.settingsInk)

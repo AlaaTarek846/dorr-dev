@@ -1,5 +1,8 @@
 package com.dorr.freelance.ui.locale
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
@@ -18,6 +21,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dorr.freelance.net.ApiClient
@@ -270,15 +274,23 @@ fun LocaleAwareBottomSheet(
     onDismissRequest: () -> Unit,
     containerColor: androidx.compose.ui.graphics.Color,
     shape: androidx.compose.ui.graphics.Shape,
-    /** Open to full height at once (a tall form) instead of half-way first. */
+    /** Kept for callers; every sheet now opens fully (a half-open sheet cut its last button off). */
     fullHeight: Boolean = false,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val frame = rememberAppLocaleFrame()
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape,
-        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = fullHeight),
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        frame.Provide { content() }
+        frame.Provide {
+            content()
+            // The sheet ends under the phone's own bar (gesture line or three buttons): keep the last button above it,
+            // with a little air of its own for phones that report no bar inset inside the sheet window.
+            androidx.compose.foundation.layout.Spacer(
+                androidx.compose.ui.Modifier.windowInsetsBottomHeight(androidx.compose.foundation.layout.WindowInsets.Companion.navigationBars),
+            )
+            androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.height(20.dp))
+        }
     }
 }

@@ -45,11 +45,28 @@ enum Route: Hashable {
     /// The editor of one consultation I list (nil: a new one).
     case consultationEdit(String?)
     case consultation(String)
+    /// FL-L16: the consultation's video session (full screen, outside the shell).
+    case consultationSession(String)
+    // FL-L09: special offers to past clients.
+    case specialOffers
+    case specialOfferNew
+    case specialOffer(String)
+    // FL-L09 (part B): my loyalty program.
+    case loyalty
+    // FL-L12: the professional community.
+    case community
+    case communityPost(String)
+    case communityMember(String)
+    case communityPeople(uuid: String, which: String)
+    /// A new post of `kind`, or (with `edit`) editing that post of mine.
+    case communityCompose(kind: String = "post", edit: String? = nil)
+    /// Android `Routes.HOME` reached from a notice (a sanction): back to the tabs, on Home — `Nav.push` never stacks it.
+    case home
 
     /// Pages drawn without the bottom bar (`shell(false)` on Android is the same frame; the chat is full screen there).
     var wantsBar: Bool {
         switch self {
-        case .otp, .terms: return false
+        case .otp, .terms, .consultationSession: return false
         default: return true
         }
     }
@@ -68,11 +85,26 @@ final class Nav: ObservableObject {
     @Published var stage: RootStage = .splash
     @Published var path: [Route] = []
 
-    func push(_ route: Route) { path.append(route) }
+    func push(_ route: Route) {
+        if route == .home { return goHome() }
+        path.append(route)
+    }
 
     /// `launchSingleTop`: no second copy of the page on top.
     func pushSingleTop(_ route: Route) {
+        if route == .home { return goHome() }
         if path.last != route { path.append(route) }
+    }
+
+    /// `nav.popBackStack(); nav.navigate(route) { launchSingleTop = true }` — the open page swapped for another in place.
+    func replaceTop(_ route: Route) {
+        if !path.isEmpty { path.removeLast() }
+        if path.last != route { path.append(route) }
+    }
+
+    private func goHome() {
+        ShellState.shared.tab = Tabs.HOME
+        popToHome()
     }
 
     func pop() { if !path.isEmpty { path.removeLast() } }
@@ -86,14 +118,31 @@ final class Nav: ObservableObject {
     }
 }
 
+/// The tabs of the bottom bar, by name (the community's comes and goes with its country switch, so a number would move).
+enum Tabs {
+    static let HOME = "home"
+    static let OPPORTUNITIES = "opportunities"
+    static let WORK = "work"
+    static let COMMUNITY = "community"
+    static let ME = "me"
+}
+
 /// What the signed-in frame shows: the tab that is open (kept while a page is open over the tabs, so the tab the page was
-/// opened from stays lit) and whether a full-screen layer has hidden the header and the bar.
+/// opened from stays lit), whether a full-screen layer (the test payment page) has hidden the header and the bar, and the
+/// part of a tab a shortcut asked to open (taken once by that tab).
 @MainActor
 final class ShellState: ObservableObject {
     static let shared = ShellState()
 
-    @Published var tab = 0
+    @Published var tab = Tabs.HOME
     @Published var immersive = false
-    /// Asked from a page over the tabs: open the Account tab straight on «ملفي». The account page takes it once.
+    /// Asked from a page over the tabs: open the «Me» tab straight on «My profile». The tab takes it once.
     @Published var openProfileHub = false
+    /// A part of «Opportunities» (`projects` / `invitations`) or «My work» (`projects` / `offers` / `orders` / `consultations`) to open.
+    @Published var segment: String?
+
+    func open(_ tab: String, segment: String? = nil) {
+        self.segment = segment
+        self.tab = tab
+    }
 }

@@ -127,7 +127,14 @@ private struct ExperienceForm: View {
             }
         }
         .messageToast(error)
-        .profileDeleteConfirm(isPresented: $confirmDelete, onConfirm: delete)
+        .dorrDialog(isPresented: $confirmDelete) {
+            AlertDialog(
+                onDismissRequest: { confirmDelete = false },
+                text: { Text(L("common_delete_confirm")) },
+                confirmButton: { DialogButton(onClick: { confirmDelete = false; delete() }) { Text(L("common_delete")) } },
+                dismissButton: { DialogButton(onClick: { confirmDelete = false }) { Text(L("common_cancel")) } }
+            )
+        }
     }
 
     private func save() {

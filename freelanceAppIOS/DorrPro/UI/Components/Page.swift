@@ -8,9 +8,19 @@ struct Page<Content: View>: View {
     let title: String
     let onBack: () -> Void
     var onNearEnd: (() -> Void)?
+    /// Drawn inside a hub tab under the tab's own title and parts: no title or back button of its own ([EmbeddedPage]).
+    var embedded = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
+        if embedded {
+            EmbeddedPage(onNearEnd: onNearEnd, content: content)
+        } else {
+            page
+        }
+    }
+
+    private var page: some View {
         ZStack {
             PinkBackdrop()
             VStack(spacing: 0) {
@@ -84,9 +94,19 @@ struct TabPage<Content: View>: View {
     let title: String
     var onBack: (() -> Void)?
     var onNearEnd: (() -> Void)?
+    /// Drawn inside a hub tab under the tab's own title and parts ([EmbeddedPage]).
+    var embedded = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
+        if embedded {
+            EmbeddedPage(onNearEnd: onNearEnd, content: content)
+        } else {
+            page
+        }
+    }
+
+    private var page: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 // A tab with a back button goes back to the Home tab, like the pages over the tabs.
@@ -104,6 +124,27 @@ struct TabPage<Content: View>: View {
             }
             .padding(.bottom, 16)
         }
+    }
+}
+
+/// A page drawn inside a tab of the bar under the tab's own title and parts (the hub tabs): no title or back button of its
+/// own, just the scrolling column, asking for more near the bottom.
+struct EmbeddedPage<Content: View>: View {
+    var onNearEnd: (() -> Void)?
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                content()
+                NearEndMarker(onNearEnd: onNearEnd)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 }
 

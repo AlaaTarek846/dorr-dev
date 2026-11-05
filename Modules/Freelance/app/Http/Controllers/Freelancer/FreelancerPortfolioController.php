@@ -100,6 +100,8 @@ class FreelancerPortfolioController extends Controller
             'rights_confirmed' => ['sometimes', 'boolean'],
             'external_url' => ['nullable', 'url:http,https', 'max:255'],
             'video_url' => ['nullable', 'string', 'max:255'],
+            // FL-L13: the finished work this item shows (from rights/portfolio-sources).
+            'agreement_uuid' => ['sometimes', 'nullable', 'uuid'],
         ];
     }
 

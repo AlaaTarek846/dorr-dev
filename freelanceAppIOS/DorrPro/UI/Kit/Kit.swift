@@ -140,6 +140,22 @@ struct FlagImage: View {
     }
 }
 
+/// freelanceApp `components/CountryTag.kt` — where a project or a post comes from: a small flag and the country's name. Freelance
+/// work is open across countries (owner, 2026-11-04), so the lists mix countries and this says which. Nothing when the server did not say.
+struct CountryTag: View {
+    @Environment(\.wa) private var wa
+    let country: CountryRefDto?
+
+    var body: some View {
+        if let c = country {
+            HStack(spacing: 5) {
+                FlagImage(code: c.code)
+                Text(verbatim: c.name ?? c.code ?? "").font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut).lineLimit(1)
+            }
+        }
+    }
+}
+
 /// freelanceApp `components/DorrLogo` — the bundled logo at a given width, the light or dark version.
 struct DorrLogo: View {
     let width: CGFloat

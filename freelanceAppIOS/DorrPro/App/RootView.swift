@@ -12,6 +12,9 @@ struct RootView: View {
     @ObservedObject private var gate = Gate.shared
     @ObservedObject private var realtime = Realtime.shared
     @ObservedObject private var keyboard = KeyboardState.shared
+    // The bar's tabs and badges follow the home answer and the community switch (`shellTabs`).
+    @ObservedObject private var homeHub = HomeHub.shared
+    @ObservedObject private var communityHub = CommunityHub.shared
 
     var body: some View {
         ZStack {
@@ -28,10 +31,26 @@ struct RootView: View {
             AppToastHost()
         }
         .animation(.easeInOut(duration: 0.3), value: network.isOnline)
+        // FL-110: a request that needs a verified account was refused — say which step they are at, once, from any screen.
+        .dorrDialog(isPresented: Binding(get: { gate.step != nil }, set: { if !$0 { gate.dismiss() } })) {
+            AlertDialog(
+                onDismissRequest: { gate.dismiss() },
+                title: { Text(L("gate_title")) },
+                text: { Text(stepText(gate.step ?? "", nil)) },
+                confirmButton: {
+                    DialogButton(onClick: {
+                        gate.dismiss()
+                        nav.pushSingleTop(.verification)
+                    }) { Text(L("gate_open")) }
+                },
+                dismissButton: { DialogButton(onClick: { gate.dismiss() }) { Text(L("common_cancel")) } }
+            )
+        }
+        // A tab tapped over a page goes back to the tabs on that tab.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if showBar {
-                BottomBar(tabs: shellTabs, current: shell.tab) { index in
-                    shell.tab = index
+                BottomBar(tabs: shellTabs, current: shell.tab) { key in
+                    shell.open(key)
                     nav.popToHome()
                 }
             }
@@ -50,7 +69,9 @@ struct RootView: View {
             } else {
                 Realtime.shared.stop()
                 appearance.clear()
-                shell.tab = 0
+                shell.tab = Tabs.HOME
+                CommunityHub.shared.clear()
+                HomeHub.shared.clear()
                 if nav.stage == .home { nav.reset(to: .login) }
             }
         }
@@ -61,16 +82,6 @@ struct RootView: View {
         // without such a screen, the notifications page from the home.
         .onChange(of: realtime.opened) { _ in openTapped() }
         .onChange(of: nav.stage) { _ in openTapped() }
-        // FL-110: a request that needs a verified account was refused — say which step they are at, once, from any screen.
-        .alert(L("gate_title"), isPresented: Binding(get: { gate.step != nil }, set: { if !$0 { gate.dismiss() } })) {
-            Button(L("gate_open")) {
-                gate.dismiss()
-                nav.pushSingleTop(.verification)
-            }
-            Button(L("common_cancel"), role: .cancel) { gate.dismiss() }
-        } message: {
-            Text(stepText(gate.step ?? "", nil))
-        }
         .task {
             if session.signedIn {
                 Realtime.shared.start()
@@ -101,17 +112,42 @@ struct RootView: View {
             LoginScreen(onOtpSent: { dial, phone, cooldown in nav.push(.otp(dial: dial, phone: phone, cooldown: cooldown)) })
         case .home:
             VStack(spacing: 0) {
-                if shell.tab == 0 && !shell.immersive {
+                if shell.tab == Tabs.HOME && !shell.immersive {
                     AppHeader(onOpenWallet: { nav.pushSingleTop(.wallet) }, onOpenNotifications: { nav.pushSingleTop(.notifications) },
-                              onOpenInvitations: { nav.pushSingleTop(.invitations) })
+                              onOpenMe: { shell.open(Tabs.ME) })
                 }
-                MainScreen(actions: MainActions.navigating(nav)).frame(maxHeight: .infinity)
+                MainScreen(actions: MainActions.navigating(nav, community: communityNav)).frame(maxHeight: .infinity)
             }
             .background(PinkBackdrop())
         }
     }
 
     private func afterWelcome() -> RootStage { session.signedIn ? .home : .login }
+
+    /// FL-L12: where the community screens lead.
+    private var communityNav: CommunityNav {
+        CommunityNav(
+            openPost: { nav.push(.communityPost($0)) },
+            openMember: { nav.push(.communityMember($0)) },
+            editPost: { nav.push(.communityCompose(edit: $0)) },
+            compose: { nav.pushSingleTop(.communityCompose(kind: $0)) },
+            openPeople: { uuid, which in nav.push(.communityPeople(uuid: uuid, which: which)) },
+            openVerification: { nav.pushSingleTop(.verification) },
+            openPortfolio: { nav.pushSingleTop(.portfolio) }
+        )
+    }
+
+    /// The store's pages swap in place (the switch at their top): the open one leaves the back stack.
+    private func switchStore(_ key: String) {
+        let route: Route
+        switch key {
+        case "services": route = .services
+        case "consultations": route = .consultations
+        case "special_offers": route = .specialOffers
+        default: route = .loyalty
+        }
+        nav.replaceTop(route)
+    }
 
     @ViewBuilder
     private func page(_ route: Route) -> some View {
@@ -153,7 +189,7 @@ struct RootView: View {
                 OfferFormScreen(projectUuid: uuid, onBack: back, onSent: back,
                                 onOpenProfile: {
                                     shell.openProfileHub = true
-                                    shell.tab = 4
+                                    shell.open(Tabs.ME)
                                     nav.popToHome()
                                 },
                                 onOpenPlans: { nav.pushSingleTop(.plans) })
@@ -182,14 +218,36 @@ struct RootView: View {
             case .wallet: WalletRoute(onBack: back)
             case let .portfolioItem(id): PortfolioFormScreen(itemId: id, onBack: back)
             case .services:
-                MyServicesScreen(onBack: back, onOpenService: { nav.push(.service($0)) }, onOpenOrders: { nav.pushSingleTop(.serviceOrders) })
+                MyServicesScreen(onBack: back, onOpenService: { nav.push(.service($0)) }, onOpenOrders: { nav.pushSingleTop(.serviceOrders) },
+                                 onSwitchStore: switchStore)
             case let .service(uuid): ServiceEditorScreen(uuid: uuid, onBack: back)
             case .serviceOrders: ServiceOrdersScreen(onBack: back, onOpenOrder: { nav.push(.serviceOrder($0)) })
             case let .serviceOrder(uuid): ServiceOrderScreen(uuid: uuid, onBack: back, onOpenWork: { nav.push(.agreement($0)) })
             case .consultations:
-                ConsultationsScreen(onBack: back, onOpenEditor: { nav.pushSingleTop(.consultationEdit($0)) }, onOpenConsultation: { nav.push(.consultation($0)) })
+                ConsultationsScreen(onBack: back, onOpenEditor: { nav.pushSingleTop(.consultationEdit($0)) }, onOpenConsultation: { nav.push(.consultation($0)) },
+                                    onSwitchStore: switchStore)
             case let .consultationEdit(uuid): ConsultationEditorScreen(uuid: uuid, onBack: back)
-            case let .consultation(uuid): ConsultationScreen(uuid: uuid, onBack: back)
+            case let .consultation(uuid):
+                ConsultationScreen(uuid: uuid, onBack: back, onOpenSession: { nav.pushSingleTop(.consultationSession($0)) })
+            // FL-L16: full screen, outside the shell (no bar: `Route.wantsBar`).
+            case let .consultationSession(uuid): ConsultationSessionScreen(uuid: uuid, onBack: back)
+            case .specialOffers:
+                SpecialOffersScreen(onBack: back, onCompose: { nav.pushSingleTop(.specialOfferNew) }, onOpen: { nav.push(.specialOffer($0)) },
+                                    onSwitchStore: switchStore)
+            case .loyalty: LoyaltyScreen(onBack: back, onSwitchStore: switchStore)
+            // FL-L12: the professional community.
+            case .community: CommunityScreen(nav: communityNav, onBack: back)
+            case let .communityPost(uuid): CommunityPostScreen(uuid: uuid, nav: communityNav, onBack: back)
+            case let .communityMember(uuid): CommunityMemberScreen(uuid: uuid, nav: communityNav, onBack: back)
+            case let .communityPeople(uuid, which): CommunityPeopleScreen(uuid: uuid, startWhich: which, nav: communityNav, onBack: back)
+            case let .communityCompose(kind, edit): CommunityComposeScreen(startKind: kind, editUuid: edit, nav: communityNav, onBack: back)
+            case .specialOfferNew:
+                SpecialOfferComposeScreen(onBack: back, onSent: { nav.replaceTop(.specialOffer($0)) })
+            case let .specialOffer(uuid):
+                SpecialOfferScreen(uuid: uuid, onBack: back, onOpenWork: { nav.push(.agreement($0)) },
+                                   onOpenConsultation: { nav.push(.consultation($0)) }, onOpenOrder: { nav.push(.serviceOrder($0)) })
+            // Never pushed (`Nav.push(.home)` goes back to the tabs).
+            case .home: EmptyView()
             }
         }
         .background(PinkBackdrop())

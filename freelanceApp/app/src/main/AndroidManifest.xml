@@ -8,6 +8,16 @@
     <!-- The profile photo from the camera (asked for only when "camera" is chosen); a phone without one still installs. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- FL-L16: the consultation's video session (LiveKit) — the microphone, the loudspeaker / headset route, the screen kept on,
+         and a foreground service that holds the mic and camera while the app is in the background. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
         android:name=".FreelanceApp"
@@ -32,6 +42,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- FL-L16: the consultation session I am in, kept alive (mic + camera) outside the session screen. -->
+        <service
+            android:name=".session.SessionCallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera|mediaPlayback" />
 
         <!-- Hands the camera a place to write the profile photo. -->
         <provider

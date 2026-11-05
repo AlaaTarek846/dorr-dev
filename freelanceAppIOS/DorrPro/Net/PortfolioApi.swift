@@ -49,6 +49,9 @@ struct PortfolioItemDto: Decodable, Equatable {
     var rightsConfirmed: Bool?
     var hidden: Bool?
     var hiddenReason: String?
+    /// FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back.
+    var agreement: String?
+    var withdrawnByClient: Bool?
 }
 
 struct PortfolioRefDto: Decodable, Equatable {

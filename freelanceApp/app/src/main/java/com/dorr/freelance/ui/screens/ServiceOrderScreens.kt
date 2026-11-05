@@ -32,7 +32,8 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Work
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,7 +93,7 @@ private val ORDER_TABS = listOf("awaiting", "active", "completed", "ended", "mon
  * the page opens, when the list changes, when the connection returns and when a notice arrives; pages fill in while scrolling.
  */
 @Composable
-fun ServiceOrdersScreen(onBack: () -> Unit, onOpenOrder: (String) -> Unit) {
+fun ServiceOrdersScreen(onBack: () -> Unit, onOpenOrder: (String) -> Unit, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
@@ -106,8 +107,9 @@ fun ServiceOrdersScreen(onBack: () -> Unit, onOpenOrder: (String) -> Unit) {
     LaunchedEffect(tab, reconnect) { if (monthly) subs.reload() else paged.reload() }
     LaunchedEffect(tab) { Realtime.changed.collect { if (monthly) subs.reload() else paged.reload() } }
 
-    Page(title = stringResource(R.string.svo_title), onBack = onBack, onNearEnd = { scope.launch { if (monthly) subs.loadMore() else paged.loadMore() } }) {
-        Segmented(ORDER_TABS.map { it to orderTabLabel(it) }, tab, marks = if (tab != "awaiting" || paged.rows.isEmpty()) emptySet() else setOf("awaiting")) { tab = it }
+    Page(title = stringResource(R.string.svo_title), onBack = onBack, onNearEnd = { scope.launch { if (monthly) subs.loadMore() else paged.loadMore() } }, embedded = embedded) {
+        val waiting = tab == "awaiting" && paged.rows.isNotEmpty()
+        com.dorr.freelance.ui.kit.FilterChips(ORDER_TABS.map { com.dorr.freelance.ui.kit.FilterOption(it, orderTabLabel(it), dot = it == "awaiting" && waiting) }, tab, { tab = it })
         if (monthly) {
             SubscriptionList(subs, onOpenOrder)
             return@Page
@@ -335,8 +337,8 @@ fun ServiceOrderScreen(uuid: String, onBack: () -> Unit, onOpenWork: (String) ->
             onDismissRequest = { if (!busy) declining = false },
             title = { Text(stringResource(R.string.svo_decline_title), fontWeight = FontWeight.ExtraBold) },
             text = { DorrTextField(reason, { reason = it.take(500) }, label = stringResource(R.string.svo_decline_reason), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(enabled = !busy, onClick = { answer("decline") }) { Text(stringResource(R.string.svo_decline_confirm), color = serviceTone("rejected").ink, fontWeight = FontWeight.Bold) } },
-            dismissButton = { TextButton(enabled = !busy, onClick = { declining = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(enabled = !busy, onClick = { answer("decline") }) { Text(stringResource(R.string.svo_decline_confirm), fontWeight = FontWeight.Bold) } },
+            dismissButton = { DialogButton(enabled = !busy, onClick = { declining = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

@@ -1,34 +1,41 @@
 // freelanceApp `ui/screens/AgreementChanges.kt`
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// FS-101: at most 3 files of up to 10 MB each go with a change.
+private let maxChangeFiles = 3
+private let maxChangeFileBytes = 10 * 1024 * 1024
+
+/// Kotlin `changeWhen`: "12/10 14:05" in the phone's own time zone.
+private func changeWhen(_ iso: String) -> String {
+    guard let date = parseInstant(iso) else { return String(iso.prefix(10)) }
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.timeZone = .current
+    f.dateFormat = "d/M HH:mm"
+    return f.string(from: date)
+}
 
 /// Kotlin `num(p[key])`: a number of the change's payload (the decoder may have turned `amount_minor` into `amountMinor`).
 private func num(_ p: JSONAny?, _ key: String, _ camel: String? = nil) -> Int {
     (p?[key] ?? camel.flatMap { p?[$0] })?.int ?? 0
 }
 
-private struct ChangeLink: View {
-    @Environment(\.wa) private var wa
-    let text: String
-    var color: Color?
-    let action: () -> Void
-
-    var body: some View {
-        Text(verbatim: text).font(.dorr(13, .bold)).foregroundStyle(color ?? wa.red)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: action)
-    }
-}
-
-/// Changes to my active agreement (FL-404 / FL-405): what was asked, the answers, and a short form to ask for one.
+/// Changes to my active agreement (FL-404 / FL-405): what was asked, the answers, and a short form to ask for one. FS-101: an accepted
+/// change reads as the agreement's addendum N with the version it reached and what it moved; a change carries up to 3 files.
 struct AgreementChangesCard: View {
     @Environment(\.wa) private var wa
+    let projectUuid: String
     let changes: [ChangeDto]
     let milestones: [MilestoneDto]
     let currency: String
     let busy: Bool
-    let onAsk: (ChangeRequest) -> Void
+    let onAsk: (ChangeRequest, [AgreementPickedFile]) -> Void
     let onAnswer: (String, String) -> Void
+    @State private var openError: String?
+    @State private var picks: [AgreementPickedFile] = []
+    @State private var pickError: String?
+    @State private var picking = false
     @State private var asking = false
     @State private var type = "extend_days"
     @State private var part: String?
@@ -45,6 +52,7 @@ struct AgreementChangesCard: View {
             FieldLabel(text: L("ch_title"))
             if changes.isEmpty { Text(L("ch_none")).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
             ForEach(Array(changes.enumerated()), id: \.offset) { _, c in changeRow(c) }
+            if let openError { Text(verbatim: openError).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
             ActionButton(L("ch_ask"), "square.and.pencil", .primary) { asking = true }
         }
         .formSheet(isPresented: $asking, icon: "square.and.pencil", title: L("ch_ask"), text: L("ch_form_intro")) { form }
@@ -73,19 +81,63 @@ struct AgreementChangesCard: View {
         default: statusKey = "ch_s_pending"
         }
         let uuid = c.uuid ?? ""
+        let green = Color(hex: 0x16A34A)
+        let files = c.files ?? []
         return VStack(alignment: .leading, spacing: 0) {
+            // FS-101: an accepted change is addendum N of the agreement.
+            if let n = c.addendumNo {
+                Text(verbatim: L("fs_ch_addendum", n)).font(.dorr(11, .heavy)).foregroundStyle(green)
+                    .padding(.horizontal, 10).padding(.vertical, 3)
+                    .background(green.opacity(0.12), in: Capsule())
+                    .padding(.bottom, 4)
+            }
             Text(verbatim: headline).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
             Text(verbatim: L(c.mine == true ? "ch_by_me" : "ch_by_them") + "  ·  " + L(statusKey)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
             if let r = c.reason { Text(verbatim: r).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
-            HStack(spacing: 16) {
-                if c.can?.accept == true { ChangeLink(text: L("ch_accept")) { onAnswer(uuid, "accept") } }
-                if c.can?.reject == true { ChangeLink(text: L("ch_reject"), color: Color(hex: 0xDC2626)) { onAnswer(uuid, "reject") } }
-                if c.can?.withdraw == true { ChangeLink(text: L("ch_withdraw")) { onAnswer(uuid, "withdraw") } }
+            // FS-101: the deadline while it waits (it expires by itself after that).
+            if c.status == "pending", let by = c.respondBy {
+                Text(verbatim: L("fs_ch_respond_by", "\u{200E}" + changeWhen(by))).font(.dorr(12, .bold)).foregroundStyle(Color(hex: 0xD97706)).padding(.top, 2)
+            }
+            // FS-101: the version the agreement reached and what moved, before → after.
+            if c.status == "accepted" {
+                if let v = c.appliedVersion { Text(verbatim: L("fs_ch_version", v)).font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut).padding(.top, 2) }
+                if let price = c.effectOf("price_minor", "priceMinor") {
+                    Text(verbatim: L("fs_ch_effect_price", "\u{200E}\(formatMinor(price.0, nil)) \(currency)", "\u{200E}\(formatMinor(price.1, nil)) \(currency)"))
+                        .font(.dorr(12)).foregroundStyle(wa.settingsInk)
+                }
+                if let d = c.effectOf("duration_days", "durationDays") { Text(verbatim: L("fs_ch_effect_days", d.0, d.1)).font(.dorr(12)).foregroundStyle(wa.settingsInk) }
+                if let parts = c.effectOf("milestones") { Text(verbatim: L("fs_ch_effect_parts", parts.0, parts.1)).font(.dorr(12)).foregroundStyle(wa.settingsInk) }
+            }
+            // FS-101: the files it carries - downloaded with my sign-in and opened.
+            if !files.isEmpty {
+                FlowLayout(spacing: 6) {
+                    ForEach(Array(files.enumerated()), id: \.offset) { _, f in fileChip(f) }
+                }
+                .padding(.top, 6)
+            }
+            // Real buttons, side by side: the answer is the important move on this card (a small link was easy to miss).
+            HStack(spacing: 10) {
+                if c.can?.accept == true { ActionButton(text: L("ch_accept"), icon: nil, tone: .primary) { onAnswer(uuid, "accept") } }
+                if c.can?.reject == true { ActionButton(text: L("ch_reject"), icon: nil, tone: .danger) { onAnswer(uuid, "reject") } }
+                if c.can?.withdraw == true { ActionButton(text: L("ch_withdraw"), icon: nil, tone: .soft) { onAnswer(uuid, "withdraw") } }
             }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(wa.red.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func fileChip(_ f: DeliveryFileDto) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "paperclip").font(.system(size: 12, weight: .semibold)).foregroundStyle(wa.red)
+            Text(verbatim: "\u{200E}\(f.name ?? "")").font(.dorr(12, .semibold)).foregroundStyle(wa.red).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(wa.red.opacity(0.08), in: Capsule())
+        .contentShape(Capsule())
+        .onTapGesture {
+            Task { openError = await openDeliveryFile(f, base: Api.freelance + "projects/\(projectUuid)/") ? nil : L("ag_dl_open_failed") }
+        }
     }
 
     private func pick(_ text: String, _ selected: Bool, _ action: @escaping () -> Void) -> some View {
@@ -124,6 +176,32 @@ struct AgreementChangesCard: View {
             DorrTextField(value: agreementLimit($amount, 12), label: L("ch_new_price", currency), icon: "banknote", keyboard: .decimalPad)
         }
         DorrTextField(value: agreementLimit($reason, 1000), label: L("ch_reason"), icon: "text.alignleft", singleLine: false, minLines: 2)
+        // FS-101: up to 3 files (a design, a sketch, a document) go with the request.
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(picks) { f in
+                HStack(spacing: 8) {
+                    Image(systemName: "paperclip").font(.system(size: 15, weight: .semibold)).foregroundStyle(wa.red).frame(width: 18, height: 18)
+                    Text(verbatim: f.name).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    Button { picks.removeAll { $0.id == f.id } } label: {
+                        Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
+                            .frame(width: 28, height: 28).contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(busy)
+                    .accessibilityLabel(L("ag_dl_remove"))
+                }
+            }
+            if picks.count < maxChangeFiles {
+                ActionButton(L("fs_ch_attach", picks.count, maxChangeFiles), "paperclip", .soft, enabled: !busy) { picking = true }
+            }
+            Text(L("fs_ch_attach_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+            if let pickError { Text(verbatim: pickError).font(.dorr(12, .bold)).foregroundStyle(Color(hex: 0xDC2626)) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
+            guard case .success(let url) = result, picks.count < maxChangeFiles, let f = AgreementPickedFile.read(url) else { return }
+            if f.bytes.count > maxChangeFileBytes { pickError = L("fs_ch_file_too_big") } else { pickError = nil; picks.append(f) }
+        }
         ActionButton(L("ch_send"), "paperplane.fill", .primary, enabled: ready && !busy) { send() }
     }
 
@@ -144,8 +222,9 @@ struct AgreementChangesCard: View {
             type: type, milestone: part, days: Int(days), amountMinor: parseMinor(amount), title: title.agreementTrimmedOrNil,
             scope: isScope ? scope.agreementTrimmedOrNil : nil, includes: isScope ? includes.agreementTrimmedOrNil : nil,
             excludes: isScope ? excludes.agreementTrimmedOrNil : nil, reason: reason.agreementTrimmedOrNil
-        ))
+        ), picks)
         asking = false
         days = ""; amount = ""; title = ""; reason = ""; scope = ""; includes = ""; excludes = ""
+        picks = []; pickError = nil
     }
 }

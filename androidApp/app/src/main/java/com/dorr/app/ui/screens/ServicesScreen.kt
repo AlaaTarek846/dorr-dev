@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -207,6 +207,6 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
                 )
             }
         }
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (settingsNight()) AccountDark.chevron else AppColors.otpGlowDeep, modifier = Modifier.size(22.dp))
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = if (settingsNight()) AccountDark.chevron else AppColors.otpGlowDeep, modifier = Modifier.size(22.dp))
     }
 }

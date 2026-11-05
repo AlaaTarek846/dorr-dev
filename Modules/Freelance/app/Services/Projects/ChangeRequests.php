@@ -39,7 +39,11 @@ class ChangeRequests
     public function request(Agreement $agreement, Model $actor, string $side, string $type, array $data): Change
     {
         $this->assertParty($agreement, $actor, $side);
-        $change = DB::transaction(function () use ($agreement, $actor, $side, $type, $data) {
+        $files = array_values(array_filter((array) ($data['files'] ?? []), fn ($f) => $f instanceof \Illuminate\Http\UploadedFile));
+        if (count($files) > Change::MAX_FILES) {
+            throw new FreelanceException('change_too_many_files', 422, ['max' => Change::MAX_FILES], ['max' => Change::MAX_FILES]);
+        }
+        $change = DB::transaction(function () use ($agreement, $actor, $side, $type, $data, $files) {
             $a = Agreement::query()->whereKey($agreement->id)->lockForUpdate()->with('project')->firstOrFail();
             if ($a->status !== Agreement::ACTIVE) {
                 throw new FreelanceException('agreement_invalid_state', 409, ['status' => __('freelance.agreement_statuses.'.$a->status)], ['status' => $a->status]);
@@ -64,7 +68,10 @@ class ChangeRequests
                 'requester_id' => $actor->getKey(), 'payload' => $payload, 'reason' => isset($data['reason']) ? (trim(strip_tags((string) $data['reason'])) ?: null) : null,
                 'status' => Change::PENDING, 'respond_by' => now()->addDays($this->days($a)),
             ]);
-            $this->approval($a, 'change.requested', $side, $actor->getKey(), ['change' => $change->uuid, 'type' => $type] + ($m === null ? [] : ['milestone' => $m->uuid]));
+            foreach ($files as $file) {
+                $change->addFile($file);
+            }
+            $this->approval($a, 'change.requested', $side, $actor->getKey(), ['change' => $change->uuid, 'type' => $type, 'files' => count($files)] + ($m === null ? [] : ['milestone' => $m->uuid]));
 
             return $change;
         });
@@ -100,10 +107,12 @@ class ChangeRequests
 
                 return $c;
             }
+            $before = $this->snapshot($a);
             $this->apply($a, $m, $c);
-            $c->fill(['status' => 'accepted', 'answered_at' => now()])->save();
             $a->forceFill(['version' => $a->version + 1])->save();
-            $this->approval($a, 'change.accepted', $side, $actor->getKey(), ['change' => $c->uuid, 'type' => $c->type]);
+            $effect = $this->effect($before, $this->snapshot($a->fresh()));
+            $c->fill(['status' => 'accepted', 'answered_at' => now(), 'applied_version' => $a->version, 'effect' => $effect === [] ? null : $effect])->save();
+            $this->approval($a, 'change.accepted', $side, $actor->getKey(), ['change' => $c->uuid, 'type' => $c->type, 'version' => $a->version] + $effect);
 
             return $c;
         });
@@ -155,7 +164,9 @@ class ChangeRequests
     /** @return list<array<string, mixed>> the agreement's requests, newest first, as this side sees them */
     public function list(Agreement $a, string $side): array
     {
-        return Change::query()->where('agreement_id', $a->id)->with('milestone')->latest('id')->limit(30)->get()->map(fn (Change $c) => [
+        $accepted = Change::query()->where('agreement_id', $a->id)->where('status', 'accepted')->orderBy('id')->pluck('id')->values()->all();
+
+        return Change::query()->where('agreement_id', $a->id)->with(['milestone', 'media'])->latest('id')->limit(30)->get()->map(fn (Change $c) => [
             'uuid' => $c->uuid,
             'type' => $c->type,
             'status' => $c->shownStatus(),
@@ -166,12 +177,46 @@ class ChangeRequests
             'reason' => $c->reason,
             'respond_by' => $c->respond_by?->toIso8601String(),
             'at' => $c->created_at?->toIso8601String(),
+            // FS-101: an accepted change is the agreement's addendum number N (version it reached, and what it did before / after).
+            'addendum_no' => $c->status === 'accepted' ? (array_search($c->id, $accepted, true) === false ? null : array_search($c->id, $accepted, true) + 1) : null,
+            'applied_version' => $c->applied_version,
+            'effect' => $c->effect,
+            'files' => $c->getMedia('files')->map(fn (\Spatie\MediaLibrary\MediaCollections\Models\Media $f) => [
+                'id' => $f->id,
+                'name' => MilestoneDeliveries::displayName($f),
+                'mime' => $f->mime_type,
+                'size' => $f->size,
+                'path' => 'agreement/changes/'.$c->uuid.'/files/'.$f->id,
+            ])->values()->all(),
             'can' => [
                 'accept' => $c->open() && $c->requested_by !== $side,
                 'reject' => $c->open() && $c->requested_by !== $side,
                 'withdraw' => $c->open() && $c->requested_by === $side,
             ],
         ])->values()->all();
+    }
+
+    public function file(Agreement $a, string $changeUuid, int $mediaId): \Spatie\MediaLibrary\MediaCollections\Models\Media
+    {
+        return $this->find($a, $changeUuid)->getMedia('files')->firstWhere('id', $mediaId) ?? abort(404);
+    }
+
+    /**
+     * FS-101: a request that waits for an answer is remembered once, a day before it runs out, to the side that has to answer. It
+     * changes nothing - an unanswered request just expires.
+     */
+    public function remindDue(): int
+    {
+        $sent = 0;
+        Change::query()->where('status', Change::PENDING)->whereNull('reminded_at')->whereNotNull('respond_by')
+            ->where('respond_by', '>', now())->where('respond_by', '<=', now()->addDay())->with(['agreement.client', 'agreement.freelancer', 'agreement.project'])->limit(200)->get()
+            ->each(function (Change $c) use (&$sent): void {
+                $c->forceFill(['reminded_at' => now()])->save();
+                $this->tell($c, $c->requested_by === 'client' ? 'freelancer' : 'client', 'change.reminder');
+                $sent++;
+            });
+
+        return $sent;
     }
 
     public function find(Agreement $a, string $uuid): Change
@@ -310,6 +355,26 @@ class ChangeRequests
         }
 
         return $c;
+    }
+
+    /** @return array{price_minor: int, duration_days: int, milestones: int} */
+    private function snapshot(Agreement $a): array
+    {
+        return [
+            'price_minor' => (int) $a->price_minor,
+            'duration_days' => (int) $a->duration_days,
+            'milestones' => Milestone::query()->where('agreement_id', $a->id)->where('status', '!=', Status::Cancelled->value)->count(),
+        ];
+    }
+
+    /**
+     * @param  array<string, int>  $before
+     * @param  array<string, int>  $after
+     * @return array<string, array{0: int, 1: int}> what the change did, as [before, after] - only what moved
+     */
+    private function effect(array $before, array $after): array
+    {
+        return collect($before)->filter(fn ($v, $k) => $v !== $after[$k])->map(fn ($v, $k) => [$v, $after[$k]])->all();
     }
 
     private function days(Agreement $a): int

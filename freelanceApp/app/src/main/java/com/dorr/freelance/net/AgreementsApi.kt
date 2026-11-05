@@ -6,8 +6,10 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
 import retrofit2.http.Multipart
 import retrofit2.http.PartMap
@@ -83,9 +85,13 @@ interface AgreementsApi {
     @GET("${ApiClient.FREELANCE}reviews")
     suspend fun reviews(): Response<ApiEnvelope<MyReviewsDto>>
 
-    /** FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw). */
+    /**
+     * FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw). FS-101: always multipart -
+     * the fields of [ChangeRequest.fields] and up to 3 `files[]`.
+     */
+    @Multipart
     @POST("${ApiClient.FREELANCE}projects/{uuid}/agreement/changes")
-    suspend fun requestChange(@Path("uuid") uuid: String, @Body body: ChangeRequest): Response<ApiEnvelope<List<ChangeDto>>>
+    suspend fun requestChange(@Path("uuid") uuid: String, @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>, @Part files: List<MultipartBody.Part>): Response<ApiEnvelope<List<ChangeDto>>>
 
     @POST("${ApiClient.FREELANCE}projects/{uuid}/agreement/changes/{change}/{action}")
     suspend fun answerChange(@Path("uuid") uuid: String, @Path("change") change: String, @Path("action") action: String): Response<ApiEnvelope<List<ChangeDto>>>
@@ -117,7 +123,7 @@ data class AgreementDto(
     val scope: String? = null,
     val includes: String? = null,
     val excludes: String? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val money: AgreementMoneyDto = AgreementMoneyDto(),
     val terms: AgreementTermsDto = AgreementTermsDto(),
@@ -130,7 +136,25 @@ data class AgreementDto(
     val can: AgreementCanDto = AgreementCanDto(),
     /** FL-605: how often the client asked for a progress report, and whether the next one is late. */
     val reports: ReportSummaryDto = ReportSummaryDto(),
+    /** FL-L13: the ownership terms the agreement keeps (null: none, or the feature is off). */
+    val rights: AgreementRightsDto? = null,
+    /** FS-106: how the running project is doing (null: it is not running). Informational only. */
+    val health: ProjectHealthDto? = null,
 )
+
+/** FS-106: `state` = healthy · at_risk · delayed · blocked; [nextStep] is the first thing I can do, else what I wait for. */
+data class ProjectHealthDto(
+    val state: String = "healthy",
+    val reasons: List<HealthReasonDto> = emptyList(),
+    @SerializedName("next_step") val nextStep: HealthNextStepDto? = null,
+)
+
+/** `code` = dispute_open · part_unfunded · part_overdue · part_due_soon · part_not_started · review_waiting · report_late · change_waiting; `mine`: I am the one to act. */
+data class HealthReasonDto(val code: String = "", val level: String = "at_risk", val mine: Boolean = false, val data: HealthReasonDataDto? = null)
+
+data class HealthReasonDataDto(val part: String? = null, val days: Int? = null, @SerializedName("due_at") val dueAt: String? = null)
+
+data class HealthNextStepDto(val code: String = "", val mine: Boolean = false)
 
 data class ReportSummaryDto(
     @SerializedName("every_days") val everyDays: Int? = null,
@@ -175,6 +199,8 @@ data class DeliveryDto(
     @SerializedName("delivered_at") val deliveredAt: String? = null,
     @SerializedName("revision_reason") val revisionReason: String? = null,
     val files: List<DeliveryFileDto> = emptyList(),
+    /** FL-L13: my word and the outside material I listed. */
+    val rights: DeliveryRightsDto? = null,
 )
 
 data class DeliveryFileDto(
@@ -227,7 +253,7 @@ data class DisputeDto(
     val details: String = "",
     val mine: Boolean = false,
     val milestone: DisputePartDto? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decision: DisputeDecisionDto? = null,
     val evidence: List<DisputeEvidenceDto> = emptyList(),
     val can: DisputeCanDto = DisputeCanDto(),
@@ -242,7 +268,7 @@ data class DisputeEvidenceDto(val id: Int = 0, val mine: Boolean = false, val bo
 data class DisputeCanDto(val evidence: Boolean = false, val appeal: Boolean = false)
 
 data class EarningsDto(
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     @SerializedName("available_minor") val availableMinor: Long = 0,
     @SerializedName("pending_minor") val pendingMinor: Long = 0,
     @SerializedName("next_release_at") val nextReleaseAt: String? = null,
@@ -255,7 +281,7 @@ data class EarningDto(
     val id: Int = 0,
     val kind: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     val status: String = "",
     val project: EarningProjectDto? = null,
     val milestone: String? = null,
@@ -274,7 +300,22 @@ data class ChangeDto(
     val payload: Map<String, Any?> = emptyMap(),
     val reason: String? = null,
     val can: ChangeCanDto = ChangeCanDto(),
+    /** FS-101: the deadline to answer, and once accepted the addendum number and the agreement version it reached. */
+    @SerializedName("respond_by") val respondBy: String? = null,
+    val at: String? = null,
+    @SerializedName("addendum_no") val addendumNo: Int? = null,
+    @SerializedName("applied_version") val appliedVersion: Int? = null,
+    /** `{price_minor:[before,after], duration_days:[…], milestones:[…]}` - only what moved; `[]` or null when nothing did. Read with [effectOf]. */
+    val effect: com.google.gson.JsonElement? = null,
+    /** FS-101: `path` is under `freelance/v1/projects/{uuid}/`. */
+    val files: List<DeliveryFileDto> = emptyList(),
 )
+
+/** FS-101: one moved number of an accepted change as (before, after), or null when it did not move. */
+fun ChangeDto.effectOf(key: String): Pair<Long, Long>? = runCatching {
+    val e = effect?.takeIf { it.isJsonObject }?.asJsonObject?.get(key)?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+    if (e.size() < 2) null else e[0].asLong to e[1].asLong
+}.getOrNull()
 
 data class ChangeCanDto(val accept: Boolean = false, val reject: Boolean = false, val withdraw: Boolean = false)
 
@@ -288,7 +329,16 @@ data class ChangeRequest(
     val includes: String? = null,
     val excludes: String? = null,
     val reason: String? = null,
-)
+) {
+    /** The multipart text fields (a null field is not sent, as Gson did with the JSON body). */
+    fun fields(): Map<String, RequestBody> {
+        val plain = "text/plain".toMediaTypeOrNull()
+        return listOf(
+            "type" to type, "milestone" to milestone, "days" to days?.toString(), "amount_minor" to amountMinor?.toString(), "title" to title,
+            "scope" to scope, "includes" to includes, "excludes" to excludes, "reason" to reason,
+        ).mapNotNull { (k, v) -> v?.let { k to it.toRequestBody(plain) } }.toMap()
+    }
+}
 
 data class ReviewDto(
     val criteria: List<String> = emptyList(),
@@ -352,7 +402,7 @@ data class ReceiptDto(
     @SerializedName("reason_text") val reasonText: String? = null,
     val project: RefDto? = null,
     val milestone: RefDto? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     @SerializedName("fee_minor") val feeMinor: Long = 0,
     @SerializedName("total_minor") val totalMinor: Long = 0,
@@ -372,7 +422,7 @@ data class MyProjectDto(
     val status: String,
     val project: MyProjectRef = MyProjectRef(),
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     @SerializedName("milestones_count") val milestonesCount: Int = 0,
     @SerializedName("milestones_done") val milestonesDone: Int = 0,

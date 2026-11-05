@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09 (part B): the loyalty program as a client sees it (prefix loyc_). -->
+<resources>
+    <string name="loyc_chip">My discounts</string>
+    <string name="loyc_title">My discounts</string>
+    <string name="loyc_intro_title">Rewards for coming back</string>
+    <string name="loyc_intro_body">Freelancers you worked with take a bigger discount off every new job you give them. It is applied for you — nothing to enter.</string>
+    <string name="loyc_empty_title">No discounts yet</string>
+    <string name="loyc_empty_body">Finish a job with a freelancer who runs a loyalty program and your discount shows up here.</string>
+    <string name="loyc_badge">%1$s%% off</string>
+    <string name="loyc_works_n">%1$d finished together</string>
+    <string name="loyc_no_discount">No discount yet</string>
+    <string name="loyc_next_line">%1$d more for %2$s%% off</string>
+    <string name="loyc_step_percent">%1$s%%</string>
+    <string name="loyc_step_after">after %1$d</string>
+    <string name="loyc_card_title">Loyalty discount</string>
+    <string name="loyc_card_hint">Taken off the price automatically on their projects, services and consultations.</string>
+    <string name="loyc_status_current">Your step: %1$s%% off, applied for you.</string>
+    <string name="loyc_status_top">You are on their best step: %1$s%% off.</string>
+    <string name="loyc_status_start">Finish %1$d with this freelancer and get %2$s%% off the next ones.</string>
+    <string name="loyc_status_none">Keep working together to unlock a discount.</string>
+    <string name="loyc_line_discount">Loyalty discount %1$s%%</string>
+    <string name="loyc_line_saving">You save %1$s</string>
+    <string name="loyc_offer_note">Includes your loyalty discount of %1$s%%.</string>
+</resources>
