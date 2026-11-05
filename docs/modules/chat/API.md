@@ -49,11 +49,17 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | GET | `messages/follow-up` | | Waiting for my reply, oldest first |
 | PUT / DELETE | `messages/{m}/reminder` | `remind_at` (ISO-8601, 30 s to 365 days ahead), `note?` (≤200) | "Remind me" (spec 47, 121): one per message per person. `chat:send-reminders` (every minute) pushes it once (title "⏰ Reminder", the note or the text — following my `notification_privacy`) and sends `chat.reminder.due` `{conversation_id, message_id, note}`. The message carries `reminder_at` |
 | GET | `reminders` | | My reminders still to come: `{remind_at, note, message}` |
-| POST / DELETE | `messages/{m}/pin` | `duration_seconds` = 86400\|604800\|2592000 | Pinned for everyone. The oldest pin gives way at `max_pinned_messages` |
-| GET | `conversations/{c}/pinned` | | |
+| POST / DELETE | `messages/{m}/pin` | `duration_seconds` = 86400\|604800\|2592000 | Pinned for everyone. The oldest pin gives way at `max_pinned_messages` (sent on every conversation as `max_pinned_messages`; the apps ask before replacing) |
+| GET | `conversations/{c}/pinned` | | Latest pin first (pinning again counts as latest) |
 | GET | `messages/{m}/info` | | My own message: `read_by`, `delivered_to`, `pending` |
 | GET | `messages/search`, `conversations/{c}/messages/search` | `q` | |
 | GET | `conversations/{c}/gallery` | `kind` = media\|documents\|audio\|links\|locations, `before` | |
+
+**Send location page (2026-11-05)** — the apps open a full page: map, a pin in the middle, «Share live location», «Send your current location» and «Nearby places». Two Rides endpoints feed it, both answering `[{name, address, lat, lng}]` nearest first:
+- `GET /api/mobile/v1/rides/places/nearby?lat&lng` lists the places around the pin. It asks the admin's map provider first: Google Places (New) Nearby Search within 500 m (needs «Places API (New)» on the server key), or Mapbox Search Box POIs. When that returns fewer than 5, it adds popular ride destinations within 5 km. Results are cached for a day per ~100 m (an empty answer for 10 min). Throttled to 60 per minute.
+- `places/suggest` serves the 🔍 search.
+
+A place picked from either list is sent as a `location` message with `location_name` and `address`; the bubble shows both under a real map.
 
 **Live location** — a `location` message the sender keeps moving until it runs out or is stopped. Durations are 900 (15 min), 3600 (1 h) or 28800 (8 s); the server writes `live_until` (ISO 8601) and `stopped` into the message `meta`.
 

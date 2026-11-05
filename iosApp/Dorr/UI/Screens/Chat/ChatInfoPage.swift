@@ -87,7 +87,7 @@ struct ChatInfoPage: View {
             .onPreferenceChange(InfoScrollKey.self) { y in scrolled = y < -140 }
             .ignoresSafeArea(edges: .top)
             // Compact header that fades in once the hero scrolls away.
-            Text(verbatim: conversation?.title ?? "").font(.dorr(16, .bold)).foregroundStyle(.white).lineLimit(1)
+            Text(verbatim: ltrTitle(conversation?.title)).font(.dorr(16, .bold)).foregroundStyle(.white).lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 16).padding(.trailing, 96).padding(.vertical, 12)
                 .background(ch.headerBrush.ignoresSafeArea(edges: .top))
@@ -165,7 +165,7 @@ struct ChatInfoPage: View {
             ChAvatar(url: conversation?.avatar, name: conversation?.title, key: conversation?.peer?.key ?? id, size: 72, isGroup: conversation?.isGroup == true)
                 .onTapGesture { if canEdit { editing = true } }
             HStack(spacing: 6) {
-                Text(verbatim: conversation?.title ?? "").font(.dorr(18, .bold)).foregroundStyle(.white).multilineTextAlignment(.center).lineLimit(2)
+                Text(verbatim: ltrTitle(conversation?.title)).font(.dorr(18, .bold)).foregroundStyle(.white).multilineTextAlignment(.center).lineLimit(2)
                 if conversation?.isChannel == true && conversation?.group?.isVerified == true {
                     VerifiedBadge(size: 18, tint: .white)
                 }
@@ -735,9 +735,9 @@ private struct CategoryChoice: View {
     var body: some View {
         Group {
             if let list = categories {
-                ChoiceSheet(title: L("ch_channel_category"), options: ([(nil, L("ch_channel_category_none"))] + list.map { (Optional($0.id), $0.name ?? "") }).map { item in
-                    ((item.0 == current ? "✓  " : "") + item.1, { onPick(item.0) })
-                }, onDismiss: onDismiss)
+                let rows: [(Int?, String)] = [(nil, L("ch_channel_category_none"))] + list.map { (Optional($0.id), $0.name ?? "") }
+                ChoiceSheet(title: L("ch_channel_category"), options: rows.map { item in (item.1, { onPick(item.0) }) },
+                            radios: true, selected: rows.firstIndex { $0.0 == current }, onDismiss: onDismiss)
             } else {
                 ChSheetCard { ProgressView().frame(maxWidth: .infinity).frame(height: 120) }
             }

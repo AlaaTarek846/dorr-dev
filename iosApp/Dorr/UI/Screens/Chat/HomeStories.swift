@@ -158,7 +158,7 @@ struct HomePersonCircle: View {
                 ChStoryRing(count: group.stories.count, seenCount: group.stories.filter { $0.seen == true }.count, size: 56) {
                     ChAvatar(url: group.owner?.avatar, name: group.owner?.name, key: group.owner?.key, size: 48)
                 }
-                CircleLabel(text: group.owner?.name ?? "", bold: group.allSeen != true)
+                CircleLabel(text: ltrTitle(group.owner?.name), bold: group.allSeen != true)
             }
             .frame(width: 58)
         }

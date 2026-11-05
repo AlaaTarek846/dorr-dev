@@ -145,7 +145,7 @@ struct StoriesBar: View {
         return Button(action: action) {
             VStack(spacing: 4) {
                 ChStoryRing(count: g.stories.count, seenCount: seen, size: 58) { ChAvatar(url: g.owner?.avatar, name: g.owner?.name, key: g.owner?.key, size: 50) }
-                Text(verbatim: g.owner?.name ?? "").font(.dorr(10.5, g.allSeen == true ? .regular : .bold)).foregroundStyle(g.allSeen == true ? ch.mut : ch.ink).lineLimit(1)
+                Text(verbatim: ltrTitle(g.owner?.name)).font(.dorr(10.5, g.allSeen == true ? .regular : .bold)).foregroundStyle(g.allSeen == true ? ch.mut : ch.ink).lineLimit(1)
             }
             .frame(width: 64)
         }
@@ -179,44 +179,63 @@ struct StoryThumb: View {
     }
 }
 
-/// «Text», «Photo or video» or «Voice» — the ways to post.
+/// «Text», «Photo or video» or «Voice» — the ways to post: three tiles side by side, each with its own coloured
+/// circle (text in the app's red); × closes it (androidApp `StoryAddSheet`).
 struct StoryAddSheet: View {
     @ObservedObject var host: ChatHost
     @ObservedObject private var ch = Ch.shared
     let onDismiss: () -> Void
-    @State private var item: PhotosPickerItem?
+    @State private var items: [PhotosPickerItem] = []
 
     var body: some View {
         ChSheetCard {
-            Text(L("st_add_status")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 14)
-            option("pencil", L("st_text")) { onDismiss(); host.push(.storyComposer()) }
-            PhotosPicker(selection: $item, matching: .any(of: [.images, .videos])) { optionLabel("camera.fill", L("st_photo_video")) }.buttonStyle(.plain)
-            option("mic.fill", L("bk_voice_status")) { onDismiss(); host.push(.storyComposer(media: storyVoice)) }
-            Button(action: onDismiss) { Text(L("ch_cancel")).font(.dorr(15, .bold)).foregroundStyle(ch.mut).frame(maxWidth: .infinity).padding(15) }.buttonStyle(.plain)
-        }
-        .onChange(of: item) { picked in
-            guard let picked else { return }
-            Task {
-                if let f = await aiCopyPicked(picked) {
-                    onDismiss()
-                    host.push(.storyComposer(media: f.url.absoluteString))
+            HStack {
+                Text(L("st_add_status")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(ch.mut)
+                        .frame(width: 34, height: 34).background(ch.surfaceMuted, in: Circle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("ch_close_sheet"))
+            }
+            .padding(.bottom, 14)
+            HStack(spacing: 10) {
+                tileButton("pencil", L("st_text"), ch.red, 0) { onDismiss(); host.push(.storyComposer()) }
+                // Up to 10 at once, each its own status.
+                PhotosPicker(selection: $items, maxSelectionCount: storyMediaMax, selectionBehavior: .ordered, matching: .any(of: [.images, .videos])) {
+                    tile("camera.fill", L("st_photo_video"), Color(hex: 0x6D5BD0))
+                }
+                .buttonStyle(.plain).chStagger(1)
+                tileButton("mic.fill", L("bk_voice_status"), Color(hex: 0x3E8A99), 2) { onDismiss(); host.push(.storyComposer(media: storyVoice)) }
+            }
+        }
+        .onChange(of: items) { picked in
+            guard !picked.isEmpty else { return }
+            items = []
+            Task {
+                var urls: [URL] = []
+                for p in picked { if let f = await aiCopyPicked(p) { urls.append(f.url) } }
+                guard !urls.isEmpty else { return }
+                onDismiss()
+                host.push(.storyComposer(media: storyMediaRoute(urls)))
             }
         }
     }
 
-    private func option(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { optionLabel(icon, label) }.buttonStyle(.plain)
+    private func tileButton(_ icon: String, _ label: String, _ color: Color, _ i: Int, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { tile(icon, label, color) }.buttonStyle(.plain).chStagger(i)
     }
 
-    private func optionLabel(_ icon: String, _ label: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(ch.red)
-            Text(verbatim: label).font(.dorr(15, .bold)).foregroundStyle(ch.ink)
-            Spacer()
+    private func tile(_ icon: String, _ label: String, _ color: Color) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon).font(.system(size: 19)).foregroundStyle(.white)
+                .frame(width: 46, height: 46).background(color, in: Circle())
+            Text(verbatim: label).font(.dorr(13.5, .bold)).foregroundStyle(ch.ink).lineLimit(1).minimumScaleFactor(0.8)
         }
-        .padding(.horizontal, 16).padding(.vertical, 15)
-        .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity).padding(.vertical, 18).padding(.horizontal, 6)
+        .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(ch.line, lineWidth: 1))
+        .contentShape(Rectangle())
     }
 }

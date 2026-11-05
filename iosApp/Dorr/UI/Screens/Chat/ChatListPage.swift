@@ -333,7 +333,7 @@ private struct ConversationRow: View {
                 ChAvatar(url: c.avatar, name: c.title, key: peerKey ?? c.id, size: compact ? 44 : 50, isGroup: c.isGroup, online: online)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Text(verbatim: c.title ?? "").font(.dorr(compact ? 14 : 15, .semibold)).foregroundStyle(ch.ink).lineLimit(1)
+                        Text(verbatim: ltrTitle(c.title)).font(.dorr(compact ? 14 : 15, .semibold)).foregroundStyle(ch.ink).lineLimit(1)
                         if c.group?.isVerified == true { Image(systemName: "checkmark.seal.fill").font(.system(size: 13)).foregroundStyle(Color(hex: 0x0EA5E9)) }
                         if c.isLocked == true { Image(systemName: "lock.fill").font(.system(size: 11)).foregroundStyle(ch.soft) }
                     }

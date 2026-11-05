@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreLocation
 import SwiftUI
 import UIKit
 
@@ -22,6 +23,8 @@ struct BubbleActions {
     var onChoose: (UiMessage, Int) -> Void = { _, _ in }
     var onOpenViewOnce: (UiMessage) -> Void = { _ in }
     var onStopLive: (UiMessage) -> Void = { _ in }
+    /// A live location's bubble was tapped: «View live location».
+    var onOpenLive: (UiMessage) -> Void = { _ in }
     /// A Dorr group invite link (dorr://chat/join/…) was tapped.
     var onJoinGroup: (String) -> Void = { _ in }
     /// Money request / bill split: pay (PIN), decline, or — the requester — call it off.
@@ -61,6 +64,12 @@ extension MessageDto {
 /// The phone number shown left-to-right inside Arabic text.
 func ltrNumber(_ text: String?) -> String { (text?.isEmpty == false) ? "\u{2066}\(text!)\u{2069}" : "" }
 
+/// A chat's title: a number (someone not in my contacts) kept left-to-right, a name as it is.
+func ltrTitle(_ text: String?) -> String {
+    let t = text ?? ""
+    return t.trimmingCharacters(in: .whitespaces).range(of: #"^\+?[\d\s\-()]{6,20}$"#, options: .regularExpression) != nil ? ltrNumber(t) : t
+}
+
 /// 950 · 1.2K · 3.4M
 func compactCount(_ n: Int) -> String {
     if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000).replacingOccurrences(of: ".0M", with: "M") }
@@ -92,7 +101,7 @@ struct MessageRow: View {
                 ChChip(text: dto.system?.text.flatMap { $0.isEmpty ? nil : $0 } ?? "•")
                 Spacer()
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
             .chPopIn(m.fresh)
         } else {
             row(dto)
@@ -102,14 +111,16 @@ struct MessageRow: View {
     private func row(_ dto: MessageDto) -> some View {
         let mine = m.isMine
         let p = min(max(drag / threshold, 0), 1)
-        return ZStack(alignment: .leading) {
-            // The reply arrow that grows out from under the bubble.
+        // The screen's left: leading in English, trailing in Arabic.
+        let left: HorizontalAlignment = direction == .rightToLeft ? .trailing : .leading
+        return ZStack(alignment: Alignment(horizontal: left, vertical: .center)) {
+            // The reply arrow that grows out on the left, where the bubble moves away from.
             Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 15, weight: .bold))
                 .foregroundStyle(armed ? .white : ch.red)
                 .frame(width: 34, height: 34)
                 .background(armed ? ch.red : .white, in: Circle())
                 .scaleEffect(0.4 + 0.6 * p).opacity(p)
-                .padding(.leading, 12)
+                .padding(direction == .rightToLeft ? .trailing : .leading, 12)
             HStack(alignment: .bottom, spacing: 0) {
                 if mine { Spacer(minLength: 40) }
                 if !mine && isGroup {
@@ -121,7 +132,8 @@ struct MessageRow: View {
                 if !mine { Spacer(minLength: 40) }
             }
             .padding(.horizontal, 10)
-            .offset(x: drag * (direction == .rightToLeft ? -1 : 1))
+            // The bubble follows the finger to the right, in every language.
+            .offset(x: drag)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, firstInRun ? 6 : 1.5).padding(.bottom, 1.5)
@@ -131,9 +143,8 @@ struct MessageRow: View {
             DragGesture(minimumDistance: 18)
                 .onChanged { v in
                     guard !dto.deleted, m.local == nil, abs(v.translation.width) > abs(v.translation.height) else { return }
-                    // Swiping "into" the chat (towards the reading start) replies — mirrored in Arabic.
-                    let delta = v.translation.width * (direction == .rightToLeft ? -1 : 1)
-                    drag = min(max(delta, 0), threshold * 1.5)
+                    // Swiping right replies, in Arabic too.
+                    drag = min(max(v.translation.width, 0), threshold * 1.5)
                     if !armed && drag >= threshold {
                         armed = true
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -327,7 +338,7 @@ private struct ReplyQuote: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .background(mine ? ch.outText.opacity(0.16) : ch.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .padding(.horizontal, 6).padding(.top, 6)
@@ -422,7 +433,7 @@ private struct BubbleContent: View {
             MatchCardBubble(dto: dto) { BubbleFooter(m: m, mine: mine, overlay: false) }
         case "location":
             if let live = dto.liveLocation {
-                LiveLocationCard(meta: dto.meta, live: live, mine: mine, onStop: { actions.onStopLive(m) }) { BubbleFooter(m: m, mine: mine, overlay: true) }
+                LiveLocationCard(meta: dto.meta, live: live, mine: mine, onStop: { actions.onStopLive(m) }, sender: dto.sender, onOpen: { actions.onOpenLive(m) }) { BubbleFooter(m: m, mine: mine, overlay: true) }
             } else {
                 LocationCard(meta: dto.meta, m: m, mine: mine)
             }
@@ -447,11 +458,21 @@ private struct BubbleContent: View {
                 StoryMentionLine(meta: dto.meta, mine: mine) { BubbleFooter(m: m, mine: mine, overlay: false) }
             }
         default:
+            let hasCard = dto.linkPreview != nil
             VStack(alignment: .leading, spacing: 0) {
                 // The link's card above the text, like WhatsApp (arrives a moment after sending).
                 if let preview = dto.linkPreview { LinkPreviewCard(preview: preview, mine: mine) }
-                TextBody(m: m, mine: mine, actions: actions)
+                // Only a link: the card says it all, the time sits under it (the address isn't written out again).
+                if dto.linkPreview != nil && isOnlyLink(dto.body) {
+                    BubbleFooter(m: m, mine: mine, overlay: false)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 6)
+                } else {
+                    TextBody(m: m, mine: mine, actions: actions)
+                }
             }
+            // A link's card keeps the bubble narrower (about WhatsApp's share of the screen); the words wrap inside it.
+            .frame(width: hasCard ? 260 : nil)
         }
     }
 }
@@ -488,7 +509,7 @@ private struct StoryQuote: View {
             .frame(width: 44, height: 62).clipped()
         }
         .background(mine ? ch.outText.opacity(0.16) : ch.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, 6).padding(.top, 6)
     }
 }
@@ -501,23 +522,94 @@ struct TextBody: View {
     let m: UiMessage
     let mine: Bool
     var actions: BubbleActions?
+    @Environment(\.layoutDirection) private var direction
+    /// A long message shows its start and «… Read more» (as in WhatsApp); a tap shows all of it.
+    @State private var expanded = false
 
     var body: some View {
         let dto = m.dto
-        let body = dto.body ?? ""
+        let fullBody = dto.body ?? ""
+        let cut = readMoreCut(fullBody)
+        let folded = !expanded && cut != nil
+        let body = folded ? String(fullBody.prefix(cut!)).trimmingCharacters(in: .whitespacesAndNewlines) : fullBody
         let onlyEmoji = !body.isEmpty && body.count <= 8 && body.unicodeScalars.allSatisfy { !CharacterSet.alphanumerics.contains($0) && !CharacterSet.whitespacesAndNewlines.contains($0) }
-        let size: CGFloat = onlyEmoji ? 38 : 15.5 * prefs.fontScale
-        ZStack(alignment: .bottomTrailing) {
-            Text(attributed(body))
+        let size: CGFloat = onlyEmoji ? 38 : 15 * prefs.fontScale
+        // The time goes at the end of the last line: the bubble's end, unless that paragraph runs the other way
+        // (English in Arabic, or the reverse), when it's the other corner.
+        let textRtl = startsRightToLeft(body.components(separatedBy: "\n").last ?? "")
+        let sameWay = textRtl == (direction == .rightToLeft)
+        ZStack(alignment: sameWay ? .bottomTrailing : .bottomLeading) {
+            Text(attributed(body) + (folded ? readMoreLink : AttributedString()) + timeGap)
                 .font(.dorr(size))
                 .foregroundStyle(mine ? ch.outText : ch.inText)
                 .lineSpacing(onlyEmoji ? 0 : 3 * prefs.fontScale)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, 62).padding(.bottom, 2)
+                .padding(.bottom, 1)
                 .environment(\.openURL, OpenURLAction { open($0) })
             BubbleFooter(m: m, mine: mine, overlay: false)
         }
-        .padding(.horizontal, 12).padding(.vertical, 7)
+        .padding(.horizontal, 10).padding(.vertical, 6)
+    }
+
+    /// «… Read more», a link the bubble handles itself (`open`).
+    private var readMoreLink: AttributedString {
+        var dots = AttributedString("… ")
+        dots.font = .dorr(15 * prefs.fontScale)
+        var more = AttributedString(L("ch_read_more"))
+        more.font = .dorr(15 * prefs.fontScale, .heavy)
+        more.foregroundColor = mine ? ch.outText : ch.red
+        more.link = URL(string: "dorr-readmore://expand")
+        return dots + more
+    }
+
+    /// Where a long message is folded: after about 700 characters or 16 lines, at a word's end. Nil when it's short
+    /// (or only a little over: folding a few words away isn't worth a tap).
+    private func readMoreCut(_ body: String) -> Int? {
+        let chars = Array(body)
+        var limit = 700
+        var lines = 0
+        for (i, c) in chars.enumerated() where c == "\n" {
+            lines += 1
+            if lines >= 16 { limit = min(limit, i); break }
+        }
+        guard chars.count > limit + 120 else { return nil }
+        if let space = chars[..<limit].lastIndex(where: { $0 == " " || $0 == "\n" }), space > limit / 2 { return space }
+        return limit
+    }
+
+    /// The time sits after the last word (as in WhatsApp): an invisible copy of the footer (the same time in the same
+    /// size, a no-break space for each icon) ends the text, so it shares the last line when there's room and gets a
+    /// line of its own when there isn't. Only no-break spaces inside, so it never splits across lines.
+    private var timeGap: AttributedString {
+        let dto = m.dto
+        let nb = "\u{00A0}"
+        let icon = String(repeating: nb, count: 4)
+        var parts = nb + nb
+        if dto.expiresAt != nil { parts += icon }
+        if dto.isStarred == true { parts += icon }
+        if dto.reminderAt != nil { parts += icon }
+        if dto.isFollowUp == true { parts += icon }
+        if let views = dto.views { parts += icon + compactCount(views) + nb }
+        if dto.isEdited == true { parts += L("ch_edited") + nb }
+        parts += clockTime(dto.createdAt)
+        if mine { parts += String(repeating: nb, count: 5) }
+        // Under a link's card the time gets its own line under the link (as in WhatsApp).
+        let lead = m.dto.linkPreview != nil ? "\n" : " "
+        var gap = AttributedString(lead + parts.replacingOccurrences(of: " ", with: nb))
+        gap.font = .dorr(10.5)
+        gap.foregroundColor = .clear
+        return gap
+    }
+
+    /// Whether the first letter of the text is Arabic / Hebrew.
+    private func startsRightToLeft(_ text: String) -> Bool {
+        for s in text.unicodeScalars where CharacterSet.letters.contains(s) {
+            switch s.value {
+            case 0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF: return true
+            default: return false
+            }
+        }
+        return direction == .rightToLeft
     }
 
     /// *bold* _italic_ ~strike~ `code` ```block``` — marks removed, links never formatted. Lists and quotes line by
@@ -535,14 +627,14 @@ struct TextBody: View {
                     a.link = URL(string: target)
                     a.foregroundColor = linkColor
                     a.underlineStyle = .single
-                    a.font = .dorr(15.5 * prefs.fontScale, .semibold)
+                    a.font = .dorr(15 * prefs.fontScale, .semibold)
                 } else if piece.code || piece.codeBlock {
                     a.font = .system(size: 14, design: .monospaced)
                     a.backgroundColor = codeBg
                 } else {
                     var weight: Font.Weight = .regular
                     if piece.bold { weight = .bold }
-                    var f = Font.dorr(15.5 * prefs.fontScale, weight)
+                    var f = Font.dorr(15 * prefs.fontScale, weight)
                     if piece.italic { f = f.italic() }
                     a.font = f
                     if piece.strike { a.strikethroughStyle = .single }
@@ -561,11 +653,11 @@ struct TextBody: View {
                     bar.foregroundColor = mentionColor.opacity(0.55)
                     out += bar
                     var q = pieces(line.text)
-                    q.font = .dorr(15.5 * prefs.fontScale).italic()
+                    q.font = .dorr(15 * prefs.fontScale).italic()
                     out += q
                 default:
                     var marker = AttributedString(line.marker + "  ")
-                    marker.font = .dorr(15.5 * prefs.fontScale, .bold)
+                    marker.font = .dorr(15 * prefs.fontScale, .bold)
                     out += marker
                     out += pieces(line.text)
                 }
@@ -579,7 +671,7 @@ struct TextBody: View {
             var search = out.startIndex
             while let r = out[search...].range(of: "@\(name)") {
                 out[r].foregroundColor = mentionColor
-                out[r].font = .dorr(15.5 * prefs.fontScale, .heavy)
+                out[r].font = .dorr(15 * prefs.fontScale, .heavy)
                 search = r.upperBound
             }
         }
@@ -587,6 +679,10 @@ struct TextBody: View {
     }
 
     private func open(_ url: URL) -> OpenURLAction.Result {
+        if url.scheme == "dorr-readmore" {
+            withAnimation(.easeOut(duration: 0.2)) { expanded = true }
+            return .handled
+        }
         let link = url.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: ".,)"))
         // A call link: its sheet, right here.
         if let token = callLinkTokenOf(link) {
@@ -675,7 +771,7 @@ private struct MediaGrid: View {
                 if (dto.body ?? "").isEmpty { BubbleFooter(m: m, mine: mine, overlay: true).padding(8) }
             }
             .frame(width: 260)
-            .clipShape(RoundedRectangle(cornerRadius: 17))
+            .clipShape(RoundedRectangle(cornerRadius: 11))
             if !(dto.body ?? "").isEmpty { TextBody(m: m, mine: mine).frame(width: 260, alignment: .leading) }
         }
     }
@@ -847,8 +943,8 @@ final class VoicePlayer: ObservableObject {
     }
 }
 
-/// Voice note: round play button, the waveform that fills in the brand colour as it plays (tap on it to seek), the
-/// duration, and a 1× / 1.5× / 2× speed pill while playing.
+/// Voice note: round play button, the 1× / 1.5× / 2× speed pill beside it on the waveform's line, the waveform that
+/// fills in the brand colour as it plays (tap on it to seek), then the duration.
 private struct VoiceNote: View {
     @ObservedObject private var ch = Ch.shared
     @ObservedObject private var player = VoicePlayer.shared
@@ -856,15 +952,27 @@ private struct VoiceNote: View {
     let mine: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 7) {
             playButton
             VStack(alignment: .leading, spacing: 2) {
-                wave
+                HStack(spacing: 7) {
+                    speedPill
+                    wave
+                }
                 info
             }
         }
-        .frame(width: 232)
-        .padding(.leading, 8).padding(.trailing, 10).padding(.top, 8).padding(.bottom, 6)
+        .frame(width: 218)
+        .padding(.leading, 8).padding(.trailing, 10).padding(.top, 7).padding(.bottom, 5)
+    }
+
+    private var speedPill: some View {
+        let speed = player.speed == 1 ? "1" : player.speed == 2 ? "2" : "1.5"
+        return Text(verbatim: speed + "×")
+            .font(.dorr(10.5, .heavy)).foregroundStyle(mine ? ch.red : Color.white)
+            .padding(.horizontal, 6).padding(.vertical, 1)
+            .background(mine ? Color.white : ch.red, in: RoundedRectangle(cornerRadius: 8))
+            .onTapGesture { player.cycleSpeed() }
     }
 
     private var playButton: some View {
@@ -874,12 +982,12 @@ private struct VoiceNote: View {
         return ZStack {
             Circle().fill(mine ? Color.white : ch.red)
             if m.local == "pending" {
-                UploadRing(progress: m.progress, size: 42)
+                UploadRing(progress: m.progress, size: 38)
             } else {
-                Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 20)).foregroundStyle(mine ? ch.red : Color.white)
+                Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 18)).foregroundStyle(mine ? ch.red : Color.white)
             }
         }
-        .frame(width: 42, height: 42)
+        .frame(width: 38, height: 38)
         .scaleEffect(playing ? 1.08 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.4), value: playing)
         .onTapGesture { if let url, m.local == nil { player.toggle(dto.id, url) } }
@@ -896,23 +1004,15 @@ private struct VoiceNote: View {
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 0).onEnded { v in player.seek(id, min(max(v.location.x / geo.size.width, 0), 1)) })
         }
-        .frame(height: 30)
+        .frame(height: 26)
         .environment(\.layoutDirection, .leftToRight)
     }
 
     private var info: some View {
         let current = player.playingId == m.dto.id
         let shown: Int64 = current ? player.positionMs : durationOf(m.dto)
-        let speed = player.speed == 1 ? "1" : player.speed == 2 ? "2" : "1.5"
         return HStack(spacing: 6) {
             Text(verbatim: durationText(shown)).font(.dorr(11)).foregroundStyle(mine ? ch.outText.opacity(0.85) : ch.mut)
-            if current {
-                Text(verbatim: speed + "×")
-                    .font(.dorr(10.5, .heavy)).foregroundStyle(mine ? ch.red : Color.white)
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(mine ? Color.white : ch.red, in: RoundedRectangle(cornerRadius: 8))
-                    .onTapGesture { player.cycleSpeed() }
-            }
             Spacer(minLength: 4)
             BubbleFooter(m: m, mine: mine, overlay: false)
         }
@@ -998,7 +1098,7 @@ private struct DocumentCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(10)
-            .background(mine ? ch.outText.opacity(0.16) : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14))
+            .background(mine ? ch.outText.opacity(0.16) : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 10))
             .contentShape(Rectangle())
             .onTapGesture { if let file { open(file, name: name, pdf: pdf) } }
             if !(m.dto.body ?? "").isEmpty {
@@ -1043,7 +1143,8 @@ func openMaps(_ lat: Double, _ lng: Double) {
     if let url = URL(string: "http://maps.apple.com/?ll=\(lat),\(lng)&q=\(lat),\(lng)") { UIApplication.shared.open(url) }
 }
 
-/// A stylised map tile with the pin bouncing in.
+/// The real map around the place (Apple's snapshot — `MapSnapshotView`; the drawn map until it's ready) with the
+/// pin bouncing in, and the place's name and address under it (as in WhatsApp).
 private struct LocationCard: View {
     @ObservedObject private var ch = Ch.shared
     let meta: JSONAny?
@@ -1056,20 +1157,30 @@ private struct LocationCard: View {
         let lng = meta?.at("longitude")?.dbl ?? 0
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomTrailing) {
-                DrawnMap()
+                MapSnapshotView(center: CLLocationCoordinate2D(latitude: lat, longitude: lng)) { DrawnMap() }
                 Image(systemName: "mappin.circle.fill").font(.system(size: 40)).foregroundStyle(ch.red)
                     .offset(y: -(1 - pin) * 60 - 14).opacity(pin)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 BubbleFooter(m: m, mine: mine, overlay: true).padding(8)
             }
             .frame(height: 140)
-            .clipShape(RoundedRectangle(cornerRadius: 17))
+            .clipShape(RoundedRectangle(cornerRadius: 11))
             .onTapGesture { openMaps(lat, lng) }
-            HStack(spacing: 6) {
-                Image(systemName: "map.fill").font(.system(size: 14)).foregroundStyle(mine ? ch.outText : ch.red)
-                Text(verbatim: meta?.str("name") ?? L("ch_open_maps")).font(.dorr(13, .bold)).foregroundStyle(mine ? ch.outText : ch.ink).lineLimit(1)
+            let name = meta?.str("name").flatMap { $0.isEmpty ? nil : $0 }
+            let address = meta?.str("address").flatMap { $0.isEmpty || $0 == name ? nil : $0 }
+            // As in WhatsApp: my current location is the map alone; a picked place has its name (and address) under it.
+            if let name {
+                HStack(spacing: 6) {
+                    Image(systemName: "map.fill").font(.system(size: 14)).foregroundStyle(mine ? ch.outText : ch.red)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(verbatim: name).font(.dorr(13, .bold)).foregroundStyle(mine ? ch.outText : ch.ink).lineLimit(1)
+                        if let address {
+                            Text(verbatim: address).font(.dorr(11.5)).foregroundStyle((mine ? ch.outText : ch.ink).opacity(0.7)).lineLimit(2)
+                        }
+                    }
+                }
+                .padding(.horizontal, 9).padding(.vertical, 7)
             }
-            .padding(.horizontal, 9).padding(.vertical, 7)
         }
         .frame(width: 260)
         .padding(3)
@@ -1083,38 +1194,79 @@ private struct ContactCard: View {
     let m: UiMessage
     let mine: Bool
     let actions: BubbleActions
+    @State private var onDorr: ProfileDto?
+    @State private var checked = false
+    @State private var inviting = false
+    @State private var saving = false
     @State private var sheet = false
 
     var body: some View {
         let name = meta?.str("name") ?? ""
         let phones = meta?.at("phones")?.arr?.compactMap(\.str) ?? []
+        let phone = phones.first ?? ""
+        let ink = mine ? ch.outText : ch.ink
+        let line = mine ? ch.outText.opacity(0.28) : ch.line
+        let there = onDorr != nil
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                ChAvatar(url: nil, name: name, key: phones.first ?? name, size: 44)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: name).font(.dorr(14.5, .heavy)).foregroundStyle(mine ? ch.outText : ch.ink).lineLimit(1)
-                    if let first = phones.first {
-                        Text(verbatim: ltrNumber(first) + (phones.count > 1 ? "  +\(phones.count - 1)" : "")).font(.dorr(12)).foregroundStyle(mine ? ch.outText.opacity(0.8) : ch.mut)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    ChAvatar(url: onDorr?.avatar, name: name, key: onDorr?.key ?? (phone.isEmpty ? name : phone), size: 34)
+                    Text(verbatim: name).font(.dorr(13, .heavy)).foregroundStyle(ink).lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold)).foregroundStyle(ink.opacity(0.85))
+                }
+                BubbleFooter(m: m, mine: mine, overlay: false).frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(.horizontal, 8).padding(.top, 6).padding(.bottom, 4)
+            .contentShape(Rectangle())
+            .onTapGesture { if !phones.isEmpty { sheet = true } }
+            .onLongPressGesture(minimumDuration: 0.4) { hold() }
+            Rectangle().fill(line).frame(height: 1)
+            HStack(spacing: 0) {
+                cardAction(there ? L("ch_message_contact") : L("ch_invite_dorr"), ink, checked && !phone.isEmpty) {
+                    if there { actions.onMessageContact(phone) } else { inviting = true }
+                }
+                Rectangle().fill(line).frame(width: 1)
+                cardAction(there ? L("ch_contact_copy") : L("ch_save_contact"), ink, checked && !phone.isEmpty) {
+                    if there {
+                        UIPasteboard.general.string = phone
+                        AppToast.show(L("ch_number_copied"))
+                    } else {
+                        saving = true
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Rectangle().fill(mine ? ch.outText.opacity(0.25) : ch.line).frame(height: 1).padding(.top, 8)
-            HStack {
-                Text(L("ch_message_contact")).font(.dorr(13.5, .heavy)).foregroundStyle(mine ? ch.outText : ch.red)
-                    .padding(.vertical, 4).frame(maxWidth: .infinity, alignment: .leading)
-                BubbleFooter(m: m, mine: mine, overlay: false)
-            }
-            .padding(.top, 6)
+            .frame(height: 36)
         }
-        .frame(width: 250)
-        .padding(8)
-        .contentShape(Rectangle())
-        // The whole card opens: call · message or invite · save · copy.
-        .onTapGesture { if !phones.isEmpty { sheet = true } }
+        .frame(width: 210)
+        .sheet(isPresented: $inviting) { InviteSheet(entry: ContactEntry(name: name, phone: phone)) { inviting = false } }
         .dorrDialog(isPresented: $sheet, bottom: true) {
             ContactActionsSheet(name: name, phones: phones, onMessage: { actions.onMessageContact($0) }) { sheet = false }
         }
+        .sheet(isPresented: $saving) { NewPhoneContact(name: name, phone: phone) { saving = false } }
+        .task(id: phone) {
+            guard !phone.isEmpty else { checked = true; return }
+            checked = false
+            let found = try? await ChatApi.lookup(["phone": phone]).data
+            onDorr = found?.isMe == true ? nil : found
+            checked = true
+        }
+    }
+
+    private func hold() {
+        guard !m.dto.deleted, m.local == nil else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        actions.onLongPress(m)
+    }
+
+    private func cardAction(_ title: String, _ ink: Color, _ enabled: Bool, _ tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            Text(verbatim: title).font(.dorr(11.5, .heavy)).foregroundStyle(ink.opacity(enabled ? 1 : 0.45))
+                .multilineTextAlignment(.center).lineLimit(2).frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 4)
+        }
+        .buttonStyle(.plain).disabled(!enabled)
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.4).onEnded { _ in hold() })
     }
 }
 
@@ -1296,16 +1448,30 @@ private struct CallLine: View {
         let video = meta?.str("call_type") == "video"
         let missed = ["missed", "cancelled", "declined"].contains(status ?? "")
         let duration = meta?.int("duration_seconds")
-        let title = status == "missed" ? "ch_call_missed" : status == "declined" ? "ch_call_declined" : status == "cancelled" ? "ch_call_cancelled" : video ? "ch_call_video" : "ch_call_voice"
-        HStack(spacing: 10) {
-            Image(systemName: missed ? "phone.arrow.down.left.fill" : video ? "video.fill" : "phone.fill").font(.system(size: 17))
-                .foregroundStyle(mine ? ch.outText : missed ? ch.danger : ch.success)
-                .frame(width: 38, height: 38)
-                .background(mine ? ch.outText.opacity(0.2) : missed ? Color(hex: 0xFEE2E2) : Color(hex: 0xDCFCE7), in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L(title)).font(.dorr(14, .heavy)).foregroundStyle(mine ? ch.outText : ch.ink)
-                HStack(spacing: 0) {
-                    if let duration, duration > 0 { Text(verbatim: durationText(Int64(duration) * 1000) + "  ").font(.dorr(12)).foregroundStyle(mine ? ch.outText.opacity(0.8) : ch.mut) }
+        // As in WhatsApp: the kind on top (voice / video), then what happened (or how long it lasted); the icon is the
+        // kind with an arrow — out when I called, in when they did (red when I missed theirs).
+        let sub: String = {
+            if let duration, duration > 0 { return durationText(Int64(duration) * 1000) }
+            if status == "declined" { return L("ch_call_declined") }
+            // My call nobody picked up (or I gave up on): «No answer». Theirs I didn't take: «Missed».
+            if missed { return L(mine ? "ch_call_no_answer" : "ch_call_missed_short") }
+            return L("ch_call_ended")
+        }()
+        let ink = mine ? ch.outText : ch.ink
+        let arrowTint = mine ? ch.outText : missed ? ch.danger : ch.success
+        HStack(spacing: 9) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: video ? "video.fill" : "phone.fill").font(.system(size: 15))
+                    .foregroundStyle(ink.opacity(0.9))
+                    .frame(width: 34, height: 34)
+                    .background(mine ? ch.outText.opacity(0.2) : ch.surfaceMuted, in: Circle())
+                Image(systemName: mine ? "arrow.up.right" : "arrow.down.left").font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(arrowTint)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(L(video ? "ch_call_video" : "ch_call_voice")).font(.dorr(13.5, .bold)).foregroundStyle(ink).lineLimit(1)
+                HStack(spacing: 10) {
+                    Text(verbatim: sub).font(.dorr(12)).foregroundStyle(missed && !mine ? ch.danger : (mine ? ch.outText.opacity(0.8) : ch.mut)).lineLimit(1)
                     BubbleFooter(m: m, mine: mine, overlay: false)
                 }
                 // Recorded with everyone's yes (spec 92): tap for the recordings I agreed to.
@@ -1322,7 +1488,7 @@ private struct CallLine: View {
                 }
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
+        .padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 7)
     }
 }
 
@@ -1367,7 +1533,7 @@ struct TypingBubble: View {
                 if let label { Text(verbatim: label).font(.dorr(12)).foregroundStyle(ch.mut) }
             }
             .padding(.horizontal, 16).padding(.vertical, 13)
-            .background(ch.surface, in: RoundedRectangle(cornerRadius: 20))
+            .background(ch.surface, in: RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
             Spacer()
         }

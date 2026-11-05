@@ -1,16 +1,13 @@
 import SwiftUI
 
 // androidApp `ui/screens/chat/ChatSettingsPage.kt` + `ChatExtraPages.kt` (privacy, blocked) + `ChatPartialUi.kt`
-// (favourites with folders, comfort) + `ChatToolsUi.kt` (my status) + `ChatTools.kt` (theme) — the chat's settings:
+// (favourites with folders, comfort) + `ChatToolsUi.kt` (my status) — the chat's settings:
 // an Account-style menu whose topics open their own lists, privacy (who sees what, receipts, screenshots, default
 // timer, unknown callers, notification preview), blocked people with search and paging, starred messages by folder,
 // and my status (emoji + words, how long, who sees it, except whom).
 
-private let chatThemeModes = [("system", "ch_theme_system"), ("light", "ch_theme_light"), ("dark", "ch_theme_dark")]
-
 struct ChatSettingsPage: View {
     @ObservedObject private var ch = Ch.shared
-    @ObservedObject private var store = ChatStore.shared
     @ObservedObject private var wePrefs = WatchEarnPrefs.shared
     @ObservedObject var host: ChatHost
     @State private var sheet: String?
@@ -53,8 +50,8 @@ struct ChatSettingsPage: View {
                             SettingsListRow(icon: "tray.fill", title: L("li_title"), last: true) { host.push(.lifeInbox) }
                         }
                     case "look":
+                        // Light / dark is the app's own setting (Settings → Appearance); the chat follows it.
                         SettingsGroup {
-                            SettingsListRow(icon: "moon.fill", title: L("ch_theme"), value: L(chatThemeModes.first { $0.0 == store.themeMode }?.1 ?? "ch_theme_system")) { sheet = "theme" }
                             SettingsListRow(icon: "textformat.size", title: L("cp_comfort")) { sheet = "comfort" }
                             // The Watch & Earn card at the top of the chat list: hidden from its ×, shown again here.
                             SettingsListRow(icon: "play.circle.fill", title: L("we_chat_card_setting"), value: L(wePrefs.chatCardHidden ? "we_off" : "we_on"), last: true) {
@@ -84,12 +81,7 @@ struct ChatSettingsPage: View {
             }
         }
         .dorrDialog(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } }), bottom: true) {
-            if sheet == "theme" {
-                ChoiceSheet(title: L("ch_theme"), options: chatThemeModes.map { mode in (L(mode.1), { store.setTheme(mode.0) }) }, radios: true,
-                            selected: chatThemeModes.firstIndex { $0.0 == store.themeMode } ?? 0) { sheet = nil }
-            } else {
-                ChatComfortSheet()
-            }
+            ChatComfortSheet()
         }
     }
 }

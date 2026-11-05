@@ -891,6 +891,11 @@ enum RidesApi {
         return try await ApiClient.snake("\(base)/places/suggest", query: query)
     }
 
+    /// The chat's «send location»: the places right around a point (the admin's provider, then popular), nearest first.
+    static func placeNearby(lat: Double, lng: Double) async throws -> ApiEnvelope<[PlaceHitDto]> {
+        try await ApiClient.snake("\(base)/places/nearby", query: at(lat, lng))
+    }
+
     /// O-59: the free captains' cars around me now, and the area channels to follow for their moves.
     static func nearbyCars(lat: Double, lng: Double) async throws -> ApiEnvelope<NearbyCarsDto> {
         try await ApiClient.snake("\(base)/nearby-cars", query: at(lat, lng))

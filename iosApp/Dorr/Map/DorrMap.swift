@@ -170,9 +170,11 @@ struct MapPin: Equatable {
     var kind: PinKind
     var rotation: Double = 0
     var id: String?
+    /// A picture drawn instead of `kind`'s icon, centred on the place (a person's photo pin — the chat's live location).
+    var image: UIImage?
 
     static func == (a: MapPin, b: MapPin) -> Bool {
-        a.at.latitude == b.at.latitude && a.at.longitude == b.at.longitude && a.kind == b.kind && a.rotation == b.rotation && a.id == b.id
+        a.at.latitude == b.at.latitude && a.at.longitude == b.at.longitude && a.kind == b.kind && a.rotation == b.rotation && a.id == b.id && a.image === b.image
     }
 }
 
@@ -389,10 +391,10 @@ private struct GoogleEngineMap: UIViewRepresentable {
 
         private func marker(_ pin: MapPin, on map: GMSMapView) -> GMSMarker {
             let m = GMSMarker(position: pin.at)
-            m.icon = MapIcons.of(pin.kind)
+            m.icon = pin.image ?? MapIcons.of(pin.kind)
             m.rotation = pin.rotation
             m.isFlat = pin.kind == .car
-            m.groundAnchor = pin.kind == .car ? CGPoint(x: 0.5, y: 0.5) : CGPoint(x: 0.5, y: 1)
+            m.groundAnchor = pin.kind == .car || pin.image != nil ? CGPoint(x: 0.5, y: 0.5) : CGPoint(x: 0.5, y: 1)
             m.map = map
             return m
         }
@@ -560,9 +562,13 @@ private struct MapboxEngineMap: UIViewRepresentable {
                 // Pins with an id (moving cars) keep their id, so they move instead of being drawn again.
                 points?.annotations = s.pins.enumerated().map { i, pin in
                     var a = PointAnnotation(id: pin.id ?? "pin-\(i)-\(pin.kind.rawValue)", coordinate: pin.at)
-                    if let image = MapIcons.of(pin.kind) { a.image = .init(image: image, name: "dorr-\(pin.kind.rawValue)") }
+                    if let photo = pin.image {
+                        a.image = .init(image: photo, name: "dorr-photo-\(pin.id ?? String(i))")
+                    } else if let image = MapIcons.of(pin.kind) {
+                        a.image = .init(image: image, name: "dorr-\(pin.kind.rawValue)")
+                    }
                     a.iconRotate = pin.rotation
-                    a.iconAnchor = pin.kind == .car ? .center : .bottom
+                    a.iconAnchor = pin.kind == .car || pin.image != nil ? .center : .bottom
                     return a
                 }
             }
@@ -611,11 +617,13 @@ private final class PinAnnotation: NSObject, MKAnnotation {
     var kind: PinKind
     var rotation: Double
     var isMe = false
+    var image: UIImage?
 
     init(_ pin: MapPin) {
         coordinate = pin.at
         kind = pin.kind
         rotation = pin.rotation
+        image = pin.image
     }
 }
 
@@ -833,13 +841,16 @@ private struct AppleEngineMap: UIViewRepresentable {
         nonisolated func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             MainActor.assumeIsolated {
                 guard let pin = annotation as? PinAnnotation else { return nil }
-                let reuse = pin.isMe ? "me" : pin.kind.rawValue
+                let reuse = pin.isMe ? "me" : pin.image != nil ? "photo" : pin.kind.rawValue
                 let view = mapView.dequeueReusableAnnotationView(withIdentifier: reuse) ?? MKAnnotationView(annotation: pin, reuseIdentifier: reuse)
                 view.annotation = pin
-                view.image = pin.isMe ? MapIcons.me : MapIcons.of(pin.kind)
+                view.image = pin.isMe ? MapIcons.me : pin.image ?? MapIcons.of(pin.kind)
                 view.zPriority = pin.isMe ? .max : .defaultUnselected
-                // Drops point at their place with their tip; a car is centred on it and turns with its heading.
-                if pin.kind == .car {
+                // Drops point at their place with their tip; a car (or a photo) is centred on it.
+                if pin.image != nil {
+                    view.centerOffset = .zero
+                    view.transform = .identity
+                } else if pin.kind == .car {
                     view.centerOffset = .zero
                     view.transform = CGAffineTransform(rotationAngle: pin.rotation * .pi / 180)
                 } else {

@@ -322,7 +322,7 @@ private struct StoryGroupPage: View {
             HStack(spacing: 10) {
                 if story.isDorr == true { DorrAvatar(size: 38) } else { ChAvatar(url: owner?.avatar, name: owner?.name, key: owner?.key, size: 38) }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: story.isMine == true ? L("st_my_status") : owner?.name ?? "").font(.dorr(15, .heavy)).foregroundStyle(.white)
+                    Text(verbatim: story.isMine == true ? L("st_my_status") : ltrTitle(owner?.name)).font(.dorr(15, .heavy)).foregroundStyle(.white)
                     Text(verbatim: aiTimeAgo(story.createdAt)).font(.dorr(12)).foregroundStyle(.white.opacity(0.75))
                 }
                 Spacer()
@@ -354,7 +354,7 @@ private struct StoryGroupPage: View {
                 }
             }
         } else if let owner = group.owner {
-            Button(L("st_mute", owner.name ?? "")) {
+            Button(L("st_mute", ltrTitle(owner.name))) {
                 Task {
                     if let feed = try? await ChatApi.muteStories(["participant_id": owner.id, "muted": true]).data { host.stories = feed }
                     onNextGroup()
@@ -431,8 +431,10 @@ private struct StoryContent: View {
                 StoryLook.brush(story.style?.background).ignoresSafeArea()
                 let body = story.body ?? ""
                 let size = StoryLook.textSize(body.count)
+                // Lined up as it was written (start / centre / end).
                 Text(verbatim: body).font(StoryLook.font(story.style?.font, size: size)).foregroundStyle(.white)
-                    .multilineTextAlignment(.center).lineSpacing(size * 0.25).padding(28)
+                    .multilineTextAlignment(storyTextAlign(story.style?.align)).lineSpacing(size * 0.25)
+                    .frame(maxWidth: .infinity, alignment: storyFrameAlign(story.style?.align)).padding(28)
                 StoryLayersView(layers: story.style?.layers)
             }
         case "image":
