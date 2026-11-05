@@ -11,6 +11,7 @@ use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
 use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
+use App\Traits\SendsPhoneOtp;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,7 +23,7 @@ use Spatie\MediaLibrary\HasMedia;
 
 class Provider extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasReferralCode, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SoftDeletes;
+    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasReferralCode, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     protected $table = 'providers';
 
@@ -63,6 +64,11 @@ class Provider extends Authenticatable implements HasMedia
         ];
     }
 
+    public function canSignIn(): bool
+    {
+        return $this->status !== UserStatus::Blocked;
+    }
+
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
@@ -71,5 +77,11 @@ class Provider extends Authenticatable implements HasMedia
     public function services(): HasMany
     {
         return $this->hasMany(ProviderService::class);
+    }
+
+    /** Seats this person holds in establishments: their own and the ones they joined (docs/moving_business.md §14). */
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(Membership::class);
     }
 }

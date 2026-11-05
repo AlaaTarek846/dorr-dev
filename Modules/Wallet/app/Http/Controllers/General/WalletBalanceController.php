@@ -10,6 +10,7 @@ use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Services\WalletService;
 use Modules\Wallet\Support\OwnerType;
 use Modules\Wallet\Support\WalletNumber;
+use Modules\Wallet\Support\WalletOwner;
 
 /**
  * "How much do I have here?" — the wallet of the request's country (a wallet
@@ -28,7 +29,7 @@ class WalletBalanceController extends Controller
 
         abort_if($country === null, 500, 'The country middleware did not run on this route.');
 
-        $owner = $request->user();
+        $owner = WalletOwner::of($request);
         $wallet = $this->wallets->firstOrCreateWallet($owner, $country);
         // Just created: read the row back so the balances are its zeros, not nulls.
         if ($wallet->wasRecentlyCreated) {

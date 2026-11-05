@@ -11,5 +11,6 @@
     "Driver": true,
     "Rides": true,
     "Freelance": true,
-    "WatchEarn": true
+    "WatchEarn": true,
+    "Moving": true
 }

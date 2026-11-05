@@ -127,11 +127,14 @@ fun MainScreen(
     var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
     // Passenger rides open their own map screen, not the generic service page.
     var ridesOpen by rememberSaveable { mutableStateOf(false) }
+    // Furniture moving: «طلباتي», a new request and its follow-up, on their own pages.
+    var movingOpen by rememberSaveable { mutableStateOf(false) }
     // Freelance work (FL-201): my projects and the project form, over everything.
     var freelanceOpen by com.dorr.app.ui.screens.freelance.FreelanceLink::open
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
         when (service.moduleName) {
             "passenger_ride" -> ridesOpen = true
+            "moving" -> movingOpen = true
             "freelance" -> { com.dorr.app.ui.screens.freelance.FreelanceLink.stack = "home"; freelanceOpen = true }
             else -> serviceDetail = service to color
         }
@@ -175,6 +178,13 @@ fun MainScreen(
                     chatOpen = false
                     com.dorr.app.ui.screens.rides.RidesLink.show(link.uuid)
                     ridesOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
+                is com.dorr.app.chat.ChatDeepLink.Moving -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.moving.MovingLink.show(link.uuid)
+                    movingOpen = true
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 com.dorr.app.chat.ChatDeepLink.Calendar -> {
@@ -485,6 +495,15 @@ fun MainScreen(
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
         com.dorr.app.ui.screens.rides.RidesHost(onExit = { ridesOpen = false })
+    }
+
+    // Furniture moving: the customer's requests, offers and following the job (the payment screen opens over it).
+    AnimatedVisibility(
+        visible = movingOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.moving.MovingHost(onExit = { movingOpen = false })
     }
 
     // Freelance work: my projects and the project form (FL-201 / FL-202).

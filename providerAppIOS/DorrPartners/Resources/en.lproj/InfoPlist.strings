@@ -1,0 +1,7 @@
+"CFBundleDisplayName" = "Dorr Partners";
+"CFBundleName" = "Dorr Partners";
+"NSFaceIDUsageDescription" = "Open your establishment's wallet with Face ID instead of typing the PIN.";
+"NSCameraUsageDescription" = "Take photos of your establishment's papers and the pieces you move, and scan the customer's delivery code.";
+"NSPhotoLibraryUsageDescription" = "Pick pictures of your establishment's papers and the pieces you move.";
+"NSLocationWhenInUseUsageDescription" = "Set your branch at your current location, and let the customer follow the truck while your moving job runs.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Let the customer follow the truck while your moving job runs, even with the app in the background.";

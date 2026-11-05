@@ -75,6 +75,9 @@ return [
         // The freelancer app likewise (FL-007).
         'freelance_app_id' => env('ONESIGNAL_FREELANCE_APP_ID'),
         'freelance_rest_api_key' => env('ONESIGNAL_FREELANCE_REST_API_KEY'),
+        // The providers app likewise (docs/moving_tasks.md A-02).
+        'provider_app_id' => env('ONESIGNAL_PROVIDER_APP_ID'),
+        'provider_rest_api_key' => env('ONESIGNAL_PROVIDER_REST_API_KEY'),
     ],
 
     /*

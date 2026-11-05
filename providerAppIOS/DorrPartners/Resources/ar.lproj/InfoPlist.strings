@@ -1,0 +1,7 @@
+"CFBundleDisplayName" = "شركاء دُرر";
+"CFBundleName" = "شركاء دُرر";
+"NSFaceIDUsageDescription" = "افتح محفظة منشأتك ببصمة الوجه بدلًا من كتابة الرمز السري.";
+"NSCameraUsageDescription" = "التقط صور أوراق منشأتك والقطع التي تنقلها، وامسح رمز التسليم لدى العميل.";
+"NSPhotoLibraryUsageDescription" = "اختر صور أوراق منشأتك والقطع التي تنقلها.";
+"NSLocationWhenInUseUsageDescription" = "حدّد موقع فرعك بموقعك الحالي، ودع العميل يتابع الشاحنة أثناء تنفيذ مهمة النقل.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "دع العميل يتابع الشاحنة أثناء تنفيذ مهمة النقل، حتى عندما يعمل التطبيق في الخلفية.";

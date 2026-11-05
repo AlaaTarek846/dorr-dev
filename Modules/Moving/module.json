@@ -1,0 +1,11 @@
+{
+    "name": "Moving",
+    "alias": "moving",
+    "description": "DORR furniture moving: customers post a move, provider establishments send offers, the customer picks one and pays (held), the establishment assigns a driver and vehicle (docs/moving_tasks.md).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Moving\\Providers\\MovingServiceProvider"
+    ],
+    "files": []
+}

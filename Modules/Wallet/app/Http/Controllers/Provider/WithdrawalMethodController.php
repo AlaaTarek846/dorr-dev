@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Modules\Wallet\Http\Requests\WithdrawalMethodRequest;
 use Modules\Wallet\Http\Resources\WithdrawalMethodResource;
 use Modules\Wallet\Services\WithdrawalMethodService;
+use Modules\Wallet\Support\WalletOwner;
 
 /**
  * The provider's saved payout destinations. Adding and editing sit behind
@@ -21,7 +22,7 @@ class WithdrawalMethodController extends Controller
     public function index(Request $request)
     {
         return ApiResponse::success(
-            WithdrawalMethodResource::collection($this->methods->list($request->user())),
+            WithdrawalMethodResource::collection($this->methods->list(WalletOwner::of($request))),
             __('api.retrieved'),
         );
     }
@@ -29,7 +30,7 @@ class WithdrawalMethodController extends Controller
     public function store(WithdrawalMethodRequest $request)
     {
         return ApiResponse::created(
-            new WithdrawalMethodResource($this->methods->create($request->user(), $request->methodAttributes())),
+            new WithdrawalMethodResource($this->methods->create(WalletOwner::of($request), $request->methodAttributes())),
             __('api.created'),
         );
     }
@@ -37,14 +38,14 @@ class WithdrawalMethodController extends Controller
     public function update(WithdrawalMethodRequest $request, int $method)
     {
         return ApiResponse::success(
-            new WithdrawalMethodResource($this->methods->update($request->user(), $method, $request->methodAttributes())),
+            new WithdrawalMethodResource($this->methods->update(WalletOwner::of($request), $method, $request->methodAttributes())),
             __('api.updated'),
         );
     }
 
     public function favorite(Request $request, int $method)
     {
-        $owner = $request->user();
+        $owner = WalletOwner::of($request);
 
         return ApiResponse::success(
             new WithdrawalMethodResource($this->methods->makeFavorite($owner, $this->methods->find($owner, $method))),
@@ -54,7 +55,7 @@ class WithdrawalMethodController extends Controller
 
     public function destroy(Request $request, int $method)
     {
-        $this->methods->delete($request->user(), $method);
+        $this->methods->delete(WalletOwner::of($request), $method);
 
         return ApiResponse::noContent(__('api.deleted'));
     }

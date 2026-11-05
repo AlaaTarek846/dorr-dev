@@ -60,6 +60,7 @@
         "back_to_dashboard": "Back to dashboard"
     },
     "sidebar": {
+        "moving": "Furniture moving",
         "main": "Main",
         "services": "Services",
         "catalog": "Catalog",
@@ -6249,6 +6250,297 @@
                 "loyalty": "My discounts",
                 "favorites": "Favourites"
             }
+        }
+    },
+    "moving": {
+        "request_status": {
+            "draft": "Draft",
+            "open": "Waiting for offers",
+            "expired": "Expired",
+            "withdrawn": "Withdrawn",
+            "confirmed": "Confirmed, waiting for a driver",
+            "assigned": "Assigned",
+            "driver_on_way": "Driver on the way",
+            "arrived": "Driver arrived",
+            "loading": "Loading",
+            "in_transit": "On the way",
+            "unloading": "Unloading",
+            "delivered": "Delivered",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "disputed": "Report under review"
+        },
+        "requests": {
+            "title": "Moving requests",
+            "search": "Request number, phone or establishment",
+            "all_statuses": "All statuses",
+            "running": "Running",
+            "after_delivery": "After delivery",
+            "route": "From → to",
+            "customer": "Customer",
+            "establishment": "Establishment",
+            "time": "Time",
+            "total": "Total",
+            "price": "Price",
+            "tax": "Tax",
+            "commission": "Dorr commission",
+            "net": "Establishment net",
+            "held": "Held now",
+            "refunded": "Returned to the customer",
+            "jobs": "moves",
+            "settled_this_month": "Settled this month",
+            "tabs": {
+                "timeline": "Steps",
+                "offers": "Offers",
+                "changes": "Changes",
+                "inventory": "Inventory",
+                "tickets": "Tickets"
+            },
+            "change_kind": {
+                "change": "Price difference",
+                "waiting": "Waiting fee",
+                "reschedule": "New time"
+            }
+        },
+        "tickets": {
+            "title": "Moving tickets",
+            "all_types": "All types",
+            "subject": "Subject",
+            "type_label": "Type",
+            "escalation_reason": "Why taken to Dorr",
+            "reply": "Reply",
+            "keep_open": "Keep open",
+            "closing_reason": "Closing reason",
+            "type": {
+                "suggestion": "Suggestion",
+                "inquiry": "Inquiry",
+                "complaint": "Operational complaint",
+                "safety": "Safety",
+                "inventory": "Inventory difference",
+                "delay": "Delay",
+                "financial": "Financial",
+                "note": "Note"
+            },
+            "status": {
+                "new": "New",
+                "awaiting_company": "Waiting for the establishment",
+                "company_replied": "The establishment replied",
+                "awaiting_customer": "Waiting for the customer",
+                "resolved": "Resolved",
+                "unresolved": "Unresolved",
+                "escalated": "Taken to Dorr"
+            },
+            "author": {
+                "user": "Customer",
+                "provider": "Establishment",
+                "admin": "Dorr"
+            }
+        },
+        "policies": {
+            "title": "Moving values",
+            "hint": "Each country's values for furniture moving. An empty field means not decided yet, and its rule is not applied. Every request keeps the values in force when it was published.",
+            "default_all": "Default for every country",
+            "version": "Version",
+            "not_set": "Not set",
+            "from_default": "From default:",
+            "footer": "Changes reach new requests only.",
+            "groups": {
+                "offers": "Offers and scheduling",
+                "money": "Commission and tax",
+                "delivery": "Delivery and reports",
+                "cancellation": "Cancellation",
+                "waiting": "Waiting and tickets"
+            },
+            "units": {
+                "bp": "basis points (100 = 1%)",
+                "minor": "in the currency's smallest unit",
+                "minutes": "minutes",
+                "hours": "hours",
+                "km": "km",
+                "mb": "MB",
+                "number": ""
+            },
+            "keys": {
+                "offers__window_minutes": "Offer window",
+                "offers__max_validity_hours": "Longest offer validity",
+                "broadcast__max_radius_km": "Widest branch area",
+                "schedule__block_hours": "Gap between two jobs of a vehicle or driver",
+                "assignment__lead_minutes": "Assign this long before the time",
+                "commission__bp": "Dorr commission",
+                "commission__min_minor": "Lowest commission",
+                "commission__max_minor": "Highest commission",
+                "tax__bp": "Tax",
+                "delivery__objection_hours": "Report window after delivery",
+                "dispute__max_hold_bp": "Most held for a report",
+                "media__max_mb": "Largest photo or video",
+                "cancel__near_hours": "\"Near the time\" starts",
+                "cancel__customer__early_bp": "Customer cancels early",
+                "cancel__customer__near_bp": "Customer cancels near the time",
+                "cancel__customer__on_way_bp": "Customer cancels, driver on the way",
+                "cancel__customer__arrived_bp": "Customer cancels, driver at the door",
+                "waiting__grace_minutes": "Free waiting minutes",
+                "waiting__fee_per_hour_minor": "Waiting fee per hour",
+                "waiting__cap_minor": "Highest waiting fee",
+                "tickets__escalate_hours": "Take a ticket to Dorr after"
+            }
+        },
+        "cases": {
+            "title": "Reports and exceptions",
+            "all_kinds": "All kinds",
+            "kind_label": "Kind",
+            "reason": "Reason",
+            "claim": "Claimed",
+            "held": "Held",
+            "opened_by": "Opened by",
+            "opened_at": "Date",
+            "total": "Job value",
+            "inventory": "Inventory with photos",
+            "timeline": "Steps of the move",
+            "award": "Amount back to the customer",
+            "award_hint": "The rest of the held amount goes to the establishment.",
+            "outcome": "Decision",
+            "note": "Reason for the decision",
+            "decide": "Decide",
+            "status": {
+                "open": "Open",
+                "decided": "Decided"
+            },
+            "kind": {
+                "report": "Report",
+                "exception": "Exception request"
+            },
+            "side": {
+                "user": "Customer",
+                "provider": "Establishment"
+            },
+            "outcomes": {
+                "refund_all": "Cancel and refund everything",
+                "fee": "Cancel with the stage fee",
+                "continue": "Refuse and keep the job"
+            },
+            "decision": {
+                "accepted": "Accepted",
+                "partial": "Partly accepted",
+                "rejected": "Refused"
+            },
+            "reasons": {
+                "damage": "Damage",
+                "missing_item": "Missing item",
+                "incomplete_service": "Incomplete service",
+                "other": "Other",
+                "driver_late": "Driver late",
+                "extra_money_asked": "Extra money asked outside the offer",
+                "vehicle_mismatch": "Not the agreed vehicle",
+                "vehicle_breakdown": "Vehicle breakdown",
+                "load_differs": "Load differs from the description",
+                "customer_absent": "Customer not there",
+                "unsafe_place": "Unsafe place",
+                "changed_plans": "Plans changed",
+                "found_another": "Found another option",
+                "driver_unavailable": "Driver unavailable"
+            }
+        },
+        "common": {
+            "active": "Active",
+            "sort": "Order",
+            "saved": "Saved",
+            "confirm_delete": "Delete it?",
+            "km": "km"
+        },
+        "establishment_type": {
+            "individual": "Individual",
+            "company": "Company"
+        },
+        "establishment_status": {
+            "draft": "Draft",
+            "under_review": "Under review",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "suspended": "Suspended"
+        },
+        "vehicle_status": {
+            "pending": "Under review",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "inactive": "Inactive"
+        },
+        "document_status": {
+            "pending": "Under review",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "expired": "Expired",
+            "replaced": "Replaced"
+        },
+        "establishments": {
+            "title": "Service providers",
+            "search": "Name or phone",
+            "all_statuses": "All statuses",
+            "all_types": "Individual and company",
+            "needs_review": "Waiting for review",
+            "name": "Establishment",
+            "owner": "Owner",
+            "country": "Country",
+            "status": "Status",
+            "pending": "Waiting for review",
+            "submitted_at": "Sent for review",
+            "approve": "Approve",
+            "reject": "Reject",
+            "suspend": "Suspend",
+            "reason": "Write the reason (the provider sees it)",
+            "commercial_register": "Commercial register",
+            "documents": "Establishment documents",
+            "branches": "Branches",
+            "main_branch": "Main",
+            "vehicles": "Vehicles",
+            "missing": "Missing",
+            "team": "Team",
+            "exclusive": "Exclusive",
+            "invited": "Invited",
+            "all_permissions": "All permissions",
+            "no_documents": "No documents yet",
+            "expires": "Expires"
+        },
+        "vehicle_types": {
+            "title": "Vehicle types",
+            "hint": "Provider vehicle types (quarter truck, half truck…), the countries where they exist and the services they fit. The app shows them with their image and order.",
+            "add": "Add type",
+            "edit": "Edit type",
+            "name": "Type",
+            "countries": "Countries",
+            "services": "Services",
+            "description": "Description",
+            "image": "Image"
+        },
+        "document_types": {
+            "title": "Documents and photos asked",
+            "hint": "Papers and vehicle photos asked from establishments, vehicles and drivers, and where. The photo showing the vehicle with its plate is always asked.",
+            "add": "Add document",
+            "edit": "Edit document",
+            "name": "Document",
+            "code": "Code",
+            "subject_label": "Asked from",
+            "kind_label": "Kind",
+            "subject": {
+                "establishment": "Establishment",
+                "vehicle": "Vehicle",
+                "driver": "Driver"
+            },
+            "kind": {
+                "document": "Document",
+                "photo": "Vehicle photo"
+            },
+            "fields": "Fields",
+            "has_number": "Has a number",
+            "has_expiry": "Has an expiry",
+            "needs_back_side": "Has a back side",
+            "expiry_alert_days": "Warn before expiry (days)",
+            "required_from": "Required in",
+            "add_requirement": "Add",
+            "optional_everywhere": "Not required anywhere",
+            "any_service": "Every service",
+            "any_vehicle": "Every vehicle",
+            "both_types": "Individual and company",
+            "always": "Always asked"
         }
     },
     "rides": {

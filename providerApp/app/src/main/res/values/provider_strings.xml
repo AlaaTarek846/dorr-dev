@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The providers app's own screens: the workspace, the onboarding (C-02), the papers, the home and the account (C-03). -->
+<resources>
+    <!-- Establishment -->
+    <string name="est_type_individual">Individual</string>
+    <string name="est_type_company">Company</string>
+    <string name="est_status_draft">Draft</string>
+    <string name="est_status_under_review">Under review</string>
+    <string name="est_status_approved">Approved</string>
+    <string name="est_status_rejected">Rejected</string>
+    <string name="est_status_suspended">Suspended</string>
+
+    <!-- Workspace and invitations -->
+    <string name="ws_loading">Loading your workspace…</string>
+    <string name="ws_invitations_title">Invitations</string>
+    <string name="ws_invitations_intro">These establishments invited you to work with them. Read the details before you answer.</string>
+    <string name="ws_invitations_empty_title">No invitations</string>
+    <string name="ws_invitations_empty_body">When an establishment invites you to join it, the invitation will appear here.</string>
+    <string name="ws_exclusive">Exclusive</string>
+    <string name="ws_exclusive_body">While you are in this establishment, your own establishment cannot send offers. The exclusivity ends when you leave it, and you can leave at any time.</string>
+    <string name="ws_not_exclusive">Not exclusive</string>
+    <string name="ws_not_exclusive_body">You can keep working with your own establishment while you are in this one.</string>
+    <string name="ws_accept">Accept</string>
+    <string name="ws_decline">Decline</string>
+    <string name="ws_accept_title">Join %1$s?</string>
+    <string name="ws_accept_message">You will work in this establishment with the permissions its owner gave you.</string>
+    <string name="ws_accept_exclusive_message">This invitation is exclusive: while you are in this establishment, your own establishment cannot send offers. You can leave at any time and the exclusivity ends.</string>
+    <string name="ws_decline_title">Decline the invitation?</string>
+    <string name="ws_decline_message">The invitation from %1$s will be removed.</string>
+    <string name="ws_create_own_title">Create my establishment</string>
+    <string name="ws_create_own_body">Register as an individual or a company and offer your services through Dorr.</string>
+    <string name="ws_create_own_cta">Start registration</string>
+
+    <!-- Onboarding -->
+    <string name="onb_title">Register your establishment</string>
+    <string name="onb_step_of">Step %1$d of %2$d</string>
+    <string name="onb_step1_title">Who are you?</string>
+    <string name="onb_step1_body">Choose how you work with us. You can turn an individual establishment into a company later.</string>
+    <string name="onb_individual_hint">You work by yourself</string>
+    <string name="onb_company_hint">A company with branches and a team</string>
+    <string name="onb_individual_name">Your trade name</string>
+    <string name="onb_company_name">Company name</string>
+    <string name="onb_register">Commercial register number</string>
+    <string name="onb_tax">Tax number</string>
+    <string name="onb_optional">Optional</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_step2_title">Your services</string>
+    <string name="onb_step2_body">Choose the service or services you will offer through Dorr.</string>
+    <string name="onb_no_services">No services are available in your country yet.</string>
+    <string name="onb_step3_title">Your main branch</string>
+    <string name="onb_step3_body">Requests reach you from around this place, within the range you set.</string>
+    <string name="onb_location_none">The location is not set yet</string>
+    <string name="onb_location_set">The location is set</string>
+    <string name="onb_location_use">Use my current location</string>
+    <string name="onb_location_again">Update to my current location</string>
+    <string name="onb_location_failed">We could not get your location. Allow location access and turn on the phone\'s location, then try again.</string>
+    <string name="onb_map_later">Setting the place on a map will be available soon.</string>
+    <string name="onb_address">Address</string>
+    <string name="onb_radius">Service range (km)</string>
+    <string name="onb_radius_hint">For example 25</string>
+    <string name="onb_radius_invalid">Enter a range between 0.5 and 500 km.</string>
+    <string name="onb_create">Create the establishment</string>
+
+    <!-- Papers -->
+    <string name="pd_title">Establishment papers</string>
+    <string name="pd_intro_title">Required papers</string>
+    <string name="pd_intro_body">Upload the papers below, then send your establishment for review. No requests reach it before it is approved.</string>
+    <string name="pd_owner_only">Only the establishment\'s owner can upload its papers.</string>
+    <string name="pd_none_required">No papers are required for your establishment at the moment.</string>
+    <string name="pd_under_review">Your papers are under review. We will notify you of the decision.</string>
+    <string name="pd_reason">Reason: %1$s</string>
+    <string name="pd_number_line">Number: %1$s</string>
+    <string name="pd_expires_line">Expires on: %1$s</string>
+    <string name="pd_state_missing">Missing</string>
+    <string name="pd_state_pending">Under review</string>
+    <string name="pd_state_approved">Approved</string>
+    <string name="pd_state_rejected">Rejected</string>
+    <string name="pd_state_expired">Expired</string>
+    <string name="pd_upload">Upload</string>
+    <string name="pd_replace">Replace</string>
+    <string name="pd_missing_count">%1$d papers are still missing.</string>
+    <string name="pd_submit">Send for review</string>
+    <string name="pd_submitted_ok">Your establishment was sent for review.</string>
+    <string name="pd_number">Document number</string>
+    <string name="pd_expires">Expiry date</string>
+    <string name="pd_front">Front side</string>
+    <string name="pd_back">Back side</string>
+    <string name="pd_camera">Camera</string>
+    <string name="pd_gallery">Gallery or file</string>
+    <string name="pd_chosen">Selected</string>
+    <string name="pd_send">Upload the paper</string>
+    <string name="pd_file_large">The file is larger than 10 MB.</string>
+    <string name="pd_file_type">Choose a JPG, PNG or PDF file.</string>
+
+    <!-- Home -->
+    <string name="home_invitations_banner">You have %1$d invitations waiting for your answer</string>
+    <string name="home_status_draft_hint">Complete the papers and send your establishment for review.</string>
+    <string name="home_status_review_hint">The Dorr team is reviewing your establishment. We will notify you of the decision.</string>
+    <string name="home_status_approved_hint">Your establishment is approved and can receive requests.</string>
+    <string name="home_status_rejected_hint">Fix what is needed, then send it for review again.</string>
+    <string name="home_status_suspended_hint">Your establishment is suspended. Contact support for details.</string>
+    <string name="home_papers_title">Papers</string>
+    <string name="home_papers_missing">Still missing:</string>
+    <string name="home_papers_complete">All the required papers are uploaded.</string>
+    <string name="home_papers_open">Open the papers</string>
+    <string name="home_services_title">Your services</string>
+    <string name="home_requests_title">Requests</string>
+
+    <!-- Account -->
+    <string name="acc_establishment">Your establishment</string>
+    <string name="acc_establishments_switch">Your establishments (tap to switch)</string>
+    <string name="acc_role_owner">Owner</string>
+    <string name="acc_role_member">Member</string>
+    <string name="acc_current">Current</string>
+    <string name="acc_invitations_sub">Invitations to join establishments</string>
+    <string name="acc_papers_sub">The establishment\'s papers and their review</string>
+    <string name="acc_create_own_sub">Register as an individual or a company</string>
+    <string name="acc_leave">Leave the establishment</string>
+    <string name="acc_leave_sub">Stop working in this establishment</string>
+    <string name="acc_leave_message">You will stop working in %1$s, and your upcoming jobs there return to the establishment.</string>
+    <string name="acc_leave_confirm">Leave</string>
+</resources>

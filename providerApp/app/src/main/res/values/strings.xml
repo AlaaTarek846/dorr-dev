@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- NEEDS-DECISION: the app's name is not chosen yet; «شركاء دُرر» / "Dorr Partners" until the owner names it. -->
+    <string name="app_name">Dorr Partners</string>
+    <string name="app_tagline">Powered by Dorr</string>
+    <string name="app_subtitle">For service providers</string>
+
+    <string name="common_back">Back</string>
+    <string name="common_retry">Try again</string>
+    <string name="common_ok">OK</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_yes">Yes</string>
+    <string name="common_close">Close</string>
+
+    <!-- No connection -->
+    <string name="offline_title">No internet connection</string>
+    <string name="offline_body">You seem to be offline. Check your Wi-Fi or mobile data to continue.</string>
+    <string name="offline_tip_network_title">Wi-Fi or mobile data</string>
+    <string name="offline_tip_network_body">Check that your connection is on</string>
+    <string name="offline_tip_airplane_title">Airplane mode</string>
+    <string name="offline_tip_airplane_body">Make sure airplane mode is off</string>
+    <string name="offline_still">Still offline. Check the connection and try again.</string>
+    <string name="offline_checking">Checking…</string>
+
+    <string name="language_switch">العربية</string>
+
+    <!-- Sign-in -->
+    <string name="login_title">Sign in to Dorr Partners</string>
+    <string name="login_subtitle">Enter your phone number and we will send a verification code</string>
+    <string name="login_cta">Send verification code</string>
+    <string name="login_country_code">Country code</string>
+    <string name="login_country_search">Search country</string>
+    <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
+    <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
+    <string name="login_error_generic">Something went wrong. Please try again.</string>
+    <string name="login_error_offline">No connection. Check your internet and try again.</string>
+    <string name="login_terms_prefix">I agree to the </string>
+    <string name="login_terms_use">Terms of Use</string>
+    <string name="login_terms_mid"> and </string>
+    <string name="login_terms_privacy">Privacy Policy</string>
+
+    <!-- Verification code -->
+    <string name="otp_title">Verify your phone</string>
+    <string name="otp_subtitle">Enter the code sent to %1$s</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="otp_resend_in">Resend in %1$d seconds</string>
+    <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
+    <string name="otp_dev_hint">Test build: the code is 1234</string>
+
+    <string name="home_welcome">Welcome</string>
+    <string name="home_loading_failed">We could not load your account.</string>
+    <string name="profile_dob_hint">YYYY-MM-DD</string>
+
+    <!-- Tabs and account -->
+    <string name="tab_home">Home</string>
+    <string name="tab_account">Account</string>
+    <string name="account_default_user">Dorr partner</string>
+    <string name="account_settings">Settings</string>
+    <string name="account_settings_sub">Language, policies and about the app</string>
+    <string name="account_language">Language</string>
+    <string name="account_language_sub">Switch between Arabic and English</string>
+    <string name="account_about">About the app</string>
+    <string name="account_about_sub">Version and information</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">Dorr Partners is the app for service providers, individuals and companies: register your establishment, receive requests, send offers and follow your earnings, all in one place.</string>
+    <string name="account_logout">Sign out</string>
+    <string name="account_logout_sub">Sign out of this account on this phone</string>
+    <string name="logout_confirm_message">Do you want to sign out?</string>
+
+    <string name="notifications_title">Notifications</string>
+
+    <!-- Language -->
+    <string name="language_arabic">Arabic — العربية</string>
+    <string name="language_download_failed">Couldn\'t download this language. Check your connection and try again.</string>
+    <string name="language_english">English</string>
+    <string name="language_loading">Loading languages…</string>
+    <string name="language_title">Language</string>
+
+    <string name="content_error">Failed to load content</string>
+    <string name="content_loading">Loading…</string>
+    <string name="content_retry">Retry</string>
+
+    <!-- Policies and terms -->
+    <string name="account_legal">Policies &amp; Terms</string>
+    <string name="account_legal_sub">Privacy Policy and Terms &amp; Conditions</string>
+    <string name="account_privacy">Privacy Policy</string>
+    <string name="account_privacy_sub">How we handle your data</string>
+    <string name="account_terms">Terms &amp; Conditions</string>
+    <string name="account_terms_sub">The rules that govern our services</string>
+    <string name="privacy_empty">Privacy policy is currently unavailable</string>
+    <string name="terms_empty">Terms &amp; Conditions are currently unavailable</string>
+    <string name="privacy_head">Your privacy matters</string>
+    <string name="terms_head">Terms &amp; Conditions</string>
+</resources>

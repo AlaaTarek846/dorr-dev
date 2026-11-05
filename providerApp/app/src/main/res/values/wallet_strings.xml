@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wl_title">Wallet</string>
+    <string name="wl_withdraw">Withdraw</string>
+    <string name="wl_all">All</string>
+    <string name="wl_send_code">Send the code</string>
+    <string name="wl_confirm_code">Confirm the code</string>
+    <string name="wl_frozen">Your wallet PIN is locked. Contact support to unlock it.</string>
+    <string name="wl_recover_photo">Your recovery method needs photos. Please contact support.</string>
+    <string name="wl_must_change">Your PIN was reset. Choose a new one to continue.</string>
+    <string name="wl_check">Check the payment</string>
+    <string name="wl_wd_title">Withdraw</string>
+    <string name="wl_wd_can">You can withdraw up to %1$s</string>
+    <string name="wl_wd_to">Withdraw to</string>
+    <string name="wl_wd_add">Add a destination</string>
+    <string name="wl_wd_save">Save the destination</string>
+    <string name="wl_wd_send">Send the request</string>
+    <string name="wl_wd_sent">Request sent. The money is on hold until it is approved.</string>
+    <string name="wl_wd_too_much">More than you can withdraw.</string>
+    <string name="wl_wd_none">No withdrawal requests yet.</string>
+    <string name="wl_wd_requests">Your requests</string>
+    <string name="wl_wd_pending">Under review</string>
+    <string name="wl_wd_approved">Paid</string>
+    <string name="wl_wd_rejected">Rejected</string>
+    <string name="wl_wd_receipt">View the receipt</string>
+    <string name="wl_bank">Bank account</string>
+    <string name="wl_mobile">Mobile wallet</string>
+    <string name="wl_label">Name (optional)</string>
+    <string name="wl_bank_name">Bank name</string>
+    <string name="wl_holder">Account holder</string>
+    <string name="wl_provider">Wallet provider</string>
+    <string name="wl_number">Wallet number</string>
+    <string name="wl_delete_method">Delete</string>
+    <string name="wl_cancel_add">Cancel</string>
+    <string name="pd_send_code">Send code</string>
+    <string name="profile_otp_confirm">Confirm</string>
+    <string name="profile_otp_timer">Resend in %1$d seconds</string>
+    <string name="profile_otp_resend">Resend code</string>
+</resources>

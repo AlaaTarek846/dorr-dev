@@ -63,6 +63,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showMovingSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.moving') }}</span>
+                        </li>
+
+                        <li v-for="item in movingItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <template v-if="showFreelanceSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.freelance') }}</span>
@@ -942,6 +955,21 @@ const freelanceItems = [
     { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },
     { route: 'admin.freelance.policies', permission: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
 ];
+
+/** Furniture moving and the provider establishments it stands on (docs/moving_tasks.md), shown under the moving service. */
+const movingItems = [
+    { route: 'admin.moving.requests', permission: 'moving-requests.view', icon: 'ri-truck-line', label: 'moving.requests.title' },
+    { route: 'admin.moving.establishments', permission: 'provider-establishments.view', icon: 'ri-store-2-line', label: 'moving.establishments.title' },
+    { route: 'admin.moving.tickets', permission: 'moving-tickets.view', icon: 'ri-customer-service-2-line', label: 'moving.tickets.title' },
+    { route: 'admin.moving.vehicle_types', permission: 'provider-vehicle-types.view', icon: 'ri-truck-line', label: 'moving.vehicle_types.title' },
+    { route: 'admin.moving.document_types', permission: 'provider-document-types.view', icon: 'ri-id-card-line', label: 'moving.document_types.title' },
+    { route: 'admin.moving.cases', permission: 'moving-cases.view', icon: 'ri-scales-3-line', label: 'moving.cases.title' },
+    { route: 'admin.moving.policies', permission: 'moving-policies.view', icon: 'ri-price-tag-3-line', label: 'moving.policies.title' },
+];
+
+const showMovingSection = computed(
+    () => selectedModuleName.value === 'moving' && movingItems.some((item) => can(item.permission)),
+);
 
 const showFreelanceSection = computed(
     () => selectedModuleName.value === 'freelance' && freelanceItems.some((item) => can(item.permission)),

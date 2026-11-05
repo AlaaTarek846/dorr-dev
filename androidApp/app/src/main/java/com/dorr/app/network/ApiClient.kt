@@ -191,6 +191,8 @@ object ApiClient {
     val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
     val rides: RidesApi by lazy { retrofit.create(RidesApi::class.java) }
+    /** Furniture moving, the customer's side (docs/moving_tasks.md phase D). */
+    val moving: MovingApi by lazy { retrofit.create(MovingApi::class.java) }
     /** R-146..R-155: DORR points. */
     val loyalty: LoyaltyApi by lazy { retrofit.create(LoyaltyApi::class.java) }
 
