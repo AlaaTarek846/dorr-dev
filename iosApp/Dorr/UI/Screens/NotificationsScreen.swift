@@ -20,6 +20,8 @@ private struct NotificationItem: Identifiable, Equatable {
     var service: (kind: String, uuid: String?)?
     /// A freelance notification opens the Freelance page it belongs to (a page of the Freelance host).
     var freelancePage: String?
+    /// A `moving_*` notification: the request it is about.
+    var movingUuid: String?
 
     static func == (a: NotificationItem, b: NotificationItem) -> Bool { a.id == b.id && a.unread == b.unread }
 
@@ -52,6 +54,7 @@ private struct NotificationItem: Identifiable, Equatable {
         if event.hasPrefix("freelance.") {
             freelancePage = FreelanceLink.pageFor(event: event, project: value("project"), offer: value("offer"), dispute: value("dispute"), consultation: value("consultation"))
         }
+        if value("type")?.hasPrefix("moving_") == true { movingUuid = value("request") }
     }
 }
 
@@ -197,6 +200,11 @@ struct NotificationsScreen: View {
         if let page = item.freelancePage {
             selected = nil
             ChatPush.shared.open(.freelance(page))
+            onBack()
+        }
+        if let uuid = item.movingUuid {
+            selected = nil
+            ChatPush.shared.open(.moving(uuid))
             onBack()
         }
     }

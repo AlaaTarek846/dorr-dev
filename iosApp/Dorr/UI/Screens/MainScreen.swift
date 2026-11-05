@@ -16,6 +16,8 @@ struct MainScreen: View {
     @State private var showFreelance = false
     // Passenger rides open their own map screen, not the generic service page.
     @State private var showRides = false
+    // Furniture moving: «طلباتي», a new request and its follow-up, on their own pages.
+    @State private var showMoving = false
     #if DEBUG
     @State private var showMapPreview = false
     #endif
@@ -122,6 +124,13 @@ struct MainScreen: View {
                     .zIndex(1)
             }
 
+            // Furniture moving: the customer's requests, offers and following the job (the payment screen opens over it).
+            if showMoving {
+                MovingHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { showMoving = false } })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+
             // Freelance work: my projects and the project form (FL-201 / FL-202).
             if showFreelance {
                 FreelanceHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { showFreelance = false } })
@@ -215,6 +224,13 @@ struct MainScreen: View {
                 FreelanceLink.shared.show(page)
                 withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showFreelance = true }
                 ChatPush.shared.consumeDeepLink()
+            // A furniture move's notification: its request page.
+            case .moving(let uuid):
+                router.walletOpen = false
+                showChat = false
+                MovingLink.shared.show(uuid)
+                withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showMoving = true }
+                ChatPush.shared.consumeDeepLink()
             default: break
             }
         }
@@ -235,6 +251,7 @@ struct MainScreen: View {
             case "sports": sportsLink.show()
             case "freelance": showFreelance = true
             case "rides": showRides = true
+            case "moving": showMoving = true
             case "ai": showAi = true
             case "chat": showChat = true
             case "watchEarn": watchEarnLink.show()
@@ -267,6 +284,10 @@ struct MainScreen: View {
     private func openServiceDetail(_ service: ServiceDto, _ color: Color) {
         if service.moduleName == "passenger_ride" {
             withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showRides = true }
+            return
+        }
+        if service.moduleName == "moving" {
+            withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showMoving = true }
             return
         }
         if service.moduleName == "freelance" {
