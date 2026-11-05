@@ -9,4 +9,9 @@
     <string name="wa_wallet_new">لسه ماتفتحتش</string>
     <string name="wa_wallet_you_are_here">إنت هنا</string>
     <string name="wa_wallet_rule">كل محفظة بتحوّل لمحافظ دولتها بس، وبعملتها.</string>
+    <!-- محفظة الفريلانس الدولية (بالدولار) -->
+    <string name="wa_intl_wallet_title">المحفظة الدولية</string>
+    <string name="wa_intl_note">محفظة الفريلانس بالدولار: كل شغل الفريلانس بيتدفع منها، وبتشحنها وتسحب منها. مينفعش تحوّل منها لحد.</string>
+    <string name="fl_intl_wallet">محفظة الفريلانس</string>
+    <string name="fl_intl_wallet_sub">بالدولار · كل مدفوعات الفريلانس منها</string>
 </resources>

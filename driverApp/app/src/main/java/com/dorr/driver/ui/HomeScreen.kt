@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -132,8 +133,12 @@ fun HomeScreen(
     fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     var permissionsOk by remember { mutableStateOf(granted(Manifest.permission.ACCESS_FINE_LOCATION)) }
 
+    var states by remember { mutableStateOf<com.dorr.driver.net.ServiceStatusDto?>(null) }
+    var servicesOpen by remember { mutableStateOf(false) }
+    if (servicesOpen) ServicesSheet(onClose = { servicesOpen = false })
     LaunchedEffect(reload, rideTick) {
         (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
+        (apiCall { DriverBackend.api.serviceStatus() } as? ApiResult.Ok)?.let { states = it.data }
         (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
         (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { earnings = it.data }
         (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
@@ -158,6 +163,7 @@ fun HomeScreen(
             }
             if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.") || e.name.startsWith("driver.")) {
                 (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
+                (apiCall { DriverBackend.api.serviceStatus() } as? ApiResult.Ok)?.let { states = it.data }
                 // My place in the airport queue moves with the line.
                 (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
                 // The driving-time limit moves with the shift (a reminder, or being taken offline).
@@ -292,8 +298,11 @@ fun HomeScreen(
                     )
                 }
 
+                // D-329..D-344: maintenance, the service / a category off here, an emergency review, the safe mode.
+                ServiceStateBanners(states)
+
                 // Why not, when they can't work — with the way out.
-                if (blocked) {
+                if (blocked && problem !in setOf("maintenance", "service_off_here", "emergency_review")) {
                     Column(Modifier.fillMaxWidth().surface().staggerIn(1)) {
                         ListRow(
                             Icons.Rounded.AssignmentInd, stringResource(R.string.home_cannot_work),
@@ -478,6 +487,8 @@ fun HomeScreen(
                             Text(String.format("%.1f", it), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
                         }
                     }
+                    // O-89: my services — what my vehicle can work in here, each with its switch.
+                    RoundIconButton(Icons.Rounded.Apps, stringResource(R.string.sv_title), onClick = { servicesOpen = true })
                     NotificationBell(onClick = onOpenNotifications)
                 }
                 Row(

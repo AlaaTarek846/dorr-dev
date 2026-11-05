@@ -11,7 +11,6 @@ use Modules\Wallet\Contracts\ReservesFunds;
 use Modules\Wallet\Enums\CheckoutStatus;
 use Modules\Wallet\Enums\FinancialEntryType;
 use Modules\Wallet\Enums\PaymentMethodType;
-use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Exceptions\CheckoutException;
 use Modules\Wallet\Http\Resources\PaymentMethodResource;
@@ -282,10 +281,8 @@ class CheckoutService
             return $checkout->refresh();
         }
 
-        $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $amount);
-        $fromWithdrawable = $amount - $fromSpendOnly;
-
-        if ($fromWithdrawable > max(0, $wallet->availableMinor(WalletBucket::Withdrawable))) {
+        // Rewards, then spend-only, then withdrawable (Wallet::SPEND_ORDER).
+        if ($wallet->spendableMinor() < $amount) {
             throw CheckoutException::insufficientBalance($amount - $this->spendable($wallet));
         }
 
@@ -298,7 +295,7 @@ class CheckoutService
         ];
 
         $last = null;
-        foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $fromWithdrawable]] as [$bucket, $part]) {
+        foreach ($wallet->spendParts($amount) as [$bucket, $part]) {
             if ($part > 0) {
                 $last = $this->wallets->debit($wallet, $part, $bucket, WalletTransactionType::ServicePayment, $meta + [
                     'idempotency_key' => "checkout:{$checkout->uuid}:{$bucket->value}",
@@ -335,7 +332,7 @@ class CheckoutService
 
     private function spendable(Wallet $wallet): int
     {
-        return max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        return $wallet->spendableMinor();
     }
 
     /**

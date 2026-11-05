@@ -33,6 +33,8 @@ struct HomeScreen: View {
                     SportsHomeCard(onOpen: { SportsLink.shared.show() }).padding(.horizontal, 20).padding(.vertical, 4)
                     EventsBanner(onOpen: { EventsLink.shared.show() }).padding(.horizontal, 20).padding(.vertical, 4)
                     MomentsBanner(onOpen: onOpenMoments).padding(.horizontal, 20).padding(.vertical, 4)
+                    // Watch & Earn (D17): a banner that opens the section.
+                    WatchEarnBanner(insets: EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
                     Spacer().frame(height: 24)
                     QuickActionsRow().padding(.horizontal, 20)
                     Spacer().frame(height: 20)

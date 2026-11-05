@@ -27,7 +27,8 @@ OUT = ROOT / "iosApp" / "Dorr" / "Resources"
 # Android folder → iOS language folder.
 LANGS = {"values": "en", "values-ar": "ar"}
 
-FORMAT = re.compile(r"%(\d+\$)?([-#+ 0,(]*\d*(?:\.\d+)?)([sdfxXc])")
+# `%%` (a literal percent) is matched first so the text after it is never read as a placeholder ("%1$d%% sure").
+FORMAT = re.compile(r"%%|%(\d+\$)?([-#+ 0,(]*\d*(?:\.\d+)?)([sdfxXc])")
 
 
 def text_of(el: ET.Element) -> str:
@@ -50,6 +51,8 @@ def text_of(el: ET.Element) -> str:
 
 def to_ios_format(value: str) -> str:
     def swap(m: re.Match) -> str:
+        if m.group(0) == "%%":
+            return "%%"
         pos, flags, kind = m.group(1) or "", m.group(2), m.group(3)
         if kind == "s":
             return f"%{pos}{flags}@"

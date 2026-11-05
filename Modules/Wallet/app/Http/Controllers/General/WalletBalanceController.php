@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Wallet\Models\Wallet;
+use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Services\WalletService;
 use Modules\Wallet\Support\OwnerType;
 use Modules\Wallet\Support\WalletNumber;
@@ -29,9 +30,13 @@ class WalletBalanceController extends Controller
 
         $owner = $request->user();
         $wallet = $this->wallets->firstOrCreateWallet($owner, $country);
+        // Just created: read the row back so the balances are its zeros, not nulls.
+        if ($wallet->wasRecentlyCreated) {
+            $wallet->refresh();
+        }
 
         $currency = $wallet->currency ?? $country->currency;
-        $held = $wallet->held_withdrawable_minor + $wallet->held_spend_only_minor;
+        $held = $wallet->held_withdrawable_minor + $wallet->held_spend_only_minor + (int) $wallet->held_reward_minor;
 
         return ApiResponse::success([
             'country_code' => $country->code,
@@ -46,16 +51,25 @@ class WalletBalanceController extends Controller
             'qr_payload' => WalletNumber::qrPayload($country->code, (string) $wallet->wallet_number),
             'currency_code' => $currency?->code,
             'currency_symbol' => $currency?->symbol,
+            'currency_decimals' => (int) ($currency?->decimal_places ?? 2),
             'total_minor' => $wallet->totalBalanceMinor(),
             'withdrawable_minor' => $wallet->withdrawable_minor,
             'spend_only_minor' => $wallet->spend_only_minor,
+            // Watch & Earn rewards (D20): spent anywhere in the app; sent to others only where the country allows.
+            'reward_minor' => (int) $wallet->reward_minor,
+            'rewards_transferable' => (bool) WalletSetting::query()->where('country_id', $country->id)->value('rewards_transferable'),
             'held_minor' => $held,
+            // False when dollars are already this owner's local money (freelance works in them): no separate international wallet to swipe to.
+            'international_wallet' => ! class_exists(\Modules\Freelance\Services\Policy\FreelanceMoney::class)
+                || app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->localCountryFor($owner) === null,
             // Read-only heads-up: balances in other countries can't be spent here.
             'other_wallets' => Wallet::query()
                 ->with(['country:id,code', 'currency:id,code'])
                 ->where('owner_type', OwnerType::aliasFor($owner))
                 ->where('owner_id', $owner->getKey())
                 ->where('country_id', '!=', $country->id)
+                // Only wallets one can switch to: a hidden row's wallet (the freelance international wallet) has its own screens.
+                ->whereHas('country', fn ($q) => $q->where('status', true))
                 ->get()
                 ->map(fn (Wallet $other) => [
                     'country_code' => $other->country?->code,

@@ -45,6 +45,12 @@ class TransferException extends RuntimeException implements ApiRenderable
         return $this->data;
     }
 
+    /** Watch & Earn D20: this country keeps rewards for spending in the app only. */
+    public static function rewardsNotTransferable(): self
+    {
+        return new self('rewards_not_transferable', 'wallet.errors.rewards_not_transferable', 422);
+    }
+
     public static function disabled(): self
     {
         return new self('transfers_disabled', 'wallet.errors.transfers_disabled', 403);

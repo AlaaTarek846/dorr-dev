@@ -1,0 +1,73 @@
+import Foundation
+
+// freelanceApp `net/PortfolioApi.kt`.
+
+/// The freelancer's portfolio (FL-105), under `/api/freelance/v1/profile/portfolio`.
+enum PortfolioApi {
+    private static let base = Api.freelance + "profile/portfolio"
+
+    static func list() async -> ApiResult<[PortfolioItemDto]> { await Api.call("GET", base) }
+
+    static func create(_ body: JsonBody) async -> ApiResult<PortfolioItemDto> { await Api.call("POST", base, body: body) }
+
+    static func update(_ id: Int, _ body: JsonBody) async -> ApiResult<PortfolioItemDto> { await Api.call("PUT", base + "/\(id)", body: body) }
+
+    static func delete(_ id: Int, offline: String, generic: String) async -> String? {
+        await Api.done("DELETE", base + "/\(id)", offline: offline, generic: generic)
+    }
+
+    /// The new order: every work of mine once.
+    static func order(_ body: PortfolioOrderRequest) async -> ApiResult<[PortfolioItemDto]> {
+        await Api.call("PUT", base + "/order", body: ["ids": body.ids])
+    }
+
+    /// One image, as the part `image`.
+    static func addImage(_ id: Int, _ image: FilePart) async -> ApiResult<PortfolioItemDto> {
+        await Api.upload(base + "/\(id)/images", files: [image.asField("image")])
+    }
+
+    static func deleteImage(_ id: Int, _ media: Int) async -> ApiResult<PortfolioItemDto> { await Api.call("DELETE", base + "/\(id)/images/\(media)") }
+}
+
+struct PortfolioOrderRequest {
+    var ids: [Int]
+}
+
+struct PortfolioItemDto: Decodable, Equatable {
+    var id: Int?
+    var uuid: String?
+    var title: String?
+    var description: String?
+    var completedOn: String?
+    var specialty: PortfolioRefDto?
+    var skills: [PortfolioRefDto]?
+    var images: [PortfolioImageDto]?
+    var externalUrl: String?
+    var video: PortfolioVideoDto?
+    /// private · clients_only · public
+    var visibility: String?
+    var rightsConfirmed: Bool?
+    var hidden: Bool?
+    var hiddenReason: String?
+    /// FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back.
+    var agreement: String?
+    var withdrawnByClient: Bool?
+}
+
+struct PortfolioRefDto: Decodable, Equatable {
+    var id: Int?
+    var name: String?
+}
+
+struct PortfolioImageDto: Decodable, Equatable {
+    var id: Int?
+    var name: String?
+    var size: Int64?
+    /// My own image is read signed in from this path (no public link).
+    var path: String?
+}
+
+struct PortfolioVideoDto: Decodable, Equatable {
+    var provider: String?
+    var embedUrl: String?
+}

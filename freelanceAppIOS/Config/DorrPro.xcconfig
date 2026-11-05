@@ -1,0 +1,15 @@
+// Shared build settings. The backend is each developer's own choice in Local.xcconfig (not committed), the iOS twin of
+// freelanceApp/local.properties `dorr.apiHost` / `dorr.apiScheme`:
+//
+//   DORR_API_HOST = my-tunnel.ngrok-free.dev
+//   DORR_API_SCHEME = https
+//
+// Copy Local.xcconfig.example to Local.xcconfig and edit it.
+
+DORR_API_HOST = dorr.test
+DORR_API_SCHEME = https
+
+// freelanceApp's applicationId; Local.xcconfig may change it (and set DEVELOPMENT_TEAM) for a real iPhone.
+PRODUCT_BUNDLE_IDENTIFIER = com.dorr.freelance
+
+#include? "Local.xcconfig"

@@ -62,6 +62,12 @@ final class FreelancePolicyData
         'consultations.response_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 168],
         'consultations.min_notice_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 0, 'max' => 72],
         'consultations.max_days_ahead' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 90],
+        'special_offers.daily_limit' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'special_offers.open_per_client' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 5],
+        'special_offers.cooldown_days' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 0, 'max' => 90],
+        'special_offers.max_valid_days' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 60],
+        'loyalty.max_discount_bp' => ['group' => 'loyalty', 'kind' => 'rate'],
+        'loyalty.max_tiers' => ['group' => 'loyalty', 'kind' => 'int', 'min' => 1, 'max' => 10],
     ];
 
     /** Pairs that must not cross: [lower, upper]. */

@@ -23,8 +23,8 @@ class FreelanceOffer extends Model implements HasMedia
     public const DISK = 'local';
 
     protected $fillable = [
-        'uuid', 'project_id', 'freelancer_id', 'price_minor', 'currency_code', 'duration_days', 'details', 'answers', 'status', 'status_reason',
-        'commission_minor', 'net_minor', 'fees', 'free', 'credit_id', 'viewed_at', 'accepted_at', 'withdrawn_at',
+        'uuid', 'project_id', 'freelancer_id', 'price_minor', 'list_price_minor', 'loyalty_bp', 'currency_code', 'duration_days', 'details', 'answers', 'rights', 'status',
+        'status_reason', 'commission_minor', 'net_minor', 'fees', 'free', 'credit_id', 'viewed_at', 'accepted_at', 'withdrawn_at',
     ];
 
     protected static function booted(): void
@@ -37,11 +37,15 @@ class FreelanceOffer extends Model implements HasMedia
         return [
             'status' => FreelanceOfferStatus::class,
             'price_minor' => 'integer',
+            'list_price_minor' => 'integer',
+            'loyalty_bp' => 'integer',
             'duration_days' => 'integer',
             'commission_minor' => 'integer',
             'net_minor' => 'integer',
             'fees' => 'array',
             'answers' => 'array',
+            // FL-L13: who owns the work once it is paid and what the client may do with it.
+            'rights' => 'array',
             'free' => 'boolean',
             'viewed_at' => 'datetime',
             'accepted_at' => 'datetime',

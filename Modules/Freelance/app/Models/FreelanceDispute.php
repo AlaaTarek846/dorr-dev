@@ -18,14 +18,14 @@ class FreelanceDispute extends Model
 
     public const RESOLVED = 'resolved';
 
-    public const REASONS = ['not_as_agreed', 'not_delivered', 'late', 'quality', 'out_of_scope', 'no_response', 'other'];
+    public const REASONS = ['not_as_agreed', 'not_delivered', 'late', 'quality', 'out_of_scope', 'no_response', 'rights', 'other'];
 
     public const DECISIONS = ['refund', 'release', 'split'];
 
     /** FL-803: what staff call the problem. The person's own `reason` maps to one by default (`suggestedCategory`). */
-    public const CATEGORIES = ['payment', 'delivery', 'quality', 'conduct', 'scope', 'other'];
+    public const CATEGORIES = ['payment', 'delivery', 'quality', 'conduct', 'scope', 'rights', 'other'];
 
-    private const REASON_CATEGORY = ['not_delivered' => 'delivery', 'late' => 'delivery', 'no_response' => 'conduct', 'quality' => 'quality', 'not_as_agreed' => 'quality', 'out_of_scope' => 'scope'];
+    private const REASON_CATEGORY = ['not_delivered' => 'delivery', 'late' => 'delivery', 'no_response' => 'conduct', 'quality' => 'quality', 'not_as_agreed' => 'quality', 'out_of_scope' => 'scope', 'rights' => 'rights'];
 
     public function suggestedCategory(): string
     {

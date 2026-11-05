@@ -164,6 +164,12 @@ enum ApiClient {
         try await perform(path, method: "GET", query: query, body: nil, contentType: nil, auth: auth, headers: [:])
     }
 
+    /// A file as it came, with its answer's headers (Retrofit's `Response<ResponseBody>`): for a download saved under
+    /// the server's name (`Content-Disposition`).
+    static func rawResponse(_ path: String, query: [String: String?] = [:], auth: Bool = false) async throws -> (Data, HTTPURLResponse?) {
+        try await performWithResponse(path, method: "GET", query: query, body: nil, contentType: nil, auth: auth, headers: [:])
+    }
+
     /// Sends one request with the app's headers and returns the body of a 2xx answer.
     private static func perform(
         _ path: String,
@@ -175,7 +181,22 @@ enum ApiClient {
         headers: [String: String],
         progress: ((Double) -> Void)? = nil
     ) async throws -> Data {
-        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        try await performWithResponse(path, method: method, query: query, body: body, contentType: contentType, auth: auth, headers: headers, progress: progress).0
+    }
+
+    /// [perform], keeping the HTTP answer too (its headers).
+    private static func performWithResponse(
+        _ path: String,
+        method: String,
+        query: [String: String?],
+        body: Data?,
+        contentType: String?,
+        auth: Bool,
+        headers: [String: String],
+        progress: ((Double) -> Void)? = nil
+    ) async throws -> (Data, HTTPURLResponse?) {
+        // The freelance international wallet on screen: the same wallet calls, on its own path.
+        var components = URLComponents(url: baseURL.appendingPathComponent(WalletCountry.rewrite(path: path)), resolvingAgainstBaseURL: false)!
         let items = query.compactMap { key, value in value.map { URLQueryItem(name: key, value: $0) } }
         if !items.isEmpty { components.queryItems = items }
 
@@ -246,7 +267,7 @@ enum ApiClient {
             if status == 402 || status == 429 { AiPlanGate.inspect(data) }
             throw ApiError.http(status: status, body: data)
         }
-        return data
+        return (data, response as? HTTPURLResponse)
     }
 
     /// Media URLs come back absolute for the server's own host (`http://dorr.test/...`),

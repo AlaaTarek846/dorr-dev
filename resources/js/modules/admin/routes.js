@@ -585,6 +585,43 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-settings.view' },
             },
             {
+                // Account verification (docs/verification_tasks.md).
+                path: 'chat/verification/requests',
+                name: 'admin.chat.verification.requests',
+                component: page('chat/verification/requests/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-requests.view' },
+            },
+            {
+                path: 'chat/verification/requests/:uuid',
+                name: 'admin.chat.verification.request',
+                component: page('chat/verification/requests/show'),
+                meta: { middleware: [auth], permission: 'chat-verification-requests.view' },
+            },
+            {
+                path: 'chat/verification/badges',
+                name: 'admin.chat.verification.badges',
+                component: page('chat/verification/badges/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-badges.view' },
+            },
+            {
+                path: 'chat/verification/settings',
+                name: 'admin.chat.verification.settings',
+                component: page('chat/verification/settings/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-settings.view' },
+            },
+            {
+                path: 'chat/verification/documents',
+                name: 'admin.chat.verification.documents',
+                component: page('chat/verification/documents/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-settings.view' },
+            },
+            {
+                path: 'chat/verification/audit',
+                name: 'admin.chat.verification.audit',
+                component: page('chat/verification/audit/index'),
+                meta: { middleware: [auth], permission: 'chat-verification-audit.view' },
+            },
+            {
                 path: 'chat/feature-rules',
                 name: 'admin.chat.feature-rules',
                 component: page('chat/feature-rules/index'),
@@ -688,6 +725,12 @@ export default [
                 meta: { middleware: [auth], permission: 'wasl-logs.view' },
             },
             {
+                path: 'rides/driver-services',
+                name: 'admin.rides.driver_services',
+                component: page('rides/services/index'),
+                meta: { middleware: [auth], permission: 'driver-services.view' },
+            },
+            {
                 path: 'rides/ranks',
                 name: 'admin.rides.ranks',
                 component: page('rides/ranks/index'),
@@ -752,6 +795,36 @@ export default [
                 name: 'admin.freelance.consultations',
                 component: page('freelance/consultations/index'),
                 meta: { middleware: [auth], permission: 'freelance-consultations.view' },
+            },
+            {
+                path: 'freelance/loyalty',
+                name: 'admin.freelance.loyalty',
+                component: page('freelance/loyalty/index'),
+                meta: { middleware: [auth], permission: 'freelance-loyalty.view' },
+            },
+            {
+                path: 'freelance/rights',
+                name: 'admin.freelance.rights',
+                component: page('freelance/rights/index'),
+                meta: { middleware: [auth], permission: 'freelance-rights.view' },
+            },
+            {
+                path: 'freelance/promos',
+                name: 'admin.freelance.promos',
+                component: page('freelance/promos/index'),
+                meta: { middleware: [auth], permission: 'freelance-promos.view' },
+            },
+            {
+                path: 'freelance/community',
+                name: 'admin.freelance.community',
+                component: page('freelance/community/index'),
+                meta: { middleware: [auth], permission: 'freelance-community.view' },
+            },
+            {
+                path: 'freelance/special-offers',
+                name: 'admin.freelance.specialOffers',
+                component: page('freelance/special-offers/index'),
+                meta: { middleware: [auth], permission: 'freelance-special-offers.view' },
             },
             {
                 path: 'freelance/risk',
@@ -824,6 +897,12 @@ export default [
                 name: 'admin.freelance.document-types',
                 component: page('freelance/document-types/index'),
                 meta: { middleware: [auth], permission: 'freelance-document-types.view' },
+            },
+            {
+                path: 'freelance/checklist-templates',
+                name: 'admin.freelance.checklistTemplates',
+                component: page('freelance/checklist-templates/index'),
+                meta: { middleware: [auth], permission: 'freelance-checklist-templates.view' },
             },
             {
                 path: 'freelance/skills',
@@ -950,6 +1029,37 @@ export default [
                 name: 'admin.chat.portals',
                 component: page('chat/portals/index'),
                 meta: { middleware: [auth], permission: 'chat-portals.view' },
+            },
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043).
+            {
+                path: 'watch-earn/ads',
+                name: 'admin.watch-earn.ads',
+                component: page('watch-earn/ads/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/comment-reports',
+                name: 'admin.watch-earn.comment-reports',
+                component: page('watch-earn/comment-reports/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-ads.view' },
+            },
+            {
+                path: 'watch-earn/settings',
+                name: 'admin.watch-earn.settings',
+                component: page('watch-earn/settings/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-settings.view' },
+            },
+            {
+                path: 'watch-earn/finance',
+                name: 'admin.watch-earn.finance',
+                component: page('watch-earn/finance/index'),
+                meta: { middleware: [auth], permission: 'watch-earn-finance.view' },
+            },
+            {
+                path: 'chat/groups',
+                name: 'admin.chat.groups',
+                component: page('chat/groups/index'),
+                meta: { middleware: [auth], permission: 'chat-groups.view' },
             },
             {
                 path: 'chat/channels',

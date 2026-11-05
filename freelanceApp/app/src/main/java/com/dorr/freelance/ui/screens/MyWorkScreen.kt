@@ -24,6 +24,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Handyman
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,7 +72,7 @@ private val groups = listOf("all", "active", "completed", "disputes", "closed")
  * newest first, fifteen at a time while I scroll. Read when the tab opens, when a notice arrives and when the connection returns.
  */
 @Composable
-fun MyWorkTab(onBack: () -> Unit, onOpenProject: (String) -> Unit) {
+fun MyWorkTab(onBack: () -> Unit, onOpenProject: (String) -> Unit, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -79,21 +83,8 @@ fun MyWorkTab(onBack: () -> Unit, onOpenProject: (String) -> Unit) {
     LaunchedEffect(reconnect, group) { paged.reload() }
     LaunchedEffect(group) { Realtime.changed.collect { paged.reload() } }
 
-    TabPage(title = stringResource(R.string.work_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }) {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            groups.forEach { g ->
-                val selected = group == g
-                val ink = if (selected) Color.White else settingsInk()
-                Row(
-                    Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) settingsAccent() else settingsAccent().copy(alpha = 0.08f)).clickable { group = g }.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(workGroupIcon(g), contentDescription = null, tint = if (selected) ink else settingsAccent(), modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(stringResource(workGroupLabel(g)), color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                }
-            }
-        }
+    TabPage(title = stringResource(R.string.work_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }, embedded = embedded) {
+        com.dorr.freelance.ui.kit.FilterChips(groups.map { com.dorr.freelance.ui.kit.FilterOption(it, stringResource(workGroupLabel(it)), workGroupIcon(it)) }, group, { group = it })
         when {
             !paged.loaded && paged.failure == null -> SkeletonList()
             paged.loaded && paged.rows.isEmpty() && paged.failure == null -> EmptyState(
@@ -160,51 +151,39 @@ private fun statusLabel(status: String): String = stringResource(
     },
 )
 
+/**
+ * One project I was chosen for: its title and state (and a dispute when there is one), the price and the days, and how many of its parts are
+ * done on a bar in the state's colour; the colour also runs down the card's starting edge.
+ */
 @Composable
 private fun MyProjectCard(p: MyProjectDto, onClick: () -> Unit) {
     val tint = statusColor(p.status)
     val red = Color(0xFFDC2626)
-    Column(
-        Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Handyman, contentDescription = null, tint = tint, modifier = Modifier.size(21.dp))
+    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick)) {
+        Box(Modifier.width(5.dp).fillMaxHeight().background(tint))
+        Column(Modifier.weight(1f).padding(start = 12.dp, end = 14.dp, top = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Text(p.project.title.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp, modifier = Modifier.weight(1f))
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(20.dp))
             }
-            Spacer(Modifier.size(10.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(p.project.title.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        statusLabel(p.status), color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp),
-                    )
-                    if (p.hasDispute) Row(
-                        Modifier.clip(RoundedCornerShape(999.dp)).background(red.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Rounded.Gavel, contentDescription = null, tint = red, modifier = Modifier.size(12.dp))
-                        Spacer(Modifier.size(4.dp))
-                        Text(stringResource(R.string.work_dispute_badge), color = red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                com.dorr.freelance.ui.kit.StatusPill(statusLabel(p.status), tint)
+                if (p.hasDispute) com.dorr.freelance.ui.kit.StatusPill(stringResource(R.string.work_dispute_badge), red, Icons.Rounded.Gavel)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                com.dorr.freelance.ui.kit.FactLine(Icons.Rounded.Payments, "‎${formatMinor(p.priceMinor, null)} ${p.currency}", strong = true)
+                com.dorr.freelance.ui.kit.FactLine(Icons.Rounded.Schedule, stringResource(R.string.projects_days, p.durationDays))
+            }
+            if (p.milestonesCount > 0) {
+                val fraction = p.milestonesDone.toFloat() / p.milestonesCount
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.work_parts_done, p.milestonesDone, p.milestonesCount), color = settingsMut(), fontSize = 11.5.sp, modifier = Modifier.weight(1f))
+                        Text("‎${(fraction * 100).toInt()}%", color = tint, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
                     }
-                }
-            }
-            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(20.dp))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OfferStat("\u200E${formatMinor(p.priceMinor, null)} ${p.currency}", stringResource(R.string.offer_stat_price), Modifier.weight(1f))
-            OfferStat(stringResource(R.string.projects_days, p.durationDays), stringResource(R.string.offer_stat_time), Modifier.weight(1f))
-        }
-        if (p.milestonesCount > 0) {
-            val fraction = p.milestonesDone.toFloat() / p.milestonesCount
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.work_parts_done, p.milestonesDone, p.milestonesCount), color = settingsMut(), fontSize = 11.5.sp, modifier = Modifier.weight(1f))
-                    Text("\u200E${(fraction * 100).toInt()}%", color = tint, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
-                }
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsMut().copy(alpha = 0.18f))) {
-                    Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(999.dp)).background(tint))
+                    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsMut().copy(alpha = 0.18f))) {
+                        Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(999.dp)).background(tint))
+                    }
                 }
             }
         }

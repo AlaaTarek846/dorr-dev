@@ -44,6 +44,7 @@ class TransferRequest extends FormRequest
             'recipient_token' => ['required', 'string', 'max:2000'],
             'amount_minor' => ['required', 'integer', 'min:1', 'max:100000000000'],
             // Optional: which of the sender's own buckets to pay from (default: bonus money first).
+            // Rewards only where the country lets them be sent (Watch & Earn D20) — TransferService checks it.
             'from_bucket' => ['nullable', Rule::enum(WalletBucket::class)],
             'idempotency_key' => ['required', 'string', 'min:8', 'max:100'],
         ];

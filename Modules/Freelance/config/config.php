@@ -14,6 +14,20 @@ return [
     // The oldest app build the server still serves; the apps compare it with their own (FL-004).
     'min_app_version' => env('FREELANCE_MIN_APP_VERSION', '1.0.0'),
 
+    /*
+    | One currency for all freelance work, whatever the country (owner, 2026-11-04): every price, policy amount, plan, pack, agreement
+    | and payment is in `currency`. The money sits in an international wallet — a wallet on the hidden `country_code` row (status off,
+    | so it shows in no country list) whose currency is `currency`. A freelancer has only that wallet; a client has it next to their
+    | local one, tops it up and withdraws from it, but can't transfer from it. The record's own country stays for geography.
+    */
+    'money' => [
+        'currency' => env('FREELANCE_CURRENCY', 'USD'),
+        // The tests point this at their own country row (phpunit.xml), so the old flows keep running on one wallet.
+        'country_code' => env('FREELANCE_MONEY_COUNTRY', 'INT'),
+        'country_name' => ['ar' => 'دولي', 'en' => 'International'],
+        'flag_code' => 'un',
+    ],
+
     // Biggest file a project, offer or delivery may carry (KB).
     'upload_max_kb' => (int) env('FREELANCE_UPLOAD_MAX_KB', 20480),
 
@@ -83,10 +97,42 @@ return [
         'consultations.response_hours' => 24,
         'consultations.min_notice_hours' => 2,
         'consultations.max_days_ahead' => 30,
+        // Special offers to past clients (FL-L09): how many one freelancer sends a day, how many may wait for one client at once, the days
+        // before a client who said no can get another, and the longest an offer stays open.
+        'special_offers.daily_limit' => 10,
+        'special_offers.open_per_client' => 1,
+        'special_offers.cooldown_days' => 7,
+        'special_offers.max_valid_days' => 14,
+        // Loyalty programs (FL-L09, part B): the biggest discount a freelancer may give a returning client (basis points: 3000 = 30%) and
+        // the most steps one program has.
+        'loyalty.max_discount_bp' => 3000,
+        'loyalty.max_tiers' => 4,
     ],
 
     // Skill suggestions (FL-102): how many new skills one freelancer may suggest a day.
     'skills' => ['suggest_daily_limit' => (int) env('FREELANCE_SKILL_SUGGEST_DAILY_LIMIT', 5)],
+
+    // Ownership and licences (FL-L13): the terms an offer or a service gets when its freelancer says nothing (full transfer to the client), the
+    // longest a licence may last (months), the most outside materials one delivery lists, and the days a freelancer waits before asking again to
+    // show a finished work in their portfolio.
+    'rights' => ['default_model' => 'transfer', 'max_term_months' => 120, 'max_materials' => 10, 'ask_again_days' => 3],
+
+    // The consultation's video session (FL-L16): the room opens this many minutes before the start, both are warned this long before the end,
+    // the client may say the freelancer did not come this long after the start, the recordings are kept this many days after the end (or
+    // after the staff's decision on a complaint), and a download link lasts this long. The bucket is the chat's (`chat.recordings`): LiveKit
+    // records into it, then the file moves to our private disk.
+    'sessions' => [
+        'open_before_minutes' => 5, 'warn_before_end_minutes' => 5, 'no_show_minutes' => 10, 'keep_days' => 7, 'link_minutes' => 15,
+        'empty_timeout_seconds' => 600, 'prefix' => 'freelance-consultations',
+    ],
+
+    // The professional community (FL-L12): the longest post / comment, the most images on a post, what one member may write a day, how many
+    // members reporting one thing hide it until the staff look, the longest mute, and how long an image link lasts.
+    'community' => [
+        'body_min' => 10, 'body_max' => 3000, 'comment_max' => 1500, 'max_images' => 4,
+        'posts_per_day' => 5, 'comments_per_day' => 60, 'reports_per_day' => 20,
+        'auto_hide_reports' => 3, 'max_mute_days' => 90, 'image_link_minutes' => 30, 'per_page' => 15,
+    ],
 
     // Ready-made services (FL-L04): the most images, extras and listed features one service has, and how long an image link lasts.
     'services' => ['max_images' => 5, 'max_addons' => 5, 'max_features' => 10, 'image_link_minutes' => 30],
@@ -178,6 +224,10 @@ return [
     | specialties the full level lists. `boost` (0-3) is a plan's weight in the «recommended» order; the badge and the boost go only with a
     | subscription that gives its plan right now, and never with a work limit or a suspension.
     */
+    // The freelancer app's home (GET home): how many promo banners and running projects it shows; the client's hub
+    // (mobile/v1/freelance/home): how many running projects and ready-made services.
+    'home' => ['promos_max' => 6, 'work_max' => 3, 'client_projects_max' => 3, 'client_services_max' => 8],
+
     'insights' => ['days' => [1 => [30], 2 => [30, 90, 365]], 'top_specialties' => 5],
     /*
     | FL-L11: visits to a profile and to a ready-made service are counted per day, never per person; the same client opening the same

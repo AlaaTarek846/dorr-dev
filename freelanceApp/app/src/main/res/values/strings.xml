@@ -61,7 +61,7 @@
 
     <!-- The welcome page (StartScreen). -->
     <string name="start_title">Welcome to Dorr Pro</string>
-    <string name="start_body">Show your skills, get verified, and work with clients in your country.</string>
+    <string name="start_body">Show your skills, get verified, and work with clients from every country.</string>
     <string name="start_language">العربية</string>
 
     <string name="start_cta">Get started</string>

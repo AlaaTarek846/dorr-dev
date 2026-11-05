@@ -286,6 +286,8 @@ fun RidesHost(onExit: () -> Unit) {
     // O-48: allowed *and* switched on (the gate below asks for both); `located` = the real position is known.
     var locationOk by remember { mutableStateOf(locationReady(context)) }
     var located by remember { mutableStateOf(false) }
+    // O-87: no name or no gender yet — asked first, and the window stays until both are given.
+    RidesIdentityGate()
 
     // An active ride first: the app may have been closed in the middle of one.
     LaunchedEffect(Unit) {

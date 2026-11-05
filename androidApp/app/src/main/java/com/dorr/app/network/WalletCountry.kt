@@ -55,6 +55,19 @@ object WalletCountry {
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.clear()?.apply()
     }
 
-    /** For the HTTP client: the header value for a wallet request, if I chose another wallet. */
-    fun headerFor(path: String): String? = selected?.takeIf { path.contains("/v1/wallet") }
+    /**
+     * For the HTTP client: the header value for a wallet request, if I chose another wallet. Watch & Earn
+     * works on the same wallet (rewards land in it, the ad wallet is funded from it), so it follows too.
+     */
+    fun headerFor(path: String): String? = selected?.takeIf { !international && (path.contains("/v1/wallet") || path.contains("/v1/watch-earn")) }
+
+    /**
+     * The freelance international wallet (dollars, one for the whole world) is on screen: every wallet request goes to
+     * `mobile/v1/freelance/wallet/…` instead of the local one ([rewrite]). Set by the freelance wallet launcher while it is open.
+     */
+    var international by mutableStateOf(false)
+
+    /** The path a wallet request really takes: the international wallet's while it is on screen. */
+    fun rewrite(path: String): String? =
+        if (international && path.startsWith("/api/mobile/v1/wallet")) path.replaceFirst("/api/mobile/v1/wallet", "/api/mobile/v1/freelance/wallet") else null
 }

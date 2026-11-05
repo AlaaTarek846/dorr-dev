@@ -27,7 +27,7 @@ data class InsightsDto(
     @SerializedName("allowed_days") val allowedDays: List<Int> = emptyList(),
     /** The days the numbers are for. */
     val days: Int? = null,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
     /** The lowest plan that opens more than mine; null at the top or where plans are not sold. */
     val upgrade: InsightsUpgradeDto? = null,
@@ -43,9 +43,14 @@ data class InsightsDataDto(
     val reputation: InsightReputationDto = InsightReputationDto(),
     /** How often my profile and ready-made services were looked at (FL-L11). */
     val views: InsightViewsDto = InsightViewsDto(),
+    /** FS-103: how many client lists I am in (absent in older answers). Never says whose. */
+    val saved: InsightSavedDto? = null,
     /** The full level only. */
     val specialties: List<InsightSpecialtyDto>? = null,
 )
+
+/** [lists] = the lists I am in in total; [new] = how many of them were added in the period. */
+data class InsightSavedDto(val lists: Int = 0, val new: Int = 0)
 
 /**
  * Visits to my profile (seen from an offer, or from my portfolio) and to my ready-made services, in the period and in the period of the same

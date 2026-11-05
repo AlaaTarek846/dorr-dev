@@ -12,4 +12,7 @@ enum WalletBucket: string
 {
     case Withdrawable = 'withdrawable';
     case SpendOnly = 'spend_only';
+    // Watch & Earn rewards (docs/watch_earn_tasks.md D2): spent in the app only — never withdrawn, never sent to
+    // anyone, never expires.
+    case Reward = 'reward';
 }

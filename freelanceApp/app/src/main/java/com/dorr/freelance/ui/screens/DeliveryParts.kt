@@ -16,6 +16,8 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Add
+import com.dorr.freelance.ui.kit.RedToggle
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,7 +28,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,6 +67,14 @@ import java.io.File
 
 private const val MAX_DELIVERY_FILES = 10
 
+/** FL-L13: one outside material I used (a font, an image, a template…): its name, where it comes from, its licence. */
+internal data class MaterialRow(val name: String = "", val source: String = "", val license: String = "")
+
+private val MaterialRowListSaver = listSaver<androidx.compose.runtime.snapshots.SnapshotStateList<MaterialRow>, List<String>>(
+    save = { list -> list.map { listOf(it.name, it.source, it.license) } },
+    restore = { saved -> mutableStateListOf<MaterialRow>().apply { saved.forEach { add(MaterialRow(it[0], it[1], it[2])) } } },
+)
+
 /** A picked file kept in the cache folder, so the dialog survives the picker taking the app out of memory. */
 private class SavedPick(val name: String, val type: String, val path: String)
 
@@ -75,9 +85,13 @@ private val SavedPickListSaver = listSaver<androidx.compose.runtime.snapshots.Sn
 
 /** FL-601: the note and the files of a delivery. Sent as one new version of the part. */
 @Composable
-internal fun DeliverDialog(busy: Boolean, error: String?, onDismiss: () -> Unit, onSend: (note: String, files: List<PickedFile>) -> Unit) {
+internal fun DeliverDialog(busy: Boolean, error: String?, rightsRequired: Boolean = false, onDismiss: () -> Unit, onSend: (note: String, files: List<PickedFile>, materials: List<MaterialRow>?) -> Unit) {
     val context = LocalContext.current
     var note by rememberSaveable { mutableStateOf("") }
+    // FL-L13: an agreement that carries ownership terms asks for my word and the outside material at every delivery.
+    var confirmed by rememberSaveable { mutableStateOf(false) }
+    val materials = rememberSaveable(saver = MaterialRowListSaver) { mutableStateListOf<MaterialRow>() }
+    val maxMaterials = (if (rightsRequired) rememberRightsOptions() else null)?.limits?.maxMaterials ?: 10
     val picks = rememberSaveable(saver = SavedPickListSaver) { mutableStateListOf<SavedPick>() }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null && picks.size < MAX_DELIVERY_FILES) readFile(context, uri)?.let { f ->
@@ -101,9 +115,28 @@ internal fun DeliverDialog(busy: Boolean, error: String?, onDismiss: () -> Unit,
             if (picks.size < MAX_DELIVERY_FILES) ActionButton(stringResource(R.string.ag_dl_attach, picks.size, MAX_DELIVERY_FILES), Icons.Rounded.AttachFile, Tone.Soft, enabled = !busy) { picker.launch("*/*") }
             Text(stringResource(R.string.ag_dl_kept), color = settingsMut(), fontSize = 11.sp)
         }
+        if (rightsRequired) Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.rights_delivery_title), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                RedToggle(on = confirmed, onClick = { if (!busy) confirmed = !confirmed })
+                Text(stringResource(R.string.rights_delivery_confirm), color = settingsInk(), fontSize = 12.5.sp, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+            }
+            Text(stringResource(R.string.rights_materials_title), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            materials.forEachIndexed { i, mt ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsMut().copy(alpha = 0.08f)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        DorrTextField(mt.name, { materials[i] = mt.copy(name = it.take(120)) }, label = stringResource(R.string.rights_material_name), modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.Close, stringResource(R.string.ag_dl_remove), tint = settingsMut(), modifier = Modifier.size(32.dp).clip(RoundedCornerShape(50)).clickable(enabled = !busy) { materials.removeAt(i) }.padding(6.dp))
+                    }
+                    DorrTextField(mt.source, { materials[i] = mt.copy(source = it.take(200)) }, label = stringResource(R.string.rights_material_source), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(mt.license, { materials[i] = mt.copy(license = it.take(120)) }, label = stringResource(R.string.rights_material_license), modifier = Modifier.fillMaxWidth())
+                }
+            }
+            if (materials.size < maxMaterials) ActionButton(stringResource(R.string.rights_material_add), Icons.Rounded.Add, Tone.Soft, enabled = !busy) { materials.add(MaterialRow()) }
+        }
         error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-        ActionButton(stringResource(R.string.ag_ms_deliver_send), Icons.Rounded.CloudUpload, Tone.Primary, enabled = note.trim().length >= 5 && !busy, loading = busy) {
-            onSend(note.trim(), picks.map { PickedFile(it.name, it.type, File(it.path).readBytes()) })
+        ActionButton(stringResource(R.string.ag_ms_deliver_send), Icons.Rounded.CloudUpload, Tone.Primary, enabled = note.trim().length >= 5 && !busy && (!rightsRequired || confirmed), loading = busy) {
+            onSend(note.trim(), picks.map { PickedFile(it.name, it.type, File(it.path).readBytes()) }, if (rightsRequired) materials.filter { it.name.isNotBlank() } else null)
         }
     }
 }
@@ -148,16 +181,20 @@ internal fun DeliveriesBlock(projectUuid: String, m: MilestoneDto) {
                 Text("\u200E${f.name}", color = settingsAccent(), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { scope.launch { if (!openDeliveryFile(context, f)) error = fileError } }.padding(vertical = 3.dp))
             }
             v.revisionReason?.let { Text(stringResource(R.string.ag_ms_revision_reason, it), color = Color(0xFFD97706), fontSize = 12.sp) }
+            DeliveryRightsView(v.rights)
         }
     }
     error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
 }
 
-/** Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer. */
-private suspend fun openDeliveryFile(context: Context, f: DeliveryFileDto): Boolean {
+/**
+ * Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer. `base` is what `f.path` is
+ * relative to (FS-101: a change's files are under `projects/{uuid}/`).
+ */
+internal suspend fun openDeliveryFile(context: Context, f: DeliveryFileDto, base: String = ApiClient.FREELANCE): Boolean {
     val file = withContext(Dispatchers.IO) {
         runCatching {
-            val response = ApiClient.agreements.file(ApiClient.FREELANCE + f.path)
+            val response = ApiClient.agreements.file(base + f.path)
             val body = response.body()
             if (!response.isSuccessful || body == null) return@runCatching null
             val dir = File(context.cacheDir, "deliveries").apply { mkdirs() }

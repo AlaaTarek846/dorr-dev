@@ -26,6 +26,7 @@ class RatingResource extends JsonResource
                 'id' => $author->getKey(),
                 'type' => class_basename($this->author_type),
                 'name' => $author->name ?? null,
+                'is_verified' => \App\Support\AccountBadge::verified($author),
                 'phone' => $author->phone ?? null,
                 'email' => $author->email ?? null,
             ],

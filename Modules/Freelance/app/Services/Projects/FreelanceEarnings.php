@@ -104,7 +104,7 @@ class FreelanceEarnings
     /** @return array<string, mixed> what the freelancer's earnings screen shows */
     public function summary(Freelancer $f, int $recent = 30): array
     {
-        $wallet = Wallet::query()->where('owner_type', 'freelancer')->where('owner_id', $f->id)->where('country_id', $f->country_id)->first();
+        $wallet = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->existingWallet($f);
         $pending = Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::PENDING);
         // Held by clients for parts not approved yet, after the commission: what is on its way.
         $expected = (int) Milestone::query()->whereIn('status', [Status::Funded->value, Status::InProgress->value, Status::Delivered->value, Status::Revision->value, Status::Disputed->value])
@@ -114,7 +114,7 @@ class FreelanceEarnings
                 ->whereIn('status', [\Modules\Freelance\Models\FreelanceConsultation::BOOKED, \Modules\Freelance\Models\FreelanceConsultation::DISPUTED])->sum('net_minor');
 
         return [
-            'currency' => $wallet?->currency?->code ?? Earning::query()->where('freelancer_id', $f->id)->value('currency_code'),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
             'available_minor' => $wallet === null ? 0 : max(0, $wallet->availableMinor(WalletBucket::Withdrawable)),
             'pending_minor' => (int) (clone $pending)->sum('amount_minor'),
             'next_release_at' => (clone $pending)->min('release_at') === null ? null : \Illuminate\Support\Carbon::parse((clone $pending)->min('release_at'))->toIso8601String(),
@@ -134,7 +134,8 @@ class FreelanceEarnings
     {
         $consultation = $e->consultation_id !== null;
 
-        return $this->wallets->credit($this->wallets->firstOrCreateWallet($f, $country), $e->amount_minor, WalletBucket::Withdrawable, WalletTransactionType::ServiceEarning, [
+        // Into the freelancer's international wallet, whatever the work's country (`freelance.money`).
+        return $this->wallets->credit(app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->wallet($f), $e->amount_minor, WalletBucket::Withdrawable, WalletTransactionType::ServiceEarning, [
             'reference_type' => $consultation ? \Modules\Freelance\Services\Consultations\Consultations::REFERENCE : MilestonePayments::REFERENCE,
             'reference_id' => $consultation ? $e->consultation_id : $e->milestone_id,
             'notes' => $consultation

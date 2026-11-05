@@ -145,7 +145,7 @@ class FreelanceInvitationsTest extends TestCase
         $this->invite([$this->sara, $this->lina])->assertCreated();
 
         $this->asFreelancer($this->sara);
-        $this->postJson(self::FREELANCER.'/invitations/'.$this->invitationOf($this->sara)->uuid.'/decline')->assertOk();
+        $this->postJson(self::FREELANCER.'/invitations/'.$this->invitationOf($this->sara)->uuid.'/decline')->assertOk()->assertJsonPath('data.uuid', $this->invitationOf($this->sara)->uuid)->assertJsonPath('data.status', 'declined');
         $this->assertSame(0, $this->client->notifications()->where('data->event', 'freelance.invitation.none_left')->count());
         $this->asFreelancer($this->lina);
         $this->postJson(self::FREELANCER.'/invitations/'.$this->invitationOf($this->lina)->uuid.'/decline')->assertOk();

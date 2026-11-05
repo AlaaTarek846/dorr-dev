@@ -135,7 +135,9 @@ class FreelanceProjectMatchingTest extends TestCase
         $own = $this->freelancer();
         $parent = $this->freelancer(specialties: [$this->dev->id]);
         $design = $this->freelancer(specialties: [$this->design->id]);
+        // Open across countries (owner, 2026-11-04): a freelancer of another open country fits; one of a closed country does not.
         $abroad = $this->freelancer(['country_id' => $this->egypt->id]);
+        $closed = $this->freelancer(['country_id' => Country::create(['code' => 'AE', 'dial_code' => '+971', 'phone_length' => 9, 'status' => true, 'flag_id' => Flag::create(['code' => 'ae'])->id, 'currency_id' => Currency::create(['code' => 'AED', 'symbol' => 'AED'])->id])->id]);
         $unverified = $this->freelancer(['status' => 'profile_ready']);
         $suspended = $this->freelancer(['status' => 'suspended']);
         $noSpecialty = $this->freelancer();
@@ -144,9 +146,9 @@ class FreelanceProjectMatchingTest extends TestCase
         $ids = $this->matched($this->project());
 
         // The freelancer's own specialty, and a freelancer whose specialty sits above the project's (as the project list shows them).
-        $this->assertEqualsCanonicalizing([$own->id, $parent->id], $ids);
+        $this->assertEqualsCanonicalizing([$own->id, $parent->id, $abroad->id], $ids);
         $this->assertNotContains($design->id, $ids);
-        $this->assertNotContains($abroad->id, $ids);
+        $this->assertNotContains($closed->id, $ids);
         $this->assertNotContains($unverified->id, $ids);
         $this->assertNotContains($suspended->id, $ids);
         $this->assertNotContains($noSpecialty->id, $ids);

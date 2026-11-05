@@ -2,7 +2,7 @@
 
 namespace Modules\Freelance\Services\Projects;
 
-use App\Models\Country;
+use Modules\Freelance\Services\Policy\FreelanceMoney;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Freelance\Enums\FreelanceMilestoneStatus as Status;
@@ -53,7 +53,7 @@ class MilestonePayments
             }
 
             $needed = $m->amount_minor + $m->client_fee_minor;
-            $wallet = $this->walletOf($client, (int) $agreement->project->country_id);
+            $wallet = $this->walletOf($client);
             if (strtoupper((string) $wallet->currency?->code) !== strtoupper((string) $agreement->currency_code)) {
                 throw new FreelanceException('wallet_currency', 422, ['currency' => $agreement->currency_code], ['currency' => $agreement->currency_code]);
             }
@@ -64,8 +64,8 @@ class MilestonePayments
                 ], ['needed_minor' => $needed, 'available_minor' => $available, 'shortfall_minor' => $needed - $available, 'currency' => $agreement->currency_code]);
             }
 
-            $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $needed);
-            foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $needed - $fromSpendOnly]] as [$bucket, $part]) {
+            // Rewards, then spend-only, then withdrawable (Wallet::SPEND_ORDER).
+            foreach ($wallet->spendParts($needed) as [$bucket, $part]) {
                 if ($part <= 0) {
                     continue;
                 }
@@ -110,22 +110,23 @@ class MilestonePayments
             ->sortBy(fn (WalletHold $h) => $h->bucket === WalletBucket::SpendOnly ? 0 : 1)->values();
     }
 
-    /** What the client can spend now in the project's country (no wallet yet: nothing). */
-    public function availableFor(User $client, int $countryId): int
+    /** What the client can spend now in their international wallet (no wallet yet: nothing). The country no longer matters. */
+    public function availableFor(User $client, ?int $countryId = null): int
     {
-        $wallet = Wallet::query()->where('owner_type', 'user')->where('owner_id', $client->id)->where('country_id', $countryId)->first();
+        $wallet = app(FreelanceMoney::class)->existingWallet($client);
 
         return $wallet === null ? 0 : $this->available($wallet);
     }
 
-    private function walletOf(User $client, int $countryId): Wallet
+    /** Freelance work is paid from the client's international wallet, whatever the project's country (`freelance.money`). */
+    private function walletOf(User $client): Wallet
     {
-        return $this->wallets->firstOrCreateWallet($client, Country::query()->findOrFail($countryId))->fresh(['currency']);
+        return app(FreelanceMoney::class)->wallet($client);
     }
 
     private function available(Wallet $wallet): int
     {
-        return max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
+        return $wallet->spendableMinor();
     }
 
     public static function money(int $minor, string $currency): string

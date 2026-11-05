@@ -83,14 +83,15 @@ private fun Option(icon: ImageVector, label: String, on: Boolean, modifier: Modi
 internal fun HourlyRow(state: RidesState, quote: com.dorr.app.network.RideQuoteDto) {
     val offer = quote.hourlyOffer ?: return
     val accent = settingsAccent()
-    val hourly = state.hourlyHours != null
+    // O-86: a category by the hour only is always by the hour (priced at its fewest hours until changed).
+    val hourly = state.hourlyHours != null || offer.only
     fun price(hours: Int?) {
         state.hourlyHours = hours
         state.hourlySlug = if (hours == null) null else quote.category.slug
         loadQuotes(state, reprice = true)
     }
     Column(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).background(accent.copy(alpha = 0.06f)).padding(10.dp)) {
-        Row(Modifier.fillMaxWidth().clip(CircleShape).background(settingsCard()).padding(3.dp)) {
+        if (!offer.only) Row(Modifier.fillMaxWidth().clip(CircleShape).background(settingsCard()).padding(3.dp)) {
             listOf(false to R.string.hr_by_distance, true to R.string.hr_by_hour).forEach { (byHour, label) ->
                 val on = hourly == byHour
                 val bg by androidx.compose.animation.animateColorAsState(if (on) accent else Color.Transparent, androidx.compose.animation.core.tween(200), label = "hourly")

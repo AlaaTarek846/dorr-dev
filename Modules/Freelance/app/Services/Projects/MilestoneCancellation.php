@@ -218,8 +218,9 @@ class MilestoneCancellation
             // FL-505: the freelancer's share goes to the wallet now, or waits its days.
             $credited = app(FreelanceEarnings::class)->credit($m, $agreement, $country, $net, $side === 'admin' ? 'dispute' : 'ended', "freelance:milestone:{$m->uuid}:cancel-earning");
             $earning = $credited?->wallet_transaction_id === null ? null : \Modules\Wallet\Models\WalletTransaction::query()->find($credited->wallet_transaction_id);
-            $this->ledger->clientFee($feeUsed, $country->currency, $country, $m, (string) $project->title, $last);
-            $this->ledger->commission($commission, $country->currency, $country, $m, (string) $project->title, $earning);
+            $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
+            $this->ledger->clientFee($feeUsed, $currency, $country, $m, (string) $project->title, $last);
+            $this->ledger->commission($commission, $currency, $country, $m, (string) $project->title, $earning);
             // FL-511: a receipt for each side, with the movement.
             $reason = $side === 'admin' ? 'dispute' : 'ended';
             $receipts = app(FreelanceReceipts::class);

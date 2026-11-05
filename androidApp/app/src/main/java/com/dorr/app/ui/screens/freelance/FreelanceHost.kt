@@ -36,6 +36,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Loyalty
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteForever
@@ -74,6 +76,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.FreelanceBudgetRulesDto
+import com.dorr.app.network.FreelanceCostQuoteDto
 import com.dorr.app.network.FreelanceCancelRequest
 import com.dorr.app.network.FreelanceCostCapRequest
 import com.dorr.app.network.FreelanceIssueDto
@@ -93,6 +96,9 @@ import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import com.dorr.app.ui.screens.profile.settingsSurface
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -119,92 +125,121 @@ internal fun parseMoney(text: String): Long? {
 internal fun Throwable.message(fallback: String): String = serverMessage() ?: fallback
 
 /**
- * Freelance work for the client (FL-201 / FL-202): my projects, the project form (a draft saved as it is typed, its files) and one
- * project with what can be done now (send for review, take it back, cancel, delete). Every project is reviewed before it is
- * published. Nothing is asked on a timer: each page reads once when it opens and when the connection comes back.
+ * Freelance work for the client (FL-201 / FL-202): the hub ([FreelanceHome]) and the pages that open over it — my projects, the
+ * project form (a draft saved as it is typed, its files) and one project with what can be done now (send for review, take it back,
+ * cancel, delete), the services, consultations and the rest. Every project is reviewed before it is published. Nothing is asked on a
+ * timer: each page reads once when it opens and when the connection comes back.
  */
 @Composable
 fun FreelanceHost(onExit: () -> Unit) {
-    // "list", "new", "edit:<uuid>", "show:<uuid>", "offers:<p>", "offer:<p>:<o>", "compare:<p>:<o,o,o>", "freelancer:<p>:<o>", "chat:<p>:<o>:<room>"
-    var page by rememberSaveable { mutableStateOf("list") }
+    // FL-L13: no screenshots or recordings anywhere in the freelance work section (cleared on leaving it).
+    FreelanceScreenShield()
+    // The open pages (see [FlStack]): the hub first, the page on screen last; kept as their keys while the app is in the background.
+    var written by FreelanceLink::stack
+    val stack = remember(written) { FlStack.read(written) }
     var listVersion by remember { mutableStateOf(0) }
-    // FL-L07: where booking a consultation was opened from (back returns there).
-    var bookFrom by rememberSaveable { mutableStateOf("list") }
-    val parts = page.split(':')
-    fun back(): String = when (parts[0]) {
-        "edit", "offers" -> "show:" + parts[1]
-        "offer", "compare" -> "offers:" + parts[1]
-        "chat" -> "offer:" + parts[1] + ":" + parts[2]
-        "freelancer" -> "offer:" + parts[1] + ":" + parts[2]
-        "favorites" -> "list"
-        // FL-L04: the market and my orders.
-        "market", "orders" -> "list"
-        "svc" -> "market"
-        "order" -> "orders"
-        // FL-L07: consultations.
-        "consults", "cmarket" -> "list"
-        "consult" -> "consults"
-        "book" -> bookFrom
-        "agreement", "invites", "preview" -> "show:" + parts[1]
-        "dispute", "dispute-new" -> "agreement:" + parts[1]
-        else -> "list"
+    // What each open page keeps (a filter, the scroll) while a page is over it; dropped when the page is left.
+    val saved = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    fun go(next: FlStack) {
+        val keep = next.routes.map { it.key }.toSet()
+        stack.routes.filter { it.key !in keep }.forEach { saved.removeState(it.key) }
+        written = next.write()
     }
+    fun open(route: FlRoute) = go(stack.open(route))
+    fun replace(route: FlRoute) = go(stack.replace(route))
+    fun back() = go(stack.back())
     BackHandler {
-        if (page == "list") onExit() else page = back()
+        if (stack.routes.size == 1) onExit() else back()
     }
     // A tapped notification names the page it belongs to (also when this screen is already open).
     val linked = FreelanceLink.pending
     LaunchedEffect(linked) {
         if (linked != null) {
-            page = linked
+            go(FlStack.linked(linked))
             FreelanceLink.pending = null
         }
     }
 
     Box(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
         PinkBackdrop(Modifier.matchParentSize())
-        when {
-            page == "new" -> ProjectForm(uuid = null, onBack = { page = "list" }, onSaved = { page = "show:$it"; listVersion++ })
-            page.startsWith("edit:") -> ProjectForm(uuid = page.removePrefix("edit:"), onBack = { page = "show:" + page.removePrefix("edit:") }, onSaved = { page = "show:$it"; listVersion++ })
-            page.startsWith("show:") -> ProjectDetails(
-                uuid = page.removePrefix("show:"),
-                onBack = { page = "list" },
-                onEdit = { page = "edit:$it" },
-                onGone = { page = "list"; listVersion++ },
-                onPreview = { page = "preview:" + page.removePrefix("show:") },
-                onCopied = { listVersion++; page = "show:$it" },
-                onOffers ={ page = "offers:" + page.removePrefix("show:") },
-                onOpenOffer = { page = "offer:" + page.removePrefix("show:") + ":" + it },
-                onAgreement = { page = "agreement:" + page.removePrefix("show:") },
-                onInvitations = { page = "invites:" + page.removePrefix("show:") },
-            )
-            parts[0] == "preview" -> PreviewPage(parts[1], onBack = { page = back() }, onEdit = { page = "edit:${parts[1]}" }, onSent = { listVersion++; page = "show:${parts[1]}" })
-            parts[0] == "invites" -> InvitationsPage(parts[1], onBack = { page = back() }, onOpenOffer = { page = "offer:${parts[1]}:$it" }, onMadePublic = { listVersion++; page = "show:${parts[1]}" })
-            parts[0] == "offers" -> OffersPage(parts[1], onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" }, onCompare = { page = "compare:${parts[1]}:" + it.joinToString(",") })
-            parts[0] == "compare" -> ComparePage(parts[1], parts[2].split(','), onBack = { page = back() }, onOpen = { page = "offer:${parts[1]}:$it" })
-            parts[0] == "offer" -> OfferPage(parts[1], parts[2], onBack = { page = back() }, onProfile = { page = "freelancer:${parts[1]}:${parts[2]}" }, onChat = { page = "chat:${parts[1]}:${parts[2]}:$it" }, onChosen = { listVersion++; page = "agreement:${parts[1]}" })
-            parts[0] == "agreement" -> AgreementPage(parts[1], onBack = { page = back() }, onEnded = { listVersion++ }, onDispute = { m, d -> page = if (d != null) "dispute:${parts[1]}:$d" else "dispute-new:${parts[1]}:$m" })
-            parts[0] == "dispute" -> DisputePage(parts[1], null, parts[2], onBack = { page = back() }, onOpened = {})
-            parts[0] == "dispute-new" -> DisputePage(parts[1], parts[2], null, onBack = { page = back() }, onOpened = { page = "dispute:${parts[1]}:$it" })
-            parts[0] == "favorites" -> FavoritesPage(onBack = { page = "list" })
-            parts[0] == "market" -> MarketPage(onBack = { page = back() }, onOpen = { page = "svc:$it" }, onOrders = { page = "orders" }, onConsultations = { page = "cmarket" })
-            parts[0] == "svc" -> ServicePage(parts[1], onBack = { page = back() }, onOrdered = { listVersion++; page = "order:$it" })
-            parts[0] == "cmarket" -> ConsultationsMarketPage(onBack = { page = back() }, onOpen = { bookFrom = page; page = "book:$it" }, onMine = { page = "consults" })
-            parts[0] == "consults" -> MyConsultationsPage(onBack = { page = back() }, onOpen = { page = "consult:$it" })
-            parts[0] == "consult" -> ConsultationPage(parts[1], onBack = { page = back() })
-            parts[0] == "book" -> BookConsultationPage(parts[1], onBack = { page = back() }, onBooked = { page = "consult:$it" })
-            parts[0] == "orders" -> MyOrdersPage(onBack = { page = back() }, onOpen = { page = "order:$it" }, onBrowse = { page = "market" })
-            parts[0] == "order" -> MyOrderPage(parts[1], onBack = { page = back() }, onOpenWork = { page = "agreement:$it" }, onOrderAgain = { page = "svc:$it" })
-            parts[0] == "chat" -> ChatPage(parts[3], onBack = { page = back() })
-            parts[0] == "freelancer" -> FreelancerProfilePage(parts[1], parts[2], onBack = { page = back() }, onBookConsultation = { bookFrom = page; page = "book:$it" })
-            else -> ProjectList(version = listVersion, onExit = onExit, onNew = { page = "new" }, onOpen = { page = "show:$it" }, onFavorites = { page = "favorites" }, onMarket = { page = "market" }, onOrders = { page = "orders" }, onConsultations = { page = "consults" }, onConsultMarket = { page = "cmarket" })
+        val route = stack.top
+        saved.SaveableStateProvider(route.key) {
+            when (route) {
+                FlRoute.Home -> FreelanceHome(listVersion, onExit = onExit, open = ::open)
+                FlRoute.Projects -> ProjectList(version = listVersion, onBack = ::back, onNew = { open(FlRoute.NewProject) }, onOpen = { open(FlRoute.Project(it)) })
+                FlRoute.NewProject -> ProjectForm(uuid = null, onBack = ::back, onSaved = { listVersion++; replace(FlRoute.Project(it)) })
+                is FlRoute.EditProject -> ProjectForm(uuid = route.project, onBack = ::back, onSaved = { listVersion++; replace(FlRoute.Project(it)) })
+                is FlRoute.Project -> ProjectDetails(
+                    uuid = route.project,
+                    onBack = ::back,
+                    onEdit = { open(FlRoute.EditProject(it)) },
+                    onGone = { listVersion++; back() },
+                    onPreview = { open(FlRoute.Preview(route.project)) },
+                    onCopied = { listVersion++; replace(FlRoute.Project(it)) },
+                    onOffers = { open(FlRoute.Offers(route.project)) },
+                    onOpenOffer = { open(FlRoute.Offer(route.project, it)) },
+                    onAgreement = { open(FlRoute.Agreement(route.project)) },
+                    onInvitations = { open(FlRoute.Invitations(route.project)) },
+                )
+                is FlRoute.Preview -> PreviewPage(route.project, onBack = ::back, onEdit = { replace(FlRoute.EditProject(route.project)) }, onSent = { listVersion++; back() })
+                is FlRoute.Invitations -> InvitationsPage(route.project, onBack = ::back, onOpenOffer = { open(FlRoute.Offer(route.project, it)) }, onMadePublic = { listVersion++; back() })
+                is FlRoute.Offers -> OffersPage(route.project, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) }, onCompare = { open(FlRoute.Compare(route.project, it)) })
+                is FlRoute.Compare -> ComparePage(
+                    route.project, route.offers, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) },
+                    onChosen = { listVersion++; go(stack.after({ it == FlRoute.Project(route.project) }, FlRoute.Agreement(route.project))) },
+                )
+                is FlRoute.Offer -> OfferPage(
+                    route.project, route.offer, onBack = ::back,
+                    onProfile = { open(FlRoute.Freelancer(route.project, route.offer)) },
+                    onChat = { open(FlRoute.Chat(route.project, route.offer, it)) },
+                    // The work is agreed: its agreement opens over the project (back from it is the project, not the offers).
+                    onChosen = { listVersion++; go(stack.after({ it == FlRoute.Project(route.project) }, FlRoute.Agreement(route.project))) },
+                )
+                is FlRoute.Agreement -> AgreementPage(
+                    route.project, onBack = ::back, onEnded = { listVersion++ },
+                    onDispute = { m, d -> open(if (d != null) FlRoute.Dispute(route.project, d) else FlRoute.NewDispute(route.project, m)) },
+                )
+                is FlRoute.Dispute -> DisputePage(route.project, null, route.dispute, onBack = ::back, onOpened = {})
+                is FlRoute.NewDispute -> DisputePage(route.project, route.milestone, null, onBack = ::back, onOpened = { replace(FlRoute.Dispute(route.project, it)) })
+                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) })
+                FlRoute.TalentLists -> TalentListsPage(onBack = ::back, onOpen = { open(FlRoute.TalentList(it)) })
+                is FlRoute.TalentList -> TalentListPage(route.list, onBack = ::back, onGone = { back() })
+                FlRoute.Receipts -> ReceiptsPage(onBack = ::back)
+                // «Services»: the ready-made services and the consultations as two parts of one page.
+                FlRoute.Services, FlRoute.ConsultMarket -> ServicesPage(
+                    start = if (route == FlRoute.ConsultMarket) 1 else 0, onBack = ::back,
+                    onOpenService = { open(FlRoute.Service(it)) }, onOrders = { open(FlRoute.Orders) }, onBook = { open(FlRoute.Book(it)) }, onMine = { open(FlRoute.Consultations) },
+                )
+                is FlRoute.Service -> ServicePage(route.service, onBack = ::back, onOrdered = { listVersion++; replace(FlRoute.Order(it)) })
+                is FlRoute.Consultation -> ConsultationPage(route.consultation, onBack = ::back)
+                is FlRoute.Book -> BookConsultationPage(route.offer, onBack = ::back, onBooked = { replace(FlRoute.Consultation(it)) })
+                is FlRoute.SpecialOffer -> SpecialOfferPage(
+                    route.special, onBack = ::back,
+                    onOpenWork = { listVersion++; open(FlRoute.Agreement(it)) }, onOpenOrder = { listVersion++; open(FlRoute.Order(it)) },
+                    onOpenConsultation = { open(FlRoute.Consultation(it)) },
+                    onBook = { special, consult -> open(FlRoute.SpecialBook(special, consult)) },
+                )
+                is FlRoute.SpecialBook -> BookConsultationPage(route.offer, onBack = ::back, onBooked = { listVersion++; replace(FlRoute.Consultation(it)) }, special = route.special)
+                FlRoute.Loyalty -> LoyaltyPage(onBack = ::back)
+                // «My activity»: my orders, my consultations and the special offers as three parts of one page.
+                FlRoute.Orders, FlRoute.Consultations, FlRoute.SpecialOffers -> ActivityPage(
+                    start = when (route) { FlRoute.Consultations -> 1; FlRoute.SpecialOffers -> 2; else -> 0 }, onBack = ::back,
+                    onOpenOrder = { open(FlRoute.Order(it)) }, onBrowse = { open(FlRoute.Services) },
+                    onOpenConsultation = { open(FlRoute.Consultation(it)) }, onOpenSpecial = { open(FlRoute.SpecialOffer(it)) },
+                )
+                is FlRoute.Order -> MyOrderPage(route.order, onBack = ::back, onOpenWork = { open(FlRoute.Agreement(it)) }, onOrderAgain = { open(FlRoute.Service(it)) })
+                is FlRoute.Chat -> ChatPage(route.room, onBack = ::back)
+                is FlRoute.Freelancer -> FreelancerProfilePage(route.project, route.offer, onBack = ::back, onBookConsultation = { open(FlRoute.Book(it)) })
+            }
         }
     }
 }
 
 // ---------------------------------------------------------------- my projects
 
-private val FILTERS = listOf(null, "draft", "pending_review", "changes_requested", "published", "awarded", "in_progress", "rejected", "cancelled")
+/** The statuses under «Running» and under «Ended» (null: all of that part). */
+private val ACTIVE_FILTERS = listOf(null, "draft", "pending_review", "changes_requested", "published", "awarded", "in_progress")
+private val ENDED_FILTERS = listOf(null, "closed", "rejected", "cancelled")
 
 @Composable
 private fun filterLabel(status: String?): String = when (status) {
@@ -245,16 +280,21 @@ private fun StatusPill(status: String) {
 }
 
 @Composable
-internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
+/** [fit] true: the text may take two lines so several chips share one row (a long label is not cut). */
+internal fun Chip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, modifier: Modifier = Modifier, fit: Boolean = false, onClick: () -> Unit) {
     val accent = settingsAccent()
     val ink = if (selected) Color.White else settingsInk()
     Row(
-        Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
-            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f))
+            // A comfortable finger (40dp at least), read out with whether it is the one picked.
+            .clickable(role = androidx.compose.ui.semantics.Role.Tab, onClick = onClick)
+            .semantics { this.selected = selected }
+            .heightIn(min = 40.dp).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (icon != null) Icon(icon, null, tint = if (selected) Color.White else settingsAccent(), modifier = Modifier.size(16.dp))
-        Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+        if (fit) Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, modifier = Modifier.weight(1f, fill = false))
+        else Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
     }
 }
 
@@ -267,18 +307,26 @@ private fun filterIcon(status: String?): androidx.compose.ui.graphics.vector.Ima
     "awarded" -> Icons.Rounded.Handshake
     "in_progress" -> Icons.Rounded.Autorenew
     "rejected" -> Icons.Rounded.Block
+    "closed" -> Icons.Rounded.TaskAlt
     else -> Icons.Rounded.Cancel
 }
 
+/**
+ * My projects (the client redesign, batch C): «Running» and «Ended» side by side, the statuses of that part as chips, «New project» in the
+ * head, pulling down reads the list again. Each card says where the project stands and, on a coloured line, what is wanted from me.
+ */
 @Composable
-private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit, onFavorites: () -> Unit, onMarket: () -> Unit = {}, onOrders: () -> Unit = {}, onConsultations: () -> Unit = {}, onConsultMarket: () -> Unit = {}) {
+private fun ProjectList(version: Int, onBack: () -> Unit, onNew: () -> Unit, onOpen: (String) -> Unit) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
+    var ended by rememberSaveable { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
-    // A new filter is a new list (it starts from the first page); the next pages come while I scroll.
-    val paged = remember(filter) { PagedRows<FreelanceProjectDto>({ it.uuid }, { page -> ApiClient.freelance.projects(auth(), status = filter, page = page) }) }
+    // A new part or filter is a new list (it starts from the first page); the next pages come while I scroll.
+    val paged = remember(ended, filter) {
+        PagedRows<FreelanceProjectDto>({ it.uuid }, { page -> ApiClient.freelance.projects(auth(), status = filter, page = page, scope = if (ended) "ended" else "active") })
+    }
     val rows = paged.rows
     val loading = !paged.loaded
     val error = paged.error
@@ -286,74 +334,108 @@ private fun ProjectList(version: Int, onExit: () -> Unit, onNew: () -> Unit, onO
     listState.NearEnd(rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_my_projects), onExit)
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip(stringResource(R.string.fl_favorites), selected = false, icon = Icons.Rounded.Favorite) { onFavorites() }
-            // FL-L07: my paid consultations.
-            Chip(stringResource(R.string.cs_market_title), selected = false, icon = Icons.Rounded.VideoChat) { onConsultMarket() }
-            Chip(stringResource(R.string.cs_mine_title), selected = false, icon = Icons.Rounded.EventAvailable) { onConsultations() }
-            FILTERS.forEach { f -> Chip(filterLabel(f), selected = filter == f, icon = filterIcon(f)) { filter = f } }
+        FlPageHeader(stringResource(R.string.fl_my_projects), onBack) {
+            FlHeaderAction(stringResource(R.string.fl_new_project), Icons.Rounded.Add, onNew)
         }
-        if (loading && error == null) {
-            Box(Modifier.weight(1f)) { FlSkeletonList() }
-        } else LazyColumn(
-            Modifier.weight(1f).fillMaxWidth(), state = listState,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            // FL-708: shown only while a warning / restriction is active or its appeal waits.
-            item { SanctionsCard(version) }
-            // FL-L04: order a ready-made service instead of waiting for offers.
-            item { MarketBanner(onBrowse = onMarket, onOrders = onOrders) }
-            if (!loading && rows.isEmpty() && error == null) item {
-                com.dorr.app.ui.screens.wallet.WaEmpty(
-                    Icons.Rounded.Work, com.dorr.app.ui.screens.wallet.Tone.Blue,
-                    stringResource(R.string.fl_empty_title), stringResource(R.string.fl_empty_text),
-                )
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            FlTabs(
+                listOf(FlTab(Icons.Rounded.Autorenew, stringResource(R.string.flp_scope_active)), FlTab(Icons.Rounded.Inventory2, stringResource(R.string.flp_scope_ended))),
+                if (ended) 1 else 0,
+            ) { i -> if ((i == 1) != ended) { ended = i == 1; filter = null } }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (if (ended) ENDED_FILTERS else ACTIVE_FILTERS).forEach { f -> Chip(filterLabel(f), selected = filter == f, icon = filterIcon(f)) { filter = f } }
+        }
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+            if (loading && error == null) {
+                FlSkeletonList()
+            } else LazyColumn(
+                Modifier.fillMaxSize(), state = listState,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // FL-708: shown only while a warning / restriction is active or its appeal waits.
+                item { SanctionsCard(version) }
+                if (!loading && rows.isEmpty() && error == null) item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        com.dorr.app.ui.screens.wallet.WaEmpty(
+                            if (ended) Icons.Rounded.Inventory2 else Icons.Rounded.Work, com.dorr.app.ui.screens.wallet.Tone.Blue,
+                            stringResource(if (ended) R.string.flp_empty_ended_title else R.string.fl_empty_title),
+                            stringResource(if (ended) R.string.flp_empty_ended_text else R.string.fl_empty_text),
+                        )
+                        if (!ended && filter == null) FlAction(stringResource(R.string.flh_new_action), Icons.Rounded.Add, FlTone.Primary, onClick = onNew)
+                    }
+                }
+                items(rows, key = { it.uuid }) { p -> ProjectCard(p) { onOpen(p.uuid) } }
+                item { PagedSpinner(paged) }
+                error?.let { item { TextButton(onClick = { paged.clearError(); scope.launch { paged.loadMore(generic) } }, modifier = Modifier.fillMaxWidth()) { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) } } }
             }
-            items(rows, key = { it.uuid }) { p -> ProjectCard(p) { onOpen(p.uuid) } }
-            item { PagedSpinner(paged) }
-            error?.let { item { TextButton(onClick = { paged.clearError(); scope.launch { paged.loadMore(generic) } }, modifier = Modifier.fillMaxWidth()) { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp) } } }
         }
-        SettingsPrimaryButton(text = stringResource(R.string.fl_new_project), modifier = Modifier.padding(16.dp), onClick = onNew)
     }
 }
 
+/**
+ * A project on a list (my projects, the hub): its status on its colour, the title and specialty, the budget, the days and the offers, the
+ * parts done when the work is running, and — on a coloured line under it — what is wanted from me now.
+ */
 @Composable
-private fun ProjectCard(p: FreelanceProjectDto, onClick: () -> Unit) {
+internal fun ProjectCard(p: FreelanceProjectDto, onClick: () -> Unit) {
     val color = statusColor(p.status)
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Work, null, tint = color, modifier = Modifier.size(22.dp))
+    val amber = Color(0xFFD97706)
+    Column(
+        Modifier.fillMaxWidth().settingsSurface(FlCorners.card).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {},
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(44.dp).clip(FlCorners.icon).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                    Icon(if (p.status == "published" && p.visibility == "private") Icons.Rounded.Lock else filterIcon(p.status), null, tint = color, modifier = Modifier.size(22.dp))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                    p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                }
+                StatusPill(p.status)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                budgetText(p)?.let { CardFact(Icons.Rounded.Payments, it, settingsAccent(), bold = true) }
+                p.durationDays?.let { CardFact(Icons.Rounded.Schedule, stringResource(R.string.fl_days, it), settingsMut()) }
+                if ((p.status == "published" || p.status == "awarded") && p.offers.count > 0) CardFact(Icons.Rounded.RequestQuote, stringResource(R.string.flp_offers_n, p.offers.count), Color(0xFF16A34A), bold = true)
+            }
+            // FL-211: where the work stands.
+            p.progress?.let { g ->
+                ProgressBar(g.approved, g.total)
                 Text(
-                    p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    listOfNotNull(
+                        stringResource(R.string.fl_progress_parts, g.approved, g.total),
+                        if (g.inReview > 0) stringResource(R.string.fl_progress_review, g.inReview) else null,
+                    ).joinToString("  ·  "),
+                    color = settingsMut(), fontSize = 12.sp,
                 )
-                p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            }
-            StatusPill(p.status)
-        }
-        budgetText(p)?.let { b ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Rounded.Payments, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))
-                Text(b, color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
-        // FL-211: where the work stands, and what is due from me.
-        p.progress?.let { g ->
-            ProgressBar(g.approved, g.total)
-            Text(
-                listOfNotNull(
-                    stringResource(R.string.fl_progress_parts, g.approved, g.total),
-                    if (g.inReview > 0) stringResource(R.string.fl_progress_review, g.inReview) else null,
-                ).joinToString("  ·  "),
-                color = settingsMut(), fontSize = 12.sp,
-            )
+        // What is due from me, on its own line at the foot of the card.
+        p.nextAction?.let { code ->
+            Row(
+                Modifier.fillMaxWidth().background(amber.copy(alpha = 0.10f)).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Rounded.NotificationsActive, null, tint = amber, modifier = Modifier.size(16.dp))
+                Text(nextActionLabel(code), color = amber, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
-        p.nextAction?.let { NextActionLine(it) }
+    }
+}
+
+/** A small fact on a project card: an icon and a line. */
+@Composable
+private fun CardFact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color, bold: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(15.dp))
+        Text(text, color = color, fontSize = 12.5.sp, fontWeight = if (bold) FontWeight.ExtraBold else FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -456,147 +538,151 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
         }
     }
 
+    /** FL-209 / FS-102: a new draft made from this project (a copy, or asked again from the same freelancer), opened in its place. */
+    fun copy(call: suspend () -> FreelanceProjectDto?) {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                call()?.let { onCopied(it.uuid) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message(generic)
+            }
+            busy = false
+        }
+    }
+
+    var tab by rememberSaveable(uuid) { mutableStateOf<String?>(null) }
+    var more by remember { mutableStateOf(false) }
+
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_project), onBack)
+        FlPageHeader(stringResource(R.string.fl_project), onBack)
         val p = project
         if (p == null) {
             FlLoading(error)
             return@Column
         }
+        // The parts of the page: the details always; the offers while they are taken (or there are some); the work once agreed.
+        val tabs = buildList {
+            add("details")
+            if (p.status == "published" || p.status == "awarded" || p.offers.count > 0) add("offers")
+            if (p.agreement != null || !p.milestones.isNullOrEmpty()) add("work")
+        }
+        val current = tab?.takeIf { it in tabs } ?: when (p.nextAction) {
+            "review_offers" -> "offers"
+            "send_agreement", "review_delivery", "fund_milestone", "dispute" -> "work"
+            else -> null
+        }?.takeIf { it in tabs } ?: "details"
+        val primary = primaryStep(p, onPreview, onOffers, onAgreement, onInvitations, onEdit)
+        val others = moreSteps(p, primary?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = { copy { ApiClient.freelance.duplicate(auth(), p.uuid).data } }, onHireAgain = { copy { ApiClient.freelance.hireAgain(auth(), p.uuid).data } }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
+
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Card {
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)).background(statusColor(p.status).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Work, null, tint = statusColor(p.status), modifier = Modifier.size(24.dp))
+            ProjectHero(p)
+            if (tabs.size > 1) FlTabs(
+                tabs.map { t ->
+                    when (t) {
+                        "offers" -> FlTab(Icons.Rounded.RequestQuote, stringResource(R.string.flp_tab_offers), if (p.status == "published") p.offers.count else 0)
+                        "work" -> FlTab(Icons.Rounded.Handshake, stringResource(R.string.flp_tab_work))
+                        else -> FlTab(Icons.Rounded.Article, stringResource(R.string.flp_tab_details))
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                        Row { StatusPill(p.status) }
-                    }
-                }
-                if (!p.statusReason.isNullOrBlank()) FlNotice(stringResource(R.string.fl_reviewer_note, p.statusReason), Icons.Rounded.Info, statusColor(p.status))
-                if (p.status == "pending_review") FlNotice(stringResource(R.string.fl_under_review_hint), Icons.Rounded.HourglassTop, Color(0xFFD97706))
-                if (p.status == "rejected") FlNotice(stringResource(R.string.fl_rejected_hint), Icons.Rounded.Block, Color(0xFFDC2626))
-                p.nextAction?.let { NextActionLine(it) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_budget), budgetText(p) ?: "—", Modifier.weight(1.4f))
-                    FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) } ?: "—", Modifier.weight(1f))
-                    FlStat(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers), p.offers.count.toString(), Modifier.weight(0.8f))
-                }
-            }
-            // FL-211: the stages of the work, each with where it stands.
-            p.milestones?.takeIf { it.isNotEmpty() }?.let { stages ->
-                Card(Icons.Rounded.Flag, stringResource(R.string.fl_stages)) {
-                    p.progress?.let { g ->
-                        ProgressBar(g.approved, g.total)
-                        Text(
-                            stringResource(R.string.fl_progress_parts, g.approved, g.total) + "  ·  " +
-                                stringResource(R.string.fl_progress_money, "‎" + money(g.approvedMinor), money(g.priceMinor), p.budget.currency),
-                            color = settingsMut(), fontSize = 12.sp,
-                        )
-                    }
-                    stages.forEach { m ->
-                        val mc = milestoneStatusColor(m.status)
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(mc.copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Text(m.position.toString(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.size(24.dp).clip(RoundedCornerShape(50)).background(mc).wrapContentSize(Alignment.Center))
-                            Column(Modifier.weight(1f)) {
-                                Text(m.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(
-                                    "‎${money(m.amountMinor)} ${p.budget.currency}" + (m.durationDays?.let { "  ·  " + stringResource(R.string.fl_days, it) } ?: ""),
-                                    color = settingsMut(), fontSize = 12.sp,
-                                )
-                            }
-                            Text(milestoneStatusLabel(m.status), color = mc, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-            // FL-401: the agreement with the chosen freelancer.
-            p.agreement?.let { ag ->
-                Card(Icons.Rounded.Handshake, stringResource(R.string.fl_agreement)) {
-                    Text(agreementStatusLabel(ag.status), color = agreementStatusColor(ag.status), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    FlAction(stringResource(if (ag.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open), Icons.Rounded.Handshake, FlTone.Primary, onClick = onAgreement)
-                }
-            }
-            // FL-205: a private project is filled by invitation.
-            p.invitations?.takeIf { p.status == "published" }?.let { inv ->
-                Card(Icons.Rounded.MarkEmailUnread, stringResource(R.string.fl_inv_title)) {
-                    Text(stringResource(R.string.fl_inv_summary, inv.sent, inv.accepted, inv.declined), color = settingsMut(), fontSize = 13.sp)
-                    FlAction(stringResource(if (inv.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see), Icons.Rounded.PersonAdd, onClick = onInvitations)
-                }
-            }
-            if (p.status == "published" || p.status == "awarded") Card(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers) + if (p.offers.count > 0) " (${p.offers.count})" else "") {
-                FlNotice(
-                    when {
-                        p.status == "awarded" -> stringResource(R.string.fl_offers_closed_chosen)
-                        p.offers.accepting -> stringResource(R.string.fl_offers_open, p.offers.deadlineAt?.take(10).orEmpty())
-                        else -> stringResource(when (p.offers.closeReason) { "client" -> R.string.fl_offers_closed_client; "admin" -> R.string.fl_offers_closed_admin; "max_offers" -> R.string.fl_offers_closed_full; else -> R.string.fl_offers_closed_deadline })
-                    },
-                    if (p.offers.accepting) Icons.Rounded.CheckCircle else Icons.Rounded.Lock,
-                    if (p.status == "awarded") Color(0xFF7C3AED) else if (p.offers.accepting) Color(0xFF16A34A) else Color(0xFFD97706),
-                )
-                // FL-305 / FL-309: compare them and choose one.
-                p.offers.chosen?.let { chosen -> FlAction(stringResource(R.string.fl_see_chosen), Icons.Rounded.Star, FlTone.Primary) { onOpenOffer(chosen) } }
-                if (p.offers.count > 0) FlAction(stringResource(if (p.status == "published") R.string.fl_compare_choose else R.string.fl_see_offers), Icons.Rounded.CompareArrows, onClick = onOffers)
-                if (p.offers.canClose) FlAction(stringResource(R.string.fl_offers_close), Icons.Rounded.Lock, FlTone.Warn) { act({ ApiClient.freelance.closeOffers(auth(), p.uuid).data }) }
-                if (p.offers.canReopen) FlAction(stringResource(R.string.fl_offers_reopen, p.offers.reopensLeft), Icons.Rounded.LockOpen) { act({ ApiClient.freelance.reopenOffers(auth(), p.uuid).data }) }
-            }
-            Card(Icons.Rounded.Article, stringResource(R.string.fl_description)) { ProjectSummary(p) }
-            if (p.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
-                p.attachments.forEach { a ->
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(Icons.Rounded.Description, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
-                        Text(a.name, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-            if (p.missing.isNotEmpty()) FlNotice(stringResource(R.string.fl_missing, p.missing.map { missingLabel(it) }.joinToString("، ")), Icons.Rounded.Warning, Color(0xFFD97706))
+                },
+                tabs.indexOf(current),
+            ) { tab = tabs[it] }
             notice?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A)) }
             error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
 
-            // FL-210: a last look before it goes out (it also says what doesn't add up).
-            if (p.can.submit) FlAction(stringResource(R.string.fl_review_and_send), Icons.Rounded.Send, FlTone.Primary, enabled = p.missing.isEmpty(), loading = busy, onClick = onPreview)
-            if (p.can.edit) FlAction(stringResource(R.string.fl_edit), Icons.Rounded.Edit) { onEdit(p.uuid) }
-            if (p.can.setCostCap) FlAction(stringResource(if (p.maxCostMinor == null) R.string.fl_cost_cap_set else R.string.fl_cost_cap_change), Icons.Rounded.Savings) { capError = null; capDialog = true }
-            // FL-209: ask for it again from this one.
-            if (p.can.duplicate) FlAction(stringResource(R.string.fl_copy_project), Icons.Rounded.ContentCopy) {
-                busy = true
-                error = null
-                scope.launch {
-                    try {
-                        ApiClient.freelance.duplicate(auth(), p.uuid).data?.let { onCopied(it.uuid) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        error = e.message(generic)
-                    }
-                    busy = false
+            when (current) {
+                "offers" -> Card(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers) + if (p.offers.count > 0) " (${p.offers.count})" else "") {
+                    FlNotice(
+                        when {
+                            p.status == "awarded" -> stringResource(R.string.fl_offers_closed_chosen)
+                            p.offers.accepting -> stringResource(R.string.fl_offers_open, p.offers.deadlineAt?.take(10).orEmpty())
+                            else -> stringResource(when (p.offers.closeReason) { "client" -> R.string.fl_offers_closed_client; "admin" -> R.string.fl_offers_closed_admin; "max_offers" -> R.string.fl_offers_closed_full; else -> R.string.fl_offers_closed_deadline })
+                        },
+                        if (p.offers.accepting) Icons.Rounded.CheckCircle else Icons.Rounded.Lock,
+                        if (p.status == "awarded") Color(0xFF7C3AED) else if (p.offers.accepting) Color(0xFF16A34A) else Color(0xFFD97706),
+                    )
+                    // FL-305 / FL-309: compare them and choose one.
+                    p.offers.chosen?.let { chosen -> FlAction(stringResource(R.string.fl_see_chosen), Icons.Rounded.Star, FlTone.Primary) { onOpenOffer(chosen) } }
+                    if (p.offers.count > 0 && primary?.key != "offers") FlAction(stringResource(if (p.status == "published") R.string.fl_compare_choose else R.string.fl_see_offers), Icons.Rounded.CompareArrows, onClick = onOffers)
+                    if (p.offers.count == 0) Text(stringResource(R.string.flp_no_offers_yet), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+                    if (p.offers.canClose) FlAction(stringResource(R.string.fl_offers_close), Icons.Rounded.Lock, FlTone.Warn) { act({ ApiClient.freelance.closeOffers(auth(), p.uuid).data }) }
+                    if (p.offers.canReopen) FlAction(stringResource(R.string.fl_offers_reopen, p.offers.reopensLeft), Icons.Rounded.LockOpen) { act({ ApiClient.freelance.reopenOffers(auth(), p.uuid).data }) }
                 }
-            }
-            if (p.can.withdraw) FlAction(stringResource(R.string.fl_withdraw), Icons.Rounded.Undo, FlTone.Warn) { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }
-            if (p.can.cancel) FlAction(stringResource(R.string.fl_cancel_project), Icons.Rounded.Cancel, FlTone.Danger) { cancelCode = null; cancelNote = ""; confirm = "cancel" }
-            if (p.can.delete) FlAction(stringResource(R.string.fl_delete_draft), Icons.Rounded.DeleteForever, FlTone.Danger) { confirm = "delete" }
-
-            p.timeline?.takeIf { it.isNotEmpty() }?.let { events ->
-                Card(Icons.Rounded.History, stringResource(R.string.fl_history)) {
-                    events.forEach { e ->
-                        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Box(Modifier.padding(top = 6.dp).size(7.dp).clip(RoundedCornerShape(50)).background(settingsAccent()))
-                            Column {
-                                Text(eventLabel(e.type), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("‎${e.at?.take(16)?.replace('T', ' ').orEmpty()}", color = settingsMut(), fontSize = 11.5.sp)
+                "work" -> {
+                    // FL-401: the agreement with the chosen freelancer.
+                    p.agreement?.let { ag ->
+                        Card(Icons.Rounded.Handshake, stringResource(R.string.fl_agreement)) {
+                            Text(agreementStatusLabel(ag.status), color = agreementStatusColor(ag.status), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (primary?.key != "agreement") FlAction(stringResource(if (ag.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open), Icons.Rounded.Handshake, FlTone.Primary, onClick = onAgreement)
+                        }
+                    }
+                    // FL-211: the stages of the work, each with where it stands.
+                    p.milestones?.takeIf { it.isNotEmpty() }?.let { stages -> StagesCard(p, stages) }
+                }
+                else -> {
+                    // FS-102: asked again from a freelancer - who, and last time's parts as a reference.
+                    p.hireAgain?.let { HireAgainCard(it, p.budget.currency) }
+                    Card(Icons.Rounded.Article, stringResource(R.string.fl_description)) { ProjectSummary(p) }
+                    if (p.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
+                        p.attachments.forEach { a ->
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(Icons.Rounded.Description, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+                                Text(a.name, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                    // FL-205: a private project is filled by invitation.
+                    p.invitations?.takeIf { p.status == "published" }?.let { inv ->
+                        Card(Icons.Rounded.MarkEmailUnread, stringResource(R.string.fl_inv_title)) {
+                            Text(stringResource(R.string.fl_inv_summary, inv.sent, inv.accepted, inv.declined), color = settingsMut(), fontSize = 13.sp)
+                            if (primary?.key != "invitations") FlAction(stringResource(if (inv.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see), Icons.Rounded.PersonAdd, onClick = onInvitations)
+                        }
+                    }
+                    if (p.missing.isNotEmpty()) FlNotice(stringResource(R.string.fl_missing, p.missing.map { missingLabel(it) }.joinToString("، ")), Icons.Rounded.Warning, Color(0xFFD97706))
+                    p.timeline?.takeIf { it.isNotEmpty() }?.let { events ->
+                        Card(Icons.Rounded.History, stringResource(R.string.fl_history)) {
+                            events.forEach { e ->
+                                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(Modifier.padding(top = 6.dp).size(7.dp).clip(RoundedCornerShape(50)).background(settingsAccent()))
+                                    Column {
+                                        Text(eventLabel(e.type), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("‎${com.dorr.app.ui.screens.rides.localDateTime(e.at)}", color = settingsMut(), fontSize = 11.5.sp)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
+        }
+        // The main step for where the project stands, always in reach; the rest under «More».
+        if (primary != null || others.isNotEmpty()) Row(
+            Modifier.fillMaxWidth().background(if (settingsNight()) com.dorr.app.ui.screens.AccountDark.bg else Color.White).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (primary != null) FlAction(primary.text, primary.icon, FlTone.Primary, enabled = primary.enabled && !busy, loading = busy && primary.key == "submit", modifier = Modifier.weight(1f), onClick = primary.onClick)
+            if (others.isNotEmpty()) {
+                if (primary == null) FlAction(stringResource(R.string.flp_more_title), Icons.Rounded.MoreHoriz, modifier = Modifier.weight(1f)) { more = true }
+                else Box(
+                    Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = 0.10f))
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) { more = true },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.MoreHoriz, stringResource(R.string.flp_more), tint = settingsAccent()) }
+            }
+        }
+    }
+
+    if (more) project?.let { p ->
+        FlSheet(Icons.Rounded.MoreHoriz, stringResource(R.string.flp_more_title), p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), onDismiss = { more = false }) {
+            moreSteps(p, primaryStep(p, onPreview, onOffers, onAgreement, onInvitations, onEdit)?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = { copy { ApiClient.freelance.duplicate(auth(), p.uuid).data } }, onHireAgain = { copy { ApiClient.freelance.hireAgain(auth(), p.uuid).data } }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
+                .forEach { step -> FlAction(step.text, step.icon, step.tone, enabled = !busy) { more = false; step.onClick() } }
         }
     }
 
@@ -620,6 +706,122 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
             onSave = { v -> changeCap { ApiClient.freelance.setCostCap(auth(), uuid, FreelanceCostCapRequest(v)).data } },
             onRemove = { changeCap { ApiClient.freelance.removeCostCap(auth(), uuid).data } },
         )
+    }
+}
+
+/** FS-102: the draft is asked again from this freelancer (invited when it is published); the last work's parts are only a reference. */
+@Composable
+private fun HireAgainCard(h: com.dorr.app.network.FreelanceHireAgainDto, currency: String) {
+    Card(Icons.Rounded.Replay, stringResource(R.string.fs_hire_again_title)) {
+        Text(stringResource(R.string.fs_hire_again_from, h.freelancer?.name.orEmpty()), color = settingsInk(), fontSize = 13.sp, lineHeight = 19.sp)
+        if (h.milestones.isNotEmpty()) {
+            Text(stringResource(R.string.fs_hire_again_prev), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            h.milestones.forEach { m ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(m.title, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    m.durationDays?.let { Text(stringResource(R.string.fl_days, it), color = settingsMut(), fontSize = 12.sp) }
+                    Text("‎${money(m.amountMinor)} $currency", color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        FlNotice(stringResource(R.string.fs_hire_again_note), Icons.Rounded.Info, Color(0xFFD97706))
+    }
+}
+
+/** A step on the project page: the main one at the foot, the others under «More». */
+private class ProjectStep(val key: String, val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tone: FlTone = FlTone.Soft, val enabled: Boolean = true, val onClick: () -> Unit)
+
+/** The one step that moves the project on from where it stands (null when nothing is up to me). */
+@Composable
+private fun primaryStep(p: FreelanceProjectDto, onPreview: () -> Unit, onOffers: () -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit, onEdit: (String) -> Unit): ProjectStep? = when {
+    // FL-210: a last look before it goes out (it also says what doesn't add up).
+    p.can.submit -> ProjectStep("submit", stringResource(R.string.fl_review_and_send), Icons.Rounded.Send, FlTone.Primary, enabled = p.missing.isEmpty(), onClick = onPreview)
+    p.status == "published" && p.offers.count > 0 -> ProjectStep("offers", stringResource(R.string.fl_compare_choose), Icons.Rounded.CompareArrows, FlTone.Primary, onClick = onOffers)
+    p.agreement != null -> ProjectStep("agreement", stringResource(if (p.agreement.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open), Icons.Rounded.Handshake, FlTone.Primary, onClick = onAgreement)
+    p.status == "published" && p.invitations?.canInvite == true -> ProjectStep("invitations", stringResource(R.string.fl_inv_manage), Icons.Rounded.PersonAdd, FlTone.Primary, onClick = onInvitations)
+    p.can.edit -> ProjectStep("edit", stringResource(R.string.fl_edit), Icons.Rounded.Edit, FlTone.Primary) { onEdit(p.uuid) }
+    else -> null
+}
+
+/** What else can be done with the project, in the order it is wanted (stepping back last). */
+@Composable
+private fun moreSteps(
+    p: FreelanceProjectDto, primary: String?, onEdit: (String) -> Unit, onInvitations: () -> Unit,
+    onCap: () -> Unit, onCopy: () -> Unit, onHireAgain: () -> Unit, onWithdraw: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit,
+): List<ProjectStep> = buildList {
+    if (p.can.edit && primary != "edit") add(ProjectStep("edit", stringResource(R.string.fl_edit), Icons.Rounded.Edit) { onEdit(p.uuid) })
+    if (p.invitations != null && p.status == "published" && primary != "invitations") add(ProjectStep("invitations", stringResource(if (p.invitations.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see), Icons.Rounded.PersonAdd, onClick = onInvitations))
+    if (p.can.setCostCap) add(ProjectStep("cap", stringResource(if (p.maxCostMinor == null) R.string.fl_cost_cap_set else R.string.fl_cost_cap_change), Icons.Rounded.Savings, onClick = onCap))
+    // FL-209: ask for it again from this one.
+    if (p.can.duplicate) add(ProjectStep("copy", stringResource(R.string.fl_copy_project), Icons.Rounded.ContentCopy, onClick = onCopy))
+    // FS-102: the same freelancer again, on a new private draft.
+    if (p.can.hireAgain) add(ProjectStep("hire_again", stringResource(R.string.fs_hire_again), Icons.Rounded.Replay, onClick = onHireAgain))
+    if (p.can.withdraw) add(ProjectStep("withdraw", stringResource(R.string.fl_withdraw), Icons.Rounded.Undo, FlTone.Warn, onClick = onWithdraw))
+    if (p.can.cancel) add(ProjectStep("cancel", stringResource(R.string.fl_cancel_project), Icons.Rounded.Cancel, FlTone.Danger, onClick = onCancel))
+    if (p.can.delete) add(ProjectStep("delete", stringResource(R.string.fl_delete_draft), Icons.Rounded.DeleteForever, FlTone.Danger, onClick = onDelete))
+}
+
+/** The head of the project page: a band of its status colour, the status, title and specialty, three figures and what the staff said. */
+@Composable
+private fun ProjectHero(p: FreelanceProjectDto) {
+    val c = statusColor(p.status)
+    Column(Modifier.fillMaxWidth().settingsSurface(FlCorners.card)) {
+        Box(Modifier.fillMaxWidth().height(5.dp).background(c))
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatusPill(p.status)
+                p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+            Text(p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), color = settingsInk(), fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_budget), budgetText(p) ?: "—", Modifier.weight(1.4f))
+                FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), p.durationDays?.let { stringResource(R.string.fl_days, it) } ?: "—", Modifier.weight(1f))
+                FlStat(Icons.Rounded.RequestQuote, stringResource(R.string.fl_offers), p.offers.count.toString(), Modifier.weight(0.8f))
+            }
+            p.progress?.let { g ->
+                ProgressBar(g.approved, g.total)
+                Text(stringResource(R.string.fl_progress_parts, g.approved, g.total), color = settingsMut(), fontSize = 12.sp)
+            }
+            if (!p.statusReason.isNullOrBlank()) FlNotice(stringResource(R.string.fl_reviewer_note, p.statusReason), Icons.Rounded.Info, c)
+            if (p.status == "pending_review") FlNotice(stringResource(R.string.fl_under_review_hint), Icons.Rounded.HourglassTop, Color(0xFFD97706))
+            if (p.status == "rejected") FlNotice(stringResource(R.string.fl_rejected_hint), Icons.Rounded.Block, Color(0xFFDC2626))
+            p.nextAction?.let { NextActionLine(it) }
+        }
+    }
+}
+
+/** FL-211: the stages of the work, each with where it stands, and the money passed so far. */
+@Composable
+private fun StagesCard(p: FreelanceProjectDto, stages: List<com.dorr.app.network.FreelanceProjectPartDto>) {
+    Card(Icons.Rounded.Flag, stringResource(R.string.fl_stages)) {
+        p.progress?.let { g ->
+            ProgressBar(g.approved, g.total)
+            Text(
+                stringResource(R.string.fl_progress_parts, g.approved, g.total) + "  ·  " +
+                    stringResource(R.string.fl_progress_money, "‎" + money(g.approvedMinor), money(g.priceMinor), p.budget.currency),
+                color = settingsMut(), fontSize = 12.sp,
+            )
+        }
+        stages.forEachIndexed { i, m ->
+            val mc = milestoneStatusColor(m.status)
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // A line joins the stages, the way the work runs.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(m.position.toString(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.size(26.dp).clip(RoundedCornerShape(50)).background(mc).wrapContentSize(Alignment.Center))
+                    if (i < stages.lastIndex) Box(Modifier.width(2.dp).height(30.dp).background(mc.copy(alpha = 0.35f)))
+                }
+                Column(Modifier.weight(1f).padding(top = 2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(m.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(milestoneStatusLabel(m.status), color = mc, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "‎${money(m.amountMinor)} ${p.budget.currency}" + (m.durationDays?.let { "  ·  " + stringResource(R.string.fl_days, it) } ?: ""),
+                        color = settingsMut(), fontSize = 12.sp,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -710,7 +912,7 @@ private fun PreviewPage(uuid: String, onBack: () -> Unit, onEdit: () -> Unit, on
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_preview_title), onBack)
+        FlPageHeader(stringResource(R.string.fl_preview_title), onBack)
         val pv = preview
         if (pv == null) {
             FlLoading(error)
@@ -787,6 +989,7 @@ private fun eventLabel(type: String): String = when (type) {
     "project.resubmitted" -> stringResource(R.string.fl_ev_resubmitted)
     "project.withdrawn" -> stringResource(R.string.fl_ev_withdrawn)
     "project.cost_cap_set" -> stringResource(R.string.fl_ev_cost_cap)
+    "project.hire_again" -> stringResource(R.string.fs_ev_hire_again)
     "project.completed" -> stringResource(R.string.fl_ev_completed)
     "project.invited" -> stringResource(R.string.fl_ev_invited)
     "project.made_public" -> stringResource(R.string.fl_ev_made_public)
@@ -827,8 +1030,8 @@ internal fun Field(label: String, value: String?) {
 }
 
 @Composable
-internal fun TextAction(text: String, danger: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
-    FlAction(text, icon, if (danger) FlTone.Danger else FlTone.Soft, onClick = onClick)
+internal fun TextAction(text: String, danger: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    FlAction(text, icon, if (danger) FlTone.Danger else FlTone.Soft, modifier = modifier, onClick = onClick)
 }
 
 // ---------------------------------------------------------------- the form
@@ -926,8 +1129,49 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
         )
     }
 
+    // What is wrong with the money, said next to the field as it is typed — so it is fixed before the draft is saved, not found at review.
+    val low = budgetMin.takeIf { it.isNotBlank() }?.let { parseMoney(it) }
+    val high = if (budgetType == "range") budgetMax.takeIf { it.isNotBlank() }?.let { parseMoney(it) } else null
+    val cap = maxCost.takeIf { it.isNotBlank() }?.let { parseMoney(it) }
+    val rangeText = stringResource(R.string.fl_err_range)
+    val belowMinText = rules?.minMinor?.let { stringResource(R.string.fl_err_below_min, money(it), rules?.currency.orEmpty()) }
+    val aboveMaxText = rules?.maxMinor?.let { stringResource(R.string.fl_err_above_max, money(it), rules?.currency.orEmpty()) }
+    val capText = stringResource(R.string.fl_err_cap_below)
+    val amountProblem = when {
+        low != null && rules?.minMinor != null && low < rules!!.minMinor!! -> belowMinText
+        (high ?: low) != null && rules?.maxMinor != null && (high ?: low)!! > rules!!.maxMinor!! -> aboveMaxText
+        else -> null
+    }
+    val rangeProblem = if (budgetType == "range" && low != null && high != null && high <= low) rangeText else null
+    // What the lowest budget costs in all (the client fee included), asked of the server a moment after typing stops.
+    var lowCost by remember { mutableStateOf<FreelanceCostQuoteDto?>(null) }
+    LaunchedEffect(low, specialty?.id) {
+        lowCost = null
+        if (low == null || low <= 0) return@LaunchedEffect
+        delay(400)
+        lowCost = runCatching { ApiClient.freelance.costQuote(auth(), low, specialty?.id).data }.getOrNull()
+    }
+    val capBelowFeesText = lowCost?.let { stringResource(R.string.fl_err_cap_below_fees, money(it.totalMinor), it.currency) }
+    val capProblem = when {
+        cap == null || low == null -> null
+        cap < low -> capText
+        lowCost != null && cap < lowCost!!.totalMinor -> capBelowFeesText
+        else -> null
+    }
+    val problem = amountProblem ?: rangeProblem ?: capProblem
+
+    // A form left as it was opens no question; a changed one asks before it is left (a back tap would lose the changes).
+    fun signature() = listOf(title, description, specialty?.id, skills.map { it.id }, budgetType, budgetMin, budgetMax, maxCost, duration, visibility, questions.toList()).toString()
+    var initial by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(loaded) { if (loaded && initial == null) initial = signature() }
+    val dirty = initial != null && signature() != initial
+    var leaving by remember { mutableStateOf(false) }
+    fun tryBack() { if (dirty) leaving = true else onBack() }
+    BackHandler { tryBack() }
+
     /** Saves the draft; [then] gets the project's uuid (a new draft gets one on its first save). */
     fun save(then: (String) -> Unit) {
+        if (problem != null) { error = problem; return }
         val body = request() ?: run { error = badBudget; return }
         busy = true
         error = null
@@ -971,7 +1215,7 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(if (uuid == null) R.string.fl_new_project else R.string.fl_edit), onBack)
+        FlPageHeader(stringResource(if (uuid == null) R.string.fl_new_project else R.string.fl_edit), ::tryBack)
         if (!loaded) {
             FlLoading(error)
             return@Column
@@ -998,13 +1242,14 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     DorrTextField(
                         budgetMin, { budgetMin = it }, label = stringResource(if (budgetType == "range") R.string.fl_budget_from else R.string.fl_budget_amount, currency), icon = Icons.Rounded.Payments,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = amountProblem != null, modifier = Modifier.weight(1f),
                     )
                     if (budgetType == "range") DorrTextField(
                         budgetMax, { budgetMax = it }, label = stringResource(R.string.fl_budget_to, currency), icon = Icons.Rounded.Payments,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = rangeProblem != null, modifier = Modifier.weight(1f),
                     )
                 }
+                (amountProblem ?: rangeProblem)?.let { FormProblem(it) }
                 rules?.let { r ->
                     val parts = listOfNotNull(
                         r.minMinor?.let { stringResource(R.string.fl_budget_min_rule, money(it), r.currency) },
@@ -1015,8 +1260,9 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
                 // FL-210: the most I will pay in all.
                 DorrTextField(
                     maxCost, { maxCost = it }, label = stringResource(R.string.fl_cost_cap_field, currency), icon = Icons.Rounded.Savings,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = capProblem != null, modifier = Modifier.fillMaxWidth(),
                 )
+                capProblem?.let { FormProblem(it) }
                 Text(stringResource(R.string.fl_cost_cap_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1077,15 +1323,30 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
         specialty = picked
         pickSpecialty = false
     }
+    if (leaving) ConfirmDialog(
+        icon = Icons.Rounded.Save, title = stringResource(R.string.fl_leave_title), message = stringResource(R.string.fl_leave_body),
+        confirmLabel = stringResource(R.string.fl_leave_save), dismissLabel = stringResource(R.string.fl_leave_keep),
+        onDismiss = { leaving = false }, onConfirm = { leaving = false; save(onSaved) },
+        extraLabel = stringResource(R.string.fl_leave_discard), onExtra = { leaving = false; onBack() },
+    )
+}
+
+/** One line under a field: what is wrong with what was typed. */
+@Composable
+private fun FormProblem(text: String) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(Icons.Rounded.ErrorOutline, null, tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+        Text(text, color = Color(0xFFDC2626), fontSize = 12.sp, lineHeight = 18.sp)
+    }
 }
 
 /** The file as a multipart part named `file`, with its own name and type. */
-private fun filePart(context: Context, uri: Uri): MultipartBody.Part? {
+internal fun filePart(context: Context, uri: Uri, field: String = "file"): MultipartBody.Part? {
     val resolver = context.contentResolver
     val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
     val type = resolver.getType(uri) ?: "application/octet-stream"
     val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-    return MultipartBody.Part.createFormData("file", name, bytes.toRequestBody(type.toMediaTypeOrNull()))
+    return MultipartBody.Part.createFormData(field, name, bytes.toRequestBody(type.toMediaTypeOrNull()))
 }
 
 /**

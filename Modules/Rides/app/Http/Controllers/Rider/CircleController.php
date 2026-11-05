@@ -17,7 +17,11 @@ class CircleController extends Controller
 {
     public function index(Request $request, FavoriteCircle $circle): JsonResponse
     {
-        return ApiResponse::success(['drivers' => $circle->drivers($this->rider($request))], __('api.retrieved'));
+        $request->validate(['lat' => ['nullable', 'numeric', 'between:-90,90'], 'lng' => ['nullable', 'numeric', 'between:-180,180']]);
+        $lat = $request->filled('lat') ? (float) $request->input('lat') : null;
+        $lng = $request->filled('lng') ? (float) $request->input('lng') : null;
+
+        return ApiResponse::success(['drivers' => $circle->drivers($this->rider($request), $lat, $lng)], __('api.retrieved'));
     }
 
     public function widen(Request $request, string $uuid, FavoriteCircle $circle): JsonResponse

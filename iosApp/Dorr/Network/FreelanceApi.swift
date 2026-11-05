@@ -26,6 +26,14 @@ struct FreelanceBudgetRulesDto: Codable, Equatable {
     var currency: String?
 }
 
+/// What the client pays in all for a price: the price, the client fee and the total.
+struct FreelanceCostQuoteDto: Codable, Equatable {
+    var priceMinor: Int
+    var clientFeeMinor: Int
+    var totalMinor: Int
+    var currency: String?
+}
+
 struct FreelanceNamedDto: Codable, Equatable, Hashable {
     var id: Int
     var name: String?
@@ -54,7 +62,35 @@ struct FreelanceProjectCanDto: Codable, Equatable {
     var delete: Bool?
     /// FL-209 / FL-210.
     var duplicate: Bool?
+    /// FS-102: ask the freelancer of a finished project again.
+    var hireAgain: Bool?
     var setCostCap: Bool?
+}
+
+/// FS-102: a draft asked again from the same freelancer: who, the project it came from, and that work's parts (a reference only).
+struct FreelanceHireAgainDto: Codable, Equatable {
+    var freelancer: FreelanceHireAgainFreelancerDto?
+    var fromProject: String?
+    var milestones: [FreelanceHireAgainPartDto]?
+}
+
+struct FreelanceHireAgainFreelancerDto: Codable, Equatable {
+    var uuid: String?
+    var name: String?
+}
+
+struct FreelanceHireAgainPartDto: Codable, Equatable {
+    var title: String?
+    var amountMinor: Int?
+    var durationDays: Int?
+}
+
+/// FS-105: a ready checklist (already in my language).
+struct FreelanceChecklistTemplateDto: Codable, Equatable {
+    var code: String?
+    var name: String?
+    var specialtyId: Int?
+    var items: [String]?
 }
 
 /// The window in which a published project takes offers (FL-204).
@@ -119,6 +155,8 @@ struct FreelanceProjectDto: Codable, Equatable, Identifiable {
     var timeline: [FreelanceProjectEventDto]?
     var createdAt: String?
     var submittedAt: String?
+    /// FS-102: set on a draft asked again from a freelancer.
+    var hireAgain: FreelanceHireAgainDto?
     /// FL-210: the most I pay in all (fee included), or nil.
     var maxCostMinor: Int?
     /// FL-211: where the work stands (nil until there is work), and what is due from me next.
@@ -240,6 +278,11 @@ struct FreelanceOfferDto: Codable, Equatable, Identifiable {
     var chat: FreelanceOfferChatDto?
     /// FL-210: dearer than the most I said I'd pay.
     var overCap: Bool?
+    /// FL-L09: the usual price and the loyalty discount (basis points) taken off it for me; nil: none.
+    var listPriceMinor: Int?
+    var loyaltyBp: Int?
+    /// FL-L13: who owns the work once it is paid and what I may do with it (nil: the feature is off).
+    var rights: FreelanceRightsSummaryDto?
 
     var id: String { uuid }
     var state: String { status ?? "submitted" }
@@ -336,6 +379,8 @@ struct FreelancerProfileDto: Codable, Equatable {
     var skillBadges: [FreelanceSkillBadgeDto]?
     /// FL-L07: the paid consultations listed now (empty: none).
     var consultations: [ConsultTeaserDto]?
+    /// FL-L09: the freelancer's loyalty program as it stands for me (nil: none).
+    var loyalty: FlLoyaltyViewDto?
 }
 
 struct FreelanceChatPeerDto: Codable, Equatable {
@@ -388,6 +433,8 @@ struct FreelanceDeliveryFileDto: Codable, Equatable {
     var mime: String?
     var size: Int?
     var isImage: Bool?
+    /// FL-L13: not approved yet under rights terms: only a small preview, never a download.
+    var previewOnly: Bool?
     /// Under mobile/v1/freelance/.
     var path: String?
 }
@@ -399,6 +446,8 @@ struct FreelanceDeliveryDto: Codable, Equatable {
     var deliveredAt: String?
     var revisionReason: String?
     var files: [FreelanceDeliveryFileDto]?
+    /// FL-L13: the freelancer's word that the work is theirs, and the outside material they listed.
+    var rights: FreelanceDeliveryRightsDto?
 }
 
 struct FreelanceMilestoneCanDto: Codable, Equatable {
@@ -499,6 +548,34 @@ struct FreelanceChangeDto: Codable, Equatable {
     var reason: String?
     var respondBy: String?
     var can: FreelanceChangeCanDto?
+    /// FS-101: an accepted change is addendum N of the agreement, and the version it reached.
+    var addendumNo: Int?
+    var appliedVersion: Int?
+    /// FS-101: what it moved, {price_minor|duration_days|milestones: [before, after]} — only what moved. Null, an object, or an
+    /// empty list `[]` when nothing moved; read it with `changeEffect()`.
+    var effect: JSONAny?
+    /// FS-101: the files it carries; `path` is under projects/{uuid}/.
+    var files: [FreelanceAttachmentDto]?
+}
+
+/// FS-101: one moved figure of an accepted change.
+struct FreelanceChangeEffect: Equatable {
+    var key: String
+    var before: Int
+    var after: Int
+}
+
+extension FreelanceChangeDto {
+    /// The figures an accepted change moved, in a fixed order (price, days, parts); empty when none or not an object.
+    func changeEffect() -> [FreelanceChangeEffect] {
+        guard case .object(let map)? = effect else { return [] }
+        let keys: [(snake: String, camel: String)] = [("price_minor", "priceMinor"), ("duration_days", "durationDays"), ("milestones", "milestones")]
+        return keys.compactMap { k -> FreelanceChangeEffect? in
+            // The snake decoder camel-cases object keys too.
+            guard case .array(let pair)? = map[k.snake] ?? map[k.camel], pair.count == 2, case .number(let b) = pair[0], case .number(let a) = pair[1] else { return nil }
+            return FreelanceChangeEffect(key: k.snake, before: Int(b), after: Int(a))
+        }
+    }
 }
 
 struct FreelanceRatingDto: Codable, Equatable {
@@ -618,6 +695,10 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var can: FreelanceAgreementCanDto?
     /// FL-605: how often I asked for a progress report, and whether the next one is late.
     var reports: FreelanceReportSummaryDto?
+    /// FL-L13: the ownership terms kept with the agreement (nil: it has none).
+    var rights: FreelanceAgreementRightsDto?
+    /// FS-106: how the running project is doing (nil: the agreement is not running).
+    var health: FreelanceHealthDto?
 
     var state: String { status ?? "draft" }
 }
@@ -786,6 +867,20 @@ struct FreelanceChangeRequest {
             "reason": reason.map(JSONValue.string) ?? .null,
         ]
     }
+
+    /// FS-101: the non-empty fields as multipart text parts (for `requestChangeWithFiles`).
+    var multipartFields: [String: String] {
+        var f: [String: String] = ["type": type]
+        f["milestone"] = milestone
+        f["days"] = days.map(String.init)
+        f["amount_minor"] = amountMinor.map(String.init)
+        f["title"] = title
+        f["scope"] = scope
+        f["includes"] = includes
+        f["excludes"] = excludes
+        f["reason"] = reason
+        return f
+    }
 }
 
 enum FreelanceApi {
@@ -801,12 +896,17 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/skills", query: ["q": q, "per_page": String(perPage), "specialty_id": specialtyId.map(String.init)])
     }
 
-    static func projects(status: String? = nil, page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceProjectDto]> {
-        try await ApiClient.snake("\(base)/projects", query: ["status": status, "page": String(page), "per_page": String(perPage)])
+    /// `scope` = active (draft to in progress) · ended (closed, rejected, cancelled); a `status` narrows it further.
+    static func projects(status: String? = nil, page: Int = 1, perPage: Int = 15, scope: String? = nil) async throws -> ApiEnvelope<[FreelanceProjectDto]> {
+        try await ApiClient.snake("\(base)/projects", query: ["status": status, "page": String(page), "per_page": String(perPage), "scope": scope])
     }
 
     static func budgetRules(specialtyId: Int?) async throws -> ApiEnvelope<FreelanceBudgetRulesDto> {
         try await ApiClient.snake("\(base)/projects/budget-rules", query: ["specialty_id": specialtyId.map(String.init)])
+    }
+
+    static func costQuote(amountMinor: Int, specialtyId: Int?) async throws -> ApiEnvelope<FreelanceCostQuoteDto> {
+        try await ApiClient.snake("\(base)/projects/cost-quote", query: ["amount_minor": String(amountMinor), "specialty_id": specialtyId.map(String.init)])
     }
 
     static func project(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {
@@ -836,6 +936,16 @@ enum FreelanceApi {
     /// FL-209: asks for the project again — a new draft with the same details.
     static func duplicate(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/duplicate", method: "POST", body: [:])
+    }
+
+    /// FS-102: asks the same freelancer again — a private draft; they are invited when it is published.
+    static func hireAgain(_ uuid: String) async throws -> ApiEnvelope<FreelanceProjectDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/hire-again", method: "POST", body: [:])
+    }
+
+    /// FS-105: ready checklists to start a part's checklist from (in my language, up to ten lines each).
+    static func checklistTemplates(specialty: Int? = nil) async throws -> ApiEnvelope<[FreelanceChecklistTemplateDto]> {
+        try await ApiClient.snake("\(base)/checklist-templates", query: ["specialty": specialty.map(String.init)])
     }
 
     /// FL-210: the last look before sending, with what is missing or doesn't add up.
@@ -963,6 +1073,12 @@ enum FreelanceApi {
     /// FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw).
     static func requestChange(_ uuid: String, _ body: FreelanceChangeRequest) async throws -> ApiEnvelope<[FreelanceChangeDto]> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/agreement/changes", method: "POST", body: body.json)
+    }
+
+    /// FS-101: the same request with up to three files (`files[]`), as multipart; the fields are the request's non-empty ones.
+    static func requestChangeWithFiles(_ uuid: String, _ body: FreelanceChangeRequest, files: [ApiClient.FilePart]) async throws -> ApiEnvelope<[FreelanceChangeDto]> {
+        let data = try await ApiClient.uploadRaw("\(base)/projects/\(uuid)/agreement/changes", fields: body.multipartFields, files: files)
+        return try ApiClient.snakeDecoder.decode(ApiEnvelope<[FreelanceChangeDto]>.self, from: data)
     }
 
     static func answerChange(_ uuid: String, _ change: String, action: String) async throws -> ApiEnvelope<[FreelanceChangeDto]> {

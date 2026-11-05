@@ -2,9 +2,6 @@
 <resources>
     <!-- FL-L04: ready-made services, the client's side -->
     <string name="mk_title">Ready-made services</string>
-    <string name="mk_banner_title">Ready-made services</string>
-    <string name="mk_banner_body">Pick a service at a fixed price and order it straight away, no offers to wait for.</string>
-    <string name="mk_banner_cta">Browse services</string>
     <string name="mk_my_orders">My orders</string>
     <string name="mk_search">Search services</string>
     <string name="mk_all">All</string>

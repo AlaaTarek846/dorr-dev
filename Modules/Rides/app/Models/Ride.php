@@ -107,6 +107,16 @@ class Ride extends Model
     }
 
     /**
+     * O-77: an operational threshold (the arrival range…) as the dashboard has it now — not as it was when
+     * the ride was booked. Prices stay on the booking's snapshot; this is only for how the trip runs.
+     */
+    public function livePolicy(string $key, mixed $default = null): mixed
+    {
+        return app(\Modules\Rides\Services\Policy\RidePolicies::class)->for((int) $this->country_id, $this->city_id, null, $this->category_id)->get($key)
+            ?? $this->policy($key, $default);
+    }
+
+    /**
      * When the free waiting at the pickup begins: the arrival — but a scheduled ride's waiting never
      * starts before its time, however early the captain came (R-108, D-119, D-168).
      */

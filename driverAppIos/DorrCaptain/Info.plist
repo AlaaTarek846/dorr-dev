@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ar</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ar</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>DorrApiHost</key>
+	<string>$(DORR_API_HOST)</string>
+	<key>DorrApiScheme</key>
+	<string>$(DORR_API_SCHEME)</string>
+	<key>DorrGoogleMapsKey</key>
+	<string>$(DORR_GOOGLE_MAPS_KEY)</string>
+	<!-- driverApp DriverDutyService (foreground service type "location"): the shift sends the position while the app
+	     is in the background; push wakes it for a request; LiveKit keeps a call's audio. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+		<string>audio</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DORR Captain uses your location to offer you nearby requests and to guide each ride.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>While you are online, DORR Captain keeps sending your location — even with the app in the background — so riders see you coming and requests near you reach you.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk to the rider in an in-app call.</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Dev: the LAN IP / dorr.test backend is plain HTTP, like Android's cleartext allowance. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Cairo.ttf</string>
+	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Open your wallet with Face ID instead of typing the PIN.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of your documents and car for sign-up, or scan a wallet QR code.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick pictures of your documents and car.</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+</dict>
+</plist>

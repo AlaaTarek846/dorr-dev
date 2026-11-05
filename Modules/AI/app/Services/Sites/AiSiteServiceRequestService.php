@@ -520,7 +520,7 @@ class AiSiteServiceRequestService
                 'accepted_at' => $request->accepted_at?->toIso8601String(),
                 'started_at' => $request->started_at?->toIso8601String(),
                 'due_at' => $request->due_at?->toIso8601String(),
-                'remaining_seconds' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED ? max(0, now()->diffInSeconds($request->due_at, false)) : null,
+                'remaining_seconds' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED ? max(0, (int) now()->diffInSeconds($request->due_at, false)) : null,
                 'overdue' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED && $request->due_at->isPast(),
                 'delivered_at' => $request->delivered_at?->toIso8601String(),
                 'completed_at' => $request->completed_at?->toIso8601String(),

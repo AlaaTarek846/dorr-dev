@@ -19,7 +19,7 @@
                 <div v-if="member === false" class="text-muted">{{ t('rides.loyalty.not_found') }}</div>
                 <template v-else-if="member">
                     <div class="d-flex flex-wrap gap-4 mb-3">
-                        <div><div class="fs-12 text-muted">{{ t('rides.loyalty.rider') }}</div><div class="fw-semibold">{{ member.user.name }} · {{ member.user.phone }}</div></div>
+                        <div><div class="fs-12 text-muted">{{ t('rides.loyalty.rider') }}</div><div class="fw-semibold"><UserName :user="member.user">{{ member.user.name }}</UserName> · {{ member.user.phone }}</div></div>
                         <div><div class="fs-12 text-muted">{{ t('rides.loyalty.balance') }}</div><div class="fw-bold fs-5">{{ member.balance }}</div></div>
                         <div><div class="fs-12 text-muted">{{ t('rides.loyalty.lifetime') }}</div><div class="fw-semibold">{{ member.lifetime }}</div></div>
                         <div><div class="fs-12 text-muted">{{ t('rides.loyalty.tier') }}</div><div class="fw-semibold">{{ member.tier || '—' }}</div></div>
@@ -156,6 +156,7 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // DORR points (R-146..R-155): tiers, badges, challenges, rewards — and one rider's points.
 const { t, locale: uiLocale } = useI18n();

@@ -48,6 +48,10 @@ data class HireQuoteDto(
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     val limits: HireLimitsDto = HireLimitsDto(),
     val currency: RideCurrencyDto? = null,
+    /** O-84: the unit and count actually priced, and the units the country offers. */
+    val unit: String? = null,
+    val quantity: Int? = null,
+    val units: List<String> = emptyList(),
 )
 
 data class HirePersonDto(val name: String? = null, val avatar: String? = null, val phone: String? = null)

@@ -133,6 +133,8 @@ data class AuthResultDto(
 data class UserDto(
     val id: Int,
     val name: String?,
+    /** The account verification ✔ (docs/verification_tasks.md AV-024). */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     val email: String?,
     val phone: String?,
     @SerializedName("phone_verified_at") val phoneVerifiedAt: String?,

@@ -48,4 +48,8 @@
     <string name="insights_no_plans">Plans are not offered in your country yet.</string>
     <string name="insights_more_title">Want to look further back?</string>
     <string name="insights_more_body">%1$s opens 90 days and a year, the earnings chart and your best specialties.</string>
+    <!-- FS-103: the lists clients keep me in (a number only, never whose). -->
+    <string name="insights_saved_title">Saved by clients</string>
+    <string name="insights_saved_new">%1$d new in this period</string>
+    <string name="insights_saved_note">Clients keep you in private lists to hire you again. You can\'t see who.</string>
 </resources>

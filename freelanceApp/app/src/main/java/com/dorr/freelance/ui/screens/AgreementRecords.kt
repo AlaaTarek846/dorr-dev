@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -83,11 +84,11 @@ internal fun ProjectReceiptsCard(projectUuid: String, refreshKey: String) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, r.text ?: r.number), null))
-                }) { Text(stringResource(R.string.rcp_share), color = settingsAccent()) }
+                }) { Text(stringResource(R.string.rcp_share)) }
             },
-            dismissButton = { TextButton(onClick = { open = null }) { Text(stringResource(R.string.common_ok), color = settingsMut()) } },
+            dismissButton = { DialogButton(onClick = { open = null }) { Text(stringResource(R.string.common_ok)) } },
         )
     }
 }

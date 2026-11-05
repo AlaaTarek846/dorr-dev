@@ -153,7 +153,7 @@ class FreelancePerks
             return null;
         }
         $plan = FreelancePlan::query()->where('status', true)->where('analytics', '>', $level)
-            ->whereHas('prices', fn ($p) => $p->where('country_id', $f->country_id)->where('status', true))->orderBy('rank')->first();
+            ->whereHas('prices', fn ($p) => $p->where('country_id', app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->where('status', true))->orderBy('rank')->first();
 
         return $plan === null ? null : ['slug' => $plan->slug, 'name' => $plan->text('name')];
     }

@@ -56,6 +56,8 @@ class MilestoneRelease
             $receipts = app(FreelanceReceipts::class);
             $receipts->issue($m, $agreement, 'client', 'paid', $reason, ['amount' => $m->amount_minor, 'fee' => $m->client_fee_minor, 'total' => $m->amount_minor + $m->client_fee_minor]);
             $receipts->issue($m, $agreement, 'freelancer', 'earned', $reason, ['amount' => $m->amount_minor, 'fee' => $m->commission_minor, 'total' => $m->net_minor]);
+            // FL-L13: the rights of this part are the client's from now (the record is written with the approval).
+            app(\Modules\Freelance\Services\Rights\Rights::class)->recordGrant($agreement, $m);
 
             return [$m, $earning];
         });
@@ -65,6 +67,7 @@ class MilestoneRelease
         $vars = ['project' => (string) $project->title];
         $data = ['project' => $project->uuid, 'milestone' => $approved->uuid];
         $this->notifier->notify($agreement->freelancer, 'milestone.approved', $vars, $data);
+        app(\Modules\Freelance\Services\Rights\Rights::class)->announceGrant($agreement, $approved);
         $amount = ['amount' => self::money((int) $approved->paid_minor, $agreement->currency_code)];
         // FL-505: in the wallet now, or on its day when the agreement's policy holds earnings.
         if ($earning?->status === \Modules\Freelance\Models\FreelanceEarning::PENDING) {
@@ -174,8 +177,10 @@ class MilestoneRelease
         $earningTx = $earning?->wallet_transaction_id === null ? null : \Modules\Wallet\Models\WalletTransaction::query()->find($earning->wallet_transaction_id);
 
         // What DORR keeps: the client fee and the commission, as income.
-        $this->ledger->clientFee($m->client_fee_minor, $country->currency, $country, $m, (string) $project->title, $capture);
-        $this->ledger->commission($m->commission_minor, $country->currency, $country, $m, (string) $project->title, $earningTx);
+        // In the freelance currency; the project's country stays on the entry for the per-country reports.
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
+        $this->ledger->clientFee($m->client_fee_minor, $currency, $country, $m, (string) $project->title, $capture);
+        $this->ledger->commission($m->commission_minor, $currency, $country, $m, (string) $project->title, $earningTx);
 
         $m->forceFill(['released_at' => now(), 'paid_minor' => $m->net_minor])->save();
 

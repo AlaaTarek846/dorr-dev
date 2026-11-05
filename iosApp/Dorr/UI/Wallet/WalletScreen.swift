@@ -39,6 +39,8 @@ struct WalletScreen: View {
                 WaSheetHost(host: host)
             }
         }
+        // Swiping to the dollar wallet must not outlive this visit (the freelance launcher resets it itself when it closes).
+        .onDisappear { if TopupLauncher.shared.pending == nil { WalletCountry.setInternational(false) } }
         #if DEBUG
         // A debug route opened straight on an inner page: load the balance the home page would have.
         .task {
@@ -157,7 +159,7 @@ struct WaToastHost: View {
 /// Asks for the PIN before the wallet opens. With a PIN it verifies it (and offers "forgot your PIN?");
 /// without one it walks the person through the recovery-method choice and then creating the PIN.
 @MainActor
-private struct WaGate: View {
+struct WaGate: View {
     @EnvironmentObject private var network: NetworkMonitor
     let onUnlocked: () -> Void
     let onCancel: () -> Void

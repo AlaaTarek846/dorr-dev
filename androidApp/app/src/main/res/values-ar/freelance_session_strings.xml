@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L16: جلسة فيديو الاستشارة (ناحية العميل). -->
+<resources>
+    <string name="css_consent">الجلسة بتتسجل لحماية الطرفين، والتسجيل بيتمسح بعد أسبوع</string>
+    <string name="css_title">جلسة الفيديو</string>
+    <string name="css_recorded">بتتسجل</string>
+    <string name="css_not_recorded">من غير تسجيل دلوقتي</string>
+    <string name="css_unavailable">جلسات الفيديو مش متاحة دلوقتي. جرّب كمان شوية.</string>
+    <string name="css_opens_in">الغرفة هتفتح بعد %1$s</string>
+    <string name="css_opens_rule">الغرفة بتفتح قبل الميعاد بكام دقيقة، وتقدر تدخل وتخرج طول وقت الجلسة.</string>
+    <string name="css_join">ادخل الجلسة</string>
+    <string name="css_join_hint">الغرفة مفتوحة دلوقتي</string>
+    <string name="css_closed_staff">الإدارة قفلت الغرفة.</string>
+    <string name="css_over">وقت الجلسة خلص.</string>
+    <string name="css_in_room">جوه الغرفة دلوقتي</string>
+    <string name="css_you">إنت</string>
+    <string name="css_freelancer">المحترف</string>
+    <string name="css_nobody">لسه مفيش حد جوه</string>
+    <string name="css_attendance">الحضور</string>
+    <string name="css_joined_left">دخل %1$s · خرج %2$s</string>
+    <string name="css_still_in">دخل %1$s · لسه جوه</string>
+    <string name="css_recordings">التسجيلات</string>
+    <string name="css_part">الجزء %1$d</string>
+    <string name="css_preparing">بيتجهز</string>
+    <string name="css_recording_now">بيتسجل</string>
+    <string name="css_deleted">اتمسح</string>
+    <string name="css_download">تنزيل</string>
+    <string name="css_watch">مشاهدة</string>
+    <string name="css_download_started">التنزيل بدأ، هتلاقيه في التنزيلات.</string>
+    <string name="css_download_failed">التنزيل ما نفعش. جرّب تاني.</string>
+    <string name="css_delete_at">التسجيل هيتمسح يوم %1$s</string>
+    <string name="css_held">محفوظ لحد قرار الإدارة</string>
+    <string name="css_deleted_all">التسجيلات اتمسحت</string>
+    <string name="css_no_show">المحترف ما دخلش</string>
+    <string name="css_no_show_title">المحترف ما دخلش الجلسة؟</string>
+    <string name="css_no_show_body">هنبعت شكوى للإدارة ومعاها سجل الحضور، وفلوسك هتفضل محجوزة لحد ما يقرروا.</string>
+    <string name="css_no_show_confirm">ابعت الشكوى</string>
+    <string name="css_no_show_done">الشكوى وصلت للإدارة</string>
+    <string name="css_connecting">بيوصل…</string>
+    <string name="css_waiting_for">مستنيين %1$s يدخل</string>
+    <string name="css_other_in">%1$s جوه</string>
+    <string name="css_left_time">فاضل %1$s</string>
+    <string name="css_ending_warn">الجلسة هتخلص بعد %1$d دقيقة</string>
+    <string name="css_leave">اخرج</string>
+    <string name="css_leave_title">تخرج من الجلسة؟</string>
+    <string name="css_leave_body">تقدر ترجع تاني طول ما وقت الجلسة لسه فيه.</string>
+    <string name="css_ended">خرجت من الجلسة</string>
+    <string name="css_mic_needed">لازم تسمح بالمايك عشان تدخل الجلسة.</string>
+    <string name="css_close">قفل</string>
+</resources>

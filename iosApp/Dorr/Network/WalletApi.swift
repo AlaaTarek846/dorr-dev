@@ -176,10 +176,18 @@ struct WalletBalanceDto: Codable, Equatable {
     var withdrawableMinor: Int
     /// Received transfers / bonuses: spendable on services, never withdrawable.
     var spendOnlyMinor: Int
+    /// Watch & Earn rewards (already counted in [totalMinor]): spent anywhere in the app, never withdrawn.
+    var rewardMinor: Int
+    /// Whether this country lets rewards be sent to others (a transfer with `from_bucket = reward`).
+    var rewardsTransferable: Bool
+    /// How many decimals a minor unit of this wallet's currency has (2 for SAR / EGP, 3 for KWD…).
+    var currencyDecimals: Int
     /// Reserved by pending requests; not spendable until released.
     var heldMinor: Int
     /// Balances in other countries — shown read-only, not spendable here.
     var otherWallets: [OtherWalletDto]?
+    /// False when dollars are already this owner's local money (freelance works in them): there is no separate dollar wallet to swipe to.
+    var internationalWallet: Bool
 
     enum CodingKeys: String, CodingKey {
         case countryCode = "country_code", dialCode = "dial_code", phoneLength = "phone_length"
@@ -187,7 +195,8 @@ struct WalletBalanceDto: Codable, Equatable {
         case walletNumberFormatted = "wallet_number_formatted", qrPayload = "qr_payload"
         case currencyCode = "currency_code", currencySymbol = "currency_symbol", totalMinor = "total_minor"
         case withdrawableMinor = "withdrawable_minor", spendOnlyMinor = "spend_only_minor"
-        case heldMinor = "held_minor", otherWallets = "other_wallets"
+        case rewardMinor = "reward_minor", rewardsTransferable = "rewards_transferable", currencyDecimals = "currency_decimals"
+        case heldMinor = "held_minor", otherWallets = "other_wallets", internationalWallet = "international_wallet"
     }
 
     init(from decoder: Decoder) throws {
@@ -204,8 +213,12 @@ struct WalletBalanceDto: Codable, Equatable {
         totalMinor = c.value(.totalMinor, 0)
         withdrawableMinor = c.value(.withdrawableMinor, 0)
         spendOnlyMinor = c.value(.spendOnlyMinor, 0)
+        rewardMinor = c.value(.rewardMinor, 0)
+        rewardsTransferable = c.value(.rewardsTransferable, false)
+        currencyDecimals = c.value(.currencyDecimals, 2)
         heldMinor = c.value(.heldMinor, 0)
         otherWallets = c.value(.otherWallets, nil)
+        internationalWallet = c.value(.internationalWallet, true)
     }
 }
 
@@ -232,7 +245,7 @@ struct WalletTransactionDto: Codable, Equatable, Identifiable {
     var typeLabel: String
     /// credit / debit
     var direction: String
-    /// withdrawable / spend_only
+    /// withdrawable / spend_only / reward
     var bucket: String
     var amountMinor: Int
     var balanceAfterMinor: Int
@@ -512,9 +525,11 @@ struct TransferRecipientDto: Codable, Equatable {
 struct TransferRequest: Encodable {
     var recipientToken: String
     var amountMinor: Int
+    /// Which of my buckets pays; nil = the server's order. `reward` only where the country allows it.
+    var fromBucket: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case recipientToken = "recipient_token", amountMinor = "amount_minor"
+        case recipientToken = "recipient_token", amountMinor = "amount_minor", fromBucket = "from_bucket"
     }
 }
 

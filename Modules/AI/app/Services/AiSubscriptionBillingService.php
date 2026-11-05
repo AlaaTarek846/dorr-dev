@@ -87,32 +87,20 @@ class AiSubscriptionBillingService
         return DB::transaction(function () use ($wallet, $amountMinor, $type, $meta) {
             $locked = Wallet::query()->lockForUpdate()->findOrFail($wallet->id);
 
-            $spendAvailable = max(0, $locked->availableMinor(WalletBucket::SpendOnly));
-            $withdrawableAvailable = max(0, $locked->availableMinor(WalletBucket::Withdrawable));
-
-            if ($spendAvailable + $withdrawableAvailable < $amountMinor) {
+            if ($locked->spendableMinor() < $amountMinor) {
                 throw new InsufficientBalanceException($locked->id, 'combined');
             }
 
             $operationId = (string) Str::uuid();
             $transactions = [];
 
-            $spendPortion = min($amountMinor, $spendAvailable);
-
-            if ($spendPortion > 0) {
-                $transactions[] = $this->wallets->debit($locked, $spendPortion, WalletBucket::SpendOnly, $type, [
+            // Rewards, then spend-only, then withdrawable (Wallet::SPEND_ORDER).
+            foreach ($locked->spendParts($amountMinor) as [$bucket, $part]) {
+                $transactions[] = $this->wallets->debit($locked, $part, $bucket, $type, [
                     ...$meta,
                     'operation_id' => $operationId,
                 ]);
-            }
-
-            $withdrawablePortion = $amountMinor - $spendPortion;
-
-            if ($withdrawablePortion > 0) {
-                $transactions[] = $this->wallets->debit($locked, $withdrawablePortion, WalletBucket::Withdrawable, $type, [
-                    ...$meta,
-                    'operation_id' => $operationId,
-                ]);
+                $locked->refresh();
             }
 
             return ['transactions' => $transactions, 'operation_id' => $operationId];

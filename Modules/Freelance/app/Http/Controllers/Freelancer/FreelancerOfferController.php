@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Offers\FreelancerOffers;
+use Modules\Freelance\Services\Offers\Loyalty;
 use Modules\Freelance\Services\Projects\FreelancerProjects;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -26,12 +27,17 @@ class FreelancerOfferController extends Controller
         $data = $request->validate(['price_minor' => ['nullable', 'integer', 'min:0', 'max:100000000000']]);
         $me = $this->me($request);
         $project = $this->projects->find($me, $uuid);
+        // FL-L09: a client back for more gets the loyalty step they earned off the price; the net is worked out on what they pay.
+        $loyalty = app(Loyalty::class);
+        $deal = isset($data['price_minor']) ? $loyalty->apply($me, (int) $project->client_id, (int) $data['price_minor']) : null;
 
         return ApiResponse::success([
             'blocked' => $this->offers->blocked($me, $project),
             'quota' => $this->offers->quota($me),
             'min_price_minor' => $this->minPrice($project),
-            'breakdown' => isset($data['price_minor']) ? $this->offers->preview($project, (int) $data['price_minor'], $me) : null,
+            'breakdown' => $deal === null ? null : $this->offers->preview($project, $deal['price_minor'], $me)
+                + ['list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'], 'saving_minor' => $deal['saving_minor']],
+            'loyalty' => $loyalty->discountFor($me, (int) $project->client_id),
         ], __('api.retrieved'));
     }
 
@@ -46,7 +52,7 @@ class FreelancerOfferController extends Controller
             'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb', 20480), 'mimes:'.implode(',', (array) config('freelance.projects.attachment_types')), new \Modules\Freelance\Rules\CleanUpload],
             'answers' => ['nullable', 'array', 'max:10'],
             'answers.*' => ['nullable', 'string', 'max:1000'],
-        ]);
+        ] + self::rightsRules());
         $me = $this->me($request);
         $offer = $this->offers->send($me, $this->projects->find($me, $uuid), $data, $request->file('files', []));
 
@@ -80,7 +86,7 @@ class FreelancerOfferController extends Controller
             'details' => ['sometimes', 'string', 'min:'.(int) config('freelance.offers.details_min', 30), 'max:'.(int) config('freelance.offers.details_max', 3000)],
             'answers' => ['sometimes', 'array', 'max:10'],
             'answers.*' => ['nullable', 'string', 'max:1000'],
-        ]);
+        ] + self::rightsRules());
         $me = $this->me($request);
 
         return ApiResponse::success($this->present($this->offers->edit($me, $this->offers->find($me, $offer), $data)), __('api.updated'));
@@ -108,6 +114,24 @@ class FreelancerOfferController extends Controller
         $file = Offer::query()->where('uuid', $offer)->where('freelancer_id', $this->me($request)->id)->firstOrFail()->getMedia('attachments')->firstWhere('id', $media) ?? abort(404);
 
         return tap(response()->download($file->getPath(), \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($file), ['Content-Type' => $file->mime_type]), fn ($r) => $r->setPrivate()->headers->addCacheControlDirective('no-store'));
+    }
+
+    /**
+     * FL-L13: the terms of an offer or a service — also arrives as form fields (`rights[model]=license`) with the files.
+     *
+     * @return array<string, list<mixed>>
+     */
+    public static function rightsRules(): array
+    {
+        return [
+            'rights' => ['sometimes', 'nullable', 'array'],
+            'rights.model' => ['sometimes', 'string', 'max:16'],
+            'rights.commercial' => ['sometimes', 'nullable'],
+            'rights.exclusive' => ['sometimes', 'nullable'],
+            'rights.term_months' => ['sometimes', 'nullable'],
+            'rights.territory' => ['sometimes', 'nullable', 'string', 'max:16'],
+            'rights.portfolio' => ['sometimes', 'nullable'],
+        ];
     }
 
     /** @return array<string, mixed> */

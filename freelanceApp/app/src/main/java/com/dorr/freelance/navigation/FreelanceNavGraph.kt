@@ -6,7 +6,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.dorr.freelance.R
+import com.dorr.freelance.net.CommunityHub
 import com.dorr.freelance.net.Gate
 import com.dorr.freelance.net.Realtime
 import com.dorr.freelance.net.Session
@@ -35,9 +37,16 @@ import com.dorr.freelance.ui.screens.ProfileCoachScreen
 import com.dorr.freelance.ui.screens.SkillTestsScreen
 import com.dorr.freelance.ui.screens.CapacityScreen
 import com.dorr.freelance.ui.screens.ConsultationScreen
+import com.dorr.freelance.ui.screens.ConsultationSessionScreen
 import com.dorr.freelance.ui.screens.ConsultationEditorScreen
 import com.dorr.freelance.ui.screens.ConsultationsScreen
 import com.dorr.freelance.ui.screens.CertificatesScreen
+import com.dorr.freelance.ui.screens.CommunityComposeScreen
+import com.dorr.freelance.ui.screens.CommunityMemberScreen
+import com.dorr.freelance.ui.screens.CommunityNav
+import com.dorr.freelance.ui.screens.CommunityPeopleScreen
+import com.dorr.freelance.ui.screens.CommunityPostScreen
+import com.dorr.freelance.ui.screens.CommunityScreen
 import com.dorr.freelance.ui.screens.ExperiencesScreen
 import com.dorr.freelance.ui.screens.MainActions
 import com.dorr.freelance.ui.screens.NotificationsScreen
@@ -51,6 +60,10 @@ import com.dorr.freelance.ui.screens.MyServicesScreen
 import com.dorr.freelance.ui.screens.ServiceEditorScreen
 import com.dorr.freelance.ui.screens.ServiceOrderScreen
 import com.dorr.freelance.ui.screens.ServiceOrdersScreen
+import com.dorr.freelance.ui.screens.LoyaltyScreen
+import com.dorr.freelance.ui.screens.SpecialOfferComposeScreen
+import com.dorr.freelance.ui.screens.SpecialOfferScreen
+import com.dorr.freelance.ui.screens.SpecialOffersScreen
 import com.dorr.freelance.ui.screens.OfferFormScreen
 import com.dorr.freelance.ui.screens.EditOfferScreen
 import com.dorr.freelance.ui.screens.InvitationsScreen
@@ -114,12 +127,35 @@ object Routes {
     const val CONSULTATIONS = "consultations"
     const val CONSULTATION_EDIT = "consultation-edit?uuid={uuid}"
     const val CONSULTATION = "consultation/{uuid}"
+    /** FL-L16: the consultation's video session (full screen, outside the shell). */
+    const val CONSULTATION_SESSION = "consultation-session/{uuid}"
+    // FL-L09: special offers to past clients.
+    const val SPECIAL_OFFERS = "special-offers"
+    const val SPECIAL_OFFER_NEW = "special-offer-new"
+    const val SPECIAL_OFFER = "special-offer/{uuid}"
+    // FL-L09 (part B): my loyalty program.
+    const val LOYALTY = "loyalty"
+    // FL-L12: the professional community.
+    const val COMMUNITY = "community"
+    const val COMMUNITY_POST = "community-post/{uuid}"
+    const val COMMUNITY_MEMBER = "community-member/{uuid}"
+    const val COMMUNITY_PEOPLE = "community-people/{uuid}/{which}"
+    const val COMMUNITY_COMPOSE = "community-compose?kind={kind}&edit={edit}"
+
+    fun communityPost(uuid: String) = "community-post/$uuid"
+    fun communityMember(uuid: String) = "community-member/$uuid"
+    fun communityPeople(uuid: String, which: String) = "community-people/$uuid/$which"
+
+    /** A new post of [kind], or (with [edit]) editing that post of mine. */
+    fun communityCompose(kind: String = "post", edit: String? = null) = "community-compose?kind=$kind" + (edit?.let { "&edit=$it" } ?: "")
 
     /** `null` = a new service. */
     fun service(uuid: String?) = "service/${uuid ?: "new"}"
 
     fun serviceOrder(uuid: String) = "service-order/$uuid"
     fun consultation(uuid: String) = "consultation/$uuid"
+    fun consultationSession(uuid: String) = "consultation-session/$uuid"
+    fun specialOffer(uuid: String) = "special-offer/$uuid"
 
     /** The editor of one consultation I list (no uuid: a new one). */
     fun consultationEdit(uuid: String? = null) = if (uuid == null) "consultation-edit" else "consultation-edit?uuid=$uuid"
@@ -151,7 +187,9 @@ fun FreelanceNavGraph() {
     LaunchedEffect(signedIn) {
         val current = nav.currentDestination?.route
         val beforeSignIn = current == null || current == Routes.LOGIN || current == Routes.OTP || current == Routes.SPLASH || current == Routes.START
-        if (!signedIn) ShellState.tab = 0
+        if (!signedIn) ShellState.tab = com.dorr.freelance.ui.components.Tabs.HOME
+        if (!signedIn) CommunityHub.clear()
+        if (!signedIn) com.dorr.freelance.net.HomeHub.clear()
         if (!signedIn && !beforeSignIn) nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
     }
 
@@ -168,12 +206,12 @@ fun FreelanceNavGraph() {
             title = { Text(stringResource(R.string.gate_title)) },
             text = { Text(stepText(step, null)) },
             confirmButton = {
-                TextButton(onClick = {
+                DialogButton(onClick = {
                     Gate.dismiss()
                     nav.navigate(Routes.VERIFICATION) { launchSingleTop = true }
                 }) { Text(stringResource(R.string.gate_open)) }
             },
-            dismissButton = { TextButton(onClick = { Gate.dismiss() }) { Text(stringResource(R.string.common_cancel)) } },
+            dismissButton = { DialogButton(onClick = { Gate.dismiss() }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
@@ -194,18 +232,40 @@ fun FreelanceNavGraph() {
 
     fun afterWelcome() = if (Session.signedIn.value) Routes.HOME else Routes.LOGIN
 
+    // FL-L12: where the community screens lead.
+    val communityNav = CommunityNav(
+        openPost = { uuid -> nav.navigate(Routes.communityPost(uuid)) },
+        openMember = { uuid -> nav.navigate(Routes.communityMember(uuid)) },
+        editPost = { uuid -> nav.navigate(Routes.communityCompose(edit = uuid)) },
+        compose = { kind -> nav.navigate(Routes.communityCompose(kind)) { launchSingleTop = true } },
+        openPeople = { uuid, which -> nav.navigate(Routes.communityPeople(uuid, which)) },
+        openVerification = { nav.navigate(Routes.VERIFICATION) { launchSingleTop = true } },
+        openPortfolio = { nav.navigate(Routes.PORTFOLIO) { launchSingleTop = true } },
+    )
+
+    // The store's pages swap in place (the switch at their top): the open one leaves the back stack.
+    val switchStore: (String) -> Unit = { key ->
+        val route = when (key) {
+            "services" -> Routes.SERVICES
+            "consultations" -> Routes.CONSULTATIONS
+            "special_offers" -> Routes.SPECIAL_OFFERS
+            else -> Routes.LOYALTY
+        }
+        nav.popBackStack()
+        nav.navigate(route) { launchSingleTop = true }
+    }
+
     // Every page over the tabs sits in the same frame as the tabs: the bottom bar (the header with the wallet and the bell is on the Home tab only). A tab tapped
     // there goes back to the tabs on that tab; the wallet and the bell open once (a second tap on the open one does nothing).
     val shell: @Composable (Boolean, @Composable () -> Unit) -> Unit = { _, page ->
         AppShell(
             showHeader = false,
-            onSelectTab = { index ->
-                ShellState.tab = index
+            onSelectTab = { key ->
+                ShellState.open(key)
                 nav.popBackStack(Routes.HOME, inclusive = false)
             },
             onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } },
             onOpenNotifications = { nav.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true } },
-            onOpenInvitations = { nav.navigate(Routes.INVITATIONS) { launchSingleTop = true } },
             content = page,
         )
     }
@@ -279,11 +339,17 @@ fun FreelanceNavGraph() {
                     openWallet = { nav.navigate(Routes.WALLET) },
                     openServices = { nav.navigate(Routes.SERVICES) },
                     openServiceOrders = { nav.navigate(Routes.SERVICE_ORDERS) },
+                    openServiceOrder = { uuid -> nav.navigate(Routes.serviceOrder(uuid)) },
                     openInsights = { nav.navigate(Routes.INSIGHTS) },
                     openCoach = { nav.navigate(Routes.COACH) },
                     openSkillTests = { nav.navigate(Routes.SKILL_TESTS) },
                     openCapacity = { nav.navigate(Routes.CAPACITY) },
                     openConsultations = { nav.navigate(Routes.CONSULTATIONS) },
+                    openConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) },
+                    openConsultationEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } },
+                    openSpecialOffers = { nav.navigate(Routes.SPECIAL_OFFERS) },
+                    openLoyalty = { nav.navigate(Routes.LOYALTY) },
+                    community = communityNav,
                 ),
             )
         }
@@ -309,7 +375,7 @@ fun FreelanceNavGraph() {
             shell(false) { ChatScreen(conversationUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.OFFER_FORM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
-            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }, onOpenProfile = { ShellState.openProfileHub = true; ShellState.tab = 4; nav.popBackStack(Routes.HOME, inclusive = false) }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) }
+            shell(true) { OfferFormScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onSent = { nav.popBackStack() }, onOpenProfile = { ShellState.openProfileHub = true; ShellState.open(com.dorr.freelance.ui.components.Tabs.ME); nav.popBackStack(Routes.HOME, inclusive = false) }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) }
         }
         composable(Routes.OFFER_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             shell(true) { EditOfferScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() }) }
@@ -326,7 +392,7 @@ fun FreelanceNavGraph() {
             }
         }
         composable(Routes.SERVICES) {
-            shell(true) { MyServicesScreen(onBack = { nav.popBackStack() }, onOpenService = { uuid -> nav.navigate(Routes.service(uuid)) }, onOpenOrders = { nav.navigate(Routes.SERVICE_ORDERS) { launchSingleTop = true } }) }
+            shell(true) { MyServicesScreen(onBack = { nav.popBackStack() }, onOpenService = { uuid -> nav.navigate(Routes.service(uuid)) }, onOpenOrders = { nav.navigate(Routes.SERVICE_ORDERS) { launchSingleTop = true } }, onSwitchStore = switchStore) }
         }
         composable(Routes.SERVICE, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             val id = entry.arguments?.getString("uuid")?.takeIf { it != "new" }
@@ -341,13 +407,68 @@ fun FreelanceNavGraph() {
         composable(Routes.INSIGHTS) { shell(true) { InsightsScreen(onBack = { nav.popBackStack() }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) } }
         composable(Routes.CAPACITY) { shell(true) { CapacityScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.CONSULTATIONS) {
-            shell(true) { ConsultationsScreen(onBack = { nav.popBackStack() }, onOpenEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } }, onOpenConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) }) }
+            shell(true) { ConsultationsScreen(onBack = { nav.popBackStack() }, onOpenEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } }, onOpenConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) }, onSwitchStore = switchStore) }
         }
         composable(Routes.CONSULTATION_EDIT, arguments = listOf(navArgument("uuid") { type = NavType.StringType; nullable = true; defaultValue = null })) { entry ->
             shell(true) { ConsultationEditorScreen(uuid = entry.arguments?.getString("uuid"), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.CONSULTATION, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
-            shell(true) { ConsultationScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
+            shell(true) {
+                ConsultationScreen(
+                    uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() },
+                    onOpenSession = { uuid -> nav.navigate(Routes.consultationSession(uuid)) { launchSingleTop = true } },
+                )
+            }
+        }
+        composable(Routes.CONSULTATION_SESSION, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            ConsultationSessionScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
+        }
+        composable(Routes.SPECIAL_OFFERS) {
+            shell(true) { SpecialOffersScreen(onBack = { nav.popBackStack() }, onCompose = { nav.navigate(Routes.SPECIAL_OFFER_NEW) { launchSingleTop = true } }, onOpen = { uuid -> nav.navigate(Routes.specialOffer(uuid)) }, onSwitchStore = switchStore) }
+        }
+        composable(Routes.LOYALTY) {
+            shell(true) { LoyaltyScreen(onBack = { nav.popBackStack() }, onSwitchStore = switchStore) }
+        }
+        // FL-L12: the professional community.
+        composable(Routes.COMMUNITY) { shell(true) { CommunityScreen(nav = communityNav, onBack = { nav.popBackStack() }) } }
+        composable(Routes.COMMUNITY_POST, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) { CommunityPostScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), nav = communityNav, onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.COMMUNITY_MEMBER, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) { CommunityMemberScreen(uuid = entry.arguments?.getString("uuid").orEmpty(), nav = communityNav, onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.COMMUNITY_PEOPLE, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("which") { type = NavType.StringType })) { entry ->
+            shell(true) {
+                CommunityPeopleScreen(
+                    uuid = entry.arguments?.getString("uuid").orEmpty(), startWhich = entry.arguments?.getString("which").orEmpty(),
+                    nav = communityNav, onBack = { nav.popBackStack() },
+                )
+            }
+        }
+        composable(
+            Routes.COMMUNITY_COMPOSE,
+            arguments = listOf(
+                navArgument("kind") { type = NavType.StringType; defaultValue = "post" },
+                navArgument("edit") { type = NavType.StringType; nullable = true; defaultValue = null },
+            ),
+        ) { entry ->
+            shell(true) {
+                CommunityComposeScreen(
+                    startKind = entry.arguments?.getString("kind") ?: "post", editUuid = entry.arguments?.getString("edit"),
+                    nav = communityNav, onBack = { nav.popBackStack() },
+                )
+            }
+        }
+        composable(Routes.SPECIAL_OFFER_NEW) {
+            shell(true) { SpecialOfferComposeScreen(onBack = { nav.popBackStack() }, onSent = { uuid -> nav.navigate(Routes.specialOffer(uuid)) { popUpTo(Routes.SPECIAL_OFFER_NEW) { inclusive = true } } }) }
+        }
+        composable(Routes.SPECIAL_OFFER, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) {
+                SpecialOfferScreen(
+                    uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() },
+                    onOpenWork = { p -> nav.navigate(Routes.agreement(p)) }, onOpenConsultation = { c -> nav.navigate(Routes.consultation(c)) }, onOpenOrder = { o -> nav.navigate(Routes.serviceOrder(o)) },
+                )
+            }
         }
         composable(Routes.SKILL_TESTS) { shell(true) { SkillTestsScreen(onBack = { nav.popBackStack() }, onOpenSkills = { nav.navigate(Routes.SKILLS) }) } }
         composable(Routes.COACH) {

@@ -56,7 +56,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** The reasons a dispute may give (as the server names them). */
-internal val DISPUTE_REASONS = listOf("not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "other")
+internal val DISPUTE_REASONS = listOf("not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "rights", "other")
 
 @Composable
 internal fun disputeReasonLabel(reason: String): String = stringResource(
@@ -67,6 +67,7 @@ internal fun disputeReasonLabel(reason: String): String = stringResource(
         "quality" -> R.string.fl_dr_quality
         "out_of_scope" -> R.string.fl_dr_out_of_scope
         "no_response" -> R.string.fl_dr_no_response
+        "rights" -> R.string.fl_dr_rights
         else -> R.string.fl_dr_other
     },
 )
@@ -128,7 +129,7 @@ internal fun DisputePage(projectUuid: String, milestoneUuid: String?, disputeUui
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.fl_dispute), onBack)
+        FlPageHeader(stringResource(R.string.fl_dispute), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val d = dispute
             if (disputeUuid == null) {

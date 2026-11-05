@@ -417,7 +417,7 @@ private fun TeamStats(stats: SpTeamStatsDto?, color: Color, onCompetition: (Int)
             if (red.any { it.total > 0 }) { Spacer(Modifier.height(10.dp)); MinuteChart(red, SpLive) }
         }
     }
-    stats.fetchedAt?.let { Text(stringResource(R.string.sp_updated_at, it.take(16).replace('T', ' ')), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp)) }
+    stats.fetchedAt?.let { Text(stringResource(R.string.sp_updated_at, com.dorr.app.ui.screens.rides.localDateTime(it)), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp)) }
 }
 
 // ------------------------------------------------------------------ transfers

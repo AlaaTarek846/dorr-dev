@@ -19,6 +19,7 @@ use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Offers\ClientOfferViews;
 use Modules\Freelance\Services\Offers\FreelancerOffers;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Rights\Rights;
 use Modules\User\Models\User;
 
 /**
@@ -62,6 +63,8 @@ class Agreements
             'currency_code' => $offer->currency_code,
             'duration_days' => $offer->duration_days,
             'policy' => $policy,
+            // FL-L13: who owns the work once it is paid and what the client may do with it, with the standard text of today.
+            'rights' => app(Rights::class)->snapshot($offer, (int) $project->country_id),
             'money' => [
                 'price_minor' => $cost['price_minor'], 'client_fee_minor' => $cost['client_fee_minor'], 'client_total_minor' => $cost['total_minor'],
                 'commission_minor' => $net['commission_minor'], 'net_minor' => $net['net_minor'],
@@ -294,6 +297,8 @@ class Agreements
             'duration_days' => $a->duration_days,
             // FL-605: the optional progress reports (how often, when the next is due, whether it is late).
             'reports' => app(ProgressReports::class)->summary($a),
+            // FS-106: how the running project is doing, why, and the next step for this side (null: not running).
+            'health' => app(ProjectHealth::class)->present($a, $side),
             'money' => $mine + ['lines' => FreelanceFees::lines($side, $mine)],
             // What the work runs on, as it was when the agreement was made.
             'terms' => ['review_days' => $policy['review.days'] ?? null, 'free_revisions' => $policy['review.free_revisions'] ?? null, 'auto_approve' => $policy['review.auto_approve'] ?? null],
@@ -323,6 +328,10 @@ class Agreements
             'milestone_rules' => ['max_count' => (int) ($policy['milestones.max_count'] ?? 5), 'min_amount_minor' => isset($policy['milestones.min_amount_minor']) ? (int) $policy['milestones.min_amount_minor'] : null],
             // FL-L04: the order this agreement came from (its price and work are fixed).
             'service_order' => $a->project?->service_id === null ? null : \Modules\Freelance\Models\FreelanceServiceOrder::query()->where('project_id', $a->project_id)->value('uuid'),
+            // FL-L13: ownership and licence (null: this agreement was made without rights terms).
+            'rights' => app(Rights::class)->present($a, $side),
+            // FL-L09: the special offer this agreement came from (its price and work are the freelancer's offer).
+            'special_offer' => \Modules\Freelance\Models\FreelanceSpecialOffer::query()->where('project_id', $a->project_id)->value('uuid'),
             'can' => $side === 'client'
                 ? ['edit' => $a->open() && $a->project?->service_id === null, 'send' => $a->status === Agreement::DRAFT, 'cancel' => $a->open(), 'split' => $a->open() && $a->project?->service_id === null]
                 : ['approve' => $a->status === Agreement::PENDING, 'decline' => $a->status === Agreement::PENDING, 'report' => $a->status === Agreement::ACTIVE],

@@ -83,6 +83,10 @@ class RidesServiceProvider extends ModuleServiceProvider
         Event::listen(DriverLocationUpdated::class, HandleDriverLocation::class);
         // O-59: a free captain's car moves on the riders' maps around him.
         Event::listen(DriverLocationUpdated::class, \Modules\Rides\Listeners\BroadcastAreaDriver::class);
+        // O-79: a captain who starts work gets the requests already waiting around them at once.
+        Event::listen(\Modules\Driver\Events\DriverCameOnline::class, fn (\Modules\Driver\Events\DriverCameOnline $e) => rescue(
+            fn () => $this->app->make(\Modules\Rides\Services\Dispatch\DispatchEngine::class)->nudgeNear((int) $e->driver->id, $e->lat, $e->lng, cameOnline: true),
+        ));
 
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);

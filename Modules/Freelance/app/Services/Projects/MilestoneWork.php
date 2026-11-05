@@ -55,12 +55,15 @@ class MilestoneWork
      * FL-601: the delivery is a new numbered version (its note and files), made in the same transaction as the move.
      *
      * @param  list<\Illuminate\Http\UploadedFile>  $files
+     * @param  array<string, mixed>|null  $declaration  FL-L13: the freelancer's word that the work is theirs, and the outside material they list
      */
-    public function deliver(Milestone $m, Freelancer $freelancer, string $note, array $files = []): Milestone
+    public function deliver(Milestone $m, Freelancer $freelancer, string $note, array $files = [], ?array $declaration = null): Milestone
     {
         $this->assertFreelancer($m, $freelancer);
-        $moved = DB::transaction(function () use ($m, $freelancer, $note, $files): Milestone {
-            $delivery = app(MilestoneDeliveries::class)->record($m, $note, $files);
+        // Where the agreement carries rights terms there is no delivery without the word (checked before anything is written).
+        $word = app(\Modules\Freelance\Services\Rights\Rights::class)->declaration($m->agreement, $declaration);
+        $moved = DB::transaction(function () use ($m, $freelancer, $note, $files, $word): Milestone {
+            $delivery = app(MilestoneDeliveries::class)->record($m, $note, $files, $word);
 
             return $this->move($m, Status::Delivered, 'milestone.delivered', 'freelancer', $freelancer->id, ['delivered_at' => now(), 'delivery_note' => $delivery->note, 'review_reminded_at' => null,
                 // FL-506: a request to end the part, still waiting, is over once it is delivered.

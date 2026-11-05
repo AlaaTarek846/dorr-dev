@@ -72,7 +72,8 @@ class FreelanceOfferPackController extends Controller implements HasMiddleware
         $f = $request->validate(['search' => ['nullable', 'string', 'max:60'], 'missing' => ['nullable', 'boolean'], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100']]);
         $set = FreelanceOfferPackPrice::query()->where('pack_id', $model->id)->get()->keyBy('country_id');
 
-        $page = Country::query()->with(['currency', 'translations'])->orderBy('code')
+        // One price for the whole world (`freelance.money`): only the international row is listed and priced.
+        $page = Country::query()->with(['currency', 'translations'])->whereKey(app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->orderBy('code')
             ->when(! empty($f['search']), fn ($q) => $q->where(fn ($w) => $w->where('code', 'like', '%'.$f['search'].'%')->orWhereHas('translations', fn ($t) => $t->where('name', 'like', '%'.$f['search'].'%'))))
             ->when(! empty($f['missing']), fn ($q) => $q->whereNotIn('id', FreelanceOfferPackPrice::query()->where('pack_id', $model->id)->select('country_id')))
             ->paginate((int) ($f['per_page'] ?? 20));
@@ -88,6 +89,7 @@ class FreelanceOfferPackController extends Controller implements HasMiddleware
     public function setPrice(Request $request, int $pack, int $country): JsonResponse
     {
         $model = FreelanceOfferPack::query()->findOrFail($pack);
+        abort_unless(app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->isInternational($country), 404);
         $c = Country::query()->findOrFail($country);
         $data = $request->validate(['price_minor' => ['required', 'integer', 'min:1', 'max:100000000000'], 'status' => ['sometimes', 'boolean']]);
 

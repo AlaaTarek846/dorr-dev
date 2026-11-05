@@ -238,10 +238,18 @@ data class WalletBalanceDto(
     @SerializedName("withdrawable_minor") val withdrawableMinor: Long,
     /** Received transfers / bonuses: spendable on services, never withdrawable. */
     @SerializedName("spend_only_minor") val spendOnlyMinor: Long,
+    /** Watch & Earn rewards (already counted in [totalMinor]): spent anywhere in the app, never withdrawn. */
+    @SerializedName("reward_minor") val rewardMinor: Long = 0,
+    /** Whether this country lets rewards be sent to others (a transfer with `from_bucket = reward`). */
+    @SerializedName("rewards_transferable") val rewardsTransferable: Boolean = false,
+    /** How many decimals a minor unit of this wallet's currency has (2 for SAR / EGP, 3 for KWD…). */
+    @SerializedName("currency_decimals") val currencyDecimals: Int = 2,
     /** Reserved by pending requests; not spendable until released. */
     @SerializedName("held_minor") val heldMinor: Long,
     /** Balances in other countries — shown read-only, not spendable here. */
     @SerializedName("other_wallets") val otherWallets: List<OtherWalletDto>? = null,
+    /** False when dollars are already this owner's local money (freelance works in them): there is no separate dollar wallet to swipe to. */
+    @SerializedName("international_wallet") val internationalWallet: Boolean = true,
 )
 
 data class OtherWalletDto(
@@ -256,7 +264,7 @@ data class WalletTransactionDto(
     @SerializedName("type_label") val typeLabel: String,
     /** credit / debit */
     val direction: String,
-    /** withdrawable / spend_only */
+    /** withdrawable / spend_only / reward */
     val bucket: String,
     @SerializedName("amount_minor") val amountMinor: Long,
     @SerializedName("balance_after_minor") val balanceAfterMinor: Long,
@@ -367,6 +375,7 @@ data class TransferRecipientDto(
     val via: String,
     /** Already masked by the server: first letter of each word, the rest asterisks. */
     @SerializedName("name_masked") val nameMasked: String,
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     /** Full phone, only when looked up by phone. */
     val phone: String? = null,
     /** Only when looked up by wallet number. */
@@ -385,6 +394,8 @@ data class TransferRecipientDto(
 data class TransferRequest(
     @SerializedName("recipient_token") val recipientToken: String,
     @SerializedName("amount_minor") val amountMinor: Long,
+    /** Which of my buckets pays; null = the server's order. `reward` only where the country allows it. */
+    @SerializedName("from_bucket") val fromBucket: String? = null,
 )
 
 /** The other side of a transfer; the phone arrives already masked. */

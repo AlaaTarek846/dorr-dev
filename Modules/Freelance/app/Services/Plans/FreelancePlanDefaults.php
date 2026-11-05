@@ -32,7 +32,8 @@ class FreelancePlanDefaults
             if (! isset($def['usd'])) {
                 continue;
             }
-            foreach (Country::query()->with('currency')->get() as $country) {
+            // One price for the whole world, in the freelance currency (`freelance.money`): only the international row gets prices.
+            foreach ([app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->country()] as $country) {
                 $monthly = $this->monthlyMinor((float) $def['usd'], $country->currency);
                 if ($monthly === null) {
                     continue;

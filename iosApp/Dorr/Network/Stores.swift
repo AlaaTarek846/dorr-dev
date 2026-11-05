@@ -203,10 +203,31 @@ final class WalletCountry: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.hereKey)
     }
 
-    /// For the HTTP client (any thread): the header value for a wallet request, if I chose another wallet.
+    /// For the HTTP client (any thread): the header value for a wallet request, if I chose another wallet. Watch & Earn
+    /// works on the same wallet (rewards land in it, the ad wallet is funded from it), so it follows too.
     nonisolated static func headerFor(path: String) -> String? {
-        guard path.contains("/v1/wallet") else { return nil }
+        guard !isInternational, path.contains("/v1/wallet") || path.contains("/v1/watch-earn") else { return nil }
         return UserDefaults.standard.string(forKey: selectedKey)
+    }
+
+    /// The freelance international wallet (dollars, one for the whole world) is on screen: every wallet request goes to
+    /// `mobile/v1/freelance/wallet/…` instead of the local one ([rewrite]). Set by the freelance wallet launcher while it is open.
+    nonisolated(unsafe) private static var internationalFlag = false
+    private static let internationalLock = NSLock()
+
+    nonisolated static var isInternational: Bool {
+        internationalLock.lock(); defer { internationalLock.unlock() }
+        return internationalFlag
+    }
+
+    nonisolated static func setInternational(_ on: Bool) {
+        internationalLock.lock(); internationalFlag = on; internationalLock.unlock()
+    }
+
+    /// The path a wallet request really takes (relative to the API base): the international wallet's while it is on screen.
+    nonisolated static func rewrite(path: String) -> String {
+        guard isInternational, path.hasPrefix("mobile/v1/wallet") else { return path }
+        return "mobile/v1/freelance/wallet" + path.dropFirst("mobile/v1/wallet".count)
     }
 }
 

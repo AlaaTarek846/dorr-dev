@@ -127,6 +127,7 @@ class ChatReportService
             'type' => $type,
             'id' => (int) $id,
             'name' => $accounts["{$type}:{$id}"]->name ?? null,
+            'is_verified' => \Modules\Chat\Support\VerifiedAccounts::hasKey($type, $id),
             'phone' => $accounts["{$type}:{$id}"]->phone ?? null,
         ];
         $conversation = $report->conversation;

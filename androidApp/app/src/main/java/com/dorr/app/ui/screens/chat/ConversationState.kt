@@ -88,6 +88,9 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     var askAbout by mutableStateOf<List<String>?>(null)
     /** A DORR AI tool opened on one message: understand · simplify · tasks · remind (spec 37, 38, 42, 46). */
     var aiTool by mutableStateOf<Pair<String, MessageDto>?>(null)
+
+    /** GR-038: a message being made into a work-group task (the new-task sheet, filled from it). */
+    var groupTaskFrom by mutableStateOf<MessageDto?>(null)
     /** Text for the composer (a reply I picked from an AI suggestion). */
     var composerInsert by mutableStateOf<String?>(null)
     var editing by mutableStateOf<MessageDto?>(null)

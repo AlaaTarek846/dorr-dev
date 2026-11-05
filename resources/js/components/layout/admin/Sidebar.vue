@@ -37,6 +37,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showWatchEarnSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.watch_earn') }}</span>
+                        </li>
+
+                        <li v-for="item in watchEarnItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <template v-if="showRidesSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.rides') }}</span>
@@ -844,6 +857,7 @@ const chatAdminItems = [
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
     { route: 'admin.chat.moments', permission: 'chat-moments.view', icon: 'ri-cake-2-line', label: 'chat.moments.title' },
     { route: 'admin.chat.dorr-stories', permission: 'chat-dorr-stories.view', icon: 'ri-donut-chart-line', label: 'chat.dorr_stories.title' },
+    { route: 'admin.chat.groups', permission: 'chat-groups.view', icon: 'ri-team-line', label: 'chat.groups.title' },
     { route: 'admin.chat.channels', permission: 'chat-channels.view', icon: 'ri-verified-badge-line', label: 'chat.channels.title' },
     { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
     { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
@@ -852,11 +866,27 @@ const chatAdminItems = [
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+    // Account verification (docs/verification_tasks.md).
+    { route: 'admin.chat.verification.requests', permission: 'chat-verification-requests.view', icon: 'ri-shield-user-line', label: 'chat.verification.requests.title' },
+    { route: 'admin.chat.verification.badges', permission: 'chat-verification-badges.view', icon: 'ri-verified-badge-line', label: 'chat.verification.badges.title' },
+    { route: 'admin.chat.verification.documents', permission: 'chat-verification-settings.view', icon: 'ri-file-shield-2-line', label: 'chat.verification.documents.title' },
+    { route: 'admin.chat.verification.settings', permission: 'chat-verification-settings.view', icon: 'ri-shield-check-line', label: 'chat.verification.settings.title' },
+    { route: 'admin.chat.verification.audit', permission: 'chat-verification-audit.view', icon: 'ri-history-line', label: 'chat.verification.audit.title' },
 ];
 
 const showChatAdminSection = computed(
     () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
 );
+
+/** Watch & Earn (Modules/WatchEarn): the ads' review, the settings per country and the money report. */
+const watchEarnItems = [
+    { route: 'admin.watch-earn.ads', permission: 'watch-earn-ads.view', icon: 'ri-play-circle-line', label: 'watch_earn.ads.title' },
+    { route: 'admin.watch-earn.comment-reports', permission: 'watch-earn-ads.view', icon: 'ri-chat-delete-line', label: 'watch_earn.comment_reports.title' },
+    { route: 'admin.watch-earn.settings', permission: 'watch-earn-settings.view', icon: 'ri-equalizer-line', label: 'watch_earn.settings.title' },
+    { route: 'admin.watch-earn.finance', permission: 'watch-earn-finance.view', icon: 'ri-money-dollar-circle-line', label: 'watch_earn.finance.title' },
+];
+
+const showWatchEarnSection = computed(() => watchEarnItems.some((item) => can(item.permission)));
 
 /** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
 const ridesItems = [
@@ -873,6 +903,7 @@ const ridesItems = [
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.loyalty', permission: 'ride-loyalty.view', icon: 'ri-vip-crown-2-line', label: 'rides.loyalty.title' },
+    { route: 'admin.rides.driver_services', permission: 'driver-services.view', icon: 'ri-apps-2-line', label: 'rides.driver_services.title' },
     { route: 'admin.rides.ranks', permission: 'driver-ranks.view', icon: 'ri-medal-line', label: 'rides.ranks.title' },
     { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
 ];
@@ -889,6 +920,11 @@ const freelanceItems = [
     { route: 'admin.freelance.plans', permission: 'freelance-plans.view', icon: 'ri-vip-crown-2-line', label: 'freelance.plans.title' },
     { route: 'admin.freelance.services', permission: 'freelance-services.view', icon: 'ri-store-2-line', label: 'freelance.services.title' },
     { route: 'admin.freelance.consultations', permission: 'freelance-consultations.view', icon: 'ri-video-chat-line', label: 'freelance.consultations.title' },
+    { route: 'admin.freelance.specialOffers', permission: 'freelance-special-offers.view', icon: 'ri-price-tag-3-line', label: 'freelance.specialOffers.title' },
+    { route: 'admin.freelance.loyalty', permission: 'freelance-loyalty.view', icon: 'ri-gift-line', label: 'freelance.loyalty.title' },
+    { route: 'admin.freelance.rights', permission: 'freelance-rights.view', icon: 'ri-file-shield-2-line', label: 'freelance.rights.title' },
+    { route: 'admin.freelance.promos', permission: 'freelance-promos.view', icon: 'ri-advertisement-line', label: 'freelance.promos.title' },
+    { route: 'admin.freelance.community', permission: 'freelance-community.view', icon: 'ri-team-line', label: 'freelance.community.title' },
     { route: 'admin.freelance.risk', permission: 'freelance-risk.view', icon: 'ri-alarm-warning-line', label: 'freelance.risk.title' },
     { route: 'admin.freelance.audit', permission: 'freelance-audit.view', icon: 'ri-history-line', label: 'freelance.audit.title' },
     { route: 'admin.freelance.freelancers', permission: 'freelancers.view', icon: 'ri-user-star-line', label: 'freelance.freelancers.title' },
@@ -900,6 +936,7 @@ const freelanceItems = [
     { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+    { route: 'admin.freelance.checklistTemplates', permission: 'freelance-checklist-templates.view', icon: 'ri-list-check-2', label: 'freelance.checklist_templates.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
     { route: 'admin.freelance.skillTests', permission: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
     { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },

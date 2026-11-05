@@ -22,7 +22,8 @@ func mkMoney(_ minor: Int?, _ decimals: Int?, _ currency: String?) -> String {
     f.minimumFractionDigits = d
     f.maximumFractionDigits = d
     let text = f.string(from: value as NSDecimalNumber) ?? "0"
-    return "\u{200E}" + ((currency ?? "").isEmpty ? text : "\(text) \(currency!)")
+    let sign = flCurrencySign(currency)
+    return "\u{200E}" + (sign.isEmpty ? text : "\(text) \(sign)")
 }
 
 private func mkLevelName(_ level: String?) -> String {
@@ -42,22 +43,6 @@ private func mkDay(_ iso: String?, time: Bool = false) -> String {
     f.locale = AppLocale.locale
     f.dateFormat = time ? "EEE d MMM, HH:mm" : "EEE d MMM"
     return f.string(from: d)
-}
-
-private struct MkPill: View {
-    @Environment(\.wa) private var wa
-    let text: String
-    let color: Color
-    var solid = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle().fill(solid ? Color.white : color).frame(width: 6, height: 6)
-            Text(verbatim: text).font(.dorr(11.5, .bold)).foregroundStyle(solid ? .white : color).lineLimit(1)
-        }
-        .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(solid ? color : color.opacity(wa.night ? 0.22 : 0.12), in: Capsule())
-    }
 }
 
 struct MkAvatar: View {
@@ -215,58 +200,40 @@ struct FlHint: View {
     }
 }
 
-// MARK: - the entry on «My projects»
-
-/// The door to the market on the projects list: a soft gradient card, and «My orders» beside the button.
-struct MarketBanner: View {
-    @Environment(\.wa) private var wa
-    @Environment(\.layoutDirection) private var direction
-    let onBrowse: () -> Void
-    let onOrders: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: "storefront.fill").font(.system(size: 20)).foregroundStyle(.white)
-                    .frame(width: 44, height: 44).background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(L("mk_banner_title")).font(.dorr(16, .heavy)).foregroundStyle(.white)
-                    Text(L("mk_banner_body")).font(.dorr(12)).foregroundStyle(.white.opacity(0.9)).lineSpacing(2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            HStack(spacing: 8) {
-                Button(action: onBrowse) {
-                    HStack(spacing: 6) {
-                        Text(L("mk_banner_cta")).font(.dorr(14, .heavy))
-                        Image(systemName: "arrow.forward").font(.system(size: 13, weight: .bold))
-                    }
-                    .foregroundStyle(wa.accent)
-                    .frame(maxWidth: .infinity).padding(.vertical, 11)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                Button(action: onOrders) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text.fill").font(.system(size: 13))
-                        Text(L("mk_my_orders")).font(.dorr(13, .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14).padding(.vertical, 11)
-                    .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(16)
-        .background(LinearGradient(colors: [wa.accent, wa.accent.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-    }
-}
-
 // MARK: - the market
 
 @MainActor
+/// androidApp `ServicesPage` — «Services» (the client redesign, batch E): the ready-made services and the paid consultations as
+/// two parts of one page, with «My orders» or «My consultations» in its head for the part on show. `start` is the part it opens on
+/// (0 services, 1 consultations).
+@MainActor
+struct ServicesPage: View {
+    let start: Int
+    let onBack: () -> Void
+    let onOpenService: (String) -> Void
+    let onOrders: () -> Void
+    let onBook: (String) -> Void
+    let onMine: () -> Void
+    @State private var part: Int?
+
+    var body: some View {
+        let current = part ?? start
+        VStack(spacing: 0) {
+            FlPageHeader(title: L("flh_services"), onBack: onBack, trailing: current == 0
+                ? AnyView(FlHeaderAction(text: L("mk_my_orders"), icon: "doc.text.fill", action: onOrders))
+                : AnyView(FlHeaderAction(text: L("cs_mine_title"), icon: "calendar.badge.checkmark", action: onMine)))
+            FlTabs(tabs: [FlTab(icon: "storefront.fill", label: L("mk_title")), FlTab(icon: "video.bubble.left.fill", label: L("cs_market_title"))],
+                   selected: current) { part = $0 }
+                .padding(.horizontal, 16).padding(.bottom, 8)
+            if current == 0 {
+                MarketPage(onBack: onBack, onOpen: onOpenService, onOrders: onOrders, embedded: true)
+            } else {
+                ConsultationsMarketPage(onBack: onBack, onOpen: onBook, onMine: onMine, embedded: true)
+            }
+        }
+    }
+}
+
 struct MarketPage: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
@@ -274,6 +241,8 @@ struct MarketPage: View {
     let onOpen: (String) -> Void
     let onOrders: () -> Void
     var onConsultations: () -> Void = {}
+    /// Inside «Services» the page's head and the way to the consultations and my orders are the hub's.
+    var embedded = false
     @State private var typed = ""
     @State private var search = ""
     @State private var specialty: Int?
@@ -287,7 +256,7 @@ struct MarketPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("mk_title"), onBack: onBack)
+            if !embedded { FlPageHeader(title: L("mk_title"), onBack: onBack) }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 6) {
@@ -297,8 +266,10 @@ struct MarketPage: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             // FL-L07: consultations are a list of their own, next to the services.
-                            FlChip(text: L("cs_market_title"), selected: false, icon: "video.bubble.left.fill", action: onConsultations)
-                            FlChip(text: L("mk_my_orders"), selected: false, icon: "doc.text.fill", action: onOrders)
+                            if !embedded {
+                                FlChip(text: L("cs_market_title"), selected: false, icon: "video.bubble.left.fill", action: onConsultations)
+                                FlChip(text: L("mk_my_orders"), selected: false, icon: "doc.text.fill", action: onOrders)
+                            }
                             FlChip(text: L("mk_fast"), selected: fast, icon: "bolt.fill") { fast.toggle() }
                             ForEach([("recommended", "mk_sort_recommended"), ("newest", "mk_sort_newest"), ("price_low", "mk_sort_price_low"),
                                      ("price_high", "mk_sort_price_high"), ("popular", "mk_sort_popular")], id: \.0) { value, label in
@@ -334,6 +305,7 @@ struct MarketPage: View {
                 .padding(.horizontal, 16).padding(.vertical, 6)
             }
             .scrollDismissesKeyboard(.interactively)
+            .refreshable { await paged.reload() }
         }
         // The search goes out once typing pauses.
         .task(id: typed) {
@@ -357,7 +329,7 @@ struct MarketPage: View {
     }
 }
 
-private struct ServiceTile: View {
+struct ServiceTile: View {
     @Environment(\.wa) private var wa
     let s: MarketServiceCardDto
     let onClick: () -> Void
@@ -410,6 +382,8 @@ private struct ServiceTile: View {
                         if (s.completedOrders ?? 0) > 0 { Text(L("mk_done_n", s.completedOrders ?? 0)).font(.dorr(11, .bold)).foregroundStyle(mkGreen) }
                     }
                     Text(verbatim: s.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3).multilineTextAlignment(.leading)
+                    // The freelancer's country: the market mixes every open country.
+                    FlCountryTag(country: s.country)
                     MkDivider()
                     HStack(spacing: 4) {
                         Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(wa.settingsMut)
@@ -448,6 +422,8 @@ struct ServicePage: View {
     @State private var busy = false
     @State private var expanded = false
     @State private var page = 0
+    // FL-L13: the report sheet (this service is not the freelancer's own work).
+    @State private var reporting = false
     // One id per order attempt: a retry after a lost answer is the same order, never a second one.
     @State private var requestId = UUID().uuidString
 
@@ -489,7 +465,7 @@ struct ServicePage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: service?.title ?? L("mk_title"), onBack: onBack)
+            FlPageHeader(title: service?.title ?? L("mk_title"), onBack: onBack)
             if let s = service, let tier = (s.tiers ?? []).first(where: { $0.level == level }) ?? s.tiers?.first {
                 ScrollView { content(s, tier).padding(.horizontal, 16).padding(.bottom, 16) }.scrollDismissesKeyboard(.interactively)
                 orderBar(s, tier)
@@ -517,6 +493,9 @@ struct ServicePage: View {
         .dorrDialog(isPresented: Binding(get: { confirming }, set: { if !$0 && !busy { confirming = false } }), bottom: true) {
             if let s = service { confirmSheet(s) }
         }
+        .dorrDialog(isPresented: $reporting, bottom: true) {
+            ReportWorkSheet(subjectType: "service", subject: uuid) { reporting = false }
+        }
     }
 
     @ViewBuilder
@@ -538,11 +517,15 @@ struct ServicePage: View {
             }
             // The title and what it stands on.
             VStack(alignment: .leading, spacing: 6) {
-                if let name = s.specialty?.name { MkPill(text: name, color: wa.accent) }
+                if let name = s.specialty?.name { FlDotPill(text: name, color: wa.accent) }
                 Text(verbatim: s.title ?? "").font(.dorr(20, .heavy)).foregroundStyle(wa.settingsInk).lineSpacing(4)
                 if (s.completedOrders ?? 0) > 0 { Text(L("mk_done_n", s.completedOrders ?? 0)).font(.dorr(12, .bold)).foregroundStyle(mkGreen) }
             }
             if let f = s.freelancer { MkFreelancerCard(f: f) }
+            // FL-L09: the freelancer's loyalty program and where I stand.
+            LoyaltyCard(view: s.loyalty)
+            // FL-L13: who owns the work once it is paid, and a way to report it if it is not theirs.
+            RightsCard(rights: s.rights)
             MkSection(title: L("mk_about"), icon: "text.alignleft") {
                 Text(verbatim: s.description ?? "").font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(6).lineLimit(expanded ? nil : 5)
                 if (s.description ?? "").count > 240 {
@@ -560,7 +543,9 @@ struct ServicePage: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .trailing, spacing: 0) {
-                        Text(verbatim: mkMoney(tier.priceMinor, s.decimals, s.currency)).font(.dorr(20, .black)).foregroundStyle(wa.accent)
+                        // FL-L09: my loyalty step's price, with the usual one struck through.
+                        LoyaltyPrice(price: mkMoney(tier.loyaltyPriceMinor ?? tier.priceMinor, s.decimals, s.currency),
+                                     list: tier.loyaltyPriceMinor == nil ? nil : mkMoney(tier.priceMinor, s.decimals, s.currency), color: wa.accent, size: 20)
                         if s.billing == "monthly" { Text(L("mks_per_month")).font(.dorr(11, .bold)).foregroundStyle(wa.settingsMut) }
                     }
                 }
@@ -619,7 +604,9 @@ struct ServicePage: View {
             // What it comes to.
             if let q = quote {
                 MkSection(title: L("mk_total"), icon: "banknote") {
-                    MkLine(label: L("mk_price"), value: mkMoney(q.priceMinor, q.decimals, q.currency))
+                    // FL-L09: the usual price, then the loyalty discount off it.
+                    MkLine(label: L("mk_price"), value: mkMoney(q.listPriceMinor ?? q.priceMinor, q.decimals, q.currency))
+                    LoyaltyDiscountLine(bp: q.loyaltyBp, saving: mkMoney(q.savingMinor ?? 0, q.decimals, q.currency))
                     if (q.clientFeeMinor ?? 0) > 0 { MkLine(label: L("mk_fee"), value: mkMoney(q.clientFeeMinor, q.decimals, q.currency)) }
                     MkLine(label: L("mk_delivery"), value: mkDays(q.deliveryDays ?? 0))
                     MkDivider()
@@ -627,6 +614,7 @@ struct ServicePage: View {
                 }
             }
             WaitlistCard(cap: s.capacity ?? MarketCapacityDto(), busy: busy) { waitlist(false) }
+            if s.rights != nil { FlTextLink(text: L("rights_report")) { reporting = true } }
             if let error { FlNotice(text: error, icon: "xmark", color: mkRed) }
         }
     }
@@ -638,7 +626,7 @@ struct ServicePage: View {
                 Button { level = t.level ?? "basic" } label: {
                     VStack(spacing: 0) {
                         Text(verbatim: mkLevelName(t.level)).font(.dorr(13, .heavy)).foregroundStyle(on ? .white : wa.settingsInk).lineLimit(1)
-                        Text(verbatim: mkMoney(t.priceMinor, s.decimals, nil)).font(.dorr(11, .semibold)).foregroundStyle(on ? .white.opacity(0.85) : wa.settingsMut).lineLimit(1)
+                        Text(verbatim: mkMoney(t.loyaltyPriceMinor ?? t.priceMinor, s.decimals, nil)).font(.dorr(11, .semibold)).foregroundStyle(on ? .white.opacity(0.85) : wa.settingsMut).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
                     .background(on ? wa.accent : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -710,6 +698,7 @@ struct ServicePage: View {
                     MkLine(label: "+ " + (a.title ?? ""), value: mkMoney(a.priceMinor, s.decimals, s.currency))
                 }
                 if let q = quote {
+                    LoyaltyDiscountLine(bp: q.loyaltyBp, saving: mkMoney(q.savingMinor ?? 0, q.decimals, q.currency))
                     if (q.clientFeeMinor ?? 0) > 0 { MkLine(label: L("mk_fee"), value: mkMoney(q.clientFeeMinor, q.decimals, q.currency)) }
                     MkLine(label: L("mk_delivery"), value: mkDays(q.deliveryDays ?? 0))
                     MkLine(label: L("mk_total"), value: mkMoney(q.totalMinor, q.decimals, q.currency), strong: true)
@@ -820,6 +809,8 @@ struct MyOrdersPage: View {
     let onBack: () -> Void
     let onOpen: (String) -> Void
     let onBrowse: () -> Void
+    /// Inside «My activity» the head is the hub's and the statuses are chips.
+    var embedded = false
     @State private var tab = 0
     @StateObject private var paged = PagedRows<MarketOrderDto>(key: { $0.uuid })
     // FL-L05: my monthly subscriptions.
@@ -829,15 +820,14 @@ struct MyOrdersPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("mko_title"), onBack: onBack)
-            FlTabs(tabs: [
+            if !embedded { FlPageHeader(title: L("mko_title"), onBack: onBack) }
+            FlPartTabs(tabs: [
                 FlTab(icon: "hourglass", label: L("mko_tab_awaiting")),
                 FlTab(icon: "bolt.fill", label: L("mko_tab_active")),
                 FlTab(icon: "checkmark.seal.fill", label: L("mko_tab_completed")),
                 FlTab(icon: "tray.fill", label: L("mko_tab_ended")),
                 FlTab(icon: "calendar.badge.clock", label: L("mks_tab")),
-            ], selected: tab) { tab = $0 }
-            .padding(.horizontal, 16).padding(.vertical, 4)
+            ], selected: tab, compact: embedded) { tab = $0 }
             if monthly {
                 SubscriptionsList(subs: subs, onOpen: onOpen, onBrowse: onBrowse)
             } else {
@@ -890,7 +880,7 @@ private struct OrderTile: View {
                         Text(verbatim: [mkLevelName(o.level), o.freelancer?.name].compactMap { $0 }.joined(separator: " · ")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    MkPill(text: label, color: color)
+                    FlDotPill(text: label, color: color)
                 }
                 HStack(spacing: 4) {
                     Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(wa.settingsMut)
@@ -937,7 +927,7 @@ struct MyOrderPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("mko_detail"), onBack: onBack)
+            FlPageHeader(title: L("mko_detail"), onBack: onBack)
             if let o = order {
                 ScrollView { content(o).padding(.horizontal, 16).padding(.bottom, 20) }
             } else {
@@ -964,7 +954,7 @@ struct MyOrderPage: View {
             StatusHero(o: o)
             MkSection(title: L("mko_summary"), icon: "bag.fill") {
                 HStack(spacing: 8) {
-                    MkPill(text: mkLevelName(o.level), color: wa.accent)
+                    FlDotPill(text: mkLevelName(o.level), color: wa.accent)
                     if let t = o.tierName, !t.isEmpty { Text(verbatim: t).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk) }
                 }
                 ForEach(o.features ?? [], id: \.self) { f in
@@ -992,7 +982,8 @@ struct MyOrderPage: View {
                 }
             }
             MkSection(title: L("mko_money"), icon: "banknote") {
-                MkLine(label: L("mk_price"), value: mkMoney(o.money?.priceMinor, o.decimals, o.currency))
+                MkLine(label: L("mk_price"), value: mkMoney(o.listPriceMinor ?? o.money?.priceMinor, o.decimals, o.currency))
+                LoyaltyDiscountLine(bp: o.loyaltyBp, saving: mkMoney(o.savingMinor ?? 0, o.decimals, o.currency))
                 if (o.money?.clientFeeMinor ?? 0) > 0 { MkLine(label: L("mk_fee"), value: mkMoney(o.money?.clientFeeMinor, o.decimals, o.currency)) }
                 MkDivider()
                 MkLine(label: L("mk_total"), value: mkMoney(o.money?.totalMinor, o.decimals, o.currency), strong: true)
@@ -1032,11 +1023,11 @@ private struct StatusHero: View {
         let reached = o.state == "active" ? 2 : (o.state == "completed" ? 4 : 1)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                MkPill(text: label, color: color, solid: true)
+                FlDotPill(text: label, color: color, solid: true)
                 Spacer()
                 // FL-L05: one month of a subscription.
                 if let sub = o.subscription {
-                    MkPill(text: L("mks_month_n", sub.cycle ?? 1), color: wa.accent)
+                    FlDotPill(text: L("mks_month_n", sub.cycle ?? 1), color: wa.accent)
                 } else {
                     Text(L("mko_service_badge")).font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut)
                 }
@@ -1177,7 +1168,7 @@ private struct SubscriptionTile: View {
                     Text(verbatim: [mkLevelName(s.level), s.freelancer?.name].compactMap { $0 }.joined(separator: " · ")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                MkPill(text: label, color: color)
+                FlDotPill(text: label, color: color)
             }
             HStack {
                 Text(L("mks_month_n", s.cycle ?? 1)).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
