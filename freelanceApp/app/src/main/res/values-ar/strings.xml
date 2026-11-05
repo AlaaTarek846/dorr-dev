@@ -60,7 +60,7 @@
 
     <!-- صفحة الترحيب (StartScreen). -->
     <string name="start_title">أهلاً بك في دُرر للمحترفين</string>
-    <string name="start_body">اعرض مهاراتك، وثّق حسابك، واشتغل مع عملاء في بلدك.</string>
+    <string name="start_body">اعرض مهاراتك، وثّق حسابك، واشتغل مع عملاء من كل الدول.</string>
     <string name="start_language">English</string>
 
     <string name="start_cta">ابدأ</string>

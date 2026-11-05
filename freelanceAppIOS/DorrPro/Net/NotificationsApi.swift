@@ -63,6 +63,10 @@ enum NotificationsApi {
 /// in the notifications list and a push tapped in the phone's tray. `nil`: the notice has no screen of its own.
 enum NoticeRoute {
     static func resolve(_ event: String?, field: (String) -> String?) -> Route? {
+        // FL-L12: a community notice (`freelance_community_*`) opens the post it is about, or the member who followed me.
+        if event?.hasPrefix("freelance.community") == true || field("type")?.hasPrefix("freelance_community_") == true {
+            return field("community_post").map(Route.communityPost) ?? field("community_member").map(Route.communityMember) ?? .community
+        }
         guard let e = event else { return nil }
         let project = field("project")
         if e == "freelance.message" || e.hasPrefix("freelance.interview") { return field("conversation_uuid").map(Route.chat) }
@@ -72,19 +76,32 @@ enum NoticeRoute {
         if e == "freelance.portfolio.hidden" { return .portfolio }
         if e == "freelance.quota.low" { return .myOffers }
         if e.hasPrefix("freelance.subscription") { return .plans }
+        // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.
+        if e.hasPrefix("freelance.rights") { return project.map(Route.agreement) }
         if e == "freelance.invitation.received" { return .invitations }
+        // FL-L09: an answer to my special offer opens it.
+        if e.hasPrefix("freelance.special_offer") { return field("special_offer").map(Route.specialOffer) ?? .specialOffers }
         // FL-L04: a new order opens it; a decision on a service, my services.
         if e == "freelance.order.received" { return field("order").map(Route.serviceOrder) ?? .serviceOrders }
         // FL-L07: a listing the staff decided on opens its editor; a booking opens the booking.
         if e.hasPrefix("freelance.consultation.listing") { return field("consultation_offer").map { .consultationEdit($0) } ?? .consultations }
+        // FL-L16: the session's notices (session_joined · session_ending · session_closed · session_reopened · recording_ready) open
+        // the booking too — its session card has "join", the time left and the recordings.
         if e.hasPrefix("freelance.consultation") { return field("consultation").map(Route.consultation) ?? .consultations }
         if e.hasPrefix("freelance.service.") { return field("service").map { .service($0) } ?? .services }
+        // A client's monthly service: a renewal opens its order (or my orders); someone waiting for a place opens the service.
+        if e.hasPrefix("freelance.retainer") { return field("order").map(Route.serviceOrder) ?? .serviceOrders }
+        if e.hasPrefix("freelance.waitlist") { return field("service").map { .service($0) } ?? .services }
+        // A sanction (and its appeal) is shown on Home, in the card above the numbers.
+        if e.hasPrefix("freelance.sanction") { return .home }
         if e.hasPrefix("freelance.dispute") {
             if let project, let dispute = field("dispute") { return .dispute(project: project, dispute: dispute) }
             return project.map(Route.agreement)
         }
         // The work itself: the agreement, its parts, their payments and changes.
+        // FS-106: a health notice (health.at_risk · delayed · blocked) opens the agreement, where its card explains it.
         if e.hasPrefix("freelance.milestone") || e.hasPrefix("freelance.report") || e.hasPrefix("freelance.change") || e.hasPrefix("freelance.payment")
+            || e.hasPrefix("freelance.health")
             || e == "freelance.agreement.received" || e == "freelance.project.completed" {
             return project.map(Route.agreement)
         }

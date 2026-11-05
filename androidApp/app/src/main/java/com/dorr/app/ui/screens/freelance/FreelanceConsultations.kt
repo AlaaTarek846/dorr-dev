@@ -29,7 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.EventBusy
@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,6 +85,8 @@ import com.dorr.app.network.ConsultDto
 import com.dorr.app.network.ConsultOfferDto
 import com.dorr.app.network.ConsultReasonRequest
 import com.dorr.app.network.ConsultTeaserDto
+import com.dorr.app.network.ClientSpecialOfferDto
+import com.dorr.app.network.SpecialOfferAcceptRequest
 import com.dorr.app.network.apiFailure
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.components.DorrTextField
@@ -110,7 +113,7 @@ import java.util.UUID
  * FL-L07, paid consultations on the client's side, listed like the ready-made services: the list of consultations on offer, booking one
  * (a length, a day, a time, what it is about — then a last look at the money before it is held), my consultations in three lists, and one
  * consultation (when, cancelling with the refund said plainly, saying it went well, or reporting a problem). The session itself is a video
- * call (FL-L16), so there is no room. Times come from the server as UTC instants and are shown on the phone's own clock. Each page reads
+ * call (FL-L16, FreelanceConsultationSession.kt): its card on the consultation and the full-screen room. Times come from the server as UTC instants and are shown on the phone's own clock. Each page reads
  * once when it opens and when the connection returns; countdowns read the phone's clock.
  */
 
@@ -153,27 +156,6 @@ private fun phase(p: String): Pair<String, Color> = when (p) {
     "disputed" -> stringResource(R.string.cs_phase_disputed) to C_AMBER
     "refunded" -> stringResource(R.string.cs_phase_refunded) to C_RED
     else -> stringResource(R.string.cs_phase_cancelled) to C_SLATE
-}
-
-@Composable
-private fun CsPill(text: String, color: Color, solid: Boolean = false) {
-    Row(
-        Modifier.clip(RoundedCornerShape(999.dp)).background(if (solid) color else color.copy(alpha = if (settingsNight()) 0.22f else 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(6.dp).clip(CircleShape).background(if (solid) Color.White else color))
-        Spacer(Modifier.width(6.dp))
-        Text(text, color = if (solid) Color.White else color, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    }
-}
-
-@Composable
-private fun CsAvatar(url: String?, name: String?, size: Int) {
-    Box(Modifier.size(size.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-        val reachable = ApiClient.mediaUrl(url)
-        if (!reachable.isNullOrBlank()) AsyncImage(model = reachable, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        else Text(name?.trim()?.firstOrNull()?.uppercase() ?: "?", color = settingsAccent(), fontSize = (size / 2.4).sp, fontWeight = FontWeight.ExtraBold)
-    }
 }
 
 @Composable
@@ -233,7 +215,7 @@ internal fun ConsultTeaser(items: List<ConsultTeaserDto>, onBook: (String) -> Un
                         color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = accent, modifier = Modifier.size(22.dp))
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = accent, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -243,7 +225,7 @@ internal fun ConsultTeaser(items: List<ConsultTeaserDto>, onBook: (String) -> Un
 
 /** The consultations clients can book, a list of their own next to the ready-made services: a search and one card each. */
 @Composable
-internal fun ConsultationsMarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onMine: () -> Unit) {
+internal fun ConsultationsMarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onMine: () -> Unit, embedded: Boolean = false) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -267,18 +249,20 @@ internal fun ConsultationsMarketPage(onBack: () -> Unit, onOpen: (String) -> Uni
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.cs_market_title), onBack)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Inside «Services» the page's head and «My consultations» are the hub's.
+        if (!embedded) FlPageHeader(stringResource(R.string.cs_market_title), onBack)
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 DorrTextField(typed, { typed = it.take(80) }, placeholder = stringResource(R.string.cs_market_search), icon = Icons.Rounded.Search,
                     trailing = if (typed.isNotEmpty()) { { Icon(Icons.Rounded.Close, null, tint = settingsMut(), modifier = Modifier.padding(end = 10.dp).size(18.dp).clickable { typed = "" }) } } else null,
                     modifier = Modifier.fillMaxWidth())
             }
-            item {
+            if (!embedded) item {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.08f)).clickable(onClick = onMine).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Rounded.EventAvailable, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.cs_mine_title), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.ChevronRight, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                 }
             }
             when {
@@ -292,18 +276,21 @@ internal fun ConsultationsMarketPage(onBack: () -> Unit, onOpen: (String) -> Uni
             item { PagedSpinner(paged) }
             paged.error?.takeIf { !closed }?.let { item { TextButton(onClick = { paged.clearError(); scope.launch { paged.loadMore(generic) } }, modifier = Modifier.fillMaxWidth()) { Text(it, color = C_RED, fontSize = 13.sp) } } }
         }
+        }
     }
 }
 
 @Composable
 private fun ConsultCard(c: ConsultCardDto, onClick: () -> Unit) {
     val accent = settingsAccent()
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).clickable(onClick = onClick).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth().settingsSurface(FlCorners.card).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            CsAvatar(c.freelancer.avatarUrl, c.freelancer.name, 44)
+            FlAvatar(c.freelancer.avatarUrl, c.freelancer.name, 44)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(c.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 c.freelancer.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                // The freelancer's country: the market mixes every open country.
+                FlCountryTag(c.country)
             }
             if (c.freelancer.rating != null) {
                 Icon(Icons.Rounded.Star, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(15.dp))
@@ -331,12 +318,14 @@ private fun ConsultCard(c: ConsultCardDto, onClick: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooked: (String) -> Unit) {
+internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooked: (String) -> Unit, special: String? = null) {
     val context = LocalContext.current
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
     var offer by remember { mutableStateOf<ConsultOfferDto?>(null) }
+    // FL-L09: booked through a freelancer's special offer — its discounted prices, and the booking is confirmed at once.
+    var specialOffer by remember { mutableStateOf<ClientSpecialOfferDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var minutes by rememberSaveable { mutableStateOf(0) }
     var slots by remember { mutableStateOf<List<String>?>(null) }
@@ -346,12 +335,15 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
     var confirming by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var bookError by remember { mutableStateOf<String?>(null) }
+    // FL-L16: the session is recorded — booking waits for the client's yes.
+    var consent by rememberSaveable { mutableStateOf(false) }
     // One id for this booking: a second tap (or a retry after a weak network) is the same booking.
     val requestId = rememberSaveable { UUID.randomUUID().toString() }
 
     LaunchedEffect(offerUuid, reconnect) {
         try {
             val o = ApiClient.freelanceConsultations.offer(auth(), offerUuid).data
+            if (special != null) specialOffer = ApiClient.freelanceSpecialOffers.show(auth(), special).data
             offer = o
             if (minutes == 0) minutes = o?.options?.firstOrNull()?.minutes ?: 0
             error = null
@@ -386,6 +378,7 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
         if (slot != null && slots?.contains(slot) != true) slot = null
     }
     val option = offer?.options?.firstOrNull { it.minutes == minutes }
+    val deal = specialOffer?.consultation?.lengths?.firstOrNull { it.minutes == minutes }
     val ready = option != null && slot != null && topic.trim().length >= 10
 
     fun book() {
@@ -395,10 +388,14 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
         bookError = null
         scope.launch {
             try {
-                val c = ApiClient.freelanceConsultations.book(auth(), ConsultBookRequest(offerUuid, minutes, s, topic.trim(), requestId)).data
+                val booked = if (special != null) {
+                    ApiClient.freelanceSpecialOffers.accept(auth(), special, SpecialOfferAcceptRequest(requestId, minutes, s, topic.trim(), recordingConsent = true)).data?.result?.consultation
+                } else {
+                    ApiClient.freelanceConsultations.book(auth(), ConsultBookRequest(offerUuid, minutes, s, topic.trim(), requestId, recordingConsent = true)).data?.uuid
+                }
                 confirming = false
-                Toast.makeText(context, context.getString(R.string.cs_booked), Toast.LENGTH_SHORT).show()
-                if (c != null) onBooked(c.uuid)
+                Toast.makeText(context, context.getString(if (special != null) R.string.spc_booked else R.string.cs_booked), Toast.LENGTH_SHORT).show()
+                if (booked != null) onBooked(booked)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -412,7 +409,7 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.cs_book_title), onBack)
+        FlPageHeader(stringResource(R.string.cs_book_title), onBack)
         val o = offer
         if (o == null) {
             FlLoading(error)
@@ -422,7 +419,7 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
             // Who and what.
             Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CsAvatar(o.freelancer.avatarUrl, o.freelancer.name, 56)
+                    FlAvatar(o.freelancer.avatarUrl, o.freelancer.name, 56)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(o.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         o.freelancer.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -438,6 +435,10 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
                 Text(o.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.cs_default_title), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 25.sp)
                 o.about?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp, lineHeight = 20.sp) }
             }
+
+            specialOffer?.let { sp -> SpecialDealBanner(sp) }
+            // FL-L09: the loyalty program and where I stand (a special offer's price is final, so it stands alone).
+            if (special == null) LoyaltyCard(o.loyalty)
 
             // What clients said, from projects and consultations.
             if (o.freelancer.reviews.isNotEmpty()) CsCard(stringResource(R.string.cs_reviews_title, o.freelancer.reviewsCount), Icons.Rounded.Star) {
@@ -467,7 +468,10 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
                         ) {
                             Icon(Icons.Rounded.Timer, null, tint = if (on) Color.White else settingsAccent(), modifier = Modifier.size(18.dp))
                             Text(stringResource(R.string.cs_minutes, op.minutes), color = if (on) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                            Text(mkMoney(op.totalMinor, o.decimals, o.currency), color = if (on) Color.White.copy(alpha = 0.9f) else settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            val opDeal = specialOffer?.consultation?.lengths?.firstOrNull { it.minutes == op.minutes }
+                            if (opDeal != null) Text(mkMoney(op.totalMinor, o.decimals, o.currency), color = if (on) Color.White.copy(alpha = 0.7f) else settingsMut().copy(alpha = 0.7f), fontSize = 10.sp, textDecoration = TextDecoration.LineThrough, maxLines = 1)
+                            Text(mkMoney(opDeal?.totalMinor ?: op.totalMinor, o.decimals, o.currency), color = if (on) Color.White.copy(alpha = 0.9f) else if (opDeal != null) C_GREEN else settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            if (opDeal == null) LoyaltyMini(op.loyaltyBp, on)
                         }
                     }
                 }
@@ -513,7 +517,7 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
             CsCard(stringResource(R.string.cs_rules_title), Icons.Rounded.Gavel) {
                 listOf(
                     Icons.Rounded.Lock to stringResource(R.string.cs_rule_held),
-                    Icons.Rounded.HourglassTop to stringResource(R.string.cs_rule_accept, o.rules.responseHours),
+                    Icons.Rounded.HourglassTop to if (special != null) stringResource(R.string.spc_rule_instant) else stringResource(R.string.cs_rule_accept, o.rules.responseHours),
                     Icons.Rounded.EventBusy to stringResource(R.string.cs_rule_cancel, o.rules.freeCancelHours),
                     Icons.Rounded.ReportProblem to stringResource(R.string.cs_rule_problem, o.rules.complaintHours),
                 ).forEach { (icon, line) ->
@@ -533,7 +537,7 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
         ) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.cs_total), color = settingsMut(), fontSize = 11.sp)
-                Text(option?.let { mkMoney(it.totalMinor, o.decimals, o.currency) } ?: "—", color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                Text((deal?.totalMinor ?: option?.totalMinor)?.let { mkMoney(it, o.decimals, o.currency) } ?: "—", color = if (deal != null) C_GREEN else settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                 slot?.let { Text("${longDay(it)} · ‎${hm(it)}", color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
             SettingsPrimaryButton(text = stringResource(R.string.cs_book_cta), enabled = ready, modifier = Modifier.width(170.dp), onClick = { bookError = null; confirming = true })
@@ -547,23 +551,28 @@ internal fun BookConsultationPage(offerUuid: String, onBack: () -> Unit, onBooke
             // The send button stays at the bottom while the rest scrolls, so it is never below the fold.
             footer = {
                 bookError?.let { FlNotice(it, Icons.Rounded.Close, C_RED) }
-                SettingsPrimaryButton(text = stringResource(R.string.cs_confirm_cta), loading = busy, onClick = ::book)
+                RecordingConsentRow(consent) { consent = it }
+                SettingsPrimaryButton(text = stringResource(R.string.cs_confirm_cta), enabled = consent, loading = busy, onClick = ::book)
             },
         ) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(settingsAccent().copy(alpha = 0.06f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CsAvatar(o.freelancer.avatarUrl, o.freelancer.name, 34)
+                    FlAvatar(o.freelancer.avatarUrl, o.freelancer.name, 34)
                     Column(Modifier.weight(1f)) {
                         Text(o.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                         Text("${longDay(slot)} · ‎${hm(slot)}", color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 HorizontalDivider(color = settingsMut().copy(alpha = 0.15f))
-                CsLine(stringResource(R.string.cs_minutes, option.minutes), mkMoney(option.priceMinor, o.decimals, o.currency))
-                if (option.clientFeeMinor > 0) CsLine(stringResource(R.string.mk_fee), mkMoney(option.clientFeeMinor, o.decimals, o.currency))
-                CsLine(stringResource(R.string.mk_total), mkMoney(option.totalMinor, o.decimals, o.currency), strong = true)
+                CsLine(stringResource(R.string.cs_minutes, option.minutes), mkMoney(deal?.priceMinor ?: option.listPriceMinor ?: option.priceMinor, o.decimals, o.currency))
+                if (deal != null) CsLine(stringResource(R.string.spc_you_save), "− " + mkMoney(deal.listPriceMinor - deal.priceMinor, o.decimals, o.currency))
+                // FL-L09: the loyalty discount off the length's usual price.
+                else LoyaltyDiscountLine(option.loyaltyBp, mkMoney((option.listPriceMinor ?: option.priceMinor) - option.priceMinor, o.decimals, o.currency))
+                val fee = deal?.clientFeeMinor ?: option.clientFeeMinor
+                if (fee > 0) CsLine(stringResource(R.string.mk_fee), mkMoney(fee, o.decimals, o.currency))
+                CsLine(stringResource(R.string.mk_total), mkMoney(deal?.totalMinor ?: option.totalMinor, o.decimals, o.currency), strong = true)
             }
-            FlNotice(stringResource(R.string.cs_confirm_safe, o.rules.responseHours), Icons.Rounded.Lock, C_GREEN)
+            FlNotice(if (special != null) stringResource(R.string.spc_confirm_instant) else stringResource(R.string.cs_confirm_safe, o.rules.responseHours), Icons.Rounded.Lock, C_GREEN)
         }
     }
 }
@@ -588,7 +597,7 @@ private fun DayChip(d: LocalDate, count: Int, on: Boolean, onClick: () -> Unit) 
 private val TABS = listOf("upcoming", "past", "cancelled")
 
 @Composable
-internal fun MyConsultationsPage(onBack: () -> Unit, onOpen: (String) -> Unit) {
+internal fun MyConsultationsPage(onBack: () -> Unit, onOpen: (String) -> Unit, embedded: Boolean = false) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -599,17 +608,16 @@ internal fun MyConsultationsPage(onBack: () -> Unit, onOpen: (String) -> Unit) {
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.cs_mine_title), onBack)
-        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            FlTabs(
-                listOf(
-                    FlTab(Icons.Rounded.EventAvailable, stringResource(R.string.cs_tab_upcoming)),
-                    FlTab(Icons.Rounded.CheckCircle, stringResource(R.string.cs_tab_past)),
-                    FlTab(Icons.Rounded.EventBusy, stringResource(R.string.cs_tab_cancelled)),
-                ),
-                tab,
-            ) { tab = it }
-        }
+        // Inside «My activity» the head is the hub's and the statuses are chips.
+        if (!embedded) FlPageHeader(stringResource(R.string.cs_mine_title), onBack)
+        FlPartTabs(
+            listOf(
+                FlTab(Icons.Rounded.EventAvailable, stringResource(R.string.cs_tab_upcoming)),
+                FlTab(Icons.Rounded.CheckCircle, stringResource(R.string.cs_tab_past)),
+                FlTab(Icons.Rounded.EventBusy, stringResource(R.string.cs_tab_cancelled)),
+            ),
+            tab, compact = embedded,
+        ) { tab = it }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             when {
                 !paged.loaded -> item { FlSkeletonList(count = 3, height = 110.dp) }
@@ -642,10 +650,10 @@ private fun ConsultTile(c: ConsultDto, onClick: () -> Unit) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("‎${hm(c.startsAt)} – ${hm(c.endsAt)}", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                CsPill(label, color)
+                FlDotPill(label, color)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                CsAvatar(c.freelancer?.avatarUrl, c.freelancer?.name, 20)
+                FlAvatar(c.freelancer?.avatarUrl, c.freelancer?.name, 20)
                 Text(stringResource(R.string.cs_with, c.freelancer?.name.orEmpty(), c.minutes), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             c.topic?.let { Text(it, color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -655,8 +663,8 @@ private fun ConsultTile(c: ConsultDto, onClick: () -> Unit) {
                     Icon(Icons.Rounded.Timer, null, tint = settingsMut(), modifier = Modifier.size(14.dp))
                     Text(it, color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
-                if (c.can.confirm) CsPill(stringResource(R.string.cs_needs_you), C_AMBER)
-                else if (c.review.canRate) CsPill(stringResource(R.string.cs_rate_needs), C_AMBER)
+                if (c.can.confirm) FlDotPill(stringResource(R.string.cs_needs_you), C_AMBER)
+                else if (c.review.canRate) FlDotPill(stringResource(R.string.cs_rate_needs), C_AMBER)
             }
         }
     }
@@ -680,8 +688,10 @@ internal fun ConsultationPage(uuid: String, onBack: () -> Unit) {
     var rating by remember { mutableStateOf(false) }
     var stars by rememberSaveable { mutableStateOf(0) }
     var opinion by rememberSaveable { mutableStateOf("") }
+    // FL-L16: one more read when the session card asks (the room opened by the clock, a no-show sent) or the session screen closed.
+    var reloads by remember { mutableStateOf(0) }
 
-    LaunchedEffect(uuid, reconnect) {
+    LaunchedEffect(uuid, reconnect, reloads, ConsultSession.closedCount) {
         try {
             c = ApiClient.freelanceConsultations.show(auth(), uuid).data
             error = null
@@ -716,7 +726,7 @@ internal fun ConsultationPage(uuid: String, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.cs_detail_title), onBack)
+        FlPageHeader(stringResource(R.string.cs_detail_title), onBack)
         val x = c
         if (x == null) {
             FlLoading(error)
@@ -726,6 +736,7 @@ internal fun ConsultationPage(uuid: String, onBack: () -> Unit) {
             Head(x)
             error?.let { FlNotice(it, Icons.Rounded.Close, C_RED) }
             Notes(x)
+            x.session?.let { s -> ConsultSessionCard(uuid, x, s, onChanged = { fresh -> if (fresh != null) c = fresh else reloads++ }) }
             if (x.can.confirm || x.can.complain) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (x.can.confirm) FlAction(stringResource(R.string.cs_confirm_ok), Icons.Rounded.ThumbUp, FlTone.Primary, modifier = Modifier.weight(1f)) { confirming = true }
                 if (x.can.complain) FlAction(stringResource(R.string.cs_complain), Icons.Rounded.ReportProblem, modifier = Modifier.weight(1f)) { complaining = true }
@@ -737,7 +748,8 @@ internal fun ConsultationPage(uuid: String, onBack: () -> Unit) {
                 }
             }
             CsCard(stringResource(R.string.cs_money), Icons.Rounded.Payments) {
-                CsLine(stringResource(R.string.cs_minutes, x.minutes), mkMoney(x.money.priceMinor, x.decimals, x.currency))
+                CsLine(stringResource(R.string.cs_minutes, x.minutes), mkMoney(x.listPriceMinor ?: x.money.priceMinor, x.decimals, x.currency))
+                LoyaltyDiscountLine(x.loyaltyBp, mkMoney(x.savingMinor ?: 0, x.decimals, x.currency))
                 if (x.money.clientFeeMinor > 0) CsLine(stringResource(R.string.mk_fee), mkMoney(x.money.clientFeeMinor, x.decimals, x.currency))
                 CsLine(stringResource(R.string.mk_total), mkMoney(x.money.totalMinor, x.decimals, x.currency), strong = true)
             }
@@ -751,6 +763,8 @@ internal fun ConsultationPage(uuid: String, onBack: () -> Unit) {
         }
     }
 
+    // FL-L16: the video session, full screen over the page while I am in it.
+    if (ConsultSession.uuid == uuid && ConsultSession.phase != null) ConsultSessionScreen()
     val x = c ?: return
     if (cancelling) {
         ConfirmDialog(
@@ -836,7 +850,7 @@ private fun Head(c: ConsultDto) {
     val (label, color) = phase(c.phase)
     Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            CsPill(label, color, solid = true)
+            FlDotPill(label, color, solid = true)
             Spacer(Modifier.weight(1f))
             Text(stringResource(R.string.cs_minutes, c.minutes), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
@@ -858,7 +872,7 @@ private fun Head(c: ConsultDto) {
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CsAvatar(c.freelancer?.avatarUrl, c.freelancer?.name, 38)
+            FlAvatar(c.freelancer?.avatarUrl, c.freelancer?.name, 38)
             Column(Modifier.weight(1f)) {
                 Text(c.freelancer?.name.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 c.freelancer?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }

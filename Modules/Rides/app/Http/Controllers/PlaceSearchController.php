@@ -24,6 +24,17 @@ class PlaceSearchController extends Controller
         return ApiResponse::success($this->places->suggest($data['q'], isset($data['lat']) ? (float) $data['lat'] : null, isset($data['lng']) ? (float) $data['lng'] : null, app()->getLocale()), __('api.retrieved'));
     }
 
+    /** The places right around a point — the chat's «send a location» page. */
+    public function nearby(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        return ApiResponse::success($this->places->nearby((float) $data['lat'], (float) $data['lng'], app()->getLocale()), __('api.retrieved'));
+    }
+
     public function popular(Request $request): JsonResponse
     {
         $data = $request->validate([

@@ -55,7 +55,10 @@ class CountryRepository extends TranslatableRepository
     {
         return $this->model->newQuery()
             ->with(['translations', 'translation', 'flag'])
-            ->where('status', true)
+            // `?with_international=1` (the admin's wallet pages): also the hidden freelance international row (`freelance.money`),
+            // so its payment methods and fee rules can be set like any country's.
+            ->where(fn ($q) => $q->where('status', true)
+                ->when(request()->boolean('with_international'), fn ($w) => $w->orWhere('code', (string) config('freelance.money.country_code', 'INT'))))
             ->orderBy('id', 'desc')
             ->get()
             ->map(fn (Country $country) => [

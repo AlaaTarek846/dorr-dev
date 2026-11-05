@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -82,6 +82,42 @@ fun MenuRow(entry: MenuEntry) {
     }
 }
 
+/**
+ * Rows grouped in one card (the settings look): each row an icon tile, a title and a line, a chevron; a hairline between rows. Used by the
+ * «Me» tab and «My profile».
+ */
+@Composable
+fun MenuGroup(entries: List<MenuEntry>, modifier: Modifier = Modifier) {
+    if (entries.isEmpty()) return
+    val dark = settingsNight()
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp), elevation = 4.dp)) {
+        entries.forEachIndexed { index, entry ->
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = entry.onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PinkIcon(entry.icon)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(entry.label), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (entry.danger) settingsAccent() else settingsInk())
+                    entry.subtitle?.let { Text(stringResource(it), fontSize = 11.5.sp, color = settingsMut(), maxLines = 2) }
+                }
+                if (entry.trailing != null) entry.trailing.invoke()
+                else Icon(
+                    Icons.Rounded.ChevronRight, contentDescription = null,
+                    tint = if (dark) AccountDark.chevron else settingsMut().copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp).graphicsLayer { if (rtl) scaleX = -1f },
+                )
+            }
+            if (index < entries.lastIndex) Spacer(
+                Modifier.padding(start = 60.dp, end = 14.dp).fillMaxWidth().height(1.dp)
+                    .background(if (dark) AccountDark.line else androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.06f)),
+            )
+        }
+    }
+}
+
 /** A yes / cancel question (sign out, delete the account). */
 @Composable
 fun ConfirmDialog(
@@ -92,6 +128,7 @@ fun ConfirmDialog(
     loading: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    dismissLabel: String = stringResource(R.string.common_cancel),
 ) {
     val dark = settingsNight()
     val ink = if (dark) AccountDark.accent else settingsAccent()
@@ -138,7 +175,7 @@ fun ConfirmDialog(
                                 .border(1.5.dp, if (dark) AccountDark.line else ink.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                                 .clickable(enabled = !loading, onClick = onDismiss),
                             contentAlignment = Alignment.Center,
-                        ) { Text(stringResource(R.string.common_cancel), color = ink.copy(alpha = if (loading) 0.5f else 1f), fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                        ) { Text(dismissLabel, color = ink.copy(alpha = if (loading) 0.5f else 1f), fontSize = 15.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
             }

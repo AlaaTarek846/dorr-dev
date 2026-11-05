@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 // The cards a bubble can hold, from androidApp `ChatExtrasUi.kt` (link preview, poll, view once, live location),
@@ -47,32 +48,60 @@ struct LinkPreviewCard: View {
     let mine: Bool
     @State private var pop: CGFloat = 0
 
+    /// As in WhatsApp: the picture, the title, a line of text, then the site's address with a link icon. Each line reads
+    /// the way its words do (English left to right).
     var body: some View {
         let ink = mine ? ch.outText : ch.inText
+        let host = URL(string: preview.url)?.host.map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 } ?? (preview.siteName ?? "")
+        let rtl = startsArabic(preview.title ?? preview.description ?? "")
         VStack(alignment: .leading, spacing: 0) {
             if let image = preview.image {
-                ChatImage(url: ApiClient.mediaUrl(image)).frame(width: 260, height: 136).clipped()
+                ChatImage(url: ApiClient.mediaUrl(image)).frame(maxWidth: .infinity).frame(height: 150).clipped()
             }
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Image(systemName: "globe").font(.system(size: 11))
-                    Text(verbatim: (preview.siteName ?? "").uppercased()).font(.dorr(10.5, .bold)).lineLimit(1)
+                if let title = preview.title { Text(verbatim: title).font(.dorr(14, .bold)).foregroundStyle(ink).lineLimit(2) }
+                if let d = preview.description { Text(verbatim: d).font(.dorr(12.5)).foregroundStyle(ink.opacity(0.75)).lineLimit(2) }
+                if !host.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: "link").font(.system(size: 13))
+                        Text(verbatim: host).font(.dorr(12.5)).lineLimit(1)
+                    }
+                    .foregroundStyle(ink.opacity(0.8))
+                    .padding(.top, 2)
+                    .environment(\.layoutDirection, .leftToRight)
                 }
-                .foregroundStyle(ink.opacity(0.6))
-                if let title = preview.title { Text(verbatim: title).font(.dorr(13.5, .heavy)).foregroundStyle(ink).lineLimit(2) }
-                if let d = preview.description { Text(verbatim: d).font(.dorr(12)).foregroundStyle(ink.opacity(0.75)).lineLimit(2) }
             }
+            .multilineTextAlignment(.leading)
             .padding(.horizontal, 10).padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.layoutDirection, rtl ? .rightToLeft : .leftToRight)
         }
-        .frame(width: 260)
+        // As wide as the bubble (no strip beside it).
+        .frame(maxWidth: .infinity)
         .background(mine ? Color.black.opacity(0.14) : ch.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 11))
         .opacity(pop).scaleEffect(x: 1, y: 0.85 + 0.15 * pop, anchor: .top)
         .onTapGesture { if let url = URL(string: preview.url) { UIApplication.shared.open(url) } }
-        .padding(.horizontal, 4).padding(.top, 4)
+        .padding(.horizontal, 3).padding(.top, 3)
         .task(id: preview.url) { withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { pop = 1 } }
     }
+
+    private func startsArabic(_ text: String) -> Bool {
+        for s in text.unicodeScalars where CharacterSet.letters.contains(s) {
+            switch s.value {
+            case 0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF: return true
+            default: return false
+            }
+        }
+        return false
+    }
+}
+
+/// The message is only a link (nothing else written): under its card, the address isn't written out again.
+func isOnlyLink(_ body: String?) -> Bool {
+    let b = (body ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let lower = b.lowercased()
+    return !b.isEmpty && !b.contains(where: \.isWhitespace) && (lower.hasPrefix("http://") || lower.hasPrefix("https://") || lower.hasPrefix("www."))
 }
 
 /// A poll: the question, then each option as a row whose bar fills with its share of the votes (springing as votes
@@ -95,22 +124,22 @@ struct PollCard<Footer: View>: View {
             let multiple = poll.multiple == true
             let voters = poll.voters ?? 0
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.bar.fill").font(.system(size: 15)).foregroundStyle(accent)
-                    Text(L(multiple ? "ch_poll_pick_many" : "ch_poll_pick_one")).font(.dorr(11.5, .semibold)).foregroundStyle(ink.opacity(0.65))
+                HStack(spacing: 5) {
+                    Image(systemName: "chart.bar.fill").font(.system(size: 13)).foregroundStyle(accent)
+                    Text(L(multiple ? "ch_poll_pick_many" : "ch_poll_pick_one")).font(.dorr(11, .semibold)).foregroundStyle(ink.opacity(0.65))
                 }
-                Text(verbatim: poll.question ?? "").font(.dorr(16, .heavy)).foregroundStyle(ink).padding(.top, 4).padding(.bottom, 8)
+                Text(verbatim: poll.question ?? "").font(.dorr(14.5, .heavy)).foregroundStyle(ink).padding(.top, 2).padding(.bottom, 4)
                 ForEach(Array(options.enumerated()), id: \.element.id) { i, option in
                     let chosen = (poll.myVotes ?? []).contains(option.id)
                     let votes = option.votes ?? 0
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
                             Image(systemName: chosen ? (multiple ? "checkmark.square.fill" : "checkmark.circle.fill") : (multiple ? "square" : "circle"))
-                                .font(.system(size: 19)).foregroundStyle(chosen ? accent : ink.opacity(0.45))
-                                .frame(width: 22).scaleEffect(chosen ? 1 : 0.92)
+                                .font(.system(size: 16)).foregroundStyle(chosen ? accent : ink.opacity(0.45))
+                                .frame(width: 18).scaleEffect(chosen ? 1 : 0.92)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.45), value: chosen)
-                            Text(verbatim: option.text).font(.dorr(14, chosen ? .heavy : .semibold)).foregroundStyle(ink).frame(maxWidth: .infinity, alignment: .leading)
-                            Text(verbatim: "\(votes)").font(.dorr(12.5, .bold)).foregroundStyle(ink.opacity(0.75))
+                            Text(verbatim: option.text).font(.dorr(13, chosen ? .heavy : .semibold)).foregroundStyle(ink).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(verbatim: "\(votes)").font(.dorr(11.5, .bold)).foregroundStyle(ink.opacity(0.75))
                                 .contentTransition(.numericText()).animation(.default, value: votes)
                         }
                         GeometryReader { geo in
@@ -121,9 +150,9 @@ struct PollCard<Footer: View>: View {
                                     .animation(.spring(response: 0.5, dampingFraction: 0.75), value: votes)
                             }
                         }
-                        .frame(height: 6).padding(.leading, 30)
+                        .frame(height: 4).padding(.leading, 24)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 4)
                     .contentShape(Rectangle())
                     .onTapGesture { if m.local == nil { onVote(option.id) } }
                     .chStagger(i)
@@ -140,10 +169,10 @@ struct PollCard<Footer: View>: View {
                     Spacer()
                     footer()
                 }
-                .padding(.top, 6)
+                .padding(.top, 3)
             }
-            .frame(width: 246)
-            .padding(.horizontal, 12).padding(.vertical, 10)
+            .frame(width: 216)
+            .padding(.horizontal, 10).padding(.vertical, 7)
         }
     }
 }
@@ -202,6 +231,10 @@ struct LiveLocationCard<Footer: View>: View {
     let live: LiveLocationDto
     let mine: Bool
     let onStop: () -> Void
+    /// Whose location it is (their photo is the pin).
+    var sender: ProfileDto?
+    /// «View live location» in the app; the phone's maps app without one.
+    var onOpen: (() -> Void)?
     @ViewBuilder let footer: () -> Footer
     @State private var nudge: CGFloat = 0
 
@@ -213,13 +246,15 @@ struct LiveLocationCard<Footer: View>: View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
             let until = parseRideTime(live.liveUntil)
             let active = live.active == true && (until.map { $0 > ctx.date } ?? false)
-            let activeColor = active ? ch.success : ch.mut
+            // The app's red while live (as the rest of the chat), grey once it has ended.
+            let activeColor = active ? ch.red : ch.mut
             VStack(alignment: .leading, spacing: 0) {
                 ZStack {
-                    DrawnMap()
-                    if active { LivePulse(color: ch.success) }
-                    Image(systemName: "mappin.circle.fill").font(.system(size: 40)).foregroundStyle(active ? ch.success : ch.red)
-                        .offset(y: nudge - 14)
+                    // The real map around the last position (~10 m steps: a new picture only after a real move).
+                    MapSnapshotView(center: CLLocationCoordinate2D(latitude: (lat * 10_000).rounded() / 10_000, longitude: (lng * 10_000).rounded() / 10_000)) { DrawnMap() }
+                    // Their photo is the pin (the app's red ring, a red pulse while live), as in WhatsApp.
+                    LiveAvatarPin(sender: sender, active: active, size: 44)
+                        .offset(y: nudge)
                     Text(L(active ? "ch_live_badge" : "ch_live_ended"))
                         .font(.dorr(11, .heavy)).foregroundStyle(.white)
                         .padding(.leading, 17).padding(.trailing, 8).padding(.vertical, 3)
@@ -229,10 +264,10 @@ struct LiveLocationCard<Footer: View>: View {
                     footer().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(8)
                 }
                 .frame(height: 150)
-                .clipShape(RoundedRectangle(cornerRadius: 17))
-                .onTapGesture { openMaps(lat, lng) }
+                .clipShape(RoundedRectangle(cornerRadius: 11))
+                .onTapGesture { if let onOpen { onOpen() } else { openMaps(lat, lng) } }
                 HStack(spacing: 6) {
-                    Image(systemName: "location.fill").font(.system(size: 14)).foregroundStyle(active ? activeColor : ink.opacity(0.6))
+                    Image(systemName: "location.fill").font(.system(size: 14)).foregroundStyle(active && !mine ? activeColor : ink.opacity(active ? 1 : 0.6))
                     Text(verbatim: active ? liveLabel(until!, ctx.date) : L("ch_live_ended_long")).font(.dorr(13, .bold)).foregroundStyle(ink).lineLimit(1)
                 }
                 .padding(.horizontal, 9).padding(.vertical, 7)
@@ -264,18 +299,6 @@ struct LiveLocationCard<Footer: View>: View {
         let f = DateFormatter()
         f.dateFormat = "h:mm a"
         return L("ch_live_until", f.string(from: until))
-    }
-}
-
-private struct LivePulse: View {
-    let color: Color
-    @State private var t: CGFloat = 0
-    var body: some View {
-        ZStack {
-            Circle().fill(color.opacity(0.18)).frame(width: 32, height: 32)
-            Circle().fill(color.opacity(0.35 * (1 - t))).frame(width: 32 + 68 * t, height: 32 + 68 * t)
-        }
-        .onAppear { withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) { t = 1 } }
     }
 }
 
@@ -544,7 +567,7 @@ struct GifBubble<Footer: View>: View {
         }
         .frame(width: 234, height: 234 / ratio)
         .background(ch.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 17))
+        .clipShape(RoundedRectangle(cornerRadius: 11))
         .padding(3)
     }
 }
@@ -631,58 +654,97 @@ struct AiNotePanel: View {
     @State private var shimmer = false
 
     var body: some View {
+        if note.kind == "transcript" { voiceText } else { panel }
+    }
+
+    private var panel: some View {
         let ink = mine ? ch.outText : ch.ink
-        VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
-                Image(systemName: note.kind == "transcript" ? "waveform" : "character.bubble").font(.system(size: 12))
-                Text(L(note.kind == "transcript" ? "ch_ai_transcript" : "ch_ai_translation")).font(.dorr(11, .bold))
+                Image(systemName: "character.bubble").font(.system(size: 12))
+                Text(L("ch_ai_translation")).font(.dorr(11, .bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button(action: onHide) { Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).frame(width: 22, height: 22) }.buttonStyle(.plain)
             }
             .foregroundStyle(ink.opacity(0.7))
-            Group {
-                if note.loading {
-                    VStack(alignment: .leading, spacing: 5) {
-                        ForEach([1.0, 0.85, 0.55], id: \.self) { w in
-                            GeometryReader { g in Capsule().fill(ink.opacity((shimmer ? 0.6 : 0.25) * 0.35)).frame(width: g.size.width * w) }.frame(height: 9)
-                        }
-                    }
-                    .padding(.top, 2)
-                    .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { shimmer = true } }
-                } else if let failed = note.failed {
-                    Text(verbatim: failed).font(.dorr(12.5)).foregroundStyle(ch.danger)
-                } else {
-                    Text(verbatim: note.text ?? "").font(.dorr(14)).foregroundStyle(ink).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .transition(.opacity)
-            .animation(.easeInOut(duration: 0.2), value: note)
+            words(ink, size: 14)
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .frame(minWidth: 200, alignment: .leading)
         .background(ink.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal, 8).padding(.bottom, 6)
     }
+
+    /// A voice message's text: the «show text» strip with its title at the start and × at the end, then the words.
+    private var voiceText: some View {
+        let accent = mine ? ch.outText : ch.red
+        let ink = mine ? ch.outText : ch.ink
+        return VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill((mine ? ch.outText : ch.inText).opacity(0.18)).frame(height: 1)
+            HStack(spacing: 5) {
+                Image(systemName: "waveform").font(.system(size: 13, weight: .semibold))
+                Text(L("ch_ai_transcript")).font(.dorr(12.5, .heavy))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button(action: onHide) {
+                    Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).frame(width: 28, height: 28).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .foregroundStyle(accent)
+            .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 3)
+            .frame(maxWidth: .infinity)
+            .background(accent.opacity(0.16))
+            words(ink, size: 13.5)
+                .padding(.horizontal, 12).padding(.top, 7).padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func words(_ ink: Color, size: CGFloat) -> some View {
+        Group {
+            if note.loading {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach([1.0, 0.85, 0.55], id: \.self) { w in
+                        GeometryReader { g in Capsule().fill(ink.opacity((shimmer ? 0.6 : 0.25) * 0.35)).frame(width: g.size.width * w) }.frame(height: 9)
+                    }
+                }
+                .padding(.top, 2)
+                .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { shimmer = true } }
+            } else if let failed = note.failed {
+                // In the bubble's own text colour: red didn't show on my orange bubble.
+                Text(verbatim: failed).font(.dorr(12.5)).italic().foregroundStyle(ink.opacity(0.9))
+            } else {
+                Text(verbatim: note.text ?? "").font(.dorr(size)).foregroundStyle(ink).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.2), value: note)
+    }
 }
 
-/// Under a voice message: «Show text».
+/// Under a voice message: «Show text», a strip across the bubble under a thin line (like «show replies»).
 struct TranscribeChip: View {
     @ObservedObject private var ch = Ch.shared
     let mine: Bool
     let onTap: () -> Void
 
     var body: some View {
-        let ink = mine ? ch.outText : ch.red
-        Button(action: onTap) {
-            HStack(spacing: 4) {
-                Image(systemName: "waveform").font(.system(size: 12))
-                Text(L("ch_ai_show_text")).font(.dorr(11.5, .bold))
+        let accent = mine ? ch.outText : ch.red
+        VStack(spacing: 0) {
+            Rectangle().fill((mine ? ch.outText : ch.inText).opacity(0.18)).frame(height: 1)
+            Button(action: onTap) {
+                HStack(spacing: 5) {
+                    Image(systemName: "waveform").font(.system(size: 13, weight: .semibold))
+                    Text(L("ch_ai_show_text")).font(.dorr(12.5, .heavy))
+                }
+                .foregroundStyle(accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(accent.opacity(0.16))
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(ink).padding(.horizontal, 10).padding(.vertical, 4)
-            .background(ink.opacity(0.1), in: Capsule())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .padding(.leading, 10).padding(.bottom, 6)
     }
 }
 
@@ -727,9 +789,9 @@ struct InteractiveCard<Footer: View>: View {
             let canTap = !mine && m.local == nil
             let answers = ui.answers ?? 0
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: m.dto.body ?? "").font(.dorr(15)).foregroundStyle(ink).padding(.horizontal, 12)
-                if let f = ui.footer { Text(verbatim: f).font(.dorr(12)).foregroundStyle(ink.opacity(0.6)).padding(.horizontal, 12).padding(.vertical, 4) }
-                HStack { Spacer(); footer() }.padding(.horizontal, 12)
+                Text(verbatim: m.dto.body ?? "").font(.dorr(14)).foregroundStyle(ink).padding(.horizontal, 10)
+                if let f = ui.footer { Text(verbatim: f).font(.dorr(11.5)).foregroundStyle(ink.opacity(0.6)).padding(.horizontal, 10).padding(.vertical, 2) }
+                HStack { Spacer(); footer() }.padding(.horizontal, 10)
                 if ui.kind == "list" {
                     Rectangle().fill(ink.opacity(0.12)).frame(height: 1).padding(.top, 6)
                     ChoiceButton(icon: "list.bullet", title: ui.button ?? L("ia_choose"), accent: accent, chosen: false) { listOpen = true }
@@ -740,20 +802,24 @@ struct InteractiveCard<Footer: View>: View {
                     }
                 }
                 if mine {
+                    Rectangle().fill(ink.opacity(0.18)).frame(height: 1).padding(.top, 4)
                     Button(action: onShowAnswers) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Image(systemName: "chart.bar.xaxis").font(.system(size: 13))
-                            Text(answers == 0 ? L("ia_no_answers") : L("ia_answers", answers)).font(.dorr(12.5, .heavy))
+                            Text(L("ia_answers", answers)).font(.dorr(12.5, .heavy))
                         }
-                        .foregroundStyle(accent).padding(.horizontal, 6).padding(.vertical, 4)
+                        .foregroundStyle(accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(accent.opacity(0.16))
                     }
-                    .buttonStyle(.plain).disabled(answers == 0).padding(.horizontal, 8).padding(.vertical, 6)
+                    .buttonStyle(.plain).disabled(answers == 0)
                 } else {
-                    Spacer().frame(height: 4)
+                    Spacer().frame(height: 3)
                 }
             }
-            .frame(width: 270)
-            .padding(.top, 10)
+            .frame(width: 236)
+            .padding(.top, 7)
             .sheet(isPresented: $listOpen) {
                 InteractiveListSheet(title: m.dto.body ?? "", ui: ui, canTap: canTap) { listOpen = false; onChoose($0) }
                     .presentationDetents([.medium, .large])
@@ -772,11 +838,11 @@ private struct ChoiceButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: chosen ? "checkmark.circle.fill" : icon).font(.system(size: 16)).scaleEffect(chosen ? 1.15 : 1)
-                Text(verbatim: title).font(.dorr(14.5, chosen ? .heavy : .bold)).lineLimit(1)
+            HStack(spacing: 5) {
+                Image(systemName: chosen ? "checkmark.circle.fill" : icon).font(.system(size: 14)).scaleEffect(chosen ? 1.15 : 1)
+                Text(verbatim: title).font(.dorr(13.5, chosen ? .heavy : .bold)).lineLimit(1)
             }
-            .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.horizontal, 12).padding(.vertical, 11)
+            .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.horizontal, 10).padding(.vertical, 7)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain).disabled(!enabled)
@@ -796,21 +862,29 @@ private struct InteractiveListSheet: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: ui.button ?? title).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).lineLimit(2).padding(.bottom, 10)
+                HStack(spacing: 12) {
+                    ChIconBadge(icon: "list.bullet", color: ch.red, size: 42)
+                    Text(verbatim: ui.button ?? title).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.bottom, 12)
                 ForEach(Array((ui.options ?? []).enumerated()), id: \.element.id) { i, o in
                     let on = picked == o.id
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: o.title).font(.dorr(15, .bold)).foregroundStyle(ch.ink)
+                            Text(verbatim: o.title).font(.dorr(15, on ? .heavy : .bold)).foregroundStyle(ch.ink)
                             if let d = o.description { Text(verbatim: d).font(.dorr(12.5)).foregroundStyle(ch.mut) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Image(systemName: on ? "largecircle.fill.circle" : "circle").font(.system(size: 20)).foregroundStyle(on ? ch.red : ch.soft)
                     }
-                    .padding(.vertical, 10).padding(.horizontal, 4)
-                    .contentShape(Rectangle())
+                    .padding(.vertical, 10).padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(on ? ch.red.opacity(0.16) : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .onTapGesture { if canTap { picked = o.id } }
                     .chStagger(i)
+                    .padding(.bottom, 8)
                 }
                 if canTap {
                     ChPrimaryButton(text: L("ch_send"), enabled: picked != nil) { if let picked { onSend(picked) } }.padding(.top, 14)

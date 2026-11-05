@@ -15,6 +15,7 @@ use Modules\Freelance\Events\FreelanceMessagesRead;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceConversation;
 use Modules\Freelance\Models\FreelanceMessage;
+use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Enums\FreelanceProjectStatus;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Models\FreelanceProject as Project;
@@ -235,8 +236,20 @@ class FreelanceChatService
             $this->notifications->send($receiver, 'freelance.message', 'freelance_message_title', 'freelance_message_body', [
                 'name' => strtok($senderName, ' ') ?: $senderName,
                 'text' => mb_substr($message->body ?? '', 0, 120) ?: ($message->kind === 'image' ? '📷' : '📎'),
-            ], ['type' => 'freelance_message', 'conversation_uuid' => $conversation->uuid]);
+            ], ['type' => 'freelance_message', 'conversation_uuid' => $conversation->uuid] + $this->offerPage($conversation));
         }
+    }
+
+    /** The project and the freelancer's offer a project room belongs to: the client's notification opens that offer page (its chat button). */
+    private function offerPage(FreelanceConversation $conversation): array
+    {
+        if ($conversation->context_type !== OfferChat::CONTEXT) {
+            return [];
+        }
+        $project = Project::query()->whereKey($conversation->context_id)->first(['id', 'uuid']);
+        $offer = $project === null ? null : Offer::query()->where('project_id', $project->id)->where('freelancer_id', $conversation->freelancer_id)->latest('id')->first(['uuid']);
+
+        return array_filter(['project' => $project?->uuid, 'offer' => $offer?->uuid]);
     }
 
     private function broadcast(object $event): void

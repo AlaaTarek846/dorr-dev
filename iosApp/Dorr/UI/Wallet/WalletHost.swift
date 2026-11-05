@@ -60,8 +60,14 @@ final class WalletHost: ObservableObject {
     /// True when the last move was a push, so pages slide in from the trailing side and back the other way.
     @Published private(set) var forward = true
 
-    /// The total the hero card last counted up to, so the next count starts from there.
-    var shownTotal = 0
+    /// The total each hero card last counted up to (per wallet key), so the next count starts from there.
+    var shownTotals: [String: Int] = [:]
+    /// Last balance seen per wallet (a country code, or "INT" for the dollar wallet): a card I swipe to shows its numbers at once.
+    @Published var balances: [String: WalletBalanceDto] = [:]
+    /// My country wallets, the one of where I am first — learnt from the balance of any of them (the dollar wallet doesn't list them).
+    @Published var localCodes: [String] = []
+    /// Whether a separate international (dollar) wallet exists for me — not when my local currency is the freelance one.
+    @Published var intlWallet = true
     var onExit: () -> Void
 
     private var toastTask: Task<Void, Never>?
@@ -119,9 +125,21 @@ final class WalletHost: ObservableObject {
     @discardableResult
     func refreshBalance() async -> Bool {
         guard let fresh = try? await WalletApi.balance().data else { return false }
+        let code = fresh.countryCode?.uppercased() ?? ""
+        let intl = code == "INT"
         // No wallet chosen: the server opened the one of where I am.
-        if WalletCountry.shared.selected == nil { WalletCountry.shared.learnHere(fresh.countryCode) }
-        balance = fresh
+        if !intl, WalletCountry.shared.selected == nil { WalletCountry.shared.learnHere(fresh.countryCode) }
+        if !code.isEmpty { balances[code] = fresh }
+        if !intl {
+            intlWallet = fresh.internationalWallet
+            let here = WalletCountry.shared.here?.uppercased()
+            let all = ([code] + (fresh.otherWallets ?? []).compactMap { $0.countryCode?.uppercased() }).filter { !$0.isEmpty }
+            var seen = Set<String>()
+            localCodes = all.filter { seen.insert($0).inserted }.sorted { ($0 == here ? 0 : 1) < ($1 == here ? 0 : 1) }
+        }
+        // A slow answer for the wallet I just swiped away from must not replace the one on screen.
+        // (No separate dollar wallet: the dollar flows read my local one, whichever side is asked for.)
+        if intl == WalletCountry.isInternational || !fresh.internationalWallet { balance = fresh }
         return true
     }
 

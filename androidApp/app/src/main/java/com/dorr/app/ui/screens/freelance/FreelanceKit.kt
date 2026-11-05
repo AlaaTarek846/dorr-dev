@@ -1,6 +1,12 @@
 package com.dorr.app.ui.screens.freelance
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,20 +144,21 @@ internal fun FlSheet(
 ) {
     LocaleAwareBottomSheet(
         onDismissRequest = onDismiss,
-        fullHeight = fullHeight || footer != null,
+        // Sized to its content (no half-way stop that leaves the last button scrolled out of sight); a tall one fills the screen.
+        fullHeight = true,
         containerColor = if (settingsNight()) AccountDark.card else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         if (footer == null) {
             Column(
-                Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+                Modifier.fillMaxWidth().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 FlIntro(icon, title, body)
                 content()
             }
         } else {
-            Column(Modifier.fillMaxWidth().imePadding()) {
+            Column(Modifier.fillMaxWidth().imePadding().navigationBarsPadding()) {
                 Column(
                     Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -183,11 +190,28 @@ internal fun FlSkeletonDetail() {
     }
 }
 
-/** What a page shows until it is read: the skeleton, or the failure when the read failed. */
+/** What a page shows until it is read: the skeleton, or the failure (with «Try again») when the read failed. */
 @Composable
 internal fun FlLoading(error: String?) {
-    if (error != null) Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { Text(error, color = settingsMut(), fontSize = 14.sp, textAlign = TextAlign.Center) }
-    else FlSkeletonDetail()
+    if (error != null) FlRetry(error) else FlSkeletonDetail()
+}
+
+/**
+ * A read that failed: what went wrong and «Try again», which reads the screens on show once more (the same as a pull — never a timer).
+ * The words are read out as one alert.
+ */
+@Composable
+internal fun FlRetry(message: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().padding(24.dp).semantics(mergeDescendants = true) { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape).background(settingsAccent().copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.CloudOff, null, tint = settingsAccent(), modifier = Modifier.size(28.dp))
+        }
+        Text(message, color = settingsMut(), fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
+        FlAction(stringResource(R.string.flx_retry), Icons.Rounded.Refresh, modifier = Modifier.width(200.dp)) { com.dorr.app.network.RefreshCoordinator.noticeArrived() }
+    }
 }
 
 internal class FlTab(val icon: ImageVector, val label: String, val badge: Int = 0)
@@ -203,12 +227,15 @@ internal fun FlTabs(tabs: List<FlTab>, selected: Int, onSelect: (Int) -> Unit) {
             val on = i == selected
             val ink = if (on) Color.White else settingsMut()
             Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) settingsAccent() else Color.Transparent).clickable { onSelect(i) }.padding(vertical = 10.dp),
+                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) settingsAccent() else Color.Transparent)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onSelect(i) }
+                    .semantics { this.selected = on }
+                    .heightIn(min = 40.dp).padding(vertical = 10.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
             ) {
                 Icon(t.icon, null, tint = ink, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(5.dp))
-                Text(t.label, color = ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(t.label, color = ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (t.badge > 0) {
                     Spacer(Modifier.width(5.dp))
                     Text(

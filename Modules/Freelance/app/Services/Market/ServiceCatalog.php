@@ -13,13 +13,14 @@ use Modules\Freelance\Models\FreelanceServiceOrder as Order;
 use Modules\Freelance\Models\FreelanceServiceTier;
 use Modules\Freelance\Services\Features\FreelanceCountry;
 use Modules\Freelance\Services\Offers\ClientOfferViews;
+use Modules\Freelance\Services\Offers\Loyalty;
 use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Projects\FreelanceReviews;
 use Modules\User\Models\User;
 
 /**
- * The ready-made services a client finds (FL-L04): published ones of verified freelancers in the client's own country (the price is in
- * its currency and its rules apply), searched by words, specialty, price and days, and what one level with some extras costs in all —
+ * The ready-made services a client finds (FL-L04): published ones of verified freelancers of every country where services are open
+ * (open across countries, owner 2026-11-04; one currency, `freelance.money`), searched by words, specialty, price and days, and what one level with some extras costs in all —
  * the client fee on top, as an offer would show it.
  */
 class ServiceCatalog
@@ -78,7 +79,9 @@ class ServiceCatalog
         $full = $this->services->present($s, 'client');
 
         return [
-            'uuid' => $full['uuid'], 'title' => $full['title'], 'specialty' => $full['specialty'], 'currency' => $full['currency'], 'decimals' => $full['decimals'],
+            'uuid' => $full['uuid'], 'title' => $full['title'], 'specialty' => $full['specialty'],
+            // Where it comes from (open across countries): {code, name}.
+            'country' => \Modules\Freelance\Services\Features\FreelanceCountry::card((int) $s->country_id), 'currency' => $full['currency'], 'decimals' => $full['decimals'],
             'starting_price_minor' => $full['starting_price_minor'], 'delivery_days' => $full['tiers'][0]['delivery_days'] ?? null,
             'levels' => count($full['tiers']), 'billing' => $full['billing'], 'cover' => $full['images'][0]['url'] ?? null,
             'completed_orders' => (int) ($s->completed_orders ?? 0),
@@ -88,10 +91,20 @@ class ServiceCatalog
         ];
     }
 
-    /** @return array<string, mixed> the whole page, with the freelancer's numbers */
-    public function detail(Service $s): array
+    /**
+     * The whole page, with the freelancer's numbers. For a signed-in client it carries the freelancer's loyalty program as it stands for them
+     * (FL-L09) and each level's price after the step they hold (`loyalty_price_minor`, null: none).
+     *
+     * @return array<string, mixed>
+     */
+    public function detail(Service $s, ?User $client = null): array
     {
-        return $this->services->present($s, 'client') + [
+        $out = $this->services->present($s, 'client');
+        $loyalty = $client === null || $s->freelancer === null || $s->monthly() ? null : app(Loyalty::class)->view($s->freelancer, $client);
+        $bp = $loyalty['current']['discount_bp'] ?? null;
+        $out['tiers'] = collect($out['tiers'])->map(fn (array $t) => $t + ['loyalty_price_minor' => $bp === null ? null : Loyalty::discounted((int) $t['price_minor'], (int) $bp)])->values();
+
+        return $out + ['loyalty' => $loyalty] + [
             'completed_orders' => Order::query()->where('service_id', $s->id)->inStatus('completed')->count(),
             'freelancer' => $this->freelancer($s, true),
             // The hours the freelancer has to accept an order (said before ordering).
@@ -132,23 +145,26 @@ class ServiceCatalog
      * @param  list<int>  $addonIds
      * @return array<string, mixed>
      */
-    public function quote(Service $s, string $level, array $addonIds): array
+    public function quote(Service $s, string $level, array $addonIds, ?User $client = null): array
     {
         $pick = $this->pick($s, $level, $addonIds);
+        // FL-L09: the step of the freelancer's loyalty program this client holds comes off the price (never on a monthly service).
+        $deal = $client === null || $s->freelancer === null || $s->monthly() ? null : app(Loyalty::class)->apply($s->freelancer, (int) $client->id, $pick['price_minor']);
         // The fee is worked out as for any project in this country and specialty (the order becomes one).
-        $cost = app(ClientOfferViews::class)->cost(new Project(['country_id' => $s->country_id, 'freelance_specialty_id' => $s->freelance_specialty_id, 'currency_code' => $s->currency_code]), $pick['price_minor']);
+        $cost = app(ClientOfferViews::class)->cost(new Project(['country_id' => $s->country_id, 'freelance_specialty_id' => $s->freelance_specialty_id, 'currency_code' => $s->currency_code]), $deal['price_minor'] ?? $pick['price_minor']);
 
         return [
             'level' => $level, 'price_minor' => $cost['price_minor'], 'client_fee_minor' => $cost['client_fee_minor'], 'total_minor' => $cost['total_minor'],
+            'list_price_minor' => $deal['list_price_minor'] ?? null, 'loyalty_bp' => $deal['loyalty_bp'] ?? null, 'saving_minor' => $deal['saving_minor'] ?? null,
             'delivery_days' => $pick['delivery_days'], 'revisions' => $pick['revisions'], 'addons' => $pick['addons']->pluck('id')->values(),
-            'currency' => $s->currency_code, 'decimals' => (int) ($s->country?->currency?->decimal_places ?? 2), 'lines' => $cost['lines'],
+            'currency' => $s->currency_code, 'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(), 'lines' => $cost['lines'],
         ];
     }
 
-    /** Published, of a verified freelancer, in this country. */
+    /** Published, of a verified freelancer, of any country where services are open (`$countryId`, the client's, no longer limits it). */
     private function visible(int $countryId): Builder
     {
-        return Service::query()->where('country_id', $countryId)->where('status', Service::PUBLISHED)
+        return Service::query()->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries('services'))->where('status', Service::PUBLISHED)
             ->whereHas('freelancer', fn ($q) => $q->where('status', FreelancerStatus::Verified->value));
     }
 

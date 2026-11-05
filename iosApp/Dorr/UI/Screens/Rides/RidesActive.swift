@@ -434,8 +434,8 @@ struct PaymentSwitch: View {
     }
 }
 
-/// A Saudi-style plate: letters | numbers, with the car's colour as a strip.
-private struct Plate: View {
+/// A Saudi-style plate: letters | numbers, with the car's colour as a strip (shared with the moving request page).
+struct Plate: View {
     let letters: String?
     let numbers: String?
     let colorHex: String?

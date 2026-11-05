@@ -75,7 +75,7 @@
     <string name="cs_note_declined_taken">The freelancer accepted another request for this time; all your money is back in your wallet. Pick another time.</string>
     <string name="cs_note_upcoming_free">Free cancellation until %1$s. The session is a video call; it opens here at the time.</string>
     <string name="cs_note_upcoming_late">Less than a day to go: cancelling now does not give the money back.</string>
-    <string name="cs_note_live">It is time. The video call starts here soon.</string>
+    <string name="cs_note_live">It is time. Enter the session from its card below.</string>
     <string name="cs_note_ended">If you say nothing, the freelancer is paid on %1$s. Something wrong? Report it before then.</string>
     <string name="cs_note_completed">Done and paid. Thank you!</string>
     <string name="cs_note_disputed">Your report is with the Dorr team; the money stays held until they decide.</string>

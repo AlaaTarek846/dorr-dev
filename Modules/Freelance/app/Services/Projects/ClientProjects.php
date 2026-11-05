@@ -39,9 +39,14 @@ class ClientProjects
     ) {}
 
     /** @return LengthAwarePaginator<Project> newest first, optionally one status */
-    public function mine(User $client, ?string $status, int $perPage): LengthAwarePaginator
+    /** @param  'active'|'ended'|null  $scope  the running ones or the ended ones (a status narrows it further) */
+    public function mine(User $client, ?string $status, int $perPage, ?string $scope = null): LengthAwarePaginator
     {
+        $ended = [Status::Closed->value, Status::Rejected->value, Status::Cancelled->value];
+
         return Project::query()->where('client_id', $client->id)
+            ->when($scope === 'active', fn ($q) => $q->whereNotIn('status', $ended))
+            ->when($scope === 'ended', fn ($q) => $q->whereIn('status', $ended))
             ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->with(['specialty.translations', 'skills.translations', 'media'])
             ->latest('id')->paginate($perPage);
@@ -62,7 +67,7 @@ class ClientProjects
             $project = Project::query()->create($this->fields($data) + [
                 'client_id' => $client->id,
                 'country_id' => $countryId,
-                'currency_code' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
+                'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
                 'status' => Status::Draft,
             ]);
             if (array_key_exists('skill_ids', $data)) {
@@ -99,7 +104,7 @@ class ClientProjects
             $copy = Project::query()->create([
                 'client_id' => $client->id,
                 'country_id' => $countryId,
-                'currency_code' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
+                'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
                 'status' => Status::Draft,
                 'title' => $source->title,
                 'description' => $source->description,
@@ -121,6 +126,54 @@ class ClientProjects
 
             return $copy->load(['specialty.translations', 'skills.translations', 'media', 'events']);
         });
+    }
+
+    /**
+     * FS-102: "hire again" - asks for a finished project's work again from the same freelancer: the same draft as [duplicate] (private),
+     * remembering the freelancer and what the last work's parts were. The freelancer is invited by himself when the project is published
+     * (see [ProjectStateMachine]); the old agreement never comes along, so price, time and scope are agreed again.
+     */
+    public function hireAgain(Project $source, User $client): Project
+    {
+        abort_unless((int) $source->client_id === (int) $client->id, 404);
+        $agreement = Agreement::query()->where('project_id', $source->id)->where('status', Agreement::COMPLETED)->latest('id')->first();
+        $freelancer = $agreement === null ? null : \Modules\Freelance\Models\Freelancer::query()->find($agreement->freelancer_id);
+        if ($freelancer === null || $freelancer->status !== \Modules\Freelance\Enums\FreelancerStatus::Verified) {
+            throw new FreelanceException('hire_again_unavailable', 422);
+        }
+        $plan = Milestone::query()->where('agreement_id', $agreement->id)->where('status', '!=', PartStatus::Cancelled->value)->orderBy('position')->get()
+            ->map(fn (Milestone $m) => ['title' => (string) $m->title, 'amount_minor' => (int) $m->amount_minor, 'duration_days' => $m->duration_days === null ? null : (int) $m->duration_days])->values()->all();
+
+        return DB::transaction(function () use ($source, $client, $freelancer, $plan) {
+            $copy = $this->duplicate($source, $client);
+            $copy->forceFill(['visibility' => 'private', 'rehire_freelancer_id' => $freelancer->id, 'rehire_from_project_id' => $source->id, 'rehire_plan' => $plan])->save();
+            $this->machine->record($copy, 'project.hire_again', 'client', $client->id, ['from' => $source->uuid, 'freelancer' => $freelancer->uuid]);
+
+            return $copy->load(['specialty.translations', 'skills.translations', 'media', 'events']);
+        });
+    }
+
+    /** Only a project that ended well, with a freelancer who can still be invited, can be hired again. */
+    private function canHireAgain(Project $project): bool
+    {
+        $agreement = Agreement::query()->where('project_id', $project->id)->where('status', Agreement::COMPLETED)->latest('id')->first();
+
+        return $agreement !== null && \Modules\Freelance\Models\Freelancer::query()->whereKey($agreement->freelancer_id)->where('status', \Modules\Freelance\Enums\FreelancerStatus::Verified->value)->exists();
+    }
+
+    /** @return array<string, mixed>|null who this project is asked again from, and the last work's parts (a reference only) */
+    private function hireAgainCard(Project $project): ?array
+    {
+        if ($project->rehire_freelancer_id === null) {
+            return null;
+        }
+        $f = \Modules\Freelance\Models\Freelancer::query()->find($project->rehire_freelancer_id);
+
+        return $f === null ? null : [
+            'freelancer' => ['uuid' => $f->uuid, 'name' => (string) $f->name],
+            'from_project' => $project->rehire_from_project_id === null ? null : Project::query()->whereKey($project->rehire_from_project_id)->value('uuid'),
+            'milestones' => array_values((array) $project->rehire_plan),
+        ];
     }
 
     /**
@@ -351,8 +404,26 @@ class ClientProjects
         return [
             'min_minor' => $min === null ? null : (int) $min,
             'max_minor' => $max === null ? null : (int) $max,
-            'currency' => (string) Country::query()->with('currency')->find($countryId)?->currency?->code,
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
         ];
+    }
+
+    /**
+     * What a client pays in all for a price in their country (the price, the client fee and the total), for the form's cost-limit check
+     * before the draft exists. The same sum as an offer's cost ([ClientOfferViews::cost]).
+     *
+     * @return array{price_minor: int, client_fee_minor: int, total_minor: int, currency: string}
+     */
+    public function costQuote(int $countryId, ?int $specialtyId, int $amountMinor): array
+    {
+        $probe = (new Project)->forceFill([
+            'country_id' => $countryId,
+            'freelance_specialty_id' => $specialtyId,
+            'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+        ]);
+        $c = app(ClientOfferViews::class)->cost($probe, $amountMinor);
+
+        return ['price_minor' => $c['price_minor'], 'client_fee_minor' => $c['client_fee_minor'], 'total_minor' => $c['total_minor'], 'currency' => $c['currency']];
     }
 
     /** @return list<string> what still has to be filled in before the project can be sent */
@@ -412,6 +483,7 @@ class ClientProjects
             'max_cost_minor' => $project->max_cost_minor,
             'duration_days' => $project->duration_days,
             'visibility' => $project->visibility,
+            'hire_again' => $this->hireAgainCard($project),
             'attachments' =>$project->getMedia('attachments')->map(fn (Media $m) => [
                 'id' => $m->id,
                 'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($m),
@@ -429,6 +501,7 @@ class ClientProjects
                     || ($status === Status::InProgress && ! $this->hasWorkOn($project)),
                 'delete' => $status === Status::Draft,
                 'duplicate' => true,
+                'hire_again' => $this->canHireAgain($project),
                 'set_cost_cap' => $this->canSetCostCap($project),
             ],
             // FL-211: where the work stands in numbers, and what is wanted from the client now.

@@ -32,6 +32,7 @@ enum ChRoute: Hashable {
     case community(String)
     /// Every group in a community — `yours` is the ones I'm in.
     case communityGroups(String, yours: Bool)
+    /// The status editor: nil = text, `storyVoice` = voice, otherwise picked photos / videos one per line (`storyMediaRoute`).
     case storyComposer(media: String? = nil)
     case storyPrivacy
     case thread(conversationId: String, rootId: String)

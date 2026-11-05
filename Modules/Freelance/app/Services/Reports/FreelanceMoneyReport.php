@@ -53,7 +53,8 @@ class FreelanceMoneyReport
 
         return [
             'country' => ['id' => $c->id, 'code' => $c->code],
-            'currency' => $c->currency?->code,
+            // Every amount is in the freelance currency (`freelance.money`), whatever the country.
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
             // Now
             'held_minor' => (int) WalletHold::query()->where('reference_type', MilestonePayments::REFERENCE)->where('status', WalletHoldStatus::Active->value)
                 ->whereIn('reference_id', $milestoneIds())->sum('amount_minor'),

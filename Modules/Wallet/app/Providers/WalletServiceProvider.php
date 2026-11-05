@@ -8,7 +8,9 @@ use Modules\Wallet\Console\ExpireStalePayments;
 use Modules\Wallet\Console\ReconcileWallets;
 use Modules\Wallet\Observers\WalletSettingObserver;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
+use Modules\Wallet\Support\Payments\WithdrawalGuards;
 use Modules\Wallet\Support\TransactionReferences;
+use Modules\Wallet\Support\WalletOwner;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class WalletServiceProvider extends ModuleServiceProvider
@@ -50,9 +52,11 @@ class WalletServiceProvider extends ModuleServiceProvider
         // What the payment screen sells — each module registers its own purposes in boot().
         $this->app->singleton(CheckoutPurposes::class);
         // D-216..D-224: modules add rules to their owners' withdrawals (the captain's KYC, a new account's hold…).
-        $this->app->singleton(\Modules\Wallet\Support\Payments\WithdrawalGuards::class);
+        $this->app->singleton(WithdrawalGuards::class);
         // What a ledger row points at (a ride…) — each module registers its own resolver in boot().
         $this->app->singleton(TransactionReferences::class);
+        // Whose wallet a request is about, when a module says it isn't the signed-in account (an establishment…).
+        $this->app->singleton(WalletOwner::class);
     }
 
     public function boot(): void

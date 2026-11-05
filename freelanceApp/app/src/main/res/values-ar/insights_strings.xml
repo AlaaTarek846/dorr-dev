@@ -48,4 +48,8 @@
     <string name="insights_no_plans">الباقات مش متاحة في بلدك دلوقتي.</string>
     <string name="insights_more_title">عايز تبص أبعد؟</string>
     <string name="insights_more_body">باقة %1$s بتفتح 90 يوم وسنة، ورسم الأرباح، وأنجح تخصصاتك.</string>
+    <!-- FS-103: القوايم اللي العملاء حافظينك فيها (رقم بس، من غير أسماء). -->
+    <string name="insights_saved_title">محفوظ عند العملاء</string>
+    <string name="insights_saved_new">%1$d جديد في الفترة دي</string>
+    <string name="insights_saved_note">العملاء بيحفظوك في قوايم خاصة علشان يشغّلوك تاني. مش هتشوف مين.</string>
 </resources>

@@ -36,6 +36,9 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Driver app | `driverApp/` (separate Gradle project) → `/api/driver/v1/*` (guard: `driver_api`, `Modules/Driver`) — a driver is **not** a Provider |
 | Freelancer app | `freelanceApp/` (separate Gradle project, `com.dorr.freelance`, shares `driverApp/core`) → `/api/freelance/v1/*` (guard: `freelance_api`, `Modules/Freelance`) — guide [docs/modules/freelance/APP.md](docs/modules/freelance/APP.md) |
 | Freelancer iOS app | `freelanceAppIOS/` (SwiftUI, XcodeGen target `DorrPro`, `com.dorr.freelance`) — the iOS twin of `freelanceApp/`, same API — guide [freelanceAppIOS/README.md](freelanceAppIOS/README.md) |
+| Providers app | `providerApp/` (separate Gradle project, `com.dorr.provider`, shares `driverApp/core`) + iOS twin `providerAppIOS/` (XcodeGen target `DorrPartners`) → `/api/provider/v1/*` (guard `provider_api`, phone OTP; the establishment worked in is the `X-Establishment` header) — guides [providerApp/README.md](providerApp/README.md), [providerAppIOS/README.md](providerAppIOS/README.md) |
+| Furniture moving | `Modules/Moving` on the provider platform in `Modules/Provider` — business [docs/moving_business.md](docs/moving_business.md), **tasks [docs/moving_tasks.md](docs/moving_tasks.md)**, module [docs/modules/moving/README.md](docs/modules/moving/README.md) |
+| Driver iOS app | `driverAppIos/` (SwiftUI, XcodeGen target `DorrCaptain`, `com.dorr.driver`) — the iOS twin of `driverApp/`, same `/api/driver/v1/*` API — guide [driverAppIos/README.md](driverAppIos/README.md) |
 | Rides | `Modules/Rides` — plan [docs/rides-plan.md](docs/rides-plan.md), tables [docs/rides-structure.md](docs/rides-structure.md), **tasks [docs/rides_tasks.md](docs/rides_tasks.md)** (reserve a task with your name before starting; tick it when done) |
 | Group types (chat) | Educational + work groups = the existing chat group with a `kind` and extra features, inside `Modules/Chat` — **tasks [docs/groups_tasks.md](docs/groups_tasks.md)** (draft; open decisions first; reserve a task before starting) |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
@@ -123,5 +126,32 @@ Native twin in `freelanceAppIOS/` (Swift + SwiftUI, same `/api/freelance/v1/*` A
 - **Strings** sync automatically: edit only the `freelanceApp` XML; `freelanceAppIOS/scripts/sync_strings.py` regenerates `Localizable.strings` on every Xcode build. Never edit the generated files.
 - **Code:** port the same behavior to the twin file (same file name: `ui/screens/OfferScreens.kt` → `DorrPro/UI/Screens/Work/OfferScreens.swift`, `net/WalletApi.kt` → `DorrPro/Net/WalletApi.swift`), keeping names (screens, API functions, DTO fields, store keys).
 - **Platform-only differences** (no system back key, Face ID, App Store links…) are listed in the README; don't silently skip anything else.
+- **Check:** `bash freelanceAppIOS/scripts/ios-parity.sh` lists freelanceApp files changed since `freelanceAppIOS/` was last committed.
 - **Fast check:** `cd freelanceAppIOS && scripts/typecheck.sh <changed paths>`.
 - **Build check:** `cd freelanceAppIOS && xcodegen && xcodebuild -project DorrPro.xcodeproj -scheme DorrPro -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.
+
+---
+
+## Providers iOS App — providerApp → providerAppIOS sync rule (mandatory)
+
+Native twin in `providerAppIOS/` (Swift + SwiftUI, same `/api/provider/v1/*` API). Read [providerAppIOS/README.md](providerAppIOS/README.md) before touching it.
+
+**Any change to `providerApp/` must be made in `providerAppIOS/` in the same task.** Android is the reference.
+
+- **Strings** sync automatically: edit only the `providerApp` XML; `providerAppIOS/scripts/sync_strings.py` regenerates `Localizable.strings` on every Xcode build. Never edit the generated files.
+- **Code:** port the same behavior to the twin file (same file name), keeping names (screens, API functions, DTO fields, store keys).
+- **The look** is the existing DORR apps' look (owner's red line): reuse the kit, design nothing new.
+- **Build check:** `cd providerAppIOS && xcodegen && xcodebuild -project DorrPartners.xcodeproj -scheme DorrPartners -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build` (only with the owner's permission).
+
+## Driver iOS App — driverApp → driverAppIos sync rule (mandatory)
+
+Native twin in `driverAppIos/` (Swift + SwiftUI, same `/api/driver/v1/*` API). Read [driverAppIos/README.md](driverAppIos/README.md) before touching it.
+
+**Any change to `driverApp/` must be made in `driverAppIos/` in the same task.** Android is the reference.
+
+- **Strings** sync automatically: edit only the `driverApp` XML; `driverAppIos/scripts/sync_strings.py` regenerates `Localizable.strings` on every Xcode build (and through the Claude Code hook). Never edit the generated files.
+- **Code:** port the same behavior to the twin file (same file name: `ui/TripScreen.kt` → `DorrCaptain/UI/Screens/TripScreen.swift`, `net/DriverApi.kt` → `DorrCaptain/Net/DriverApi.swift`), keeping names (screens, API functions, DTO fields, store keys).
+- **Platform-only differences** (background location instead of a foreground service, the request notification instead of a full-screen ring, no system back key…) are listed in the README; don't silently skip anything else.
+- **Check:** `bash driverAppIos/scripts/ios-parity.sh` lists driverApp files changed since `driverAppIos/` was last committed.
+- **Fast check:** `cd driverAppIos && bash scripts/typecheck.sh` (whole app minus the SDK files) or `--only <changed paths>`.
+- **Build check:** `cd driverAppIos && xcodegen && xcodebuild -project DorrCaptain.xcodeproj -scheme DorrCaptain -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build`.

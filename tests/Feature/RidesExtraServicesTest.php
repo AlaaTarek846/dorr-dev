@@ -247,6 +247,27 @@ class RidesExtraServicesTest extends TestCase
         $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/places/suggest?q=ا')->assertOk()->assertJsonPath('data', []);
     }
 
+    public function test_nearby_places_for_the_chat_come_from_google_places_nearest_first(): void
+    {
+        // The chat's «send a location»: Google Places (New) nearby search, nearest first, one per name.
+        \Modules\Rides\Models\RideSetting::current()->forceFill(['map_provider' => 'google', 'google_maps_key' => 'AIza-test'])->save();
+        Http::swap(new \Illuminate\Http\Client\Factory);
+        Http::fake(['places.googleapis.com/*' => Http::response(['places' => [
+            ['displayName' => ['text' => 'Far Café'], 'shortFormattedAddress' => 'Street 9', 'location' => ['latitude' => 30.0530, 'longitude' => 31.2030]],
+            ['displayName' => ['text' => 'Near Shop'], 'shortFormattedAddress' => 'Street 1', 'location' => ['latitude' => 30.0501, 'longitude' => 31.2001]],
+            ['displayName' => ['text' => 'Near Shop'], 'shortFormattedAddress' => 'Street 1', 'location' => ['latitude' => 30.0502, 'longitude' => 31.2002]],
+        ]])]);
+
+        $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/places/nearby?lat=30.05&lng=31.2')->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.name', 'Near Shop')->assertJsonPath('data.0.address', 'Street 1')
+            ->assertJsonPath('data.1.name', 'Far Café');
+        Http::assertSent(fn ($request) => $request->hasHeader('X-Goog-Api-Key', 'AIza-test')
+            && $request['locationRestriction']['circle']['radius'] == 500 && $request['rankPreference'] === 'DISTANCE');
+
+        $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/places/nearby?lat=95&lng=31.2')->assertUnprocessable();
+    }
+
     private function vehicle(string $body, int $seats): void
     {
         $make = VehicleMake::query()->create(['status' => true]);

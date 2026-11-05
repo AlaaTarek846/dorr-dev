@@ -34,56 +34,6 @@ private func accountStatusLabel(_ status: String?) -> String {
     }
 }
 
-/// The person at the top of a menu tab: the photo, the name (with the verified tick), the phone and the account status.
-private struct MeHeader: View {
-    @Environment(\.wa) private var wa
-    @ObservedObject private var session = Session.shared
-    var withBadges = false
-
-    var body: some View {
-        let me = session.me
-        HStack(spacing: 10) {
-            AvatarImage(url: me?.avatarUrl, size: 56)
-                .frame(width: 56, height: 56)
-                .background(wa.settingsCard, in: Circle())
-                .clipShape(Circle())
-                .overlay { if wa.night { Circle().stroke(wa.line, lineWidth: 1) } }
-                .shadow(color: wa.night ? .clear : wa.red.opacity(0.1), radius: 6, y: 2)
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    let name = (me?.name ?? "").trimmingCharacters(in: .whitespaces)
-                    Text(verbatim: name.isEmpty ? L("account_default_user") : name)
-                        .font(.dorr(16, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                    if withBadges && me?.status == "verified" {
-                        Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(.white)
-                            .frame(width: 15, height: 15)
-                            .background(wa.red, in: Circle())
-                            .accessibilityLabel(L("account_verified"))
-                    }
-                }
-                // A phone number keeps its left-to-right order inside Arabic text.
-                Text(verbatim: "\u{200E}" + (me?.phone ?? "")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
-                if withBadges {
-                    HStack(spacing: 5) {
-                        Image(systemName: "star.fill").font(.system(size: 10))
-                        Text(verbatim: accountStatusLabel(me?.status)).font(.dorr(11, .semibold))
-                    }
-                    .foregroundStyle(wa.accent)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(wa.night ? wa.darkWell : wa.red.opacity(0.14), in: Capsule())
-                    .padding(.top, 4)
-                } else {
-                    Text(verbatim: accountStatusLabel(me?.status)).font(.dorr(12, .semibold)).foregroundStyle(wa.red)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 4)
-        .padding(.bottom, withBadges ? 0 : 12)
-    }
-}
-
 /// The round header button (settings / back): a card-coloured circle with a small icon.
 private struct AccountCircle: View {
     @Environment(\.wa) private var wa
@@ -129,33 +79,33 @@ private struct AccountWalletCard: View {
     @State private var currencyText = ""
 
     var body: some View {
+        let accent = wa.red
+        let deep = accent.scaled(0.62)
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 5) {
-                    Image(systemName: "wallet.pass.fill").font(.system(size: 13)).foregroundStyle(wa.accent)
-                    Text(L("home_wallet_balance")).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut)
-                }
-                HStack(spacing: 6) {
-                    Image(systemName: "dollarsign.circle").font(.system(size: 15)).foregroundStyle(wa.accent)
-                    Text(verbatim: balanceText).font(.dorr(22, .heavy)).foregroundStyle(wa.settingsInk)
+            Image(systemName: "wallet.pass.fill").font(.system(size: 20)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Spacer().frame(width: 12)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(L("home_wallet_balance")).font(.dorr(12, .semibold)).foregroundStyle(.white.opacity(0.85))
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(verbatim: "\u{200E}" + balanceText).font(.dorr(24, .black)).foregroundStyle(.white)
                     if !currencyText.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Text(verbatim: currencyText).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
+                        Text(verbatim: currencyText).font(.dorr(12, .bold)).foregroundStyle(.white.opacity(0.85))
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onOpenWallet) {
-                Text(L("home_wallet_topup")).font(.dorr(12, .bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(wa.red, in: Capsule())
-                    .shadow(color: wa.red.opacity(0.18), radius: 6, y: 2)
+                Text(L("home_wallet_topup")).font(.dorr(12, .heavy)).foregroundStyle(accent)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(Color.white, in: Capsule())
             }
             .buttonStyle(.plain)
         }
-        .padding(12)
-        .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay { if wa.night { RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(wa.line, lineWidth: 1) } }
-        .shadow(color: wa.night ? .clear : wa.red.opacity(0.07), radius: 6, y: 2)
+        .padding(16)
+        .background(LinearGradient(colors: [accent, deep], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpenWallet)
         .task(id: network.reconnectTick) {
@@ -176,15 +126,13 @@ private struct AccountStats: View {
     @State private var skills: Int?
 
     var body: some View {
-        let dark = wa.night
-        let blue = dark ? Color(hex: 0xA8C7FF) : Color(hex: 0x2563EB)
-        let blueBg = dark ? Color(hex: 0x1C2838) : Color(hex: 0xEFF6FF)
-        HStack(spacing: 6) {
-            AccountStat(icon: "checkmark.circle.fill", iconTint: blue, iconBg: blueBg,
-                        value: "\(session.me?.completeness?.percent ?? 0)%", label: L("stat_completeness"))
-            AccountStat(icon: "briefcase.fill", iconTint: dark ? Color(hex: 0xF6C56B) : Color(hex: 0xD97706),
-                        iconBg: dark ? Color(hex: 0x2C2618) : Color(hex: 0xFEF3C7), value: works.map(String.init) ?? "-", label: L("stat_works"))
-            AccountStat(icon: "bolt.fill", iconTint: blue, iconBg: blueBg, value: skills.map(String.init) ?? "-", label: L("stat_skills"))
+        HStack(spacing: 8) {
+            StatTile(icon: "checkmark.circle.fill", value: "\(session.me?.completeness?.percent ?? 0)%", label: L("stat_completeness"), tint: Tints.blue)
+                .frame(maxWidth: .infinity)
+            StatTile(icon: "briefcase.fill", value: works.map(String.init) ?? "-", label: L("stat_works"), tint: Tints.amber)
+                .frame(maxWidth: .infinity)
+            StatTile(icon: "bolt.fill", value: skills.map(String.init) ?? "-", label: L("stat_skills"), tint: Tints.violet)
+                .frame(maxWidth: .infinity)
         }
         .task(id: network.reconnectTick) {
             if let list = await AccountCardsApi.portfolioCount().value { works = list.count }
@@ -221,20 +169,118 @@ private struct AccountStat: View {
     }
 }
 
+/// The head of «Me»: my photo inside a ring that fills with how complete my profile is, my name with the verified tick, my headline
+/// (or phone) and status, then «Edit my profile» and «Improve my profile».
+private struct MeHero: View {
+    @Environment(\.wa) private var wa
+    @ObservedObject private var session = Session.shared
+    let onEdit: () -> Void
+    let onCoach: () -> Void
+
+    var body: some View {
+        let me = session.me
+        let accent = wa.red
+        let percent = min(max(me?.completeness?.percent ?? 0, 0), 100)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 0) {
+                ZStack {
+                    Circle().stroke(wa.settingsMut.opacity(0.18), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    Circle().trim(from: 0, to: CGFloat(percent) / 100)
+                        .stroke(accent, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    AvatarImage(url: me?.avatarUrl, size: 68)
+                }
+                .frame(width: 79, height: 79)
+                .frame(width: 84, height: 84)
+                Spacer().frame(width: 14)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        let name = (me?.name ?? "").trimmingCharacters(in: .whitespaces)
+                        Text(verbatim: name.isEmpty ? L("account_default_user") : name)
+                            .font(.dorr(18, .black)).foregroundStyle(wa.settingsInk).lineLimit(1).truncationMode(.tail)
+                        if me?.status == "verified" {
+                            Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(.white)
+                                .frame(width: 17, height: 17)
+                                .background(accent, in: Circle())
+                                .accessibilityLabel(L("account_verified"))
+                        }
+                    }
+                    let headline = (me?.headline ?? "").trimmingCharacters(in: .whitespaces)
+                    Text(verbatim: headline.isEmpty ? "\u{200E}" + (me?.phone ?? "") : (me?.headline ?? ""))
+                        .font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineLimit(1).truncationMode(.tail)
+                    StatusPill(text: accountStatusLabel(me?.status), tint: me?.status == "verified" ? Tints.green : accent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(spacing: 8) {
+                Button(action: onEdit) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.fill").font(.system(size: 14, weight: .semibold))
+                        Text(L("me_edit_profile")).font(.dorr(13, .heavy)).lineLimit(1)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
+                    .background(accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                Button(action: onCoach) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold))
+                        Text(L("me_improve", percent)).font(.dorr(13, .heavy)).lineLimit(1)
+                    }
+                    .foregroundStyle(accent)
+                    .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(accent.opacity(0.4), lineWidth: 1))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingsSurface(22)
+    }
+}
+
+/// A group of rows under its small title; the rows slide in one after the other, counting on from `startIndex`.
+private struct MeSection: View {
+    @Environment(\.wa) private var wa
+    let title: String
+    let startIndex: Int
+    let entries: [MenuEntry]
+
+    var body: some View {
+        if !entries.isEmpty {
+            Text(verbatim: title).font(.dorr(12, .heavy)).foregroundStyle(wa.settingsMut)
+                .padding(.top, 18)
+                .padding(.bottom, 8)
+                .padding(.leading, 4)
+            AnimatedRow(index: startIndex) { MenuGroup(entries: entries) }
+        }
+    }
+}
+
 /// The frame of a menu page under the Account tab: its title with a round button at the end, then the rows.
 private struct AccountPageFrame<Content: View>: View {
     let title: String
     let circleIcon: String
     let circleDescription: String
     let onCircle: () -> Void
+    /// The «Me» list opened as a page (not a tab) also gets a back button after the circle.
+    var onBack: (() -> Void)? = nil
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
+                HStack(spacing: 0) {
                     SettingsScreenTitle(title: title).frame(maxWidth: .infinity, alignment: .leading)
                     AccountCircle(icon: circleIcon, description: circleDescription, onClick: onCircle)
+                    if let onBack {
+                        Spacer().frame(width: 8)
+                        RoundIcon(icon: "arrow.backward", description: L("common_back"), mirrored: true, action: onBack)
+                    }
                 }
                 .padding(.top, 14)
                 .padding(.bottom, 12)
@@ -253,7 +299,7 @@ private struct ProfileHubPage: View {
 
     var body: some View {
         AccountPageFrame(title: L("tab_profile"), circleIcon: "arrow.forward", circleDescription: L("common_back"), onCircle: onBack) {
-            ForEach([
+            MenuGroup(entries: [
                 MenuEntry(icon: "person.fill", label: L("account_personal_data"), subtitle: L("account_personal_data_sub"), action: actions.openProfile),
                 MenuEntry(icon: "square.grid.2x2.fill", label: L("home_open_specialties"), subtitle: L("hub_specialties_sub"), action: actions.openSpecialties),
                 MenuEntry(icon: "bolt.fill", label: L("home_open_skills"), subtitle: L("hub_skills_sub"), action: actions.openSkills),
@@ -262,7 +308,7 @@ private struct ProfileHubPage: View {
                 MenuEntry(icon: "briefcase.fill", label: L("portfolio_title"), subtitle: L("hub_portfolio_sub"), action: actions.openPortfolio),
                 MenuEntry(icon: "calendar.badge.checkmark", label: L("availability_title"), subtitle: L("availability_sub"), action: actions.openAvailability),
                 MenuEntry(icon: "person.text.rectangle.fill", label: L("home_open_verification"), subtitle: L("hub_verification_sub"), action: actions.openVerification),
-            ]) { MenuRow(entry: $0) }
+            ])
         }
     }
 }
@@ -275,7 +321,7 @@ private struct AccountListPage: View {
 
     var body: some View {
         AccountPageFrame(title: title, circleIcon: "arrow.forward", circleDescription: L("common_back"), onCircle: onBack) {
-            ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in AnimatedRow(index: index) { MenuRow(entry: entry) } }
+            AnimatedRow(index: 0) { MenuGroup(entries: entries) }
         }
     }
 }
@@ -307,8 +353,10 @@ private struct AccountShown: Hashable {
 @MainActor
 struct AccountScreen: View {
     let actions: MainActions
+    var onBack: (() -> Void)? = nil
 
     @ObservedObject private var shell = ShellState.shared
+    @ObservedObject private var home = HomeHub.shared
     @State private var showLogout = false
     @State private var showDelete = false
     @State private var showAbout = false
@@ -403,35 +451,55 @@ struct AccountScreen: View {
             // The settings page, as in the DORR app: its own title with a back circle and the rows below.
             AccountPageFrame(title: L("account_settings"), circleIcon: "arrow.forward", circleDescription: L("common_back"),
                              onCircle: { go(settingsOpen: false) }) {
-                ForEach(Array([
+                MeSection(title: L("me_settings_prefs"), startIndex: 0, entries: [
                     MenuEntry(icon: "bell.fill", label: L("account_notifications"), subtitle: L("account_notifications_sub"), action: { go(settingsPage: 3) }),
                     MenuEntry(icon: "lock.shield.fill", label: L("security_title"), subtitle: L("security_sub"), action: { go(settingsPage: 7) }),
                     MenuEntry(icon: "globe", label: L("account_language"), subtitle: L("account_language_sub"), action: { showLanguage = true }),
                     MenuEntry(icon: "paintpalette.fill", label: L("appearance_title"), subtitle: L("appearance_sub"), action: { go(settingsPage: 1) }),
                     MenuEntry(icon: "textformat", label: L("appearance_font"), subtitle: L("appearance_font_sub"), action: { go(settingsPage: 2) }),
+                ])
+                MeSection(title: L("me_settings_about"), startIndex: 1, entries: [
                     MenuEntry(icon: "phone.fill", label: L("account_contact_us"), subtitle: L("account_contact_us_sub"), action: { showContact = true }),
                     MenuEntry(icon: "info.circle.fill", label: L("account_about"), subtitle: L("account_about_sub"), action: { showAbout = true }),
                     MenuEntry(icon: "checkmark.shield.fill", label: L("account_legal"), subtitle: L("account_legal_sub"), action: { go(settingsPage: 4) }),
+                ])
+                MeSection(title: L("me_settings_account"), startIndex: 2, entries: [
                     MenuEntry(icon: "trash.fill", label: L("account_delete"), subtitle: L("account_delete_sub"), danger: true, action: { showDelete = true }),
-                ].enumerated()), id: \.offset) { index, entry in AnimatedRow(index: index) { MenuRow(entry: entry) } }
+                ])
             }
         } else {
-            AccountPageFrame(title: L("tab_account"), circleIcon: "gearshape.fill", circleDescription: L("account_settings"),
-                             onCircle: { go(settingsOpen: true) }) {
-                MeHeader(withBadges: true)
+            AccountPageFrame(title: L("tab_me"), circleIcon: "gearshape.fill", circleDescription: L("account_settings"),
+                             onCircle: { go(settingsOpen: true) }, onBack: onBack) {
+                MeHero(onEdit: { go(account: accountProfile) }, onCoach: actions.openCoach)
                 AccountWalletCard(onOpenWallet: actions.openWallet).padding(.top, 12)
-                AccountStats().padding(.top, 10)
-                Spacer().frame(height: 12)
-                ForEach(Array([
+                AccountStats().padding(.top, 12)
+                // The rows in three groups (the redesign): my professional profile, my business and money, the app.
+                let on = { (feature: String) -> Bool in home.home.map { $0.on(feature) } != false }
+                MeSection(title: L("me_section_profile"), startIndex: 0, entries: [
                     MenuEntry(icon: "person.fill", label: L("tab_profile"), subtitle: L("account_profile_sub"), action: { go(account: accountProfile) }),
-                    MenuEntry(icon: "rosette", label: L("plans_title"), subtitle: L("plans_sub"), action: actions.openPlans),
+                    MenuEntry(icon: "briefcase.fill", label: L("portfolio_title"), subtitle: L("hub_portfolio_sub"), action: actions.openPortfolio),
+                    MenuEntry(icon: "sparkles", label: L("coach_title"), subtitle: L("me_coach_sub"), action: actions.openCoach),
+                    MenuEntry(icon: "person.text.rectangle.fill", label: L("home_open_verification"), subtitle: L("hub_verification_sub"), action: actions.openVerification),
+                ] + [
+                    on("skill_tests") ? MenuEntry(icon: "questionmark.square.fill", label: L("skt_home_card"), subtitle: L("me_skill_tests_sub"), action: actions.openSkillTests) : nil,
+                ].compactMap { $0 })
+                MeSection(title: L("me_section_business"), startIndex: 1, entries: [
+                    on("services") ? MenuEntry(icon: "storefront.fill", label: L("svc_home_card"), subtitle: L("me_services_sub"), action: actions.openServices) : nil,
+                    on("special_offers") ? MenuEntry(icon: "tag.fill", label: L("spo_home_card"), subtitle: L("me_special_offers_sub"), action: actions.openSpecialOffers) : nil,
+                    on("loyalty") ? MenuEntry(icon: "heart.circle.fill", label: L("loy_home_card"), subtitle: L("me_loyalty_sub"), action: actions.openLoyalty) : nil,
+                    on("subscriptions") ? MenuEntry(icon: "rosette", label: L("plans_title"), subtitle: L("plans_sub"), action: actions.openPlans) : nil,
+                    MenuEntry(icon: "chart.line.uptrend.xyaxis", label: L("insights_home_card"), subtitle: L("me_insights_sub"), action: actions.openInsights),
+                    MenuEntry(icon: "calendar.badge.checkmark", label: L("availability_title"), subtitle: L("availability_sub"), action: actions.openAvailability),
+                    MenuEntry(icon: "speedometer", label: L("cap_home_card"), subtitle: L("me_capacity_sub"), action: actions.openCapacity),
+                ].compactMap { $0 })
+                MeSection(title: L("me_section_app"), startIndex: 2, entries: [
                     MenuEntry(icon: "gearshape.fill", label: L("account_settings"), subtitle: L("account_settings_sub"), action: { go(settingsOpen: true) }),
-                    MenuEntry(icon: "star.fill", label: L("rate_title"), subtitle: L("rate_sub"), action: { go(account: accountRate) }),
-                    MenuEntry(icon: "person.badge.plus", label: L("invite_title"), subtitle: L("invite_sub"), action: { go(account: accountInvite) }),
                     MenuEntry(icon: "headphones", label: L("support_title"), subtitle: L("support_sub"), action: { go(account: accountSupport) }),
+                    MenuEntry(icon: "person.badge.plus", label: L("invite_title"), subtitle: L("invite_sub"), action: { go(account: accountInvite) }),
+                    MenuEntry(icon: "star.fill", label: L("rate_title"), subtitle: L("rate_sub"), action: { go(account: accountRate) }),
                     MenuEntry(icon: "rectangle.portrait.and.arrow.right", label: L("account_logout"), subtitle: L("account_logout_sub"), danger: true,
                               action: { showLogout = true }),
-                ].enumerated()), id: \.offset) { index, entry in AnimatedRow(index: index) { MenuRow(entry: entry) } }
+                ])
             }
         }
     }

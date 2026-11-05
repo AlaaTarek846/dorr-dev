@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FS-101: طلبات التعديل - الملحق وأثره والملفات وآخر ميعاد للرد. -->
+<resources>
+    <string name="fs_ch_addendum">ملحق رقم %1$d</string>
+    <string name="fs_ch_version">الاتفاق بقى النسخة %1$d</string>
+    <string name="fs_ch_effect_price">السعر: كان %1$s وبقى %2$s</string>
+    <string name="fs_ch_effect_days">المدة: كانت %1$d يوم وبقت %2$d يوم</string>
+    <string name="fs_ch_effect_parts">عدد الأجزاء: كان %1$d وبقى %2$d</string>
+    <string name="fs_ch_respond_by">الرد قبل %1$s</string>
+    <string name="fs_ch_attach">إرفاق ملف (%1$d/%2$d)</string>
+    <string name="fs_ch_attach_hint">PDF أو صور أو Word أو Excel أو PowerPoint أو نص أو zip · لحد 10 ميجا للملف</string>
+    <string name="fs_ch_file_too_big">الملف ده أكبر من 10 ميجا</string>
+    <!-- FS-106: حالة المشروع (للعلم بس). %1$s = الجزء، %2$s = "N يوم". -->
+    <string name="fs_health_title">حالة المشروع</string>
+    <string name="fs_health_on_track">المشروع ماشي في ميعاده</string>
+    <string name="fs_health_state_healthy">ماشي كويس</string>
+    <string name="fs_health_state_at_risk">محتاج انتباه</string>
+    <string name="fs_health_state_delayed">متأخر</string>
+    <string name="fs_health_state_blocked">واقف</string>
+    <string name="fs_health_part_fallback">الجزء ده</string>
+    <string name="fs_health_r_dispute_open">في نزاع مفتوح على %1$s.</string>
+    <string name="fs_health_r_part_unfunded">%1$s لسه متمولش.</string>
+    <string name="fs_health_r_part_overdue">%1$s عدّى ميعاده بـ %2$s.</string>
+    <string name="fs_health_r_part_overdue_nodays">%1$s عدّى ميعاده.</string>
+    <string name="fs_health_r_part_due_soon">ميعاد %1$s قرّب.</string>
+    <string name="fs_health_r_part_not_started">%1$s اتمول ولسه ما بدأتش فيه.</string>
+    <string name="fs_health_r_review_waiting">%1$s اتسلّم وبيستنى مراجعة العميل.</string>
+    <string name="fs_health_r_report_late">تقرير التقدم اتأخر.</string>
+    <string name="fs_health_r_change_waiting">في طلب تعديل مستني رد.</string>
+    <string name="fs_health_n_mine_dispute_open">تابع النزاع على %1$s وضيف أدلتك.</string>
+    <string name="fs_health_n_mine_part_unfunded">اتأكد مع العميل من تمويل %1$s.</string>
+    <string name="fs_health_n_mine_part_overdue">سلّم %1$s في أقرب وقت.</string>
+    <string name="fs_health_n_mine_part_overdue_nodays">سلّم %1$s في أقرب وقت.</string>
+    <string name="fs_health_days_1">يوم</string>
+    <string name="fs_health_days_2">يومين</string>
+    <string name="fs_health_days_few">%1$d أيام</string>
+    <string name="fs_health_days_many">%1$d يوم</string>
+    <string name="fs_health_n_mine_part_due_soon">سلّم %1$s - ميعاده قرّب.</string>
+    <string name="fs_health_n_mine_part_not_started">ابدأ في %1$s.</string>
+    <string name="fs_health_n_mine_review_waiting">كلّم العميل علشان يراجع %1$s.</string>
+    <string name="fs_health_n_mine_report_late">ابعت تقرير التقدم.</string>
+    <string name="fs_health_n_mine_change_waiting">رد على طلب التعديل.</string>
+    <string name="fs_health_n_wait_dispute_open">مستنيين قرار النزاع على %1$s.</string>
+    <string name="fs_health_n_wait_part_unfunded">مستنيين العميل يمول %1$s.</string>
+    <string name="fs_health_n_wait_part_overdue">مستنيين تسليم %1$s.</string>
+    <string name="fs_health_n_wait_part_overdue_nodays">مستنيين تسليم %1$s.</string>
+    <string name="fs_health_n_wait_part_due_soon">ميعاد %1$s قرّب.</string>
+    <string name="fs_health_n_wait_part_not_started">مستنيين البدء في %1$s.</string>
+    <string name="fs_health_n_wait_review_waiting">مستنيين العميل يراجع %1$s.</string>
+    <string name="fs_health_n_wait_report_late">مستنيين تقرير التقدم.</string>
+    <string name="fs_health_n_wait_change_waiting">مستنيين العميل يرد على طلب التعديل.</string>
+</resources>

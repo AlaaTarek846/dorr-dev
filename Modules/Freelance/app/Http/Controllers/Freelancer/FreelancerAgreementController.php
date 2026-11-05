@@ -41,6 +41,12 @@ class FreelancerAgreementController extends Controller
             'note' => [$action === 'deliver' ? 'required' : 'nullable', 'string', 'min:5', 'max:3000'],
             'files' => ['nullable', 'array', 'max:'.\Modules\Freelance\Services\Projects\MilestoneDeliveries::MAX_FILES],
             'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb'), 'mimes:'.\Modules\Freelance\Services\Projects\MilestoneDeliveries::MIMES, new \Modules\Freelance\Rules\CleanUpload],
+            // FL-L13: the freelancer's word that the work is theirs, and the outside material they list (name, where from, its licence).
+            'rights_confirmed' => ['nullable'],
+            'materials' => ['nullable', 'array', 'max:'.(int) config('freelance.rights.max_materials', 10)],
+            'materials.*.name' => ['nullable', 'string', 'max:120'],
+            'materials.*.source' => ['nullable', 'string', 'max:200'],
+            'materials.*.license' => ['nullable', 'string', 'max:120'],
         ]);
         $me = $this->me($request);
         $work = app(\Modules\Freelance\Services\Projects\MilestoneWork::class);
@@ -51,7 +57,7 @@ class FreelancerAgreementController extends Controller
             'withdraw' => $cancel->byFreelancer($m, $me, $data['note'] ?? null, $data['reason_code'] ?? null),
             'cancel-accept' => $cancel->accept($m, $me, 'freelancer'),
             'cancel-reject' => $cancel->reject($m, $me, 'freelancer'),
-            default => $work->deliver($m, $me, $data['note'], array_values($request->file('files', []))),
+            default => $work->deliver($m, $me, $data['note'], array_values($request->file('files', [])), ['confirmed' => $data['rights_confirmed'] ?? false, 'materials' => $data['materials'] ?? []]),
         };
 
         return $this->answer($m->agreement);

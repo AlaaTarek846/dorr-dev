@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Android → iOS sync rules (docs/modules/ios/README.md, freelanceAppIOS/README.md).
-# PostToolUse on Edit|Write|MultiEdit: when a file under androidApp/ or freelanceApp/ changes,
+# Android → iOS sync rules (docs/modules/ios/README.md, freelanceAppIOS/README.md, driverAppIos/README.md).
+# PostToolUse on Edit|Write|MultiEdit: when a file under androidApp/, freelanceApp/ or driverApp/ changes,
 #   - Android strings XML → regenerate the iOS twin's Localizable.strings right away;
 #   - anything else      → tell the agent to port the same change to the iOS twin in this task.
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -9,6 +9,7 @@ FILE="$(python3 -c 'import json,sys; d=json.load(sys.stdin); i=d.get("tool_input
 case "$FILE" in
   */androidApp/*) APP=androidApp; IOS=iosApp; GUIDE=docs/modules/ios/README.md ;;
   */freelanceApp/*) APP=freelanceApp; IOS=freelanceAppIOS; GUIDE=freelanceAppIOS/README.md ;;
+  */driverApp/*) APP=driverApp; IOS=driverAppIos; GUIDE=driverAppIos/README.md ;;
   *) exit 0 ;;
 esac
 

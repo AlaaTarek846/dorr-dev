@@ -216,6 +216,6 @@ class FreelanceInterviews
             'project' => $project,
             'name' => (string) $peer?->name,
             'time' => $i->starts_at->copy()->setTimezone($zone)->format('Y-m-d H:i'),
-        ], ['conversation_uuid' => $room->uuid, 'interview_uuid' => $i->uuid]);
+        ], ['conversation_uuid' => $room->uuid, 'interview_uuid' => $i->uuid] + ($audience === 'client' ? array_filter(['project' => \Modules\Freelance\Models\FreelanceProject::query()->whereKey($room->context_id)->value('uuid')]) : []));
     }
 }

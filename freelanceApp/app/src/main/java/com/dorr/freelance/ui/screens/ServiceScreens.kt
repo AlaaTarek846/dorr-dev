@@ -121,7 +121,7 @@ private const val MIN_DESCRIPTION = 30
  * freelancer gets the three steps of how it works. Read when the page opens, when the connection returns and when a notice arrives.
  */
 @Composable
-fun MyServicesScreen(onBack: () -> Unit, onOpenService: (String?) -> Unit, onOpenOrders: () -> Unit) {
+fun MyServicesScreen(onBack: () -> Unit, onOpenService: (String?) -> Unit, onOpenOrders: () -> Unit, onSwitchStore: ((String) -> Unit)? = null) {
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
@@ -143,6 +143,7 @@ fun MyServicesScreen(onBack: () -> Unit, onOpenService: (String?) -> Unit, onOpe
     LaunchedEffect(Unit) { Realtime.changed.collect { load() } }
 
     Page(title = stringResource(R.string.svc_title), onBack = onBack) {
+        onSwitchStore?.let { com.dorr.freelance.ui.kit.StoreSwitcher("services", it) }
         val d = data
         when {
             closed -> EmptyState(Icons.Rounded.Storefront, stringResource(R.string.svc_title), stringResource(R.string.svc_unavailable), Modifier.padding(top = 80.dp))
@@ -158,7 +159,7 @@ fun MyServicesScreen(onBack: () -> Unit, onOpenService: (String?) -> Unit, onOpe
                 } else {
                     val statuses = listOf("all", "published", "pending_review", "draft", "paused", "rejected", "suspended")
                         .filter { it == "all" || (counts[it] ?: 0) > 0 }
-                    if (statuses.size > 2) FilterRow(statuses, filter, counts, d.services.size) { filter = it }
+                    if (statuses.size > 2) com.dorr.freelance.ui.kit.FilterChips(statuses.map { st -> com.dorr.freelance.ui.kit.FilterOption(st, (if (st == "all") stringResource(R.string.svc_all) else serviceStatusLabel(st)) + "  " + (if (st == "all") d.services.size else counts[st] ?: 0)) }, filter, { filter = it })
                     val shown = d.services.filter { filter == "all" || it.status == filter }
                     if (shown.isEmpty()) Text(stringResource(R.string.svc_none_filtered), color = settingsMut(), fontSize = 13.sp)
                     shown.forEach { s -> ServiceCard(s) { onOpenService(s.uuid) } }
@@ -171,47 +172,16 @@ fun MyServicesScreen(onBack: () -> Unit, onOpenService: (String?) -> Unit, onOpe
 
 @Composable
 private fun HeroCard(d: MyServicesDto, live: Int, waiting: Int, onNew: () -> Unit) {
-    val accent = settingsAccent()
-    Column(
-        Modifier.fillMaxWidth().widthIn(max = 520.dp).clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.78f))))
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Storefront, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.svc_hero_title), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                Text(stringResource(R.string.svc_hero_body), color = Color.White.copy(alpha = 0.88f), fontSize = 12.sp, lineHeight = 17.sp)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeroStat(d.counts["published"] ?: 0, stringResource(R.string.svc_stat_published), Modifier.weight(1f))
-            HeroStat(d.counts["pending_review"] ?: 0, stringResource(R.string.svc_stat_review), Modifier.weight(1f))
-            HeroStat(waiting, stringResource(R.string.svc_stat_waiting), Modifier.weight(1f))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.svc_hero_live, live, d.limits.maxActive), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Row(
-                Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).clickable(onClick = onNew).padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.size(4.dp))
-                Text(stringResource(R.string.svc_new), color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroStat(value: Int, label: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.16f)).padding(vertical = 10.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("$value", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
+    com.dorr.freelance.ui.kit.StoreHero(
+        Icons.Rounded.Storefront, stringResource(R.string.svc_hero_title), stringResource(R.string.svc_hero_body),
+        listOf(
+            com.dorr.freelance.ui.kit.HeroNumber("${d.counts["published"] ?: 0}", stringResource(R.string.svc_stat_published)),
+            com.dorr.freelance.ui.kit.HeroNumber("${d.counts["pending_review"] ?: 0}", stringResource(R.string.svc_stat_review)),
+            com.dorr.freelance.ui.kit.HeroNumber("$waiting", stringResource(R.string.svc_stat_waiting)),
+        ),
+        action = stringResource(R.string.svc_new), actionIcon = Icons.Rounded.Add, onAction = onNew,
+        footnote = stringResource(R.string.svc_hero_live, live, d.limits.maxActive),
+    )
 }
 
 @Composable
@@ -248,24 +218,6 @@ private fun HowItWorks(review: Boolean) {
         }
     }
     EmptyState(Icons.Rounded.Storefront, stringResource(R.string.svc_empty_title), stringResource(R.string.svc_empty_body), Modifier.padding(top = 12.dp))
-}
-
-@Composable
-private fun FilterRow(statuses: List<String>, selected: String, counts: Map<String, Int>, total: Int, onSelect: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        statuses.forEach { s ->
-            val on = s == selected
-            val n = if (s == "all") total else counts[s] ?: 0
-            Row(
-                Modifier.clip(RoundedCornerShape(999.dp)).background(if (on) settingsAccent() else settingsAccent().copy(alpha = 0.08f)).clickable { onSelect(s) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(if (s == "all") stringResource(R.string.svc_all) else serviceStatusLabel(s), color = if (on) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Spacer(Modifier.size(6.dp))
-                Text("$n", color = if (on) Color.White.copy(alpha = 0.85f) else settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -341,6 +293,8 @@ private data class ServiceForm(
     val specialtyId: Int? = null,
     /** FL-L05: once · monthly */
     val billing: String = "once",
+    /** FL-L13: the terms every order of it starts from. */
+    val rights: RightsForm = RightsForm(),
     val tiers: List<TierForm> = SERVICE_LEVELS.map { TierForm(it, enabled = it == "basic") },
     val addons: List<AddonForm> = emptyList(),
     val pending: List<String> = emptyList(),
@@ -351,7 +305,7 @@ private data class ServiceForm(
 private val formSaver = Saver<ServiceForm, String>(save = { Gson().toJson(it) }, restore = { runCatching { Gson().fromJson(it, ServiceForm::class.java) }.getOrNull() })
 
 private fun ServiceForm.fill(s: ServiceDto): ServiceForm = copy(
-    title = s.title, description = s.description, requirements = s.requirements.orEmpty(), specialtyId = s.specialty?.id, billing = s.billing,
+    title = s.title, description = s.description, requirements = s.requirements.orEmpty(), specialtyId = s.specialty?.id, billing = s.billing, rights = s.rights?.toForm() ?: RightsForm(),
     tiers = SERVICE_LEVELS.map { level ->
         val t = s.tiers.firstOrNull { it.level == level }
         if (t == null) TierForm(level, enabled = false)
@@ -380,6 +334,8 @@ fun ServiceEditorScreen(uuid: String?, onBack: () -> Unit) {
     var form by rememberSaveable(stateSaver = formSaver) { mutableStateOf(ServiceForm()) }
     var service by remember { mutableStateOf<ServiceDto?>(null) }
     var meta by remember { mutableStateOf<MyServicesDto?>(null) }
+    // FL-L13: null options = the feature is off in my country.
+    val rightsOptions = rememberRightsOptions()
     var specialties by remember { mutableStateOf<List<MySpecialtyDto>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -476,6 +432,7 @@ fun ServiceEditorScreen(uuid: String?, onBack: () -> Unit) {
             },
             addons = form.addons.filter { it.title.isNotBlank() && inputToMinor(it.price, decimals) != null }
                 .map { ServiceAddonRequest(it.title.trim(), inputToMinor(it.price, decimals) ?: 0, it.days) },
+            rights = if (rightsOptions != null) form.rights.toInput() else null,
         )
         scope.launch {
             val id = currentUuid
@@ -627,6 +584,9 @@ fun ServiceEditorScreen(uuid: String?, onBack: () -> Unit) {
                     }
                 }
             }
+
+            // FL-L13: who owns the work once an order is paid.
+            rightsOptions?.let { RightsEditor(form.rights, it, readOnly) { r -> form = form.copy(rights = r) } }
 
             // How clients will see it.
             Preview(form, existing.firstOrNull()?.path?.let { ApiClient.url(it) } ?: form.pending.firstOrNull()?.let { File(it) }, tierPrices, decimals, currency)

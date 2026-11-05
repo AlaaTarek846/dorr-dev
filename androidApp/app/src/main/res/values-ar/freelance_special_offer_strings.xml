@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L09: العروض الخاصة من المحترفين اللي اشتغلت معاهم (جهة العميل). -->
+<resources>
+    <string name="spc_chip">العروض</string>
+    <plurals name="spc_banner_title">
+        <item quantity="zero">مفيش عروض خاصة</item>
+        <item quantity="one">عندك عرض خاص</item>
+        <item quantity="two">عندك عرضين خاصين</item>
+        <item quantity="few">عندك %1$d عروض خاصة</item>
+        <item quantity="many">عندك %1$d عرض خاص</item>
+        <item quantity="other">عندك %1$d عرض خاص</item>
+    </plurals>
+    <string name="spc_banner_body">محترفين اشتغلت معاهم عملولك عرض. شوفه قبل ما ينتهي.</string>
+    <string name="spc_title">العروض الخاصة</string>
+    <string name="spc_tab_open">مستنية</string>
+    <string name="spc_tab_accepted">اتقبلت</string>
+    <string name="spc_tab_past">قديمة</string>
+    <string name="spc_empty_open">مفيش عروض مستنية</string>
+    <string name="spc_empty_other">لسه مفيش حاجة هنا</string>
+    <string name="spc_empty_body">لما محترف خلّصت معاه شغل يبعتلك عرض خاص، هيظهر هنا وهنبلغك على طول.</string>
+
+    <string name="spc_kind_custom">شغل مخصوص</string>
+    <string name="spc_kind_service">خدمة</string>
+    <string name="spc_kind_consultation">استشارة</string>
+    <string name="spc_status_sent">مستني ردك</string>
+    <string name="spc_status_accepted">اتقبل</string>
+    <string name="spc_status_declined">اترفض</string>
+    <string name="spc_status_withdrawn">اتسحب</string>
+    <string name="spc_status_expired">انتهى</string>
+    <string name="spc_left_days">ينتهي بعد %1$d يوم</string>
+    <string name="spc_left_hours">ينتهي بعد %1$d ساعة</string>
+    <string name="spc_left_minutes">ينتهي بعد %1$d دقيقة</string>
+    <string name="spc_off">خصم %1$d%%</string>
+    <string name="spc_badge">عرض خاص ليك · %1$s</string>
+
+    <string name="spc_detail_title">عرض خاص</string>
+    <string name="spc_what">المعروض</string>
+    <string name="spc_money">هتدفع كام</string>
+    <string name="spc_price">السعر</string>
+    <string name="spc_you_save">هتوفّر</string>
+    <string name="spc_days_label">التسليم</string>
+    <string name="spc_revisions_label">تعديلات مجانية</string>
+    <string name="spc_how_work">اقبل والشغل يبدأ على طول — موّل أول مرحلة من محفظتك والمحترف يبدأ. فلوسك بتفضل مع دُرر لحد ما توافق على التسليم.</string>
+    <string name="spc_how_consult">اختار ميعاد من الأوقات الفاضية عند المحترف. الحجز بيتأكد على طول بالسعر بعد الخصم.</string>
+    <string name="spc_muted_note">أنت وقّفت العروض الخاصة من المحترف ده.</string>
+
+    <string name="spc_accept">اقبل العرض</string>
+    <string name="spc_pick_time">اختار ميعاد</string>
+    <string name="spc_decline">مش دلوقتي</string>
+    <string name="spc_accept_title">تقبل العرض ده؟</string>
+    <string name="spc_accept_body">أنت و ⁨%1$s⁩ هتبدأوا الشغل على طول بالشروط دي.</string>
+    <string name="spc_accept_cta">أيوه، ابدأ الشغل</string>
+    <string name="spc_accept_safe">مفيش دفع دلوقتي. بتموّل كل مرحلة من محفظتك، وماتنزلش للمحترف غير لما توافق على التسليم.</string>
+    <string name="spc_accepted">الشغل بدأ.</string>
+    <string name="spc_decline_title">ترفض العرض؟</string>
+    <string name="spc_decline_body">المحترف هيتبلغ. السبب بيساعده يعمل عرض أحسن المرة الجاية.</string>
+    <string name="spc_decline_reason">السبب (اختياري)</string>
+    <string name="spc_decline_cta">ارفض</string>
+    <string name="spc_declined">رفضت العرض.</string>
+    <string name="spc_mute_check">وقّف العروض الخاصة من %1$s</string>
+    <string name="spc_mute_hint">تقدر ترجّعها من أي عرض قديم منه.</string>
+    <string name="spc_mute">وقّف العروض من المحترف ده</string>
+    <string name="spc_unmute">رجّع العروض من المحترف ده</string>
+    <string name="spc_muted">مش هتوصلك عروض خاصة منه.</string>
+    <string name="spc_unmuted">عروضه الخاصة رجعت تاني.</string>
+    <string name="spc_open_work">افتح الشغل</string>
+    <string name="spc_open_order">افتح الطلب</string>
+    <string name="spc_open_consultation">افتح الاستشارة</string>
+
+    <string name="spc_deal_title">عرض خاص · خصم %1$d%%</string>
+    <string name="spc_deal_instant">بيتأكد على طول — من غير ما تستنى المحترف.</string>
+    <string name="spc_rule_instant">الحجز بعرض خاص: الميعاد بيبقى ليك أول ما تحجز.</string>
+    <string name="spc_confirm_instant">الميعاد بيتأكد على طول، والفلوس بتتحجز في محفظتك لحد الجلسة.</string>
+    <string name="spc_booked">استشارتك اتأكدت.</string>
+</resources>

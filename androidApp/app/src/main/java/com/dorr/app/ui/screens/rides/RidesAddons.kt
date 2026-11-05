@@ -247,7 +247,7 @@ private fun SpeedTile(icon: ImageVector, title: String, sub: String?, on: Boolea
 }
 
 @Composable
-private fun ToggleLine(icon: ImageVector, title: String, sub: String?, on: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleLine(icon: ImageVector, title: String, sub: String?, on: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(10.dp))
@@ -260,7 +260,7 @@ private fun ToggleLine(icon: ImageVector, title: String, sub: String?, on: Boole
 }
 
 @Composable
-private fun StepperLine(icon: ImageVector, title: String, sub: String?, value: Int, range: IntRange, onChange: (Int) -> Unit) {
+internal fun StepperLine(icon: ImageVector, title: String, sub: String?, value: Int, range: IntRange, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(10.dp))

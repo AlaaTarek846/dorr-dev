@@ -63,6 +63,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showMovingSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.moving') }}</span>
+                        </li>
+
+                        <li v-for="item in movingItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <template v-if="showFreelanceSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.freelance') }}</span>
@@ -920,6 +933,11 @@ const freelanceItems = [
     { route: 'admin.freelance.plans', permission: 'freelance-plans.view', icon: 'ri-vip-crown-2-line', label: 'freelance.plans.title' },
     { route: 'admin.freelance.services', permission: 'freelance-services.view', icon: 'ri-store-2-line', label: 'freelance.services.title' },
     { route: 'admin.freelance.consultations', permission: 'freelance-consultations.view', icon: 'ri-video-chat-line', label: 'freelance.consultations.title' },
+    { route: 'admin.freelance.specialOffers', permission: 'freelance-special-offers.view', icon: 'ri-price-tag-3-line', label: 'freelance.specialOffers.title' },
+    { route: 'admin.freelance.loyalty', permission: 'freelance-loyalty.view', icon: 'ri-gift-line', label: 'freelance.loyalty.title' },
+    { route: 'admin.freelance.rights', permission: 'freelance-rights.view', icon: 'ri-file-shield-2-line', label: 'freelance.rights.title' },
+    { route: 'admin.freelance.promos', permission: 'freelance-promos.view', icon: 'ri-advertisement-line', label: 'freelance.promos.title' },
+    { route: 'admin.freelance.community', permission: 'freelance-community.view', icon: 'ri-team-line', label: 'freelance.community.title' },
     { route: 'admin.freelance.risk', permission: 'freelance-risk.view', icon: 'ri-alarm-warning-line', label: 'freelance.risk.title' },
     { route: 'admin.freelance.audit', permission: 'freelance-audit.view', icon: 'ri-history-line', label: 'freelance.audit.title' },
     { route: 'admin.freelance.freelancers', permission: 'freelancers.view', icon: 'ri-user-star-line', label: 'freelance.freelancers.title' },
@@ -931,11 +949,27 @@ const freelanceItems = [
     { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+    { route: 'admin.freelance.checklistTemplates', permission: 'freelance-checklist-templates.view', icon: 'ri-list-check-2', label: 'freelance.checklist_templates.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
     { route: 'admin.freelance.skillTests', permission: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
     { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },
     { route: 'admin.freelance.policies', permission: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
 ];
+
+/** Furniture moving and the provider establishments it stands on (docs/moving_tasks.md), shown under the moving service. */
+const movingItems = [
+    { route: 'admin.moving.requests', permission: 'moving-requests.view', icon: 'ri-truck-line', label: 'moving.requests.title' },
+    { route: 'admin.moving.establishments', permission: 'provider-establishments.view', icon: 'ri-store-2-line', label: 'moving.establishments.title' },
+    { route: 'admin.moving.tickets', permission: 'moving-tickets.view', icon: 'ri-customer-service-2-line', label: 'moving.tickets.title' },
+    { route: 'admin.moving.vehicle_types', permission: 'provider-vehicle-types.view', icon: 'ri-truck-line', label: 'moving.vehicle_types.title' },
+    { route: 'admin.moving.document_types', permission: 'provider-document-types.view', icon: 'ri-id-card-line', label: 'moving.document_types.title' },
+    { route: 'admin.moving.cases', permission: 'moving-cases.view', icon: 'ri-scales-3-line', label: 'moving.cases.title' },
+    { route: 'admin.moving.policies', permission: 'moving-policies.view', icon: 'ri-price-tag-3-line', label: 'moving.policies.title' },
+];
+
+const showMovingSection = computed(
+    () => selectedModuleName.value === 'moving' && movingItems.some((item) => can(item.permission)),
+);
 
 const showFreelanceSection = computed(
     () => selectedModuleName.value === 'freelance' && freelanceItems.some((item) => can(item.permission)),

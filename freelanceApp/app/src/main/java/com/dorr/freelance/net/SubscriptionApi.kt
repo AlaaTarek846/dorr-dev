@@ -43,7 +43,8 @@ interface SubscriptionApi {
 /** What the server sells here: [enabled] is false when the service has no plans in my country (the page then says so). */
 data class PlansDto(
     val enabled: Boolean = false,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
     /** Decimal places of [currency]: prices are whole minor units of it. */
     val decimals: Int = 2,
     val plans: List<PlanDto> = emptyList(),
@@ -98,7 +99,8 @@ data class SubscriptionDto(
     val active: Boolean = false,
     @SerializedName("auto_renew") val autoRenew: Boolean = true,
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
     @SerializedName("period_end") val periodEnd: String? = null,
     @SerializedName("trial_ends_at") val trialEndsAt: String? = null,
     @SerializedName("grace_until") val graceUntil: String? = null,
@@ -120,7 +122,8 @@ data class SubscriptionInvoiceDto(
     val status: String = "",
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     @SerializedName("credit_minor") val creditMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
 )
 
@@ -129,7 +132,8 @@ data class TakePlanRequest(val plan: String, val period: String)
 /** The extra-offer packs sold in my country (FL-L01, phase 2). [unlimited]: my plan has no limit, so there is nothing to buy. */
 data class OfferPacksDto(
     val enabled: Boolean = false,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
     val decimals: Int = 2,
     val unlimited: Boolean = false,
     /** Days a bought offer lasts (0 = no end). */
@@ -156,7 +160,8 @@ data class OfferPurchaseDto(
     val pack: String? = null,
     val quantity: Int = 0,
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
 )
 

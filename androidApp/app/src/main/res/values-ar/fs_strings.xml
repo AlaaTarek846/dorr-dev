@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FS-101 (change requests v2), FS-102 (hire again), FS-105 (checklist templates) - the client app. -->
+<resources>
+    <!-- FS-102 -->
+    <string name="fs_ev_hire_again">اتطلب تاني لنفس المستقل</string>
+    <string name="fs_hire_again">اتعاقد تاني</string>
+    <string name="fs_hire_again_title">طلب لنفس المستقل</string>
+    <string name="fs_hire_again_from">مطلوب تاني من %1$s. هتوصله دعوة أول ما المشروع يتنشر.</string>
+    <string name="fs_hire_again_prev">أجزاء المرة اللي فاتت (للاسترشاد)</string>
+    <string name="fs_hire_again_note">السعر والمدة والمطلوب بيتفق عليهم من جديد.</string>
+
+    <!-- FS-105 -->
+    <string name="fs_ck_template">ابدأ من قالب</string>
+    <string name="fs_ck_template_title">اختار قالب</string>
+    <string name="fs_ck_template_hint">بنوده هتتحط في القائمة وتقدر تعدّلها بعدين.</string>
+    <string name="fs_ck_template_items">%1$d بند</string>
+    <string name="fs_ck_template_none">مفيش قوالب لسه.</string>
+    <string name="fs_ck_use">استخدم القالب ده</string>
+    <string name="fs_ck_replace">بدّل بنودي</string>
+    <string name="fs_ck_append">ضيف على بنودي</string>
+    <string name="fs_ck_template_full">الحد الأقصى %1$d بنود في القائمة.</string>
+
+    <!-- FS-101 -->
+    <string name="fs_ch_addendum">ملحق رقم %1$d</string>
+    <string name="fs_ch_version">نسخة الاتفاق %1$d</string>
+    <string name="fs_ch_eff_price">السعر: كان %1$s وبقى %2$s</string>
+    <string name="fs_ch_eff_days">المدة: كانت %1$d يوم وبقت %2$d يوم</string>
+    <string name="fs_ch_eff_parts">الأجزاء: كان %1$d وبقى %2$d</string>
+    <string name="fs_ch_respond_by">الرد قبل %1$s</string>
+    <string name="fs_ch_files">ملفات</string>
+    <string name="fs_ch_attach">ارفق ملف (%1$d/%2$d)</string>
+    <string name="fs_ch_attach_hint">لحد 3 ملفات، كل ملف 10 ميجا بالكتير.</string>
+    <string name="fs_ch_file_too_big">الملف ده أكبر من 10 ميجا.</string>
+
+    <!-- FS-106: صحة المشروع -->
+    <string name="fs_hl_title">صحة المشروع</string>
+    <string name="fs_hl_on_track">ماشي مظبوط</string>
+    <string name="fs_hl_state_healthy">ماشي مظبوط</string>
+    <string name="fs_hl_state_at_risk">محتاج متابعة</string>
+    <string name="fs_hl_state_delayed">متأخر</string>
+    <string name="fs_hl_state_blocked">واقف</string>
+    <string name="fs_hl_r_dispute_open">فيه نزاع مفتوح على “%1$s”.</string>
+    <string name="fs_hl_r_part_unfunded">“%1$s” لسه متموّلش.</string>
+    <string name="fs_hl_days_1">يوم</string>
+    <string name="fs_hl_days_2">يومين</string>
+    <string name="fs_hl_days_few">%1$d أيام</string>
+    <string name="fs_hl_days_many">%1$d يوم</string>
+    <string name="fs_hl_r_part_overdue">“%1$s” عدّى ميعاده بـ %2$s.</string>
+    <string name="fs_hl_r_part_due_soon">“%1$s” ميعاده خلال يومين.</string>
+    <string name="fs_hl_r_part_not_started">الشغل في “%1$s” لسه ما بدأش.</string>
+    <string name="fs_hl_r_review_waiting">تسليم “%1$s” مستني مراجعتك من %2$s.</string>
+    <string name="fs_hl_r_report_late">تقرير التقدّم اتأخر.</string>
+    <string name="fs_hl_r_change_waiting">فيه طلب تعديل مستني رد.</string>
+    <string name="fs_hl_r_other">فيه حاجة محتاجة نظرة.</string>
+    <string name="fs_hl_n_dispute_open">تابع النزاع المفتوح على “%1$s”.</string>
+    <string name="fs_hl_w_dispute_open">مستنيين الحكم في النزاع على “%1$s”.</string>
+    <string name="fs_hl_n_part_unfunded">موّل “%1$s” عشان الشغل يكمّل.</string>
+    <string name="fs_hl_w_part_unfunded">مستنيين تمويل “%1$s”.</string>
+    <string name="fs_hl_n_part_overdue">اطمّن على “%1$s”.</string>
+    <string name="fs_hl_w_part_overdue">مستنيين المستقل يسلّم “%1$s”.</string>
+    <string name="fs_hl_n_part_due_soon">اطمّن على “%1$s”.</string>
+    <string name="fs_hl_w_part_due_soon">مستنيين المستقل يسلّم “%1$s”.</string>
+    <string name="fs_hl_n_part_not_started">اطمّن على “%1$s”.</string>
+    <string name="fs_hl_w_part_not_started">مستنيين المستقل يبدأ “%1$s”.</string>
+    <string name="fs_hl_n_review_waiting">راجع تسليم “%1$s”.</string>
+    <string name="fs_hl_w_review_waiting">مستنيين مراجعة تسليم “%1$s”.</string>
+    <string name="fs_hl_n_report_late">اطلب تقرير التقدّم.</string>
+    <string name="fs_hl_w_report_late">مستنيين تقرير التقدّم من المستقل.</string>
+    <string name="fs_hl_n_change_waiting">رد على طلب التعديل.</string>
+    <string name="fs_hl_w_change_waiting">مستنيين المستقل يرد على طلب التعديل.</string>
+    <string name="fs_hl_n_other">بص على المشروع.</string>
+    <string name="fs_hl_w_other">مستنيين الطرف التاني.</string>
+
+    <!-- FS-103: قوائم المواهب -->
+    <string name="fs_tp_title">قوائم المواهب</string>
+    <string name="fs_tp_new">قائمة جديدة</string>
+    <string name="fs_tp_rename">غيّر الاسم</string>
+    <string name="fs_tp_delete">امسح القائمة</string>
+    <string name="fs_tp_delete_confirm">“%1$s” هتتمسح. المستقلين فاضلين على دُرّ، قائمتك إنت بس اللي بتتشال.</string>
+    <string name="fs_tp_empty">مفيش قوايم لسه. اعمل واحدة زي “مصممين أثق فيهم” واحفظ فيها مستقلين.</string>
+    <string name="fs_tp_count">%1$d مستقل</string>
+    <string name="fs_tp_max">تقدر تعمل لحد %1$d قوايم.</string>
+    <string name="fs_tp_private">القوايم دي إنت بس اللي بتشوفها. المستقل عمره ما بيعرف إنك حفظته.</string>
+    <string name="fs_tp_name">اسم القائمة</string>
+    <string name="fs_tp_form_hint">سمّيها، واختار تخصص لو هيساعدك تلاقيها.</string>
+    <string name="fs_tp_specialty">التخصص</string>
+    <string name="fs_tp_specialty_hint">اختياري. بيخليك تفلتر قوايمك.</string>
+    <string name="fs_tp_any">من غير تخصص</string>
+    <string name="fs_tp_members">المستقلين</string>
+    <string name="fs_tp_members_empty">القائمة فاضية. افتح مستقل واضغط “احفظ في قائمة”.</string>
+    <string name="fs_tp_remove_member">شيله من القائمة</string>
+    <string name="fs_tp_remove_confirm">تشيل %1$s من القائمة دي؟</string>
+    <string name="fs_tp_worked_together">اشتغلتوا مع بعض</string>
+    <string name="fs_tp_note">ملاحظة</string>
+    <string name="fs_tp_note_add">ضيف ملاحظة (إنت بس اللي بتشوفها)</string>
+    <string name="fs_tp_note_title">ملاحظة عن %1$s</string>
+    <string name="fs_tp_note_hint">لحد 200 حرف. إنت بس اللي بتشوفها.</string>
+    <string name="fs_tp_remind_none">من غير تذكير</string>
+    <string name="fs_tp_remind_days">%1$d يوم</string>
+    <string name="fs_tp_remind_on">التذكير يوم %1$s</string>
+    <string name="fs_tp_remind_off">من غير تذكير</string>
+    <string name="fs_tp_remind_title">فكّرني بـ %1$s</string>
+    <string name="fs_tp_remind_hint">التذكير ليك إنت بس. المستقل عمره ما بيعرف.</string>
+    <string name="fs_tp_invite">ادعيهم لمشروع</string>
+    <string name="fs_tp_invite_hint">اختار واحد من مشاريعك الخاصة المنشورة. الدعوة بتوصلهم زي أي دعوة تانية.</string>
+    <string name="fs_tp_pick_project">المشروع</string>
+    <string name="fs_tp_no_projects">معندكش مشروع خاص منشور. خلّي المشروع خاص وانشره الأول.</string>
+    <string name="fs_tp_pick_who">تدعي مين</string>
+    <string name="fs_tp_pick_who_hint">كل اللي في القائمة هيتدعوا إلا اللي تشيل علامته.</string>
+    <string name="fs_tp_invite_go">ادعي %1$d</string>
+    <string name="fs_tp_invited_n">اتدعى %1$d من القايمة.</string>
+    <string name="fs_tp_skipped_n">اتستبعد %1$d منهم</string>
+    <string name="fs_tp_skip_not_found">مش موجود</string>
+    <string name="fs_tp_skip_already_offered">قدّم عرض قبل كده</string>
+    <string name="fs_tp_skip_already_invited">اتدعى قبل كده</string>
+    <string name="fs_tp_skip_declined">رفض المشروع ده</string>
+    <string name="fs_tp_save">احفظ في قائمة</string>
+    <string name="fs_tp_save_title">احفظ في قائمة</string>
+    <string name="fs_tp_save_none">معندكش قوايم لسه. اعمل أول واحدة من تحت.</string>
+</resources>

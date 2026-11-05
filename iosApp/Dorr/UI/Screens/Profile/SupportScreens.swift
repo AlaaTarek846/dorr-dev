@@ -720,7 +720,7 @@ private struct SupportBubble: View {
     var body: some View {
         let mine = message.sender == "user"
         let textColor: Color = mine ? .white : wa.settingsInk
-        let tailOnRight = mine == (direction == .leftToRight)
+        let tailOnRight = mine
         let shape = BubbleCorners(topLeft: 20, topRight: 20, bottomRight: tailOnRight ? 5 : 20, bottomLeft: tailOnRight ? 20 : 5)
         let fill: Color = mine ? wa.red : (message.isAuto ? wa.red.opacity(0.09) : (wa.night ? wa.darkCard : wa.settingsCard))
         let border: Color = mine ? .clear : (message.isAuto ? wa.red.opacity(0.35) : wa.settingsMut.opacity(0.18))
@@ -757,9 +757,11 @@ private struct SupportBubble: View {
             .padding(.vertical, 10)
             .background(fill, in: shape)
             .overlay(shape.stroke(border, lineWidth: 1))
+            .environment(\.layoutDirection, direction)
             .frame(maxWidth: 290, alignment: mine ? .trailing : .leading)
             if !mine { Spacer(minLength: 0) }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .scaleEffect(shown ? 1 : 0.92)
         .offset(y: shown ? 0 : 8)
         .opacity(shown ? 1 : 0)
@@ -978,7 +980,7 @@ private struct HelpBubble: View {
     @State private var shown = false
 
     var body: some View {
-        let tailOnRight = mine == (direction == .leftToRight)
+        let tailOnRight = mine
         let shape = BubbleCorners(topLeft: 20, topRight: 20, bottomRight: tailOnRight ? 5 : 20, bottomLeft: tailOnRight ? 20 : 5)
         HStack {
             if mine { Spacer(minLength: 0) }
@@ -988,9 +990,11 @@ private struct HelpBubble: View {
                 .padding(.vertical, 10)
                 .background(mine ? wa.red : (wa.night ? wa.darkCard : wa.settingsCard), in: shape)
                 .overlay(shape.stroke(mine ? .clear : wa.settingsMut.opacity(0.18), lineWidth: 1))
+                .environment(\.layoutDirection, direction)
                 .frame(maxWidth: 300, alignment: mine ? .trailing : .leading)
             if !mine { Spacer(minLength: 0) }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .scaleEffect(shown ? 1 : 0.94)
         .offset(y: shown ? 0 : 8)
         .opacity(shown ? 1 : 0)

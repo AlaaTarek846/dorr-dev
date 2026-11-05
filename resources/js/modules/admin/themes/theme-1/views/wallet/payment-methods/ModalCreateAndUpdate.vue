@@ -525,7 +525,7 @@ async function loadCountries() {
     }
 
     try {
-        const { data } = await adminAxios.get('/api/general/v1/countries/dropdown');
+        const { data } = await adminAxios.get('/api/general/v1/countries/dropdown?with_international=1');
 
         countryOptions.value = data.data ?? [];
     } catch {

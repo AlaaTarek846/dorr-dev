@@ -885,11 +885,15 @@ class MessageService
     {
         $participant = $this->conversations->participantOf($me, $conversation);
 
+        // The latest pin first (pinning again counts as the latest), not the newest message.
+        $order = ChatPinnedMessage::query()->where('conversation_id', $conversation->id)
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->orderByDesc('updated_at')->orderByDesc('id')->pluck('message_id')->values();
         $messages = ChatMessage::query()
-            ->whereIn('id', ChatPinnedMessage::query()->where('conversation_id', $conversation->id)
-                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->pluck('message_id'))
+            ->whereIn('id', $order)
             ->whereNull('deleted_for_everyone_at')
-            ->orderByDesc('id')->get();
+            ->get()
+            ->sortBy(fn (ChatMessage $m) => $order->search($m->id))->values();
 
         $messages = $messages->filter(fn (ChatMessage $m) => $this->visibleTo($participant, ChatMessage::query()->whereKey($m->id))->exists())->values();
         $messages->load(['media', 'reactions']);

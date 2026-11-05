@@ -38,7 +38,9 @@ class ClientConsultationController extends Controller
     /** GET consultation-offers/{uuid} — one listing: what is sold and the rules. */
     public function offer(Request $request, string $uuid): JsonResponse
     {
-        return ApiResponse::success($this->offers->presentForClient($this->offers->bookable($this->me($request), $uuid)), __('api.retrieved'));
+        $me = $this->me($request);
+
+        return ApiResponse::success($this->offers->presentForClient($this->offers->bookable($me, $uuid), $me), __('api.retrieved'));
     }
 
     /** GET consultation-offers/{uuid}/slots?minutes= — the free start times (UTC), soonest first. */
@@ -80,6 +82,8 @@ class ClientConsultationController extends Controller
             'starts_at' => ['required', 'date'],
             'topic' => ['required', 'string', 'min:10', 'max:1000'],
             'request_id' => ['nullable', 'string', 'max:64'],
+            // FL-L16: the session is recorded; booking needs the yes (`freelance_consultation_recording_consent_required`).
+            'recording_consent' => ['nullable', 'boolean'],
         ]);
 
         return $this->answer($this->consultations->book($this->me($request), $data), __('freelance.consultation_booked'), 201);

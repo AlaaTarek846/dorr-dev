@@ -309,6 +309,25 @@ private struct AddonsSheet: View {
     }
 
     private func toggle(_ icon: String, _ title: String, _ sub: String?, on: Bool, change: @escaping (Bool) -> Void) -> some View {
+        RideToggleLine(icon: icon, title: title, sub: sub, on: on, onChange: change)
+    }
+
+    private func stepper(_ icon: String, _ title: String, _ sub: String?, value: Int, max: Int, change: @escaping (Int) -> Void) -> some View {
+        RideStepperLine(icon: icon, title: title, sub: sub, value: value, range: 0...max, onChange: change)
+    }
+}
+
+/// An add-on that is on or off (Android's rides `ToggleLine`, shared with the moving wizard; `ToggleLine` on iOS is
+/// the Discover one).
+struct RideToggleLine: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let title: String
+    let sub: String?
+    let on: Bool
+    let onChange: (Bool) -> Void
+
+    var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon).font(.system(size: 18)).foregroundStyle(wa.accent).frame(width: 24)
             VStack(alignment: .leading, spacing: 0) {
@@ -316,12 +335,23 @@ private struct AddonsSheet: View {
                 if let sub { Text(verbatim: sub).font(.dorr(11.5)).foregroundStyle(wa.settingsMut) }
             }
             Spacer(minLength: 0)
-            Toggle("", isOn: Binding(get: { on }, set: change)).labelsHidden().tint(wa.accent)
+            Toggle("", isOn: Binding(get: { on }, set: onChange)).labelsHidden().tint(wa.accent)
         }
         .padding(.vertical, 6)
     }
+}
 
-    private func stepper(_ icon: String, _ title: String, _ sub: String?, value: Int, max: Int, change: @escaping (Int) -> Void) -> some View {
+/// A count with − / + (Android's rides `StepperLine`, shared with the moving wizard).
+struct RideStepperLine: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let title: String
+    let sub: String?
+    let value: Int
+    let range: ClosedRange<Int>
+    let onChange: (Int) -> Void
+
+    var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon).font(.system(size: 18)).foregroundStyle(wa.accent).frame(width: 24)
             VStack(alignment: .leading, spacing: 0) {
@@ -330,9 +360,9 @@ private struct AddonsSheet: View {
             }
             Spacer(minLength: 0)
             HStack(spacing: 0) {
-                stepCircle("minus", enabled: value > 0) { change(value - 1) }
+                stepCircle("minus", enabled: value > range.lowerBound) { onChange(value - 1) }
                 Text(verbatim: "\(value)").font(.dorr(16, .black)).foregroundStyle(wa.settingsInk).frame(width: 32)
-                stepCircle("plus", enabled: value < max) { change(value + 1) }
+                stepCircle("plus", enabled: value < range.upperBound) { onChange(value + 1) }
             }
         }
         .padding(.vertical, 6)

@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.freelance
 
+import androidx.compose.material.icons.rounded.EventAvailable
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -153,27 +154,6 @@ private fun levelName(level: String): String = when (level) {
 private fun days(n: Int): String = if (n == 1) stringResource(R.string.mk_day_one) else stringResource(R.string.mk_days, n)
 
 @Composable
-private fun Pill(text: String, color: Color, solid: Boolean = false, modifier: Modifier = Modifier) {
-    Row(
-        modifier.clip(RoundedCornerShape(999.dp)).background(if (solid) color else color.copy(alpha = if (settingsNight()) 0.22f else 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(6.dp).clip(CircleShape).background(if (solid) Color.White else color))
-        Spacer(Modifier.width(6.dp))
-        Text(text, color = if (solid) Color.White else color, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    }
-}
-
-@Composable
-private fun Avatar(url: String?, name: String?, size: Int = 34) {
-    Box(Modifier.size(size.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-        val reachable = ApiClient.mediaUrl(url)
-        if (!reachable.isNullOrBlank()) AsyncImage(model = reachable, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        else Text(name?.trim()?.firstOrNull()?.uppercase() ?: "?", color = settingsAccent(), fontSize = (size / 2.4).sp, fontWeight = FontWeight.ExtraBold)
-    }
-}
-
-@Composable
 private fun SectionCard(title: String? = null, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (title != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -192,51 +172,10 @@ private fun Line(label: String, value: String, strong: Boolean = false) {
     }
 }
 
-// ==================================================================== the entry on "My projects"
-
-/** The door to the market on the projects list: a soft gradient card, and "My orders" beside the button. */
-@Composable
-internal fun MarketBanner(onBrowse: () -> Unit, onOrders: () -> Unit) {
-    val accent = settingsAccent()
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.75f)))).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Storefront, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.mk_banner_title), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                Text(stringResource(R.string.mk_banner_body), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, lineHeight = 17.sp)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Color.White).clickable(onClick = onBrowse).padding(vertical = 11.dp),
-                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.mk_banner_cta), color = accent, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                Spacer(Modifier.width(6.dp))
-                val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-                Icon(Icons.Rounded.ArrowForward, null, tint = accent, modifier = Modifier.size(16.dp).graphicsLayer { if (rtl) scaleX = -1f })
-            }
-            Row(
-                Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.2f)).clickable(onClick = onOrders).padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Receipt, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.mk_my_orders), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 // ==================================================================== the market
 
 @Composable
-internal fun MarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onOrders: () -> Unit, onConsultations: () -> Unit = {}) {
+internal fun MarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onOrders: () -> Unit, onConsultations: () -> Unit = {}, embedded: Boolean = false) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -267,8 +206,10 @@ internal fun MarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onOrders: 
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.mk_title), onBack)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Inside «Services» the page's head and the way to the consultations and my orders are the hub's.
+        if (!embedded) FlPageHeader(stringResource(R.string.mk_title), onBack)
+        com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 DorrTextField(typed, { typed = it.take(80) }, placeholder = stringResource(R.string.mk_search), icon = Icons.Rounded.Search,
                     trailing = if (typed.isNotEmpty()) { { Icon(Icons.Rounded.Close, null, tint = settingsMut(), modifier = Modifier.padding(end = 10.dp).size(18.dp).clickable { typed = "" }) } } else null,
@@ -277,8 +218,10 @@ internal fun MarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onOrders: 
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     // FL-L07: consultations are a list of their own, next to the services.
-                    Chip(stringResource(R.string.cs_market_title), selected = false, icon = Icons.Rounded.VideoChat) { onConsultations() }
-                    Chip(stringResource(R.string.mk_my_orders), selected = false, icon = Icons.Rounded.Receipt) { onOrders() }
+                    if (!embedded) {
+                        Chip(stringResource(R.string.cs_market_title), selected = false, icon = Icons.Rounded.VideoChat) { onConsultations() }
+                        Chip(stringResource(R.string.mk_my_orders), selected = false, icon = Icons.Rounded.Receipt) { onOrders() }
+                    }
                     Chip(stringResource(R.string.mk_fast), selected = fast, icon = Icons.Rounded.Bolt) { fast = !fast }
                     listOf("recommended" to R.string.mk_sort_recommended, "newest" to R.string.mk_sort_newest, "price_low" to R.string.mk_sort_price_low, "price_high" to R.string.mk_sort_price_high, "popular" to R.string.mk_sort_popular)
                         .forEach { (value, label) -> Chip(stringResource(label), selected = sort == value) { sort = value } }
@@ -302,12 +245,35 @@ internal fun MarketPage(onBack: () -> Unit, onOpen: (String) -> Unit, onOrders: 
             item { PagedSpinner(paged) }
             paged.error?.takeIf { !closed }?.let { item { TextButton(onClick = { paged.clearError(); scope.launch { paged.loadMore(generic) } }, modifier = Modifier.fillMaxWidth()) { Text(it, color = RED, fontSize = 13.sp) } } }
         }
+        }
+    }
+}
+
+/**
+ * «Services» (the client redesign, batch E): the ready-made services and the paid consultations as two parts of one page, with «My
+ * orders» or «My consultations» in its head for the part on show. [start] is the part it opens on (0 services, 1 consultations).
+ */
+@Composable
+internal fun ServicesPage(start: Int, onBack: () -> Unit, onOpenService: (String) -> Unit, onOrders: () -> Unit, onBook: (String) -> Unit, onMine: () -> Unit) {
+    var part by rememberSaveable { mutableStateOf(start) }
+    Column(Modifier.fillMaxSize()) {
+        FlPageHeader(stringResource(R.string.flh_services), onBack) {
+            if (part == 0) FlHeaderAction(stringResource(R.string.mk_my_orders), Icons.Rounded.Receipt, onOrders)
+            else FlHeaderAction(stringResource(R.string.cs_mine_title), Icons.Rounded.EventAvailable, onMine)
+        }
+        Box(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+            FlTabs(listOf(FlTab(Icons.Rounded.Storefront, stringResource(R.string.mk_title)), FlTab(Icons.Rounded.VideoChat, stringResource(R.string.cs_market_title))), part) { part = it }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (part == 0) MarketPage(onBack = onBack, onOpen = onOpenService, onOrders = onOrders, embedded = true)
+            else ConsultationsMarketPage(onBack = onBack, onOpen = onBook, onMine = onMine, embedded = true)
+        }
     }
 }
 
 @Composable
-private fun ServiceTile(s: MarketServiceCardDto, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
+internal fun ServiceTile(s: MarketServiceCardDto, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(modifier.fillMaxWidth().settingsSurface(FlCorners.card).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(settingsAccent().copy(alpha = 0.10f))) {
             val cover = ApiClient.mediaUrl(s.cover)
             if (cover != null) AsyncImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -332,7 +298,7 @@ private fun ServiceTile(s: MarketServiceCardDto, onClick: () -> Unit) {
         }
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Avatar(s.freelancer.avatarUrl, s.freelancer.name, 28)
+                FlAvatar(s.freelancer.avatarUrl, s.freelancer.name, 28)
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Text(s.freelancer.name.orEmpty(), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     PlanBadge(s.freelancer.badge, Modifier.padding(start = 6.dp))
@@ -340,6 +306,8 @@ private fun ServiceTile(s: MarketServiceCardDto, onClick: () -> Unit) {
                 if (s.completedOrders > 0) Text(stringResource(R.string.mk_done_n, s.completedOrders), color = GREEN, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Text(s.title, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+            // The freelancer's country: the market mixes every open country.
+            FlCountryTag(s.country)
             Box(Modifier.fillMaxWidth().height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Schedule, null, tint = settingsMut(), modifier = Modifier.size(15.dp))
@@ -373,6 +341,8 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
     var confirming by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
+    // FL-L13: the report sheet (this service is not the freelancer's own work).
+    var reporting by remember { mutableStateOf(false) }
     // One id per order attempt: a retry after a lost answer is the same order, never a second one.
     var requestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
 
@@ -436,7 +406,7 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
 
     val s = service
     Column(Modifier.fillMaxSize()) {
-        SubHeader(s?.title ?: stringResource(R.string.mk_title), onBack)
+        FlPageHeader(s?.title ?: stringResource(R.string.mk_title), onBack)
         if (s == null) {
             Box(Modifier.weight(1f)) { FlLoading(error) }
         } else {
@@ -458,11 +428,15 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
             }
             // The title and what it stands on.
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                s.specialty?.name?.let { Pill(it, settingsAccent()) }
+                s.specialty?.name?.let { FlDotPill(it, settingsAccent()) }
                 Text(s.title, color = settingsInk(), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 27.sp)
                 if (s.completedOrders > 0) Text(stringResource(R.string.mk_done_n, s.completedOrders), color = GREEN, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             FreelancerCard(s.freelancer)
+            // FL-L09: the freelancer's loyalty program and where I stand.
+            LoyaltyCard(s.loyalty)
+            // FL-L13: who owns the work once it is paid, and a way to report it if it is not theirs.
+            RightsCard(s.rights)
 
             SectionCard(stringResource(R.string.mk_about), Icons.Rounded.Notes) {
                 Text(s.description, color = settingsInk(), fontSize = 14.sp, lineHeight = 22.sp, maxLines = if (expanded) Int.MAX_VALUE else 5, overflow = TextOverflow.Ellipsis, modifier = Modifier.animateContentSize())
@@ -479,7 +453,8 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
                             tier.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp) }
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(mkMoney(tier.priceMinor, s.decimals, s.currency), color = settingsAccent(), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                            // FL-L09: my loyalty step's price, with the usual one struck through.
+                            LoyaltyPrice(mkMoney(tier.loyaltyPriceMinor ?: tier.priceMinor, s.decimals, s.currency), tier.loyaltyPriceMinor?.let { mkMoney(tier.priceMinor, s.decimals, s.currency) }, settingsAccent(), 20.sp)
                             if (s.billing == "monthly") Text(stringResource(R.string.mks_per_month), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -535,7 +510,9 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
             // What it comes to.
             quote?.let { q ->
                 SectionCard(stringResource(R.string.mk_total), Icons.Rounded.Payments) {
-                    Line(stringResource(R.string.mk_price), mkMoney(q.priceMinor, q.decimals, q.currency))
+                    // FL-L09: the usual price, then the loyalty discount off it.
+                    Line(stringResource(R.string.mk_price), mkMoney(q.listPriceMinor ?: q.priceMinor, q.decimals, q.currency))
+                    LoyaltyDiscountLine(q.loyaltyBp, mkMoney(q.savingMinor ?: 0, q.decimals, q.currency))
                     if (q.clientFeeMinor > 0) Line(stringResource(R.string.mk_fee), mkMoney(q.clientFeeMinor, q.decimals, q.currency))
                     Line(stringResource(R.string.mk_delivery), days(q.deliveryDays))
                     Box(Modifier.fillMaxWidth().height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
@@ -543,6 +520,7 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
                 }
             }
             WaitlistCard(s.capacity, busy, onLeave = { waitlist(false) })
+            if (s.rights != null) TextLink(stringResource(R.string.rights_report)) { reporting = true }
             error?.let { FlNotice(it, Icons.Rounded.Close, RED) }
         }
 
@@ -569,6 +547,8 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
         }
     }
 
+    if (reporting) ReportWorkSheet("service", uuid, onDismiss = { reporting = false })
+
     if (confirming && s != null) {
         val tier = s.tiers.firstOrNull { it.level == level } ?: s.tiers.first()
         val monthly = s.billing == "monthly"
@@ -579,6 +559,7 @@ internal fun ServicePage(uuid: String, onBack: () -> Unit, onOrdered: (String) -
                 Line(levelName(tier.level), mkMoney(tier.priceMinor, s.decimals, s.currency))
                 s.addons.filter { it.id in picked }.forEach { a -> Line("+ " + a.title, mkMoney(a.priceMinor, s.decimals, s.currency)) }
                 quote?.let { q ->
+                    LoyaltyDiscountLine(q.loyaltyBp, mkMoney(q.savingMinor ?: 0, q.decimals, q.currency))
                     if (q.clientFeeMinor > 0) Line(stringResource(R.string.mk_fee), mkMoney(q.clientFeeMinor, q.decimals, q.currency))
                     Line(stringResource(R.string.mk_delivery), days(q.deliveryDays))
                     Line(stringResource(R.string.mk_total), mkMoney(q.totalMinor, q.decimals, q.currency), strong = true)
@@ -603,7 +584,7 @@ private fun PackageTabs(s: MarketServiceDto, selected: String, onSelect: (String
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(levelName(t.level), color = if (on) Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                Text(mkMoney(t.priceMinor, s.decimals, null), color = if (on) Color.White.copy(alpha = 0.85f) else settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(mkMoney(t.loyaltyPriceMinor ?: t.priceMinor, s.decimals, null), color = if (on) Color.White.copy(alpha = 0.85f) else settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
@@ -659,7 +640,7 @@ private fun holdText(iso: String?): String = runCatching {
 @Composable
 private fun FreelancerCard(f: MarketFreelancerDto) {
     Row(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Avatar(f.avatarUrl, f.name, 48)
+        FlAvatar(f.avatarUrl, f.name, 48)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(f.name.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -709,7 +690,7 @@ private fun leftText(o: MarketOrderDto): String? {
 }
 
 @Composable
-internal fun MyOrdersPage(onBack: () -> Unit, onOpen: (String) -> Unit, onBrowse: () -> Unit) {
+internal fun MyOrdersPage(onBack: () -> Unit, onOpen: (String) -> Unit, onBrowse: () -> Unit, embedded: Boolean = false) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -723,19 +704,18 @@ internal fun MyOrdersPage(onBack: () -> Unit, onOpen: (String) -> Unit, onBrowse
     listState.NearEnd(if (monthly) subs.rows.size else paged.rows.size) { scope.launch { if (monthly) subs.loadMore(generic) else paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.mko_title), onBack)
-        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            FlTabs(
-                listOf(
-                    FlTab(Icons.Rounded.HourglassTop, stringResource(R.string.mko_tab_awaiting)),
-                    FlTab(Icons.Rounded.Bolt, stringResource(R.string.mko_tab_active)),
-                    FlTab(Icons.Rounded.TaskAlt, stringResource(R.string.mko_tab_completed)),
-                    FlTab(Icons.Rounded.Inbox, stringResource(R.string.mko_tab_ended)),
-                    FlTab(Icons.Rounded.EventRepeat, stringResource(R.string.mks_tab)),
-                ),
-                tab,
-            ) { tab = it }
-        }
+        // Inside «My activity» the head is the hub's and the statuses are chips.
+        if (!embedded) FlPageHeader(stringResource(R.string.mko_title), onBack)
+        FlPartTabs(
+            listOf(
+                FlTab(Icons.Rounded.HourglassTop, stringResource(R.string.mko_tab_awaiting)),
+                FlTab(Icons.Rounded.Bolt, stringResource(R.string.mko_tab_active)),
+                FlTab(Icons.Rounded.TaskAlt, stringResource(R.string.mko_tab_completed)),
+                FlTab(Icons.Rounded.Inbox, stringResource(R.string.mko_tab_ended)),
+                FlTab(Icons.Rounded.EventRepeat, stringResource(R.string.mks_tab)),
+            ),
+            tab, compact = embedded,
+        ) { tab = it }
         if (monthly) {
             SubscriptionsList(subs, listState, onOpen, onBrowse)
             return@Column
@@ -769,7 +749,7 @@ private fun OrderTile(o: MarketOrderDto, onClick: () -> Unit) {
                 Text(o.service.title.orEmpty(), color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(listOfNotNull(levelName(o.level), o.freelancer?.name).joinToString(" · "), color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Pill(label, color)
+            FlDotPill(label, color)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Schedule, null, tint = settingsMut(), modifier = Modifier.size(15.dp))
@@ -824,7 +804,7 @@ internal fun MyOrderPage(uuid: String, onBack: () -> Unit, onOpenWork: (String) 
 
     val o = order
     Column(Modifier.fillMaxSize()) {
-        SubHeader(stringResource(R.string.mko_detail), onBack)
+        FlPageHeader(stringResource(R.string.mko_detail), onBack)
         if (o == null) {
             Box(Modifier.weight(1f)) { FlLoading(error) }
         } else {
@@ -832,7 +812,7 @@ internal fun MyOrderPage(uuid: String, onBack: () -> Unit, onOpenWork: (String) 
             StatusHero(o)
             SectionCard(stringResource(R.string.mko_summary), Icons.Rounded.ShoppingBag) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill(levelName(o.level), settingsAccent())
+                    FlDotPill(levelName(o.level), settingsAccent())
                     o.tierName?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold) }
                 }
                 o.features.forEach { f ->
@@ -858,7 +838,8 @@ internal fun MyOrderPage(uuid: String, onBack: () -> Unit, onOpenWork: (String) 
                 }
             }
             SectionCard(stringResource(R.string.mko_money), Icons.Rounded.Payments) {
-                Line(stringResource(R.string.mk_price), mkMoney(o.money.priceMinor, o.decimals, o.currency))
+                Line(stringResource(R.string.mk_price), mkMoney(o.listPriceMinor ?: o.money.priceMinor, o.decimals, o.currency))
+                LoyaltyDiscountLine(o.loyaltyBp, mkMoney(o.savingMinor ?: 0, o.decimals, o.currency))
                 if (o.money.clientFeeMinor > 0) Line(stringResource(R.string.mk_fee), mkMoney(o.money.clientFeeMinor, o.decimals, o.currency))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
                 Line(stringResource(R.string.mk_total), mkMoney(o.money.totalMinor, o.decimals, o.currency), strong = true)
@@ -900,10 +881,10 @@ private fun StatusHero(o: MarketOrderDto) {
     val reached = when (o.status) { "active" -> 2; "completed" -> 4; else -> 1 }
     Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Pill(label, color, solid = true)
+            FlDotPill(label, color, solid = true)
             Spacer(Modifier.weight(1f))
             // FL-L05: one month of a subscription.
-            o.subscription?.let { Pill(stringResource(R.string.mks_month_n, it.cycle), settingsAccent()) }
+            o.subscription?.let { FlDotPill(stringResource(R.string.mks_month_n, it.cycle), settingsAccent()) }
                 ?: Text(stringResource(R.string.mko_service_badge), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
         Text(o.service.title.orEmpty(), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 25.sp)
@@ -1039,7 +1020,7 @@ private fun SubscriptionTile(s: MarketSubscriptionDto, busy: Boolean, onOpen: ()
                 Text(s.service.title.orEmpty(), color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(listOfNotNull(levelName(s.level), s.freelancer?.name).joinToString(" · "), color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Pill(label, color)
+            FlDotPill(label, color)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.mks_month_n, s.cycle), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))

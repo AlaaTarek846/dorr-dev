@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Pro app's own launcher background: a warm tint of the DORR orange, so its icon is told apart from the
+         client app's (white) on the same phone. -->
+    <color name="pro_launcher_background">#FFF1EC</color>
+</resources>

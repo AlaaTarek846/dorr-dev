@@ -47,39 +47,50 @@ private func mySticker(_ s: StickerDto) -> ExpressionPick {
     ExpressionPick(type: "sticker", extra: ["my_sticker_id": s.id, "source": "mine", "url": s.url, "emoji": s.emoji])
 }
 
-// MARK: - the panel
+/// MARK: - the panel
+
+/// Which of the three is showing — WhatsApp's order: emoji · GIF · stickers.
+private let tabEmoji = 0, tabGif = 1, tabStickers = 2
 
 struct ExpressionPanel: View {
     @ObservedObject private var ch = Ch.shared
     let onDismiss: () -> Void
     let onEmoji: (String) -> Void
     let onPick: (ExpressionPick) -> Void
-    @State private var tab = 1
+    /// Docked under the message box where the keyboard was (androidApp `ExpressionDock`): the keyboard's height,
+    /// and it stays open after sending a sticker or a GIF.
+    var docked = false
+    var height: CGFloat = 460
+    /// ⌫ in the bar (emoji tab) — only where there is a message being typed.
+    var onBackspace: (() -> Void)?
+    /// The face button opens on the emoji, straight away.
+    @State private var tab = tabEmoji
+    @State private var searching = false
     @State private var library: StickerLibraryDto?
     @State private var making = false
 
     var body: some View {
         VStack(spacing: 0) {
-            Capsule().fill(ch.line).frame(width: 40, height: 4).padding(.top, 10).padding(.bottom, 8)
-            tabs
+            Capsule().fill(ch.mut.opacity(0.35)).frame(width: 34, height: 4).padding(.top, docked ? 7 : 10).padding(.bottom, 2)
+            bar
             Group {
                 switch tab {
-                case 0: EmojiTab(onEmoji: onEmoji)
-                case 1:
-                    StickersTab(library: library, onPick: { onPick($0); onDismiss() }, onMake: { making = true }) { mine in
+                case tabEmoji: EmojiTab(onEmoji: onEmoji)
+                case tabGif: GifTab(library: library, searching: searching) { picked($0) }
+                default:
+                    StickersTab(library: library, searching: searching, onStopSearch: { searching = false }, onPick: { picked($0) }, onMake: { making = true }) { mine in
                         var l = library ?? StickerLibraryDto()
                         l.mine = mine
                         library = l
                     }
-                default: GifTab(library: library) { onPick($0); onDismiss() }
                 }
             }
             .transition(.opacity)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: 460)
+        .frame(height: docked ? height : 460)
         .background(ch.surface.ignoresSafeArea(edges: .bottom))
-        .clipShape(UnevenRoundedRectangleCompat(topRadius: 28))
+        .clipShape(UnevenRoundedRectangleCompat(topRadius: docked ? 22 : 28))
         .contentShape(Rectangle())
         .onTapGesture {}
         .task { library = (try? await ChatApi.stickers().data) ?? StickerLibraryDto() }
@@ -90,75 +101,235 @@ struct ExpressionPanel: View {
                 var l = library ?? StickerLibraryDto()
                 l.mine = [s] + (l.mine ?? [])
                 library = l
-                onPick(mySticker(s))
-                onDismiss()
+                picked(mySticker(s))
             }
         }
     }
 
-    private var tabs: some View {
-        let items = [("face.smiling", L("ch_expr_emoji")), ("note.text", L("ch_expr_stickers")), ("play.square", L("ch_expr_gif"))]
+    /// Sent: the sheet closes; the docked panel stays open (as in WhatsApp).
+    private func picked(_ pick: ExpressionPick) {
+        onPick(pick)
+        if !docked { onDismiss() }
+    }
+
+    /// One bar for all three tabs (as in WhatsApp): search · [emoji | GIF | stickers] · this tab's action.
+    private var bar: some View {
+        // Search is for the GIF / sticker library only (emoji have no names to search by).
+        let canSearch = tab != tabEmoji && library?.libraryEnabled == true
+        return HStack(spacing: 0) {
+            ZStack {
+                if canSearch {
+                    BarIcon(icon: "magnifyingglass", label: L(tab == tabGif ? "ch_expr_search_gifs" : "ch_expr_search_stickers"), active: searching) {
+                        withAnimation(.easeOut(duration: 0.2)) { searching.toggle() }
+                    }
+                }
+            }
+            .frame(width: 44, height: 44)
+            tabsSwitch.frame(maxWidth: .infinity)
+            ZStack {
+                if tab == tabEmoji, let onBackspace {
+                    BackspaceKey(action: onBackspace)
+                } else if tab == tabStickers {
+                    BarIcon(icon: "pencil", label: L("ch_sticker_make_short"), active: false) { making = true }
+                }
+            }
+            .frame(width: 44, height: 44)
+        }
+        .padding(.horizontal, 6).padding(.vertical, 4)
+    }
+
+    /// The three tabs as one small split pill — icons only (VoiceOver reads the names).
+    private var tabsSwitch: some View {
+        let items = [(tabEmoji, "ch_expr_emoji"), (tabGif, "ch_expr_gif"), (tabStickers, "ch_expr_stickers")]
         return HStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                let on = i == tab
+                if i > 0 { Rectangle().fill(ch.line).frame(width: 1) }
+                let on = item.0 == tab
                 Button {
-                    withAnimation(.easeOut(duration: 0.22)) { tab = i }
+                    guard item.0 != tab else { return }
+                    withAnimation(.easeOut(duration: 0.22)) { tab = item.0; searching = false }
                 } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: item.0).font(.system(size: 17))
-                        Text(verbatim: item.1).font(.dorr(13, .heavy))
+                    Group {
+                        switch item.0 {
+                        case tabEmoji: Image(systemName: "face.smiling").font(.system(size: 18))
+                        case tabGif: Text(verbatim: "GIF").font(.system(size: 12, weight: .black)).tracking(0.6)
+                        default: Image(systemName: "note.text").font(.system(size: 17))
+                        }
                     }
                     .foregroundStyle(on ? ch.red : ch.mut)
-                    .frame(maxWidth: .infinity).padding(.vertical, 9)
-                    .background(on ? ch.surface : .clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .frame(width: 64, height: 36)
+                    .background(on ? ch.red.opacity(0.14) : .clear)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(L(item.1))
             }
         }
-        .padding(4)
-        .background(ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .padding(.horizontal, 16).padding(.vertical, 6)
+        .frame(height: 36)
+        .background(ch.surfaceMuted)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(ch.line, lineWidth: 1))
+    }
+}
+
+private struct BarIcon: View {
+    @ObservedObject private var ch = Ch.shared
+    let icon: String
+    let label: String
+    let active: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 19)).foregroundStyle(active ? ch.red : ch.ink)
+                .frame(width: 40, height: 40)
+                .background(active ? ch.red.opacity(0.14) : .clear, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+/// ⌫ — removes the last character (a whole emoji counts as one); held down, it keeps going.
+private struct BackspaceKey: View {
+    @ObservedObject private var ch = Ch.shared
+    let action: () -> Void
+    @State private var repeater: Task<Void, Never>?
+
+    var body: some View {
+        Image(systemName: "delete.left").font(.system(size: 19)).foregroundStyle(ch.ink)
+            .frame(width: 40, height: 40).contentShape(Circle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard repeater == nil else { return }
+                        action()
+                        repeater = Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 450_000_000)
+                            while !Task.isCancelled {
+                                action()
+                                try? await Task.sleep(nanoseconds: 70_000_000)
+                            }
+                        }
+                    }
+                    .onEnded { _ in
+                        repeater?.cancel()
+                        repeater = nil
+                    }
+            )
+            .accessibilityLabel(L("ch_expr_backspace"))
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The strip of sections along the bottom of a tab (as in WhatsApp).
+private struct SectionIcon: View {
+    @ObservedObject private var ch = Ch.shared
+    let selected: Bool
+    let icon: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(selected ? ch.red : ch.mut)
+                .frame(width: 38, height: 38)
+                .background(selected ? ch.red.opacity(0.12) : .clear, in: Circle())
+                .animation(.easeOut(duration: 0.2), value: selected)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel(label)
     }
 }
 
 // MARK: - emoji
 
-private let emojiGroups: [(String, [String])] = [
-    ("😀", "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😗 😋 😛 😜 🤪 😝 🤗 🤭 🤫 🤔 😐 😏 😒 🙄 😬 😌 😔 😪 😴 😷 🤒 🤕 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 😤 😡 😠 🤬".components(separatedBy: " ")),
-    ("👍", "👍 👎 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 👏 🙌 👐 🤲 🤝 🙏 💪 🦾 ✍️ 💅 🤳 👀 👁️ 👄 🫶".components(separatedBy: " ")),
-    ("❤️", "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✨ ⭐ 🌟 💫 🔥 💯 ✅ ❌ ‼️ ❓ 💤".components(separatedBy: " ")),
-    ("🐶", "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🦆 🦅 🦉 🐴 🦄 🐝 🦋 🐢 🐍 🐬 🐳 🐟 🌸 🌹 🌻 🌷 🌳 🌴 🌵 🍀 🌙 ☀️ ⛅ 🌈 ❄️ 🌊".components(separatedBy: " ")),
-    ("🍕", "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥑 🍅 🥕 🌽 🥔 🍞 🧀 🥚 🍳 🥞 🍗 🍖 🌭 🍔 🍟 🍕 🌮 🌯 🥙 🥗 🍝 🍜 🍣 🍤 🍩 🍪 🎂 🍰 🍫 🍬 🍭 ☕ 🍵 🧃 🥤 🍹".components(separatedBy: " ")),
-    ("⚽", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏓 🏸 🥊 🏆 🥇 🎮 🎲 🎯 🎳 🎤 🎧 🎸 🎹 🥁 🎬 🎨 🎁 🎉 🎊 🎈 🕌 🕋 🌙 🏠 🚗 🚕 🚌 ✈️ 🚀 ⛵ 🗺️ 📱 💻 ⌚ 📷 💡 📚 ✏️ 💰 💳 🛒".components(separatedBy: " ")),
+private struct EmojiSection {
+    let icon: String
+    let title: String
+    let emojis: [String]
+}
+
+private let emojiSections: [EmojiSection] = [
+    EmojiSection(icon: "face.smiling", title: "ch_emoji_smileys", emojis: "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😗 😋 😛 😜 🤪 😝 🤗 🤭 🤫 🤔 😐 😏 😒 🙄 😬 😌 😔 😪 😴 😷 🤒 🤕 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 😤 😡 😠 🤬".components(separatedBy: " ")),
+    EmojiSection(icon: "hand.raised", title: "ch_emoji_hands", emojis: "👍 👎 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 👏 🙌 👐 🤲 🤝 🙏 💪 🦾 ✍️ 💅 🤳 👀 👁️ 👄 🫶".components(separatedBy: " ")),
+    EmojiSection(icon: "heart", title: "ch_emoji_symbols", emojis: "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 ☮️ ✨ ⭐ 🌟 💫 🔥 💯 ✅ ❌ ‼️ ❓ 💤".components(separatedBy: " ")),
+    EmojiSection(icon: "pawprint", title: "ch_emoji_nature", emojis: "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐔 🐧 🐦 🦆 🦅 🦉 🐴 🦄 🐝 🦋 🐢 🐍 🐬 🐳 🐟 🌸 🌹 🌻 🌷 🌳 🌴 🌵 🍀 🌙 ☀️ ⛅ 🌈 ❄️ 🌊".components(separatedBy: " ")),
+    EmojiSection(icon: "fork.knife", title: "ch_emoji_food", emojis: "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥑 🍅 🥕 🌽 🥔 🍞 🧀 🥚 🍳 🥞 🍗 🍖 🌭 🍔 🍟 🍕 🌮 🌯 🥙 🥗 🍝 🍜 🍣 🍤 🍩 🍪 🎂 🍰 🍫 🍬 🍭 ☕ 🍵 🧃 🥤 🍹".components(separatedBy: " ")),
+    EmojiSection(icon: "soccerball", title: "ch_emoji_activity", emojis: "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏓 🏸 🥊 🏆 🥇 🎮 🎲 🎯 🎳 🎤 🎧 🎸 🎹 🥁 🎬 🎨 🎁 🎉 🎊 🎈 🕌 🕋 🌙 🏠 🚗 🚕 🚌 ✈️ 🚀 ⛵ 🗺️ 📱 💻 ⌚ 📷 💡 📚 ✏️ 💰 💳 🛒".components(separatedBy: " ")),
 ]
 
+/// My recent emoji, newest first, on this phone.
+private enum EmojiRecents {
+    private static let store = UserDefaults(suiteName: "chat_expressions") ?? .standard
+
+    static func load() -> [String] {
+        (store.string(forKey: "emoji") ?? "").split(separator: " ").map(String.init)
+    }
+
+    static func add(_ emoji: String) {
+        let list = ([emoji] + load().filter { $0 != emoji }).prefix(32)
+        store.set(list.joined(separator: " "), forKey: "emoji")
+    }
+}
+
+/// Where each section's title is, in the scroll view (to mark the section in view).
+private struct SectionTops: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] = [:]
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) { value.merge(nextValue()) { $1 } }
+}
+
+/// All the emoji in one scrolling grid, each section under its name — my recent ones first — and the sections' icons
+/// along the bottom (as in WhatsApp): the one in view is marked, a tap jumps to it.
 private struct EmojiTab: View {
     @ObservedObject private var ch = Ch.shared
     let onEmoji: (String) -> Void
-    @State private var group = 0
+    /// Read once: what I pick now shows up there next time, so the grid doesn't jump under my finger.
+    @State private var sections: [EmojiSection] = {
+        let recents = EmojiRecents.load()
+        return (recents.isEmpty ? [] : [EmojiSection(icon: "clock", title: "ch_emoji_recent", emojis: recents)]) + emojiSections
+    }()
+    @State private var current = 0
+    private let grid = Array(repeating: GridItem(.flexible(), spacing: 0), count: 8)
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                ForEach(Array(emojiGroups.enumerated()), id: \.offset) { i, g in
-                    Button { group = i } label: {
-                        Text(verbatim: g.0).font(.system(size: i == group ? 22 : 18))
-                            .frame(width: 42, height: 42)
-                            .background(i == group ? ch.red.opacity(0.1) : .clear, in: Circle())
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                ScrollView {
+                    LazyVGrid(columns: grid, spacing: 0) {
+                        ForEach(Array(sections.enumerated()), id: \.offset) { si, s in
+                            Section {
+                                ForEach(Array(s.emojis.enumerated()), id: \.offset) { _, emoji in
+                                    PopCell(action: { EmojiRecents.add(emoji); onEmoji(emoji) }) { Text(verbatim: emoji).font(.system(size: 26)) }
+                                        .aspectRatio(1, contentMode: .fit)
+                                }
+                            } header: {
+                                Text(L(s.title)).font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 6).padding(.vertical, 6)
+                                    .id("title\(si)")
+                                    .background(GeometryReader { g in
+                                        Color.clear.preference(key: SectionTops.self, value: [si: g.frame(in: .named("emojiScroll")).minY])
+                                    })
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: group)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
                 }
-            }
-            .padding(.horizontal, 14).padding(.vertical, 4)
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 8), spacing: 0) {
-                    ForEach(emojiGroups[group].1, id: \.self) { emoji in
-                        PopCell(action: { onEmoji(emoji) }) { Text(verbatim: emoji).font(.system(size: 26)) }.aspectRatio(1, contentMode: .fit)
+                .coordinateSpace(name: "emojiScroll")
+                .onPreferenceChange(SectionTops.self) { tops in
+                    // The last title at or above the top; none there yet → the one before the first title in view.
+                    if let passed = tops.filter({ $0.value <= 20 }).keys.max() { current = passed }
+                    else if let first = tops.keys.min() { current = max(first - 1, 0) }
+                }
+                Rectangle().fill(ch.line).frame(height: 1)
+                HStack(spacing: 0) {
+                    ForEach(Array(sections.enumerated()), id: \.offset) { i, s in
+                        SectionIcon(selected: i == current, icon: s.icon, label: L(s.title)) { proxy.scrollTo("title\(i)", anchor: .top) }
                     }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 6)
+                .padding(.horizontal, 8).padding(.vertical, 4)
             }
         }
     }
@@ -166,10 +337,14 @@ private struct EmojiTab: View {
 
 // MARK: - stickers
 
+/// Five to a row (as in WhatsApp), «Create sticker» first; the sources along the bottom: recent · mine · the
+/// library · each of Dorr's packs. The bar's 🔍 searches the library.
 private struct StickersTab: View {
     @EnvironmentObject private var host: ChatHost
     @ObservedObject private var ch = Ch.shared
     let library: StickerLibraryDto?
+    let searching: Bool
+    let onStopSearch: () -> Void
     let onPick: (ExpressionPick) -> Void
     let onMake: () -> Void
     let onMineChange: ([StickerDto]) -> Void
@@ -177,28 +352,32 @@ private struct StickersTab: View {
     @State private var source = -2
     @State private var stored = Recents.load("sticker")
     @State private var removing: StickerDto?
-    private let grid = Array(repeating: GridItem(.flexible(), spacing: 0), count: 4)
+    private let grid = Array(repeating: GridItem(.flexible(), spacing: 0), count: 5)
 
     /// A sticker of mine that I deleted is no longer offered in recents.
     private var recents: [RecentItem] {
         stored.filter { r in r.source != "mine" || library == nil || (library?.mine ?? []).contains { String($0.id) == r.id } }
     }
 
+    /// Searching is always in the library.
+    private var shown: Int { searching ? -1 : source }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Sources: recent · mine · library · each pack's cover.
+            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Sources, along the bottom (as in WhatsApp).
+            Rectangle().fill(ch.line).frame(height: 1)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    SourceChip(selected: source == -2, icon: "clock.arrow.circlepath") { source = -2 }
-                    SourceChip(selected: source == -3, icon: "face.smiling") { source = -3 }
-                    if library?.libraryEnabled == true { SourceChip(selected: source == -1, icon: "magnifyingglass") { source = -1 } }
+                HStack(spacing: 4) {
+                    SourceChip(selected: shown == -2, icon: "clock") { open(-2) }
+                    SourceChip(selected: shown == -3, icon: "face.smiling") { open(-3) }
+                    if library?.libraryEnabled == true { SourceChip(selected: shown == -1, icon: "flame") { open(-1) } }
                     ForEach(library?.packs ?? []) { pack in
-                        SourceChip(selected: source == pack.id, image: pack.cover) { source = pack.id }
+                        SourceChip(selected: shown == pack.id, image: pack.cover) { open(pack.id) }
                     }
                 }
-                .padding(.horizontal, 12).padding(.vertical, 4)
+                .padding(.horizontal, 10).padding(.vertical, 4)
             }
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: library != nil) { loaded in
             // Nothing recent yet: open on Dorr's first pack — or on «My stickers», where one can be made.
@@ -209,67 +388,63 @@ private struct StickersTab: View {
         }
     }
 
+    private func open(_ id: Int) {
+        source = id
+        onStopSearch()
+    }
+
     @ViewBuilder
     private var content: some View {
-        switch source {
+        switch shown {
         case -2:
-            // Nothing at all to offer yet (no packs from the admin, no GIF library): say why, not just «nothing».
-            if recents.isEmpty {
-                EmptyHint(text: L(library != nil && (library?.packs ?? []).isEmpty && library?.libraryEnabled != true ? "ch_expr_no_stickers_yet" : "ch_expr_no_recent"))
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: grid, spacing: 0) {
-                        ForEach(recents, id: \.id) { r in
-                            PopCell(action: {
-                                Recents.add(r)
-                                let extra: [String: Any?]
-                                switch r.source {
-                                case "pack": extra = ["sticker_id": Int(r.id) ?? 0, "source": "pack", "url": r.url]
-                                case "mine": extra = ["my_sticker_id": Int(r.id) ?? 0, "source": "mine", "url": r.url]
-                                default: extra = ["giphy_id": r.id, "source": "giphy", "url": r.url]
-                                }
-                                onPick(ExpressionPick(type: "sticker", extra: extra))
-                            }) { StickerImage(url: r.url) }
-                            .aspectRatio(1, contentMode: .fit).padding(4)
-                        }
+            ScrollView {
+                LazyVGrid(columns: grid, spacing: 0) {
+                    MakeStickerCell(action: onMake)
+                    ForEach(recents, id: \.id) { r in
+                        PopCell(action: {
+                            Recents.add(r)
+                            let extra: [String: Any?]
+                            switch r.source {
+                            case "pack": extra = ["sticker_id": Int(r.id) ?? 0, "source": "pack", "url": r.url]
+                            case "mine": extra = ["my_sticker_id": Int(r.id) ?? 0, "source": "mine", "url": r.url]
+                            default: extra = ["giphy_id": r.id, "source": "giphy", "url": r.url]
+                            }
+                            onPick(ExpressionPick(type: "sticker", extra: extra))
+                        }) { StickerImage(url: r.url) }
+                        .aspectRatio(1, contentMode: .fit).padding(3)
                     }
-                    .padding(10)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                // Nothing at all to offer yet (no packs from the admin, no GIF library): say why, not just «nothing».
+                if recents.isEmpty {
+                    EmptyHint(text: L(library != nil && (library?.packs ?? []).isEmpty && library?.libraryEnabled != true ? "ch_expr_no_stickers_yet" : "ch_expr_no_recent"))
                 }
             }
         case -1:
-            GiphyGrid(kind: "stickers", columns: 4) { g in
+            GiphyGrid(kind: "stickers", columns: 5, showSearch: searching) { g in
                 Recents.add(RecentItem(kind: "sticker", source: "giphy", id: g.id, url: g.webp ?? g.url, width: g.width ?? 0, height: g.height ?? 0))
                 onPick(ExpressionPick(type: "sticker", extra: ["giphy_id": g.id, "source": "giphy", "url": g.webp ?? g.url, "title": g.title]))
             }
         case -3:
-            // My stickers: «+» makes one from a photo; a long press removes one.
+            // My stickers: «Create» makes one from a photo; a long press removes one.
             ScrollView {
                 LazyVGrid(columns: grid, spacing: 0) {
-                    PopCell(action: onMake) {
-                        VStack(spacing: 2) {
-                            Image(systemName: "plus").font(.system(size: 22, weight: .bold))
-                            Text(L("ch_sticker_make_short")).font(.dorr(11, .heavy))
-                        }
-                        .foregroundStyle(ch.red)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(ch.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                    .aspectRatio(1, contentMode: .fit).padding(4)
+                    MakeStickerCell(action: onMake)
                     ForEach(library?.mine ?? []) { s in
                         PopCell(action: {
                             Recents.add(RecentItem(kind: "sticker", source: "mine", id: String(s.id), url: s.url ?? "", width: s.width ?? 0, height: s.height ?? 0))
                             onPick(mySticker(s))
                         }, onLongPress: { removing = s }) { StickerImage(url: s.url) }
-                        .aspectRatio(1, contentMode: .fit).padding(4)
+                        .aspectRatio(1, contentMode: .fit).padding(3)
                     }
                 }
-                .padding(10)
+                .padding(.horizontal, 8).padding(.vertical, 4)
                 if library != nil, (library?.mine ?? []).isEmpty {
                     Text(L("ch_sticker_mine_empty")).font(.dorr(13)).foregroundStyle(ch.mut).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 18)
                 }
             }
         default:
-            if let pack = library?.packs?.first(where: { $0.id == source }) {
+            if let pack = library?.packs?.first(where: { $0.id == shown }) {
                 ScrollView {
                     LazyVGrid(columns: grid, spacing: 0) {
                         ForEach(pack.stickers ?? []) { s in
@@ -277,10 +452,10 @@ private struct StickersTab: View {
                                 Recents.add(RecentItem(kind: "sticker", source: "pack", id: String(s.id), url: s.url ?? "", width: s.width ?? 0, height: s.height ?? 0))
                                 onPick(ExpressionPick(type: "sticker", extra: ["sticker_id": s.id, "source": "pack", "url": s.url, "emoji": s.emoji]))
                             }) { StickerImage(url: s.url) }
-                            .aspectRatio(1, contentMode: .fit).padding(4)
+                            .aspectRatio(1, contentMode: .fit).padding(3)
                         }
                     }
-                    .padding(10)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
                 }
             } else {
                 ProgressView().tint(ch.red)
@@ -317,6 +492,26 @@ private struct StickersTab: View {
     }
 }
 
+/// «Create sticker» — the first cell, as in WhatsApp (in the app's red).
+private struct MakeStickerCell: View {
+    @ObservedObject private var ch = Ch.shared
+    let action: () -> Void
+
+    var body: some View {
+        PopCell(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: "pencil").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 28, height: 28).background(ch.red, in: Circle())
+                Text(L("ch_sticker_make_short")).font(.dorr(11, .heavy)).foregroundStyle(ch.red).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ch.red.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(ch.line, lineWidth: 1))
+        }
+        .aspectRatio(1, contentMode: .fit).padding(3)
+    }
+}
+
 private struct SourceChip: View {
     @ObservedObject private var ch = Ch.shared
     let selected: Bool
@@ -332,8 +527,8 @@ private struct SourceChip: View {
                 }
             }
             .padding(6)
-            .frame(width: 44, height: 44)
-            .background(selected ? ch.red.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(width: 40, height: 40)
+            .background(selected ? ch.red.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .animation(.easeOut(duration: 0.2), value: selected)
         }
         .buttonStyle(.plain)
@@ -344,6 +539,7 @@ private struct SourceChip: View {
 
 private struct GifTab: View {
     let library: StickerLibraryDto?
+    let searching: Bool
     let onPick: (ExpressionPick) -> Void
 
     var body: some View {
@@ -351,7 +547,7 @@ private struct GifTab: View {
         if let library, library.libraryEnabled != true {
             EmptyHint(text: L("ch_expr_gifs_off"))
         } else {
-            GiphyGrid(kind: "gifs", columns: 2, moods: true) { g in
+            GiphyGrid(kind: "gifs", columns: 3, moods: true, showSearch: searching) { g in
                 Recents.add(RecentItem(kind: "gif", source: "giphy", id: g.id, url: g.webp ?? g.url, width: g.width ?? 0, height: g.height ?? 0))
                 onPick(ExpressionPick(type: "gif", extra: [
                     "giphy_id": g.id, "source": "giphy", "url": g.url, "webp": g.webp, "width": g.width, "height": g.height, "title": g.title,
@@ -361,13 +557,15 @@ private struct GifTab: View {
     }
 }
 
-/// Giphy results: a search field (+ mood chips for GIFs), then a staggered grid that loads more as it nears the end.
+// Giphy results: a search field (+ mood chips for GIFs), then a staggered grid that loads more as it nears the end.
 /// Trending when the search is empty.
 private struct GiphyGrid: View {
     @ObservedObject private var ch = Ch.shared
     let kind: String
     let columns: Int
     var moods = false
+    /// The field shows only while searching (the bar's 🔍).
+    var showSearch = false
     let onPick: (GifDto) -> Void
     @State private var query = ""
     @State private var items: [GifDto] = []
@@ -379,8 +577,11 @@ private struct GiphyGrid: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ChField(placeholder: L(kind == "gifs" ? "ch_expr_search_gifs" : "ch_expr_search_stickers"), text: $query, icon: "magnifyingglass", limit: 50)
-                .padding(.horizontal, 14).padding(.vertical, 4)
+            if showSearch {
+                ChField(placeholder: L(kind == "gifs" ? "ch_expr_search_gifs" : "ch_expr_search_stickers"), text: $query, icon: "magnifyingglass", limit: 50, clearable: true, autofocus: true)
+                    .padding(.horizontal, 14).padding(.vertical, 4)
+            }
+            // Quick moods (Dorr's own, not in WhatsApp) — one slim row.
             if moods {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -389,17 +590,17 @@ private struct GiphyGrid: View {
                             let on = query == word
                             Button { query = on ? "" : word } label: {
                                 HStack(spacing: 4) {
-                                    Text(verbatim: m.0).font(.system(size: 14))
-                                    Text(verbatim: word).font(.dorr(12.5, .bold)).foregroundStyle(on ? .white : ch.ink)
+                                    Text(verbatim: m.0).font(.system(size: 13))
+                                    Text(verbatim: word).font(.dorr(12, .bold)).foregroundStyle(on ? .white : ch.ink)
                                 }
-                                .padding(.horizontal, 12).padding(.vertical, 7)
-                                .background(on ? ch.red : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(on ? ch.red : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .chStagger(i)
                         }
                     }
-                    .padding(.horizontal, 14).padding(.vertical, 4)
+                    .padding(.horizontal, 12).padding(.vertical, 3)
                 }
             }
             if items.isEmpty && !loading {
@@ -407,19 +608,21 @@ private struct GiphyGrid: View {
                 Spacer()
             } else {
                 ScrollView {
-                    HStack(alignment: .top, spacing: 6) {
+                    HStack(alignment: .top, spacing: 4) {
                         ForEach(0..<columns, id: \.self) { col in
-                            LazyVStack(spacing: 6) {
+                            LazyVStack(spacing: 4) {
                                 ForEach(column(col), id: \.element.id) { i, g in cell(g).onAppear { if i >= items.count - 6 { Task { await loadMore() } } } }
                             }
                         }
                     }
-                    .padding(10)
+                    .padding(8)
                 }
             }
             // «Powered by GIPHY» — required by Giphy's terms.
             Text(L("ch_expr_powered")).font(.dorr(10)).foregroundStyle(ch.soft).padding(.bottom, 4)
         }
+        // Closing the search (the bar's 🔍) goes back to trending.
+        .onChange(of: showSearch) { on in if !on, !query.isEmpty { query = "" } }
         .task(id: query) {
             if !query.isEmpty { try? await Task.sleep(nanoseconds: 350_000_000) }
             guard !Task.isCancelled else { return }

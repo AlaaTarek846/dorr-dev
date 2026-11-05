@@ -3,6 +3,7 @@
 use Modules\Admin\Models\Admin;
 use Modules\Driver\Models\Driver;
 use Modules\Freelance\Models\Freelancer;
+use Modules\Provider\Models\Establishment;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
@@ -29,6 +30,8 @@ return [
         'driver' => Driver::class,
         'freelancer' => Freelancer::class,
         'admin' => Admin::class,
+        // A provider establishment's own wallet, apart from the people in it (docs/moving_tasks.md T5).
+        'establishment' => Establishment::class,
     ],
 
     'platform_owner_type' => 'platform',

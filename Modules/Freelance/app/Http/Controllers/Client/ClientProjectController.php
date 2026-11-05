@@ -30,9 +30,11 @@ class ClientProjectController extends Controller
     {
         $data = $request->validate([
             'status' => ['nullable', Rule::enum(FreelanceProjectStatus::class)],
+            // The client redesign, batch C: the running ones (draft to in progress) or the ended ones (closed, rejected, cancelled).
+            'scope' => ['nullable', Rule::in(['active', 'ended'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
-        $page = $this->projects->mine($this->me($request), $data['status'] ?? null, (int) ($data['per_page'] ?? 15));
+        $page = $this->projects->mine($this->me($request), $data['status'] ?? null, (int) ($data['per_page'] ?? 15), $data['scope'] ?? null);
 
         return ApiResponse::fromPaginator($page, $page->getCollection()->map(fn (FreelanceProject $p) => $this->projects->present($p))->values(), __('api.retrieved'));
     }
@@ -78,6 +80,13 @@ class ClientProjectController extends Controller
         return ApiResponse::created($this->projects->present($this->projects->duplicate($this->projects->find($me, $uuid), $me)), __('freelance.project_duplicated'));
     }
 
+    /** POST projects/{uuid}/hire-again - asks for a finished project's work again from the same freelancer (FS-102). */
+    public function hireAgain(Request $request, string $uuid): JsonResponse
+    {
+        $me = $this->me($request);
+
+        return ApiResponse::created($this->projects->present($this->projects->hireAgain($this->projects->find($me, $uuid), $me)), __('freelance.project_hire_again'));
+    }
     /** GET projects/{uuid}/preview — the last look before sending: the project as read, with what is missing or doesn't add up (FL-210). */
     public function preview(Request $request, string $uuid): JsonResponse
     {
@@ -262,6 +271,14 @@ class ClientProjectController extends Controller
         return ApiResponse::success($this->projects->budgetRules($countryId, isset($data['specialty_id']) ? (int) $data['specialty_id'] : null), __('api.retrieved'));
     }
 
+    /** GET projects/cost-quote?amount_minor=&specialty_id= — what the client pays in all for that price, fee included (the form's cost-limit check). */
+    public function costQuote(Request $request): JsonResponse
+    {
+        $data = $request->validate(['amount_minor' => ['required', 'integer', 'min:1', 'max:100000000000'], 'specialty_id' => ['nullable', 'integer']]);
+        $countryId = FreelanceCountry::of($this->me($request)) ?? abort(403);
+
+        return ApiResponse::success($this->projects->costQuote($countryId, isset($data['specialty_id']) ? (int) $data['specialty_id'] : null, (int) $data['amount_minor']), __('api.retrieved'));
+    }
     /** @return array<string, mixed> a draft may be saved half done: only the shape is checked here, completeness on submit */
     private function rules(): array
     {

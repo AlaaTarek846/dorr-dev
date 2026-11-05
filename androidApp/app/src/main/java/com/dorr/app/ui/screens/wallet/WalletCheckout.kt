@@ -82,8 +82,12 @@ import java.util.UUID
 
 // =============================================================================== launching it
 
-/** Something to pay for: a purpose the server knows, and what it's about (the server prices it). */
-data class CheckoutRequest(val purpose: String, val reference: Map<String, Any?>)
+/**
+ * Something to pay for: a purpose the server knows, and what it's about (the server prices it).
+ * [checkoutId]: the service's own endpoint already made the checkout (accepting a moving offer): open that one
+ * instead of making another.
+ */
+data class CheckoutRequest(val purpose: String, val reference: Map<String, Any?>, val checkoutId: String? = null)
 
 /**
  * The one payment screen, opened from anywhere in the app (a portal's listing, a channel's
@@ -180,10 +184,10 @@ internal fun WalletCheckout(state: CheckoutState) {
     // First look, and again each time the page comes back (after a top-up).
     LaunchedEffect(Unit) {
         host.refreshBalance()
-        val existing = state.checkout
+        val existingId = state.checkout?.id ?: state.request.checkoutId
         runCatching {
-            if (existing == null) ApiClient.wallet.createCheckout(walletAuth(), CheckoutCreateRequest(state.request.purpose, state.request.reference)).data
-            else ApiClient.wallet.checkout(walletAuth(), existing.id).data
+            if (existingId == null) ApiClient.wallet.createCheckout(walletAuth(), CheckoutCreateRequest(state.request.purpose, state.request.reference)).data
+            else ApiClient.wallet.checkout(walletAuth(), existingId).data
         }.onSuccess { fresh ->
             if (fresh != null) {
                 state.checkout = fresh

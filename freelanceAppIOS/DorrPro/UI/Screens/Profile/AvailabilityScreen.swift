@@ -138,7 +138,9 @@ struct AvailabilityScreen: View {
         .messageToast(notice)
         .messageToast(error)
         .task {
-            if let code = await AvailabilityApi.walletCurrency() { currency = code }
+            if let w = (await WalletApi.balance()).value {
+                currency = w.currencySymbol.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? (w.currencyCode ?? "")
+            }
             let result = await AvailabilityApi.show()
             if let a = result.value {
                 accepting = a.acceptingRequests ?? true

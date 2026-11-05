@@ -114,18 +114,19 @@ struct OffersPage: View {
     var body: some View {
         let offers: [FreelanceOfferDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_offers"), onBack: onBack)
+            FlPageHeader(title: L("fl_offers"), onBack: onBack)
+            FlTabs(tabs: [FlTab(icon: "square.grid.2x2.fill", label: L("fl_filter_all")), FlTab(icon: "star.fill", label: L("fl_offer_st_shortlisted"))],
+                   selected: onlyShortlisted ? 1 : 0) { onlyShortlisted = $0 == 1 }
+                .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    FlChip(text: L("fl_filter_all"), selected: !onlyShortlisted, icon: "square.grid.2x2.fill") { onlyShortlisted = false }
-                    FlChip(text: L("fl_offer_st_shortlisted"), selected: onlyShortlisted, icon: "star.fill") { onlyShortlisted = true }
                     ForEach(sorts, id: \.self) { s in FlChip(text: sortLabel(s), selected: sort == s, icon: sortIcon(s)) { sort = s } }
                 }
-                .padding(.horizontal, 14).padding(.vertical, 4)
+                .padding(.horizontal, 14).padding(.vertical, 10)
             }
-            if sort == "recommended" { FlHint(text: L("fl_sort_recommended_hint")).padding(.horizontal, 18).padding(.vertical, 2) }
+            if sort == "recommended" { FlHint(text: L("fl_sort_recommended_hint")).padding(.horizontal, 18).padding(.bottom, 4) }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     if offers == nil && paged.error == nil {
                         ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 150) }
                     } else if let list = offers, list.isEmpty {
@@ -145,7 +146,21 @@ struct OffersPage: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
-            if picked.count >= 2 { SettingsPrimaryButton(text: L("fl_compare_n", picked.count)) { onCompare(picked) }.padding(16) }
+            // Pulling down reads the offers again (the client's own gesture, not a timer).
+            .refreshable { await paged.reload() }
+            // The offers picked to compare, and «Compare» — in reach as soon as one is picked.
+            if !picked.isEmpty {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: L("flo_picked", picked.count, compareMax)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
+                        Button { picked = [] } label: { Text(L("flo_clear")).font(.dorr(12, .bold)).foregroundStyle(wa.accent) }.buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    FlAction(text: L("fl_compare_n", picked.count), icon: "arrow.left.arrow.right", tone: .primary, enabled: picked.count >= 2) { onCompare(picked) }
+                }
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(wa.night ? wa.darkCard : Color.white)
+            }
         }
         .task(id: "\(sort)|\(onlyShortlisted)") {
             let (s, status, project) = (sort, onlyShortlisted ? "shortlisted" : nil, projectUuid)
@@ -181,10 +196,9 @@ private struct OfferCard: View {
                 Spacer(minLength: 0)
                 OfferStatusPill(status: o.state)
             }
-            HStack(spacing: 8) {
-                FlStat(icon: "banknote", label: L("fl_price"), value: flAmount(o.priceMinor, o.currency)).layoutPriority(1)
-                FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
-            }
+            OfferPriceRow(o: o)
+            // FL-L09: the loyalty discount this freelancer gives me, with the usual price.
+            LoyaltyWasLine(bp: o.loyaltyBp, list: o.listPriceMinor.map { flAmount($0, o.currency) })
             // FL-210: dearer than the most I said I'd pay.
             if o.overCap == true { FlNotice(text: L("fl_over_cap"), icon: "exclamationmark.triangle.fill", color: flRed) }
             Text(verbatim: [f.map { L("fl_completeness", $0.completeness ?? 0) }, f.map { L("fl_portfolio_n", $0.portfolioCount ?? 0) },
@@ -192,6 +206,8 @@ private struct OfferCard: View {
                 .font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
             Text(verbatim: o.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5).lineLimit(3)
             HStack(spacing: 0) {
+                // FL-L13: who owns the work once it is paid.
+                if let r = o.rights { FlPill(text: r.modelLabel ?? "", color: rightsModelColor(r.model)).padding(.trailing, 8) }
                 if o.edited == true { Text(L("fl_offer_edited")).font(.dorr(11)).foregroundStyle(wa.settingsMut).padding(.trailing, 10) }
                 if let files = o.attachments, !files.isEmpty {
                     Image(systemName: "paperclip").font(.system(size: 11)).foregroundStyle(wa.settingsMut)
@@ -213,10 +229,52 @@ private struct OfferCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .settingsSurface(20)
-        .overlay { if picked { RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(wa.accent, lineWidth: 2) } }
+        .settingsSurface(FlCorners.card)
+        .overlay { if picked { RoundedRectangle(cornerRadius: FlCorners.card, style: .continuous).stroke(wa.accent, lineWidth: 2) } }
         .contentShape(Rectangle())
         .onTapGesture(perform: onClick)
+    }
+}
+
+/// The price of an offer big on the app's colour, and the days beside it.
+private struct OfferPriceRow: View {
+    @Environment(\.wa) private var wa
+    let o: FreelanceOfferDto
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(L("fl_price")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                Text(verbatim: flAmount(o.priceMinor, o.currency)).font(.dorr(19, .heavy)).foregroundStyle(wa.accent).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 5) {
+                Image(systemName: "clock").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
+                Text(verbatim: L("fl_days", o.durationDays ?? 0)).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+/// A square button at the foot of a page (talk, more), with a count when something waits.
+struct FootIcon: View {
+    @Environment(\.wa) private var wa
+    let icon: String
+    let label: String
+    var badge = 0
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 17, weight: .bold)).foregroundStyle(wa.accent)
+                .frame(width: 48, height: 48)
+                .background(wa.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(alignment: .topTrailing) { FlCountBadge(count: badge).offset(x: 4, y: -4) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -230,18 +288,22 @@ struct ComparePage: View {
     let ids: [String]
     let onBack: () -> Void
     let onOpen: (String) -> Void
+    let onChosen: () -> Void
     @State private var data: FreelanceCompareDto?
     @State private var error: String?
+    /// The one being chosen right here (its sheet), so the client need not go back to the offer page.
+    @State private var choosing: FreelanceOfferDto?
+    @State private var busy = false
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_compare_title"), onBack: onBack)
+            FlPageHeader(title: L("fl_compare_title"), onBack: onBack)
             if let d = data {
                 let offers = d.offers ?? []
                 let best = d.best ?? FreelanceCompareBestDto()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        FlIntro(icon: "arrow.left.arrow.right", title: L("fl_compare_title"), text: L("fl_compare_best_hint"))
+                        FlHint(text: L("fl_compare_best_hint")).padding(.horizontal, 4)
                         // The heads: who, tap to open the offer.
                         HStack(alignment: .top, spacing: 8) {
                             ForEach(offers) { o in
@@ -251,6 +313,11 @@ struct ComparePage: View {
                                         PlanBadge(badge: o.freelancer?.badge)
                                         Text(verbatim: o.freelancer?.name ?? "—").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2).multilineTextAlignment(.center)
                                         OfferStatusPill(status: o.state)
+                                        if o.can?.choose == true {
+                                            Text(L("fl_choose_offer")).font(.dorr(12, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
+                                                .frame(maxWidth: .infinity).padding(.vertical, 8).background(wa.accent, in: Capsule())
+                                                .onTapGesture { choosing = o }
+                                        }
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(10)
@@ -262,19 +329,21 @@ struct ComparePage: View {
                         row(L("fl_price"), offers) { cell(flAmount($0.priceMinor, $0.currency), best: best.price == $0.uuid) }
                         row(L("fl_you_pay"), offers) { o in cell(o.clientCost.map { flAmount($0.totalMinor, $0.currency) } ?? "—") }
                         row(L("fl_duration"), offers) { cell(L("fl_days", $0.durationDays ?? 0), best: best.duration == $0.uuid) }
-                        row(L("fl_profile_complete"), offers) { cell("\($0.freelancer?.completeness ?? 0)%", best: best.completeness == $0.uuid) }
+                        row(L("fl_profile_complete"), offers) { cell("\(flNum($0.freelancer?.completeness ?? 0))%", best: best.completeness == $0.uuid) }
                         row(L("fl_skills_fit"), offers) { o in
                             cell(skillsMatch(o.freelancer) ?? "—", best: best.skills == o.uuid && !(o.freelancer?.matchingSkills ?? []).isEmpty)
                         }
                         row(L("fl_verified"), offers) { cell(L($0.freelancer?.verified == true ? "fl_yes" : "fl_no")) }
                         row(L("fl_experience_years"), offers) { o in cell(o.freelancer?.yearsOfExperience.map { L("fl_years", $0) } ?? "—") }
-                        row(L("fl_portfolio"), offers) { cell("\($0.freelancer?.portfolioCount ?? 0)") }
+                        row(L("fl_portfolio"), offers) { cell(flNum($0.freelancer?.portfolioCount ?? 0)) }
+                        // FL-L13: the ownership model each one offers.
+                        if offers.contains(where: { $0.rights != nil }) { row(L("rights_compare"), offers) { cell($0.rights?.modelLabel ?? "—") } }
                         // FL-703: what they finished, and on time.
                         row(L("fl_st_completed"), offers) { o in
                             let similar = (o.freelancer?.similarProjects).flatMap { $0 > 0 ? " · " + L("fl_st_similar", $0) : nil } ?? ""
-                            cell("\(o.freelancer?.completedProjects ?? 0)" + similar)
+                            cell(flNum(o.freelancer?.completedProjects ?? 0) + similar)
                         }
-                        row(L("fl_st_on_time"), offers) { o in cell(o.freelancer?.onTimeRate.map { "\($0)%" } ?? "—") }
+                        row(L("fl_st_on_time"), offers) { o in cell(o.freelancer?.onTimeRate.map { "\(flNum($0))%" } ?? "—") }
                         row(L("fl_rating_label"), offers) { cell(ratingText($0.freelancer)) }
                         row(L("fl_offer_details"), offers) { cell($0.details ?? "", small: true) }
                         // FL-307: the same question, each one's answer.
@@ -292,6 +361,11 @@ struct ComparePage: View {
                 FlLoading(error: error)
             }
         }
+        .dorrDialog(isPresented: Binding(get: { choosing != nil }, set: { if !$0 && !busy { choosing = nil } }), bottom: true) {
+            if let o = choosing {
+                ChooseSheet(o: o, busy: busy, onDismiss: { if !busy { choosing = nil } }, onConfirm: { choose(o) })
+            }
+        }
         .task(id: network.reconnectTick) {
             do {
                 data = try await FreelanceApi.compareOffers(projectUuid, ids: ids.joined(separator: ",")).data
@@ -299,6 +373,21 @@ struct ComparePage: View {
             } catch {
                 self.error = flError(error)
             }
+        }
+    }
+
+    private func choose(_ o: FreelanceOfferDto) {
+        busy = true
+        Task {
+            do {
+                _ = try await FreelanceApi.decideOffer(projectUuid, o.uuid, action: "choose", reason: nil)
+                choosing = nil
+                onChosen()
+            } catch {
+                self.error = flError(error)
+                choosing = nil
+            }
+            busy = false
         }
     }
 
@@ -359,15 +448,26 @@ struct OfferPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_offer"), onBack: onBack)
+            FlPageHeader(title: L("fl_offer"), onBack: onBack)
             if let o = offer {
                 ScrollView { content(o).padding(.horizontal, 16) }
+                footer(o)
             } else {
                 FlLoading(error: error)
             }
         }
         .task(id: network.reconnectTick) {
             do { offer = try await FreelanceApi.offer(projectUuid, offerUuid).data } catch { self.error = flError(error) }
+        }
+        .dorrDialog(isPresented: Binding(get: { sheet == "more" }, set: { if !$0 { sheet = nil } }), bottom: true) {
+            if let o = offer {
+                let can = o.can ?? FreelanceOfferCanDto()
+                FlSheet(icon: "ellipsis.circle.fill", title: L("flo_more_title"), text: o.freelancer?.name ?? "") {
+                    if can.shortlist == true && o.state != "shortlisted" { FlAction(text: L("fl_shortlist"), icon: "star") { sheet = nil; decide("shortlist") } }
+                    if can.unshortlist == true { FlAction(text: L("fl_unshortlist"), icon: "star.fill") { sheet = nil; decide("unshortlist") } }
+                    if can.reject == true { FlAction(text: L("fl_reject_offer"), icon: "xmark.circle.fill", tone: .danger) { sheet = "reject" } }
+                }
+            }
         }
         .dorrDialog(isPresented: Binding(get: { sheet == "choose" || sheet == "reject" }, set: { if !$0 && !busy { sheet = nil } }), bottom: true) {
             if sheet == "choose", let o = offer {
@@ -396,23 +496,23 @@ struct OfferPage: View {
                         if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                         Text(verbatim: ratingText(f)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                         Text(L("fl_see_profile")).font(.dorr(12, .bold)).foregroundStyle(wa.accent)
+                        OfferStatusPill(status: o.state)
                     }
                     Spacer(minLength: 0)
-                    OfferStatusPill(status: o.state)
                 }
                 .padding(14)
                 .settingsSurface(18)
             }
             .buttonStyle(.plain)
             FlCard {
-                HStack(spacing: 8) {
-                    FlStat(icon: "banknote", label: L("fl_price"), value: flAmount(o.priceMinor, o.currency)).layoutPriority(1)
-                    FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", o.durationDays ?? 0))
-                }
+                OfferPriceRow(o: o)
+                LoyaltyWasLine(bp: o.loyaltyBp, list: o.listPriceMinor.map { flAmount($0, o.currency) })
                 FlField(label: L("fl_offer_details"), value: o.details)
                 ForEach(Array((o.answers ?? []).enumerated()), id: \.offset) { _, a in FlField(label: a.question ?? "", value: a.answer) }
                 if o.edited == true { Text(L("fl_offer_edited")).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
             }
+            // FL-L13: who owns the work once it is paid and what I may do with it.
+            RightsCard(rights: o.rights)
             if let f {
                 FlCard(icon: "person.fill", title: L("fl_freelancer_profile")) {
                     HStack(spacing: 8) {
@@ -451,33 +551,52 @@ struct OfferPage: View {
                 }
             }
             FlNotices(notice: notice, error: error)
-            // FL-308: talk to them before choosing (phone numbers and links are not allowed until the agreement).
-            if can.chat == true || o.chat != nil {
-                let unread = o.chat?.unread ?? 0
-                FlAction(text: L("fl_chat_open") + (unread > 0 ? " (\(unread))" : ""), icon: "bubble.left.and.bubble.right.fill", loading: busy && sheet == "chat") {
-                    if let existing = o.chat?.uuid { onChat(existing); return }
-                    busy = true
-                    sheet = "chat"
-                    error = nil
-                    Task {
-                        do {
-                            if let id = try await FreelanceApi.openChat(projectUuid, offerUuid).data?.uuid { onChat(id) } else { error = L("fl_error_generic") }
-                        } catch {
-                            self.error = flError(error)
-                        }
-                        busy = false
-                        sheet = nil
+            if can.choose == true && o.overCap == true { FlNotice(text: L("fl_over_cap_note"), icon: "exclamationmark.triangle.fill", color: flRed) }
+            Spacer(minLength: 16)
+        }
+    }
+
+    /// FL-308: talking to them before choosing (phone numbers and links are not allowed until the agreement).
+    private func openChat(_ o: FreelanceOfferDto) {
+        if let existing = o.chat?.uuid { onChat(existing); return }
+        busy = true
+        sheet = "chat"
+        error = nil
+        Task {
+            do {
+                if let id = try await FreelanceApi.openChat(projectUuid, offerUuid).data?.uuid { onChat(id) } else { error = L("fl_error_generic") }
+            } catch {
+                self.error = flError(error)
+            }
+            busy = false
+            sheet = nil
+        }
+    }
+
+    /// Choose, talk and the rest, always in reach at the foot.
+    @ViewBuilder
+    private func footer(_ o: FreelanceOfferDto) -> some View {
+        let can = o.can ?? FreelanceOfferCanDto()
+        let canTalk = can.chat == true || o.chat != nil
+        let hasMore = (can.shortlist == true && o.state != "shortlisted") || can.unshortlist == true || can.reject == true
+        let unread = o.chat?.unread ?? 0
+        let talk = L("fl_chat_open") + (unread > 0 ? " (\(unread))" : "")
+        if can.choose == true || canTalk || hasMore {
+            HStack(spacing: 10) {
+                if can.choose == true {
+                    FlAction(text: L("fl_choose_offer"), icon: "person.2.fill", tone: .primary, enabled: o.overCap != true, loading: busy && sheet == nil) { sheet = "choose" }
+                }
+                if canTalk {
+                    if can.choose == true {
+                        FootIcon(icon: "bubble.left.and.bubble.right.fill", label: talk, badge: unread) { openChat(o) }
+                    } else {
+                        FlAction(text: talk, icon: "bubble.left.and.bubble.right.fill", loading: busy && sheet == "chat") { openChat(o) }
                     }
                 }
+                if hasMore { FootIcon(icon: "ellipsis", label: L("flo_more_title")) { sheet = "more" } }
             }
-            if can.choose == true && o.overCap == true { FlNotice(text: L("fl_over_cap_note"), icon: "exclamationmark.triangle.fill", color: flRed) }
-            if can.choose == true {
-                FlAction(text: L("fl_choose_offer"), icon: "person.2.fill", tone: .primary, enabled: o.overCap != true, loading: busy && sheet == nil) { sheet = "choose" }
-            }
-            if can.shortlist == true && o.state != "shortlisted" { FlAction(text: L("fl_shortlist"), icon: "star") { decide("shortlist") } }
-            if can.unshortlist == true { FlAction(text: L("fl_unshortlist"), icon: "star.fill") { decide("unshortlist") } }
-            if can.reject == true { FlAction(text: L("fl_reject_offer"), icon: "xmark.circle.fill", tone: .danger) { sheet = "reject" } }
-            Spacer(minLength: 20)
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            .background(wa.night ? wa.darkCard : Color.white)
         }
     }
 }
@@ -501,6 +620,7 @@ private struct ChooseSheet: View {
             }
             .padding(14)
             .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            LoyaltyOfferNote(bp: o.loyaltyBp)
             FlAction(text: L("fl_choose_confirm"), icon: "person.2.fill", tone: .primary, loading: busy, action: onConfirm)
             FlAction(text: L("fl_not_now"), action: onDismiss)
         }
@@ -586,10 +706,12 @@ struct FreelancerProfilePage: View {
     var onBookConsultation: (String) -> Void = { _ in }
     @State private var profile: FreelancerProfileDto?
     @State private var error: String?
+    // FL-L13: the portfolio work being reported as not theirs.
+    @State private var reporting: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_freelancer_profile"), onBack: onBack)
+            FlPageHeader(title: L("fl_freelancer_profile"), onBack: onBack)
             if let p = profile {
                 ScrollView { content(p).padding(.horizontal, 16) }
             } else {
@@ -598,6 +720,9 @@ struct FreelancerProfilePage: View {
         }
         .task(id: network.reconnectTick) {
             do { profile = try await FreelanceApi.offerFreelancer(projectUuid, offerUuid).data } catch { self.error = flError(error) }
+        }
+        .dorrDialog(isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } }), bottom: true) {
+            if let id = reporting { ReportWorkSheet(subjectType: "portfolio_item", subject: id) { reporting = nil } }
         }
     }
 
@@ -637,6 +762,8 @@ struct FreelancerProfilePage: View {
                     .padding(.horizontal, 10).padding(.vertical, 4)
                 }
                 .buttonStyle(.plain)
+                // FS-103: save to one of my lists (the freelancer is never told).
+                if let u = p.uuid { SaveToListPill(freelancer: u) }
                 if let h = p.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(13)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center) }
                 Text(verbatim: [ratingText(head), L("fl_completeness", p.completeness ?? 0), p.yearsOfExperience.map { L("fl_years_exp", $0) }]
                     .compactMap { $0 }.joined(separator: "  ·  "))
@@ -648,6 +775,13 @@ struct FreelancerProfilePage: View {
             .frame(maxWidth: .infinity)
             .padding(16)
             .settingsSurface(18)
+            // FL-L09: what returning clients get from this freelancer, and where I stand.
+            HStack(spacing: 8) {
+                FlStat(icon: "checkmark.seal.fill", label: L("fl_st_completed"), value: "\(p.completedProjects ?? 0)")
+                FlStat(icon: "clock", label: L("fl_st_on_time"), value: p.onTimeRate.map { "\($0)%" } ?? "—")
+                FlStat(icon: "photo.on.rectangle", label: L("fl_portfolio"), value: "\(p.portfolio?.count ?? 0)")
+            }
+            LoyaltyCard(view: p.loyalty)
             if let bio = p.bio, !bio.isEmpty {
                 FlCard(icon: "info.circle.fill", title: L("fl_about")) {
                     Text(verbatim: bio).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5)
@@ -709,6 +843,13 @@ struct FreelancerProfilePage: View {
                                 if let d = w.description, !d.isEmpty { Text(verbatim: d).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2) }
                             }
                             Spacer(minLength: 0)
+                            if let id = w.uuid {
+                                Button { reporting = id } label: {
+                                    Image(systemName: "flag").font(.system(size: 14)).foregroundStyle(wa.settingsMut).frame(width: 34, height: 34).contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(L("rights_report"))
+                            }
                         }
                         .padding(.vertical, 4)
                     }
@@ -751,12 +892,14 @@ struct FavoritesPage: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     let onBack: () -> Void
+    /// FS-103: opens my talent lists.
+    var onTalent: () -> Void = {}
     @StateObject private var paged = PagedRows<FreelanceFavoriteDto>(key: { $0.uuid })
 
     var body: some View {
         let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_favorites"), onBack: onBack)
+            FlPageHeader(title: L("fl_favorites"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     if list == nil && paged.error == nil {
@@ -776,6 +919,7 @@ struct FavoritesPage: View {
                                     Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                                 }
                                 Spacer(minLength: 0)
+                                SaveToListButton(freelancer: f.uuid)
                                 Button {
                                     Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
                                 } label: {
@@ -794,6 +938,7 @@ struct FavoritesPage: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
+            .refreshable { await paged.reload() }
         }
         .task { paged.reset { page in try await FreelanceApi.favorites(page: page) } }
         .task(id: network.reconnectTick) { await paged.reload() }

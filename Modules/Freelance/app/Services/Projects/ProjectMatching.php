@@ -38,7 +38,8 @@ class ProjectMatching
 
         return Freelancer::query()
             ->where('status', FreelancerStatus::Verified->value)
-            ->where('country_id', $project->country_id)
+            // Any country where the service is open (open across countries, owner 2026-11-04).
+            ->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries())
             ->whereHas('specialties', fn ($q) => $q->whereIn('freelance_specialties.id', $specialties))
             ->withCount(['skills as overlap' => fn ($q) => $q->whereIn('freelance_skills.id', $skills === [] ? [0] : $skills)])
             ->when($skills !== [], fn ($q) => $q->where(fn ($w) => $w->whereDoesntHave('skills')->orWhereHas('skills', fn ($s) => $s->whereIn('freelance_skills.id', $skills))))

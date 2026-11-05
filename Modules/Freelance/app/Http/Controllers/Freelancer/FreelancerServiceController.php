@@ -45,8 +45,8 @@ class FreelancerServiceController extends Controller
                 'max_features' => (int) config('freelance.services.max_features', 10),
                 'max_active' => app(FreelancePerks::class)->servicesLimit($me, (int) ($policy->get('services.max_active') ?? 5)),
             ],
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'price' => ['min_minor' => $policy->get('project.min_budget_minor') === null ? null : (int) $policy->get('project.min_budget_minor'), 'max_minor' => $policy->get('project.max_budget_minor') === null ? null : (int) $policy->get('project.max_budget_minor')],
             'review' => (bool) ($policy->get('services.require_review') ?? true),
             'answer_hours' => (int) ($policy->get('services.answer_hours') ?? 48),
@@ -171,7 +171,7 @@ class FreelancerServiceController extends Controller
             'addons.*.title' => ['required', 'string', 'min:2', 'max:80'],
             'addons.*.price_minor' => ['required', 'integer', 'min:1', 'max:100000000000'],
             'addons.*.extra_days' => ['nullable', 'integer', 'min:0', 'max:60'],
-        ];
+        ] + FreelancerOfferController::rightsRules();
     }
 
     private function answer(FreelanceService $s, ?string $message = null, int $status = 200): JsonResponse

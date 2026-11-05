@@ -82,6 +82,7 @@ class ServiceCategoriesSeeder extends Seeder
             $category->save();
 
             $this->syncServiceCategoryTranslations($category, $row['name']);
+            $this->attachDefaultImage($category);
         }
 
         $this->attachAssignableServicesToCountries();
@@ -117,6 +118,24 @@ class ServiceCategoriesSeeder extends Seeder
         foreach (array_chunk($rows, 500) as $chunk) {
             DB::table('country_service_category')->insertOrIgnore($chunk);
         }
+    }
+
+    /**
+     * Starter icon from database/seeders/data/service-images/{module}.png (drawn by
+     * database/seeders/scripts/service-images.py). An image the admin uploaded is never replaced.
+     */
+    protected function attachDefaultImage(ServiceCategory $category): void
+    {
+        $path = database_path("seeders/data/service-images/{$category->module_name}.png");
+
+        if (! is_file($path) || $category->getSingleMedia('image') !== null) {
+            return;
+        }
+
+        $category->addMedia($path)
+            ->preservingOriginal()
+            ->usingFileName('image.png')
+            ->toMediaCollection('image');
     }
 
     /**

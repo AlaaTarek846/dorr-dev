@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- NEEDS-DECISION: لم يُحدَّد اسم التطبيق بعد؛ «شركاء دُرر» مؤقتًا حتى يسمّيه المالك. -->
+    <string name="app_name">شركاء دُرر</string>
+    <string name="app_tagline">بدعم من دُرر</string>
+    <string name="app_subtitle">لمقدّمي الخدمات</string>
+
+    <string name="common_back">رجوع</string>
+    <string name="common_retry">إعادة المحاولة</string>
+    <string name="common_ok">تأكيد</string>
+    <string name="common_cancel">إلغاء</string>
+    <string name="common_yes">نعم</string>
+    <string name="common_close">إغلاق</string>
+
+    <!-- لا يوجد اتصال -->
+    <string name="offline_title">لا يوجد اتصال بالإنترنت</string>
+    <string name="offline_body">يبدو أنك غير متصل بالإنترنت. تحقّق من شبكة Wi-Fi أو بيانات الهاتف للمتابعة.</string>
+    <string name="offline_tip_network_title">شبكة Wi-Fi أو البيانات</string>
+    <string name="offline_tip_network_body">تأكّد من تفعيل الاتصال بالإنترنت</string>
+    <string name="offline_tip_airplane_title">وضع الطيران</string>
+    <string name="offline_tip_airplane_body">تأكّد من إيقاف وضع الطيران</string>
+    <string name="offline_still">ما زلت غير متصل، حاول مرة أخرى بعد قليل.</string>
+    <string name="offline_checking">جارٍ التحقق…</string>
+
+    <string name="language_switch">English</string>
+
+    <!-- تسجيل الدخول -->
+    <string name="login_title">تسجيل الدخول إلى شركاء دُرر</string>
+    <string name="login_subtitle">أدخل رقم هاتفك وسنرسل إليك رمز التأكيد</string>
+    <string name="login_cta">إرسال رمز التأكيد</string>
+    <string name="login_country_code">رمز الدولة</string>
+    <string name="login_country_search">ابحث عن دولة</string>
+    <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
+    <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
+    <string name="login_error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
+    <string name="login_error_offline">لا يوجد اتصال. تأكد من الإنترنت وحاول مرة أخرى.</string>
+    <string name="login_terms_prefix">أوافق على </string>
+    <string name="login_terms_use">شروط الاستخدام</string>
+    <string name="login_terms_mid"> و</string>
+    <string name="login_terms_privacy">سياسة الخصوصية</string>
+
+    <!-- رمز التأكيد -->
+    <string name="otp_title">تأكيد رقم الهاتف</string>
+    <string name="otp_subtitle">أدخل الرمز المرسل إلى %1$s</string>
+    <string name="otp_verify">تأكيد</string>
+    <string name="otp_resend">إعادة إرسال الرمز</string>
+    <string name="otp_resend_in">إعادة الإرسال بعد %1$d ثانية</string>
+    <string name="otp_error_generic">رمز التحقق غير صحيح أو انتهت صلاحيته. حاول مرة أخرى.</string>
+    <string name="otp_dev_hint">نسخة تجريبية: الرمز هو 1234</string>
+
+    <string name="home_welcome">أهلًا بك</string>
+    <string name="home_loading_failed">تعذّر تحميل حسابك.</string>
+    <string name="profile_dob_hint">YYYY-MM-DD</string>
+
+    <!-- التبويبات والحساب -->
+    <string name="tab_home">الرئيسية</string>
+    <string name="tab_account">الحساب</string>
+    <string name="account_default_user">شريك دُرر</string>
+    <string name="account_settings">الإعدادات</string>
+    <string name="account_settings_sub">اللغة والسياسات وعن التطبيق</string>
+    <string name="account_language">اللغة</string>
+    <string name="account_language_sub">التبديل بين العربية والإنجليزية</string>
+    <string name="account_about">عن التطبيق</string>
+    <string name="account_about_sub">الإصدار ومعلومات عن التطبيق</string>
+    <string name="about_version">الإصدار %1$s</string>
+    <string name="about_description">شركاء دُرر هو تطبيق مقدّمي الخدمات من الأفراد والشركات: سجّل منشأتك، واستقبل الطلبات، وأرسل عروضك، وتابع أرباحك، في مكان واحد.</string>
+    <string name="account_logout">تسجيل الخروج</string>
+    <string name="account_logout_sub">الخروج من هذا الحساب على هذا الهاتف</string>
+    <string name="logout_confirm_message">هل تريد تسجيل الخروج؟</string>
+
+    <string name="notifications_title">الإشعارات</string>
+
+    <!-- اللغة -->
+    <string name="language_arabic">العربية</string>
+    <string name="language_download_failed">تعذّر تحميل هذه اللغة. تحقّق من الاتصال وحاول مرة أخرى.</string>
+    <string name="language_english">English — الإنجليزية</string>
+    <string name="language_loading">جارٍ تحميل اللغات…</string>
+    <string name="language_title">اللغة</string>
+
+    <string name="content_error">تعذّر تحميل المحتوى</string>
+    <string name="content_loading">جارٍ التحميل…</string>
+    <string name="content_retry">إعادة المحاولة</string>
+
+    <!-- السياسات والشروط -->
+    <string name="account_legal">السياسات والشروط</string>
+    <string name="account_legal_sub">سياسة الخصوصية والشروط والأحكام</string>
+    <string name="account_privacy">سياسة الخصوصية</string>
+    <string name="account_privacy_sub">كيف نتعامل مع بياناتك</string>
+    <string name="account_terms">الشروط والأحكام</string>
+    <string name="account_terms_sub">القواعد التي تحكم خدماتنا</string>
+    <string name="privacy_empty">سياسة الخصوصية غير متوفرة حاليًا</string>
+    <string name="terms_empty">الشروط والأحكام غير متوفرة حاليًا</string>
+    <string name="privacy_head">خصوصيتك مهمة</string>
+    <string name="terms_head">الشروط والأحكام</string>
+</resources>

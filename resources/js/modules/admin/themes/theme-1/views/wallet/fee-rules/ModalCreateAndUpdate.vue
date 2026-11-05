@@ -498,7 +498,7 @@ async function loadOptions() {
     }
 
     const [c, m] = await Promise.allSettled([
-        adminAxios.get('/api/general/v1/countries/dropdown'),
+        adminAxios.get('/api/general/v1/countries/dropdown?with_international=1'),
         adminAxios.get('/api/admin/v1/payment-methods/dropdown'),
     ]);
 

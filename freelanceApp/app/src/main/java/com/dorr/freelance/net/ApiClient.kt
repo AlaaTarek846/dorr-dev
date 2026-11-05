@@ -73,6 +73,10 @@ object ApiClient {
                     .build(),
             )
         }
+        // FL-L16: the server's clock, once (countdowns to a session read the phone's clock corrected by it — never a timer request).
+        .addInterceptor { chain ->
+            chain.proceed(chain.request()).also { r -> r.headers.getDate("Date")?.let { ServerClock.observeHeader(it.time) } }
+        }
         // FL-110: a 403 from the verification gate tells the app which step the freelancer is at.
         .addInterceptor { chain ->
             val response = chain.proceed(chain.request())
@@ -117,6 +121,12 @@ object ApiClient {
     val skillTests: SkillTestsApi by lazy { retrofit.create(SkillTestsApi::class.java) }
     val capacity: CapacityApi by lazy { retrofit.create(CapacityApi::class.java) }
     val consultations: ConsultationsApi by lazy { retrofit.create(ConsultationsApi::class.java) }
+    val consultationSessions: ConsultationSessionApi by lazy { retrofit.create(ConsultationSessionApi::class.java) }
+    val specialOffers: SpecialOffersApi by lazy { retrofit.create(SpecialOffersApi::class.java) }
+    val loyalty: LoyaltyApi by lazy { retrofit.create(LoyaltyApi::class.java) }
+    val rights: RightsApi by lazy { retrofit.create(RightsApi::class.java) }
+    val community: CommunityApi by lazy { retrofit.create(CommunityApi::class.java) }
+    val home: HomeApi by lazy { retrofit.create(HomeApi::class.java) }
 
     /** The API's own origin — the live connection's channel authorization (`/broadcasting/auth`) lives next to `/api`. */
     val origin: String = BASE_URL.removeSuffix("api/").removeSuffix("/")

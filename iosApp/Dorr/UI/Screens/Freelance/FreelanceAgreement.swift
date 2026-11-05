@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 // androidApp `freelance/FreelanceAgreement.kt`, `FreelanceChanges.kt`, `FreelanceDeliveries.kt`, `FreelanceDispute.kt`,
 // `FreelanceRecords.kt`, `FreelanceReview.kt` — the agreement with the chosen freelancer and everything after it.
@@ -29,6 +30,7 @@ private func agreementHint(_ status: String) -> String {
     switch status {
     case "pending_approval": return L("fl_ag_hint_pending")
     case "active": return L("fl_ag_hint_active")
+    case "completed": return L("fl_ag_hint_completed")
     case "declined", "cancelled", "expired": return L("fl_ag_hint_ended")
     default: return L("fl_ag_hint_draft")
     }
@@ -91,7 +93,8 @@ struct AgreementPage: View {
     @State private var cancelCode: String?
     @State private var cancelNote = ""
     @State private var reloads = 0
-    @State private var tab = 0
+    // The part on show (nil: the parts when one waits for me — funding, approving — else the overview).
+    @State private var tab: Int?
     // FL-402: the parts, while the client splits them (title, amount as typed).
     @State private var splitting = false
     @State private var parts: [(String, String)] = []
@@ -135,7 +138,7 @@ struct AgreementPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_agreement"), onBack: onBack)
+            FlPageHeader(title: L("fl_agreement"), onBack: onBack)
             if let a = agreement {
                 ScrollView { content(a).padding(.horizontal, 16) }.scrollDismissesKeyboard(.interactively)
             } else {
@@ -168,9 +171,15 @@ struct AgreementPage: View {
         let activity = a.state == "active" || a.state == "completed"
         let sc = agreementStatusColor(a.state)
         let money = a.money ?? FreelanceAgreementMoneyDto()
+        let waits = milestones.contains { m in m.can?.fund == true || m.can?.approve == true || m.can?.revision == true || m.can?.cancelAccept == true }
+        let current = tab ?? (waits ? 1 : 0)
         VStack(alignment: .leading, spacing: 12) {
-            // The head: who, where it stands and the figures.
-            FlCard {
+            // FS-106: how the running project is doing (nothing when the agreement is not running).
+            HealthCard(health: a.health)
+            // The head: a band of its status colour, who, where it stands, the figures and the parts as steps.
+            VStack(alignment: .leading, spacing: 0) {
+                sc.frame(height: 5)
+                VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "person.2.fill").font(.system(size: 19)).foregroundStyle(sc)
                         .frame(width: 48, height: 48)
@@ -187,24 +196,19 @@ struct AgreementPage: View {
                     FlStat(icon: "banknote", label: L("fl_total"), value: flAmount(money.totalMinor, a.currency)).layoutPriority(1)
                     FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", a.durationDays ?? 0))
                 }
-                let done = milestones.filter { $0.state == "approved" }.count
-                if !milestones.isEmpty && activity {
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(wa.accent.opacity(0.15))
-                            if done > 0 { Capsule().fill(wa.accent).frame(width: proxy.size.width * min(CGFloat(done) / CGFloat(milestones.count), 1)) }
-                        }
-                    }
-                    .frame(height: 6)
-                    Text(verbatim: L("fl_progress_parts", done, milestones.count)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                if !milestones.isEmpty && activity { StageSteps(parts: milestones) { tab = 1 } }
                 }
+                .padding(16)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .settingsSurface(FlCorners.card)
+            .clipShape(RoundedRectangle(cornerRadius: FlCorners.card, style: .continuous))
             FlTabs(tabs: [
                 FlTab(icon: "doc.text", label: L("fl_tab_overview")),
                 FlTab(icon: "flag.fill", label: L("fl_tab_parts"), badge: milestones.count),
                 FlTab(icon: "clock.arrow.circlepath", label: L("fl_tab_activity")),
-            ], selected: tab) { tab = $0 }
-            switch tab {
+            ], selected: current) { tab = $0 }
+            switch current {
             case 0: overview(a)
             case 1: partsTab(a)
             default: activityTab(a, recordsKey: recordsKey, activity: activity)
@@ -228,6 +232,16 @@ struct AgreementPage: View {
             }
             if let d = terms.reviewDays { FlField(label: L("fl_ag_review_days"), value: L("fl_days", d)) }
             if let r = terms.freeRevisions { FlField(label: L("fl_ag_free_revisions"), value: "\(r)") }
+        }
+        // FL-L13: who owns the work and how far the rights have passed; the portfolio leave is the client's alone.
+        if let r = a.rights {
+            AgreementRightsCard(r: r, busy: busy) { allowed in
+                act({
+                    let updated = try await FreelanceRightsApi.setPortfolio(projectUuid, allowed: allowed)
+                    notice = updated.message
+                    return updated.data
+                })
+            }
         }
         if can.edit == true {
             // The terms are a form: the same look as the organizer form.
@@ -308,12 +322,16 @@ struct AgreementPage: View {
         if a.state == "completed" || a.state == "cancelled" { SurveyCard(projectUuid: projectUuid, refreshKey: recordsKey) }
         // FL-605: the progress reports the freelancer sent.
         if activity { ProgressReportsCard(projectUuid: projectUuid, summary: a.reports ?? FreelanceReportSummaryDto(), refreshKey: recordsKey) }
-        // FL-404 / FL-405: changes after the agreement started.
-        if a.state == "active" {
-            ChangesCard(changes: a.changes ?? [], milestones: a.milestones ?? [], currency: a.currency ?? "", canAsk: true, busy: busy,
-                        onAsk: { body in
+        // FL-404 / FL-405: changes after the agreement started; FS-101: a completed agreement still shows its addenda (nothing more can be asked).
+        if a.state == "active" || (a.state == "completed" && !(a.changes ?? []).isEmpty) {
+            ChangesCard(projectUuid: projectUuid, changes: a.changes ?? [], milestones: a.milestones ?? [], currency: a.currency ?? "", canAsk: a.state == "active", busy: busy,
+                        onAsk: { body, files in
                             act({
-                                _ = try await FreelanceApi.requestChange(projectUuid, body)
+                                if files.isEmpty {
+                                    _ = try await FreelanceApi.requestChange(projectUuid, body)
+                                } else {
+                                    _ = try await FreelanceApi.requestChangeWithFiles(projectUuid, body, files: files)
+                                }
                                 return try await FreelanceApi.agreement(projectUuid).data
                             })
                         },
@@ -367,7 +385,14 @@ struct AgreementPage: View {
                 FlNotice(text: L("fl_ms_refunded", flAmount(m.refundedMinor, a.currency)), icon: "checkmark.circle.fill", color: flGreen)
             }
             if let auto = m.autoApproveAt { FlNotice(text: L("fl_auto_approve_on", "\u{200E}" + String(auto.prefix(10))), icon: "clock", color: flAmber) }
-            if can.fund == true { FlAction(text: L("fl_fund"), icon: "wallet.pass.fill", tone: .primary) { fundFor = m } }
+            if can.fund == true {
+                FlAction(text: L("fl_fund"), icon: "wallet.pass.fill", tone: .primary) {
+                    // Not enough in the freelance wallet: straight to its top-up with what is missing already in (back here, the wallet is read again).
+                    let need = (m.amountMinor ?? 0) + (m.clientFeeMinor ?? 0)
+                    let have = agreement?.walletAvailableMinor ?? 0
+                    if have < need { TopupLauncher.shared.open(need - have, international: true) { reloads += 1 } } else { fundFor = m }
+                }
+            }
             if can.approve == true {
                 FlAction(text: L("fl_ms_approve"), icon: "checkmark.circle.fill", tone: .primary) { act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "approve").data }) }
             }
@@ -468,7 +493,8 @@ struct AgreementPage: View {
                 FlAction(text: L("fl_topup"), icon: "creditcard.fill", tone: .primary) {
                     fundFor = nil
                     // Top up what is missing; coming back reads the wallet once more.
-                    TopupLauncher.shared.open(total - available) { reloads += 1 }
+                    // Into the freelance wallet (dollars), where the work is paid from.
+                    TopupLauncher.shared.open(total - available, international: true) { reloads += 1 }
                 }
             }
             FlAction(text: L("fl_not_now")) { fundFor = nil }
@@ -489,6 +515,26 @@ struct AgreementPage: View {
 }
 
 // MARK: - Changes (FL-404 / FL-405)
+
+/// FS-101: what a change request may carry.
+private let maxChangeFiles = 3
+private let maxChangeFileBytes = 10 * 1024 * 1024
+
+/// A server time ("2026-10-27T09:30:00+00:00") as "27/10/2026 12:30" in the phone's own time zone (Android `rides/localDateTime`).
+private func flLocalDateTime(_ iso: String) -> String {
+    let parser = ISO8601DateFormatter()
+    var date = parser.date(from: iso)
+    if date == nil {
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        date = parser.date(from: iso)
+    }
+    guard let date else { return String(iso.prefix(16)).replacingOccurrences(of: "T", with: " ") }
+    let out = DateFormatter()
+    out.locale = Locale(identifier: "en_US_POSIX")
+    out.timeZone = .current
+    out.dateFormat = "dd/MM/yyyy HH:mm"
+    return out.string(from: date)
+}
 
 /// What a change does, in one line.
 private func changeText(_ c: FreelanceChangeDto, _ currency: String) -> String {
@@ -518,12 +564,14 @@ private func changeStatus(_ status: String?) -> String {
 @MainActor
 private struct ChangesCard: View {
     @Environment(\.wa) private var wa
+    let projectUuid: String
     let changes: [FreelanceChangeDto]
     let milestones: [FreelanceMilestoneDto]
     let currency: String
     let canAsk: Bool
     let busy: Bool
-    let onAsk: (FreelanceChangeRequest) -> Void
+    /// FS-101: the request and the files picked for it (none: a plain JSON request).
+    let onAsk: (FreelanceChangeRequest, [ApiClient.FilePart]) -> Void
     let onAnswer: (String, String) -> Void
     @State private var asking = false
     @State private var type = "extend_days"
@@ -535,6 +583,10 @@ private struct ChangesCard: View {
     @State private var includes = ""
     @State private var excludes = ""
     @State private var reason = ""
+    // FS-101: up to three files go with the request (10 MB each; the server checks the kinds).
+    @State private var files: [ApiClient.FilePart] = []
+    @State private var picking = false
+    @State private var fileError: String?
 
     private var ready: Bool {
         switch type {
@@ -553,6 +605,28 @@ private struct ChangesCard: View {
                     Text(verbatim: changeText(c, currency)).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
                     Text(verbatim: L(c.mine == true ? "fl_ch_by_me" : "fl_ch_by_them") + "  ·  " + changeStatus(c.status)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
                     if let r = c.reason { Text(verbatim: r).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                    // FS-101: an accepted change is an addendum: its number, the version reached and what moved.
+                    if let n = c.addendumNo {
+                        Text(verbatim: L("fs_ch_addendum", n) + (c.appliedVersion.map { "  ·  " + L("fs_ch_version", $0) } ?? ""))
+                            .font(.dorr(12, .bold)).foregroundStyle(flGreen)
+                    }
+                    ForEach(c.changeEffect(), id: \.key) { e in
+                        Text(verbatim: effectLine(e)).font(.dorr(12)).foregroundStyle(wa.settingsInk)
+                    }
+                    if c.status == "pending", let by = c.respondBy {
+                        FlNotice(text: L("fs_ch_respond_by", "\u{200E}" + flLocalDateTime(by)), icon: "clock", color: flAmber)
+                    }
+                    if let list = c.files, !list.isEmpty {
+                        FlowLayout(spacing: 6) {
+                            ForEach(list, id: \.id) { f in
+                                FlChip(text: f.name ?? "", selected: false, icon: "paperclip") {
+                                    Task {
+                                        if !(await flOpenFile(path: "projects/\(projectUuid)/\(f.path ?? "")", name: "\(f.id)_\(f.name ?? "file")")) { fileError = L("fl_dl_open_failed") }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     HStack(spacing: 16) {
                         if c.can?.accept == true { FlTextAction(text: L("fl_ch_accept"), fill: false) { onAnswer(c.uuid, "accept") } }
                         if c.can?.reject == true { FlTextAction(text: L("fl_ch_reject"), danger: true, fill: false) { onAnswer(c.uuid, "reject") } }
@@ -565,7 +639,31 @@ private struct ChangesCard: View {
             }
             if canAsk && !asking { FlTextAction(text: L("fl_ch_ask")) { asking = true } }
             if canAsk && asking { form }
+            if let fileError { Text(verbatim: fileError).font(.dorr(12)).foregroundStyle(flRed) }
         }
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
+            if case .success(let url) = result { attach(url) }
+        }
+    }
+
+    private func effectLine(_ e: FreelanceChangeEffect) -> String {
+        switch e.key {
+        case "price_minor": return L("fs_ch_eff_price", flAmount(e.before, currency), flAmount(e.after, currency))
+        case "duration_days": return L("fs_ch_eff_days", e.before, e.after)
+        default: return L("fs_ch_eff_parts", e.before, e.after)
+        }
+    }
+
+    /// FS-101: a picked file is read now (it is sent with the request); over 10 MB it is refused here.
+    private func attach(_ url: URL) {
+        guard files.count < maxChangeFiles else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { fileError = L("fl_dl_open_failed"); return }
+        guard data.count <= maxChangeFileBytes else { fileError = L("fs_ch_file_too_big"); return }
+        fileError = nil
+        let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        files.append(ApiClient.FilePart(field: "files[]", filename: url.lastPathComponent, mimeType: mime, data: data))
     }
 
     @ViewBuilder
@@ -601,14 +699,26 @@ private struct ChangesCard: View {
             DorrTextArea(value: Binding(get: { excludes }, set: { excludes = String($0.prefix(3000)) }), label: L("fl_ag_excludes"), minHeight: 70)
         }
         DorrTextArea(value: Binding(get: { reason }, set: { reason = String($0.prefix(1000)) }), label: L("fl_ch_reason"), minHeight: 70)
-        HStack(spacing: 16) {
-            FlTextAction(text: L("fl_ch_send"), fill: false) {
+        // FS-101: the files that explain the change.
+        if !files.isEmpty {
+            FlowLayout(spacing: 6) {
+                ForEach(Array(files.enumerated()), id: \.offset) { i, f in
+                    FlChip(text: f.filename, selected: false, icon: "xmark") { if files.indices.contains(i) { files.remove(at: i) } }
+                }
+            }
+        }
+        if files.count < maxChangeFiles {
+            FlTextAction(text: L("fs_ch_attach", files.count, maxChangeFiles), fill: false) { picking = true }
+        }
+        Text(L("fs_ch_attach_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+        HStack(spacing: 10) {
+            FlAction(text: L("fl_ch_send"), tone: .primary, enabled: ready && !busy) {
                 guard ready && !busy else { return }
                 func clean(_ s: String) -> String? { let t = s.trimmingCharacters(in: .whitespacesAndNewlines); return t.isEmpty ? nil : t }
                 onAsk(FreelanceChangeRequest(type: type, milestone: part, days: Int(days), amountMinor: flParseMoney(amount), title: clean(title),
                                              scope: type == "scope" ? clean(scope) : nil, includes: type == "scope" ? clean(includes) : nil,
-                                             excludes: type == "scope" ? clean(excludes) : nil, reason: clean(reason)))
-                asking = false; days = ""; amount = ""; title = ""; scope = ""; includes = ""; excludes = ""; reason = ""
+                                             excludes: type == "scope" ? clean(excludes) : nil, reason: clean(reason)), files)
+                asking = false; days = ""; amount = ""; title = ""; scope = ""; includes = ""; excludes = ""; reason = ""; files = []
             }
             FlTextAction(text: L("fl_not_now"), fill: false) { asking = false }
         }
@@ -669,8 +779,12 @@ private struct DeliveryReview: View {
                             Text(verbatim: L("fl_dl_version", v.number ?? 1) + (v.deliveredAt.map { " · " + String($0.prefix(10)) } ?? ""))
                                 .font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
                             if let note = v.note, !note.isEmpty { Text(verbatim: note).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                            // FL-L13: the freelancer's word that the work is theirs, and the outside material they listed.
+                            DeliveryRightsLines(rights: v.rights)
                             ForEach(Array((v.files ?? []).enumerated()), id: \.offset) { _, f in
-                                if f.isImage == true {
+                                if f.previewOnly == true && f.isImage != true {
+                                    PreviewOnlyFile(f: f)
+                                } else if f.isImage == true {
                                     DeliveredImage(f: f)
                                 } else {
                                     Button {
@@ -696,7 +810,7 @@ private struct DeliveryReview: View {
         }
         .onChange(of: m.checklist) { _ in checks = nil }
         .dorrDialog(isPresented: $editing, bottom: true) {
-            ChecklistEditor(initial: list.compactMap(\.text), onDismiss: { editing = false }) { texts in
+            ChecklistEditor(projectUuid: projectUuid, initial: list.compactMap(\.text), onDismiss: { editing = false }) { texts in
                 Task {
                     do { checks = try await FreelanceApi.setChecklist(projectUuid, m.uuid, items: texts).data ?? [] } catch { self.error = flError(error) }
                     editing = false
@@ -712,6 +826,7 @@ private struct DeliveredImage: View {
     @Environment(\.wa) private var wa
     let f: FreelanceDeliveryFileDto
     @State private var image: UIImage?
+    @State private var zoom = false
 
     var body: some View {
         Group {
@@ -719,7 +834,9 @@ private struct DeliveredImage: View {
                 Image(uiImage: image).resizable().scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: 320)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .onTapGesture { Task { _ = await flOpenFile(path: f.path ?? "", name: "\(f.id ?? 0)_\(f.name ?? "file")") } }
+                    // FL-L13: a preview stays in the app (no Quick Look, so no share or save); an approved file opens as before.
+                    .onTapGesture { if f.previewOnly == true { zoom = true } else { Task { _ = await flOpenFile(path: f.path ?? "", name: "\(f.id ?? 0)_\(f.name ?? "file")") } } }
+                    .fullScreenCover(isPresented: $zoom) { RightsImageViewer(image: image) { zoom = false } }
             } else {
                 Text(verbatim: "🖼 \(f.name ?? "")").font(.dorr(12)).foregroundStyle(wa.settingsMut)
             }
@@ -739,16 +856,33 @@ private struct DeliveredImage: View {
     }
 }
 
-/// Up to ten lines: what I will check before approving this part.
+/// Up to ten lines: what I will check before approving this part; FS-105: they can start from a ready template.
 private struct ChecklistEditor: View {
     @Environment(\.wa) private var wa
+    let projectUuid: String
     let initial: [String]
     let onDismiss: () -> Void
     let onSave: ([String]) -> Void
     @State private var lines: [String] = []
+    @State private var picking = false
 
     var body: some View {
+        if picking {
+            ChecklistTemplatePicker(projectUuid: projectUuid, hasLines: lines.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty },
+                                    onDismiss: { picking = false }) { items, replace in
+                let kept = replace ? [] : lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                let merged = Array((kept + items.map { String($0.prefix(200)) }).prefix(maxChecks))
+                lines = merged.isEmpty ? [""] : merged
+                picking = false
+            }
+        } else {
+            editor
+        }
+    }
+
+    private var editor: some View {
         FlSheet(icon: "checklist", title: L("fl_ck_set"), text: L("fl_ck_editor_hint")) {
+            FlAction(text: L("fs_ck_template"), icon: "wand.and.stars") { picking = true }
             ForEach(lines.indices, id: \.self) { i in
                 HStack(spacing: 6) {
                     DorrTextArea(value: Binding(get: { lines.indices.contains(i) ? lines[i] : "" }, set: { if lines.indices.contains(i) { lines[i] = String($0.prefix(200)) } }),
@@ -769,10 +903,65 @@ private struct ChecklistEditor: View {
     }
 }
 
+/// FS-105: the ready checklists, those of the project's specialty (and the general ones) first asked for. Picking one hands its
+/// lines back to replace mine or be added after them (the editor keeps the ten-line limit).
+@MainActor
+private struct ChecklistTemplatePicker: View {
+    @Environment(\.wa) private var wa
+    let projectUuid: String
+    let hasLines: Bool
+    let onDismiss: () -> Void
+    let onPick: ([String], Bool) -> Void
+    @State private var templates: [FreelanceChecklistTemplateDto]?
+    @State private var chosen: FreelanceChecklistTemplateDto?
+    @State private var error: String?
+
+    var body: some View {
+        FlSheet(icon: "wand.and.stars", title: L("fs_ck_template_title"), text: L("fs_ck_template_hint")) {
+            if let pick = chosen {
+                Text(verbatim: pick.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                ForEach(Array((pick.items ?? []).enumerated()), id: \.offset) { _, item in
+                    Text(verbatim: "☐ " + item).font(.dorr(13)).foregroundStyle(wa.settingsInk).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Text(verbatim: L("fs_ck_template_full", maxChecks)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                FlAction(text: L(hasLines ? "fs_ck_replace" : "fs_ck_use"), icon: "checklist", tone: .primary) { onPick(pick.items ?? [], true) }
+                if hasLines { FlAction(text: L("fs_ck_append"), icon: "plus") { onPick(pick.items ?? [], false) } }
+                FlAction(text: L("common_back")) { chosen = nil }
+            } else if let list = templates {
+                if list.isEmpty { Text(verbatim: error ?? L("fs_ck_template_none")).font(.dorr(13)).foregroundStyle(wa.settingsMut) }
+                ForEach(Array(list.enumerated()), id: \.offset) { _, t in
+                    Button { chosen = t } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: t.name ?? "").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
+                            Text(verbatim: L("fs_ck_template_items", (t.items ?? []).count)).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                FlAction(text: L("common_cancel"), action: onDismiss)
+            } else {
+                Text(verbatim: "…").font(.dorr(13)).foregroundStyle(wa.settingsMut)
+            }
+        }
+        .task(id: projectUuid) {
+            do {
+                let specialty = try? await FreelanceApi.project(projectUuid).data?.specialty?.id
+                templates = try await FreelanceApi.checklistTemplates(specialty: specialty ?? nil).data ?? []
+            } catch {
+                self.error = flError(error)
+                templates = []
+            }
+        }
+    }
+}
+
 // MARK: - A dispute (FL-704)
 
 /// The reasons a dispute may give (as the server names them).
-private let disputeReasons = ["not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "other"]
+private let disputeReasons = ["not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "rights", "other"]
 
 private func disputeReasonLabel(_ reason: String) -> String {
     switch reason {
@@ -782,6 +971,7 @@ private func disputeReasonLabel(_ reason: String) -> String {
     case "quality": return L("fl_dr_quality")
     case "out_of_scope": return L("fl_dr_out_of_scope")
     case "no_response": return L("fl_dr_no_response")
+    case "rights": return L("fl_dr_rights")
     default: return L("fl_dr_other")
     }
 }
@@ -829,7 +1019,7 @@ struct DisputePage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SubHeader(title: L("fl_dispute"), onBack: onBack)
+            FlPageHeader(title: L("fl_dispute"), onBack: onBack)
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     if disputeUuid == nil {
@@ -960,17 +1150,27 @@ struct DisputePage: View {
 /// agreement changes (`refreshKey`) and when the connection comes back; a receipt opens with its details and can be
 /// shared as text.
 @MainActor
-private struct ReceiptsCard: View {
+/// The receipts (FL-511) of one project, or of all my work when `projectUuid` is nil («My receipts»); `showEmpty`: say so when
+/// there is none (else nothing is drawn).
+struct ReceiptsCard: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
-    let projectUuid: String
+    let projectUuid: String?
     let refreshKey: String
+    var showEmpty = false
     @State private var list: [FreelanceReceiptDto] = []
+    @State private var loaded = false
     @State private var open: FreelanceReceiptDto?
 
     var body: some View {
         Group {
-            if !list.isEmpty {
+            if list.isEmpty && showEmpty {
+                if loaded {
+                    WaEmpty(icon: "doc.text.fill", tone: .blue, title: L("flr_empty_title"), text: L("flr_empty_body"))
+                } else {
+                    FlSkeletonList(count: 3, height: 64)
+                }
+            } else if !list.isEmpty {
                 FlCard(icon: "doc.text.fill", title: L("fl_rcp_title")) {
                     ForEach(list) { r in
                         Button {
@@ -994,6 +1194,7 @@ private struct ReceiptsCard: View {
         }
         .task(id: "\(refreshKey)|\(network.reconnectTick)") {
             if let all = try? await FreelanceApi.receipts(project: projectUuid).data { list = all }
+            loaded = true
         }
         .dorrDialog(isPresented: Binding(get: { open != nil }, set: { if !$0 { open = nil } }), bottom: true) {
             if let r = open {
@@ -1299,6 +1500,68 @@ struct ReviewStars: View {
         HStack(spacing: 0) {
             FlStars(value: Int(stars.rounded()), size: 14)
             Text(verbatim: " \(stars)").font(.dorr(12, .bold)).foregroundStyle(wa.settingsInk).frame(width: 36, alignment: .leading)
+        }
+    }
+}
+
+/// The parts of the work as steps in a row — a circle each on its status colour (a tick when approved), joined by a line — and,
+/// under them, the part being worked on now and where it stands. A tap opens the parts.
+private struct StageSteps: View {
+    @Environment(\.wa) private var wa
+    let parts: [FreelanceMilestoneDto]
+    let onOpen: () -> Void
+
+    var body: some View {
+        let done = parts.filter { $0.state == "approved" }.count
+        let now = parts.first { $0.state != "approved" && $0.state != "cancelled" }
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 0) {
+                    ForEach(Array(parts.enumerated()), id: \.offset) { i, m in
+                        let mc = milestoneStatusColor(m.state)
+                        let isNow = m.uuid == now?.uuid
+                        ZStack {
+                            Circle().fill(m.state == "approved" || isNow ? mc : mc.opacity(0.16))
+                            if m.state == "approved" {
+                                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+                            } else {
+                                Text(verbatim: "\(m.position ?? i + 1)").font(.dorr(12, .heavy)).foregroundStyle(isNow ? .white : mc)
+                            }
+                        }
+                        .frame(width: isNow ? 30 : 26, height: isNow ? 30 : 26)
+                        if i < parts.count - 1 {
+                            Capsule().fill(m.state == "approved" ? milestoneStatusColor("approved") : wa.settingsMut.opacity(0.25))
+                                .frame(height: 3).padding(.horizontal, 3).frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                Text(verbatim: now.map { L("fla_now", $0.title ?? "", milestoneStatusLabel($0.state)) + "  ·  " + L("fl_progress_parts", done, parts.count) }
+                     ?? L("fla_all_done", done, parts.count))
+                    .font(.dorr(12.5, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(wa.accent.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// «My receipts» (the client redesign, batch G): every receipt of my freelance work in one list; a pull reads it again.
+@MainActor
+struct ReceiptsPage: View {
+    @EnvironmentObject private var network: NetworkMonitor
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            FlPageHeader(title: L("flr_title"), onBack: onBack, subtitle: L("flr_line"))
+            ScrollView {
+                ReceiptsCard(projectUuid: nil, refreshKey: "all", showEmpty: true).padding(.horizontal, 16).padding(.vertical, 8)
+            }
+            .refreshable { network.noticeArrived() }
         }
     }
 }

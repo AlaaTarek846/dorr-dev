@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L16: the consultation's video session (client side). -->
+<resources>
+    <string name="css_consent">The session is recorded to protect both sides, and the recording is deleted after a week.</string>
+    <string name="css_title">Video session</string>
+    <string name="css_recorded">Recorded</string>
+    <string name="css_not_recorded">Not recorded for now</string>
+    <string name="css_unavailable">Video sessions are not available right now. Try again a little later.</string>
+    <string name="css_opens_in">The room opens in %1$s</string>
+    <string name="css_opens_rule">The room opens a few minutes before the time, and you can come and go while the session lasts.</string>
+    <string name="css_join">Enter the session</string>
+    <string name="css_join_hint">The room is open now</string>
+    <string name="css_closed_staff">The staff closed the room.</string>
+    <string name="css_over">The session time is over.</string>
+    <string name="css_in_room">In the room now</string>
+    <string name="css_you">You</string>
+    <string name="css_freelancer">The freelancer</string>
+    <string name="css_nobody">Nobody is in yet</string>
+    <string name="css_attendance">Attendance</string>
+    <string name="css_joined_left">In %1$s · out %2$s</string>
+    <string name="css_still_in">In %1$s · still in</string>
+    <string name="css_recordings">Recordings</string>
+    <string name="css_part">Part %1$d</string>
+    <string name="css_preparing">Getting ready</string>
+    <string name="css_recording_now">Recording</string>
+    <string name="css_deleted">Deleted</string>
+    <string name="css_download">Download</string>
+    <string name="css_watch">Watch</string>
+    <string name="css_download_started">Downloading. You will find it in Downloads.</string>
+    <string name="css_download_failed">The download did not work. Try again.</string>
+    <string name="css_delete_at">The recording will be deleted on %1$s</string>
+    <string name="css_held">Kept until the staff decide</string>
+    <string name="css_deleted_all">The recordings were deleted</string>
+    <string name="css_no_show">The freelancer did not come</string>
+    <string name="css_no_show_title">The freelancer did not come in?</string>
+    <string name="css_no_show_body">We will send a complaint to the staff with the attendance record. Your money stays held until they decide.</string>
+    <string name="css_no_show_confirm">Send the complaint</string>
+    <string name="css_no_show_done">Your complaint went to the staff</string>
+    <string name="css_connecting">Connecting…</string>
+    <string name="css_waiting_for">Waiting for %1$s to come in</string>
+    <string name="css_other_in">%1$s is in</string>
+    <string name="css_left_time">%1$s left</string>
+    <string name="css_ending_warn">The session ends in %1$d min</string>
+    <string name="css_leave">Leave</string>
+    <string name="css_leave_title">Leave the session?</string>
+    <string name="css_leave_body">You can come back while the session still has time.</string>
+    <string name="css_ended">You left the session</string>
+    <string name="css_mic_needed">Allow the microphone to enter the session.</string>
+    <string name="css_close">Close</string>
+</resources>

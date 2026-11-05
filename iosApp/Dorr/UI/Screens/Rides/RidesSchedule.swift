@@ -178,9 +178,24 @@ struct SchedulePickerSheet: View {
 
     /// One wheel: ▲ / the number (rolls in the direction moved) / ▼.
     private func wheel(_ value: String, up: @escaping () -> Void, down: @escaping () -> Void) -> some View {
+        WheelColumn(value: value, onUp: up, onDown: down)
+    }
+}
+
+/// One wheel: ▲ / the number (rolls in the direction moved) / ▼ (Android's `WheelColumn`, shared with the moving time sheet).
+struct WheelColumn: View {
+    @Environment(\.wa) private var wa
+    let value: String
+    let onUp: () -> Void
+    let onDown: () -> Void
+    @State private var direction = 1
+
+    var body: some View {
         VStack(spacing: 0) {
-            Button(action: up) { Image(systemName: "chevron.up").font(.system(size: 24, weight: .semibold)).foregroundStyle(wa.accent).frame(width: 40, height: 40) }
-                .buttonStyle(.plain)
+            Button { direction = 1; onUp() } label: {
+                Image(systemName: "chevron.up").font(.system(size: 24, weight: .semibold)).foregroundStyle(wa.accent).frame(width: 40, height: 40)
+            }
+            .buttonStyle(.plain)
             ZStack {
                 Text(verbatim: value).font(.dorr(36, .heavy)).foregroundStyle(wa.settingsInk)
                     .id(value)
@@ -191,8 +206,10 @@ struct SchedulePickerSheet: View {
             .clipped()
             .background(wa.settingsBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .animation(.easeOut(duration: 0.2), value: value)
-            Button(action: down) { Image(systemName: "chevron.down").font(.system(size: 24, weight: .semibold)).foregroundStyle(wa.accent).frame(width: 40, height: 40) }
-                .buttonStyle(.plain)
+            Button { direction = -1; onDown() } label: {
+                Image(systemName: "chevron.down").font(.system(size: 24, weight: .semibold)).foregroundStyle(wa.accent).frame(width: 40, height: 40)
+            }
+            .buttonStyle(.plain)
         }
     }
 }

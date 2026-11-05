@@ -16,8 +16,9 @@ class LiveKitToken
     /**
      * @param  array<string, mixed>  $metadata  shown to the other people in the room (name, avatar)
      * @param  array<string, mixed>  $grants  changes to the room grants (a listener: canPublish false)
+     * @param  int|null  $ttlSeconds  how long it lets them in (default `token_ttl_seconds`; a consultation's ends with its time)
      */
-    public static function issue(string $room, string $identity, string $name, array $metadata = [], array $grants = []): string
+    public static function issue(string $room, string $identity, string $name, array $metadata = [], array $grants = [], ?int $ttlSeconds = null): string
     {
         $key = (string) config('chat.livekit.api_key');
         $secret = (string) config('chat.livekit.api_secret');
@@ -33,7 +34,7 @@ class LiveKitToken
             'sub' => $identity,
             'name' => $name,
             'nbf' => $now - 10,
-            'exp' => $now + (int) config('chat.livekit.token_ttl_seconds', 21600),
+            'exp' => $now + max(60, $ttlSeconds ?? (int) config('chat.livekit.token_ttl_seconds', 21600)),
             'metadata' => json_encode($metadata, JSON_UNESCAPED_UNICODE),
             'video' => array_merge([
                 'room' => $room,
@@ -71,6 +72,23 @@ class LiveKitToken
         $now = time();
 
         return self::sign(['iss' => $key, 'sub' => 'dorr-server', 'nbf' => $now - 10, 'exp' => $now + 600, 'video' => ['roomRecord' => true]], $secret);
+    }
+
+    /**
+     * A short token for the server itself with the given video grants (creating or closing a room needs `roomCreate`).
+     *
+     * @param  array<string, mixed>  $video
+     */
+    public static function server(array $video): string
+    {
+        $key = (string) config('chat.livekit.api_key');
+        $secret = (string) config('chat.livekit.api_secret');
+        if ($key === '' || $secret === '') {
+            throw ChatException::callsNotConfigured();
+        }
+        $now = time();
+
+        return self::sign(['iss' => $key, 'sub' => 'dorr-server', 'nbf' => $now - 10, 'exp' => $now + 600, 'video' => $video], $secret);
     }
 
     /** @param  array<string, mixed>  $claims */

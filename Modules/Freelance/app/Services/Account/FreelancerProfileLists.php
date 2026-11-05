@@ -260,8 +260,7 @@ class FreelancerProfileLists
         if ($by > 0) {
             FreelanceSkill::query()->whereIn('id', $ids)->increment('usage_count', $by);
         } else {
-            FreelanceSkill::query()->whereIn('id', $ids)->decrement('usage_count', -$by);
-            FreelanceSkill::query()->whereIn('id', $ids)->where('usage_count', '<', 0)->update(['usage_count' => 0]);
+            FreelanceSkill::query()->whereIn('id', $ids)->update(['usage_count' => DB::raw('CASE WHEN usage_count > '.(-$by).' THEN usage_count - '.(-$by).' ELSE 0 END')]);
         }
     }
 }

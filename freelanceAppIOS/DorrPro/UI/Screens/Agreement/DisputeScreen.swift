@@ -1,7 +1,7 @@
 // freelanceApp `ui/screens/DisputeScreen.kt`
 import SwiftUI
 
-private let disputeReasons = ["not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "other"]
+private let disputeReasons = ["not_as_agreed", "not_delivered", "late", "quality", "out_of_scope", "no_response", "rights", "other"]
 
 private func reasonLabel(_ reason: String) -> String {
     switch reason {
@@ -11,6 +11,7 @@ private func reasonLabel(_ reason: String) -> String {
     case "quality": return L("dp_r_quality")
     case "out_of_scope": return L("dp_r_out_of_scope")
     case "no_response": return L("dp_r_no_response")
+    case "rights": return L("dp_r_rights")
     default: return L("dp_r_other")
     }
 }

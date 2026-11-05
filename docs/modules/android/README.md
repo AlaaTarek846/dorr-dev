@@ -1,6 +1,6 @@
 # Android App (`androidApp/`)
 
-**Last updated:** 2026-11-02
+**Last updated:** 2026-11-05
 
 Native Kotlin app for end users. It talks to the Laravel backend through `/api/mobile/v1/*` (guard `user_api`, Sanctum Bearer token) and `general/v1/services` for the service catalog. There is no Provider or Admin app here.
 
@@ -45,6 +45,17 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
 - **Following the ride:** polled every 3–4 s (searching radar → captain card with rating, car, a drawn plate, the PIN → free-waiting countdown at pickup → on the way); chat sheet (ready-made messages + text, closed when the ride ends); cancel sheet showing the fee first, with reasons; at the end the receipt lines and the rating (stars + tags + comment).
 - **Bidding (`RidesBidding.kt`):** a bid category shows "Name your price"; the sheet's price editor stops at the floor. After booking: my price with +5 / +10 raises, and every captain's offer as a card (cheapest first, cheapest / nearest badges, a draining timer bar, decline / take), polled every 2 s.
 - An active ride is resumed when the screen opens (`GET rides/current`). Strings: `res/values*/rides_strings.xml`.
+
+## Furniture moving (`ui/screens/moving/`, `network/MovingApi.kt`)
+Tapping the service with module `moving` opens `MovingHost` (MainScreen); a `moving_*` push or notification row opens the request through `ChatDeepLink.Moving` / `MovingLink`. Server: [moving/README.md](../moving/README.md). Same look as the rides screens, reusing their pieces (`RoundButton`, `AccentButton`, `PanelCard`, `Plate`, `TripLine`, `WheelColumn`, `ToggleLine`, `StepperLine`, `PickupPin`, `DorrMap`, `searchPlaces`, `addressOf`).
+- **Home (`MovingHome.kt`):** «طلباتي» (paged, `status=active` tab), status chips, the new-request button. `options.available = false` (or a refused `moving_service_off`) puts `MovingUnavailablePanel`, the rides' unavailable card, in place of the button on opening; existing requests stay reachable. A draft in the list can be deleted, with a confirmation (`withdraw`).
+- **New request (`MovingWizard.kt`):** one draft on the server (`POST requests`, then `PUT` at each step; a draft in the list reopens here): load type → description, pieces, photos and videos (a file over `media_max_mb` is warned about and not uploaded) → vehicle type, one workers count, extras → both ends and the time (`MovingPlacePicker.kt`: the rides search + centre pin; the neighbourhood comes from the geocoder and can be edited) → review and publish. `data.missing` from `moving_fields_missing` shows beside its step and turns that step red.
+- **Request page (`MovingRequestPage.kt`):** the hub, switched by status: offers waiting and withdraw; the timeline, driver, plate and delivery code with its QR; from `driver_on_way` to `unloading` the rides map with the truck behind a `PanelCard`; after delivery the objection countdown, «received intact», the report and the rating; the cancel sheet (fee first; the three reasons that blame the other side say they go to Dorr). The rating card is hidden when `rated` is true. Expired or withdrawn: «نشر الطلب من جديد» (`republish`) opens the wizard on the new draft at its review, with `missing` marked.
+- **Offers (`MovingOffers.kt`):** three at a time with «عرض المزيد», the total above them, the reasons in words, validity on the device clock, the details page. Accepting calls `accept`, shows price, tax (`checkout.amount_minor − price_minor`), total and the fee table, then opens the shared payment screen with `CheckoutRequest(purpose, reference, checkoutId)`: `checkoutId` is new and optional, so the screen opens the checkout the endpoint already made instead of making a second.
+- **After (`MovingAfter.kt`):** changes with before and after and the waiting minutes (`waiting:{minutes}`), a yes that costs more opens the payment screen (`moving_change`), a new time, the report (only the claimed amount stays held), the inventory photos, the invoice, the tickets (to the establishment first; its answer doesn't close them).
+- **Live, no polling:** `MovingHost` keeps `private-moving.{uuid}` open for the request on screen (`ChatRealtime.watchMoving`); `MovingLiveEffect` reloads once on open, reconnect, a pull and `moving.changed`, and `moving.driver_location` moves the truck. Countdowns run on the device clock and reload once at zero.
+- Amounts use the request's `currency_decimals` (offers and invoices take it from the request, through their routes), for showing and for parsing the typed claim (`mvMoney`, `limitAmount`, `parseMinor`).
+- Refusals show the server's own message (`network/MovingApi.kt` → `movingRefusal()` also reads `data.missing`). Strings: `res/values*/moving_strings.xml` (`mv_*`).
 
 ## Watch & Earn (`ui/screens/watchearn/`, `network/WatchEarnApi.kt`)
 Watch ads and earn wallet rewards; create ads paid from an ad wallet. Spec: [watch-earn/APP.md](../watch-earn/APP.md), endpoints: [watch-earn/API.md](../watch-earn/API.md).

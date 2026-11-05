@@ -2,9 +2,8 @@ import SwiftUI
 
 // androidApp `chat/ChTheme.kt` — the chat's look: the app colour carried into a messenger. My bubbles wear the brand
 // gradient, theirs are soft white cards; everything that appears, changes or disappears is animated. Every chat
-// screen reads its colours, shapes and motion from here. Colours follow the appearance settings (`wa`) and the
-// chat's own light / dark choice (ChatStore.themeMode); a conversation's theme (admin-made or mine) colours the
-// bubbles while it is on screen.
+// screen reads its colours, shapes and motion from here. Colours and light / dark follow the app's appearance
+// settings (`wa`); a conversation's theme (admin-made or mine) colours the bubbles while it is on screen.
 
 @MainActor
 final class Ch: ObservableObject {
@@ -62,7 +61,7 @@ final class Ch: ObservableObject {
             : LinearGradient(colors: [bg.mix(accent, 0.05), bg.mix(accent, 0.03), bg], startPoint: .top, endPoint: .bottom)
     }
 
-    static let bubbleRadius: CGFloat = 20
+    static let bubbleRadius: CGFloat = 14
     static let tailRadius: CGFloat = 6
 
     /// Name colours in groups — each member keeps one colour, derived from their key.
@@ -77,13 +76,8 @@ final class Ch: ObservableObject {
 
     /// Copies the appearance into the chat (androidApp `BindChatAppearance`).
     func bind(_ wa: WaPalette, systemDark: Bool) {
-        let chatDark: Bool = {
-            switch ChatStore.shared.themeMode {
-            case "dark": return true
-            case "light": return false
-            default: return systemDark
-            }
-        }()
+        // Light / dark is the app's own setting (Settings → Appearance); the chat follows it.
+        let chatDark = systemDark
         let appearance = AppearanceState.shared
         func token(_ key: String, _ light: UInt32, _ night: UInt32) -> Color { appearance.color(key, Color(hex: chatDark ? night : light), dark: chatDark) }
         let p = ChPalette(
@@ -145,14 +139,12 @@ extension Color {
 struct ChatAppearanceBinder: ViewModifier {
     @Environment(\.wa) private var wa
     @Environment(\.colorScheme) private var scheme
-    @ObservedObject private var store = ChatStore.shared
 
     func body(content: Content) -> some View {
         content
             .onAppear { Ch.shared.bind(wa, systemDark: wa.night || scheme == .dark) }
             .onChange(of: wa.night) { _ in Ch.shared.bind(wa, systemDark: wa.night || scheme == .dark) }
             .onChange(of: scheme) { _ in Ch.shared.bind(wa, systemDark: wa.night || scheme == .dark) }
-            .onChange(of: store.themeMode) { _ in Ch.shared.bind(wa, systemDark: wa.night || scheme == .dark) }
     }
 }
 
@@ -443,10 +435,11 @@ struct ChChip: View {
     let text: String
     var dark = false
 
+    // Quiet, as in WhatsApp: the app's surface colour (dark at night — no bright white pill), plain muted text.
     var body: some View {
-        Text(verbatim: text).font(.dorr(12, .semibold)).foregroundStyle(dark ? .white : ch.mut)
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            .background(dark ? Color(hex: 0x111928).opacity(0.8) : Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        Text(verbatim: text).font(.dorr(12)).foregroundStyle(dark ? .white : ch.mut).multilineTextAlignment(.center)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(dark ? Color(hex: 0x111928).opacity(0.8) : ch.surface.opacity(0.92), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 }
 

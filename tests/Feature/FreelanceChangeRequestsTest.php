@@ -333,4 +333,47 @@ class FreelanceChangeRequestsTest extends TestCase
         \Modules\Freelance\Models\FreelanceAgreement::query()->each(fn ($a) => $a->forceFill(['policy' => ['milestones.max_count' => 2] + (array) $a->policy])->save());
         $this->ask('client', ['type' => 'add_milestone', 'title' => 'One more', 'amount_minor' => 60000])->assertStatus(422)->assertJsonPath('error_code', 'freelance_milestones_too_many');
     }
+
+    public function test_an_accepted_change_is_an_addendum_with_its_effect_and_files(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        [$one] = $this->activeInTwo();
+        $this->asFreelancer($this->sara);
+        $file = \Illuminate\Http\UploadedFile::fake()->create('sketch.pdf', 40, 'application/pdf');
+        $c = $this->post(self::FREELANCER."/{$this->project->uuid}/agreement/changes", [
+            'type' => 'add_milestone', 'title' => 'Reminder messages', 'amount_minor' => 80000, 'reason' => 'Outside the agreement.', 'files' => [$file],
+        ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.0.files.0.name', 'sketch.pdf')->json('data.0');
+        $this->assertNull($c['addendum_no']);
+
+        // Too many files are refused.
+        $this->ask('freelancer', ['type' => 'extend_days', 'milestone' => $one, 'days' => 2])->assertCreated();
+        $four = array_map(fn ($i) => \Illuminate\Http\UploadedFile::fake()->create("f$i.pdf", 5, 'application/pdf'), [1, 2, 3, 4]);
+        $this->post(self::FREELANCER."/{$this->project->uuid}/agreement/changes", ['type' => 'scope', 'scope' => 'New scope text', 'files' => $four], ['Accept' => 'application/json'])->assertStatus(422);
+
+        // The client downloads the file, then accepts: addendum 1, the version it reached and what moved.
+        $this->asClient();
+        $this->get(self::CLIENT."/{$this->project->uuid}/agreement/changes/{$c['uuid']}/files/{$c['files'][0]['id']}")->assertOk();
+        $before = $this->agreement();
+        $res = $this->answer('client', $c['uuid'], 'accept')->assertOk();
+        $row = collect($res->json('data'))->firstWhere('uuid', $c['uuid']);
+        $this->assertSame(1, $row['addendum_no']);
+        $this->assertSame($before->version + 1, $row['applied_version']);
+        $this->assertSame([350000, 430000], $row['effect']['price_minor']);
+        $this->assertSame([2, 3], $row['effect']['milestones']);
+        $this->assertArrayNotHasKey('duration_days', $row['effect']);
+    }
+
+    public function test_a_waiting_change_is_reminded_once_a_day_before_it_runs_out(): void
+    {
+        [$one] = $this->activeInTwo();
+        $this->asFreelancer($this->sara);
+        $this->ask('freelancer', ['type' => 'extend_days', 'milestone' => $one, 'days' => 3])->assertCreated();
+        $changes = app(\Modules\Freelance\Services\Projects\ChangeRequests::class);
+        // Plenty of time left: nobody is bothered.
+        $this->assertSame(0, $changes->remindDue());
+        \Modules\Freelance\Models\FreelanceChangeRequest::query()->update(['respond_by' => now()->addHours(10)]);
+        $this->assertSame(1, $changes->remindDue());
+        $this->assertSame(0, $changes->remindDue());
+        $this->assertSame(1, $this->client->notifications()->where('data->event', 'freelance.change.reminder')->count());
+    }
 }

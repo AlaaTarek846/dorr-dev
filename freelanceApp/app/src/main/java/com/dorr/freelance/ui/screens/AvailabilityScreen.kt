@@ -94,7 +94,7 @@ fun AvailabilityScreen(onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        (apiCall { ApiClient.wallet.balance() } as? ApiResult.Ok)?.data?.let { currency = it.currencyCode.orEmpty() }
+        (apiCall { ApiClient.wallet.balance() } as? ApiResult.Ok)?.data?.let { currency = it.currencySymbol?.takeIf { s -> s.isNotBlank() } ?: it.currencyCode.orEmpty() }
         val result = apiCall { ApiClient.availability.show() }
         if (result is ApiResult.Ok) {
             val a = result.data

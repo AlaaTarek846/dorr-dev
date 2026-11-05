@@ -29,7 +29,7 @@ class FreelanceDelivery extends Model implements HasMedia
 
     public const UPDATED_AT = null;
 
-    protected $fillable = ['uuid', 'milestone_id', 'number', 'note', 'revision_reason', 'revision_requested_at', 'created_at'];
+    protected $fillable = ['uuid', 'milestone_id', 'number', 'note', 'rights', 'revision_reason', 'revision_requested_at', 'created_at'];
 
     protected static function booted(): void
     {
@@ -40,7 +40,8 @@ class FreelanceDelivery extends Model implements HasMedia
 
     protected function casts(): array
     {
-        return ['revision_requested_at' => 'datetime', 'created_at' => 'datetime'];
+        // FL-L13: the freelancer's word that the work is theirs, and the outside material they listed.
+        return ['revision_requested_at' => 'datetime', 'created_at' => 'datetime', 'rights' => 'array'];
     }
 
     protected function webpSkipCollections(): array

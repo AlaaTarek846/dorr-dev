@@ -109,12 +109,12 @@ private struct InsightsBody: View {
         Hero(data: data, dto: dto, period: period)
 
         HStack(spacing: 10) {
-            StatTile(icon: "paperplane.fill", value: String(offers.sent ?? 0), label: L("insights_stat_sent"))
-            StatTile(icon: "chart.line.uptrend.xyaxis", value: percent(offers.acceptRate), label: L("insights_stat_accept"))
+            InsightStatTile(icon: "paperplane.fill", value: String(offers.sent ?? 0), label: L("insights_stat_sent"))
+            InsightStatTile(icon: "chart.line.uptrend.xyaxis", value: percent(offers.acceptRate), label: L("insights_stat_accept"))
         }
         HStack(spacing: 10) {
-            StatTile(icon: "storefront.fill", value: String(services.received ?? 0), label: L("insights_services_received"))
-            StatTile(
+            InsightStatTile(icon: "storefront.fill", value: String(services.received ?? 0), label: L("insights_services_received"))
+            InsightStatTile(
                 icon: "star.fill",
                 value: reputation.rating.map { String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), $0) } ?? L("insights_rating_new"),
                 label: L("insights_stat_rating")
@@ -122,6 +122,7 @@ private struct InsightsBody: View {
         }
 
         ViewsCard(v: data.views ?? InsightViewsDto(), period: period)
+        if let saved = data.saved { SavedCard(s: saved) }
         OffersCard(o: offers)
         ServicesCard(s: services)
         EarningsCard(e: data.earnings ?? InsightEarningsDto(), dto: dto)
@@ -174,7 +175,8 @@ private struct Hero: View {
     }
 }
 
-private struct StatTile: View {
+/// InsightsScreen.kt's private `StatTile` (renamed: the new kit has its own `StatTile`).
+private struct InsightStatTile: View {
     @Environment(\.wa) private var wa
     let icon: String
     let value: String
@@ -390,6 +392,24 @@ private struct UnevenTopBar: Shape {
         p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         p.closeSubpath()
         return p
+    }
+}
+
+/// FS-103: how many client lists I am in - a number, how many were added in the period, and that who is never shown.
+private struct SavedCard: View {
+    @Environment(\.wa) private var wa
+    let s: InsightSavedDto
+
+    var body: some View {
+        let lists = s.lists ?? 0
+        let added = s.new ?? 0
+        InfoCard(title: L("insights_saved_title"), icon: "bookmark.fill") {
+            Text(verbatim: "\(lists)").font(.dorr(30, .heavy)).foregroundStyle(wa.settingsInk).environment(\.layoutDirection, .leftToRight)
+            if added > 0 {
+                SvcPill(text: L("insights_saved_new", added), tone: SvcTone(ink: Color(hex: 0x16A34A), fill: Color(hex: 0x16A34A).opacity(0.12)))
+            }
+            Text(L("insights_saved_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+        }
     }
 }
 

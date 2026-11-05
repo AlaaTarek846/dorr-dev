@@ -332,6 +332,7 @@ class AdminPermissionSeeder extends Seeder
             // Freelance (docs/freelance_tasks.md).
             'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-checklist-templates' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -347,6 +348,11 @@ class AdminPermissionSeeder extends Seeder
             'freelance-plans' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-services' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-consultations' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-loyalty' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-rights' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-community' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-promos' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
+            'freelance-special-offers' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-risk' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-audit' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.
@@ -366,6 +372,14 @@ class AdminPermissionSeeder extends Seeder
             'driver-services' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            // Provider establishments: review, vehicle types, documents asked (docs/moving_tasks.md A-11).
+            'provider-establishments' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'provider-vehicle-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
+            'provider-document-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
+            'moving-policies' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'moving-cases' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'moving-requests' => ['module_name' => 'moving', 'actions' => ['view']],
+            'moving-tickets' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).
             'sports-settings' => [
                 'module_name' => 'general_services',

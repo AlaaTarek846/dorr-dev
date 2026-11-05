@@ -5,7 +5,8 @@ import SwiftUI
 // FL-L07, paid consultations on the freelancer's side, listed like ready-made services: the hub (my consultations with their state, my
 // numbers, the bookings in three lists), the editor of one consultation (title, lengths with a price, weekly hours in my phone's time
 // zone, sent to the staff for review), and one booking (when, who, what about, the money, answering or cancelling). The session itself is
-// a video call (FL-L16), so there is no room. Everything is read when a page opens, when the connection returns and when a notice arrives —
+// a video call (FL-L16: ConsultationSessionCard / ConsultationSessionScreen). Everything is read when a page opens, when the connection
+// returns and when a notice arrives —
 // never on a timer; the countdowns read the phone's clock.
 
 private let DAYS = ["day_sun", "day_mon", "day_tue", "day_wed", "day_thu", "day_fri", "day_sat"]
@@ -85,10 +86,23 @@ struct ConsultationsScreen: View {
     let onBack: () -> Void
     let onOpenEditor: (String?) -> Void
     let onOpenConsultation: (String) -> Void
+    var embedded = false
+    var onSwitchStore: ((String) -> Void)?
+
+    init(onBack: @escaping () -> Void, onOpenEditor: @escaping (String?) -> Void, onOpenConsultation: @escaping (String) -> Void,
+         embedded: Bool = false, onSwitchStore: ((String) -> Void)? = nil) {
+        self.onBack = onBack
+        self.onOpenEditor = onOpenEditor
+        self.onOpenConsultation = onOpenConsultation
+        self.embedded = embedded
+        self.onSwitchStore = onSwitchStore
+        // Inside «My work» it opens on the bookings (the offers I sell are kept for the store); on its own page, on the offers.
+        _tab = State(initialValue: embedded ? "upcoming" : "offers")
+    }
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
-    @State private var tab = "offers"
+    @State private var tab: String
     @State private var pagedTab: String?
     @State private var info: ConsultationInfoDto?
     @State private var offers: [ConsultationOfferDto] = []
@@ -165,9 +179,10 @@ struct ConsultationsScreen: View {
     private struct LoadKey: Equatable { let tab: String; let tick: Int }
 
     var body: some View {
-        Page(title: L("cns_title"), onBack: onBack, onNearEnd: { if tab != "offers" { Task { await paged.loadMore() } } }) {
+        Page(title: L("cns_title"), onBack: onBack, onNearEnd: { if tab != "offers" { Task { await paged.loadMore() } } }, embedded: embedded) {
+            if !embedded, let onSwitchStore { StoreSwitcher(current: "consultations", onOpen: onSwitchStore) }
             if let s = info {
-                HubHero(s: s, openNow: offers.filter { $0.live ?? false }.count, onNew: { onOpenEditor(nil) })
+                if !embedded { HubHero(s: s, openNow: offers.filter { $0.live ?? false }.count, onNew: { onOpenEditor(nil) }) }
                 if (s.stats?.pending ?? 0) > 0 {
                     Notice(icon: "bell.badge.fill", text: L("cns_pending_banner", s.stats?.pending ?? 0), tone: phaseTone("pending", wa))
                 }
@@ -175,8 +190,9 @@ struct ConsultationsScreen: View {
                     Notice(icon: "info.circle.fill", text: L("cns_feature_off"), tone: serviceTone("pending_review", night: wa.night))
                 }
             }
-            Segmented(options: HUB_TABS.map { ($0, tabLabel($0)) }, selected: tab,
-                      marks: (info?.stats?.pending ?? 0) > 0 ? ["upcoming"] : []) { tab = $0 }
+            let pendingNow = (info?.stats?.pending ?? 0) > 0
+            let order = embedded ? HUB_TABS.filter { $0 != "offers" } + ["offers"] : HUB_TABS
+            FilterChips(options: order.map { FilterOption(key: $0, label: tabLabel($0), dot: $0 == "upcoming" && pendingNow) }, selected: tab) { tab = $0 }
             if tab == "offers" {
                 if !offersLoaded && error == nil {
                     SkeletonList()
@@ -220,75 +236,37 @@ struct ConsultationsScreen: View {
                 await reloadPaged()
             }
         }
-        .alert(L("cns_delete_title"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { o in
-            Button(L("common_cancel"), role: .cancel) { deleting = nil }
-            Button(L("common_delete"), role: .destructive) { delete(o) }
-        } message: { o in
-            Text(L("cns_delete_body", o.title ?? ""))
+        .dorrDialog(isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            if let o = deleting {
+                ConfirmDialog(icon: "trash.fill", title: L("cns_delete_title"), message: L("cns_delete_body", o.title ?? ""),
+                              confirmLabel: L("common_delete"), onConfirm: { delete(o) }, onDismiss: { deleting = nil })
+            }
         }
     }
 }
 
 /// The top of the hub: how many I have open, my numbers, and a new consultation.
 private struct HubHero: View {
-    @Environment(\.wa) private var wa
     let s: ConsultationInfoDto
     let openNow: Int
     let onNew: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Image(systemName: "video.fill").font(.system(size: 19)).foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(L("cns_hero_title")).font(.dorr(17, .heavy)).foregroundStyle(.white).lineLimit(1)
-                    HStack(spacing: 6) {
-                        Circle().fill(openNow > 0 ? Color(hex: 0x86EFAC) : Color.white.opacity(0.5)).frame(width: 8, height: 8)
-                        Text(openNow > 0 ? L("cns_open_n", openNow) : L("cns_open_none")).font(.dorr(12, .semibold)).foregroundStyle(.white.opacity(0.92))
-                    }
+        StoreHero(
+            icon: "video.fill", title: L("cns_hero_title"), body: nil,
+            numbers: [
+                HeroNumber(value: "\(s.stats?.upcoming ?? 0)", label: L("cns_stat_upcoming")),
+                HeroNumber(value: "\(s.stats?.completed ?? 0)", label: L("cns_stat_done")),
+                HeroNumber(value: svcMoney(s.stats?.earnedMinor ?? 0, s.decimals ?? 2, nil), label: L("cns_stat_earned", s.currency ?? ""), weight: 1.3),
+            ],
+            status: AnyView(
+                HStack(spacing: 6) {
+                    Circle().fill(openNow > 0 ? Color(hex: 0x86EFAC) : Color.white.opacity(0.5)).frame(width: 8, height: 8)
+                    Text(openNow > 0 ? L("cns_open_n", openNow) : L("cns_open_none")).font(.dorr(12, .semibold)).foregroundStyle(.white.opacity(0.92))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            HStack(spacing: 8) {
-                HeroStat(value: "\(s.stats?.upcoming ?? 0)", label: L("cns_stat_upcoming"))
-                HeroStat(value: "\(s.stats?.completed ?? 0)", label: L("cns_stat_done"))
-                HeroStat(value: svcMoney(s.stats?.earnedMinor ?? 0, s.decimals ?? 2, nil), label: L("cns_stat_earned", s.currency ?? ""))
-                    .layoutPriority(1)
-            }
-            Button(action: onNew) {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus").font(.system(size: 15, weight: .bold))
-                    Text(L("cns_new_offer")).font(.dorr(14, .heavy))
-                }
-                .foregroundStyle(wa.red)
-                .frame(maxWidth: .infinity, minHeight: 46)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(18)
-        .frame(maxWidth: 520, alignment: .leading)
-        .background(LinearGradient(colors: [wa.red, wa.red.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct HeroStat: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Text(verbatim: value).font(.dorr(17, .heavy)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
-            Text(verbatim: label).font(.dorr(11)).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            ),
+            action: L("cns_new_offer"), actionIcon: "plus", onAction: onNew
+        )
     }
 }
 
@@ -589,33 +567,28 @@ struct ConsultationEditorScreen: View {
         .task(id: network.reconnectTick) { await start() }
         .dorrDialog(isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } })) {
             if let p = picking {
-                DialogCard {
-                    VStack(spacing: 12) {
-                        Text(L(p.isFrom ? "cns_pick_from" : "cns_pick_to")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                AlertDialog(
+                    onDismissRequest: { picking = nil },
+                    title: { Text(L(p.isFrom ? "cns_pick_from" : "cns_pick_to")) },
+                    text: {
                         DatePicker("", selection: $pickedTime, displayedComponents: .hourAndMinute)
                             .datePickerStyle(.wheel)
                             .labelsHidden()
                             .environment(\.locale, Locale(identifier: "en_GB"))
                             .tint(wa.red)
-                        HStack {
-                            Spacer()
-                            Button(L("common_cancel")) { picking = nil }.foregroundStyle(wa.settingsMut)
-                            Button(L("common_ok")) {
-                                let c = Calendar.current.dateComponents([.hour, .minute], from: pickedTime)
-                                let v = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
-                                if let i = week[p.day].firstIndex(where: { $0.id == p.id }) {
-                                    if p.isFrom { week[p.day][i].from = v } else { week[p.day][i].to = v }
-                                }
-                                picking = nil
+                    },
+                    confirmButton: {
+                        DialogButton(onClick: {
+                            let c = Calendar.current.dateComponents([.hour, .minute], from: pickedTime)
+                            let v = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+                            if let i = week[p.day].firstIndex(where: { $0.id == p.id }) {
+                                if p.isFrom { week[p.day][i].from = v } else { week[p.day][i].to = v }
                             }
-                            .foregroundStyle(wa.red)
-                            .padding(.leading, 12)
-                        }
-                        .font(.dorr(15, .bold))
-                    }
-                    .padding(16)
-                }
+                            picking = nil
+                        }) { Text(L("common_ok")).font(.dorr(15, .bold)) }
+                    },
+                    dismissButton: { DialogButton(onClick: { picking = nil }) { Text(L("common_cancel")) } }
+                )
             }
         }
     }
@@ -831,6 +804,7 @@ private struct TimeChip: View {
 struct ConsultationScreen: View {
     let uuid: String
     let onBack: () -> Void
+    var onOpenSession: (String) -> Void = { _ in }
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
@@ -899,26 +873,24 @@ struct ConsultationScreen: View {
         .task(id: network.reconnectTick) { await load() }
         .onReceive(Realtime.shared.changed) { Task { await load() } }
         .dorrDialog(isPresented: Binding(get: { cancelling || declining }, set: { if !$0 && !busy { cancelling = false; declining = false } })) {
-            DialogCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(L(declining ? "cns_decline_title" : "cns_cancel_title")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
-                    Text(L(declining ? "cns_decline_body" : "cns_cancel_body")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3)
-                    DorrTextField(value: Binding(get: { reason }, set: { reason = String($0.prefix(500)) }), label: L("cns_cancel_reason"),
-                                  singleLine: false, minLines: 2)
-                    HStack {
-                        Spacer()
-                        Button(L("common_cancel")) { cancelling = false; declining = false }.foregroundStyle(wa.settingsMut).disabled(busy)
-                        Button(action: confirmAnswer) {
-                            Text(L(declining ? "cns_decline_confirm" : "cns_cancel_confirm")).foregroundStyle(serviceTone("rejected", night: wa.night).ink)
-                        }
-                        .disabled(busy)
-                        .padding(.leading, 12)
+            AlertDialog(
+                onDismissRequest: { if !busy { cancelling = false; declining = false } },
+                title: { Text(L(declining ? "cns_decline_title" : "cns_cancel_title")) },
+                text: {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L(declining ? "cns_decline_body" : "cns_cancel_body")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+                        DorrTextField(value: Binding(get: { reason }, set: { reason = String($0.prefix(500)) }), label: L("cns_cancel_reason"),
+                                      singleLine: false, minLines: 2)
                     }
-                    .font(.dorr(15, .bold))
-                    .padding(.top, 4)
-                }
-                .padding(18)
-            }
+                },
+                confirmButton: {
+                    DialogButton(onClick: confirmAnswer, enabled: !busy) {
+                        Text(L(declining ? "cns_decline_confirm" : "cns_cancel_confirm"))
+                            .foregroundStyle(serviceTone("rejected", night: wa.night).ink).font(.dorr(15, .bold))
+                    }
+                },
+                dismissButton: { DialogButton(onClick: { cancelling = false; declining = false }, enabled: !busy) { Text(L("common_cancel")) } }
+            )
         }
     }
 
@@ -941,8 +913,12 @@ struct ConsultationScreen: View {
             MoneyLine(label: L("svo_net"), amount: svcMoney(x.money?.netMinor ?? 0, decimals, x.currency), strong: true)
         }
         StateNotes(c: x)
+        // FL-L16: the video session — the countdown, "join", who is in, and the recordings afterwards.
+        ConsultationSessionCard(c: x) { if let id = x.uuid { onOpenSession(id) } }
         ClientRating(c: x)
         if x.can?.accept ?? false {
+            // Accepting a request is agreeing to the recording (FL-L16).
+            SessionConsentLine()
             SettingsPrimaryButton(text: L("cns_accept"), enabled: !busy, action: accept).frame(maxWidth: 520).frame(maxWidth: .infinity)
         }
         let canDecline = x.can?.decline ?? false

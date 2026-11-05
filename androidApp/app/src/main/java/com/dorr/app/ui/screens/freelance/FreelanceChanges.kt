@@ -36,6 +36,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import com.dorr.app.network.changeEffect
 import com.dorr.app.R
 import com.dorr.app.network.FreelanceChangeDto
 import com.dorr.app.network.FreelanceChangeRequest
@@ -46,6 +55,10 @@ import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
 
 private fun num(v: Any?): Long = (v as? Number)?.toLong() ?: 0L
+
+/** FS-101: what a change request may carry. */
+private const val MAX_CHANGE_FILES = 3
+private const val MAX_CHANGE_FILE_BYTES = 10L * 1024 * 1024
 
 /** What a change does, in one line. */
 @Composable
@@ -78,12 +91,14 @@ private fun changeStatus(status: String): String = stringResource(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ChangesCard(
+    projectUuid: String,
     changes: List<FreelanceChangeDto>,
     milestones: List<FreelanceMilestoneDto>,
     currency: String,
     canAsk: Boolean,
     busy: Boolean,
-    onAsk: (FreelanceChangeRequest) -> Unit,
+    /** FS-101: the request and the files picked for it (none: a plain JSON request). */
+    onAsk: (FreelanceChangeRequest, List<Uri>) -> Unit,
     onAnswer: (String, String) -> Unit,
 ) {
     var asking by remember { mutableStateOf(false) }
@@ -96,6 +111,20 @@ internal fun ChangesCard(
     var includes by remember { mutableStateOf("") }
     var excludes by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
+    // FS-101: up to three files go with the request (10 MB each; the server checks the kinds).
+    val files = remember { mutableStateListOf<Pair<Uri, String>>() }
+    val context = LocalContext.current
+    val launcher = rememberCoroutineScope()
+    val tooBig = stringResource(R.string.fs_ch_file_too_big)
+    val openFailed = stringResource(R.string.fl_dl_open_failed)
+    var fileError by remember { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null || files.size >= MAX_CHANGE_FILES) return@rememberLauncherForActivityResult
+        val (name, size) = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst()) (c.getString(0) ?: "file") to (if (c.isNull(1)) 0L else c.getLong(1)) else null
+        } ?: ("file" to 0L)
+        if (size > MAX_CHANGE_FILE_BYTES) fileError = tooBig else { fileError = null; files.add(uri to name) }
+    }
 
     Card(Icons.Rounded.SwapHoriz, stringResource(R.string.fl_ch_title)) {
         if (changes.isEmpty()) Text(stringResource(R.string.fl_ch_none), color = settingsMut(), fontSize = 12.sp)
@@ -104,10 +133,38 @@ internal fun ChangesCard(
                 Text(changeText(c, currency), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(stringResource(if (c.mine) R.string.fl_ch_by_me else R.string.fl_ch_by_them) + "  ·  " + changeStatus(c.status), color = settingsMut(), fontSize = 11.sp)
                 c.reason?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (c.can.accept) TextAction(stringResource(R.string.fl_ch_accept)) { onAnswer(c.uuid, "accept") }
-                    if (c.can.reject) TextAction(stringResource(R.string.fl_ch_reject), danger = true) { onAnswer(c.uuid, "reject") }
-                    if (c.can.withdraw) TextAction(stringResource(R.string.fl_ch_withdraw)) { onAnswer(c.uuid, "withdraw") }
+                // FS-101: an accepted change is an addendum: its number, the version reached and what moved.
+                c.addendumNo?.let { n ->
+                    Text(
+                        stringResource(R.string.fs_ch_addendum, n) + (c.appliedVersion?.let { "  ·  " + stringResource(R.string.fs_ch_version, it) } ?: ""),
+                        color = Color(0xFF16A34A), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    )
+                }
+                c.changeEffect().forEach { e ->
+                    Text(
+                        when (e.key) {
+                            "price_minor" -> stringResource(R.string.fs_ch_eff_price, "‎${money(e.before)} $currency", "‎${money(e.after)} $currency")
+                            "duration_days" -> stringResource(R.string.fs_ch_eff_days, e.before.toInt(), e.after.toInt())
+                            else -> stringResource(R.string.fs_ch_eff_parts, e.before.toInt(), e.after.toInt())
+                        },
+                        color = settingsInk(), fontSize = 12.sp,
+                    )
+                }
+                if (c.status == "pending") c.respondBy?.let { at ->
+                    FlNotice(stringResource(R.string.fs_ch_respond_by, com.dorr.app.ui.screens.rides.localDateTime(at)), Icons.Rounded.Schedule, Color(0xFFD97706))
+                }
+                if (c.files.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    c.files.forEach { f ->
+                        Chip(f.name, selected = false, icon = Icons.Rounded.AttachFile) {
+                            launcher.launch { if (!openFile(context, f.copy(path = f.path?.let { "projects/$projectUuid/$it" }))) fileError = openFailed }
+                        }
+                    }
+                }
+                // Side by side, each its share of the width (a full-width button in a plain row squeezed the others out).
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (c.can.accept) TextAction(stringResource(R.string.fl_ch_accept), modifier = Modifier.weight(1f)) { onAnswer(c.uuid, "accept") }
+                    if (c.can.reject) TextAction(stringResource(R.string.fl_ch_reject), danger = true, modifier = Modifier.weight(1f)) { onAnswer(c.uuid, "reject") }
+                    if (c.can.withdraw) TextAction(stringResource(R.string.fl_ch_withdraw), modifier = Modifier.weight(1f)) { onAnswer(c.uuid, "withdraw") }
                 }
             }
         }
@@ -148,14 +205,20 @@ internal fun ChangesCard(
                 }
             }
             DorrTextField(reason, { reason = it.take(1000) }, label = stringResource(R.string.fl_ch_reason), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth())
+            // FS-101: the files that explain the change.
+            if (files.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                files.forEachIndexed { i, (_, name) -> Chip(name, selected = false, icon = Icons.Rounded.Close) { files.removeAt(i) } }
+            }
+            if (files.size < MAX_CHANGE_FILES) TextAction(stringResource(R.string.fs_ch_attach, files.size, MAX_CHANGE_FILES), icon = Icons.Rounded.AttachFile) { picker.launch("*/*") }
+            Text(stringResource(R.string.fs_ch_attach_hint), color = settingsMut(), fontSize = 11.sp)
             val ready = when (type) {
                 "extend_days" -> (days.toIntOrNull() ?: 0) > 0
                 "milestone_price" -> part != null && parseMoney(amount) != null
                 "add_milestone" -> title.isNotBlank() && parseMoney(amount) != null
                 else -> scope.isNotBlank() || includes.isNotBlank() || excludes.isNotBlank()
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TextAction(stringResource(R.string.fl_ch_send)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlAction(stringResource(R.string.fl_ch_send), tone = FlTone.Primary, enabled = ready && !busy, modifier = Modifier.weight(1.4f)) {
                     if (ready && !busy) {
                         onAsk(FreelanceChangeRequest(
                             type = type, milestone = part, days = days.toIntOrNull(), amountMinor = parseMoney(amount), title = title.trim().ifBlank { null },
@@ -163,13 +226,14 @@ internal fun ChangesCard(
                             includes = if (type == "scope") includes.trim().ifBlank { null } else null,
                             excludes = if (type == "scope") excludes.trim().ifBlank { null } else null,
                             reason = reason.trim().ifBlank { null },
-                        ))
-                        asking = false; days = ""; amount = ""; title = ""; scope = ""; includes = ""; excludes = ""; reason = ""
+                        ), files.map { it.first })
+                        asking = false; days = ""; amount = ""; title = ""; scope = ""; includes = ""; excludes = ""; reason = ""; files.clear()
                     }
                 }
-                TextAction(stringResource(R.string.fl_not_now)) { asking = false }
+                TextAction(stringResource(R.string.fl_not_now), modifier = Modifier.weight(1f)) { asking = false }
             }
             if (!ready) Text(stringResource(R.string.fl_ch_fill), color = Color(0xFFD97706), fontSize = 11.sp)
         }
+        fileError?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
     }
 }

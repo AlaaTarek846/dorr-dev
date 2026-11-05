@@ -37,7 +37,8 @@ import com.dorr.freelance.ui.kit.settingsSurface
  * list: it is called when the bottom comes near (see [NearEndEffect]).
  */
 @Composable
-fun Page(title: String, onBack: () -> Unit, onNearEnd: (() -> Unit)? = null, content: @Composable () -> Unit) {
+fun Page(title: String, onBack: () -> Unit, onNearEnd: (() -> Unit)? = null, embedded: Boolean = false, content: @Composable () -> Unit) {
+    if (embedded) return EmbeddedPage(onNearEnd, content)
     val scroll = rememberScrollState()
     NearEndEffect(scroll, onNearEnd)
     Box(Modifier.fillMaxSize()) {
@@ -89,7 +90,8 @@ fun EmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Str
 
 /** A tab page: its title (no back arrow) over the content, which scrolls and asks for more near the bottom. */
 @Composable
-fun TabPage(title: String, onBack: (() -> Unit)? = null, onNearEnd: (() -> Unit)? = null, content: @Composable () -> Unit) {
+fun TabPage(title: String, onBack: (() -> Unit)? = null, onNearEnd: (() -> Unit)? = null, embedded: Boolean = false, content: @Composable () -> Unit) {
+    if (embedded) return EmbeddedPage(onNearEnd, content)
     val scroll = rememberScrollState()
     NearEndEffect(scroll, onNearEnd)
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(bottom = 16.dp)) {
@@ -98,6 +100,20 @@ fun TabPage(title: String, onBack: (() -> Unit)? = null, onNearEnd: (() -> Unit)
         else Column(Modifier.padding(horizontal = 14.dp).padding(top = 14.dp)) { com.dorr.freelance.ui.kit.SettingsScreenTitle(title) }
         Column(Modifier.padding(horizontal = 14.dp).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
+}
+
+/**
+ * A page drawn inside a tab of the bar under the tab's own title and parts (the hub tabs): no title or back button of its own, just the
+ * scrolling column, asking for more near the bottom.
+ */
+@Composable
+fun EmbeddedPage(onNearEnd: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    val scroll = rememberScrollState()
+    NearEndEffect(scroll, onNearEnd)
+    Column(
+        Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) { content() }
 }
 
 /** The head of a form (as in the user app): an icon on a soft tile, a title and a line saying what the form is for. */

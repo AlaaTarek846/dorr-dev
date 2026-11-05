@@ -60,7 +60,7 @@ class FreelanceServiceAdminController extends Controller implements HasMiddlewar
         return ApiResponse::success([
             'services' => $page->getCollection()->map(fn (Service $s) => [
                 'uuid' => $s->uuid, 'title' => $s->title, 'status' => $s->status, 'status_label' => __('freelance.service_statuses.'.$s->status),
-                'starting_price_minor' => $s->tiers->first()?->price_minor, 'currency' => $s->currency_code, 'decimals' => (int) ($s->country?->currency?->decimal_places ?? 2),
+                'starting_price_minor' => $s->tiers->first()?->price_minor, 'currency' => $s->currency_code, 'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
                 'levels' => $s->tiers->count(), 'country' => $s->country?->code, 'billing' => $s->billing,
                 'specialty' => $s->specialty?->translations->firstWhere('locale', app()->getLocale())?->name ?? $s->specialty?->translations->first()?->name,
                 'freelancer' => ['id' => $s->freelancer?->id, 'name' => $s->freelancer?->name, 'phone' => $s->freelancer?->phone],

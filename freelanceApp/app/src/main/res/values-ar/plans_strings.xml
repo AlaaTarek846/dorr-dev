@@ -31,7 +31,7 @@
     <string name="plans_offers_n">%1$d عرض مجاني في الشهر</string>
     <string name="plans_offers_unlimited">عروض بلا حد</string>
     <string name="plans_commission">عمولة %1$s%%</string>
-    <string name="plans_commission_country">العمولة العادية لبلدك</string>
+    <string name="plans_commission_country">العمولة العادية</string>
     <string name="plans_trial">%1$d يوم تجربة مجانية</string>
     <string name="plans_btn_trial">جرّب %1$d يوم مجانًا</string>
     <string name="plans_btn_subscribe">اشترك</string>
@@ -44,6 +44,7 @@
     <string name="plans_confirm_ok">تأكيد</string>
     <string name="plans_done">تمام</string>
     <string name="plans_wallet_topup">اشحن المحفظة</string>
+    <string name="plans_short_go_wallet">رصيدك مش كفاية: اشحن المحفظة وبعدين جرّب تاني.</string>
     <string name="plans_invoices">الفواتير</string>
     <string name="plans_invoices_none">مفيش فواتير لسه.</string>
     <string name="plans_invoice_purchase">اشتراك</string>

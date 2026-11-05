@@ -16,11 +16,14 @@ use Modules\Chat\Models\ChatCalendarItem;
 use Modules\Chat\Services\CalendarService;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceConsultation as Consultation;
+use Modules\Freelance\Models\FreelanceSpecialOffer;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Chat\FreelanceChatService;
 use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Offers\Loyalty;
 use Modules\Freelance\Services\Offers\OfferChecks;
+use Modules\Freelance\Services\Offers\SpecialOffers;
 use Modules\Freelance\Services\Policy\FreelanceLedger;
 use Modules\Freelance\Services\Projects\FreelanceEarnings;
 use Modules\User\Models\User;
@@ -28,6 +31,7 @@ use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletHoldStatus;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Models\WalletHold;
+use Modules\Freelance\Services\Policy\FreelanceMoney;
 use Modules\Wallet\Services\WalletService;
 use Throwable;
 
@@ -67,10 +71,19 @@ class Consultations
 
     // -------------------------------------------------------------- booking
 
-    /** @param  array{offer: string, minutes: int, starts_at: string, topic: string, request_id?: ?string}  $data */
-    public function book(User $client, array $data): Consultation
+    /**
+     * FL-L09: booked through the freelancer's special offer, the price is the discounted one and the time is taken at once — the offer is
+     * the freelancer's yes — so the booking is confirmed without waiting for them, and the other requests for those hours go back.
+     *
+     * @param  array{offer: string, minutes: int, starts_at: string, topic: string, request_id?: ?string}  $data
+     */
+    public function book(User $client, array $data, ?FreelanceSpecialOffer $special = null): Consultation
     {
         app(Sanctions::class)->assertAllowed($client, 'work');
+        // FL-L16: the session is recorded to protect both sides; no yes, no booking.
+        if (empty($data['recording_consent'])) {
+            throw new FreelanceException('consultation_recording_consent_required', 422);
+        }
         $requestId = isset($data['request_id']) ? (string) $data['request_id'] : null;
         if ($requestId !== null && ($same = $this->sameTap($client, $requestId)) !== null) {
             return $same;
@@ -79,32 +92,53 @@ class Consultations
         $f = $offer->freelancer;
         $minutes = (int) $data['minutes'];
         $price = $offer->priceFor($minutes) ?? throw new FreelanceException('consultation_length_unknown', 422);
+        // FL-L09: a special offer's price is the freelancer's own word, so loyalty is never put on top of it; otherwise the step the
+        // client holds with this freelancer comes off the length's price.
+        $deal = ['list_price_minor' => null, 'loyalty_bp' => null];
+        if ($special !== null) {
+            $price = SpecialOffers::discounted($price, (int) $special->discount_bp);
+        } else {
+            $deal = app(Loyalty::class)->apply($f, (int) $client->id, $price);
+            $price = $deal['price_minor'];
+        }
         $start = CarbonImmutable::parse((string) $data['starts_at'])->utc()->startOfMinute();
         $topic = trim(strip_tags((string) $data['topic']));
         // No way to reach each other outside Dorr (FL-308).
         app(OfferChecks::class)->assertNoContact($topic);
 
+        $taken = collect();
         try {
-            $c = DB::transaction(function () use ($client, $offer, $f, $minutes, $price, $start, $topic, $requestId) {
+            $c = DB::transaction(function () use ($client, $offer, $f, $minutes, $price, $deal, $start, $topic, $requestId, $special, &$taken) {
                 // One booking at a time for this freelancer: the time is checked and taken together.
                 Freelancer::query()->whereKey($f->id)->lockForUpdate()->first();
                 if (! $this->offers->isFree($offer, $minutes, $start)) {
                     throw new FreelanceException('consultation_slot_taken', 409);
                 }
+                if ($special !== null) {
+                    app(SpecialOffers::class)->claim($special, $client);
+                }
                 $cost = $this->offers->cost($f, $price);
                 $earn = $this->offers->earn($f, $price);
                 $rules = $this->offers->rules((int) $f->country_id);
-                $country = Country::query()->with('currency')->findOrFail((int) $f->country_id);
+                $country = Country::query()->findOrFail((int) $f->country_id);
                 $c = Consultation::query()->create([
                     'freelancer_id' => $f->id, 'offer_id' => $offer->id, 'client_id' => $client->id, 'country_id' => $country->id, 'request_id' => $requestId,
                     'minutes' => $minutes, 'starts_at' => $start, 'ends_at' => $start->addMinutes($minutes), 'topic' => $topic,
-                    'title' => $offer->title, 'price_minor' => $cost['price_minor'], 'client_fee_minor' => $cost['client_fee_minor'],
-                    'commission_minor' => $earn['commission_minor'], 'net_minor' => $earn['net_minor'], 'currency_code' => (string) $country->currency?->code,
-                    'policy' => $rules, 'status' => Consultation::PENDING,
+                    'title' => $offer->title, 'price_minor' => $cost['price_minor'], 'list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'],
+                    'client_fee_minor' => $cost['client_fee_minor'],
+                    'commission_minor' => $earn['commission_minor'], 'net_minor' => $earn['net_minor'], 'currency_code' => $this->fm()->code(),
+                    'policy' => $rules, 'status' => $special === null ? Consultation::PENDING : Consultation::BOOKED,
                     // Answered before the start at the latest.
-                    'respond_by' => min(now()->addHours($rules['response_hours']), $start),
+                    'respond_by' => $special === null ? min(now()->addHours($rules['response_hours']), $start) : null,
+                    'accepted_at' => $special === null ? null : now(),
+                    // FL-L16: both agreed to the recording — the client now, the freelancer when accepting (a special offer is their yes).
+                    'recording_consent_at' => now(), 'freelancer_consent_at' => $special === null ? null : now(),
                 ]);
-                $this->hold($c, $client, $country);
+                $this->hold($c, $client);
+                if ($special !== null) {
+                    $taken = $this->declineOthers($c, $f);
+                    app(SpecialOffers::class)->accepted($special, ['consultation_id' => $c->id]);
+                }
 
                 return $c;
             });
@@ -116,7 +150,14 @@ class Consultations
             throw $e;
         }
 
-        $this->tell($c, 'freelancer', 'consultation.requested', ['minutes' => $c->minutes]);
+        if ($special === null) {
+            $this->tell($c, 'freelancer', 'consultation.requested', ['minutes' => $c->minutes]);
+        } else {
+            $this->addToCalendar($c, $client);
+            foreach ($taken as $other) {
+                $this->tell($other, 'client', 'consultation.declined');
+            }
+        }
 
         return $c->load(['freelancer.media', 'client']);
     }
@@ -139,13 +180,8 @@ class Consultations
             if ($this->offers->overlapping($f, $start, $end, self::TAKING, $c->id)->exists()) {
                 throw new FreelanceException('consultation_slot_taken', 409);
             }
-            $c->fill(['status' => Consultation::BOOKED, 'accepted_at' => now(), 'respond_by' => null])->save();
-            $taken = $this->offers->overlapping($f, $start, $end, [Consultation::PENDING], $c->id)->lockForUpdate()->with(['freelancer', 'client'])->get();
-            foreach ($taken as $other) {
-                $other->fill(['status' => Consultation::DECLINED, 'cancelled_by' => 'system', 'cancel_reason' => 'taken', 'cancelled_at' => now(), 'respond_by' => null]);
-                $this->refund($other, 'freelance_consultation_declined');
-                $other->save();
-            }
+            $c->fill(['status' => Consultation::BOOKED, 'accepted_at' => now(), 'respond_by' => null, 'freelancer_consent_at' => now()])->save();
+            $taken = $this->declineOthers($c, $f);
 
             return $c;
         });
@@ -157,6 +193,24 @@ class Consultations
         }
 
         return $this->fresh($c);
+    }
+
+    /**
+     * Inside the transaction that took a time: the other pending requests for those hours are declined and given back.
+     *
+     * @return Collection<int, Consultation>
+     */
+    private function declineOthers(Consultation $c, Freelancer $f): Collection
+    {
+        $taken = $this->offers->overlapping($f, CarbonImmutable::instance($c->starts_at), CarbonImmutable::instance($c->ends_at), [Consultation::PENDING], $c->id)
+            ->lockForUpdate()->with(['freelancer', 'client'])->get();
+        foreach ($taken as $other) {
+            $other->fill(['status' => Consultation::DECLINED, 'cancelled_by' => 'system', 'cancel_reason' => 'taken', 'cancelled_at' => now(), 'respond_by' => null]);
+            $this->refund($other, 'freelance_consultation_declined');
+            $other->save();
+        }
+
+        return $taken;
     }
 
     /** The freelancer says no: everything goes back to the client. */
@@ -246,7 +300,8 @@ class Consultations
             if ($c->status !== Consultation::BOOKED || $c->starts_at->isFuture() || now()->gte($c->releaseAt())) {
                 throw new FreelanceException('consultation_invalid_state', 409);
             }
-            $c->fill(['status' => Consultation::DISPUTED, 'complaint' => $text, 'complained_at' => now()])->save();
+            // FL-L16: the recordings stay until the staff decide.
+            $c->fill(['status' => Consultation::DISPUTED, 'complaint' => $text, 'complained_at' => now(), 'recordings_delete_at' => null])->save();
 
             return $c;
         });
@@ -269,6 +324,10 @@ class Consultations
                 throw new FreelanceException('consultation_invalid_state', 409);
             }
             $c->fill(['resolution' => $decision, 'resolution_note' => $note, 'resolved_by' => $adminId, 'resolved_at' => now()]);
+            // FL-L16: the recordings go a week after the decision.
+            if ($c->recordings_deleted_at === null) {
+                $c->recordings_delete_at = now()->addDays((int) config('freelance.sessions.keep_days', 7));
+            }
             if ($decision === 'pay') {
                 $c->status = Consultation::COMPLETED;
                 $this->payOut($c, 'dispute');
@@ -423,7 +482,7 @@ class Consultations
     public function present(Consultation $c, string $side): array
     {
         $phase = $c->phase();
-        $decimals = (int) (Country::query()->with('currency')->find($c->country_id)?->currency?->decimal_places ?? 2);
+        $decimals = $this->fm()->decimals();
         $started = ! $c->starts_at->isFuture();
         $booked = $c->status === Consultation::BOOKED;
         $pending = $c->status === Consultation::PENDING && ! $started;
@@ -440,6 +499,10 @@ class Consultations
             'topic' => $c->topic,
             'currency' => $c->currency_code,
             'decimals' => $decimals,
+            // FL-L09: the length's usual price and the loyalty discount taken off it (null: none).
+            'list_price_minor' => $c->list_price_minor,
+            'loyalty_bp' => $c->loyalty_bp,
+            'saving_minor' => $c->list_price_minor === null ? null : max(0, $c->list_price_minor - $c->price_minor),
             'money' => match ($side) {
                 'client' => ['price_minor' => $c->price_minor, 'client_fee_minor' => $c->client_fee_minor, 'total_minor' => $c->totalMinor()],
                 'freelancer' => ['price_minor' => $c->price_minor, 'commission_minor' => $c->commission_minor, 'net_minor' => $c->net_minor],
@@ -467,6 +530,8 @@ class Consultations
             'confirmed_at' => $c->confirmed_at?->toIso8601String(),
             'settled_at' => $c->settled_at?->toIso8601String(),
             'refunded_at' => $c->refunded_at?->toIso8601String(),
+            // FL-L16: the video session (the staff's view adds its links in the admin page).
+            'session' => $side === 'staff' ? null : app(ConsultationSessions::class)->presentFor($c, $side),
             // The client's stars once it is over: they may rate it, and the freelancer reads it.
             'review' => app(ConsultationReviews::class)->present($c, $side),
             'can' => match ($side) {
@@ -486,9 +551,10 @@ class Consultations
 
     // -------------------------------------------------------------- money
 
-    private function hold(Consultation $c, User $client, Country $country): void
+    /** From the client's international wallet (`freelance.money`), whatever the countries. */
+    private function hold(Consultation $c, User $client): void
     {
-        $wallet = $this->wallets->firstOrCreateWallet($client, $country)->fresh(['currency']);
+        $wallet = $this->fm()->wallet($client);
         if (strtoupper((string) $wallet->currency?->code) !== strtoupper($c->currency_code)) {
             throw new FreelanceException('wallet_currency', 422, ['currency' => $c->currency_code], ['currency' => $c->currency_code]);
         }
@@ -528,7 +594,7 @@ class Consultations
         if ((int) $holds->sum('amount_minor') !== $c->totalMinor()) {
             throw new FreelanceException('consultation_not_held', 409);
         }
-        $country = Country::query()->with('currency')->findOrFail($c->country_id);
+        $country = Country::query()->findOrFail($c->country_id);
         $label = $c->label();
         $capture = null;
         foreach ($holds as $hold) {
@@ -540,8 +606,8 @@ class Consultations
         }
         $earning = app(FreelanceEarnings::class)->creditConsultation($c, $country, $c->net_minor, $why === 'dispute' ? 'dispute' : 'consultation', "freelance:consultation:{$c->uuid}:earning");
         $earningTx = $earning?->wallet_transaction_id === null ? null : \Modules\Wallet\Models\WalletTransaction::query()->find($earning->wallet_transaction_id);
-        $this->ledger->clientFee($c->client_fee_minor, $country->currency, $country, $c, $label, $capture);
-        $this->ledger->commission($c->commission_minor, $country->currency, $country, $c, $label, $earningTx);
+        $this->ledger->clientFee($c->client_fee_minor, $this->fm()->currency(), $country, $c, $label, $capture);
+        $this->ledger->commission($c->commission_minor, $this->fm()->currency(), $country, $c, $label, $earningTx);
         $c->settled_at = now();
     }
 
@@ -586,7 +652,7 @@ class Consultations
     }
 
     /** @param  array<string, scalar>  $extra */
-    private function tell(Consultation $c, string $audience, string $event, array $extra = []): void
+    public function tell(Consultation $c, string $audience, string $event, array $extra = []): void
     {
         $c->loadMissing(['client', 'freelancer', 'offer']);
         $receiver = $audience === 'client' ? $c->client : $c->freelancer;
@@ -636,5 +702,10 @@ class Consultations
     private function money(int $minor, Consultation $c): string
     {
         return number_format($minor / 100, 2).' '.$c->currency_code;
+    }
+
+    private function fm(): FreelanceMoney
+    {
+        return app(FreelanceMoney::class);
     }
 }

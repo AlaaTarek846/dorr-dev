@@ -50,8 +50,8 @@ class FreelanceSubscriptions
     {
         $country = $this->countryOf($freelancer);
         $enabled = $country !== null && $this->plans->enabled($country->id);
-        $currency = $country?->currency;
-        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'plans' => []];
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
+        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'plans' => []];
         if (! $enabled) {
             return $out;
         }
@@ -164,7 +164,7 @@ class FreelanceSubscriptions
                 $now = now();
                 $trial = $plan->trial_days > 0 && ! Subscription::query()->where('freelancer_id', $freelancer->id)->exists();
                 $sub = Subscription::query()->create([
-                    'freelancer_id' => $freelancer->id, 'plan_id' => $plan->id, 'country_id' => $country->id, 'currency_code' => (string) $country->currency?->code,
+                    'freelancer_id' => $freelancer->id, 'plan_id' => $plan->id, 'country_id' => $country->id, 'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
                     'period' => $period, 'price_minor' => $price, 'status' => $trial ? Subscription::TRIALING : Subscription::ACTIVE, 'auto_renew' => true,
                     'started_at' => $now, 'period_start' => $now, 'period_end' => $trial ? $now->copy()->addDays($plan->trial_days) : $this->addPeriod($now, $period),
                     'trial_ends_at' => $trial ? $now->copy()->addDays($plan->trial_days) : null,
@@ -472,12 +472,12 @@ class FreelanceSubscriptions
         $transaction = null;
 
         if ($amount > 0) {
-            $wallet = $this->wallets->firstOrCreateWallet($freelancer, $country)->fresh(['currency']);
+            $wallet = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->wallet($freelancer);
             $available = $wallet->spendableMinor();
             if ($available < $amount) {
                 throw new FreelanceException('subscription_insufficient', 422, [
                     'needed' => $this->money($amount, $country), 'available' => $this->money($available, $country),
-                ], ['needed_minor' => $amount, 'available_minor' => $available, 'shortfall_minor' => $amount - $available, 'currency' => $country->currency?->code]);
+                ], ['needed_minor' => $amount, 'available_minor' => $available, 'shortfall_minor' => $amount - $available, 'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code()]);
             }
             $label = $plan->text('name').' ('.__('freelance.plan_periods.'.$period).')';
             $transaction = $this->wallets->debitSpendOnlyFirst($wallet, $amount, WalletTransactionType::ServicePayment, [
@@ -488,11 +488,11 @@ class FreelanceSubscriptions
 
         $invoice = Invoice::query()->create([
             'uuid' => $uuid, 'subscription_id' => $sub->id, 'freelancer_id' => $freelancer->id, 'plan_id' => $plan->id, 'period' => $period,
-            'kind' => $kind, 'price_minor' => $price ?? ($amount + $credit), 'credit_minor' => $credit, 'amount_minor' => $amount, 'currency_code' => (string) $country->currency?->code,
+            'kind' => $kind, 'price_minor' => $price ?? ($amount + $credit), 'credit_minor' => $credit, 'amount_minor' => $amount, 'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
             'status' => Invoice::PAID, 'wallet_transaction_id' => $transaction?->id, 'period_start' => $from, 'period_end' => $to, 'paid_at' => now(),
         ]);
         if ($transaction instanceof WalletTransaction) {
-            $this->ledger->subscription($amount, $country->currency, $country, $invoice, (string) $plan->text('name'), $transaction);
+            $this->ledger->subscription($amount, app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency(), $country, $invoice, (string) $plan->text('name'), $transaction);
         }
 
         return $invoice;
@@ -506,7 +506,7 @@ class FreelanceSubscriptions
         }
         Invoice::query()->create([
             'subscription_id' => $sub->id, 'freelancer_id' => $freelancer->id, 'plan_id' => $plan->id, 'period' => $period, 'kind' => $kind, 'price_minor' => $price,
-            'credit_minor' => 0, 'amount_minor' => $price, 'currency_code' => (string) ($country?->currency?->code ?? $sub->currency_code), 'status' => Invoice::FAILED,
+            'credit_minor' => 0, 'amount_minor' => $price, 'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(), 'status' => Invoice::FAILED,
             'failure_code' => $e->errorCode,
         ]);
     }
@@ -531,9 +531,10 @@ class FreelanceSubscriptions
     }
 
     /** @return array<string, int> period => price in minor units (active prices only) */
-    private function pricesOf(FreelancePlan $plan, int $countryId): array
+    /** One price for the whole world, in the freelance currency (`freelance.money`): the rows on the international row. */
+    private function pricesOf(FreelancePlan $plan, ?int $countryId = null): array
     {
-        return FreelancePlanPrice::query()->where('plan_id', $plan->id)->where('country_id', $countryId)->where('status', true)->pluck('price_minor', 'period')->map(fn ($v) => (int) $v)->all();
+        return FreelancePlanPrice::query()->where('plan_id', $plan->id)->where('country_id', app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->where('status', true)->pluck('price_minor', 'period')->map(fn ($v) => (int) $v)->all();
     }
 
     private function isUpgrade(Subscription $sub, FreelancePlan $target, string $period): bool
@@ -580,9 +581,9 @@ class FreelanceSubscriptions
 
     private function money(int $minor, Country $country): string
     {
-        $decimals = (int) ($country->currency?->decimal_places ?? 2);
+        $decimals = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals();
 
-        return number_format($minor / (10 ** $decimals), $decimals).' '.$country->currency?->code;
+        return number_format($minor / (10 ** $decimals), $decimals).' '.app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code();
     }
 
     private function tell(Subscription $sub, string $event): void
