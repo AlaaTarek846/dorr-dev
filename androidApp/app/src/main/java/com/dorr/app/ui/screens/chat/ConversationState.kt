@@ -351,11 +351,12 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
 
     // ------------------------------------------------------------------ sending
 
-    fun send(out: Outgoing) {
+    /** [linkPreview]: the card of the message's link, already shown while typing — drawn with it at once. */
+    fun send(out: Outgoing, linkPreview: com.dorr.app.network.LinkPreviewDto? = null) {
         val uuid = UUID.randomUUID().toString()
         val me = AuthSession.user
         val optimistic = MessageDto(
-            id = uuid, conversationId = id, type = out.type, body = out.body,
+            id = uuid, conversationId = id, type = out.type, body = out.body, linkPreview = linkPreview,
             meta = out.extra.takeIf { it.isNotEmpty() }?.let { gson.toJsonTree(it).asJsonObject },
             attachments = emptyList(),
             sender = ProfileDto(type = "user", id = me?.id ?: 0, key = myKey(), name = me?.name, isMe = true),
@@ -602,10 +603,26 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     }
 
     fun deleteForMe(message: MessageDto) {
+        val index = messages.indexOfFirst { it.id == message.id }
+        val removed = messages.getOrNull(index)
         messages.removeAll { it.id == message.id }
         // An unsent one is simply dropped from the outbox (never sent).
         com.dorr.app.chat.ChatOutbox.sent(message.id)
-        scope.launch { runCatching { ApiClient.chat.deleteForMe(chatAuth(), id, mapOf("messages" to listOf(message.id))) } }
+        // The phone's saved copy too, or it shows again on the next open before the server answers.
+        persist()
+        scope.launch {
+            try {
+                ApiClient.chat.deleteForMe(chatAuth(), id, mapOf("messages" to listOf(message.id)))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (removed != null && messages.none { it.id == removed.id }) {
+                    messages.add(index.coerceIn(0, messages.size), removed)
+                    persist()
+                }
+                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+            }
+        }
     }
 
     fun react(message: MessageDto, emoji: String?) {
@@ -828,6 +845,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val meta = (old.meta?.deepCopy() ?: com.google.gson.JsonObject()).apply {
                     event.data.get("latitude")?.let { add("latitude", it) }
                     event.data.get("longitude")?.let { add("longitude", it) }
+                    event.data.get("accuracy")?.takeIf { !it.isJsonNull }?.let { add("accuracy", it) }
                 }
                 messages[index] = messages[index].copy(dto = old.copy(meta = meta, liveLocation = old.liveLocation?.copy(updatedAt = event.data.str("updated_at"))))
             }
@@ -876,7 +894,15 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
 
     fun replaceMessage(id: String, message: UiMessage) {
         val index = messages.indexOfFirst { it.id == id }
-        if (index >= 0) messages[index] = message.copy(fresh = false) else messages.add(message)
+        if (index >= 0) {
+            // The server adds a link's card a few seconds after sending: until then keep the one this phone
+            // already showed (same words — an edit that dropped the link drops the card).
+            val old = messages[index].dto
+            val keep = message.dto.linkPreview == null && old.linkPreview != null && old.body == message.dto.body
+            messages[index] = (if (keep) message.copy(dto = message.dto.copy(linkPreview = old.linkPreview)) else message).copy(fresh = false)
+        } else {
+            messages.add(message)
+        }
         persist()
     }
 }

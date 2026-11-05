@@ -111,55 +111,59 @@ struct ChannelStatsPage: View {
     @State private var stats: ChannelStatsDto?
 
     var body: some View {
-        ChPage(title: L("bk_channel_stats"), onBack: { host.pop() }) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        ForEach([7, 30, 90], id: \.self) { d in
-                            Button { days = d } label: {
-                                Text(L("bk_days", d)).font(.dorr(13, .bold)).foregroundStyle(days == d ? .white : ch.ink)
-                                    .padding(.horizontal, 12).padding(.vertical, 8).background(days == d ? ch.red : ch.surfaceMuted, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    if let s = stats {
-                        HStack(spacing: 10) {
-                            tile(L("bk_channel_followers"), "\(s.followers ?? 0)")
-                            tile(L("bk_channel_joined"), "+\(s.joined ?? 0)")
-                            tile(L("bk_channel_left"), "−\(s.left ?? 0)")
-                        }
-                        .padding(.top, 4)
-                        HStack(spacing: 10) {
-                            tile(L("bk_channel_posts"), "\(s.posts ?? 0)")
-                            tile(L("bk_channel_views"), "\(s.views ?? 0)")
-                            tile(L("bk_channel_reach"), "\(s.reachPercent ?? 0)%")
-                        }
-                        tile(L("bk_channel_avg"), "\(s.averageViews ?? 0)")
-                        if let top = s.topPosts, !top.isEmpty {
-                            Text(L("bk_channel_top")).font(.dorr(13, .bold)).foregroundStyle(ch.mut).padding(.top, 8)
-                            ForEach(Array(top.enumerated()), id: \.offset) { _, post in
-                                Button {
-                                    guard let id = post.id else { return }
-                                    host.focusRequest = (conversationId, id)
-                                    host.pop()
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Text(verbatim: post.preview ?? "").font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(2).multilineTextAlignment(.leading)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                        Text(verbatim: "👁 \(post.views ?? 0)").font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
-                                    }
-                                    .padding(12)
-                                    .background(ch.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        ZStack {
+            PinkBackdrop().ignoresSafeArea()
+            VStack(spacing: 0) {
+                SubHeader(title: L("bk_channel_stats")) { host.pop() }.padding(.horizontal, 16)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 6) {
+                            ForEach([7, 30, 90], id: \.self) { d in
+                                Button { days = d } label: {
+                                    Text(L("bk_days", d)).font(.dorr(13, .bold)).foregroundStyle(days == d ? .white : ch.ink)
+                                        .padding(.horizontal, 12).padding(.vertical, 8).background(days == d ? ch.red : ch.surfaceMuted, in: Capsule())
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
-                    } else {
-                        ProgressView().tint(ch.red).frame(maxWidth: .infinity).padding(40)
+                        if let s = stats {
+                            HStack(spacing: 10) {
+                                tile(L("bk_channel_followers"), "\(s.followers ?? 0)")
+                                tile(L("bk_channel_joined"), "+\(s.joined ?? 0)")
+                                tile(L("bk_channel_left"), "−\(s.left ?? 0)")
+                            }
+                            .padding(.top, 4)
+                            HStack(spacing: 10) {
+                                tile(L("bk_channel_posts"), "\(s.posts ?? 0)")
+                                tile(L("bk_channel_views"), "\(s.views ?? 0)")
+                                tile(L("bk_channel_reach"), "\(s.reachPercent ?? 0)%")
+                            }
+                            tile(L("bk_channel_avg"), "\(s.averageViews ?? 0)")
+                            if let top = s.topPosts, !top.isEmpty {
+                                Text(L("bk_channel_top")).font(.dorr(13, .bold)).foregroundStyle(ch.mut).padding(.top, 8)
+                                ForEach(Array(top.enumerated()), id: \.offset) { _, post in
+                                    Button {
+                                        guard let id = post.id else { return }
+                                        host.focusRequest = (conversationId, id)
+                                        host.pop()
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Text(verbatim: post.preview ?? "").font(.dorr(13.5)).foregroundStyle(ch.ink).lineLimit(2).multilineTextAlignment(.leading)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(verbatim: "👁 \(post.views ?? 0)").font(.dorr(12.5, .bold)).foregroundStyle(ch.mut)
+                                        }
+                                        .padding(12)
+                                        .background(ch.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        } else {
+                            ProgressView().tint(ch.red).frame(maxWidth: .infinity).padding(40)
+                        }
                     }
+                    .padding(16)
                 }
-                .padding(16)
             }
         }
         .task(id: days) {

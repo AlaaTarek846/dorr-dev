@@ -61,8 +61,8 @@
     <string name="ch_info">معلومات</string>
     <string name="ch_copied">تم النسخ</string>
     <string name="ch_delete_title">حذف الرسالة؟</string>
-    <string name="ch_delete_for_me">حذف لدي</string>
-    <string name="ch_delete_for_everyone">حذف لدى الجميع</string>
+    <string name="ch_delete_for_me">حذف عندي فقط</string>
+    <string name="ch_delete_for_everyone">حذف عند الجميع</string>
     <string name="ch_cancel">إلغاء</string>
     <string name="ch_editing">تعديل الرسالة</string>
     <string name="ch_pin_for">التثبيت لمدة</string>
@@ -71,6 +71,13 @@
     <string name="ch_pin_30d">30 يوماً</string>
     <string name="ch_pinned_message">رسالة مثبتة</string>
     <string name="ch_forward_to">إعادة التوجيه إلى…</string>
+    <string name="ch_forward_search">ابحث عن محادثة</string>
+    <string name="ch_read_more">اقرأ المزيد</string>
+    <string name="ch_pinned_list">الرسائل المثبتة</string>
+    <string name="ch_pin_replace_title">استبدال أقدم تثبيت؟</string>
+    <string name="ch_pin_replace_text">سيحلّ التثبيت الجديد محلّ أقدم رسالة مثبتة.</string>
+    <string name="ch_continue">متابعة</string>
+    <string name="ch_forward_none">لا توجد محادثات مطابقة</string>
     <string name="ch_forwarded_done">تمت إعادة التوجيه</string>
     <string name="ch_message_info">معلومات الرسالة</string>
     <string name="ch_read_by">قرأها</string>
@@ -99,6 +106,17 @@
     <string name="ch_pick_transfer">اختر تحويلاً لمشاركته</string>
     <string name="ch_no_transfers">لم ترسل أي تحويلات بعد</string>
 
+    <string name="ch_loc_page_title">إرسال الموقع</string>
+    <string name="ch_loc_search_hint">ابحث عن مكان</string>
+    <string name="ch_loc_refresh">تحديث</string>
+    <string name="ch_loc_my_place">موقعي</string>
+    <string name="ch_loc_nearby">أماكن قريبة</string>
+    <string name="ch_loc_send_current">إرسال موقعك الحالي</string>
+    <string name="ch_loc_accuracy">بدقة %1$d متر</string>
+    <string name="ch_loc_locating">جارٍ تحديد موقعك…</string>
+    <string name="ch_loc_send_pin">إرسال هذا المكان</string>
+    <string name="ch_loc_results">نتائج البحث</string>
+    <string name="ch_loc_nothing">لا توجد أماكن هنا</string>
     <string name="ch_live_title">مشاركة الموقع مباشرة</string>
     <string name="ch_live_15m">لمدة 15 دقيقة</string>
     <string name="ch_live_1h">لمدة ساعة واحدة</string>
@@ -110,6 +128,11 @@
     <string name="ch_live_minutes_left">باقي %d دقيقة</string>
     <string name="ch_live_until">مباشر حتى %s</string>
     <string name="ch_live_stop">إيقاف المشاركة</string>
+    <string name="ch_live_directions">الاتجاهات</string>
+    <string name="ch_live_recenter">الرجوع لمكانه</string>
+    <string name="ch_live_you">أنت</string>
+    <string name="ch_live_updated_now">تم التحديث الآن</string>
+    <string name="ch_live_updated_ago">آخر تحديث منذ %1$d دقيقة</string>
     <string name="ch_live_channel">الموقع المباشر</string>
     <string name="ch_live_sharing_title">يتم مشاركة الموقع المباشر</string>
     <plurals name="ch_live_sharing_text">
@@ -135,6 +158,8 @@
     <string name="ch_call_missed">مكالمة فائتة</string>
     <string name="ch_call_declined">مرفوضة</string>
     <string name="ch_call_cancelled">ملغاة</string>
+    <string name="ch_call_no_answer">لم يتم الرد</string>
+    <string name="ch_call_missed_short">فائتة</string>
     <string name="ch_call_incoming_voice">مكالمة صوتية واردة</string>
     <string name="ch_call_incoming_video">مكالمة فيديو واردة</string>
     <string name="ch_call_calling">جارٍ الاتصال…</string>
@@ -158,8 +183,9 @@
     <string name="ch_call_swipe_answer">اسحب لأعلى للرد</string>
     <string name="ch_permission_call">اسمح بالميكروفون (والكاميرا لمكالمات الفيديو) لإجراء المكالمات</string>
 
-    <string name="ch_request_title">%s يريد مراسلتك</string>
-    <string name="ch_request_text">هذا الشخص ليس ضمن جهات اتصالك، ولن يعرف أنك قرأت رسائله حتى تقبل.</string>
+    <string name="ch_request_label">طلب مراسلة</string>
+    <string name="ch_request_not_contact">ليس في جهات اتصالك</string>
+    <string name="ch_request_no_read">لن يرى أنك قرأت</string>
     <string name="ch_accept">قبول</string>
     <string name="ch_reject">حذف</string>
     <string name="ch_block">حظر</string>
@@ -303,12 +329,9 @@
     <string name="ch_unlock_title">فتح المحادثة</string>
     <string name="ch_unlock_sub">استخدم البصمة أو الوجه أو قفل الشاشة</string>
     <string name="ch_locked_note">هذه المحادثة مقفولة</string>
-    <string name="ch_theme">المظهر</string>
-    <string name="ch_theme_system">حسب الجهاز</string>
-    <string name="ch_theme_light">فاتح</string>
-    <string name="ch_theme_dark">داكن</string>
     <string name="ch_offline">لا يوجد اتصال — تعرض الرسائل المحفوظة</string>
     <string name="ch_invite">دعوة</string>
+    <string name="ch_invite_dorr">دعوة لدُر</string>
     <string name="ch_invite_title">ادعُ %s</string>
     <string name="ch_share_more">المزيد</string>
     <string name="ch_invite_section">ادعُ إلى دُر</string>
@@ -361,6 +384,14 @@
     <string name="ch_expr_search_gifs">ابحث عن صور GIF</string>
     <string name="ch_expr_search_stickers">ابحث عن ملصقات</string>
     <string name="ch_expr_powered">مدعوم بواسطة Dorr</string>
+    <string name="ch_expr_backspace">مسح</string>
+    <string name="ch_emoji_recent">الأخيرة</string>
+    <string name="ch_emoji_smileys">الوجوه</string>
+    <string name="ch_emoji_hands">الأيدي والناس</string>
+    <string name="ch_emoji_symbols">القلوب والرموز</string>
+    <string name="ch_emoji_nature">الحيوانات والطبيعة</string>
+    <string name="ch_emoji_food">الأكل والشرب</string>
+    <string name="ch_emoji_activity">الأنشطة والأشياء</string>
 
     <!-- المزاج -->
     <string name="ch_mood_haha">ضحك</string>
@@ -432,7 +463,7 @@
     <string name="ch_mute">كتم</string>
 
     <string name="st_my_status">حالتي</string>
-    <string name="st_add_status">أضف إلى حالتك</string>
+    <string name="st_add_status">إضافة حالة</string>
     <string name="st_uploading">جارٍ النشر…</string>
     <string name="st_muted">المكتومة</string>
     <string name="st_text">نص</string>
@@ -547,10 +578,11 @@
     <string name="ch_contact_save">حفظ</string>
     <string name="ch_contact_copy">نسخ الرقم</string>
     <string name="ch_contact_on_dorr">موجود على دُر</string>
-    <string name="ch_contact_not_on_dorr">مش على دُر لسه</string>
+    <string name="ch_contact_not_on_dorr">غير موجود على دُر</string>
+    <string name="ch_phone_mobile">موبايل</string>
     <string name="ch_number_copied">اتنسخ الرقم</string>
-    <string name="ch_not_in_contacts">%1$s مش في جهات اتصالك</string>
-    <string name="ch_not_in_contacts_why">ضيفه عشان يشوف حالاتك وتبقوا عند بعض</string>
+    <string name="ch_not_in_contacts">رقم غير محفوظ</string>
+    <string name="ch_not_in_contacts_why">أضِفه إلى جهات الاتصال ليتمكّن من رؤية حالاتك</string>
     <string name="ch_add">إضافة</string>
     <string name="ch_contact_added">اتضاف لجهات اتصالك</string>
     <string name="ch_in_contacts">في جهات اتصالك</string>
@@ -802,6 +834,23 @@
     <string name="ch_verify_no_plans">التوثيق لسه مش متاح في دولتك.</string>
     <!-- Public stories on the home page (ج.1). -->
     <string name="st_public_everyone">عامة — الكل هيشوفها</string>
+    <string name="st_public_hint">الحالة دي عامة: هتظهر في الصفحة الرئيسية لكل مستخدمي دُرر، مش لجهات اتصالك بس.</string>
+    <string name="st_discard_title">تجاهل الحالة؟</string>
+    <string name="st_discard_text">اللي عملته في الحالة دي هيضيع.</string>
+    <string name="st_discard">تجاهل</string>
+    <string name="st_public_short">عامة</string>
+    <string name="st_privacy_short">الخصوصية</string>
+    <string name="st_replies_short">الردود</string>
+    <string name="st_replies_closed">الردود مقفولة</string>
+    <string name="st_replies_on_toast">الناس تقدر ترد على حالتك</string>
+    <string name="st_replies_off_toast">الردود على الحالة دي اتقفلت</string>
+    <string name="st_tool_colors">الألوان</string>
+    <string name="st_tool_font">الخط</string>
+    <string name="st_tool_align">المحاذاة</string>
+    <string name="st_tool_draw">رسم</string>
+    <string name="st_voice_rerecord">سجّل تاني</string>
+    <string name="st_voice_tap_stop">دوس عشان توقف</string>
+    <string name="st_voice_preview">اسمع التسجيل قبل ما تنشره</string>
     <string name="st_my_public">استوريتي</string>
     <string name="st_add_public">أضف</string>
     <string name="st_dorr">دُر</string>
@@ -990,7 +1039,7 @@
     <string name="ia_footer_hint">سطر تحت الرسالة (اختياري)</string>
     <string name="ia_choose">اختار</string>
     <string name="ia_no_answers">لسه محدش رد</string>
-    <string name="ia_answers">%1$d ردّوا · شوف مين</string>
+    <string name="ia_answers">عرض الردود · %1$d</string>
     <!-- المجتمعات -->
     <string name="cm_title">المجتمعات</string>
     <string name="cm_new">مجتمع جديد</string>

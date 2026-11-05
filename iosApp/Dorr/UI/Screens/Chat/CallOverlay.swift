@@ -184,17 +184,18 @@ private struct CallMiniBubble: View {
             let y = min(max(base.height + drag.height, 0), maxY)
             bubble(remote: remote)
                 .frame(width: size.width, height: size.height)
-                .background(Color(hex: 0x001B53))
+                // The call screen's own dark red (was the old navy).
+                .background(LinearGradient(colors: [Color(hex: 0x3B0206), Color(hex: 0x120203)], startPoint: .top, endPoint: .bottom))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 18, y: 6)
                 .onTapGesture { c.minimized = false }
                 .gesture(DragGesture()
                     .updating($drag) { v, s, _ in s = v.translation }
                     .onEnded { v in
-                        let endX = min(max(base.width + v.translation.width, 0), maxX)
                         let endY = min(max(base.height + v.translation.height, 0), maxY)
-                        // Let go: it snaps to the nearest side.
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { offset = CGSize(width: endX < maxX / 2 ? 0 : maxX, height: endY) }
+                        // Let go: a flick sends it to that side (where the throw would land); otherwise the nearest side.
+                        let landX = base.width + v.predictedEndTranslation.width
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { offset = CGSize(width: landX < maxX / 2 ? 0 : maxX, height: endY) }
                     })
                 .position(x: area.minX + x + size.width / 2, y: area.minY + y + size.height / 2)
                 .onAppear { CallWindow.shared.interactiveRect = CGRect(x: area.minX + x, y: area.minY + y, width: size.width, height: size.height) }
@@ -217,7 +218,7 @@ private struct CallMiniBubble: View {
                 HStack(spacing: 8) {
                     ChAvatar(url: c.avatar, name: c.title, key: c.peerKey, size: 40)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(verbatim: c.title).font(.dorr(13.5, .bold)).foregroundStyle(.white).lineLimit(1)
+                        Text(verbatim: ltrTitle(c.title)).font(.dorr(13.5, .bold)).foregroundStyle(.white).lineLimit(1)
                         Text(verbatim: c.phase == .active ? durationText(c.elapsedSeconds(t.date) * 1000) : L("ch_call_calling")).font(.dorr(12)).foregroundStyle(.white.opacity(0.75))
                     }
                     Spacer(minLength: 0)
@@ -311,7 +312,7 @@ private struct CallScreen: View {
             GroupGrid().padding(.top, 96).padding(.bottom, 124)
             TimelineView(.periodic(from: .now, by: 1)) { t in
                 VStack(spacing: 2) {
-                    Text(verbatim: c.title).font(.dorr(19, .heavy)).foregroundStyle(.white).lineLimit(1)
+                    Text(verbatim: ltrTitle(c.title)).font(.dorr(19, .heavy)).foregroundStyle(.white).lineLimit(1)
                     Text(verbatim: L("ch_call_people", c.members.count) + "  ·  " + durationText(c.elapsedSeconds(t.date) * 1000))
                         .font(.dorr(13, .semibold)).foregroundStyle(.white.opacity(0.75))
                 }
@@ -334,7 +335,7 @@ private struct CallScreen: View {
                 Sonar(ringing: phase == .incoming || phase == .outgoing) { ChAvatar(url: c.avatar, name: c.title, key: c.peerKey, size: 124) }
                     .padding(.bottom, 26)
             }
-            Text(verbatim: c.title).font(.dorr(27, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
+            Text(verbatim: ltrTitle(c.title)).font(.dorr(27, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
             TimelineView(.periodic(from: .now, by: 1)) { t in
                 Text(verbatim: stateLine(phase, t.date)).font(.dorr(16, .semibold)).foregroundStyle(.white.opacity(0.8))
                     .id(phase).transition(.opacity)

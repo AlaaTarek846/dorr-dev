@@ -190,7 +190,7 @@ fun ChatInfoPage(id: String) {
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
                             Text(
-                                conversation?.title.orEmpty(),
+                                ltrTitle(conversation?.title),
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
@@ -521,7 +521,7 @@ fun ChatInfoPage(id: String) {
 
         // Compact header that fades in once the hero scrolls away.
         Box(Modifier.fillMaxWidth().graphicsLayer { alpha = headerAlpha }.background(Ch.HeaderBrush).padding(start = 16.dp, end = 96.dp, top = 12.dp, bottom = 12.dp)) {
-            Text(conversation?.title.orEmpty(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(ltrTitle(conversation?.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             if (searching) {
@@ -593,12 +593,19 @@ fun ChatInfoPage(id: String) {
             val current = c?.group?.category?.id
             val none = stringResource(R.string.ch_channel_category_none)
             categories?.let { list ->
-                ChoiceSheet(stringResource(R.string.ch_channel_category), (listOf<Pair<Int?, String>>(null to none) + list.map { it.id to it.name.orEmpty() }).map { (catId, label) ->
-                    (if (catId == current) "✓  " else "") + label to {
-                        scope.launch { runCatching { ApiClient.discover.channelCategory(chatAuth(), id, mapOf("category_id" to catId)).data }.getOrNull()?.let { c = it; host.upsert(it) } }
-                        Unit
-                    }
-                }, onDismiss = { sheet = null })
+                val rows = listOf<Pair<Int?, String>>(null to none) + list.map { it.id to it.name.orEmpty() }
+                ChoiceSheet(
+                    stringResource(R.string.ch_channel_category),
+                    rows.map { (catId, label) ->
+                        label to {
+                            scope.launch { runCatching { ApiClient.discover.channelCategory(chatAuth(), id, mapOf("category_id" to catId)).data }.getOrNull()?.let { c = it; host.upsert(it) } }
+                            Unit
+                        }
+                    },
+                    radios = true,
+                    selected = rows.indexOfFirst { it.first == current }.takeIf { it >= 0 },
+                    onDismiss = { sheet = null },
+                )
             }
         }
         "verify" -> ChannelVerificationSheet(id, onDismiss = { sheet = null }) { scope.launch { reload() } }

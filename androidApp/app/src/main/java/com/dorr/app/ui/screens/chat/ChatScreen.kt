@@ -84,10 +84,8 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     }
     SideEffect { host.onExit = { currentOnExit() } }
 
-    // Dark mode: the chat's own choice (system / light / dark), "system" following the app theme.
-    val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    val mode = com.dorr.app.chat.ChatStore.themeMode
-    val chatDark = when (mode) { "dark" -> true; "light" -> false; else -> appDark }
+    // Dark mode: the app's own setting (Settings → Appearance), like every other screen.
+    val chatDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     // Colours from the appearance settings — the app colour and the neutrals (text, lines,
     // background, surfaces) for the chat's mode — exactly like the wallet and the profile pages.
     val palette = chatPaletteFromSettings(chatDark)

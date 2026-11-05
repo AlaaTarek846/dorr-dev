@@ -63,6 +63,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Chat voice message (2026-11-02):** smaller bubble; speed pill always on the waveform line beside play; «اعرضه كنص» / transcript as a full-width highlighted strip (title start, × end). Android + iOS, neither built yet.
+- **Chat message long-press (2026-11-02):** top action bar (back · reply · forward · star · reminder · pin · delete · ⋮ dropdown for the rest) replaces the long menu; reactions sit under the lifted message. Single selection only (no multi-select counter yet). Android built; iOS ported, not built here (no Xcode on Windows).
 - **Android money-request card (2026-11-01):** title from `chat_strings` with the name filled in; amount uses currency code; smaller card.
 - **Android send-money gift card (2026-11-01):** send-money with `meta.gift` is a compact receipt in chat colours; attach-sheet transfer receipts keep the old red card.
 - **Chat calls (2026-11-01):** a second start of my own still-ringing 1:1 call cancels the leftover and starts a new one (`409` only when the other person already has a call in that chat). Android no longer hangs up a ringing call when LiveKit closes an empty room.
