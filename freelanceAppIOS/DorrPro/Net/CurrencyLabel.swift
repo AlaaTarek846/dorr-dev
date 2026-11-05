@@ -6,7 +6,7 @@ import Foundation
 /// `@JsonAdapter(CurrencyLabelAdapter::class)`: `@CurrencyLabel var currency: String?`.
 @propertyWrapper
 struct CurrencyLabel: Decodable, Equatable, Hashable {
-    static let signs = ["SAR": "﷼"]
+    static let signs = ["SAR": "﷼", "USD": "$"]
 
     var wrappedValue: String?
 

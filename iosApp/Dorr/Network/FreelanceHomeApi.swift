@@ -15,6 +15,8 @@ struct FlHomeDto: Codable, Equatable {
     var features: [String: Bool]?
     var currency: String?
     var decimals: Int?
+    /// What the client can spend now in the freelance wallet (dollars, `mobile/v1/freelance/wallet`).
+    var walletMinor: Int?
     var promos: [FlPromoDto]?
     var stats: FlHomeStatsDto?
     var attention: FlHomeAttentionDto?

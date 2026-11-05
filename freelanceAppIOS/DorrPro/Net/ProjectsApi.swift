@@ -24,9 +24,17 @@ enum ProjectsApi {
     static func unfavorite(_ uuid: String) async -> ApiResult<ProjectDto> { await Api.call("DELETE", base + "projects/\(uuid)/favorite") }
 }
 
+/// Where something comes from (freelance work is open across countries): ISO code and the name in my language.
+struct CountryRefDto: Decodable, Equatable {
+    var code: String?
+    var name: String?
+}
+
 struct ProjectDto: Decodable, Identifiable {
     var id: String { uuid ?? "" }
     var uuid: String?
+    /// The client's country (projects of every open country are listed).
+    var country: CountryRefDto?
     var title: String?
     var specialty: NamedDto?
     var skills: [NamedDto]?

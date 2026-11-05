@@ -395,6 +395,8 @@ private fun ProjectCard(p: ProjectDto, onOpen: () -> Unit, onToggleSaved: () -> 
                     )
                 }
                 Spacer(Modifier.weight(1f))
+                // The client's country: the list mixes every open country.
+                com.dorr.freelance.ui.components.CountryTag(p.country, Modifier.padding(end = 8.dp))
                 publishedAgo(p.publishedAt)?.let { Text(it, color = settingsMut(), fontSize = 11.sp, maxLines = 1) }
             }
             Text(p.title.orEmpty(), color = settingsInk(), fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)

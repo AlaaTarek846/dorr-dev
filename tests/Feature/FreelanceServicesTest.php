@@ -183,6 +183,29 @@ class FreelanceServicesTest extends TestCase
             ->assertJsonPath('data.freelancer.completed_projects', 0)->assertJsonPath('data.answer_hours', 48);
     }
 
+    /** Open across countries (owner, 2026-11-04): a client of another open country finds the service, with its country; a closed one cannot. */
+    public function test_a_client_of_another_open_country_finds_the_service_with_its_country(): void
+    {
+        $s = $this->published();
+        $egypt = Country::create(['code' => 'EG', 'dial_code' => '+20', 'phone_length' => 10, 'status' => true, 'flag_id' => Flag::create(['code' => 'eg'])->id, 'currency_id' => Currency::create(['code' => 'EGP', 'symbol' => 'EGP'])->id]);
+        foreach (['freelance', 'projects', 'services'] as $feature) {
+            FreelanceFeatureRule::query()->create(['feature' => $feature, 'country_id' => $egypt->id, 'enabled' => true]);
+        }
+        FreelanceFeatures::forget();
+        $hany = User::query()->create(['name' => 'Hany', 'phone' => '+201000000001', 'country_id' => $egypt->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $this->app['auth']->forgetGuards();
+        Sanctum::actingAs($hany, [], 'user_api');
+
+        $this->getJson(self::CLIENT.'/services')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.uuid', $s->uuid)->assertJsonPath('data.0.country.code', 'SA');
+        $this->getJson(self::CLIENT."/services/{$s->uuid}")->assertOk();
+
+        // Services switched off in Saudi: nobody sees Saudi services any more.
+        FreelanceFeatureRule::query()->where('country_id', $this->saudi->id)->where('feature', 'services')->update(['enabled' => false]);
+        FreelanceFeatures::forget();
+        $this->getJson(self::CLIENT.'/services')->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_the_levels_must_make_sense_and_the_prices_follow_the_country_limits(): void
     {
         $this->asSara();

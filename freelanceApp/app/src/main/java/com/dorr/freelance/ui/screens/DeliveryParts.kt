@@ -187,11 +187,14 @@ internal fun DeliveriesBlock(projectUuid: String, m: MilestoneDto) {
     error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
 }
 
-/** Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer. */
-private suspend fun openDeliveryFile(context: Context, f: DeliveryFileDto): Boolean {
+/**
+ * Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer. `base` is what `f.path` is
+ * relative to (FS-101: a change's files are under `projects/{uuid}/`).
+ */
+internal suspend fun openDeliveryFile(context: Context, f: DeliveryFileDto, base: String = ApiClient.FREELANCE): Boolean {
     val file = withContext(Dispatchers.IO) {
         runCatching {
-            val response = ApiClient.agreements.file(ApiClient.FREELANCE + f.path)
+            val response = ApiClient.agreements.file(base + f.path)
             val body = response.body()
             if (!response.isSuccessful || body == null) return@runCatching null
             val dir = File(context.cacheDir, "deliveries").apply { mkdirs() }

@@ -74,7 +74,8 @@ class ConsultationOffers
     public function bookable(User $client, string $offerUuid): Offer
     {
         $country = FreelanceCountry::of($client) ?? throw new FreelanceException('not_available', 403);
-        $offer = Offer::query()->where('uuid', $offerUuid)->where('country_id', $country)->with(['freelancer.availability', 'freelancer.media'])->firstOrFail();
+        // Any country where consultations are open (open across countries, owner 2026-11-04).
+        $offer = Offer::query()->where('uuid', $offerUuid)->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries('consultations'))->with(['freelancer.availability', 'freelancer.media'])->firstOrFail();
         if (! $this->open($offer)) {
             throw new FreelanceException('consultation_unavailable', 409);
         }
@@ -175,12 +176,12 @@ class ConsultationOffers
 
     // -------------------------------------------------------------- what a client sees
 
-    /** One page of the consultations a client can book (their country's, newest first), with a word to look for in the title, the text or the name. */
+    /** One page of the consultations a client can book (of every country where they are open, newest first), with a word to look for in the title, the text or the name. */
     public function market(User $client, ?string $search, int $perPage): LengthAwarePaginator
     {
         $country = FreelanceCountry::of($client) ?? throw new FreelanceException('not_available', 403);
 
-        return Offer::query()->where('status', Offer::PUBLISHED)->where('country_id', $country)
+        return Offer::query()->where('status', Offer::PUBLISHED)->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries('consultations'))
             ->whereHas('freelancer', fn ($f) => $f->where('status', FreelancerStatus::Verified)->whereNull('freelancers.deleted_at'))
             ->when($search !== null && $search !== '', function ($q) use ($search) {
                 $term = '%'.addcslashes($search, '%_\\').'%';
@@ -205,12 +206,14 @@ class ConsultationOffers
 
         return [
             'uuid' => $offer->uuid,
+            // Where it comes from (open across countries): {code, name}.
+            'country' => \Modules\Freelance\Services\Features\FreelanceCountry::card((int) $offer->country_id),
             'title' => $offer->title,
             'about' => $offer->about,
             'minutes' => array_column($lengths, 'minutes'),
             'from_minor' => $lengths === [] ? null : $this->cost($f, min(array_column($lengths, 'price_minor')))['total_minor'],
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'next_slot' => $next?->toIso8601String(),
             'freelancer' => [
                 'uuid' => $f->uuid, 'name' => $f->name, 'headline' => $f->headline, 'avatar_url' => $f->getFirstMediaUrl('avatar') ?: null,
@@ -254,8 +257,8 @@ class ConsultationOffers
                 return ['minutes' => $o['minutes']] + $this->cost($f, $price) + ['list_price_minor' => $off ? (int) $o['price_minor'] : null, 'loyalty_bp' => $off ? $step['bp'] : null];
             }, $offer->lengths()),
             'loyalty' => $client === null ? null : $loyalty->view($f, $client),
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'timezone' => $offer->timezone ?: 'UTC',
             'next_slot' => $next?->toIso8601String(),
             'rules' => ['free_cancel_hours' => $rules['free_cancel_hours'], 'complaint_hours' => $rules['complaint_hours'], 'response_hours' => $rules['response_hours'], 'max_days_ahead' => $rules['max_days_ahead']],
@@ -277,7 +280,7 @@ class ConsultationOffers
                 return [
                     'uuid' => $o->uuid, 'title' => $o->title, 'minutes' => array_column($lengths, 'minutes'),
                     'from_minor' => $this->cost($o->freelancer, min(array_column($lengths, 'price_minor')))['total_minor'],
-                    'currency' => Country::query()->with('currency')->find((int) $o->country_id)?->currency?->code,
+                    'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
                 ];
             })->values()->all();
     }
@@ -306,7 +309,7 @@ class ConsultationOffers
     /** The fees are worked out as for a project of this country (a consultation has no specialty). */
     private function pseudoProject(Freelancer $f): Project
     {
-        $currency = Country::query()->with('currency')->find((int) $f->country_id)?->currency?->code;
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code();
 
         return new Project(['country_id' => (int) $f->country_id, 'freelance_specialty_id' => null, 'currency_code' => $currency]);
     }

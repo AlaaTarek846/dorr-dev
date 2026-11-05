@@ -156,8 +156,8 @@ class SpecialOffers
         $sentToday = SpecialOffer::query()->where('freelancer_id', $f->id)->where('created_at', '>=', now()->startOfDay())->count();
 
         return [
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'kinds' => [
                 SpecialOffer::CUSTOM => $this->features->allows((int) $f->country_id, 'projects'),
                 SpecialOffer::SERVICE => $this->features->allows((int) $f->country_id, 'services') && $services !== [],
@@ -225,7 +225,7 @@ class SpecialOffers
 
                 return SpecialOffer::query()->create($terms + [
                     'freelancer_id' => $f->id, 'client_id' => $client->id, 'country_id' => $country->id, 'kind' => (string) $data['kind'],
-                    'message' => $message, 'currency_code' => (string) $country->currency?->code, 'status' => SpecialOffer::SENT,
+                    'message' => $message, 'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(), 'status' => SpecialOffer::SENT,
                     'expires_at' => now()->addDays($validDays), 'request_id' => $requestId,
                 ]);
             });
@@ -791,12 +791,12 @@ class SpecialOffers
 
     private function decimals(Freelancer $f): int
     {
-        return (int) (Country::query()->with('currency')->find((int) $f->country_id)?->currency?->decimal_places ?? 2);
+        return app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals();
     }
 
     private function pseudoProject(Freelancer $f, ?int $specialtyId): Project
     {
-        $code = (string) Country::query()->with('currency')->find((int) $f->country_id)?->currency?->code;
+        $code = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code();
 
         return new Project(['country_id' => (int) $f->country_id, 'freelance_specialty_id' => $specialtyId, 'currency_code' => $code]);
     }

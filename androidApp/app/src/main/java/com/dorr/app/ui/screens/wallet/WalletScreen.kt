@@ -82,6 +82,10 @@ fun WalletScreen(onExit: () -> Unit) {
         host.onExit = { currentOnExit() }
     }
     var unlocked by remember { mutableStateOf(false) }
+    // Swiping to the dollar wallet must not outlive this visit (the freelance launcher resets it itself when it closes).
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { if (TopupLauncher.pending == null) com.dorr.app.network.WalletCountry.international = false }
+    }
 
     CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         WalletFont {
@@ -176,7 +180,7 @@ internal fun WaToastHost(host: WalletHost) {
  * without one it walks the person through the recovery-method choice and then creating the PIN.
  */
 @Composable
-private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
+internal fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = context.findFragmentActivity()
     val networkError = stringResource(R.string.wa_error_network)

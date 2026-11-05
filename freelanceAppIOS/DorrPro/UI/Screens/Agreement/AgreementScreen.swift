@@ -140,6 +140,9 @@ struct AgreementScreen: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .settingsSurface(20)
 
+        // FS-106: how the running project is doing (it reloads with the agreement, on the health notices too).
+        if a.status == "active", let health = a.health { ProjectHealthCard(h: health) }
+
         AgreementTabs(tabs: [
             AgreementTab(icon: "doc.text.fill", label: L("ag_tab_overview")),
             AgreementTab(icon: "checklist", label: L("ag_tab_parts"), badge: milestones.count),
@@ -189,8 +192,12 @@ struct AgreementScreen: View {
             // FL-404 / FL-405: changes after the agreement started.
             if a.status == "active" {
                 AgreementChangesCard(
-                    changes: a.changes ?? [], milestones: milestones, currency: cur, busy: busy,
-                    onAsk: { body in run { await AgreementsApi.requestChange(projectUuid, body).error(L("login_error_offline")) } },
+                    projectUuid: projectUuid, changes: a.changes ?? [], milestones: milestones, currency: cur, busy: busy,
+                    onAsk: { body, files in
+                        // FS-101: one multipart request - the fields and up to 3 `files[]`.
+                        let parts = files.map { FilePart(field: "files[]", filename: $0.name, mimeType: $0.type, data: $0.bytes) }
+                        run { await AgreementsApi.requestChange(projectUuid, fields: body.fields, files: parts).error(L("login_error_offline")) }
+                    },
                     onAnswer: { change, action in run { await AgreementsApi.answerChange(projectUuid, change, action).error(L("login_error_offline")) } }
                 )
             }

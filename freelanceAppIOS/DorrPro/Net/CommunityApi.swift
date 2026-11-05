@@ -200,6 +200,8 @@ struct CommunityPostDto: Decodable, Equatable {
     var kindLabel: String?
     var body: String?
     var author: CommunityAuthorDto?
+    /// Where it was posted from (the feed mixes every open country).
+    var country: CountryRefDto?
     var specialty: CommunitySpecialtyDto?
     var images: [CommunityImageDto]?
     var work: CommunityWorkDto?

@@ -202,6 +202,29 @@ struct FlPartTabs: View {
     }
 }
 
+/// androidApp `FlCountryTag` — where a service or a consultation comes from: a small flag and the country's name. Freelance work is
+/// open across countries (owner, 2026-11-04), so the market mixes countries and this says which. Nothing when the server did not say.
+struct FlCountryTag: View {
+    @Environment(\.wa) private var wa
+    let country: FlCountryRefDto?
+
+    var body: some View {
+        if let c = country {
+            HStack(spacing: 5) {
+                let iso = (c.code ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+                if iso.count == 2 {
+                    AsyncImage(url: URL(string: "https://flagcdn.com/w40/\(iso).png")) { phase in
+                        if let image = phase.image { image.resizable().scaledToFill() } else { Color.gray.opacity(0.12) }
+                    }
+                    .frame(width: 18, height: 13)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                }
+                Text(verbatim: c.name ?? c.code ?? "").font(.dorr(11, .semibold)).foregroundStyle(wa.settingsMut).lineLimit(1)
+            }
+        }
+    }
+}
+
 /// A status with a dot before it, on its colour (filled when `solid`): orders, consultations, subscriptions.
 struct FlDotPill: View {
     @Environment(\.wa) private var wa

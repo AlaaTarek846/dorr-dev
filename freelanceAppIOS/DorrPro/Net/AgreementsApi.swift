@@ -72,9 +72,10 @@ enum AgreementsApi {
     /// FL-703: my numbers and the latest ratings clients gave me.
     static func reviews() async -> ApiResult<MyReviewsDto> { await Api.call("GET", base + "reviews") }
 
-    /// FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw).
-    static func requestChange(_ uuid: String, _ body: ChangeRequest) async -> ApiResult<[ChangeDto]> {
-        await Api.call("POST", base + "projects/\(uuid)/agreement/changes", body: body.json)
+    /// FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw). FS-101: always multipart -
+    /// the fields of `ChangeRequest.fields` and up to 3 `files[]`.
+    static func requestChange(_ uuid: String, fields: [String: String], files: [FilePart]) async -> ApiResult<[ChangeDto]> {
+        await Api.upload(base + "projects/\(uuid)/agreement/changes", fields: fields, files: files)
     }
 
     static func answerChange(_ uuid: String, _ change: String, _ action: String) async -> ApiResult<[ChangeDto]> {
@@ -127,6 +128,34 @@ struct AgreementDto: Decodable, Equatable {
     var reports: ReportSummaryDto?
     /// FL-L13: the ownership terms the agreement keeps (nil: none, or the feature is off).
     var rights: AgreementRightsDto?
+    /// FS-106: how the running project is doing (nil: it is not running). Informational only.
+    var health: ProjectHealthDto?
+}
+
+/// FS-106: `state` = healthy · at_risk · delayed · blocked; `nextStep` is the first thing I can do, else what I wait for.
+struct ProjectHealthDto: Decodable, Equatable {
+    var state: String?
+    var reasons: [HealthReasonDto]?
+    var nextStep: HealthNextStepDto?
+}
+
+/// `code` = dispute_open · part_unfunded · part_overdue · part_due_soon · part_not_started · review_waiting · report_late · change_waiting; `mine`: I am the one to act.
+struct HealthReasonDto: Decodable, Equatable {
+    var code: String?
+    var level: String?
+    var mine: Bool?
+    var data: HealthReasonDataDto?
+}
+
+struct HealthReasonDataDto: Decodable, Equatable {
+    var part: String?
+    var days: Int?
+    var dueAt: String?
+}
+
+struct HealthNextStepDto: Decodable, Equatable {
+    var code: String?
+    var mine: Bool?
 }
 
 struct ReportSummaryDto: Decodable, Equatable {
@@ -341,6 +370,23 @@ struct ChangeDto: Decodable, Equatable, Identifiable {
     var payload: JSONAny?
     var reason: String?
     var can: ChangeCanDto?
+    /// FS-101: the deadline to answer, and once accepted the addendum number and the agreement version it reached.
+    var respondBy: String?
+    var at: String?
+    var addendumNo: Int?
+    var appliedVersion: Int?
+    /// `{price_minor:[before,after], duration_days:[…], milestones:[…]}` - only what moved; `[]` or nil when nothing did. Read with `effectOf`.
+    var effect: JSONAny?
+    /// FS-101: `path` is under `freelance/v1/projects/{uuid}/`.
+    var files: [DeliveryFileDto]?
+
+    /// FS-101: one moved number of an accepted change as (before, after), or nil when it did not move (the decoder may have
+    /// turned `price_minor` into `priceMinor`).
+    func effectOf(_ key: String, _ camel: String? = nil) -> (Int, Int)? {
+        guard case .array(let pair)? = effect?[key] ?? camel.flatMap({ effect?[$0] }), pair.count >= 2,
+              let before = pair[0].int, let after = pair[1].int else { return nil }
+        return (before, after)
+    }
 }
 
 struct ChangeCanDto: Decodable, Equatable {
@@ -359,11 +405,13 @@ struct ChangeRequest {
     var includes: String?
     var excludes: String?
     var reason: String?
-    var json: JsonBody {
-        agreementBody([
-            "type": type, "milestone": milestone, "days": days, "amount_minor": amountMinor, "title": title,
+    /// The multipart text fields (a nil field is not sent, as the JSON body did).
+    var fields: [String: String] {
+        let all: [String: String?] = [
+            "type": type, "milestone": milestone, "days": days.map { String($0) }, "amount_minor": amountMinor.map { String($0) }, "title": title,
             "scope": scope, "includes": includes, "excludes": excludes, "reason": reason,
-        ])
+        ]
+        return all.compactMapValues { $0 }
     }
 }
 

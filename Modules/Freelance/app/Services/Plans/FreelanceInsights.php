@@ -46,8 +46,8 @@ class FreelanceInsights
             'subscriptions_enabled' => $country !== null && $this->plans->enabled($country->id),
             'allowed_days' => $allowed,
             'days' => null,
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             // The plan that opens more than this freelancer has (null at the top, or where plans are not sold).
             'upgrade' => $level >= 2 ? null : $this->perks->planForAnalytics($f, $level),
             'data' => null,
@@ -66,6 +66,8 @@ class FreelanceInsights
             'earnings' => ['earned_minor' => (int) Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::RELEASED)->where('released_at', '>=', $since)->sum('amount_minor')],
             'reputation' => $this->reputation($f, $since),
             'views' => $this->views->totals($f->id, $since, $days),
+            // FS-103: how many lists of clients he is in (only the count - never whose).
+            'saved' => ['lists' => app(\Modules\Freelance\Services\Offers\TalentPool::class)->countFor($f), 'new' => app(\Modules\Freelance\Services\Offers\TalentPool::class)->countFor($f, $since)],
         ];
         if ($level >= 2) {
             $data['earnings'] += $this->series($f, $days);

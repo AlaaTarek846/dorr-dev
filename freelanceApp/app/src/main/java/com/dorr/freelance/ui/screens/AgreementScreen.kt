@@ -215,6 +215,9 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
         }
         ErrorBanner(error, Modifier.fillMaxWidth())
 
+        // FS-106: how the running project is doing (it reloads with the agreement, on the health notices too).
+        if (a.status == "active") a.health?.let { ProjectHealthCard(it) }
+
         AgreementTabs(
             listOf(
                 AgreementTab(Icons.Rounded.Description, stringResource(R.string.ag_tab_overview)),
@@ -258,11 +261,13 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                 if (a.status == "active" || a.status == "completed") AgreementReportsCard(projectUuid, a.reports, a.can.report, recordsKey + ":" + a.reports.lastAt)
                 // FL-404 / FL-405: changes after the agreement started.
                 if (a.status == "active") AgreementChangesCard(
-                    changes = a.changes, milestones = a.milestones, currency = a.currency, busy = busy,
-                    onAsk = { body ->
+                    projectUuid = projectUuid, changes = a.changes, milestones = a.milestones, currency = a.currency, busy = busy,
+                    onAsk = { body, files ->
                         busy = true
                         scope.launch {
-                            val r = apiCall { ApiClient.agreements.requestChange(projectUuid, body) }
+                            // FS-101: one multipart request - the fields and up to 3 `files[]`.
+                            val parts = files.map { MultipartBody.Part.createFormData("files[]", it.name, it.bytes.toRequestBody(it.type.toMediaTypeOrNull())) }
+                            val r = apiCall { ApiClient.agreements.requestChange(projectUuid, body.fields(), parts) }
                             if (r is ApiResult.Ok) load() else error = r.errorText(offlineText) ?: genericError
                             busy = false
                         }

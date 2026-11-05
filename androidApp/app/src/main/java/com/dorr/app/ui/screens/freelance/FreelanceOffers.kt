@@ -668,7 +668,7 @@ private fun RejectSheet(busy: Boolean, onDismiss: () -> Unit, onConfirm: (String
 }
 
 /** Downloads one of the offer's files with the client's own sign-in (it is never a public link) and opens it. */
-private suspend fun openFile(context: Context, a: FreelanceAttachmentDto): Boolean {
+internal suspend fun openFile(context: Context, a: FreelanceAttachmentDto): Boolean {
     val path = a.path ?: return false
     val file = withContext(Dispatchers.IO) {
         runCatching {
@@ -741,6 +741,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     Icon(if (p.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = Red, modifier = Modifier.size(18.dp))
                     Text(stringResource(if (p.isFavorite) R.string.fl_favorite_on else R.string.fl_favorite_add), color = Red, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
                 }
+                // FS-103: save to one of my lists (the freelancer is never told).
+                p.uuid?.let { SaveToListPill(it) }
                 p.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp) }
                 Text(
                     listOfNotNull(ratingText(head), stringResource(R.string.fl_completeness, p.completeness), p.yearsOfExperience?.let { stringResource(R.string.fl_years_exp, it) }).joinToString("  ·  "),
@@ -828,7 +830,7 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
 // ---------------------------------------------------------------- the freelancers I keep (FL-306)
 
 @Composable
-internal fun FavoritesPage(onBack: () -> Unit) {
+internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
@@ -841,7 +843,7 @@ internal fun FavoritesPage(onBack: () -> Unit) {
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        FlPageHeader(stringResource(R.string.fl_favorites), onBack)
+        FlPageHeader(stringResource(R.string.fl_favorites), onBack, trailing = { FlHeaderAction(stringResource(R.string.fs_tp_title), Icons.Rounded.Groups, onTalent) })
         com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val rows = list
@@ -860,6 +862,7 @@ internal fun FavoritesPage(onBack: () -> Unit) {
                             f.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                             Text(stringResource(R.string.fl_completeness, f.completeness), color = settingsMut(), fontSize = 12.sp)
                         }
+                        SaveToListButton(f.uuid)
                         Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite_remove), tint = Red, modifier = Modifier.size(34.dp).clip(CircleShape).clickable {
                             scope.launch {
                                 if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) paged.rows.removeAll { it.uuid == f.uuid }

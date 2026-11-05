@@ -201,7 +201,9 @@ fun FreelanceHost(onExit: () -> Unit) {
                 )
                 is FlRoute.Dispute -> DisputePage(route.project, null, route.dispute, onBack = ::back, onOpened = {})
                 is FlRoute.NewDispute -> DisputePage(route.project, route.milestone, null, onBack = ::back, onOpened = { replace(FlRoute.Dispute(route.project, it)) })
-                FlRoute.Favorites -> FavoritesPage(onBack = ::back)
+                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) })
+                FlRoute.TalentLists -> TalentListsPage(onBack = ::back, onOpen = { open(FlRoute.TalentList(it)) })
+                is FlRoute.TalentList -> TalentListPage(route.list, onBack = ::back, onGone = { back() })
                 FlRoute.Receipts -> ReceiptsPage(onBack = ::back)
                 // «Services»: the ready-made services and the consultations as two parts of one page.
                 FlRoute.Services, FlRoute.ConsultMarket -> ServicesPage(
@@ -536,6 +538,22 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
         }
     }
 
+    /** FL-209 / FS-102: a new draft made from this project (a copy, or asked again from the same freelancer), opened in its place. */
+    fun copy(call: suspend () -> FreelanceProjectDto?) {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                call()?.let { onCopied(it.uuid) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message(generic)
+            }
+            busy = false
+        }
+    }
+
     var tab by rememberSaveable(uuid) { mutableStateOf<String?>(null) }
     var more by remember { mutableStateOf(false) }
 
@@ -558,20 +576,7 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
             else -> null
         }?.takeIf { it in tabs } ?: "details"
         val primary = primaryStep(p, onPreview, onOffers, onAgreement, onInvitations, onEdit)
-        val others = moreSteps(p, primary?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = {
-            busy = true
-            error = null
-            scope.launch {
-                try {
-                    ApiClient.freelance.duplicate(auth(), p.uuid).data?.let { onCopied(it.uuid) }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    error = e.message(generic)
-                }
-                busy = false
-            }
-        }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
+        val others = moreSteps(p, primary?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = { copy { ApiClient.freelance.duplicate(auth(), p.uuid).data } }, onHireAgain = { copy { ApiClient.freelance.hireAgain(auth(), p.uuid).data } }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ProjectHero(p)
@@ -618,6 +623,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                     p.milestones?.takeIf { it.isNotEmpty() }?.let { stages -> StagesCard(p, stages) }
                 }
                 else -> {
+                    // FS-102: asked again from a freelancer - who, and last time's parts as a reference.
+                    p.hireAgain?.let { HireAgainCard(it, p.budget.currency) }
                     Card(Icons.Rounded.Article, stringResource(R.string.fl_description)) { ProjectSummary(p) }
                     if (p.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
                         p.attachments.forEach { a ->
@@ -674,20 +681,7 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
 
     if (more) project?.let { p ->
         FlSheet(Icons.Rounded.MoreHoriz, stringResource(R.string.flp_more_title), p.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.fl_untitled), onDismiss = { more = false }) {
-            moreSteps(p, primaryStep(p, onPreview, onOffers, onAgreement, onInvitations, onEdit)?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = {
-                busy = true
-                error = null
-                scope.launch {
-                    try {
-                        ApiClient.freelance.duplicate(auth(), p.uuid).data?.let { onCopied(it.uuid) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        error = e.message(generic)
-                    }
-                    busy = false
-                }
-            }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
+            moreSteps(p, primaryStep(p, onPreview, onOffers, onAgreement, onInvitations, onEdit)?.key, onEdit, onInvitations, onCap = { capError = null; capDialog = true }, onCopy = { copy { ApiClient.freelance.duplicate(auth(), p.uuid).data } }, onHireAgain = { copy { ApiClient.freelance.hireAgain(auth(), p.uuid).data } }, onWithdraw = { act({ ApiClient.freelance.withdraw(auth(), p.uuid).data }) }, onCancel = { cancelCode = null; cancelNote = ""; confirm = "cancel" }, onDelete = { confirm = "delete" })
                 .forEach { step -> FlAction(step.text, step.icon, step.tone, enabled = !busy) { more = false; step.onClick() } }
         }
     }
@@ -715,6 +709,25 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
     }
 }
 
+/** FS-102: the draft is asked again from this freelancer (invited when it is published); the last work's parts are only a reference. */
+@Composable
+private fun HireAgainCard(h: com.dorr.app.network.FreelanceHireAgainDto, currency: String) {
+    Card(Icons.Rounded.Replay, stringResource(R.string.fs_hire_again_title)) {
+        Text(stringResource(R.string.fs_hire_again_from, h.freelancer?.name.orEmpty()), color = settingsInk(), fontSize = 13.sp, lineHeight = 19.sp)
+        if (h.milestones.isNotEmpty()) {
+            Text(stringResource(R.string.fs_hire_again_prev), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            h.milestones.forEach { m ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(m.title, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    m.durationDays?.let { Text(stringResource(R.string.fl_days, it), color = settingsMut(), fontSize = 12.sp) }
+                    Text("‎${money(m.amountMinor)} $currency", color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        FlNotice(stringResource(R.string.fs_hire_again_note), Icons.Rounded.Info, Color(0xFFD97706))
+    }
+}
+
 /** A step on the project page: the main one at the foot, the others under «More». */
 private class ProjectStep(val key: String, val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tone: FlTone = FlTone.Soft, val enabled: Boolean = true, val onClick: () -> Unit)
 
@@ -734,13 +747,15 @@ private fun primaryStep(p: FreelanceProjectDto, onPreview: () -> Unit, onOffers:
 @Composable
 private fun moreSteps(
     p: FreelanceProjectDto, primary: String?, onEdit: (String) -> Unit, onInvitations: () -> Unit,
-    onCap: () -> Unit, onCopy: () -> Unit, onWithdraw: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit,
+    onCap: () -> Unit, onCopy: () -> Unit, onHireAgain: () -> Unit, onWithdraw: () -> Unit, onCancel: () -> Unit, onDelete: () -> Unit,
 ): List<ProjectStep> = buildList {
     if (p.can.edit && primary != "edit") add(ProjectStep("edit", stringResource(R.string.fl_edit), Icons.Rounded.Edit) { onEdit(p.uuid) })
     if (p.invitations != null && p.status == "published" && primary != "invitations") add(ProjectStep("invitations", stringResource(if (p.invitations.canInvite) R.string.fl_inv_manage else R.string.fl_inv_see), Icons.Rounded.PersonAdd, onClick = onInvitations))
     if (p.can.setCostCap) add(ProjectStep("cap", stringResource(if (p.maxCostMinor == null) R.string.fl_cost_cap_set else R.string.fl_cost_cap_change), Icons.Rounded.Savings, onClick = onCap))
     // FL-209: ask for it again from this one.
     if (p.can.duplicate) add(ProjectStep("copy", stringResource(R.string.fl_copy_project), Icons.Rounded.ContentCopy, onClick = onCopy))
+    // FS-102: the same freelancer again, on a new private draft.
+    if (p.can.hireAgain) add(ProjectStep("hire_again", stringResource(R.string.fs_hire_again), Icons.Rounded.Replay, onClick = onHireAgain))
     if (p.can.withdraw) add(ProjectStep("withdraw", stringResource(R.string.fl_withdraw), Icons.Rounded.Undo, FlTone.Warn, onClick = onWithdraw))
     if (p.can.cancel) add(ProjectStep("cancel", stringResource(R.string.fl_cancel_project), Icons.Rounded.Cancel, FlTone.Danger, onClick = onCancel))
     if (p.can.delete) add(ProjectStep("delete", stringResource(R.string.fl_delete_draft), Icons.Rounded.DeleteForever, FlTone.Danger, onClick = onDelete))
@@ -974,6 +989,7 @@ private fun eventLabel(type: String): String = when (type) {
     "project.resubmitted" -> stringResource(R.string.fl_ev_resubmitted)
     "project.withdrawn" -> stringResource(R.string.fl_ev_withdrawn)
     "project.cost_cap_set" -> stringResource(R.string.fl_ev_cost_cap)
+    "project.hire_again" -> stringResource(R.string.fs_ev_hire_again)
     "project.completed" -> stringResource(R.string.fl_ev_completed)
     "project.invited" -> stringResource(R.string.fl_ev_invited)
     "project.made_public" -> stringResource(R.string.fl_ev_made_public)
@@ -1014,8 +1030,8 @@ internal fun Field(label: String, value: String?) {
 }
 
 @Composable
-internal fun TextAction(text: String, danger: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
-    FlAction(text, icon, if (danger) FlTone.Danger else FlTone.Soft, onClick = onClick)
+internal fun TextAction(text: String, danger: Boolean = false, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    FlAction(text, icon, if (danger) FlTone.Danger else FlTone.Soft, modifier = modifier, onClick = onClick)
 }
 
 // ---------------------------------------------------------------- the form
@@ -1325,12 +1341,12 @@ private fun FormProblem(text: String) {
 }
 
 /** The file as a multipart part named `file`, with its own name and type. */
-private fun filePart(context: Context, uri: Uri): MultipartBody.Part? {
+internal fun filePart(context: Context, uri: Uri, field: String = "file"): MultipartBody.Part? {
     val resolver = context.contentResolver
     val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: "file"
     val type = resolver.getType(uri) ?: "application/octet-stream"
     val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-    return MultipartBody.Part.createFormData("file", name, bytes.toRequestBody(type.toMediaTypeOrNull()))
+    return MultipartBody.Part.createFormData(field, name, bytes.toRequestBody(type.toMediaTypeOrNull()))
 }
 
 /**

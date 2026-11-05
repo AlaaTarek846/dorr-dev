@@ -91,7 +91,8 @@ class FreelancePlanController extends Controller implements HasMiddleware
         $f = $request->validate(['search' => ['nullable', 'string', 'max:60'], 'missing' => ['nullable', 'boolean'], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100']]);
         $set = FreelancePlanPrice::query()->where('plan_id', $model->id)->get()->groupBy('country_id');
 
-        $query = Country::query()->with(['currency', 'translations'])->orderBy('code')
+        // One price for the whole world (`freelance.money`): only the international row is listed and priced.
+        $query = Country::query()->with(['currency', 'translations'])->whereKey(app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->orderBy('code')
             ->when(! empty($f['search']), fn ($q) => $q->where(fn ($w) => $w->where('code', 'like', '%'.$f['search'].'%')->orWhereHas('translations', fn ($t) => $t->where('name', 'like', '%'.$f['search'].'%'))))
             ->when(! empty($f['missing']), fn ($q) => $q->whereNotIn('id', FreelancePlanPrice::query()->where('plan_id', $model->id)->select('country_id')));
         $page = $query->paginate((int) ($f['per_page'] ?? 20));
@@ -115,6 +116,7 @@ class FreelancePlanController extends Controller implements HasMiddleware
         if ($model->isFree()) {
             throw new FreelanceException('plan_free_no_price', 422);
         }
+        abort_unless(app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->isInternational($country), 404);
         $c = Country::query()->findOrFail($country);
         $data = $request->validate([
             'monthly_minor' => ['required', 'integer', 'min:1', 'max:100000000000'], 'yearly_minor' => ['required', 'integer', 'min:1', 'max:1000000000000'], 'status' => ['sometimes', 'boolean'],

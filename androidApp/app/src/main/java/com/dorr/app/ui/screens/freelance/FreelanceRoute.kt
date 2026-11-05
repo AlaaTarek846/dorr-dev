@@ -26,6 +26,10 @@ internal sealed interface FlRoute {
     data object Favorites : FlRoute { override val key = "favorites" }
     data object Receipts : FlRoute { override val key = "receipts" }
 
+    // FS-103: my lists of freelancers.
+    data object TalentLists : FlRoute { override val key = "talents" }
+    data class TalentList(val list: String) : FlRoute { override val key get() = "talent:$list" }
+
     // FL-L04: ready-made services and my orders.
     data object Services : FlRoute { override val key = "market" }
     data class Service(val service: String) : FlRoute { override val key get() = "svc:$service" }
@@ -58,6 +62,8 @@ internal sealed interface FlRoute {
                 "new" -> NewProject
                 "favorites" -> Favorites
                 "receipts" -> Receipts
+                "talents" -> TalentLists
+                "talent" -> a?.let(::TalentList)
                 "market" -> Services
                 "orders" -> Orders
                 "cmarket" -> ConsultMarket

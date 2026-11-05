@@ -82,8 +82,13 @@ data class MarketFreelancerDto(
 
 data class MarketSpecialtyDto(val id: Int = 0, val name: String? = null)
 
+/** Where something comes from (freelance work is open across countries): ISO code and the name in my language. */
+data class FlCountryRefDto(val code: String? = null, val name: String? = null)
+
 data class MarketServiceCardDto(
     val uuid: String = "",
+    /** The freelancer's country (the market mixes every open country). */
+    val country: FlCountryRefDto? = null,
     val title: String = "",
     val specialty: MarketSpecialtyDto? = null,
     @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,

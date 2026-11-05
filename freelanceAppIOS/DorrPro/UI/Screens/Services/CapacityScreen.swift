@@ -121,7 +121,11 @@ private struct CapacityGauge: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(verbatim: max == nil ? L("cap_state_open") : (d.full ?? false) ? L("cap_state_full") : L("cap_state_room", max! - used))
                 .font(.dorr(18, .heavy)).foregroundStyle(.white)
-            Text(L("cap_running_line", d.running ?? 0)).font(.dorr(13)).foregroundStyle(.white.opacity(0.9))
+            HStack(spacing: 8) {
+                GaugeStat(value: d.running ?? 0, label: L("cap_stat_running"))
+                GaugeStat(value: d.holds ?? 0, label: L("cap_stat_holds"))
+                GaugeStat(value: d.waiting ?? 0, label: L("cap_stat_waiting"))
+            }
             if let max {
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
@@ -140,6 +144,21 @@ private struct CapacityGauge: View {
         .frame(maxWidth: .infinity)
         .onAppear { withAnimation(.easeInOut(duration: 0.8)) { fill = target } }
         .onChange(of: target) { value in withAnimation(.easeInOut(duration: 0.8)) { fill = value } }
+    }
+}
+
+private struct GaugeStat: View {
+    let value: Int
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("\(value)").font(.dorr(22, .heavy)).foregroundStyle(.white)
+            Text(label).font(.dorr(11.5)).foregroundStyle(.white.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -178,9 +197,15 @@ private struct WaitLine: View {
         .frame(maxWidth: 520)
         .frame(maxWidth: .infinity)
         if line.isEmpty {
-            Text(L("cap_line_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3)
-                .frame(maxWidth: 520, alignment: .leading)
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                Image(systemName: "person.2.fill").font(.system(size: 22)).foregroundStyle(wa.red)
+                    .frame(width: 52, height: 52).background(Circle().fill(wa.red.opacity(0.12)))
+                Text(L("cap_line_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3).multilineTextAlignment(.center)
+            }
+            .padding(20)
+            .frame(maxWidth: 520)
+            .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: .infinity)
         } else {
             ForEach(Array(line.enumerated()), id: \.offset) { _, e in LineRow(e: e) }
         }

@@ -19,6 +19,8 @@ data class FlHomeDto(
     val features: Map<String, Boolean> = emptyMap(),
     @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String? = null,
     val decimals: Int = 2,
+    /** What the client can spend now in the freelance wallet (dollars, `mobile/v1/freelance/wallet`). */
+    @SerializedName("wallet_minor") val walletMinor: Long = 0,
     val promos: List<FlPromoDto> = emptyList(),
     val stats: FlHomeStatsDto = FlHomeStatsDto(),
     val attention: FlHomeAttentionDto = FlHomeAttentionDto(),

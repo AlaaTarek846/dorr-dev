@@ -103,7 +103,7 @@ class FreelanceCommunityTest extends TestCase
 
     // -------------------------------------------------------------- tests
 
-    public function test_a_member_posts_with_images_and_others_in_the_country_see_it(): void
+    public function test_a_member_posts_with_images_and_members_of_every_open_country_see_it(): void
     {
         $this->as($this->sara);
         $home = $this->getJson(self::API)->assertOk();
@@ -125,12 +125,18 @@ class FreelanceCommunityTest extends TestCase
         $this->get($url)->assertOk();
         $this->get(strtok($url, '?'))->assertForbidden();
 
-        // Omar in the same country sees it; a freelancer of another country does not.
+        // Omar in the same country sees it, and so does a freelancer of another open country (open across countries, owner 2026-11-04),
+        // with where it was posted from.
         $this->as($this->omar);
         $this->assertSame([$uuid], array_column($this->getJson(self::API.'/feed')->assertOk()->json('data'), 'uuid'));
         $egypt = $this->country('EG', '+20', 'EGP');
         $this->enable($egypt);
         $this->as($this->freelancer('Hany', '+201000000001', $egypt));
+        $this->getJson(self::API.'/feed')->assertOk()->assertJsonPath('data.0.uuid', $uuid)->assertJsonPath('data.0.country.code', 'SA');
+        $this->getJson(self::API.'/posts/'.$uuid)->assertOk();
+        // Once the community is switched off in Saudi, what was posted there is no longer shown elsewhere.
+        FreelanceFeatureRule::query()->where('country_id', $this->saudi->id)->where('feature', 'community')->update(['enabled' => false]);
+        FreelanceFeatures::forget();
         $this->assertSame([], $this->getJson(self::API.'/feed')->assertOk()->json('data'));
         $this->getJson(self::API.'/posts/'.$uuid)->assertNotFound();
     }

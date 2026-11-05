@@ -174,13 +174,29 @@ private fun Gauge(d: CapacityDto) {
             },
             color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
         )
-        Text(stringResource(R.string.cap_running_line, d.running), color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
+        // The three numbers that matter, each on its own tile: running, kept for someone in line, and waiting.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GaugeStat(d.running, stringResource(R.string.cap_stat_running), Modifier.weight(1f))
+            GaugeStat(d.holds, stringResource(R.string.cap_stat_holds), Modifier.weight(1f))
+            GaugeStat(d.waiting, stringResource(R.string.cap_stat_waiting), Modifier.weight(1f))
+        }
         if (max != null) {
             Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(99.dp)).background(Color.White.copy(alpha = 0.25f))) {
                 Box(Modifier.fillMaxWidth(fill).fillMaxHeight().clip(RoundedCornerShape(99.dp)).background(Color.White))
             }
             Text(stringResource(R.string.cap_used_of, used, max), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
         }
+    }
+}
+
+@Composable
+private fun GaugeStat(value: Int, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.16f)).padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("$value", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.5.sp)
     }
 }
 
@@ -202,7 +218,15 @@ private fun Line(d: CapacityDto) {
         if (d.line.isNotEmpty()) SvcPill("${d.line.size}", serviceTone("awaiting"))
     }
     if (d.line.isEmpty()) {
-        Text(stringResource(R.string.cap_line_empty), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp))
+        Column(
+            Modifier.fillMaxWidth().widthIn(max = 520.dp).settingsSurface(RoundedCornerShape(18.dp)).padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(Modifier.size(52.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.People, null, tint = settingsAccent(), modifier = Modifier.size(26.dp))
+            }
+            Text(stringResource(R.string.cap_line_empty), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
         return
     }
     d.line.forEach { LineRow(it) }

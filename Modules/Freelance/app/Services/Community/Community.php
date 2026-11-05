@@ -22,7 +22,8 @@ use Modules\Freelance\Services\Plans\FreelancePerks;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
- * The professional community (FL-L12): a feed of posts for freelancers only, per country. A member posts (a post, a question, or a
+ * The professional community (FL-L12): a feed of posts for freelancers only, of every country where the community is open (open
+ * across countries, owner 2026-11-04). A member posts (a post, a question, or a
  * finished work from their portfolio), comments with one level of replies, reacts, saves and follows other members. Writing needs a
  * verified account, no mute from the staff, no contact details (the chat's rule) and stays within a daily limit.
  */
@@ -41,7 +42,7 @@ class Community
     // -------------------------------------------------------------- reading
 
     /**
-     * The feed. `tab`: for_you (everyone in my country) · following · specialty (my specialties, or `specialty_id`) · mine · saved; plus
+     * The feed. `tab`: for_you (everyone, every open country) · following · specialty (my specialties, or `specialty_id`) · mine · saved; plus
      * `kind`, `search`, `member` (one member's posts) and the `cursor` of the next page.
      *
      * @param  array{tab?: ?string, kind?: ?string, specialty_id?: ?int, search?: ?string, member?: ?string}  $f
@@ -414,6 +415,8 @@ class Community
             return [
                 'uuid' => $p->uuid, 'kind' => $p->kind, 'kind_label' => __('freelance.community.kinds.'.$p->kind), 'body' => $p->body,
                 'author' => $this->author($p->freelancer, $me, isset($following[$p->freelancer_id])),
+                // Where it was posted from (the feed is open across countries): {code, name}.
+                'country' => \Modules\Freelance\Services\Features\FreelanceCountry::card((int) $p->country_id),
                 'specialty' => $p->specialty === null ? null : ['id' => $p->specialty->id, 'name' => $p->specialty->translatedName()],
                 'images' => $this->images($p),
                 'work' => $this->work($p),
@@ -465,11 +468,11 @@ class Community
 
     // -------------------------------------------------------------- inside
 
-    /** Posts the member may see: published ones of verified members in their country, and their own whatever the state. */
+    /** Posts the member may see: published ones of verified members of any country where the community is open, and their own whatever the state. */
     private function visible(Freelancer $me): Builder
     {
         return Post::query()->where(fn ($q) => $q
-            ->where(fn ($w) => $w->where('country_id', $me->country_id)->where('status', Post::PUBLISHED)
+            ->where(fn ($w) => $w->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries('community'))->where('status', Post::PUBLISHED)
                 ->whereHas('freelancer', fn ($a) => $a->where('status', FreelancerStatus::Verified->value)))
             ->orWhere('freelancer_id', $me->id));
     }

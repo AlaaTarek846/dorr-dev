@@ -5407,6 +5407,24 @@
                 "resident": "Residents"
             }
         },
+        "checklist_templates": {
+            "title": "Checklist templates",
+            "hint": "Ready-made lists of what a client checks before approving a part of a project, by kind of project, in Arabic and English. One check per line, at most {max}.",
+            "add": "Add template",
+            "edit": "Edit template",
+            "specialty": "Kind of project",
+            "any_project": "Any project",
+            "checks": "Checks",
+            "checks_ar": "Checks (Arabic)",
+            "checks_en": "Checks (English)",
+            "add_check": "Add check",
+            "max_checks": "{n} of {max}",
+            "name_ar": "Name (Arabic)",
+            "name_en": "Name (English)",
+            "code": "Code",
+            "sort_order": "Sort order",
+            "confirm_delete": "Delete \"{name}\"?"
+        },
         "verifications": {
             "title": "Verification requests",
             "waiting": "{n} waiting",

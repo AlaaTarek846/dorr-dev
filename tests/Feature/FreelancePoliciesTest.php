@@ -98,7 +98,8 @@ class FreelancePoliciesTest extends TestCase
         $this->assertSame(10, $specialty->get('review.days'), 'the specialty inherits what it does not set');
         $this->assertSame(1500, $otherSpecialty->get('commission.value'));
         $this->assertCount(2, $specialty->policyIds);
-        $this->assertSame(1000, $this->policies()->for($this->egypt->id)->get('commission.value'), 'another country is untouched');
+        // One set for the whole world (`freelance.money`): every country reads the same numbers.
+        $this->assertSame(1500, $this->policies()->for($this->egypt->id)->get('commission.value'), 'every country reads the world set');
     }
 
     public function test_saving_empty_data_brings_the_scope_back_to_inheriting(): void
@@ -277,8 +278,9 @@ class FreelancePoliciesTest extends TestCase
             ->assertJsonPath('data.freelancer_net_minor', 95000)
             ->assertJsonPath('data.currency.code', 'SAR');
 
+        // Nothing to copy any more: the numbers are already the world's, so Egypt reads them as they are.
         $this->postJson('/api/admin/v1/freelance-policies/copy', ['from_country_id' => $this->saudi->id, 'to_country_id' => $this->egypt->id])
-            ->assertOk()->assertJsonPath('data.copied', 1);
+            ->assertOk()->assertJsonPath('data.copied', 0);
         $this->assertSame(1500, $this->policies()->for($this->egypt->id)->get('commission.value'));
     }
 
@@ -316,7 +318,8 @@ class FreelancePoliciesTest extends TestCase
 
     // -------------------------------------------------------------- the apps
 
-    public function test_the_apps_get_the_currency_and_the_numbers_of_their_country(): void
+    /** Whatever the freelancer's country, the apps get the freelance currency (the money country's, Saudi in these tests) and the world numbers. */
+    public function test_the_apps_get_the_freelance_currency_and_the_world_numbers(): void
     {
         FreelanceFeatureRule::query()->create(['feature' => 'freelance', 'country_id' => $this->egypt->id, 'enabled' => true]);
         FreelanceFeatures::forget();
@@ -325,7 +328,7 @@ class FreelancePoliciesTest extends TestCase
         Sanctum::actingAs($freelancer, [], 'freelance_api');
 
         $this->getJson('/api/freelance/v1/config')->assertOk()
-            ->assertJsonPath('data.currency.code', 'EGP')
+            ->assertJsonPath('data.currency.code', 'SAR')
             ->assertJsonPath('data.currency.decimal_places', 2)
             ->assertJsonPath('data.policy', fn ($p) => $p['client_fee.value'] === 300 && $p['project.min_budget_minor'] === 50000 && $p['commission.type'] === 'percent');
     }

@@ -87,6 +87,13 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
     val doneText = stringResource(R.string.plans_done)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shortText = stringResource(R.string.plans_short_go_wallet)
+    // Not enough in the wallet: straight to it (the message says what is missing), instead of leaving a button to find.
+    fun goToWallet(message: String?) {
+        android.widget.Toast.makeText(context, message?.takeIf { it.isNotBlank() } ?: shortText, android.widget.Toast.LENGTH_LONG).show()
+        onOpenWallet()
+    }
 
     var catalog by remember { mutableStateOf<PlansDto?>(null) }
     var mine by remember { mutableStateOf<MySubscriptionDto?>(null) }
@@ -136,6 +143,7 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             } else {
                 error = result.errorText(offlineText) ?: genericError
                 needsMoney = (result as? ApiResult.Failed)?.error?.errorCode?.endsWith("_insufficient") == true
+                if (needsMoney) goToWallet(error)
             }
             busy = false
         }
@@ -156,6 +164,7 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             } else {
                 error = result.errorText(offlineText) ?: genericError
                 needsMoney = (result as? ApiResult.Failed)?.error?.errorCode?.endsWith("_insufficient") == true
+                if (needsMoney) goToWallet(error)
             }
             busy = false
         }

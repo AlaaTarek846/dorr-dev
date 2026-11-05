@@ -31,7 +31,7 @@
     <string name="plans_offers_n">%1$d free offers per month</string>
     <string name="plans_offers_unlimited">Unlimited offers</string>
     <string name="plans_commission">Commission %1$s%%</string>
-    <string name="plans_commission_country">The standard commission of your country</string>
+    <string name="plans_commission_country">The standard commission</string>
     <string name="plans_trial">%1$d days free to try</string>
     <string name="plans_btn_trial">Try free for %1$d days</string>
     <string name="plans_btn_subscribe">Subscribe</string>
@@ -44,6 +44,7 @@
     <string name="plans_confirm_ok">Confirm</string>
     <string name="plans_done">Done</string>
     <string name="plans_wallet_topup">Top up wallet</string>
+    <string name="plans_short_go_wallet">Not enough in your wallet: top it up, then try again.</string>
     <string name="plans_invoices">Invoices</string>
     <string name="plans_invoices_none">No invoices yet.</string>
     <string name="plans_invoice_purchase">Subscription</string>

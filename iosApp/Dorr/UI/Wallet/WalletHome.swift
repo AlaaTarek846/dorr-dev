@@ -29,6 +29,43 @@ struct WalletHome: View {
 
     @State private var recent: [WalletTransactionDto]?
     @State private var loading = true
+    /// The dollar wallet is the one on screen (mirrors `WalletCountry.isInternational`, which is not observable).
+    @State private var intl = WalletCountry.isInternational
+    /// The card the pager shows; a settled swipe onto another one switches the wallet.
+    @State private var pageKey = ""
+
+    /// The wallet every wallet screen works on right now: "INT" for the dollar wallet, else a country code.
+    private var activeKey: String? {
+        if intl { return "INT" }
+        return walletCountry.selected?.uppercased() ?? walletCountry.here?.uppercased() ?? host.balance?.countryCode?.uppercased()
+    }
+
+    /// My country wallets (where I am first) and the dollar wallet last.
+    private var walletKeys: [String] {
+        let here = walletCountry.here?.uppercased()
+        let local = host.localCodes.isEmpty ? [here ?? (activeKey != "INT" ? activeKey : nil)].compactMap { $0 } : host.localCodes
+        var seen = Set<String>()
+        return (local + (host.intlWallet ? ["INT"] : [])).filter { seen.insert($0).inserted }
+    }
+
+    private var heroHeight: CGFloat {
+        let held = host.balances.values.contains { $0.heldMinor > 0 } || (host.balance?.heldMinor ?? 0) > 0
+        return held ? 268 : 232
+    }
+
+    private func switchTo(_ key: String) {
+        if key == "INT" {
+            WalletCountry.setInternational(true)
+            intl = true
+        } else {
+            WalletCountry.setInternational(false)
+            intl = false
+            walletCountry.select(key)
+        }
+        host.balance = host.balances[key]
+        recent = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
 
     var body: some View {
         WaPage(title: L("wa_my_wallet"), onBack: { host.pop() }, actions: {
@@ -40,21 +77,50 @@ struct WalletHome: View {
             }
         }) {
             let balance = host.balance
-            Group {
-                if let balance {
-                    WaHeroCard(balance: balance)
-                } else {
+            // My wallets as swipeable cards: the ones of my countries (where I am first) and the dollar wallet last. A swipe that
+            // settles on another card makes it the wallet every wallet screen works on (balance, number, history, top-up).
+            let keys = walletKeys
+            VStack(spacing: 0) {
+                if keys.isEmpty {
                     WaSkeleton(cornerRadius: 24).frame(height: 172)
+                } else {
+                    TabView(selection: $pageKey) {
+                        ForEach(keys, id: \.self) { key in
+                            let shown = key == activeKey ? (balance ?? host.balances[key]) : host.balances[key]
+                            Group {
+                                if let shown {
+                                    WaHeroCard(balance: shown, key: key)
+                                } else {
+                                    WaSkeleton(cornerRadius: 24).frame(height: 172)
+                                }
+                            }
+                            .padding(.bottom, 14)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                            .tag(key)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: heroHeight)
+                    if keys.count > 1 {
+                        WalletDots(count: keys.count, current: keys.firstIndex(of: pageKey) ?? 0) { i in
+                            withAnimation(.easeOut(duration: 0.3)) { pageKey = keys[i] }
+                        }
+                    }
                 }
             }
             .waRise(0)
 
-            if let balance, let current = balance.countryCode?.uppercased(), let here = walletCountry.here?.uppercased(), current != here {
+            // The freelance international wallet (dollars): no country to be away from, no rewards, no transfers.
+            let international = intl
+            if international {
+                WaNote(text: L("wa_intl_note")).padding(.top, 8)
+            }
+            if !international, let balance, let current = balance.countryCode?.uppercased(), let here = walletCountry.here?.uppercased(), current != here {
                 WaNote(text: L("wa_wallet_away_note", countryName(current))).padding(.top, 8)
             }
 
             // Watch & Earn (D17): a card under the balance, with my rewards balance.
-            if let balance {
+            if let balance, !international {
                 WatchEarnWalletCard(rewardMinor: balance.rewardMinor, currencyCode: balance.currencyCode)
                     .padding(.top, 10)
                     .waRise(1)
@@ -62,40 +128,13 @@ struct WalletHome: View {
 
             HStack(spacing: 8) {
                 HomeAction(icon: "creditcard.and.123", label: L("wa_action_topup"), index: 1) { host.push(.topup) }
-                HomeAction(icon: "arrow.up.right", label: L("wa_action_transfer"), index: 2) { host.push(.transfer) }
+                if !international {
+                    HomeAction(icon: "arrow.up.right", label: L("wa_action_transfer"), index: 2) { host.push(.transfer) }
+                }
                 HomeAction(icon: "clock.arrow.circlepath", label: L("wa_action_history"), index: 3) { host.push(.history) }
                 HomeAction(icon: "gearshape.fill", label: L("wa_action_pin"), index: 4) { host.push(.pinSettings) }
             }
             .padding(.top, 12)
-
-            if let others = balance?.otherWallets, !others.isEmpty {
-                WaCard(padding: 16) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "globe").font(.system(size: 14, weight: .semibold)).foregroundStyle(wa.ink)
-                        Text(L("wa_other_wallets")).font(.dorr(14, .heavy)).foregroundStyle(wa.ink)
-                    }
-                    ForEach(Array(others.enumerated()), id: \.offset) { _, other in
-                        // A tap switches to that wallet: its number, QR and transfers (to its own country).
-                        Button { walletCountry.select(other.countryCode) } label: {
-                            HStack(spacing: 0) {
-                                WalletFlag(code: other.countryCode)
-                                Text(countryName(other.countryCode)).font(.dorr(14, .bold)).foregroundStyle(wa.ink).padding(.leading, 10)
-                                Spacer(minLength: 8)
-                                Text(verbatim: "\u{2066}\(money(other.totalMinor)) \(other.currencyCode ?? "")\u{2069}").font(.dorr(14, .heavy)).foregroundStyle(wa.ink)
-                                Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.soft).padding(.leading, 4)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(wa.field, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 10)
-                    }
-                    Text(L("wa_other_wallets_note")).font(.dorr(11.5)).foregroundStyle(wa.mut).lineSpacing(4).padding(.top, 2)
-                }
-                .padding(.top, 8)
-                .waRise(4)
-            }
 
             WaSectionTitle(title: L("wa_recent"), topPadding: 12) {
                 Button { host.push(.history) } label: {
@@ -132,7 +171,15 @@ struct WalletHome: View {
             .waRise(6)
         }
         // Reloads on reconnect and when I switch to another of my wallets.
-        .task(id: "\(network.reconnectTick)-\(walletCountry.selected ?? "")") { await load() }
+        .task(id: "\(network.reconnectTick)-\(walletCountry.selected ?? "")-\(intl)") { await load() }
+        .onAppear { if pageKey.isEmpty { pageKey = activeKey ?? "" } }
+        .onChange(of: pageKey) { key in
+            if !key.isEmpty, key != activeKey { switchTo(key) }
+        }
+        // The active wallet changed from outside the pager (the wallet picker): the pager follows.
+        .onChange(of: activeKey) { key in
+            if let key, key != pageKey, walletKeys.contains(key) { withAnimation(.easeOut(duration: 0.3)) { pageKey = key } }
+        }
     }
 
     private func load() async {
@@ -171,12 +218,48 @@ private struct HomeAction: View {
     }
 }
 
+/// One dot per wallet; the current one stretches into a pill. A tap on a dot jumps to that wallet.
+private struct WalletDots: View {
+    @Environment(\.wa) private var wa
+    let count: Int
+    let current: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<count, id: \.self) { i in
+                Button { onSelect(i) } label: {
+                    Capsule()
+                        .fill(i == current ? wa.red : wa.soft.opacity(0.45))
+                        .frame(width: i == current ? 22 : 7, height: 7)
+                        .animation(.easeOut(duration: 0.26), value: current)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 3)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// The dollar wallet's own look (teal, next to the navy of the country wallets), so a swipe is seen as a different wallet.
+private let intlTint = Color(red: 0x0F / 255, green: 0x76 / 255, blue: 0x6E / 255)
+private let intlGradient = LinearGradient(
+    colors: [Color(red: 0x0F / 255, green: 0x8F / 255, blue: 0x82 / 255), intlTint, Color(red: 0x13 / 255, green: 0x4E / 255, blue: 0x4A / 255)],
+    startPoint: .topLeading, endPoint: .bottomTrailing
+)
+
 /// The balance card — same order as the reference: number + actions, total chip, amount, then the two parts.
 @MainActor
 private struct WaHeroCard: View {
     @EnvironmentObject private var host: WalletHost
     @Environment(\.wa) private var wa
     let balance: WalletBalanceDto
+    /// The wallet this card is: a country code, or "INT" for the dollar wallet.
+    let key: String
+    private var international: Bool { key == "INT" }
     @State private var pickWallet = false
     @State private var copied = false
     @State private var shown: Double = 0
@@ -189,11 +272,28 @@ private struct WaHeroCard: View {
         ZStack(alignment: .bottomLeading) {
             Circle().fill(Color.white.opacity(0.063)).frame(width: 150, height: 150).offset(x: -30, y: 50)
             VStack(alignment: .leading, spacing: 0) {
+                // Which wallet this card is: its country (or the world, for the dollar wallet) and its currency.
+                HStack(spacing: 8) {
+                    if international {
+                        Image(systemName: "globe").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 24, height: 24).background(Color.white.opacity(0.18), in: Circle())
+                    } else {
+                        WalletFlag(code: balance.countryCode, width: 24, height: 17)
+                    }
+                    Text(international ? L("wa_intl_wallet_title") : L("wa_wallet_of", countryName(balance.countryCode)))
+                        .font(.dorr(14, .heavy)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if !currency.isEmpty {
+                        Text(currency).font(.dorr(11, .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 9).padding(.vertical, 3)
+                            .background(Color.white.opacity(0.18), in: Capsule())
+                    }
+                }
+                .padding(.bottom, 10)
                 HStack(spacing: 0) {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(L("wa_wallet_number")).font(.dorr(11, .medium)).foregroundStyle(.white.opacity(0.68)).lineLimit(1)
-                            WalletFlag(code: balance.countryCode, width: 16, height: 11)
                         }
                         if !number.trimmingCharacters(in: .whitespaces).isEmpty {
                             Text(number).font(.dorr(13, .bold)).foregroundStyle(.white).lineLimit(1)
@@ -211,9 +311,12 @@ private struct WaHeroCard: View {
                                 copied = false
                             }
                         }
-                        HeroCircle(icon: "qrcode") { host.push(.myQr) }
-                        HeroCircle(icon: "square.and.arrow.up") { shareText(L("wa_qr_share_text", number)) }
-                        HeroCircle(icon: "arrow.left.arrow.right") { pickWallet = true }
+                        // The international wallet receives nothing from others and has no country to switch: copy only.
+                        if !international {
+                            HeroCircle(icon: "qrcode") { host.push(.myQr) }
+                            HeroCircle(icon: "square.and.arrow.up") { shareText(L("wa_qr_share_text", number)) }
+                            HeroCircle(icon: "arrow.left.arrow.right") { pickWallet = true }
+                        }
                     }
                     .environment(\.layoutDirection, .leftToRight)
                 }
@@ -247,10 +350,12 @@ private struct WaHeroCard: View {
                     HeroPart(icon: "checkmark", label: L("wa_withdrawable"), value: hidden ? "****" : "\(money(balance.withdrawableMinor)) \(currency)", dot: We.withdrawable) { host.openSheet(.explain) }
                     Color.white.opacity(0.22).frame(width: 1, height: 34)
                     HeroPart(icon: "gift.fill", label: L("wa_spend_only"), value: hidden ? "****" : "\(money(balance.spendOnlyMinor)) \(currency)", dot: We.spendOnly) { host.openSheet(.explain) }
-                    // Watch & Earn rewards: spent anywhere in the app, never withdrawn (same colour on every page).
-                    Color.white.opacity(0.22).frame(width: 1, height: 34)
-                    HeroPart(icon: "trophy.fill", label: L("we_reward_balance"), value: hidden ? "****" : "\(money(balance.rewardMinor)) \(currency)", dot: We.reward) {
-                        WatchEarnLink.shared.show(.rewards)
+                    // Watch & Earn rewards: spent anywhere in the app, never withdrawn (same colour on every page). None in the dollar wallet.
+                    if !international {
+                        Color.white.opacity(0.22).frame(width: 1, height: 34)
+                        HeroPart(icon: "trophy.fill", label: L("we_reward_balance"), value: hidden ? "****" : "\(money(balance.rewardMinor)) \(currency)", dot: We.reward) {
+                            WatchEarnLink.shared.show(.rewards)
+                        }
                     }
                 }
                 .padding(.vertical, 9)
@@ -270,13 +375,13 @@ private struct WaHeroCard: View {
             .padding(.vertical, 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(wa.heroGradient)
+        .background(international ? AnyShapeStyle(intlGradient) : AnyShapeStyle(wa.heroGradient))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: wa.red.opacity(0.32), radius: 14, y: 6)
+        .shadow(color: (international ? intlTint : wa.red).opacity(0.32), radius: 10, y: 5)
         .onAppear {
             guard !started else { return }
             started = true
-            shown = Double(host.shownTotal)
+            shown = Double(host.shownTotals[key] ?? balance.totalMinor)
             count(to: balance.totalMinor)
         }
         .onChange(of: balance.totalMinor) { count(to: $0) }
@@ -291,7 +396,7 @@ private struct WaHeroCard: View {
     /// The total counts up (or down) from what the card last showed, over 0.9 s.
     private func count(to total: Int) {
         withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.9)) { shown = Double(total) }
-        host.shownTotal = total
+        host.shownTotals[key] = total
     }
 }
 

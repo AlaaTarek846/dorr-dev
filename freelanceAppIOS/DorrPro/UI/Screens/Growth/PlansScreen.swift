@@ -80,6 +80,11 @@ struct PlansScreen: View {
             } else {
                 error = result.errorText(offlineText) ?? genericError
                 needsMoney = result.error?.errorCode?.hasSuffix("_insufficient") == true
+                // Not enough in the wallet: straight to it, instead of leaving a button to find.
+                if needsMoney {
+                    AppToast.show(error.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? L("plans_short_go_wallet"), long: true)
+                    onOpenWallet()
+                }
             }
             busy = false
         }
@@ -100,6 +105,10 @@ struct PlansScreen: View {
             } else {
                 error = result.errorText(offlineText) ?? genericError
                 needsMoney = result.error?.errorCode?.hasSuffix("_insufficient") == true
+                if needsMoney {
+                    AppToast.show(error.flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } ?? L("plans_short_go_wallet"), long: true)
+                    onOpenWallet()
+                }
             }
             busy = false
         }

@@ -20,6 +20,6 @@ class CurrencyLabelAdapter : TypeAdapter<String>() {
     }
 
     private companion object {
-        val SIGNS = mapOf("SAR" to "﷼")
+        val SIGNS = mapOf("SAR" to "﷼", "USD" to "$")
     }
 }

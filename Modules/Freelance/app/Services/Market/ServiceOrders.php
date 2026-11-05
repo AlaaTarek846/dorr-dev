@@ -207,7 +207,7 @@ class ServiceOrders
             'level' => $tier->level,
             'tier' => ['name' => $tier->name, 'description' => $tier->description, 'features' => array_values((array) $tier->features)],
             'addons' => $pick['addons']->map(fn ($a) => ['title' => $a->title, 'price_minor' => $a->price_minor, 'extra_days' => $a->extra_days])->values()->all(),
-            'decimals' => (int) ($s->country?->currency?->decimal_places ?? 2),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'price_minor' => $deal['price_minor'] ?? $pick['price_minor'],
             'delivery_days' => $pick['delivery_days'],
             'revisions' => $pick['revisions'],

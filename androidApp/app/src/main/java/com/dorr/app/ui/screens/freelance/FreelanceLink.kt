@@ -37,7 +37,8 @@ object FreelanceLink {
         if (group == "waitlist") return service?.takeIf { it.isNotBlank() }?.let { "svc:$it" } ?: "market"
         // FL-L07: a consultation has no project: it opens the booking (or my consultations).
         if (group == "consultation") return consultation?.takeIf { it.isNotBlank() }?.let { "consult:$it" } ?: "consults"
-        if (project.isNullOrBlank()) return "home"
+        // A message whose room is not known (an older notice): my projects list, where each project shows its unread chat — not the hub.
+        if (project.isNullOrBlank()) return if (group == "message") "list" else "home"
         return when (group) {
             // A message from the freelancer: their offer page (its chat button carries the unread count).
             "message" -> if (!offer.isNullOrBlank()) "offer:$project:$offer" else "offers:$project"
@@ -46,7 +47,7 @@ object FreelanceLink {
             "invitation" -> "invites:$project"
             "dispute" -> if (!dispute.isNullOrBlank()) "dispute:$project:$dispute" else "agreement:$project"
             // FL-L13: the rights of a part passed, or the freelancer asks to show a finished work: the agreement (the claim notice has no project).
-            "agreement", "milestone", "change", "report", "review", "payment", "rights" -> "agreement:$project"
+            "agreement", "milestone", "change", "report", "review", "payment", "rights", "health" -> "agreement:$project"
             "sanction" -> "home"
             else -> "show:$project"
         }

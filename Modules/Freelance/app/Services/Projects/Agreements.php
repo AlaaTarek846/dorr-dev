@@ -297,6 +297,8 @@ class Agreements
             'duration_days' => $a->duration_days,
             // FL-605: the optional progress reports (how often, when the next is due, whether it is late).
             'reports' => app(ProgressReports::class)->summary($a),
+            // FS-106: how the running project is doing, why, and the next step for this side (null: not running).
+            'health' => app(ProjectHealth::class)->present($a, $side),
             'money' => $mine + ['lines' => FreelanceFees::lines($side, $mine)],
             // What the work runs on, as it was when the agreement was made.
             'terms' => ['review_days' => $policy['review.days'] ?? null, 'free_revisions' => $policy['review.free_revisions'] ?? null, 'auto_approve' => $policy['review.auto_approve'] ?? null],

@@ -366,6 +366,8 @@ private struct ProjectCard: View {
                             .background(wa.red.opacity(0.10), in: Capsule())
                     }
                     Spacer(minLength: 0)
+                    // The client's country: the list mixes every open country.
+                    CountryTag(country: p.country).padding(.trailing, 8)
                     if let ago = publishedAgo(p.publishedAt) { Text(verbatim: ago).font(.dorr(11)).foregroundStyle(wa.settingsMut).lineLimit(1) }
                 }
                 Text(verbatim: p.title ?? "").font(.dorr(15.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3)

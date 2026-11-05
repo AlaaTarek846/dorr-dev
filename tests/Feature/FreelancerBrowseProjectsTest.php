@@ -55,6 +55,13 @@ class FreelancerBrowseProjectsTest extends TestCase
         $this->me = $this->freelancer('+966500000091', $this->saudi);
     }
 
+    /** A country with no freelance switches: the service is closed there. */
+    private function closedCountry(): Country
+    {
+        return Country::query()->where('code', 'AE')->first()
+            ?? Country::create(['code' => 'AE', 'dial_code' => '+971', 'phone_length' => 9, 'status' => true, 'flag_id' => Flag::create(['code' => 'ae'])->id, 'currency_id' => Currency::create(['code' => 'AED', 'symbol' => 'AED'])->id]);
+    }
+
     private function country(string $code, string $dial, string $currency): Country
     {
         $c = Country::create(['code' => $code, 'dial_code' => $dial, 'phone_length' => 9, 'status' => true, 'flag_id' => Flag::create(['code' => strtolower($code)])->id, 'currency_id' => Currency::create(['code' => $currency, 'symbol' => $currency])->id]);
@@ -97,16 +104,20 @@ class FreelancerBrowseProjectsTest extends TestCase
         return $p;
     }
 
-    public function test_only_published_public_projects_of_my_country_are_listed(): void
+    /** Open across countries (owner, 2026-11-04): the published public projects of every country where the service is open, each with its country. */
+    public function test_only_published_public_projects_of_open_countries_are_listed(): void
     {
         $mine = $this->project();
         $this->project(['title' => 'Still in review', 'status' => FreelanceProjectStatus::PendingReview]);
         $this->project(['title' => 'A draft', 'status' => FreelanceProjectStatus::Draft]);
         $this->project(['title' => 'Cancelled one', 'status' => FreelanceProjectStatus::Cancelled]);
         $this->project(['title' => 'Private work', 'visibility' => 'private']);
-        $this->project(['title' => 'In Egypt', 'country_id' => $this->egypt->id, 'currency_code' => 'EGP']);
+        $egypt = $this->project(['title' => 'In Egypt', 'country_id' => $this->egypt->id, 'published_at' => now()->subDay()]);
+        // A country where the service is closed: its projects are not shown.
+        $this->project(['title' => 'In a closed country', 'country_id' => $this->closedCountry()->id]);
 
-        $this->getJson(self::API)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.uuid', $mine->uuid)
+        $this->getJson(self::API)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.uuid', $mine->uuid)
+            ->assertJsonPath('data.0.country.code', 'SA')->assertJsonPath('data.1.uuid', $egypt->uuid)->assertJsonPath('data.1.country.code', 'EG')
             ->assertJsonPath('data.0.skills.0.name', 'Laravel')->assertJsonPath('data.0.specialty.name', 'Web')->assertJsonPath('data.0.budget.max_minor', 500000)->assertJsonPath('data.0.is_favorite', false);
     }
 
@@ -121,7 +132,7 @@ class FreelancerBrowseProjectsTest extends TestCase
         foreach ([
             $this->project(['status' => FreelanceProjectStatus::PendingReview]),
             $this->project(['visibility' => 'private']),
-            $this->project(['country_id' => $this->egypt->id]),
+            $this->project(['country_id' => $this->closedCountry()->id]),
         ] as $hidden) {
             $this->getJson(self::API."/{$hidden->uuid}")->assertNotFound();
             $this->postJson(self::API."/{$hidden->uuid}/favorite")->assertNotFound();

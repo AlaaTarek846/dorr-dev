@@ -18,4 +18,7 @@
     <string name="cap_line_empty">محدش مستني. لما تتملي، العملاء يقدروا يدخلوا قايمة الانتظار وأول واحد بياخد أول مكان يفضى.</string>
     <string name="cap_holding">مكان محجوز</string>
     <string name="cap_holding_until">محجوز لحد %1$s</string>
+    <string name="cap_stat_running">شغّالة</string>
+    <string name="cap_stat_holds">محجوزة</string>
+    <string name="cap_stat_waiting">مستنيين</string>
 </resources>

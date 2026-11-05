@@ -590,7 +590,11 @@ struct WalletFlag: View {
     var height: CGFloat = 19
 
     var body: some View {
-        if let code, !code.isEmpty {
+        if let code, code.caseInsensitiveCompare("INT") == .orderedSame {
+            // The freelance international wallet has no flag: a globe.
+            Image(systemName: "globe").font(.system(size: min(width, height) * 0.9, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: width, height: height)
+        } else if let code, !code.isEmpty {
             AsyncImage(url: URL(string: "https://flagcdn.com/w80/\(code.lowercased()).png")) { phase in
                 if let image = phase.image { image.resizable().scaledToFill() } else { Color.gray.opacity(0.15) }
             }

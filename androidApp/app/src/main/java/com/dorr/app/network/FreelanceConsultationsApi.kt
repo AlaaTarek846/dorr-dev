@@ -81,6 +81,8 @@ data class ConsultTeaserDto(
 /** One consultation as a card in the list: who, what, from what price and the first free time. */
 data class ConsultCardDto(
     val uuid: String,
+    /** The freelancer's country (the market mixes every open country). */
+    val country: FlCountryRefDto? = null,
     val title: String? = null,
     val about: String? = null,
     val minutes: List<Int> = emptyList(),

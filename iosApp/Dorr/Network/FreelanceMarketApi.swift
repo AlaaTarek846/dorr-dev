@@ -39,8 +39,16 @@ struct MarketSpecialtyDto: Codable, Equatable {
     var name: String?
 }
 
+/// Where something comes from (freelance work is open across countries): ISO code and the name in my language.
+struct FlCountryRefDto: Codable, Equatable {
+    var code: String?
+    var name: String?
+}
+
 struct MarketServiceCardDto: Codable, Equatable, Identifiable {
     var uuid: String
+    /// The freelancer's country (the market mixes every open country).
+    var country: FlCountryRefDto?
     var title: String?
     var specialty: MarketSpecialtyDto?
     var currency: String?
@@ -348,6 +356,8 @@ struct ConsultFreelancerDto: Codable, Equatable {
 /// One consultation as a card in the list: who, what, from what price and the first free time.
 struct ConsultCardDto: Codable, Equatable, Identifiable {
     var uuid: String
+    /// The freelancer's country (the market mixes every open country).
+    var country: FlCountryRefDto?
     var title: String?
     var about: String?
     var minutes: [Int]?

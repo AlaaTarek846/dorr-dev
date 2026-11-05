@@ -47,7 +47,8 @@ class ClientHome
         $countryId = FreelanceCountry::of($client);
         $snapshot = $countryId === null ? ['service' => false, 'features' => array_fill_keys(FreelanceFeatures::FEATURES, false)] : $this->features->snapshot($countryId);
         $on = $snapshot['features'];
-        $currency = $countryId === null ? null : Country::query()->with('currency')->find($countryId)?->currency;
+        // One currency for all freelance work (`freelance.money`), whatever the client's country.
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
         $running = array_map(fn (PStatus $s) => $s->value, self::RUNNING);
 
         return [
@@ -57,6 +58,8 @@ class ClientHome
             'currency' => $currency?->code,
             'decimals' => (int) ($currency?->decimal_places ?? 2),
             'promos' => $this->promos->for(Promo::CLIENT, $countryId, $on),
+            // The international wallet freelance work is paid from (`freelance.money`): what can be spent now (no wallet yet: 0).
+            'wallet_minor' => (int) (app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->existingWallet($client)?->spendableMinor() ?? 0),
             'stats' => [
                 'running_projects' => Project::query()->where('client_id', $client->id)->whereIn('status', $running)->count(),
                 'new_offers' => $this->newOffers($client)->count(),

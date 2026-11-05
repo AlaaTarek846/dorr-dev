@@ -15,6 +15,9 @@ use Modules\Freelance\Console\RenewFreelanceSubscriptions;
 use Modules\Freelance\Console\TellFreelanceLateWork;
 use Modules\Freelance\Console\RemindFreelanceInterviews;
 use Modules\Freelance\Console\RefreshFreelancerRisk;
+use Modules\Freelance\Console\ProjectHealthAlerts;
+use Modules\Freelance\Console\RemindChangeRequests;
+use Modules\Freelance\Console\RemindTalentPool;
 use Modules\Freelance\Console\RemindProgressReports;
 use Modules\Freelance\Console\ExpireVerificationDocuments;
 use Illuminate\Support\Facades\Event;
@@ -55,6 +58,9 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         TellFreelanceLateWork::class,
         RemindFreelanceInterviews::class,
         RemindProgressReports::class,
+        RemindChangeRequests::class,
+        ProjectHealthAlerts::class,
+        RemindTalentPool::class,
         RefreshFreelancerRisk::class,
         RenewFreelanceSubscriptions::class,
         \Modules\Freelance\Console\SweepFreelanceWaitlist::class,
@@ -67,6 +73,9 @@ class FreelanceServiceProvider extends ModuleServiceProvider
     public function boot(): void
     {
         parent::boot();
+
+        // One currency and one international wallet for all freelance money (`freelance.money`); the row is looked up once a request.
+        $this->app->scoped(\Modules\Freelance\Services\Policy\FreelanceMoney::class);
 
         // Same non-enforced alias as 'user' / 'driver': tokens, OTP codes and media store 'freelancer'.
         Relation::morphMap(['freelancer' => Freelancer::class]);
@@ -118,6 +127,11 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         $schedule->command(TellFreelanceLateWork::class)->dailyAt('08:00')->withoutOverlapping();
         $schedule->command(RemindFreelanceInterviews::class)->everyMinute()->withoutOverlapping();
         $schedule->command(RemindProgressReports::class)->hourly()->withoutOverlapping();
+        $schedule->command(RemindChangeRequests::class)->hourly()->withoutOverlapping();
+        // FS-106: a running project that got at risk, delayed or blocked.
+        $schedule->command(ProjectHealthAlerts::class)->hourly()->withoutOverlapping();
+        // FS-103: a client's own "hire again" reminders.
+        $schedule->command(RemindTalentPool::class)->hourly()->withoutOverlapping();
         // FL-707: the quality score and risk level shown to staff.
         $schedule->command(RefreshFreelancerRisk::class)->dailyAt('04:10')->withoutOverlapping();
         // FL-L01: freelancer plans renew, retry and end.

@@ -22,6 +22,9 @@ enum FlRoute: Hashable {
     case newDispute(String, String)
     case favorites
     case receipts
+    // FS-103: my lists of freelancers.
+    case talentLists
+    case talentList(String)
     // FL-L04: ready-made services and my orders.
     case services
     case service(String)
@@ -57,6 +60,8 @@ enum FlRoute: Hashable {
         case .newDispute(let p, let m): return "dispute-new:\(p):\(m)"
         case .favorites: return "favorites"
         case .receipts: return "receipts"
+        case .talentLists: return "talents"
+        case .talentList(let l): return "talent:\(l)"
         case .services: return "market"
         case .service(let s): return "svc:\(s)"
         case .orders: return "orders"
@@ -93,6 +98,8 @@ enum FlRoute: Hashable {
         case "new": return .newProject
         case "favorites": return .favorites
         case "receipts": return .receipts
+        case "talents": return .talentLists
+        case "talent": return a.map { .talentList($0) } ?? .home
         case "market": return .services
         case "orders": return .orders
         case "cmarket": return .consultMarket
