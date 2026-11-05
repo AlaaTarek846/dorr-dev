@@ -48,6 +48,7 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::post('{uuid}/withdraw', [ClientProjectController::class, 'withdraw'])->whereUuid('uuid');
             // FL-209 / FL-210: ask again with a copy, the last look before sending, the most the client will pay.
             Route::post('{uuid}/duplicate', [ClientProjectController::class, 'duplicate'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-project-create');
+            Route::post('{uuid}/hire-again', [ClientProjectController::class, 'hireAgain'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-project-hire-again');
             Route::get('{uuid}/preview', [ClientProjectController::class, 'preview'])->whereUuid('uuid');
             Route::put('{uuid}/cost-cap', [ClientProjectController::class, 'costCap'])->whereUuid('uuid');
             Route::delete('{uuid}/cost-cap', [ClientProjectController::class, 'removeCostCap'])->whereUuid('uuid');
@@ -93,6 +94,7 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::get('{uuid}/reports', [ProgressReportController::class, 'index'])->whereUuid('uuid');
             Route::post('{uuid}/reports', [ProgressReportController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-report');
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
+            Route::get('{uuid}/agreement/changes/{change}/files/{media}', [ChangeRequestController::class, 'file'])->whereUuid(['uuid', 'change'])->whereNumber('media');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
             Route::post('{uuid}/agreement/send', [ClientAgreementController::class, 'send'])->whereUuid('uuid');
             // FL-L13: letting the freelancer show the finished work in their portfolio, and taking that back.
@@ -181,6 +183,24 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
         // FL-511: my receipts of the project money.
         Route::get('receipts', [ReceiptController::class, 'index'])->middleware('freelance.feature:projects');
         Route::get('receipts/{uuid}', [ReceiptController::class, 'show'])->whereUuid('uuid')->middleware('freelance.feature:projects');
+
+        // FS-105: ready-made checklists for a part (the client edits the copy).
+        Route::get('checklist-templates', [\Modules\Freelance\Http\Controllers\Client\ChecklistTemplateController::class, 'index'])->middleware('freelance.feature:projects');
+
+        // FS-103: my lists of freelancers (save, note, remind me to hire again, invite a list to a private project).
+        Route::prefix('talent-lists')->middleware('freelance.feature:projects')->group(function () {
+            $c = \Modules\Freelance\Http\Controllers\Client\TalentListController::class;
+            Route::get('/', [$c, 'index']);
+            Route::post('/', [$c, 'store']);
+            Route::get('containing/{freelancer}', [$c, 'containing'])->whereUuid('freelancer');
+            Route::get('{uuid}', [$c, 'show'])->whereUuid('uuid');
+            Route::put('{uuid}', [$c, 'update'])->whereUuid('uuid');
+            Route::delete('{uuid}', [$c, 'destroy'])->whereUuid('uuid');
+            Route::post('{uuid}/members', [$c, 'addMember'])->whereUuid('uuid');
+            Route::put('{uuid}/members/{freelancer}', [$c, 'updateMember'])->whereUuid(['uuid', 'freelancer']);
+            Route::delete('{uuid}/members/{freelancer}', [$c, 'removeMember'])->whereUuid(['uuid', 'freelancer']);
+            Route::post('{uuid}/invite', [$c, 'invite'])->whereUuid('uuid');
+        });
 
         Route::prefix('favorites')->middleware('freelance.feature:projects')->group(function () {
             Route::get('/', [ClientFavoriteController::class, 'index']);

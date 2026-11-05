@@ -306,6 +306,8 @@ internal fun ServiceTile(s: MarketServiceCardDto, modifier: Modifier = Modifier,
                 if (s.completedOrders > 0) Text(stringResource(R.string.mk_done_n, s.completedOrders), color = GREEN, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             Text(s.title, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+            // The freelancer's country: the market mixes every open country.
+            FlCountryTag(s.country)
             Box(Modifier.fillMaxWidth().height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Schedule, null, tint = settingsMut(), modifier = Modifier.size(15.dp))

@@ -181,6 +181,23 @@ internal fun FlAvatar(url: String?, name: String?, size: Int = 34) {
     }
 }
 
+/**
+ * Where a service or a consultation comes from — a small flag and the country's name. Freelance work is open across countries (owner,
+ * 2026-11-04), so the market mixes countries and this says which. Nothing when the server did not say.
+ */
+@Composable
+internal fun FlCountryTag(country: com.dorr.app.network.FlCountryRefDto?, modifier: Modifier = Modifier) {
+    val c = country ?: return
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        val iso = c.code?.trim()?.lowercase().orEmpty()
+        if (iso.length == 2) coil.compose.AsyncImage(
+            model = "https://flagcdn.com/w40/$iso.png", contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.size(width = 18.dp, height = 13.dp).clip(RoundedCornerShape(2.dp)),
+        )
+        Text(c.name ?: c.code.orEmpty(), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
 /** A status with a dot before it, on its colour (filled when [solid]): orders, consultations, subscriptions. */
 @Composable
 internal fun FlDotPill(text: String, color: Color, solid: Boolean = false, modifier: Modifier = Modifier) {

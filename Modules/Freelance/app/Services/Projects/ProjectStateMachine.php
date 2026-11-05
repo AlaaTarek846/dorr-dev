@@ -28,7 +28,7 @@ class ProjectStateMachine
         array $attributes = [],
         array $payload = [],
     ): FreelanceProject {
-        return DB::transaction(function () use ($project, $to, $event, $actorType, $actorId, $attributes, $payload) {
+        $moved = DB::transaction(function () use ($project, $to, $event, $actorType, $actorId, $attributes, $payload) {
             /** @var FreelanceProject $locked */
             $locked = FreelanceProject::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             $from = $locked->status;
@@ -46,6 +46,21 @@ class ProjectStateMachine
 
             return $locked;
         });
+
+        // FS-102: a project asked again from a finished one tells its freelancer the moment it opens (never blocks the move).
+        if ($to === FreelanceProjectStatus::Published && $moved->rehire_freelancer_id !== null && $moved->visibility === 'private') {
+            try {
+                $f = \Modules\Freelance\Models\Freelancer::query()->find($moved->rehire_freelancer_id);
+                $client = \Modules\User\Models\User::query()->find($moved->client_id);
+                if ($f !== null && $client !== null) {
+                    app(ProjectInvitations::class)->invite($moved, $client, [$f->uuid]);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $moved;
     }
 
     /** @param  array<string, mixed>  $payload */

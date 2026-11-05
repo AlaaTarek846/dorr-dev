@@ -2,7 +2,10 @@ package com.dorr.app.network
 
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody
+import retrofit2.http.PartMap
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.Response
@@ -60,6 +63,14 @@ interface FreelanceApi {
     /** FL-209: asks for the project again — a new draft with the same details. */
     @POST("mobile/v1/freelance/projects/{uuid}/duplicate")
     suspend fun duplicate(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
+
+    /** FS-102: asks the same freelancer again — a private draft; they are invited when it is published. */
+    @POST("mobile/v1/freelance/projects/{uuid}/hire-again")
+    suspend fun hireAgain(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelanceProjectDto>
+
+    /** FS-105: ready checklists to start a part's checklist from (in my language, up to ten lines each). */
+    @GET("mobile/v1/freelance/checklist-templates")
+    suspend fun checklistTemplates(@Header("Authorization") auth: String, @Query("specialty") specialty: Int? = null): ApiEnvelope<List<FreelanceChecklistTemplateDto>>
 
     /** FL-210: the last look before sending, with what is missing or doesn't add up. */
     @GET("mobile/v1/freelance/projects/{uuid}/preview")
@@ -164,6 +175,16 @@ interface FreelanceApi {
     /** FL-404 / FL-405: ask for a change to the agreement, or answer one (accept · reject · withdraw). */
     @POST("mobile/v1/freelance/projects/{uuid}/agreement/changes")
     suspend fun requestChange(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: FreelanceChangeRequest): ApiEnvelope<List<FreelanceChangeDto>>
+
+    /** FS-101: the same request with up to three files (`files[]`), as multipart; the fields are the request's non-empty ones. */
+    @Multipart
+    @POST("mobile/v1/freelance/projects/{uuid}/agreement/changes")
+    suspend fun requestChangeWithFiles(
+        @Header("Authorization") auth: String,
+        @Path("uuid") uuid: String,
+        @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>,
+        @Part files: List<MultipartBody.Part>,
+    ): ApiEnvelope<List<FreelanceChangeDto>>
 
     @POST("mobile/v1/freelance/projects/{uuid}/agreement/changes/{change}/{action}")
     suspend fun answerChange(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("change") change: String, @Path("action") action: String): ApiEnvelope<List<FreelanceChangeDto>>
@@ -325,6 +346,8 @@ data class FreelanceProjectDto(
     val timeline: List<FreelanceProjectEventDto>? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("submitted_at") val submittedAt: String? = null,
+    /** FS-102: set on a draft asked again from a freelancer. */
+    @SerializedName("hire_again") val hireAgain: FreelanceHireAgainDto? = null,
 )
 
 data class FreelanceProgressDto(
@@ -565,8 +588,24 @@ data class FreelanceProjectCanDto(
     val cancel: Boolean = false,
     val delete: Boolean = false,
     val duplicate: Boolean = false,
+    /** FS-102: ask the freelancer of a finished project again. */
+    @SerializedName("hire_again") val hireAgain: Boolean = false,
     @SerializedName("set_cost_cap") val setCostCap: Boolean = false,
 )
+
+/** FS-102: a draft asked again from the same freelancer: who, the project it came from, and that work's parts (a reference only). */
+data class FreelanceHireAgainDto(
+    val freelancer: FreelanceHireAgainFreelancerDto? = null,
+    @SerializedName("from_project") val fromProject: String? = null,
+    val milestones: List<FreelanceHireAgainPartDto> = emptyList(),
+)
+
+data class FreelanceHireAgainFreelancerDto(val uuid: String? = null, val name: String? = null)
+
+data class FreelanceHireAgainPartDto(val title: String = "", @SerializedName("amount_minor") val amountMinor: Long = 0, @SerializedName("duration_days") val durationDays: Int? = null)
+
+/** FS-105: a ready checklist (already in my language). */
+data class FreelanceChecklistTemplateDto(val code: String = "", val name: String = "", @SerializedName("specialty_id") val specialtyId: Int? = null, val items: List<String> = emptyList())
 
 data class FreelanceProjectEventDto(val type: String = "", val from: String? = null, val to: String? = null, val at: String? = null)
 
@@ -614,6 +653,8 @@ data class FreelanceAgreementDto(
     val reports: FreelanceReportSummaryDto = FreelanceReportSummaryDto(),
     /** FL-L13: the ownership terms kept with the agreement (null: it has none). */
     val rights: FreelanceAgreementRightsDto? = null,
+    /** FS-106: how the running project is doing (null: the agreement is not running). */
+    val health: FreelanceHealthDto? = null,
 )
 
 data class FreelanceReportSummaryDto(
@@ -771,7 +812,43 @@ data class FreelanceChangeDto(
     val reason: String? = null,
     @SerializedName("respond_by") val respondBy: String? = null,
     val can: FreelanceChangeCanDto = FreelanceChangeCanDto(),
+    /** FS-101: an accepted change is addendum N of the agreement, and the version it reached. */
+    @SerializedName("addendum_no") val addendumNo: Int? = null,
+    @SerializedName("applied_version") val appliedVersion: Int? = null,
+    /**
+     * FS-101: what it moved, as {price_minor|duration_days|milestones: [before, after]} — only what moved. Kept raw: the server may send
+     * null, an object, or an empty list `[]` when nothing moved (a scope change); read it with [changeEffect].
+     */
+    val effect: com.google.gson.JsonElement? = null,
+    /** FS-101: the files it carries; `path` is under projects/{uuid}/. */
+    val files: List<FreelanceAttachmentDto> = emptyList(),
 )
+
+/** FS-101: one moved figure of an accepted change. */
+data class FreelanceChangeEffect(val key: String, val before: Long, val after: Long)
+
+/** The figures an accepted change moved, in a fixed order (price, days, parts); empty when none or not an object. */
+fun FreelanceChangeDto.changeEffect(): List<FreelanceChangeEffect> {
+    val obj = effect?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptyList()
+    return listOf("price_minor", "duration_days", "milestones").mapNotNull { k ->
+        val pair = obj.get(k)?.takeIf { it.isJsonArray }?.asJsonArray?.takeIf { it.size() == 2 } ?: return@mapNotNull null
+        runCatching { FreelanceChangeEffect(k, pair[0].asLong, pair[1].asLong) }.getOrNull()
+    }
+}
+
+/** FS-101: the request's non-empty fields as multipart text parts (for [FreelanceApi.requestChangeWithFiles]). */
+fun FreelanceChangeRequest.multipartFields(): Map<String, RequestBody> = buildMap {
+    fun add(k: String, v: Any?) { if (v != null) put(k, v.toString().toRequestBody(null)) }
+    add("type", type)
+    add("milestone", milestone)
+    add("days", days)
+    add("amount_minor", amountMinor)
+    add("title", title)
+    add("scope", scope)
+    add("includes", includes)
+    add("excludes", excludes)
+    add("reason", reason)
+}
 
 data class FreelanceChangeCanDto(val accept: Boolean = false, val reject: Boolean = false, val withdraw: Boolean = false)
 

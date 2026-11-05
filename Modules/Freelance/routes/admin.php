@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceDisputeController;
+use Modules\Freelance\Http\Controllers\Admin\FreelanceChecklistTemplateController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceDocumentTypeController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceFeatureRuleController;
 use Modules\Freelance\Http\Controllers\Admin\FreelanceProjectReviewController;
@@ -25,6 +26,14 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelancers/{freelancer}/status', [FreelancerAdminController::class, 'status'])->whereNumber('freelancer');
 
         // Verification (FL-107 / FL-108): the document types per country, and the requests to decide.
+        // Checklist templates (FS-105): ready-made lists of what a client checks before approving a part.
+        Route::get('freelance-checklist-templates/options', [FreelanceChecklistTemplateController::class, 'options']);
+        Route::get('freelance-checklist-templates', [FreelanceChecklistTemplateController::class, 'index']);
+        Route::post('freelance-checklist-templates', [FreelanceChecklistTemplateController::class, 'store']);
+        Route::put('freelance-checklist-templates/{template}', [FreelanceChecklistTemplateController::class, 'update'])->whereNumber('template');
+        Route::patch('freelance-checklist-templates/{template}/status', [FreelanceChecklistTemplateController::class, 'status'])->whereNumber('template');
+        Route::delete('freelance-checklist-templates/{template}', [FreelanceChecklistTemplateController::class, 'destroy'])->whereNumber('template');
+
         Route::get('freelance-document-types/guide', [FreelanceDocumentTypeController::class, 'guide']);
         Route::get('freelance-document-types/options', [FreelanceDocumentTypeController::class, 'options']);
         Route::get('freelance-document-types', [FreelanceDocumentTypeController::class, 'index']);

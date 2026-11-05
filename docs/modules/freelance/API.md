@@ -418,6 +418,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 - القائمة المختصرة: `shortlist` / `unshortlist` وفلتر `status=shortlisted` (FL-303/305).
 - المحترفين المفضّلين للعميل: `GET mobile/v1/freelance/favorites` (`page`/`per_page`)، `POST|DELETE favorites/{uuid}` — بس لمحترف قدّم للعميل عرض قبل كده (غير كده 404). العروض والبروفايل فيهم `is_favorite`. القائمة مفيهاش تليفون ولا إيميل.
+- **قوايم المحترفين للعميل (FS-103):** تحت `mobile/v1/freelance/talent-lists` (ميزة `projects`): `GET /[?specialty_id=]` → `{lists[{uuid,name,specialty,count}], max_lists:20}` · `POST /` `{name≤80, specialty_id?}` · `GET|PUT|DELETE {uuid}` · `POST {uuid}/members` `{freelancer:uuid, note≤200?}` · `PUT {uuid}/members/{freelancer}` `{note?, remind_in_days?: 30|60|90|180|null}` · `DELETE {uuid}/members/{freelancer}` (كلهم بيرجّعوا شكل `show`: القايمة + `members[{uuid,name,headline,avatar_url,verified,completeness,note,remind_at,worked_together,added_at}]` + `remind_options`) · `GET containing/{freelancer}` → `{lists:[uuid]}` (للقلب في البروفايل) · `POST {uuid}/invite` `{project, freelancers[]?}` → `{invited, skipped[{uuid,reason}]}` بنفس قواعد `ProjectInvitations` (مشروع **خاص ومنشور** بتاعي بس). المحترف المحفوظ لازم يكون موثّق. حد أقصى 20 قايمة و100 محترف في القايمة (`freelance_talent_lists_limit` / `freelance_talent_list_full`). **التذكير بيتبعت للعميل بس وبموافقته** (لما يحدد `remind_in_days`): مرة واحدة، حدث `talent.reminder` (`freelance:talent-reminders` كل ساعة). المحترف مبيشوفش غير **عدد** القوايم اللي هو فيها: `data.saved{lists,new}` في إحصائياته (`GET insights`) — مفيش اسم قايمة ولا عميل.
 
 ## الاتفاق الإلكتروني (FL-401)
 
@@ -499,6 +500,8 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - **الرد** (الطرف التاني): `POST …/agreement/changes/{change}/accept | reject`؛ اللي طلب يقدر `withdraw`. المهلة `changes.response_days` (افتراضي 3، من الداشبورد)، وبعدها الطلب بيظهر `expired`.
 - **القواعد:** طلب واحد مستني لكل مرحلة (أو للاتفاق) `freelance_change_pending`؛ مفيش على مرحلة عليها نزاع أو طلب إنهاء `freelance_change_not_allowed`؛ النزاع بيلغي طلبات المرحلة؛ حد 5 مقبولة `freelance_changes_limit`. مفيش فلوس بتتحرك.
 - `GET …/agreement/changes`، والاتفاق نفسه فيه `changes[{uuid, type, status, mine, milestone, payload, reason, respond_by, can{accept, reject, withdraw}}]`.
+- **طلبات التعديل v2 (FS-101):** `POST …/agreement/changes` بيقبل كمان `files[]` (multipart، حتى 3 ملفات × 10MB؛ `freelance_change_too_many_files`)، والملف بيتنزّل من `GET …/agreement/changes/{change}/files/{media}` للطرفين. كل عنصر في القائمة بقى فيه: `addendum_no` (رقم الملحق لما يتقبل)، `applied_version` (نسخة الاتفاق بعد التعديل)، `effect` (`price_minor` / `duration_days` / `milestones` كـ `[قبل, بعد]` للي اتغير بس) و`files[{id,name,mime,size,path}]`. وبيتبعت **تذكير مرة واحدة** للي لازم يرد قبل ما الطلب يخلص بـ 24 ساعة (`freelance:change-reminders` كل ساعة، حدث `change.reminder`).
+- **صحة المشروع (FS-106):** `data.health` جوه الاتفاق (`GET …/agreement` للطرفين) = `null` لو الاتفاق مش شغال، وإلا `{state: healthy|at_risk|delayed|blocked, reasons[{code, level, mine, data?{part,days,due_at}}], next_step{code, mine}|null}`. القواعد (بدون AI، من مواعيد وسجلات بس): `dispute_open`/`part_unfunded` (بعد 72 ساعة من غير تمويل لما مفيش شغل تاني) = **blocked**؛ `part_overdue` (بداية المرحلة + مدتها عدّت) = **delayed**؛ `part_due_soon` (خلال 48 ساعة)، `part_not_started` (ممولة 48 ساعة ومابدأتش)، `review_waiting` (تسليم من غير مراجعة 72 ساعة)، `report_late`، `change_waiting` (طلب تعديل من غير رد 48 ساعة) = **at_risk**. `mine` = الطرف ده هو اللي عليه الخطوة؛ `next_step` = أول خطوة عليه أو اللي مستنيه. **تنبيه مرة واحدة** لما الحالة تسوء (`freelance:health-alerts` كل ساعة، أحداث `health.at_risk|delayed|blocked`): at_risk للطرف المطلوب منه بس، و delayed/blocked للطرفين. التحسّن بيتسجّل من غير إشعار. مفيش أي أثر مالي أو على الدرجات.
 
 ## التقييم المتبادل وإحصائيات المحترف (FL-701 + FL-703)
 
@@ -573,6 +576,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 | الطريقة | المسار | ملاحظات |
 |---|---|---|
 | POST | `{uuid}/duplicate` | (FL-209) مسودة جديدة بنفس العنوان والوصف والتخصص والمهارات النشطة والميزانية والحد الأقصى والمدة والظهور والأسئلة والملفات (نسخ مستقل). مفيش عروض ولا دعوات ولا اتفاق. أي مشروع يتنسخ مهما كانت حالته. بيحترم حد المشاريع المفتوحة (`freelance_project_limit`). الحدث `project.created` فيه `copied_from`. throttle `freelance-project-create` |
+| POST | `{uuid}/hire-again` | (FS-102) «اتعاقد تاني» على مشروع اتنهى باتفاق مكتمل: مسودة **خاصة** نسخة من القديم + بيفتكر المحترف وخطة المراحل القديمة كمرجع بس (`hire_again{freelancer{uuid,name}, from_project, milestones[]}`، و`can.hire_again`). المحترف بيتدعى لوحده لما المشروع يتنشر. مفيش اتفاق قديم بيتنسخ؛ السعر والمدة والنطاق موافقة جديدة. `freelance_hire_again_unavailable` 422 لو مفيش اتفاق مكتمل أو المحترف مش موثّق. |
 | GET | `{uuid}/preview` | (FL-210) `{project, issues[], can_submit}`. كل `issue` = `{severity: error\|warning, code, field, message}`. **أخطاء:** `missing_<field>`، أخطاء الإرسال (`project_budget_below_min` / `_above_max` / `_range`، مهارة معطّلة)، `cost_cap_below_budget` (الحد أقل من أقل ميزانية شامل الرسوم). **تحذيرات:** `budget_range_wide` (الأعلى > ×5 من الأقل)، `cost_cap_below_budget_top`، `duration_short_big_budget` (≤ 3 أيام وميزانية ≥ ×10 من أدنى ميزانية في البلد)، `duration_long_small_budget` (≥ 180 يوم وأعلى ميزانية ≤ ×2 من الأدنى). العتبات في `freelance.projects.preview`. `can_submit` = قابل للتعديل ومفيش أخطاء |
 | PUT | `{uuid}/cost-cap` | `{max_cost_minor}` (≥ 1). قبل بدء الشغل بس (مسودة / مطلوب تعديل / مرفوض / قيد المراجعة / منشور / مرسى)، وإلا `freelance_project_invalid_state` 409. الحدث `project.cost_cap_set` |
 | DELETE | `{uuid}/cost-cap` | شيل الحد (نفس الشروط) |
@@ -609,6 +613,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - الطرفين (برفيكس كل تطبيق): `GET projects/{uuid}/milestones/{milestone}/deliveries` (الأحدث أولًا: `number, note, delivered_at, revision_reason, files[{id,name,mime,size,is_image,path}]`) و`GET …/deliveries/{delivery}/files/{media}` (الصورة inline وغيرها تحميل؛ `nosniff` و`no-store`؛ غير الطرفين 404).
 - طلب التعديل (`…/revision {reason}`) بيكتب السبب على النسخة اللي العميل كان بيراجعها.
 - العميل: `PUT …/milestones/{milestone}/checklist {items:[…]}` (حتى 10 بنود × 200 حرف) لحد ما الشغل يبدأ (`checklist_locked` 409)، و`POST …/checklist/{item}/check|uncheck` وقت المراجعة فقط (`checklist_not_reviewing` 409). التعليم ما بيشترطش للاعتماد، وبيتصفّر بعد جولة التعديل.
+- **قوالب قائمة القبول (FS-105):** `GET mobile/v1/freelance/checklist-templates[?specialty=]` → `[{code, name, specialty_id, items[]}]` (بلغة المستخدم، حتى 10 بنود). العميل يختار قالب ويعدّل نسخته قبل `PUT …/checklist`. الأدمن: `admin/v1/freelance-checklist-templates` (`GET` · `GET options` · `POST` · `PUT {id}` · `PATCH {id}/status` · `DELETE {id}`) بصلاحية `freelance-checklist-templates`؛ اللي موجود من الأول: موقع، تطبيق موبايل، تصميم، تسويق، كتابة وترجمة.
 - المرحلة في `agreement` فيها `deliveries_count` و`checklist[{uuid,text,checked}]` و`can.checklist_edit|checklist_tick`.
 
 ## فحص الملفات عند الرفع (FL-1205)
@@ -1081,3 +1086,38 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 - `GET mobile/v1/freelance/projects?scope=active|ended[&status=]`: `active` = كل الحالات غير المنتهية (مسودة لحد شغال)، `ended` = `closed` و`rejected` و`cancelled`. الـ`status` بيضيّق جوه الجزء. قيمة تانية = 422. من غير `scope` الرد زي ما كان.
 - الاختبار: `FreelanceClientProjectsTest::test_the_list_splits_running_and_ended_projects`.
+
+## عملة واحدة (الدولار) والمحفظة الدولية (المرحلة A) — 2026-11-04
+
+**القرار (المالك):** كل فلوس الفريلانس بعملة واحدة، الدولار، أيًا كانت دولة العميل أو المحترف. المحترف عنده محفظة واحدة بس (دولية بالدولار)، والعميل عنده محفظته المحلية + محفظة دولية بالدولار يشحنها ويسحب منها ويدفع منها شغل الفريلانس، ومينفعش يحوّل منها لحد. الشحن بنفس طرق الشحن المحلية **ومن غير سعر صرف**: البوابة بتتشحن بالدولار مباشرة.
+
+- **الإعداد:** `config('freelance.money')` = `{currency: USD (env FREELANCE_CURRENCY), country_code: INT, country_name, flag_code: un}`.
+- **الصف الدولي:** صف في `countries` كوده `INT` وعملته USD و`status = false` (فمش بيظهر في أي قائمة دول ولا بيتحل لطلب). بيتعمل أول ما يتطلب (`FreelanceMoney::country()`) وبالـ migration `2026_11_23_100000_create_freelance_international_wallet`. إنشاؤه بيعمل له `wallet_settings` (التحويل مقفول) عن طريق `WalletSettingObserver`.
+- **`FreelanceMoney`** (`Services/Policy/FreelanceMoney.php`): `country()` · `currency()` · `code()` · `decimals()` · `format($minor)` · `wallet($owner)` (المحفظة الدولية، بتتعمل أول مرة) · `existingWallet($owner)` · `meta()`. أي كود بيحرّك أو بيعرض فلوس فريلانس بيسأل هنا بدل عملة الدولة.
+- **المحفظة:** الـ middleware `UseFreelanceWallet` (بعد `country`) بيبدّل دولة الطلب بالصف الدولي، فكل شاشات المحفظة الموجودة بتشتغل زي ما هي على الدولار:
+  - المحترف: `/api/freelance/v1/wallet/*` كلها (الرصيد، الكشف، الـ PIN، الشحن، الـ checkout، السحب) بقت على المحفظة الدولية.
+  - العميل: **جديد** `/api/mobile/v1/freelance/wallet/*` = نفس مسارات `mobile/v1/wallet/*` (الرصيد، الكشف، الـ PIN، `payment-methods`، `topups`، `checkouts`) + السحب (`withdrawal-methods`، `withdrawals`) — **من غير مسارات تحويل**. `mobile/v1/wallet/*` فضلت المحفظة المحلية زي ما هي.
+  - `GET wallet` → `other_wallets` بقت تعرض محافظ الدول المفعّلة بس (مش الصف الدولي).
+- **الدفع:** تمويل المراحل وحجز الاستشارات (`MilestonePayments`، `Consultations`) من المحفظة الدولية للعميل، وتحرير الأرباح (`FreelanceEarnings`) للمحفظة الدولية للمحترف، والاشتراكات وحزم العروض بتتخصم من المحفظة الدولية للمحترف. الدفتر المالي (`FreelanceLedger`) بيتسجّل بالدولار ودولة الشغل نفسها (عشان تقارير الدول).
+- **العملة في الردود:** `currency_code` للمشاريع والعروض والاتفاقات والخدمات والاستشارات والعروض الخاصة الجديدة = `USD`. `GET config` و`GET mobile/v1/freelance/home` و`GET home` للمحترف بيرجّعوا `USD`. `mobile/v1/freelance/home` فيه كمان **`wallet_minor`** (المتاح في المحفظة الدولية).
+- **السياسات (الأسعار والقواعد):** مجموعة واحدة للعالم كله على الصف الدولي. `FreelancePolicies::for($countryId, …)` بيتجاهل الدولة (`scope()`). صفحة الأدمن بتعرض نطاق «دولي» بس، و`copy` بقى لا يعمل شيء (`copied: 0`). مفاتيح الخصائص (`freelance_feature_rules`) فضلت **لكل دولة** زي ما هي.
+- **الباقات والحزم:** سعر واحد لكل باقة وحزمة بالدولار على الصف الدولي (Plus 9$ / 86$ سنوي، Pro 24$ / 230$ سنوي، الحزم 3$ / 6$ / 12$). صفحات أسعار الأدمن بتعرض صف «دولي» بس، وتحديد سعر لدولة تانية → 404.
+- **البيانات القديمة:** مفيش تحويل: المشاريع والاتفاقات القديمة بعملتها (SAR) لسه بعملتها، وتمويلها من المحفظة الدولية بيرفض بـ `wallet_currency`. الأرصدة المحلية القديمة للمحترفين فضلت في محافظهم المحلية. الأسعار والسياسات القديمة لكل دولة فضلت في الجداول بس مش بتتقري.
+- **الاختبارات:** `phpunit.xml` بيحط `FREELANCE_MONEY_COUNTRY=SA`، فاختبارات الفريلانس القديمة بتشغّل محفظتها الوحيدة على صف السعودية بتاعها (نفس مسارات الكود). السيناريو الحقيقي (صف `INT` بالدولار، محفظتين للعميل، مفيش تحويل، الدفع من الدولار، سياسات وأسعار واحدة) في `FreelanceInternationalWalletTest` (5).
+- **الأدمن:** `GET general/v1/countries/dropdown?with_international=1` بيضيف الصف الدولي (صفحتي طرق الدفع وقواعد الرسوم في المحفظة)، و«إعدادات المحفظة» بتعرض صفه زي أي دولة (حدود الشحن والسحب).
+
+## فتح الدول (المرحلة B) — 2026-11-04
+
+**القرار (المالك):** المحترف مش مربوط بدولته: بيشوف المشاريع والخدمات والاستشارات والمنشورات من أي دولة، والعميل بيختار أي محترف من أي دولة. **مفاتيح الخصائص فضلت لكل دولة زي ما هي**: المحتوى بيظهر من كل دولة الخدمة (والميزة) مفتوحة فيها، ومحتوى دولة مقفولة مش بيظهر لحد.
+
+- **`FreelanceFeatures::openCountries(?feature)`**: الدول اللي `freelance` مفتوح فيها (ومش مقفولة من «توفر الخدمات»)، ومعاها الميزة لو اتبعتت.
+- **اتفتح:**
+  - تصفّح المشاريع للمحترف (`FreelancerProjects::visible`): المنشورة العامة من `openCountries('projects')` بدل دولة المحترف (القائمة وصفحة المشروع والمفضلة).
+  - إشعار المشاريع المناسبة (`ProjectMatching`): محترفين من `openCountries()`.
+  - الدعوات (`ProjectInvitations`): «ادعُ محترفين» والدعوة نفسها لمحترفين من أي دولة مفتوحة.
+  - الخدمات الجاهزة للعميل (`ServiceCatalog`): من `openCountries('services')`.
+  - الاستشارات للعميل (`ConsultationOffers::market` و`bookable`): من `openCountries('consultations')`.
+  - المجتمع (`Community::visible`): المنشورات من `openCountries('community')`.
+- **الدولة في الردود:** `country: {code, name}` (`FreelanceCountry::card`) في كارت المشروع للمحترف، وكارت الخدمة، وكارت الاستشارة، والمنشور. التطبيقات بتعرض علم الدولة واسمها.
+- **فضل لكل دولة:** المفاتيح، وتوثيق المحترف ومستنداته (حسب دولته)، والنص القياسي للحقوق، وترقيم الإيصالات، وتقارير الأدمن.
+- **الاختبار:** `FreelancerBrowseProjectsTest` · `FreelanceProjectMatchingTest` · `FreelanceCommunityTest` · `FreelanceServicesTest::test_a_client_of_another_open_country_finds_the_service_with_its_country` · `FreelanceInvitationsTest` (دولة مقفولة مش بتظهر).

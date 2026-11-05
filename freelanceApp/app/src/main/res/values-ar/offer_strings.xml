@@ -146,7 +146,7 @@
     <string name="ch_title">تعديلات على الاتفاق</string>
     <string name="ch_none">مفيش تعديلات مطلوبة.</string>
     <string name="ch_extend">زيادة %1$d يوم</string>
-    <string name="ch_price">سعر جديد لـ %1$s: %2$s ← %3$s</string>
+    <string name="ch_price">سعر جديد لـ %1$s: كان %2$s وبقى %3$s</string>
     <string name="ch_add">مرحلة جديدة: %1$s بـ %2$s</string>
     <string name="ch_scope">تعديل في الشغل بيشمل إيه</string>
     <string name="ch_by_me">انت اللي طلبت</string>

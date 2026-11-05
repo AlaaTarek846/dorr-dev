@@ -38,7 +38,8 @@ class FreelancePolicyController extends Controller implements HasMiddleware
 
     public function options(): JsonResponse
     {
-        $countries = Country::query()->with(['translations', 'currency'])->where('status', true)->get()
+        // One set of numbers for the whole world (`freelance.money`): the only scope offered is the international row.
+        $countries = Country::query()->with(['translations', 'currency'])->whereKey($this->money()->countryId())->get()
             ->map(fn (Country $c) => [
                 'id' => $c->id,
                 'code' => $c->code,
@@ -58,7 +59,7 @@ class FreelancePolicyController extends Controller implements HasMiddleware
     /** Every scope that has its own numbers, to jump to. */
     public function scopes(): JsonResponse
     {
-        $rows = FreelancePolicy::query()->orderBy('country_id')->orderBy('specialty_id')->get()
+        $rows = FreelancePolicy::query()->where('country_id', $this->money()->countryId())->orderBy('country_id')->orderBy('specialty_id')->get()
             ->map(fn (FreelancePolicy $p) => ['id' => $p->id, 'country_id' => $p->country_id, 'specialty_id' => $p->specialty_id, 'keys' => array_keys((array) $p->data)])->values();
 
         return ApiResponse::success($rows, __('api.retrieved'));
@@ -116,26 +117,20 @@ class FreelancePolicyController extends Controller implements HasMiddleware
 
     public function copy(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'from_country_id' => ['required', 'integer', Rule::exists('countries', 'id')],
-            'to_country_id' => ['required', 'integer', 'different:from_country_id', Rule::exists('countries', 'id')],
-        ]);
-
-        return ApiResponse::success(
-            $this->policies->copy((int) $data['from_country_id'], (int) $data['to_country_id'], $request->user('admin_api')?->getKey()),
-            __('api.updated'),
-        );
+        // The numbers are one set for the world now: nothing to copy between countries.
+        return ApiResponse::success(['copied' => 0, 'skipped' => []], __('api.updated'));
     }
 
     /** @return array{country_id: int, specialty_id: ?int} */
     private function scope(Request $request): array
     {
         $data = $request->validate([
-            'country_id' => ['required', 'integer', Rule::exists('countries', 'id')],
+            'country_id' => ['nullable', 'integer'],
             'specialty_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        return ['country_id' => (int) $data['country_id'], 'specialty_id' => isset($data['specialty_id']) ? (int) $data['specialty_id'] : null];
+        // Whatever country is sent, the numbers are the world's (the international row).
+        return ['country_id' => $this->money()->countryId(), 'specialty_id' => isset($data['specialty_id']) ? (int) $data['specialty_id'] : null];
     }
 
     /** @return array<string, mixed> */
@@ -155,10 +150,15 @@ class FreelancePolicyController extends Controller implements HasMiddleware
         ];
     }
 
-    /** @return array{code: ?string, symbol: ?string, decimal_places: int} */
-    private function currency(?Country $country): array
+    private function money(): \Modules\Freelance\Services\Policy\FreelanceMoney
     {
-        $currency = $country?->currency;
+        return app(\Modules\Freelance\Services\Policy\FreelanceMoney::class);
+    }
+
+    /** @return array{code: ?string, symbol: ?string, decimal_places: int} the freelance currency, whatever the country */
+    private function currency(?Country $country = null): array
+    {
+        $currency = $this->money()->currency();
 
         return ['code' => $currency?->code, 'symbol' => $currency?->symbol, 'decimal_places' => (int) ($currency?->decimal_places ?? 2)];
     }

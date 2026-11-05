@@ -659,10 +659,14 @@ internal fun PostCard(
                     Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 val time = cmRelativeTime(post.createdAt)
-                Text(
-                    if (post.edited) "$time · ${stringResource(R.string.cm_edited)}" else time,
-                    color = settingsMut(), fontSize = 11.5.sp, maxLines = 1,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (post.edited) "$time · ${stringResource(R.string.cm_edited)}" else time,
+                        color = settingsMut(), fontSize = 11.5.sp, maxLines = 1,
+                    )
+                    // Where it was posted from: the feed mixes every open country.
+                    com.dorr.freelance.ui.components.CountryTag(post.country)
+                }
             }
             if (!a.isMe && a.isFollowing == false && a.uuid != null) {
                 Row(

@@ -368,7 +368,7 @@ private fun HeroCard(s: HeroSlide) {
 @Composable
 private fun StatsRow(h: HomeDto, actions: MainActions) {
     val s = h.stats
-    val money = { minor: Long -> formatMinor(minor, null) + (s.currency?.let { " ${if (it.equals("SAR", true)) "﷼" else it}" } ?: "") }
+    val money = { minor: Long -> formatMinor(minor, null) + (s.currency?.let { " ${when (it.uppercase()) { "SAR" -> "﷼"; "USD" -> "$"; else -> it }}" } ?: "") }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader(stringResource(R.string.home_numbers), action = stringResource(R.string.home_more_numbers), onAction = actions.openInsights)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -73,8 +73,7 @@ class FreelancePoliciesGuide
     /** @return string path of a temporary .docx */
     public function build(Country $country): string
     {
-        $country->loadMissing('currency');
-        $currency = $country->currency;
+        $currency = app(FreelanceMoney::class)->currency();
         $symbol = $currency?->symbol ?: ($currency?->code ?? '');
         $places = (int) ($currency?->decimal_places ?? 2);
         $policy = $this->policies->for($country->id);

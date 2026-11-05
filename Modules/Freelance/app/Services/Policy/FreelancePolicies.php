@@ -13,10 +13,11 @@ use Modules\Freelance\Models\FreelancePolicy;
  * Resolves and saves the freelance policies (FL-008). Two scopes, broadest first — each key takes its
  * value from the most specific row that sets it, else `freelance.policy_defaults`:
  *
- *   country → country + specialty
+ *   global → global + specialty
  *
- * (Countries only, no cities — the owner's decision for freelance work.) Money is in the country's
- * own currency, so copying between countries of different currencies leaves the amounts behind.
+ * One set for the whole world in the freelance currency (owner, 2026-11-04: `freelance.money`): the rows
+ * live on the international country row, and whatever country a caller passes is read as that scope.
+ * The country argument stays so callers keep passing the work's country.
  */
 class FreelancePolicies
 {
@@ -27,7 +28,7 @@ class FreelancePolicies
     /** `$skipPolicyId`: leave one row out — what a scope inherits from the broader ones (the admin's form). */
     public function for(int $countryId, ?int $specialtyId = null, ?int $skipPolicyId = null): FreelancePolicyData
     {
-        $rows = $this->rows()->where('country_id', $countryId);
+        $rows = $this->rows()->where('country_id', $this->scope($countryId));
         $layers = [];
         $ids = [];
 
@@ -46,7 +47,7 @@ class FreelancePolicies
     public function own(int $countryId, ?int $specialtyId): ?FreelancePolicy
     {
         return FreelancePolicy::query()
-            ->where('country_id', $countryId)
+            ->where('country_id', $this->scope($countryId))
             ->where(fn ($q) => $specialtyId === null ? $q->whereNull('specialty_id') : $q->where('specialty_id', $specialtyId))
             ->first();
     }
@@ -60,6 +61,7 @@ class FreelancePolicies
     public function save(int $countryId, ?int $specialtyId, array $data, ?int $adminId = null): ?FreelancePolicy
     {
         FreelancePolicyData::validate($data);
+        $countryId = $this->scope($countryId);
 
         return DB::transaction(function () use ($countryId, $specialtyId, $data, $adminId): ?FreelancePolicy {
             $policy = FreelancePolicy::query()
@@ -144,6 +146,12 @@ class FreelancePolicies
     public static function forget(): void
     {
         Cache::forget(self::CACHE);
+    }
+
+    /** The one scope every country reads and writes: the international row (`freelance.money`). */
+    public function scope(?int $countryId = null): int
+    {
+        return app(FreelanceMoney::class)->countryId();
     }
 
     /** @return Collection<int, FreelancePolicy> */

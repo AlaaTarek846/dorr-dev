@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FS-101 (change requests v2), FS-102 (hire again), FS-105 (checklist templates) - the client app. -->
+<resources>
+    <!-- FS-102 -->
+    <string name="fs_ev_hire_again">Asked again from the same freelancer</string>
+    <string name="fs_hire_again">Hire again</string>
+    <string name="fs_hire_again_title">Asked again</string>
+    <string name="fs_hire_again_from">Asked again from %1$s — they\'ll be invited when it\'s published.</string>
+    <string name="fs_hire_again_prev">Last time\'s parts (for reference)</string>
+    <string name="fs_hire_again_note">Price, time and scope are agreed again.</string>
+
+    <!-- FS-105 -->
+    <string name="fs_ck_template">Start from a template</string>
+    <string name="fs_ck_template_title">Pick a template</string>
+    <string name="fs_ck_template_hint">Its lines fill your list; you can edit them after.</string>
+    <string name="fs_ck_template_items">%1$d lines</string>
+    <string name="fs_ck_template_none">No templates yet.</string>
+    <string name="fs_ck_use">Use this template</string>
+    <string name="fs_ck_replace">Replace my lines</string>
+    <string name="fs_ck_append">Add to my lines</string>
+    <string name="fs_ck_template_full">A list holds at most %1$d lines.</string>
+
+    <!-- FS-101 -->
+    <string name="fs_ch_addendum">Addendum no. %1$d</string>
+    <string name="fs_ch_version">Agreement version %1$d</string>
+    <string name="fs_ch_eff_price">Price: %1$s → %2$s</string>
+    <string name="fs_ch_eff_days">Days: %1$d → %2$d</string>
+    <string name="fs_ch_eff_parts">Parts: %1$d → %2$d</string>
+    <string name="fs_ch_respond_by">Answer by %1$s</string>
+    <string name="fs_ch_files">Files</string>
+    <string name="fs_ch_attach">Attach a file (%1$d/%2$d)</string>
+    <string name="fs_ch_attach_hint">Up to 3 files, 10 MB each.</string>
+    <string name="fs_ch_file_too_big">That file is over 10 MB.</string>
+
+    <!-- FS-106: project health -->
+    <string name="fs_hl_title">Project health</string>
+    <string name="fs_hl_on_track">On track</string>
+    <string name="fs_hl_state_healthy">On track</string>
+    <string name="fs_hl_state_at_risk">At risk</string>
+    <string name="fs_hl_state_delayed">Delayed</string>
+    <string name="fs_hl_state_blocked">Blocked</string>
+    <string name="fs_hl_r_dispute_open">A dispute is open on “%1$s”.</string>
+    <string name="fs_hl_r_part_unfunded">“%1$s” is not funded yet.</string>
+    <string name="fs_hl_days_1">1 day</string>
+    <string name="fs_hl_days_2">2 days</string>
+    <string name="fs_hl_days_few">%1$d days</string>
+    <string name="fs_hl_days_many">%1$d days</string>
+    <string name="fs_hl_r_part_overdue">“%1$s” is past its date by %2$s.</string>
+    <string name="fs_hl_r_part_due_soon">“%1$s” is due within two days.</string>
+    <string name="fs_hl_r_part_not_started">Work on “%1$s” has not started yet.</string>
+    <string name="fs_hl_r_review_waiting">The delivery of “%1$s” has waited %2$s for review.</string>
+    <string name="fs_hl_r_report_late">The progress report is late.</string>
+    <string name="fs_hl_r_change_waiting">A change request is waiting for an answer.</string>
+    <string name="fs_hl_r_other">Something needs a look.</string>
+    <string name="fs_hl_n_dispute_open">Follow the open dispute on “%1$s”.</string>
+    <string name="fs_hl_w_dispute_open">Waiting for the dispute on “%1$s” to be decided.</string>
+    <string name="fs_hl_n_part_unfunded">Fund “%1$s” so the work can go on.</string>
+    <string name="fs_hl_w_part_unfunded">Waiting for “%1$s” to be funded.</string>
+    <string name="fs_hl_n_part_overdue">Check in on “%1$s”.</string>
+    <string name="fs_hl_w_part_overdue">Waiting for the freelancer to deliver “%1$s”.</string>
+    <string name="fs_hl_n_part_due_soon">Check in on “%1$s”.</string>
+    <string name="fs_hl_w_part_due_soon">Waiting for the freelancer to deliver “%1$s”.</string>
+    <string name="fs_hl_n_part_not_started">Check in on “%1$s”.</string>
+    <string name="fs_hl_w_part_not_started">Waiting for the freelancer to start “%1$s”.</string>
+    <string name="fs_hl_n_review_waiting">Review the delivery of “%1$s”.</string>
+    <string name="fs_hl_w_review_waiting">Waiting for the delivery of “%1$s” to be reviewed.</string>
+    <string name="fs_hl_n_report_late">Ask for the progress report.</string>
+    <string name="fs_hl_w_report_late">Waiting for the freelancer’s progress report.</string>
+    <string name="fs_hl_n_change_waiting">Answer the change request.</string>
+    <string name="fs_hl_w_change_waiting">Waiting for the freelancer to answer the change request.</string>
+    <string name="fs_hl_n_other">Take a look at the project.</string>
+    <string name="fs_hl_w_other">Waiting for the other side.</string>
+
+    <!-- FS-103: talent lists -->
+    <string name="fs_tp_title">Talent lists</string>
+    <string name="fs_tp_new">New list</string>
+    <string name="fs_tp_rename">Rename</string>
+    <string name="fs_tp_delete">Delete list</string>
+    <string name="fs_tp_delete_confirm">“%1$s” will be deleted. The freelancers stay on DORR; only your list goes.</string>
+    <string name="fs_tp_empty">No lists yet. Make one, like “Designers I trust”, and save freelancers to it.</string>
+    <string name="fs_tp_count">%1$d freelancers</string>
+    <string name="fs_tp_max">You can keep up to %1$d lists.</string>
+    <string name="fs_tp_private">Only you see your lists. A freelancer is never told you saved him.</string>
+    <string name="fs_tp_name">List name</string>
+    <string name="fs_tp_form_hint">Name it, and pick a specialty if it helps you find it.</string>
+    <string name="fs_tp_specialty">Specialty</string>
+    <string name="fs_tp_specialty_hint">Optional. It lets you filter your lists.</string>
+    <string name="fs_tp_any">No specialty</string>
+    <string name="fs_tp_members">Freelancers</string>
+    <string name="fs_tp_members_empty">This list is empty. Open a freelancer and tap “Save to a list”.</string>
+    <string name="fs_tp_remove_member">Remove from list</string>
+    <string name="fs_tp_remove_confirm">Remove %1$s from this list?</string>
+    <string name="fs_tp_worked_together">Worked together</string>
+    <string name="fs_tp_note">Note</string>
+    <string name="fs_tp_note_add">Add a note (only you see it)</string>
+    <string name="fs_tp_note_title">Note on %1$s</string>
+    <string name="fs_tp_note_hint">Up to 200 characters. Only you see it.</string>
+    <string name="fs_tp_remind_none">Off</string>
+    <string name="fs_tp_remind_days">%1$d days</string>
+    <string name="fs_tp_remind_on">Reminder on %1$s</string>
+    <string name="fs_tp_remind_off">No reminder</string>
+    <string name="fs_tp_remind_title">Remind me about %1$s</string>
+    <string name="fs_tp_remind_hint">The reminder is only for you. The freelancer is never told.</string>
+    <string name="fs_tp_invite">Invite to a project</string>
+    <string name="fs_tp_invite_hint">Pick one of your private published projects. They get the invitation like any other.</string>
+    <string name="fs_tp_pick_project">Project</string>
+    <string name="fs_tp_no_projects">You have no private published project. Make a project private and publish it first.</string>
+    <string name="fs_tp_pick_who">Who to invite</string>
+    <string name="fs_tp_pick_who_hint">Everyone in the list is invited unless you untick them.</string>
+    <string name="fs_tp_invite_go">Invite %1$d</string>
+    <string name="fs_tp_invited_n">%1$d invited.</string>
+    <string name="fs_tp_skipped_n">%1$d left out</string>
+    <string name="fs_tp_skip_not_found">not found</string>
+    <string name="fs_tp_skip_already_offered">already sent an offer</string>
+    <string name="fs_tp_skip_already_invited">already invited</string>
+    <string name="fs_tp_skip_declined">declined this project</string>
+    <string name="fs_tp_save">Save to a list</string>
+    <string name="fs_tp_save_title">Save to a list</string>
+    <string name="fs_tp_save_none">You have no lists yet. Make your first one below.</string>
+</resources>

@@ -339,7 +339,7 @@ private struct StatsRow: View {
     var body: some View {
         let s = h.stats ?? HomeStatsDto()
         let money = { (minor: Int) -> String in
-            formatMinor(minor, nil) + (s.currency.map { " " + ($0.caseInsensitiveCompare("SAR") == .orderedSame ? "﷼" : $0) } ?? "")
+            formatMinor(minor, nil) + (s.currency.map { " " + (CurrencyLabel.signs[$0.uppercased()] ?? $0) } ?? "")
         }
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(title: L("home_numbers"), action: L("home_more_numbers"), onAction: actions.openInsights)

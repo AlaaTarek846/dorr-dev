@@ -195,7 +195,8 @@ enum ApiClient {
         headers: [String: String],
         progress: ((Double) -> Void)? = nil
     ) async throws -> (Data, HTTPURLResponse?) {
-        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        // The freelance international wallet on screen: the same wallet calls, on its own path.
+        var components = URLComponents(url: baseURL.appendingPathComponent(WalletCountry.rewrite(path: path)), resolvingAgainstBaseURL: false)!
         let items = query.compactMap { key, value in value.map { URLQueryItem(name: key, value: $0) } }
         if !items.isEmpty { components.queryItems = items }
 

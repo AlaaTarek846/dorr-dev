@@ -44,7 +44,10 @@ class ChangeRequestController extends Controller
             'title' => ['required_if:type,add_milestone', 'nullable', 'string', 'max:120'],
             'duration_days' => ['nullable', 'integer', 'min:1', 'max:365'],
             'reason' => ['nullable', 'string', 'max:1000'],
+            'files' => ['sometimes', 'array', 'max:'.FreelanceChangeRequest::MAX_FILES],
+            'files.*' => ['file', 'max:10240', 'mimes:'.\Modules\Freelance\Services\Projects\MilestoneDeliveries::MIMES],
         ]);
+        $data['files'] = $request->file('files', []);
         [$me, $side, $agreement] = $this->context($request, $uuid);
         $this->changes->request($agreement, $me, $side, $data['type'], $data);
 
@@ -62,6 +65,21 @@ class ChangeRequestController extends Controller
         };
 
         return ApiResponse::success($this->changes->list($agreement, $side), __('api.updated'));
+    }
+
+    /** GET agreement/changes/{change}/files/{media} - a file the request carries, for either side of the agreement (FS-101). */
+    public function file(Request $request, string $uuid, string $change, int $media): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        [, , $agreement] = $this->context($request, $uuid);
+        $f = $this->changes->file($agreement, $change, $media);
+        $inline = in_array($f->mime_type, \Modules\Freelance\Services\Projects\MilestoneDeliveries::IMAGE_MIMES, true);
+
+        return response()->file($f->getPath(), [
+            'Content-Type' => $f->mime_type,
+            'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.rawurlencode(\Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($f)).'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /** @return array{0: Model, 1: 'client'|'freelancer', 2: FreelanceAgreement} */

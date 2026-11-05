@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Lock
@@ -64,6 +65,7 @@ import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.InsightEarningsDto
 import com.dorr.freelance.net.InsightOffersDto
 import com.dorr.freelance.net.InsightReputationDto
+import com.dorr.freelance.net.InsightSavedDto
 import com.dorr.freelance.net.InsightServicesDto
 import com.dorr.freelance.net.InsightSpecialtyDto
 import com.dorr.freelance.net.InsightViewsDto
@@ -180,6 +182,7 @@ private fun InsightsBody(dto: InsightsDto, data: InsightsDataDto, chosen: Int?, 
     }
 
     ViewsCard(data.views, period)
+    data.saved?.let { SavedCard(it) }
     OffersCard(data.offers)
     ServicesCard(data.services)
     EarningsCard(data.earnings, dto)
@@ -373,6 +376,18 @@ private fun PairBars(points: List<Triple<String, Int, Int>>) {
                 Text(stringResource(label), color = settingsMut(), fontSize = 11.5.sp)
             }
         }
+    }
+}
+
+/** FS-103: how many client lists I am in - a number, how many were added in the period, and that who is never shown. */
+@Composable
+private fun SavedCard(s: InsightSavedDto) {
+    InfoCard(title = stringResource(R.string.insights_saved_title), icon = Icons.Rounded.BookmarkAdded) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Text("${s.lists}", color = settingsInk(), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        if (s.new > 0) SvcPill(stringResource(R.string.insights_saved_new, s.new), SvcTone(Color(0xFF16A34A), Color(0xFF16A34A).copy(alpha = 0.12f)))
+        Text(stringResource(R.string.insights_saved_note), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
     }
 }
 

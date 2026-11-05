@@ -407,7 +407,8 @@ final class FreelanceLink: ObservableObject {
         if group == "waitlist" { return service.flatMap { $0.isEmpty ? nil : "svc:\($0)" } ?? "market" }
         // FL-L07: a consultation has no project: it opens the booking (or my consultations).
         if group == "consultation" { return consultation.flatMap { $0.isEmpty ? nil : "consult:\($0)" } ?? "consults" }
-        guard let project, !project.isEmpty else { return "home" }
+        // A message whose room is not known (an older notice): my projects list, where each project shows its unread chat — not the hub.
+        guard let project, !project.isEmpty else { return group == "message" ? "list" : "home" }
         switch group {
         // A message from the freelancer: their offer page (its chat button carries the unread count).
         case "message": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
@@ -416,7 +417,7 @@ final class FreelanceLink: ObservableObject {
         case "invitation": return "invites:\(project)"
         case "dispute": return dispute.map { $0.isEmpty ? "agreement:\(project)" : "dispute:\(project):\($0)" } ?? "agreement:\(project)"
         // FL-L13: the rights of a part passed, or the freelancer asks to show a finished work: the agreement (the claim notice has no project).
-        case "agreement", "milestone", "change", "report", "review", "payment", "rights": return "agreement:\(project)"
+        case "agreement", "milestone", "change", "report", "review", "payment", "rights", "health": return "agreement:\(project)"
         case "sanction": return "home"
         default: return "show:\(project)"
         }

@@ -18,4 +18,7 @@
     <string name="cap_line_empty">Nobody is waiting. When you are full, clients can wait in line and the first gets your next free place.</string>
     <string name="cap_holding">Place kept</string>
     <string name="cap_holding_until">Kept until %1$s</string>
+    <string name="cap_stat_running">Running</string>
+    <string name="cap_stat_holds">Held</string>
+    <string name="cap_stat_waiting">Waiting</string>
 </resources>

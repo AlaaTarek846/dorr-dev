@@ -195,10 +195,11 @@ struct DeliveriesBlock: View {
     }
 }
 
-/// Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer.
+/// Downloads one file of a delivery with my own sign-in (never a public link) and opens it in a viewer. `base` is what `f.path` is
+/// relative to (FS-101: a change's files are under `projects/{uuid}/`).
 @MainActor
-private func openDeliveryFile(_ f: DeliveryFileDto) async -> Bool {
-    guard let data = await AgreementsApi.file(Api.freelance + (f.path ?? "")) else { return false }
+func openDeliveryFile(_ f: DeliveryFileDto, base: String = Api.freelance) async -> Bool {
+    guard let data = await AgreementsApi.file(base + (f.path ?? "")) else { return false }
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent("deliveries", isDirectory: true)
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let safe = String((f.name ?? "").filter { $0.isLetter || $0.isNumber || "._- ".contains($0) })

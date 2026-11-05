@@ -177,8 +177,10 @@ class MilestoneRelease
         $earningTx = $earning?->wallet_transaction_id === null ? null : \Modules\Wallet\Models\WalletTransaction::query()->find($earning->wallet_transaction_id);
 
         // What DORR keeps: the client fee and the commission, as income.
-        $this->ledger->clientFee($m->client_fee_minor, $country->currency, $country, $m, (string) $project->title, $capture);
-        $this->ledger->commission($m->commission_minor, $country->currency, $country, $m, (string) $project->title, $earningTx);
+        // In the freelance currency; the project's country stays on the entry for the per-country reports.
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
+        $this->ledger->clientFee($m->client_fee_minor, $currency, $country, $m, (string) $project->title, $capture);
+        $this->ledger->commission($m->commission_minor, $currency, $country, $m, (string) $project->title, $earningTx);
 
         $m->forceFill(['released_at' => now(), 'paid_minor' => $m->net_minor])->save();
 

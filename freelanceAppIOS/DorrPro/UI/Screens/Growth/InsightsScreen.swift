@@ -122,6 +122,7 @@ private struct InsightsBody: View {
         }
 
         ViewsCard(v: data.views ?? InsightViewsDto(), period: period)
+        if let saved = data.saved { SavedCard(s: saved) }
         OffersCard(o: offers)
         ServicesCard(s: services)
         EarningsCard(e: data.earnings ?? InsightEarningsDto(), dto: dto)
@@ -391,6 +392,24 @@ private struct UnevenTopBar: Shape {
         p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         p.closeSubpath()
         return p
+    }
+}
+
+/// FS-103: how many client lists I am in - a number, how many were added in the period, and that who is never shown.
+private struct SavedCard: View {
+    @Environment(\.wa) private var wa
+    let s: InsightSavedDto
+
+    var body: some View {
+        let lists = s.lists ?? 0
+        let added = s.new ?? 0
+        InfoCard(title: L("insights_saved_title"), icon: "bookmark.fill") {
+            Text(verbatim: "\(lists)").font(.dorr(30, .heavy)).foregroundStyle(wa.settingsInk).environment(\.layoutDirection, .leftToRight)
+            if added > 0 {
+                SvcPill(text: L("insights_saved_new", added), tone: SvcTone(ink: Color(hex: 0x16A34A), fill: Color(hex: 0x16A34A).opacity(0.12)))
+            }
+            Text(L("insights_saved_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+        }
     }
 }
 

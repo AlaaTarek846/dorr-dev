@@ -825,7 +825,11 @@ struct PostCard: View {
                     Text(verbatim: headline).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
                 }
                 let time = cmRelativeTime(post.createdAt)
-                Text(verbatim: post.edited == true ? "\(time) · \(L("cm_edited"))" : time).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(verbatim: post.edited == true ? "\(time) · \(L("cm_edited"))" : time).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineLimit(1)
+                    // Where it was posted from: the feed mixes every open country.
+                    CountryTag(country: post.country)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 10)

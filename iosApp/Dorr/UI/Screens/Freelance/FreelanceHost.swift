@@ -36,7 +36,11 @@ func flAmount(_ minor: Int?, _ currency: String?) -> String { "\u{200E}\(flMoney
 /// A currency code as the sign people know ("SAR" shows as «﷼»); any other code stays as it is. Mirrors Android's `CurrencyLabelAdapter`.
 func flCurrencySign(_ code: String?) -> String {
     let c = (code ?? "").trimmingCharacters(in: .whitespaces)
-    return c.uppercased() == "SAR" ? "\u{FDFC}" : c
+    switch c.uppercased() {
+    case "SAR": return "\u{FDFC}"
+    case "USD": return "$"
+    default: return c
+    }
 }
 
 @MainActor
@@ -113,7 +117,11 @@ struct FreelanceHost: View {
         case .newDispute(let p, let m):
             DisputePage(projectUuid: p, milestoneUuid: m, disputeUuid: nil, onBack: back, onOpened: { replace(.dispute(p, $0)) })
         case .favorites:
-            FavoritesPage(onBack: back)
+            FavoritesPage(onBack: back, onTalent: { open(.talentLists) })
+        case .talentLists:
+            TalentListsPage(onBack: back, onOpen: { open(.talentList($0)) })
+        case .talentList(let l):
+            TalentListPage(uuid: l, onBack: back, onGone: { back() })
         case .receipts:
             ReceiptsPage(onBack: back)
         // «Services»: the ready-made services and the consultations as two parts of one page.
@@ -624,6 +632,7 @@ private func eventLabel(_ type: String) -> String {
     case "project.resubmitted": return L("fl_ev_resubmitted")
     case "project.withdrawn": return L("fl_ev_withdrawn")
     case "project.cost_cap_set": return L("fl_ev_cost_cap")
+    case "project.hire_again": return L("fs_ev_hire_again")
     case "project.completed": return L("fl_ev_completed")
     case "project.invited": return L("fl_ev_invited")
     case "project.made_public": return L("fl_ev_made_public")
@@ -681,6 +690,16 @@ private struct ProjectDetails: View {
             } catch {
                 self.error = flError(error)
             }
+            busy = false
+        }
+    }
+
+    /// FL-209 / FS-102: a new draft made from this project (a copy, or asked again from the same freelancer), opened in its place.
+    private func copy(_ call: @escaping () async throws -> FreelanceProjectDto?) {
+        busy = true
+        error = nil
+        Task {
+            do { if let made = try await call() { onCopied(made.uuid) } } catch { self.error = flError(error) }
             busy = false
         }
     }
@@ -783,14 +802,11 @@ private struct ProjectDetails: View {
         }
         // FL-209: ask for it again from this one.
         if can.duplicate == true {
-            out.append(Step(key: "copy", text: L("fl_copy_project"), icon: "doc.on.doc") {
-                busy = true
-                error = nil
-                Task {
-                    do { if let copy = try await FreelanceApi.duplicate(p.uuid).data { onCopied(copy.uuid) } } catch { self.error = flError(error) }
-                    busy = false
-                }
-            })
+            out.append(Step(key: "copy", text: L("fl_copy_project"), icon: "doc.on.doc") { copy { try await FreelanceApi.duplicate(p.uuid).data } })
+        }
+        // FS-102: the same freelancer again, on a new private draft.
+        if can.hireAgain == true {
+            out.append(Step(key: "hire_again", text: L("fs_hire_again"), icon: "arrow.clockwise") { copy { try await FreelanceApi.hireAgain(p.uuid).data } })
         }
         if can.withdraw == true { out.append(Step(key: "withdraw", text: L("fl_withdraw"), icon: "arrow.uturn.backward", tone: .warn) { act({ try await FreelanceApi.withdraw(p.uuid).data }) }) }
         if can.cancel == true { out.append(Step(key: "cancel", text: L("fl_cancel_project"), icon: "xmark.circle.fill", tone: .danger) { cancelCode = nil; cancelNote = ""; confirm = "cancel" }) }
@@ -896,6 +912,8 @@ private struct ProjectDetails: View {
                 // FL-211: the stages of the work, each with where it stands.
                 if let stages = p.milestones, !stages.isEmpty { StagesCard(p: p, stages: stages) }
             default:
+                // FS-102: asked again from a freelancer - who, and last time's parts as a reference.
+                if let h = p.hireAgain { HireAgainCard(h: h, currency: p.budget?.currency ?? "") }
                 FlCard(icon: "doc.plaintext", title: L("fl_description")) { ProjectSummary(p: p) }
                 if let files = p.attachments, !files.isEmpty {
                     FlCard(icon: "paperclip", title: L("fl_files")) {
@@ -944,6 +962,31 @@ private struct ProjectDetails: View {
         case "admin": return L("fl_offers_closed_admin")
         case "max_offers": return L("fl_offers_closed_full")
         default: return L("fl_offers_closed_deadline")
+        }
+    }
+}
+
+/// FS-102: the draft is asked again from this freelancer (invited when it is published); the last work's parts are only a reference.
+private struct HireAgainCard: View {
+    @Environment(\.wa) private var wa
+    let h: FreelanceHireAgainDto
+    let currency: String
+
+    var body: some View {
+        FlCard(icon: "arrow.clockwise", title: L("fs_hire_again_title")) {
+            Text(verbatim: L("fs_hire_again_from", h.freelancer?.name ?? "")).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(3)
+            if !(h.milestones ?? []).isEmpty {
+                Text(L("fs_hire_again_prev")).font(.dorr(11, .bold)).foregroundStyle(wa.settingsMut)
+                ForEach(Array((h.milestones ?? []).enumerated()), id: \.offset) { _, m in
+                    HStack(spacing: 8) {
+                        Text(verbatim: m.title ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                        Spacer(minLength: 0)
+                        if let d = m.durationDays { Text(verbatim: L("fl_days", d)).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                        Text(verbatim: "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(currency)").font(.dorr(13, .bold)).foregroundStyle(wa.accent)
+                    }
+                }
+            }
+            FlNotice(text: L("fs_hire_again_note"), icon: "info.circle.fill", color: flAmber)
         }
     }
 }

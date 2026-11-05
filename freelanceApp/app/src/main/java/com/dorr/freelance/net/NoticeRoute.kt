@@ -47,7 +47,8 @@ object NoticeRoute {
                 if (project != null && dispute != null) "dispute/$project/$dispute" else project?.let(Routes::agreement)
             }
             // The work itself: the agreement, its parts, their payments and changes.
-            e.startsWith("freelance.milestone") || e.startsWith("freelance.report") || e.startsWith("freelance.change") || e.startsWith("freelance.payment") ||
+            // FS-106: a health notice (health.at_risk · delayed · blocked) opens the agreement, where its card explains it.
+            e.startsWith("freelance.milestone") || e.startsWith("freelance.report") || e.startsWith("freelance.change") || e.startsWith("freelance.payment") || e.startsWith("freelance.health") ||
                 e == "freelance.agreement.received" || e == "freelance.project.completed" -> project?.let(Routes::agreement)
             // Before the work: the project and my offer on it.
             e.startsWith("freelance.offer") || e.startsWith("freelance.project") || e.startsWith("freelance.agreement") ||

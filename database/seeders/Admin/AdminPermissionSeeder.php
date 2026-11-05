@@ -332,6 +332,7 @@ class AdminPermissionSeeder extends Seeder
             // Freelance (docs/freelance_tasks.md).
             'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-checklist-templates' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],

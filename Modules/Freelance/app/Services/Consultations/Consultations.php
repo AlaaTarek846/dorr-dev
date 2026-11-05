@@ -31,6 +31,7 @@ use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletHoldStatus;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Models\WalletHold;
+use Modules\Freelance\Services\Policy\FreelanceMoney;
 use Modules\Wallet\Services\WalletService;
 use Throwable;
 
@@ -119,13 +120,13 @@ class Consultations
                 $cost = $this->offers->cost($f, $price);
                 $earn = $this->offers->earn($f, $price);
                 $rules = $this->offers->rules((int) $f->country_id);
-                $country = Country::query()->with('currency')->findOrFail((int) $f->country_id);
+                $country = Country::query()->findOrFail((int) $f->country_id);
                 $c = Consultation::query()->create([
                     'freelancer_id' => $f->id, 'offer_id' => $offer->id, 'client_id' => $client->id, 'country_id' => $country->id, 'request_id' => $requestId,
                     'minutes' => $minutes, 'starts_at' => $start, 'ends_at' => $start->addMinutes($minutes), 'topic' => $topic,
                     'title' => $offer->title, 'price_minor' => $cost['price_minor'], 'list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'],
                     'client_fee_minor' => $cost['client_fee_minor'],
-                    'commission_minor' => $earn['commission_minor'], 'net_minor' => $earn['net_minor'], 'currency_code' => (string) $country->currency?->code,
+                    'commission_minor' => $earn['commission_minor'], 'net_minor' => $earn['net_minor'], 'currency_code' => $this->fm()->code(),
                     'policy' => $rules, 'status' => $special === null ? Consultation::PENDING : Consultation::BOOKED,
                     // Answered before the start at the latest.
                     'respond_by' => $special === null ? min(now()->addHours($rules['response_hours']), $start) : null,
@@ -133,7 +134,7 @@ class Consultations
                     // FL-L16: both agreed to the recording — the client now, the freelancer when accepting (a special offer is their yes).
                     'recording_consent_at' => now(), 'freelancer_consent_at' => $special === null ? null : now(),
                 ]);
-                $this->hold($c, $client, $country);
+                $this->hold($c, $client);
                 if ($special !== null) {
                     $taken = $this->declineOthers($c, $f);
                     app(SpecialOffers::class)->accepted($special, ['consultation_id' => $c->id]);
@@ -481,7 +482,7 @@ class Consultations
     public function present(Consultation $c, string $side): array
     {
         $phase = $c->phase();
-        $decimals = (int) (Country::query()->with('currency')->find($c->country_id)?->currency?->decimal_places ?? 2);
+        $decimals = $this->fm()->decimals();
         $started = ! $c->starts_at->isFuture();
         $booked = $c->status === Consultation::BOOKED;
         $pending = $c->status === Consultation::PENDING && ! $started;
@@ -550,9 +551,10 @@ class Consultations
 
     // -------------------------------------------------------------- money
 
-    private function hold(Consultation $c, User $client, Country $country): void
+    /** From the client's international wallet (`freelance.money`), whatever the countries. */
+    private function hold(Consultation $c, User $client): void
     {
-        $wallet = $this->wallets->firstOrCreateWallet($client, $country)->fresh(['currency']);
+        $wallet = $this->fm()->wallet($client);
         if (strtoupper((string) $wallet->currency?->code) !== strtoupper($c->currency_code)) {
             throw new FreelanceException('wallet_currency', 422, ['currency' => $c->currency_code], ['currency' => $c->currency_code]);
         }
@@ -592,7 +594,7 @@ class Consultations
         if ((int) $holds->sum('amount_minor') !== $c->totalMinor()) {
             throw new FreelanceException('consultation_not_held', 409);
         }
-        $country = Country::query()->with('currency')->findOrFail($c->country_id);
+        $country = Country::query()->findOrFail($c->country_id);
         $label = $c->label();
         $capture = null;
         foreach ($holds as $hold) {
@@ -604,8 +606,8 @@ class Consultations
         }
         $earning = app(FreelanceEarnings::class)->creditConsultation($c, $country, $c->net_minor, $why === 'dispute' ? 'dispute' : 'consultation', "freelance:consultation:{$c->uuid}:earning");
         $earningTx = $earning?->wallet_transaction_id === null ? null : \Modules\Wallet\Models\WalletTransaction::query()->find($earning->wallet_transaction_id);
-        $this->ledger->clientFee($c->client_fee_minor, $country->currency, $country, $c, $label, $capture);
-        $this->ledger->commission($c->commission_minor, $country->currency, $country, $c, $label, $earningTx);
+        $this->ledger->clientFee($c->client_fee_minor, $this->fm()->currency(), $country, $c, $label, $capture);
+        $this->ledger->commission($c->commission_minor, $this->fm()->currency(), $country, $c, $label, $earningTx);
         $c->settled_at = now();
     }
 
@@ -700,5 +702,10 @@ class Consultations
     private function money(int $minor, Consultation $c): string
     {
         return number_format($minor / 100, 2).' '.$c->currency_code;
+    }
+
+    private function fm(): FreelanceMoney
+    {
+        return app(FreelanceMoney::class);
     }
 }

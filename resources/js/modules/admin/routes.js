@@ -899,6 +899,12 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-document-types.view' },
             },
             {
+                path: 'freelance/checklist-templates',
+                name: 'admin.freelance.checklistTemplates',
+                component: page('freelance/checklist-templates/index'),
+                meta: { middleware: [auth], permission: 'freelance-checklist-templates.view' },
+            },
+            {
                 path: 'freelance/skills',
                 name: 'admin.freelance.skills',
                 component: page('freelance/skills/index'),

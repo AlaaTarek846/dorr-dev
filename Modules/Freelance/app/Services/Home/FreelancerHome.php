@@ -39,8 +39,8 @@ class FreelancerHome
             'features' => $on,
             'promos' => $this->promos->for(Promo::FREELANCER, $countryId, $on),
             'stats' => [
-                'currency' => $country?->currency?->code,
-                'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+                'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+                'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
                 'earned_month_minor' => (int) Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::RELEASED)->where('released_at', '>=', now()->startOfMonth())->sum('amount_minor'),
                 'pending_minor' => (int) Earning::query()->where('freelancer_id', $f->id)->where('status', Earning::PENDING)->sum('amount_minor'),
                 'live_offers' => Offer::query()->where('freelancer_id', $f->id)

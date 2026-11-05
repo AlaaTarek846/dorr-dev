@@ -186,6 +186,8 @@ struct WalletBalanceDto: Codable, Equatable {
     var heldMinor: Int
     /// Balances in other countries — shown read-only, not spendable here.
     var otherWallets: [OtherWalletDto]?
+    /// False when dollars are already this owner's local money (freelance works in them): there is no separate dollar wallet to swipe to.
+    var internationalWallet: Bool
 
     enum CodingKeys: String, CodingKey {
         case countryCode = "country_code", dialCode = "dial_code", phoneLength = "phone_length"
@@ -194,7 +196,7 @@ struct WalletBalanceDto: Codable, Equatable {
         case currencyCode = "currency_code", currencySymbol = "currency_symbol", totalMinor = "total_minor"
         case withdrawableMinor = "withdrawable_minor", spendOnlyMinor = "spend_only_minor"
         case rewardMinor = "reward_minor", rewardsTransferable = "rewards_transferable", currencyDecimals = "currency_decimals"
-        case heldMinor = "held_minor", otherWallets = "other_wallets"
+        case heldMinor = "held_minor", otherWallets = "other_wallets", internationalWallet = "international_wallet"
     }
 
     init(from decoder: Decoder) throws {
@@ -216,6 +218,7 @@ struct WalletBalanceDto: Codable, Equatable {
         currencyDecimals = c.value(.currencyDecimals, 2)
         heldMinor = c.value(.heldMinor, 0)
         otherWallets = c.value(.otherWallets, nil)
+        internationalWallet = c.value(.internationalWallet, true)
     }
 }
 

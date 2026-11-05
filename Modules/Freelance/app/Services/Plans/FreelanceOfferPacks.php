@@ -46,7 +46,7 @@ class FreelanceOfferPacks
     {
         $country = $this->countryOf($freelancer);
         $enabled = $country !== null && $this->enabled($country->id);
-        $currency = $country?->currency;
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
         $out = [
             'enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'unlimited' => false,
             'valid_days' => (int) config('freelance.offer_credit_valid_days', 0), 'credits' => $this->credits->summary($freelancer), 'packs' => [], 'purchases' => [],
@@ -56,7 +56,8 @@ class FreelanceOfferPacks
         }
 
         $out['unlimited'] = app(FreelancerOffers::class)->quota($freelancer)['limit'] === null;
-        $prices = FreelanceOfferPackPrice::query()->where('country_id', $country->id)->where('status', true)->pluck('price_minor', 'pack_id');
+        // One price for the whole world, in the freelance currency (the rows on the international row).
+        $prices = FreelanceOfferPackPrice::query()->where('country_id', app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->where('status', true)->pluck('price_minor', 'pack_id');
         $out['packs'] = FreelanceOfferPack::query()->where('status', true)->whereIn('id', $prices->keys())->orderBy('sort_order')->orderBy('id')->get()
             ->map(fn (FreelanceOfferPack $p) => ['slug' => $p->slug, 'name' => $p->text(), 'offers' => $p->offers, 'price_minor' => (int) $prices[$p->id]])->all();
         $out['purchases'] = FreelanceOfferCredit::query()->where('freelancer_id', $freelancer->id)->with('pack')->latest('id')->limit(20)->get()->map(fn (FreelanceOfferCredit $c) => [
@@ -79,7 +80,7 @@ class FreelanceOfferPacks
             throw new FreelanceException('offer_packs_closed', 403);
         }
         $pack = FreelanceOfferPack::query()->where('slug', $slug)->where('status', true)->first();
-        $price = $pack === null ? null : FreelanceOfferPackPrice::query()->where('pack_id', $pack->id)->where('country_id', $country->id)->where('status', true)->value('price_minor');
+        $price = $pack === null ? null : FreelanceOfferPackPrice::query()->where('pack_id', $pack->id)->where('country_id', app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->where('status', true)->value('price_minor');
         if ($pack === null || $price === null) {
             throw new FreelanceException('offer_pack_unavailable', 422);
         }
@@ -100,12 +101,12 @@ class FreelanceOfferPacks
             }
 
             $uuid = (string) Str::uuid();
-            $wallet = $this->wallets->firstOrCreateWallet($freelancer, $country)->fresh(['currency']);
+            $wallet = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->wallet($freelancer);
             $available = $wallet->spendableMinor();
             if ($available < $price) {
                 throw new FreelanceException('offer_pack_insufficient', 422, [
                     'needed' => $this->money($price, $country), 'available' => $this->money($available, $country),
-                ], ['needed_minor' => $price, 'available_minor' => $available, 'shortfall_minor' => $price - $available, 'currency' => $country->currency?->code]);
+                ], ['needed_minor' => $price, 'available_minor' => $available, 'shortfall_minor' => $price - $available, 'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code()]);
             }
 
             $transaction = $this->wallets->debitSpendOnlyFirst($wallet, $price, WalletTransactionType::ServicePayment, [
@@ -116,10 +117,10 @@ class FreelanceOfferPacks
             $days = (int) config('freelance.offer_credit_valid_days', 0);
             $credit = FreelanceOfferCredit::query()->create([
                 'uuid' => $uuid, 'freelancer_id' => $freelancer->id, 'pack_id' => $pack->id, 'country_id' => $country->id, 'request_id' => $requestId,
-                'quantity' => $pack->offers, 'price_minor' => $price, 'currency_code' => (string) $country->currency?->code,
+                'quantity' => $pack->offers, 'price_minor' => $price, 'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
                 'wallet_transaction_id' => $transaction->id, 'expires_at' => $days > 0 ? now()->addDays($days) : null,
             ]);
-            $this->ledger->offerPack($price, $country->currency, $country, $credit, (string) $pack->text().' ('.$pack->offers.')', $transaction);
+            $this->ledger->offerPack($price, app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency(), $country, $credit, (string) $pack->text().' ('.$pack->offers.')', $transaction);
 
             return $credit;
         });
@@ -132,8 +133,8 @@ class FreelanceOfferPacks
 
     private function money(int $minor, Country $country): string
     {
-        $decimals = (int) ($country->currency?->decimal_places ?? 2);
+        $decimals = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals();
 
-        return number_format($minor / (10 ** $decimals), $decimals).' '.$country->currency?->code;
+        return number_format($minor / (10 ** $decimals), $decimals).' '.app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code();
     }
 }

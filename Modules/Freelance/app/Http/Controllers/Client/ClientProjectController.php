@@ -80,6 +80,13 @@ class ClientProjectController extends Controller
         return ApiResponse::created($this->projects->present($this->projects->duplicate($this->projects->find($me, $uuid), $me)), __('freelance.project_duplicated'));
     }
 
+    /** POST projects/{uuid}/hire-again - asks for a finished project's work again from the same freelancer (FS-102). */
+    public function hireAgain(Request $request, string $uuid): JsonResponse
+    {
+        $me = $this->me($request);
+
+        return ApiResponse::created($this->projects->present($this->projects->hireAgain($this->projects->find($me, $uuid), $me)), __('freelance.project_hire_again'));
+    }
     /** GET projects/{uuid}/preview — the last look before sending: the project as read, with what is missing or doesn't add up (FL-210). */
     public function preview(Request $request, string $uuid): JsonResponse
     {

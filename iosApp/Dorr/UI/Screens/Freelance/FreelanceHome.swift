@@ -47,6 +47,8 @@ struct FreelanceHome: View {
                         } else {
                             HomeSkeleton()
                         }
+                        // The freelance wallet (dollars): every freelance payment comes from it; a tap opens it over the hub.
+                        if let h { FreelanceWalletCard(h: h) { TopupLauncher.shared.openInternationalWallet { Task { await load() } } } }
                         if let c = h?.nextConsultation { NextConsultation(c: c) { open(.consultation(c.uuid)) } }
                         if let projects = h?.projects, !projects.isEmpty {
                             FlSectionHeader(title: L("flh_running"), action: L("flh_see_all")) { open(.projects) }.padding(.top, 4)
@@ -126,6 +128,7 @@ struct FreelanceHome: View {
         if on("special_offers") { out.append(Tool(icon: "tag.fill", title: L("spc_title"), tint: FlTints.special, badge: h?.attention?.specialOffers ?? 0, route: .specialOffers)) }
         if on("loyalty") { out.append(Tool(icon: "gift.fill", title: L("loyc_title"), tint: FlTints.loyalty, route: .loyalty)) }
         out.append(Tool(icon: "heart.fill", title: L("flh_favorites"), tint: FlTints.favorites, route: .favorites))
+        out.append(Tool(icon: "person.3.fill", title: L("fs_tp_title"), tint: FlTints.favorites, route: .talentLists))
         out.append(Tool(icon: "doc.text.fill", title: L("flr_title"), tint: FlTints.projects, route: .receipts))
         return out
     }
@@ -331,6 +334,34 @@ private struct StartJourney: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .settingsSurface(FlCorners.card)
+    }
+}
+
+/// The freelance wallet: its balance in dollars, and a tap to open it (top up, statement, withdraw).
+private struct FreelanceWalletCard: View {
+    @Environment(\.wa) private var wa
+    let h: FlHomeDto
+    let action: () -> Void
+
+    var body: some View {
+        let tint = Color(red: 0x16 / 255, green: 0xA3 / 255, blue: 0x4A / 255)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "wallet.pass.fill").font(.system(size: 20)).foregroundStyle(tint)
+                    .frame(width: 46, height: 46).background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: FlCorners.icon, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L("fl_intl_wallet")).font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                    Text(L("fl_intl_wallet_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: "\u{200E}" + mkMoney(h.walletMinor ?? 0, h.decimals ?? 2, h.currency)).font(.dorr(15, .heavy)).foregroundStyle(tint).lineLimit(1)
+            }
+            .padding(14)
+            .settingsSurface(FlCorners.card)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
     }
 }
 

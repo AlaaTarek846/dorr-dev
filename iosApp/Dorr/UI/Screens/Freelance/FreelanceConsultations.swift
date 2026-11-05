@@ -248,6 +248,8 @@ private struct ConsultCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: c.freelancer?.name ?? "").font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
                         if let h = c.freelancer?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                        // The freelancer's country: the market mixes every open country.
+                        FlCountryTag(country: c.country)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     if let r = c.freelancer?.rating {

@@ -64,6 +64,23 @@ class FreelanceFeatures
         ];
     }
 
+    /**
+     * The countries where the service is open (and `$feature` too, when given): freelance work is open across countries (owner,
+     * 2026-11-04), so a freelancer sees the projects, services, consultations and posts of every one of them, not only their own.
+     * The switches stay per country: what a closed country's people posted is not shown.
+     *
+     * @return list<int>
+     */
+    public function openCountries(?string $feature = null): array
+    {
+        return $this->rules()
+            ->filter(fn (FreelanceFeatureRule $r) => $r->feature === self::SERVICE && $r->enabled)
+            ->map(fn (FreelanceFeatureRule $r) => (int) $r->country_id)
+            ->unique()
+            ->filter(fn (int $id) => $feature === null ? ! $this->closedByAvailability($id) : $this->allows($id, $feature))
+            ->values()->all();
+    }
+
     public static function forget(): void
     {
         Cache::forget(self::CACHE);

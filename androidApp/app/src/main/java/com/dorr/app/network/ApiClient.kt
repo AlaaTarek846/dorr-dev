@@ -95,7 +95,10 @@ object ApiClient {
         .addInterceptor { chain ->
             // My chosen wallet (another country's wallet of mine) — on wallet requests only.
             val walletCountry = WalletCountry.headerFor(chain.request().url.encodedPath)
+            // The freelance international wallet on screen: the same wallet calls, on its own path.
+            val walletPath = WalletCountry.rewrite(chain.request().url.encodedPath)
             val request = chain.request().newBuilder()
+                .apply { if (walletPath != null) url(chain.request().url.newBuilder().encodedPath(walletPath).build()) }
                 .apply { if (walletCountry != null) header("X-Country", walletCountry) }
                 .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
@@ -148,6 +151,7 @@ object ApiClient {
     val freelanceHome: FreelanceHomeApi by lazy { retrofit.create(FreelanceHomeApi::class.java) }
     val freelanceLoyalty: FreelanceLoyaltyApi by lazy { retrofit.create(FreelanceLoyaltyApi::class.java) }
     val freelanceRights: FreelanceRightsApi by lazy { retrofit.create(FreelanceRightsApi::class.java) }
+    val freelanceTalent: FreelanceTalentApi by lazy { retrofit.create(FreelanceTalentApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }

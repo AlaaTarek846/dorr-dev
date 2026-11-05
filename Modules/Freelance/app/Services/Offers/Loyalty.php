@@ -227,8 +227,8 @@ class Loyalty
 
         return [
             'available' => $this->on($countryId),
-            'currency' => $country?->currency?->code,
-            'decimals' => (int) ($country?->currency?->decimal_places ?? 2),
+            'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
+            'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
             'program' => $program === null ? null : ['enabled' => (bool) $program->enabled, 'tiers' => $tiers],
             'rules' => $rules,
             'presets' => $this->presets($rules),

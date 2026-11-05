@@ -936,6 +936,7 @@ const freelanceItems = [
     { route: 'admin.freelance.reports', permission: 'freelance-reports.view', icon: 'ri-bar-chart-box-line', label: 'freelance.reports.title' },
     { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
     { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+    { route: 'admin.freelance.checklistTemplates', permission: 'freelance-checklist-templates.view', icon: 'ri-list-check-2', label: 'freelance.checklist_templates.title' },
     { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
     { route: 'admin.freelance.skillTests', permission: 'freelance-catalogs.view', icon: 'ri-questionnaire-line', label: 'freelance.skill_tests.title' },
     { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-id-card-line', label: 'freelance.specialties.title' },

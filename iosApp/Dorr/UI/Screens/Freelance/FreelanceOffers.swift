@@ -762,6 +762,8 @@ struct FreelancerProfilePage: View {
                     .padding(.horizontal, 10).padding(.vertical, 4)
                 }
                 .buttonStyle(.plain)
+                // FS-103: save to one of my lists (the freelancer is never told).
+                if let u = p.uuid { SaveToListPill(freelancer: u) }
                 if let h = p.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(13)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center) }
                 Text(verbatim: [ratingText(head), L("fl_completeness", p.completeness ?? 0), p.yearsOfExperience.map { L("fl_years_exp", $0) }]
                     .compactMap { $0 }.joined(separator: "  ·  "))
@@ -890,12 +892,14 @@ struct FavoritesPage: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     let onBack: () -> Void
+    /// FS-103: opens my talent lists.
+    var onTalent: () -> Void = {}
     @StateObject private var paged = PagedRows<FreelanceFavoriteDto>(key: { $0.uuid })
 
     var body: some View {
         let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
-            FlPageHeader(title: L("fl_favorites"), onBack: onBack)
+            FlPageHeader(title: L("fl_favorites"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     if list == nil && paged.error == nil {
@@ -915,6 +919,7 @@ struct FavoritesPage: View {
                                     Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                                 }
                                 Spacer(minLength: 0)
+                                SaveToListButton(freelancer: f.uuid)
                                 Button {
                                     Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
                                 } label: {

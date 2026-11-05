@@ -41,7 +41,7 @@
     <string name="fl_visibility">Who sees it</string>
     <string name="fl_public">Public</string>
     <string name="fl_private">Private</string>
-    <string name="fl_public_hint">Every freelancer in your country can see it and send an offer.</string>
+    <string name="fl_public_hint">Every freelancer, from any country, can see it and send an offer.</string>
     <string name="fl_private_hint">Only freelancers you invite see it.</string>
     <string name="fl_files">Files</string>
     <string name="fl_add_file">Add a file</string>
@@ -369,7 +369,7 @@
     <string name="fl_inv_pick">Pick who to invite</string>
     <string name="fl_inv_search">Search by name</string>
     <string name="fl_inv_same_specialty">Same specialty as the project</string>
-    <string name="fl_inv_all">Everyone in my country</string>
+    <string name="fl_inv_all">All freelancers</string>
     <string name="fl_inv_none_found">No one found.</string>
     <string name="fl_inv_send">Send %1$d invitation(s)</string>
     <string name="fl_inv_sent">Invitations sent.</string>

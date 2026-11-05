@@ -24,10 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Loyalty
@@ -91,7 +93,9 @@ internal fun FreelanceHome(version: Int, onExit: () -> Unit, open: (FlRoute) -> 
     val reconnect = collectReconnectTick()
     var home by remember { mutableStateOf<FlHomeDto?>(null) }
     var failed by remember { mutableStateOf(false) }
-    LaunchedEffect(reconnect, version) {
+    // Coming back from the freelance wallet reads the hub once more (its balance may have changed).
+    var walletTick by remember { mutableStateOf(0) }
+    LaunchedEffect(reconnect, version, walletTick) {
         try {
             home = ApiClient.freelanceHome.home(auth()).data
             failed = false
@@ -129,6 +133,8 @@ internal fun FreelanceHome(version: Int, onExit: () -> Unit, open: (FlRoute) -> 
                         h.isNew -> StartJourney(servicesOn = h.on("services"), onPost = { open(FlRoute.NewProject) }, onServices = { open(FlRoute.Services) })
                         else -> Numbers(h, open)
                     }
+                    // The freelance wallet (dollars): every freelance payment comes from it; a tap opens it over the hub.
+                    if (h != null) WalletCard(h) { com.dorr.app.ui.screens.wallet.TopupLauncher.openInternationalWallet { walletTick++ } }
                     h?.nextConsultation?.let { NextConsultation(it) { open(FlRoute.Consultation(it.uuid)) } }
                     if (h != null && h.projects.isNotEmpty()) {
                         FlSectionHeader(stringResource(R.string.flh_running), Modifier.padding(top = 4.dp), action = stringResource(R.string.flh_see_all)) { open(FlRoute.Projects) }
@@ -156,6 +162,7 @@ internal fun FreelanceHome(version: Int, onExit: () -> Unit, open: (FlRoute) -> 
                         if (on("special_offers")) add(Tool(Icons.Rounded.LocalOffer, stringResource(R.string.spc_title), FlTints.special, h?.attention?.specialOffers ?: 0, FlRoute.SpecialOffers))
                         if (on("loyalty")) add(Tool(Icons.Rounded.Loyalty, stringResource(R.string.loyc_title), FlTints.loyalty, 0, FlRoute.Loyalty))
                         add(Tool(Icons.Rounded.Favorite, stringResource(R.string.flh_favorites), FlTints.favorites, 0, FlRoute.Favorites))
+                        add(Tool(Icons.Rounded.Groups, stringResource(R.string.fs_tp_title), FlTints.favorites, 0, FlRoute.TalentLists))
                         add(Tool(Icons.Rounded.Receipt, stringResource(R.string.flr_title), FlTints.projects, 0, FlRoute.Receipts))
                     }
                     // Three to a row, so the names keep room.
@@ -308,6 +315,25 @@ private fun StartJourney(servicesOn: Boolean, onPost: () -> Unit, onServices: ()
             FlAction(stringResource(R.string.flh_new_action), Icons.Rounded.Add, FlTone.Primary, modifier = Modifier.weight(1f), onClick = onPost)
             if (servicesOn) FlAction(stringResource(R.string.flh_services), Icons.Rounded.Storefront, modifier = Modifier.weight(1f), onClick = onServices)
         }
+    }
+}
+
+/** The freelance wallet: its balance in dollars, and a tap to open it (top up, statement, withdraw). */
+@Composable
+private fun WalletCard(h: FlHomeDto, onOpen: () -> Unit) {
+    val tint = Color(0xFF16A34A)
+    Row(
+        Modifier.fillMaxWidth().settingsSurface(FlCorners.card).clickable(role = Role.Button, onClick = onOpen).padding(14.dp).semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(46.dp).clip(FlCorners.icon).background(tint.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.AccountBalanceWallet, null, tint = tint, modifier = Modifier.size(24.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.fl_intl_wallet), color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.fl_intl_wallet_sub), color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text("‎" + mkMoney(h.walletMinor, h.decimals, h.currency), color = tint, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
     }
 }
 

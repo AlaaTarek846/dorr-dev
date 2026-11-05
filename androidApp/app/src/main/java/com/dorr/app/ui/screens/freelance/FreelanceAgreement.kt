@@ -55,7 +55,10 @@ import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.dorr.app.network.multipartFields
 
 @Composable
 internal fun agreementStatusLabel(status: String): String = stringResource(
@@ -108,6 +111,7 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
     var cancelCode by remember { mutableStateOf<String?>(null) }
     var cancelNote by remember { mutableStateOf("") }
     var reloads by remember { mutableStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     // The part on show (null: the parts when one waits for me — funding, approving — else the overview).
     var tab by rememberSaveable { mutableStateOf<Int?>(null) }
     // FL-402: the parts, while the client splits them (title, amount as typed).
@@ -168,6 +172,8 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
             // The head: a band of its status colour, who, where it stands, the figures and the parts as steps.
             val sc = agreementStatusColor(a.status)
             val current = tab ?: if (a.milestones.any { it.can.fund || it.can.approve || it.can.revision || it.can.cancelAccept }) 1 else 0
+            // FS-106: how the running project is doing (nothing when the agreement is not running).
+            HealthCard(a.health)
             Column(Modifier.fillMaxWidth().settingsSurface(FlCorners.card)) {
                 Box(Modifier.fillMaxWidth().height(5.dp).background(sc))
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -294,7 +300,12 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                             if (m.cancelRequestedBy == "client") FlNotice(stringResource(R.string.fl_ms_cancel_asked_you), Icons.Rounded.HourglassTop, Color(0xFFD97706))
                             if (m.status == "cancelled" && (m.refundedMinor ?: 0L) > 0) FlNotice(stringResource(R.string.fl_ms_refunded, "\u200E${money(m.refundedMinor ?: 0L)} ${a.currency}"), Icons.Rounded.CheckCircle, Color(0xFF16A34A))
                             m.autoApproveAt?.let { FlNotice(stringResource(R.string.fl_auto_approve_on, "\u200E" + it.take(10)), Icons.Rounded.Schedule, Color(0xFFD97706)) }
-                            if (m.can.fund) FlAction(stringResource(R.string.fl_fund), Icons.Rounded.AccountBalanceWallet, FlTone.Primary) { fundFor = m }
+                            if (m.can.fund) FlAction(stringResource(R.string.fl_fund), Icons.Rounded.AccountBalanceWallet, FlTone.Primary) {
+                                // Not enough in the freelance wallet: straight to its top-up with what is missing already in (back here, the wallet is read again).
+                                val need = m.amountMinor + m.clientFeeMinor
+                                val have = a.walletAvailableMinor ?: 0L
+                                if (have < need) com.dorr.app.ui.screens.wallet.TopupLauncher.open(need - have, international = true) { reloads++ } else fundFor = m
+                            }
                             if (m.can.approve) FlAction(stringResource(R.string.fl_ms_approve), Icons.Rounded.CheckCircle, FlTone.Primary) { act({ ApiClient.freelance.milestoneAction(auth(), projectUuid, m.uuid, "approve", com.dorr.app.network.FreelanceDecisionRequest()).data }) }
                             if (m.can.revision) FlAction(stringResource(R.string.fl_ms_revision), Icons.Rounded.Replay) { revisionFor = m.uuid; revisionReason = "" }
                             if (m.can.cancelAccept) FlAction(stringResource(R.string.fl_ms_cancel_accept), Icons.Rounded.CheckCircle) { act({ ApiClient.freelance.milestoneAction(auth(), projectUuid, m.uuid, "cancel-accept", com.dorr.app.network.FreelanceDecisionRequest()).data }) }
@@ -346,9 +357,19 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                     // FL-605: the progress reports the freelancer sent.
                     if (activity) ProgressReportsCard(projectUuid, a.reports, recordsKey)
                     // FL-404 / FL-405: changes after the agreement started.
-                    if (a.status == "active") ChangesCard(
-                        changes = a.changes, milestones = a.milestones, currency = a.currency, canAsk = true, busy = busy,
-                        onAsk = { body -> act({ ApiClient.freelance.requestChange(auth(), projectUuid, body); ApiClient.freelance.agreement(auth(), projectUuid).data }) },
+                    // FS-101: a completed agreement still shows its addenda (nothing more can be asked).
+                    if (a.status == "active" || (a.status == "completed" && a.changes.isNotEmpty())) ChangesCard(
+                        projectUuid = projectUuid, changes = a.changes, milestones = a.milestones, currency = a.currency, canAsk = a.status == "active", busy = busy,
+                        onAsk = { body, files ->
+                            act({
+                                if (files.isEmpty()) ApiClient.freelance.requestChange(auth(), projectUuid, body)
+                                else {
+                                    val parts = withContext(Dispatchers.IO) { files.map { filePart(context, it, "files[]") ?: throw IllegalStateException() } }
+                                    ApiClient.freelance.requestChangeWithFiles(auth(), projectUuid, body.multipartFields(), parts)
+                                }
+                                ApiClient.freelance.agreement(auth(), projectUuid).data
+                            })
+                        },
                         onAnswer = { change, action -> act({ ApiClient.freelance.answerChange(auth(), projectUuid, change, action); ApiClient.freelance.agreement(auth(), projectUuid).data }) },
                     )
                     error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
@@ -392,7 +413,8 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
             } else FlAction(stringResource(R.string.fl_topup), Icons.Rounded.AddCard, FlTone.Primary) {
                 fundFor = null
                 // Top up what is missing; coming back reads the wallet once more.
-                com.dorr.app.ui.screens.wallet.TopupLauncher.open(total - available) { reloads++ }
+                // Into the freelance wallet (dollars), where the work is paid from.
+                com.dorr.app.ui.screens.wallet.TopupLauncher.open(total - available, international = true) { reloads++ }
             }
             FlAction(stringResource(R.string.fl_not_now), null) { fundFor = null }
         }

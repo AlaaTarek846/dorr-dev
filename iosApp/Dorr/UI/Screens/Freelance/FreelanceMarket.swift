@@ -382,6 +382,8 @@ struct ServiceTile: View {
                         if (s.completedOrders ?? 0) > 0 { Text(L("mk_done_n", s.completedOrders ?? 0)).font(.dorr(11, .bold)).foregroundStyle(mkGreen) }
                     }
                     Text(verbatim: s.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2).lineSpacing(3).multilineTextAlignment(.leading)
+                    // The freelancer's country: the market mixes every open country.
+                    FlCountryTag(country: s.country)
                     MkDivider()
                     HStack(spacing: 4) {
                         Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(wa.settingsMut)

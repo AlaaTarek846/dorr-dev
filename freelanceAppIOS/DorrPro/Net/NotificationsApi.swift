@@ -99,7 +99,9 @@ enum NoticeRoute {
             return project.map(Route.agreement)
         }
         // The work itself: the agreement, its parts, their payments and changes.
+        // FS-106: a health notice (health.at_risk · delayed · blocked) opens the agreement, where its card explains it.
         if e.hasPrefix("freelance.milestone") || e.hasPrefix("freelance.report") || e.hasPrefix("freelance.change") || e.hasPrefix("freelance.payment")
+            || e.hasPrefix("freelance.health")
             || e == "freelance.agreement.received" || e == "freelance.project.completed" {
             return project.map(Route.agreement)
         }

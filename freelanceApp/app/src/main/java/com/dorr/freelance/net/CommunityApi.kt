@@ -197,6 +197,8 @@ data class CommunityPostDto(
     @SerializedName("kind_label") val kindLabel: String? = null,
     val body: String = "",
     val author: CommunityAuthorDto = CommunityAuthorDto(),
+    /** Where it was posted from (the feed mixes every open country). */
+    val country: CountryRefDto? = null,
     val specialty: CommunitySpecialtyDto? = null,
     val images: List<CommunityImageDto> = emptyList(),
     val work: CommunityWorkDto? = null,

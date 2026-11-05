@@ -14,6 +14,20 @@ return [
     // The oldest app build the server still serves; the apps compare it with their own (FL-004).
     'min_app_version' => env('FREELANCE_MIN_APP_VERSION', '1.0.0'),
 
+    /*
+    | One currency for all freelance work, whatever the country (owner, 2026-11-04): every price, policy amount, plan, pack, agreement
+    | and payment is in `currency`. The money sits in an international wallet — a wallet on the hidden `country_code` row (status off,
+    | so it shows in no country list) whose currency is `currency`. A freelancer has only that wallet; a client has it next to their
+    | local one, tops it up and withdraws from it, but can't transfer from it. The record's own country stays for geography.
+    */
+    'money' => [
+        'currency' => env('FREELANCE_CURRENCY', 'USD'),
+        // The tests point this at their own country row (phpunit.xml), so the old flows keep running on one wallet.
+        'country_code' => env('FREELANCE_MONEY_COUNTRY', 'INT'),
+        'country_name' => ['ar' => 'دولي', 'en' => 'International'],
+        'flag_code' => 'un',
+    ],
+
     // Biggest file a project, offer or delivery may carry (KB).
     'upload_max_kb' => (int) env('FREELANCE_UPLOAD_MAX_KB', 20480),
 
