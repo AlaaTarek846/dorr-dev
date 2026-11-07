@@ -85,6 +85,16 @@ Broadcast::channel('freelance-chat.{uuid}', function ($person, string $uuid) {
         : $person instanceof \Modules\User\Models\User && (int) $room->client_id === (int) $person->id;
 }, ['guards' => ['user_api', 'freelance_api']]);
 
+// A project's Workroom (Modules/Freelance, FS-150a): its client, the people of the client's team, and the freelancer of its agreement.
+Broadcast::channel('freelance-workroom.{uuid}', function ($person, string $uuid) {
+    return app(\Modules\Freelance\Services\Workroom\WorkroomAccess::class)->listens($person, $uuid);
+}, ['guards' => ['user_api', 'freelance_api']]);
+
+// FS-150d: a freelancers' team's internal chat - its active people only (never the client).
+Broadcast::channel('freelance-team.{uuid}', function ($person, string $uuid) {
+    return app(\Modules\Freelance\Services\FreelancerTeam\TeamChat::class)->listens($person, $uuid);
+}, ['guards' => ['freelance_api']]);
+
 // The freelancer's own channel: every live notification reaches them here (Modules/Freelance, FL-007).
 Broadcast::channel('Modules.Freelance.Models.Freelancer.{id}', function ($freelancer, $id) {
     return (int) $freelancer->id === (int) $id;

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Loyalty
@@ -163,6 +164,8 @@ internal fun FreelanceHome(version: Int, onExit: () -> Unit, open: (FlRoute) -> 
                         if (on("loyalty")) add(Tool(Icons.Rounded.Loyalty, stringResource(R.string.loyc_title), FlTints.loyalty, 0, FlRoute.Loyalty))
                         add(Tool(Icons.Rounded.Favorite, stringResource(R.string.flh_favorites), FlTints.favorites, 0, FlRoute.Favorites))
                         add(Tool(Icons.Rounded.Groups, stringResource(R.string.fs_tp_title), FlTints.favorites, 0, FlRoute.TalentLists))
+                        // FS-104: the projects others brought me into (the badge: invitations waiting for my answer).
+                        if (on("client_team")) add(Tool(Icons.Rounded.GroupAdd, stringResource(R.string.fs_tm_shared_tool), FlTints.mine, h?.team?.invitations ?: 0, FlRoute.Shared))
                         add(Tool(Icons.Rounded.Receipt, stringResource(R.string.flr_title), FlTints.projects, 0, FlRoute.Receipts))
                     }
                     // Three to a row, so the names keep room.

@@ -157,6 +157,9 @@ struct FreelanceProjectDto: Codable, Equatable, Identifiable {
     var submittedAt: String?
     /// FS-102: set on a draft asked again from a freelancer.
     var hireAgain: FreelanceHireAgainDto?
+    /// FS-104: who I am on this project (the owner, or my role on his team) and, for the owner, his team at a glance.
+    var access: FreelanceAccessDto?
+    var team: FreelanceTeamSummaryDto?
     /// FL-210: the most I pay in all (fee included), or nil.
     var maxCostMinor: Int?
     /// FL-211: where the work stands (nil until there is work), and what is due from me next.
@@ -283,6 +286,8 @@ struct FreelanceOfferDto: Codable, Equatable, Identifiable {
     var loyaltyBp: Int?
     /// FL-L13: who owns the work once it is paid and what I may do with it (nil: the feature is off).
     var rights: FreelanceRightsSummaryDto?
+    /// FS-210: the freelancers' team the offer is made in the name of (nil: a freelancer's own offer; then `freelancer` is who offers).
+    var team: FreelancerTeamViewDto?
 
     var id: String { uuid }
     var state: String { status ?? "submitted" }
@@ -483,6 +488,8 @@ struct FreelanceMilestoneDto: Codable, Equatable, Identifiable {
     var heldMinor: Int?
     /// FL-504: an unanswered delivery is approved and paid by itself then.
     var autoApproveAt: String?
+    /// FS-104: for a delegate, this part is over his limit (its buttons are off).
+    var overLimit: Bool?
     /// FL-407: the free rounds of changes.
     var revisionsLeft: Int?
     var revisionsMax: Int?
@@ -554,6 +561,8 @@ struct FreelanceChangeDto: Codable, Equatable {
     /// FS-101: what it moved, {price_minor|duration_days|milestones: [before, after]} — only what moved. Null, an object, or an
     /// empty list `[]` when nothing moved; read it with `changeEffect()`.
     var effect: JSONAny?
+    /// FS-104: for a delegate, accepting this change adds more than his limit.
+    var overLimit: Bool?
     /// FS-101: the files it carries; `path` is under projects/{uuid}/.
     var files: [FreelanceAttachmentDto]?
 }
@@ -674,6 +683,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var uuid: String
     var status: String?
     var version: Int?
+    /// FS-104: who I am here; without `money` the amounts come blank and are not drawn.
+    var access: FreelanceAccessDto?
     var scope: String?
     var includes: String?
     var excludes: String?
@@ -699,6 +710,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var rights: FreelanceAgreementRightsDto?
     /// FS-106: how the running project is doing (nil: the agreement is not running).
     var health: FreelanceHealthDto?
+    /// FS-210: the freelancers' team that does the work (nil: a freelancer's own; then `freelancer` is who does it).
+    var team: FreelancerTeamViewDto?
 
     var state: String { status ?? "draft" }
 }
@@ -782,6 +795,8 @@ struct FreelanceTrailDto: Codable, Equatable {
     var actor: String?
     var mine: Bool?
     var at: String?
+    /// FS-104: a member of the client's team took this step for the owner.
+    var by: FreelanceTrailByDto?
 }
 
 struct FreelanceInviteeDto: Codable, Equatable {

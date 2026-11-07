@@ -129,6 +129,8 @@ struct FreelanceHome: View {
         if on("loyalty") { out.append(Tool(icon: "gift.fill", title: L("loyc_title"), tint: FlTints.loyalty, route: .loyalty)) }
         out.append(Tool(icon: "heart.fill", title: L("flh_favorites"), tint: FlTints.favorites, route: .favorites))
         out.append(Tool(icon: "person.3.fill", title: L("fs_tp_title"), tint: FlTints.favorites, route: .talentLists))
+        // FS-104: the projects others brought me into (the badge: invitations waiting for my answer).
+        if on("client_team") { out.append(Tool(icon: "person.2.badge.plus", title: L("fs_tm_shared_tool"), tint: FlTints.mine, badge: h?.team?.invitations ?? 0, route: .shared)) }
         out.append(Tool(icon: "doc.text.fill", title: L("flr_title"), tint: FlTints.projects, route: .receipts))
         return out
     }

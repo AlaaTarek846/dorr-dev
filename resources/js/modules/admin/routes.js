@@ -875,6 +875,12 @@ export default [
                 meta: { middleware: [auth], permission: 'freelance-disputes.view' },
             },
             {
+                path: 'freelance/teams',
+                name: 'admin.freelance.teams',
+                component: page('freelance/teams/index'),
+                meta: { middleware: [auth], permission: 'freelance-teams.view' },
+            },
+            {
                 path: 'freelance/freelancers',
                 name: 'admin.freelance.freelancers',
                 component: page('freelance/freelancers/index'),

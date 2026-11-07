@@ -7,28 +7,86 @@ private let maxWorks = 30
 private let maxImages = 10
 private let maxWorkSkills = 10
 
-/** My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30. */
+/// FS-209c: where the works are kept — my own (`profile/portfolio`) or a team's (`teams/{team}/portfolio`, the same fields without the
+/// agreement link). The screens ask this one thing and don't care which.
+private struct PortfolioSource {
+    let team: String?
+
+    func list() async -> ApiResult<[PortfolioItemDto]> {
+        if let team { return await TeamPortfolioApi.list(team) }
+        return await PortfolioApi.list()
+    }
+
+    func order(_ ids: [Int]) async -> ApiResult<[PortfolioItemDto]> {
+        if let team { return await TeamPortfolioApi.order(team, PortfolioOrderRequest(ids: ids)) }
+        return await PortfolioApi.order(PortfolioOrderRequest(ids: ids))
+    }
+
+    func create(_ body: JsonBody) async -> ApiResult<PortfolioItemDto> {
+        if let team { return await TeamPortfolioApi.create(team, body) }
+        return await PortfolioApi.create(body)
+    }
+
+    func update(_ id: Int, _ body: JsonBody) async -> ApiResult<PortfolioItemDto> {
+        if let team { return await TeamPortfolioApi.update(team, id, body) }
+        return await PortfolioApi.update(id, body)
+    }
+
+    func delete(_ id: Int, offline: String, generic: String) async -> String? {
+        if let team { return await TeamPortfolioApi.delete(team, id, offline: offline, generic: generic) }
+        return await PortfolioApi.delete(id, offline: offline, generic: generic)
+    }
+
+    func addImage(_ id: Int, _ image: FilePart) async -> ApiResult<PortfolioItemDto> {
+        if let team { return await TeamPortfolioApi.addImage(team, id, image) }
+        return await PortfolioApi.addImage(id, image)
+    }
+
+    func deleteImage(_ id: Int, _ media: Int) async -> ApiResult<PortfolioItemDto> {
+        if let team { return await TeamPortfolioApi.deleteImage(team, id, media) }
+        return await PortfolioApi.deleteImage(id, media)
+    }
+}
+
+/**
+ * My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30.
+ * With `team` it is that team's: everybody in the team reads it, and only an Owner (of an active team) adds, changes and orders.
+ */
 struct PortfolioTab: View {
     let onBack: () -> Void
     let onOpenItem: (Int) -> Void
+    let team: String?
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
 
+    private let src: PortfolioSource
     @State private var items: [PortfolioItemDto] = []
     @State private var loaded = false
     @State private var error: String?
+    // A team's works are changed by its Owners only (and not while the team is suspended); my own always by me.
+    @State private var canEdit: Bool
+
+    init(onBack: @escaping () -> Void, onOpenItem: @escaping (Int) -> Void, team: String? = nil) {
+        self.onBack = onBack
+        self.onOpenItem = onOpenItem
+        self.team = team
+        src = PortfolioSource(team: team)
+        _canEdit = State(initialValue: team == nil)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                SubHeader(title: L("portfolio_title"), onBack: onBack)
+                SubHeader(title: L(team == nil ? "portfolio_title" : "tpf_title"), onBack: onBack)
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(L("portfolio_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    Text(L(team == nil ? "portfolio_hint" : (canEdit ? "tpf_hint" : "tpf_hint_member"))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                     if !loaded && error == nil { SkeletonList() }
                     if loaded {
-                        if items.count < maxWorks { SettingsPrimaryButton(text: L("portfolio_add")) { onOpenItem(0) } }
-                        if items.isEmpty { Text(L("portfolio_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut) }
+                        if canEdit && items.count < maxWorks { SettingsPrimaryButton(text: L("portfolio_add")) { onOpenItem(0) } }
+                        if items.isEmpty {
+                            Text(L(team == nil ? "portfolio_empty" : "tpf_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
+                        }
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             row(index, item)
                         }
@@ -39,8 +97,11 @@ struct PortfolioTab: View {
             .padding(.bottom, 16)
         }
         .messageToast(error)
-        .task(id: network.reconnectTick) {
-            let result = await PortfolioApi.list()
+        .task(id: "\(team ?? "")|\(network.reconnectTick)") {
+            if let team, let mine = (await TeamsApi.profile(team)).value?.team {
+                canEdit = mine.me?.role == "owner" && mine.status == "active"
+            }
+            let result = await src.list()
             if let list = result.value {
                 items = list
                 loaded = true
@@ -75,24 +136,26 @@ struct PortfolioTab: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(spacing: 6) {
-                Button { move(index, -1) } label: {
-                    Image(systemName: "arrow.up").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 22, height: 22)
+            if canEdit {
+                VStack(spacing: 6) {
+                    Button { move(index, -1) } label: {
+                        Image(systemName: "arrow.up").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index <= 0)
+                    Button { move(index, 1) } label: {
+                        Image(systemName: "arrow.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index >= items.count - 1)
                 }
-                .buttonStyle(.plain)
-                .disabled(index <= 0)
-                Button { move(index, 1) } label: {
-                    Image(systemName: "arrow.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.settingsMut).frame(width: 22, height: 22)
-                }
-                .buttonStyle(.plain)
-                .disabled(index >= items.count - 1)
             }
         }
         .padding(10)
         .frame(maxWidth: .infinity)
         .settingsSurface(16)
         .contentShape(Rectangle())
-        .onTapGesture { onOpenItem(item.id ?? 0) }
+        .onTapGesture { if canEdit { onOpenItem(item.id ?? 0) } }
     }
 
     private func move(_ index: Int, _ by: Int) {
@@ -102,7 +165,7 @@ struct PortfolioTab: View {
         items.insert(moved, at: to)
         let ids = items.compactMap(\.id)
         Task {
-            let result = await PortfolioApi.order(PortfolioOrderRequest(ids: ids))
+            let result = await src.order(ids)
             if result.value == nil { error = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
         }
     }
@@ -129,9 +192,12 @@ private struct PendingImage: Identifiable {
 struct PortfolioFormScreen: View {
     let itemId: Int
     let onBack: () -> Void
+    /// FS-209c: a team's work when set (the team's uuid), mine when nil.
+    let team: String?
 
     @Environment(\.wa) private var wa
 
+    private let src: PortfolioSource
     @State private var currentId: Int
     @State private var item: PortfolioItemDto?
     @State private var specialties: [MySpecialtyDto] = []
@@ -159,9 +225,11 @@ struct PortfolioFormScreen: View {
     @State private var galleryItem: PhotosPickerItem?
     @State private var cameraOpen = false
 
-    init(itemId: Int, onBack: @escaping () -> Void) {
+    init(itemId: Int, onBack: @escaping () -> Void, team: String? = nil) {
         self.itemId = itemId
         self.onBack = onBack
+        self.team = team
+        src = PortfolioSource(team: team)
         _currentId = State(initialValue: itemId)
         _loaded = State(initialValue: itemId == 0)
     }
@@ -185,16 +253,32 @@ struct PortfolioFormScreen: View {
         }
         .rememberRightsOptions(rightsOptions)
         .task(id: rightsOptions.value != nil) {
-            if rightsOptions.value != nil && itemId == 0, let list = (await RightsApi.portfolioSources()).value { sources = list.filter { $0.used != true } }
+            if rightsOptions.value != nil && itemId == 0 && team == nil, let list = (await RightsApi.portfolioSources()).value { sources = list.filter { $0.used != true } }
         }
-        // One read of each list when the page opens.
+        // One read of each list when the page opens. A team's work is filed under what the team covers (the union of its people's).
         .task {
-            if let list = await ListsApi.mySpecialties().value { specialties = list }
-            if let list = await ListsApi.mySkills().value { mySkills = list }
+            if let team {
+                if let t = (await TeamsApi.profile(team)).value?.team {
+                    specialties = (t.specialties ?? []).compactMap { n in n.name.map { MySpecialtyDto(id: n.id, name: $0) } }
+                    mySkills = (t.skills ?? []).compactMap { n in n.name.map { MySkillDto(id: n.id, name: $0) } }
+                }
+            } else {
+                if let list = await ListsApi.mySpecialties().value { specialties = list }
+                if let list = await ListsApi.mySkills().value { mySkills = list }
+            }
             if itemId != 0 {
-                let result = await PortfolioApi.list()
+                let result = await src.list()
                 if let list = result.value {
-                    if let found = list.first(where: { $0.id == currentId }) { fill(found) }
+                    if let found = list.first(where: { $0.id == currentId }) {
+                        // What the work is already filed under stays pickable even when the team no longer covers it.
+                        if let sp = found.specialty, !specialties.contains(where: { $0.id == sp.id }) {
+                            specialties.append(MySpecialtyDto(id: sp.id, name: sp.name ?? ""))
+                        }
+                        for sk in found.skills ?? [] where !mySkills.contains(where: { $0.id == sk.id }) {
+                            mySkills.append(MySkillDto(id: sk.id, name: sk.name ?? ""))
+                        }
+                        fill(found)
+                    }
                     loaded = true
                 } else {
                     error = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
@@ -222,7 +306,7 @@ struct PortfolioFormScreen: View {
     private var form: some View {
         FormIntro(icon: "briefcase.fill", title: L("pf_intro_title"), text: L("pf_intro"))
         // FL-L13: a finished work may be shown only when its client allowed it.
-        if rightsOptions.value != nil && currentId == 0 {
+        if rightsOptions.value != nil && currentId == 0 && team == nil {
             FormGroup {
                 FieldLabel(text: L("rights_pf_pick_title"))
                 if sources.isEmpty {
@@ -370,7 +454,7 @@ struct PortfolioFormScreen: View {
     private func deleteExisting(_ media: Int) {
         busy = true
         Task {
-            let result = await PortfolioApi.deleteImage(currentId, media)
+            let result = await src.deleteImage(currentId, media)
             busy = false
             if let dto = result.value { item = dto } else { error = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
         }
@@ -395,7 +479,7 @@ struct PortfolioFormScreen: View {
         ] as JsonBody).filter { $0.value != nil }
         if currentId == 0, let agreementUuid { body["agreement_uuid"] = agreementUuid }
         Task {
-            let saved = currentId == 0 ? await PortfolioApi.create(body) : await PortfolioApi.update(currentId, body)
+            let saved = currentId == 0 ? await src.create(body) : await src.update(currentId, body)
             guard let dto = saved.value else {
                 busy = false
                 error = saved.errorText(L("login_error_offline")) ?? L("login_error_generic")
@@ -405,7 +489,7 @@ struct PortfolioFormScreen: View {
             currentId = dto.id ?? currentId
             item = dto
             for p in pending {
-                let up = await PortfolioApi.addImage(currentId, p.file)
+                let up = await src.addImage(currentId, p.file)
                 if let updated = up.value {
                     item = updated
                     pending.removeAll { $0.id == p.id }
@@ -423,7 +507,7 @@ struct PortfolioFormScreen: View {
     private func delete() {
         busy = true
         Task {
-            let failed = await PortfolioApi.delete(currentId, offline: L("login_error_offline"), generic: L("login_error_generic"))
+            let failed = await src.delete(currentId, offline: L("login_error_offline"), generic: L("login_error_generic"))
             busy = false
             if let failed { error = failed } else { onBack() }
         }

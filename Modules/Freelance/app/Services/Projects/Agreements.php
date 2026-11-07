@@ -58,6 +58,8 @@ class Agreements
             'offer_id' => $offer->id,
             'client_id' => $project->client_id,
             'freelancer_id' => $offer->freelancer_id,
+            // FS-205: an offer made in a team's name is an agreement in the team's name; the Owner who sent it still signs (D2).
+            'team_id' => $offer->team_id,
             'scope' => trim($project->description."\n\n".$offer->details),
             'price_minor' => $offer->price_minor,
             'currency_code' => $offer->currency_code,
@@ -193,6 +195,8 @@ class Agreements
                     'commission_minor' => (int) $parts->sum('commission_minor'), 'net_minor' => (int) $parts->sum('net_minor'),
                     'quoted_total_minor' => ((array) $a->money)['quoted_total_minor'] ?? null],
             ])->save();
+            // FS-205: who works on a team's agreement is frozen with it - the offer's people, as they were when it was sent.
+            app(\Modules\Freelance\Services\FreelancerTeam\TeamOffers::class)->copyToAgreement($a);
             $this->approval($a, 'agreement.approved', 'freelancer', $freelancer->id);
             app(ProgressReports::class)->start($a);
             $this->machine->move($a->project, Status::InProgress, 'project.started', 'freelancer', $freelancer->id, [], ['agreement' => $a->uuid]);
@@ -285,6 +289,9 @@ class Agreements
                 'quoted_total_minor' => $money['quoted_total_minor'] ?? null]
             : ['price_minor' => $money['price_minor'] ?? $a->price_minor, 'commission_minor' => $money['commission_minor'] ?? 0, 'net_minor' => $money['net_minor'] ?? $a->price_minor];
 
+        // FS-209b: who of the team is on each part - the team's own, so the freelancer side of a team's agreement only (the client never sees it).
+        $assignees = $side === 'freelancer' && $a->team_id !== null ? app(\Modules\Freelance\Services\FreelancerTeam\TeamAssignments::class)->byMilestone($a) : null;
+
         return [
             'uuid' => $a->uuid,
             'status' => $a->status,
@@ -310,6 +317,8 @@ class Agreements
             'expires_at' => $a->expires_at?->toIso8601String(),
             'end_reason' => $a->end_reason,
             'freelancer' => $side === 'client' ? ['uuid' => $a->freelancer?->uuid, 'name' => $a->freelancer?->name] : null,
+            // FS-205: the team the agreement is in the name of and who works on it (the offer's people until it starts, then the frozen ones); the client sees first names only (D10).
+            'team' => $a->team_id === null ? null : app(\Modules\Freelance\Services\FreelancerTeam\TeamOffers::class)->present($a->team, $a->staff->isNotEmpty() ? $a->staff : ($a->offer?->staff ?? new \Illuminate\Database\Eloquent\Collection), $side),
             // FL-402: the parts it is paid in, with the limits the client splits it within.
             'milestones' => $this->milestones->of($a)->map(fn ($m) => Milestones::present($m, $side, max(0, (int) ($policy['review.free_revisions'] ?? 0))) + [
                 // an object even when empty: the apps read it as a map, and an empty PHP array would go out as a JSON list.
@@ -318,7 +327,7 @@ class Agreements
                 'held_minor' => app(MilestonePayments::class)->held($m),
                 // FL-504: when an unanswered delivery approves itself.
                 'auto_approve_at' => app(MilestoneRelease::class)->dueAt($m->setRelation('agreement', $a))?->toIso8601String(),
-            ])->values()->all(),
+            ] + ($assignees === null ? [] : ['assignees' => $assignees[$m->id] ?? []]))->values()->all(),
             // FL-701: rating each other once it is completed.
             'review' => $a->status === Agreement::COMPLETED ? app(FreelanceReviews::class)->forAgreement($a, $side) : null,
             // FL-404 / FL-405: the changes asked, newest first.

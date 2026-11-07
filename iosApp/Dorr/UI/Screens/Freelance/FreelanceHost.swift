@@ -95,7 +95,7 @@ struct FreelanceHost: View {
                            onGone: { listVersion += 1; back() }, onPreview: { open(.preview(p)) },
                            onCopied: { listVersion += 1; replace(.project($0)) }, onOffers: { open(.offers(p)) },
                            onOpenOffer: { open(.offer(p, $0)) }, onAgreement: { open(.agreement(p)) },
-                           onInvitations: { open(.invitations(p)) })
+                           onInvitations: { open(.invitations(p)) }, onTeam: { open(.team(p)) })
         case .preview(let p):
             PreviewPage(uuid: p, onBack: back, onEdit: { replace(.editProject(p)) }, onSent: { listVersion += 1; back() })
         case .invitations(let p):
@@ -108,10 +108,18 @@ struct FreelanceHost: View {
         case .offer(let p, let o):
             // The work is agreed: its agreement opens over the project (back from it is the project, not the offers).
             OfferPage(projectUuid: p, offerUuid: o, onBack: back, onProfile: { open(.freelancer(p, o)) },
-                      onChat: { open(.chat(p, o, $0)) }, onChosen: { listVersion += 1; go(stack.after({ $0 == .project(p) }, .agreement(p))) })
+                      onChat: { open(.chat(p, o, $0)) }, onChosen: { listVersion += 1; go(stack.after({ $0 == .project(p) }, .agreement(p))) },
+                      onTeam: { open(.freelancerTeam($0)) })
         case .agreement(let p):
             AgreementPage(projectUuid: p, onBack: back, onEnded: { listVersion += 1 },
-                          onDispute: { m, d in open(d.map { .dispute(p, $0) } ?? .newDispute(p, m)) })
+                          onDispute: { m, d in open(d.map { .dispute(p, $0) } ?? .newDispute(p, m)) },
+                          onWorkroom: { open(.workroom(p, "")) },
+                          onTeam: { open(.freelancerTeam($0)) })
+        // FS-150e: the Workroom (tasks, files, decisions, timeline) of the running work, and one of its files.
+        case .workroom(let p, let tab):
+            WorkroomPage(project: p, startTab: tab, onBack: back, onOpenFile: { open(.workroomFile(p, $0)) })
+        case .workroomFile(let p, let f):
+            WorkroomFilePage(project: p, fileUuid: f, onBack: back)
         case .dispute(let p, let d):
             DisputePage(projectUuid: p, milestoneUuid: nil, disputeUuid: d, onBack: back, onOpened: { _ in })
         case .newDispute(let p, let m):
@@ -122,6 +130,10 @@ struct FreelanceHost: View {
             TalentListsPage(onBack: back, onOpen: { open(.talentList($0)) })
         case .talentList(let l):
             TalentListPage(uuid: l, onBack: back, onGone: { back() })
+        case .team(let p):
+            ProjectTeamPage(project: p, onBack: back)
+        case .shared:
+            SharedProjectsPage(onBack: back, onOpen: { listVersion += 1; open(.project($0)) })
         case .receipts:
             ReceiptsPage(onBack: back)
         // «Services»: the ready-made services and the consultations as two parts of one page.
@@ -153,6 +165,8 @@ struct FreelanceHost: View {
             FreelanceChatPage(roomUuid: room, onBack: back)
         case .freelancer(let p, let o):
             FreelancerProfilePage(projectUuid: p, offerUuid: o, onBack: back, onBookConsultation: { open(.book($0)) })
+        case .freelancerTeam(let t):
+            FreelancerTeamPage(team: t, onBack: back)
         }
     }
 
@@ -592,9 +606,11 @@ private struct FlProgressBar: View {
 
 private struct NextActionLine: View {
     let code: String
+    var owner = true
 
     var body: some View {
-        FlNotice(text: L("fl_next_label", flNextActionLabel(code)), icon: "bell.badge.fill", color: flAmber)
+        // FS-104: on someone else's project the step is the owner's - "waiting in the project", not "asked of you".
+        FlNotice(text: L(owner ? "fl_next_label" : "fs_tm_next_label", flNextActionLabel(code)), icon: "bell.badge.fill", color: flAmber)
     }
 }
 
@@ -664,7 +680,9 @@ private struct ProjectDetails: View {
     let onOpenOffer: (String) -> Void
     let onAgreement: () -> Void
     let onInvitations: () -> Void
+    var onTeam: () -> Void = {}
     @State private var project: FreelanceProjectDto?
+    @State private var leaving = false
     @State private var busy = false
     @State private var error: String?
     @State private var notice: String?
@@ -741,6 +759,13 @@ private struct ProjectDetails: View {
                 }
             }
         }
+        // FS-104: leaving the owner's team, asked first; the owner is told.
+        .dorrDialog(isPresented: $leaving) {
+            ConfirmDialog(icon: "rectangle.portrait.and.arrow.right", title: L("fs_tm_leave"), message: error ?? L("fs_tm_leave_confirm"), loading: busy,
+                          confirmLabel: L("fs_tm_leave"),
+                          onConfirm: { act({ _ = try await FreelanceTeamApi.leave(uuid); return nil }, after: { leaving = false; onGone() }) },
+                          onDismiss: { leaving = false })
+        }
         .dorrDialog(isPresented: Binding(get: { confirm == "delete" }, set: { if !$0 { confirm = nil } })) {
             ConfirmDialog(icon: "trash.fill", title: L("fl_delete_draft"), message: L("fl_delete_confirm"), loading: busy,
                           onConfirm: { act({ _ = try await FreelanceApi.delete(uuid); return nil }, after: { confirm = nil; onGone() }) },
@@ -780,7 +805,7 @@ private struct ProjectDetails: View {
         let can = p.can ?? FreelanceProjectCanDto()
         // FL-210: a last look before it goes out (it also says what doesn't add up).
         if can.submit == true { return Step(key: "submit", text: L("fl_review_and_send"), icon: "paperplane.fill", tone: .primary, enabled: (p.missing ?? []).isEmpty, action: onPreview) }
-        if p.state == "published" && (p.offers?.count ?? 0) > 0 { return Step(key: "offers", text: L("fl_compare_choose"), icon: "arrow.left.arrow.right", tone: .primary, action: onOffers) }
+        if p.state == "published" && (p.offers?.count ?? 0) > 0 && p.access?.can("offers") != false { return Step(key: "offers", text: L("fl_compare_choose"), icon: "arrow.left.arrow.right", tone: .primary, action: onOffers) }
         if let ag = p.agreement {
             return Step(key: "agreement", text: L(ag.status == "draft" || ag.status == nil ? "fl_ag_open_draft" : "fl_ag_open"), icon: "person.2.fill", tone: .primary, action: onAgreement)
         }
@@ -817,7 +842,8 @@ private struct ProjectDetails: View {
     /// The parts of the page: the details always; the offers while they are taken (or there are some); the work once agreed.
     private func tabs(_ p: FreelanceProjectDto) -> [String] {
         var out = ["details"]
-        if p.state == "published" || p.state == "awarded" || (p.offers?.count ?? 0) > 0 { out.append("offers") }
+        // FS-104: a member sees the offers only when his role may.
+        if (p.state == "published" || p.state == "awarded" || (p.offers?.count ?? 0) > 0) && p.access?.can("offers") != false { out.append("offers") }
         if p.agreement != nil || !(p.milestones ?? []).isEmpty { out.append("work") }
         return out
     }
@@ -872,6 +898,10 @@ private struct ProjectDetails: View {
         let current = currentTab(p, parts)
         VStack(alignment: .leading, spacing: 12) {
             ProjectHero(p: p)
+            // FS-104: someone else's project - whose it is and what my role lets me do.
+            if let access = p.access, !access.isOwner {
+                TeamAccessBanner(access: access, currency: p.budget?.currency ?? "", onLeave: { leaving = true })
+            }
             if parts.count > 1 {
                 FlTabs(tabs: parts.map { (t: String) -> FlTab in
                     switch t {
@@ -900,6 +930,8 @@ private struct ProjectDetails: View {
                     }
                 }
             case "work":
+                // FS-104: the team is part of running the work too, so its card is one tap away here, not only under the details.
+                if let team = p.team, p.access?.isOwner != false, p.agreement != nil { ProjectTeamCard(team: team, onOpen: onTeam) }
                 // FL-401: the agreement with the chosen freelancer.
                 if let ag = p.agreement {
                     FlCard(icon: "person.2.fill", title: L("fl_agreement")) {
@@ -914,6 +946,8 @@ private struct ProjectDetails: View {
             default:
                 // FS-102: asked again from a freelancer - who, and last time's parts as a reference.
                 if let h = p.hireAgain { HireAgainCard(h: h, currency: p.budget?.currency ?? "") }
+                // FS-104: my team on this project (the owner's way in).
+                if let team = p.team, p.access?.isOwner != false { ProjectTeamCard(team: team, onOpen: onTeam) }
                 FlCard(icon: "doc.plaintext", title: L("fl_description")) { ProjectSummary(p: p) }
                 if let files = p.attachments, !files.isEmpty {
                     FlCard(icon: "paperclip", title: L("fl_files")) {
@@ -1018,7 +1052,7 @@ private struct ProjectHero: View {
                 if let reason = p.statusReason, !reason.isEmpty { FlNotice(text: L("fl_reviewer_note", reason), icon: "info.circle.fill", color: c) }
                 if p.state == "pending_review" { FlNotice(text: L("fl_under_review_hint"), icon: "hourglass", color: flAmber) }
                 if p.state == "rejected" { FlNotice(text: L("fl_rejected_hint"), icon: "nosign", color: flRed) }
-                if let next = p.nextAction { NextActionLine(code: next) }
+                if let next = p.nextAction { NextActionLine(code: next, owner: p.access?.isOwner != false) }
             }
             .padding(16)
         }
@@ -1036,10 +1070,12 @@ private struct StagesCard: View {
 
     var body: some View {
         FlCard(icon: "flag.fill", title: L("fl_stages")) {
+            // FS-104: a team member without `money` reads the parts and their state, not the amounts.
+            let showMoney = p.access?.money != false
             if let g = p.progress {
                 FlProgressBar(done: g.approved ?? 0, total: g.total ?? 0)
-                Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0) + "  ·  " +
-                     L("fl_progress_money", "\u{200E}" + flMoney(g.approvedMinor ?? 0), flMoney(g.priceMinor ?? 0), p.budget?.currency ?? ""))
+                Text(verbatim: L("fl_progress_parts", g.approved ?? 0, g.total ?? 0) +
+                     (showMoney ? "  ·  " + L("fl_progress_money", "\u{200E}" + flMoney(g.approvedMinor ?? 0), flMoney(g.priceMinor ?? 0), p.budget?.currency ?? "") : ""))
                     .font(.dorr(12)).foregroundStyle(wa.settingsMut)
             }
             ForEach(Array(stages.enumerated()), id: \.offset) { i, m in
@@ -1056,8 +1092,9 @@ private struct StagesCard: View {
                             Spacer(minLength: 6)
                             Text(verbatim: milestoneStatusLabel(m.status ?? "unfunded")).font(.dorr(12, .bold)).foregroundStyle(mc)
                         }
-                        Text(verbatim: "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(p.budget?.currency ?? "")" + (m.durationDays.map { "  ·  " + L("fl_days", $0) } ?? ""))
-                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        let line = [showMoney ? "\u{200E}\(flMoney(m.amountMinor ?? 0)) \(p.budget?.currency ?? "")" : nil, m.durationDays.map { L("fl_days", $0) }]
+                            .compactMap { $0 }.joined(separator: "  ·  ")
+                        if !line.isEmpty { Text(verbatim: line).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
                     }
                     .padding(.top, 2)
                 }

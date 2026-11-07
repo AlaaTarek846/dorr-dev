@@ -76,6 +76,10 @@ class FreelanceServiceProvider extends ModuleServiceProvider
 
         // One currency and one international wallet for all freelance money (`freelance.money`); the row is looked up once a request.
         $this->app->scoped(\Modules\Freelance\Services\Policy\FreelanceMoney::class);
+        // FS-104: who of the owner's team acts in this request (empty when the owner acts himself).
+        $this->app->scoped(\Modules\Freelance\Services\Team\ClientTeamContext::class);
+        // FS-206a: who of a freelancers' team acts for the signing Owner during one request.
+        $this->app->scoped(\Modules\Freelance\Services\FreelancerTeam\FreelancerTeamContext::class);
 
         // Same non-enforced alias as 'user' / 'driver': tokens, OTP codes and media store 'freelancer'.
         Relation::morphMap(['freelancer' => Freelancer::class]);

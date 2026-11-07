@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-210: a freelancers' team on an offer, on the agreement and on its own profile (the client's side) -->
+
+    <string name="fteam_label">Team</string>
+    <string name="fteam_staff_count">%1$d on this offer</string>
+    <string name="fteam_view_profile">Team profile</string>
+    <string name="fteam_profile_title">Team profile</string>
+    <string name="fteam_agreement_title">The team on this work</string>
+
+    <!-- Who works on it -->
+    <string name="fteam_work_title">Who works on it</string>
+    <string name="fteam_work_hint">You see first names, roles and what each person takes on. Nothing else about them is shared.</string>
+    <string name="fteam_staff_empty">The team hasn\'t named the people yet.</string>
+    <string name="fteam_signs">Signs for the team</string>
+    <string name="fteam_role_pm">Project manager</string>
+    <string name="fteam_role_executor">Executor</string>
+    <string name="fteam_role_owner">Owner</string>
+    <string name="fteam_role_member">Member</string>
+
+    <!-- The profile -->
+    <string name="fteam_accepting">Taking new projects</string>
+    <string name="fteam_not_accepting">Not taking new projects now</string>
+    <string name="fteam_running_n">Running now</string>
+    <string name="fteam_completion">Completion rate</string>
+    <string name="fteam_members_title">The team</string>
+    <string name="fteam_members_hint">%1$d people. Only those who agreed to be shown appear here, by first name.</string>
+
+    <!-- Comparing offers -->
+    <string name="fteam_compare_by">Offered by</string>
+    <string name="fteam_individual">Individual</string>
+    <string name="fteam_team_of">Team · %1$d</string>
+</resources>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-210: فريق المحترفين في العرض وفي الاتفاق وفي ملفه (جهة العميل) -->
+
+    <string name="fteam_label">فريق</string>
+    <string name="fteam_staff_count">%1$d على العرض</string>
+    <string name="fteam_view_profile">ملف الفريق</string>
+    <string name="fteam_profile_title">ملف الفريق</string>
+    <string name="fteam_agreement_title">الفريق على الشغل ده</string>
+
+    <!-- مين هيشتغل عليه -->
+    <string name="fteam_work_title">مين هيشتغل عليه</string>
+    <string name="fteam_work_hint">بتشوف الاسم الأول والدور والمسؤولية بس. مفيش أي بيانات تانية عنهم بتتشارك.</string>
+    <string name="fteam_staff_empty">الفريق لسه ما حدّدش الناس.</string>
+    <string name="fteam_signs">بيوقّع باسم الفريق</string>
+    <string name="fteam_role_pm">مدير المشروع</string>
+    <string name="fteam_role_executor">منفّذ</string>
+    <string name="fteam_role_owner">المالك</string>
+    <string name="fteam_role_member">عضو</string>
+
+    <!-- الملف -->
+    <string name="fteam_accepting">بيستقبل مشاريع جديدة</string>
+    <string name="fteam_not_accepting">مش بيستقبل مشاريع جديدة دلوقتي</string>
+    <string name="fteam_running_n">شغّال حاليًا</string>
+    <string name="fteam_completion">نسبة الإنجاز</string>
+    <string name="fteam_members_title">الفريق</string>
+    <string name="fteam_members_hint">%1$d أشخاص. بيظهر هنا اللي وافق على الظهور بس، بالاسم الأول.</string>
+
+    <!-- مقارنة العروض -->
+    <string name="fteam_compare_by">مقدَّم من</string>
+    <string name="fteam_individual">فرد</string>
+    <string name="fteam_team_of">فريق · %1$d</string>
+</resources>

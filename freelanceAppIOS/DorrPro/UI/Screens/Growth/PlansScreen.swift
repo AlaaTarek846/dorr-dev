@@ -3,7 +3,7 @@ import SwiftUI
 // freelanceApp `ui/screens/PlansScreen.kt`.
 
 /// A price in the currency's own decimals ("34.00 SAR", "7.500 KWD", "1,350 JPY") — digits stay Latin and left-to-right in Arabic text too.
-private func planMoney(_ minor: Int, _ decimals: Int, _ currency: String?, _ symbol: String? = nil) -> String {
+func planMoney(_ minor: Int, _ decimals: Int, _ currency: String?, _ symbol: String? = nil) -> String {
     let f = NumberFormatter()
     f.locale = Locale(identifier: "en_US_POSIX")
     f.numberStyle = .decimal
@@ -401,10 +401,10 @@ private struct MyPlanCard: View {
     }
 }
 
-private func periodName(_ period: String?) -> String { L(period == "yearly" ? "plans_period_yearly" : "plans_period_monthly") }
+func periodName(_ period: String?) -> String { L(period == "yearly" ? "plans_period_yearly" : "plans_period_monthly") }
 
 /// PlansScreen.kt's private `StatusPill` (named apart from the kit's `StatusPill`).
-private struct PlanStatusPill: View {
+struct PlanStatusPill: View {
     let status: String
 
     var body: some View {
@@ -488,7 +488,7 @@ private func trimPercent(_ bp: Int) -> String {
     return NSDecimalNumber(decimal: value).stringValue
 }
 
-private struct Benefit: View {
+struct Benefit: View {
     @Environment(\.wa) private var wa
     let text: String
 

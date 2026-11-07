@@ -30,13 +30,16 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
         Route::get('sanctions', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'index']);
         Route::post('sanctions/{uuid}/appeal', [\Modules\Freelance\Http\Controllers\SanctionController::class, 'appeal'])->whereUuid('uuid')->middleware('throttle:10,1,freelance-sanction-appeal');
         Route::get('freelancers/{uuid}/portfolio', [PortfolioViewController::class, 'show'])->whereUuid('uuid')->middleware('freelance.feature:freelance');
+        // FS-202a: a freelancers' team's profile (public, or private and it sent me an offer).
+        Route::get('freelancer-teams/{uuid}', [\Modules\Freelance\Http\Controllers\Client\ClientTeamProfileController::class, 'show'])->whereUuid('uuid')->middleware('freelance.feature:freelance');
 
         // The catalogs the apps pick from (FL-101): the specialty tree, in the request's language.
         Route::get('specialties', [FreelanceCatalogController::class, 'specialties'])->middleware('freelance.feature:freelance');
         Route::get('skills', [FreelanceCatalogController::class, 'skills'])->middleware('freelance.feature:freelance');
 
         // The client's projects (FL-201 / FL-202): drafts, files, sending for review, taking back, cancelling.
-        Route::prefix('projects')->middleware('freelance.feature:projects')->group(function () {
+        // FS-104: a member of the owner's team uses a project's routes as his role allows (docs/modules/freelance/PERMISSIONS.md).
+        Route::prefix('projects')->middleware(['freelance.feature:projects', 'freelance.project-access'])->group(function () {
             Route::get('/', [ClientProjectController::class, 'index']);
             Route::post('/', [ClientProjectController::class, 'store'])->middleware('throttle:30,1,freelance-project-create');
             Route::get('budget-rules', [ClientProjectController::class, 'budgetRules']);
@@ -52,6 +55,13 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::get('{uuid}/preview', [ClientProjectController::class, 'preview'])->whereUuid('uuid');
             Route::put('{uuid}/cost-cap', [ClientProjectController::class, 'costCap'])->whereUuid('uuid');
             Route::delete('{uuid}/cost-cap', [ClientProjectController::class, 'removeCostCap'])->whereUuid('uuid');
+            // FS-104: the people the owner brings into the project (the owner alone manages them).
+            Route::middleware('freelance.feature:client_team')->group(function () {
+                Route::get('{uuid}/team', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'index'])->whereUuid('uuid');
+                Route::post('{uuid}/team', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-team-invite');
+                Route::put('{uuid}/team/{member}', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'update'])->whereUuid(['uuid', 'member']);
+                Route::delete('{uuid}/team/{member}', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'destroy'])->whereUuid(['uuid', 'member']);
+            });
             // FL-205: invitations to a private project.
             Route::middleware('freelance.feature:invitations')->group(function () {
                 Route::get('{uuid}/invitations', [ClientInvitationController::class, 'index'])->whereUuid('uuid');
@@ -93,6 +103,45 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             // FL-605: optional progress reports (the freelancer sends, the two read).
             Route::get('{uuid}/reports', [ProgressReportController::class, 'index'])->whereUuid('uuid');
             Route::post('{uuid}/reports', [ProgressReportController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-report');
+            // FS-150a: the Workroom's tasks (the two sides read and write; a team member by role, see ClientTeamAbilities).
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/tasks')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomTaskController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-workroom-task');
+                Route::put('{task}', [$c, 'update'])->whereUuid(['uuid', 'task'])->middleware('throttle:120,1,freelance-workroom-task');
+                Route::post('{task}/status', [$c, 'status'])->whereUuid(['uuid', 'task'])->middleware('throttle:120,1,freelance-workroom-task');
+                Route::delete('{task}', [$c, 'destroy'])->whereUuid(['uuid', 'task'])->middleware('throttle:60,1,freelance-workroom-task');
+            });
+            // FS-150b: the Workroom's File Hub (files with versions) and its notes (on a file or a delivery).
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/files')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomFileController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-workroom-file');
+                Route::get('{file}', [$c, 'show'])->whereUuid(['uuid', 'file']);
+                Route::put('{file}', [$c, 'update'])->whereUuid(['uuid', 'file'])->middleware('throttle:60,1,freelance-workroom-file-edit');
+                Route::delete('{file}', [$c, 'destroy'])->whereUuid(['uuid', 'file'])->middleware('throttle:60,1,freelance-workroom-file-edit');
+                Route::post('{file}/versions', [$c, 'addVersion'])->whereUuid(['uuid', 'file'])->middleware('throttle:30,1,freelance-workroom-file');
+                Route::get('{file}/versions/{number}/download', [$c, 'download'])->whereUuid(['uuid', 'file'])->whereNumber('number');
+            });
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/comments')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomCommentController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-workroom-comment');
+                Route::put('{comment}', [$c, 'update'])->whereUuid(['uuid', 'comment'])->middleware('throttle:120,1,freelance-workroom-comment');
+                Route::delete('{comment}', [$c, 'destroy'])->whereUuid(['uuid', 'comment'])->middleware('throttle:60,1,freelance-workroom-comment');
+            });
+            // FS-150c: the decision log and the Workroom's timeline (reading only).
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/decisions')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomDecisionController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-workroom-decision');
+                Route::get('{decision}', [$c, 'show'])->whereUuid(['uuid', 'decision']);
+                Route::put('{decision}', [$c, 'update'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::post('{decision}/agree', [$c, 'agree'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::post('{decision}/decline', [$c, 'decline'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::delete('{decision}', [$c, 'destroy'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+            });
+            Route::get('{uuid}/workroom/timeline', [\Modules\Freelance\Http\Controllers\WorkroomTimelineController::class, 'index'])->whereUuid('uuid')->middleware('freelance.feature:workroom');
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::get('{uuid}/agreement/changes/{change}/files/{media}', [ChangeRequestController::class, 'file'])->whereUuid(['uuid', 'change'])->whereNumber('media');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
@@ -113,6 +162,14 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::post('{uuid}/attachments', [ClientProjectController::class, 'addAttachment'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-project-upload');
             Route::get('{uuid}/attachments/{media}', [ClientProjectController::class, 'attachment'])->whereUuid('uuid')->whereNumber('media');
             Route::delete('{uuid}/attachments/{media}', [ClientProjectController::class, 'removeAttachment'])->whereUuid('uuid')->whereNumber('media');
+        });
+
+        // FS-104: the projects I was brought into by their owners, and the invitations waiting for me.
+        Route::prefix('team')->middleware(['freelance.feature:projects', 'freelance.feature:client_team'])->group(function () {
+            Route::get('invitations', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'invitations']);
+            Route::post('invitations/{uuid}/{answer}', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'respond'])->whereUuid('uuid')->whereIn('answer', ['accept', 'decline']);
+            Route::get('projects', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'shared']);
+            Route::post('projects/{uuid}/leave', [\Modules\Freelance\Http\Controllers\Client\ClientTeamController::class, 'leave'])->whereUuid('uuid');
         });
 
         // FL-L04: ready-made services in my country, ordering one, and my orders (after the freelancer accepts, the order is a project above).

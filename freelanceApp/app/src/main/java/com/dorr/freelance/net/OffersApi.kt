@@ -21,7 +21,14 @@ import retrofit2.http.Query
  */
 interface OffersApi {
     @GET("${ApiClient.FREELANCE}projects/{uuid}/offer-preview")
-    suspend fun preview(@Path("uuid") uuid: String, @Query("price_minor") priceMinor: Long? = null): Response<ApiEnvelope<OfferPreviewDto>>
+    suspend fun preview(
+        @Path("uuid") uuid: String,
+        @Query("price_minor") priceMinor: Long? = null,
+        /** FS-209b: a team I am Owner or PM of - the team's quota and checks decide then, not mine. */
+        @Query("team") team: String? = null,
+        /** FS-209b: the Owner who signs, when a PM sends for the team. */
+        @Query("signer") signer: String? = null,
+    ): Response<ApiEnvelope<OfferPreviewDto>>
 
     /** FL-304: what to fix (error) or think about (warning) before sending. */
     @POST("${ApiClient.FREELANCE}projects/{uuid}/offer-check")
@@ -67,7 +74,11 @@ data class OfferPreviewDto(
     val breakdown: OfferBreakdownDto? = null,
     /** FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask). */
     val loyalty: OfferLoyaltyDto? = null,
+    /** FS-209b: the team's offers this month (asked with `team`; `limit` null = no cap). */
+    @SerializedName("team_quota") val teamQuota: TeamOfferQuotaDto? = null,
 )
+
+data class TeamOfferQuotaDto(val limit: Int? = null, val used: Int = 0, val left: Int? = null)
 
 data class OfferLoyaltyDto(val bp: Int = 0, val after: Int = 0, val works: Int = 0)
 
@@ -141,7 +152,19 @@ data class OfferDto(
     /** FL-L13: who owns the work once it is paid and what the client may do with it (null where the feature is off). */
     val rights: RightsSummaryDto? = null,
     @SerializedName("created_at") val createdAt: String? = null,
+    /** FS-209b: set when it is in a team's name - the team and the people on it. */
+    val team: OfferTeamDto? = null,
+    /** FS-209b: the PM who sent it, when it was not the Owner who signs. */
+    @SerializedName("submitted_by") val submittedBy: TeamPersonRefDto? = null,
 )
+
+/** FS-209b: a team's offer - who works on it (`freelancer` is the person's uuid) and what each takes on; `role` = pm | executor. */
+data class OfferTeamDto(val uuid: String = "", val name: String = "", val members: List<OfferTeamMemberDto> = emptyList())
+
+data class OfferTeamMemberDto(val name: String = "", val role: String = "executor", val responsibility: String? = null, val freelancer: String? = null)
+
+/** FS-209b: one person put on a team's offer. */
+data class OfferStaffInput(val freelancer: String, val role: String, val responsibility: String? = null)
 
 data class OfferAnswerDto(val question: String = "", val answer: String? = null)
 
@@ -155,6 +178,8 @@ data class OfferUpdateRequest(
     val details: String,
     /** FL-L13: sent only when the feature is on. */
     val rights: RightsInputDto? = null,
+    /** FS-209b: a team's offer changes who works on it (the whole list each time); null leaves it as it is. */
+    val staff: List<OfferStaffInput>? = null,
 )
 
 data class OfferRevisionDto(

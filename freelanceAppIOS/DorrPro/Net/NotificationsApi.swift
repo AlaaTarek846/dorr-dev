@@ -79,6 +79,28 @@ enum NoticeRoute {
         // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.
         if e.hasPrefix("freelance.rights") { return project.map(Route.agreement) }
         if e == "freelance.invitation.received" { return .invitations }
+        // FS-150e: the other side's step in the Workroom opens that project's Workroom, on the part it is about
+        // (task_assigned → tasks, file_shared / comment_added → files, decision_* → decisions).
+        if e.hasPrefix("freelance.workroom") {
+            guard let project else { return nil }
+            if e.contains("decision") { return .workroom(project: project, tab: "decisions") }
+            if e.contains("file") || e.contains("comment") { return .workroom(project: project, tab: "files") }
+            return .workroom(project: project, tab: "tasks")
+        }
+        // FS-209: an invitation into a team opens my teams (where it waits for my answer); the other team notices open the team.
+        if e == "freelance.team_invited" { return .teams }
+        // FS-209b: being put on a part opens that project (the agreement page, where the part and its people are).
+        if e == "freelance.team_assigned" { return project.map(Route.agreement) ?? field("team").map(Route.team) ?? .teams }
+        // FS-209c: a message in the team's inside chat opens that thread (the team's page when the notice has no thread).
+        if e == "freelance.internal_message" {
+            guard let team = field("team") else { return .teams }
+            return field("thread").map { Route.teamThread(team: team, thread: $0) } ?? .team(team)
+        }
+        // FS-209c: the staff's answer on the team's papers (told to the Owners only) opens the verification page.
+        if e == "freelance.team_verified" || e == "freelance.team_verification_rejected" || e == "freelance.team_verification_revoked" {
+            return field("team").map(Route.teamVerification) ?? .teams
+        }
+        if e.hasPrefix("freelance.team_") { return field("team").map(Route.team) ?? .teams }
         // FL-L09: an answer to my special offer opens it.
         if e.hasPrefix("freelance.special_offer") { return field("special_offer").map(Route.specialOffer) ?? .specialOffers }
         // FL-L04: a new order opens it; a decision on a service, my services.

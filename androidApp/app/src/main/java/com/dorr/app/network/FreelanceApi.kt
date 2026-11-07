@@ -105,6 +105,10 @@ interface FreelanceApi {
     @GET("mobile/v1/freelance/projects/{uuid}/offers/{offer}/freelancer")
     suspend fun offerFreelancer(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("offer") offer: String): ApiEnvelope<FreelancerProfileDto>
 
+    /** FS-210: a freelancers' team's profile (public, or private once it sent me an offer): answers `{team}`; 404 when it is not mine to read. */
+    @GET("mobile/v1/freelance/freelancer-teams/{uuid}")
+    suspend fun freelancerTeam(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<FreelancerTeamEnvelopeDto>
+
     /** action = shortlist · reject (reason optional) · choose (FL-303 / FL-309). */
     @POST("mobile/v1/freelance/projects/{uuid}/offers/{offer}/{action}")
     suspend fun decideOffer(
@@ -348,6 +352,9 @@ data class FreelanceProjectDto(
     @SerializedName("submitted_at") val submittedAt: String? = null,
     /** FS-102: set on a draft asked again from a freelancer. */
     @SerializedName("hire_again") val hireAgain: FreelanceHireAgainDto? = null,
+    /** FS-104: who I am on this project (the owner, or my role on his team) and, for the owner, his team at a glance. */
+    val access: FreelanceAccessDto? = null,
+    val team: FreelanceTeamSummaryDto? = null,
 )
 
 data class FreelanceProgressDto(
@@ -421,6 +428,8 @@ data class FreelanceOfferDto(
     val chat: FreelanceOfferChatDto? = null,
     /** FL-L13: who owns the work once it is paid and what I may do with it (null: the feature is off). */
     val rights: FreelanceRightsSummaryDto? = null,
+    /** FS-210: the freelancers' team the offer is made in the name of (null: a freelancer's own offer; then [freelancer] is who offers). */
+    val team: FreelancerTeamViewDto? = null,
 )
 
 data class FreelanceOfferChatDto(val uuid: String, val unread: Int = 0, @SerializedName("can_write") val canWrite: Boolean = false)
@@ -630,6 +639,8 @@ data class FreelanceAgreementDto(
     val uuid: String,
     val status: String = "draft",
     val version: Int = 1,
+    /** FS-104: who I am here; without `money` the amounts come blank and are not drawn. */
+    val access: FreelanceAccessDto? = null,
     val scope: String? = null,
     val includes: String? = null,
     val excludes: String? = null,
@@ -655,6 +666,8 @@ data class FreelanceAgreementDto(
     val rights: FreelanceAgreementRightsDto? = null,
     /** FS-106: how the running project is doing (null: the agreement is not running). */
     val health: FreelanceHealthDto? = null,
+    /** FS-210: the freelancers' team that does the work (null: a freelancer's own; then [freelancer] is who does it). */
+    val team: FreelancerTeamViewDto? = null,
 )
 
 data class FreelanceReportSummaryDto(
@@ -685,6 +698,8 @@ data class FreelanceMilestoneDto(
     @SerializedName("held_minor") val heldMinor: Long = 0,
     /** FL-504: an unanswered delivery is approved and paid by itself then. */
     @SerializedName("auto_approve_at") val autoApproveAt: String? = null,
+    /** FS-104: for a delegate, this part is over his limit (its buttons are off). */
+    @SerializedName("over_limit") val overLimit: Boolean = false,
     /** FL-407: the free rounds of changes. */
     @SerializedName("revisions_left") val revisionsLeft: Int? = null,
     @SerializedName("revisions_max") val revisionsMax: Int? = null,
@@ -820,6 +835,8 @@ data class FreelanceChangeDto(
      * null, an object, or an empty list `[]` when nothing moved (a scope change); read it with [changeEffect].
      */
     val effect: com.google.gson.JsonElement? = null,
+    /** FS-104: for a delegate, accepting this change adds more than his limit. */
+    @SerializedName("over_limit") val overLimit: Boolean = false,
     /** FS-101: the files it carries; `path` is under projects/{uuid}/. */
     val files: List<FreelanceAttachmentDto> = emptyList(),
 )
@@ -946,7 +963,7 @@ data class FreelanceReceiptDto(
 data class FreelanceRefDto(val uuid: String? = null, val title: String? = null)
 
 /** FL-406: one step of the record of approvals. */
-data class FreelanceTrailDto(val id: Long = 0, val action: String = "", val label: String = "", val actor: String = "", val mine: Boolean = false, val at: String? = null)
+data class FreelanceTrailDto(val id: Long = 0, val action: String = "", val label: String = "", val actor: String = "", val mine: Boolean = false, val at: String? = null, val by: FreelanceTrailByDto? = null)
 
 /** FL-205: invitations to a private project. */
 data class FreelanceInvitationsSummaryDto(

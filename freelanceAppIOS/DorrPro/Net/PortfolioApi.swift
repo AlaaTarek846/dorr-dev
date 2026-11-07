@@ -29,6 +29,37 @@ enum PortfolioApi {
     static func deleteImage(_ id: Int, _ media: Int) async -> ApiResult<PortfolioItemDto> { await Api.call("DELETE", base + "/\(id)/images/\(media)") }
 }
 
+/// FS-209c: a team's works (FS-202a), under `/api/freelance/v1/teams/{team}/portfolio` — the same fields as mine (without the agreement link).
+/// Everybody in the team reads; the Owners write.
+enum TeamPortfolioApi {
+    private static func base(_ team: String) -> String { Api.freelance + "teams/\(team)/portfolio" }
+
+    static func list(_ team: String) async -> ApiResult<[PortfolioItemDto]> { await Api.call("GET", base(team)) }
+
+    static func create(_ team: String, _ body: JsonBody) async -> ApiResult<PortfolioItemDto> { await Api.call("POST", base(team), body: body) }
+
+    static func update(_ team: String, _ id: Int, _ body: JsonBody) async -> ApiResult<PortfolioItemDto> {
+        await Api.call("PUT", base(team) + "/\(id)", body: body)
+    }
+
+    static func delete(_ team: String, _ id: Int, offline: String, generic: String) async -> String? {
+        await Api.done("DELETE", base(team) + "/\(id)", offline: offline, generic: generic)
+    }
+
+    static func order(_ team: String, _ body: PortfolioOrderRequest) async -> ApiResult<[PortfolioItemDto]> {
+        await Api.call("PUT", base(team) + "/order", body: ["ids": body.ids])
+    }
+
+    /// One image, as the part `image`.
+    static func addImage(_ team: String, _ id: Int, _ image: FilePart) async -> ApiResult<PortfolioItemDto> {
+        await Api.upload(base(team) + "/\(id)/images", files: [image.asField("image")])
+    }
+
+    static func deleteImage(_ team: String, _ id: Int, _ media: Int) async -> ApiResult<PortfolioItemDto> {
+        await Api.call("DELETE", base(team) + "/\(id)/images/\(media)")
+    }
+}
+
 struct PortfolioOrderRequest {
     var ids: [Int]
 }

@@ -16,15 +16,24 @@ enum FlRoute: Hashable {
     case compare(String, [String])
     case offer(String, String)
     case freelancer(String, String)
+    // FS-210: a freelancers' team's profile (the team an offer or an agreement is made in the name of; not my own project team, `team`).
+    case freelancerTeam(String)
     case chat(String, String, String)
     case agreement(String)
     case dispute(String, String)
     case newDispute(String, String)
+    // FS-150e: the Workroom of a running work (project, tab — a tab named by a notice: tasks · files · decisions · timeline; "" opens the
+    // first), and one of its files (project, file).
+    case workroom(String, String)
+    case workroomFile(String, String)
     case favorites
     case receipts
     // FS-103: my lists of freelancers.
     case talentLists
     case talentList(String)
+    // FS-104: my project's team, and the projects others brought me into.
+    case team(String)
+    case shared
     // FL-L04: ready-made services and my orders.
     case services
     case service(String)
@@ -54,14 +63,19 @@ enum FlRoute: Hashable {
         case .compare(let p, let o): return "compare:\(p):" + o.joined(separator: ",")
         case .offer(let p, let o): return "offer:\(p):\(o)"
         case .freelancer(let p, let o): return "freelancer:\(p):\(o)"
+        case .freelancerTeam(let t): return "ftprofile:\(t)"
         case .chat(let p, let o, let r): return "chat:\(p):\(o):\(r)"
         case .agreement(let p): return "agreement:\(p)"
         case .dispute(let p, let d): return "dispute:\(p):\(d)"
         case .newDispute(let p, let m): return "dispute-new:\(p):\(m)"
+        case .workroom(let p, let tab): return tab.isEmpty ? "workroom:\(p)" : "workroom:\(p):\(tab)"
+        case .workroomFile(let p, let f): return "wrfile:\(p):\(f)"
         case .favorites: return "favorites"
         case .receipts: return "receipts"
         case .talentLists: return "talents"
         case .talentList(let l): return "talent:\(l)"
+        case .team(let p): return "team:\(p)"
+        case .shared: return "shared"
         case .services: return "market"
         case .service(let s): return "svc:\(s)"
         case .orders: return "orders"
@@ -79,10 +93,10 @@ enum FlRoute: Hashable {
 
     /// A page of its own (the hub, a list) stays alive under the pages opened over it, so it keeps its filter and scroll (Android
     /// keeps the same through its saveable state holder). A page of one item is drawn afresh when it is back on screen, so it
-    /// reads itself again, as on Android.
+    /// reads itself again, as on Android. The Workroom is one of them: its tab, filters and scroll stay while a file is open over it.
     var keepsAlive: Bool {
         switch self {
-        case .home, .projects, .favorites, .receipts, .services, .orders, .consultMarket, .consultations, .specialOffers, .loyalty: return true
+        case .home, .projects, .favorites, .receipts, .services, .orders, .consultMarket, .consultations, .specialOffers, .loyalty, .workroom: return true
         default: return false
         }
     }
@@ -100,6 +114,8 @@ enum FlRoute: Hashable {
         case "receipts": return .receipts
         case "talents": return .talentLists
         case "talent": return a.map { .talentList($0) } ?? .home
+        case "team": return a.map { .team($0) } ?? .home
+        case "shared": return .shared
         case "market": return .services
         case "orders": return .orders
         case "cmarket": return .consultMarket
@@ -112,6 +128,7 @@ enum FlRoute: Hashable {
         case "invites": return a.map { .invitations($0) } ?? .home
         case "offers": return a.map { .offers($0) } ?? .home
         case "agreement": return a.map { .agreement($0) } ?? .home
+        case "workroom": return a.map { .workroom($0, b ?? "") } ?? .home
         case "svc": return a.map { .service($0) } ?? .home
         case "order": return a.map { .order($0) } ?? .home
         case "consult": return a.map { .consultation($0) } ?? .home
@@ -120,9 +137,11 @@ enum FlRoute: Hashable {
         case "compare": if let a, let b { return .compare(a, b.components(separatedBy: ",").filter { !$0.isEmpty }) }
         case "offer": if let a, let b { return .offer(a, b) }
         case "freelancer": if let a, let b { return .freelancer(a, b) }
+        case "ftprofile": return a.map { .freelancerTeam($0) } ?? .home
         case "dispute": if let a, let b { return .dispute(a, b) }
         case "dispute-new": if let a, let b { return .newDispute(a, b) }
         case "spbook": if let a, let b { return .specialBook(a, b) }
+        case "wrfile": if let a, let b { return .workroomFile(a, b) }
         case "chat": if let a, let b, let c { return .chat(a, b, c) }
         default: break
         }

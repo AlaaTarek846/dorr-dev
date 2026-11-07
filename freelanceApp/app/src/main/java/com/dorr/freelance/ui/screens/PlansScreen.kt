@@ -68,7 +68,7 @@ import java.util.Locale
 import java.util.UUID
 
 /** A price in the currency's own decimals ("34.00 SAR", "7.500 KWD", "1,350 JPY") — digits stay Latin and left-to-right in Arabic text too. */
-private fun planMoney(minor: Long, decimals: Int, currency: String?, symbol: String? = null): String {
+internal fun planMoney(minor: Long, decimals: Int, currency: String?, symbol: String? = null): String {
     val text = String.format(Locale.US, "%,.${decimals}f", BigDecimal.valueOf(minor, decimals))
     return "‎" + listOf(text, symbol?.takeIf { it.isNotBlank() } ?: currency.orEmpty()).filter { it.isNotBlank() }.joinToString(" ")
 }
@@ -427,10 +427,10 @@ private fun MyPlanCard(
 }
 
 @Composable
-private fun periodName(period: String?): String = stringResource(if (period == "yearly") R.string.plans_period_yearly else R.string.plans_period_monthly)
+internal fun periodName(period: String?): String = stringResource(if (period == "yearly") R.string.plans_period_yearly else R.string.plans_period_monthly)
 
 @Composable
-private fun StatusPill(status: String) {
+internal fun StatusPill(status: String) {
     val text = stringResource(
         when (status) {
             "trialing" -> R.string.plans_status_trialing
@@ -510,7 +510,7 @@ private fun PlanCard(plan: PlanDto, plans: PlansDto, period: String, live: Subsc
 private fun trimPercent(bp: Int): String = BigDecimal.valueOf(bp.toLong(), 2).stripTrailingZeros().toPlainString()
 
 @Composable
-private fun Benefit(text: String?) {
+internal fun Benefit(text: String?) {
     if (text == null) return
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Check, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))

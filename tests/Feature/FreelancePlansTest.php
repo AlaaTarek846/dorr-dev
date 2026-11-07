@@ -157,10 +157,17 @@ class FreelancePlansTest extends TestCase
         $japan = Country::create(['code' => 'JP', 'dial_code' => '+81', 'phone_length' => 9, 'status' => true, 'flag_id' => Flag::create(['code' => 'jp'])->id, 'currency_id' => $jpy->id]);
 
         $added = app(FreelancePlanDefaults::class)->seed();
-        $this->assertSame(3, $added['plans']);
-        $this->assertSame(4, $added['prices']);
+        // Free, Plus, Pro and (FS-211) Team Starter, the team plan: two prices each for the three paid ones.
+        $this->assertSame(4, $added['plans']);
+        $this->assertSame(6, $added['prices']);
+        // The team plan is made but not offered: its limits mean nothing until the admin sets the team policies, so nothing sells before.
+        $starter = FreelancePlan::query()->where('slug', 'team_starter')->firstOrFail();
+        $this->assertSame('team', $starter->audience);
+        $this->assertFalse($starter->status);
+        $this->assertSame([60, 10, 5], [$starter->offers_monthly, $starter->team_members_max, $starter->team_projects_max]);
 
         $plus = FreelancePlan::query()->where('slug', 'plus')->firstOrFail();
+        $this->assertSame('freelancer', $plus->audience);
         $price = fn (Country $c, string $period, FreelancePlan $p) => FreelancePlanPrice::query()->where(['plan_id' => $p->id, 'country_id' => $c->id, 'period' => $period])->value('price_minor');
         // 9 USD in SAR (3.83 each → 34), a year = 12 × 34 less 20% = 326.4 → 325.
         $this->assertSame(3400, $price($this->saudi, 'monthly', $plus));

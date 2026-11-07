@@ -181,6 +181,32 @@ class FreelanceNotifier
         'client.health.at_risk' => ['project'],
         'client.health.delayed' => ['project'],
         'client.health.blocked' => ['project'],
+        // FS-104: the project team - an invitation, the answer to it, a changed role, leaving, and every step a delegate took.
+        'client.team.invited' => ['project', 'name'],
+        'client.team.joined' => ['project', 'name'],
+        'client.team.declined' => ['project', 'name'],
+        'client.team.left' => ['project', 'name'],
+        'client.team.removed' => ['project'],
+        'client.team.role_changed' => ['project'],
+        'client.team.acted_fund' => ['project', 'name'],
+        'client.team.acted_release' => ['project', 'name'],
+        'client.team.acted_change_accept' => ['project', 'name'],
+        'client.team.acted_change_reject' => ['project', 'name'],
+        // FS-150a: the other side gave me a task in the Workroom.
+        'client.workroom.task_assigned' => ['project', 'title'],
+        'freelancer.workroom.task_assigned' => ['project', 'title'],
+        // FS-150b: the other side shared a file (or a new version of it) / wrote a note on a file or a delivery.
+        'client.workroom.file_shared' => ['project', 'title'],
+        'freelancer.workroom.file_shared' => ['project', 'title'],
+        'client.workroom.comment_added' => ['project', 'title'],
+        'freelancer.workroom.comment_added' => ['project', 'title'],
+        // FS-150c: a decision waits for my answer / the other side answered mine.
+        'client.workroom.decision_proposed' => ['project', 'title'],
+        'freelancer.workroom.decision_proposed' => ['project', 'title'],
+        'client.workroom.decision_agreed' => ['project', 'title'],
+        'freelancer.workroom.decision_agreed' => ['project', 'title'],
+        'client.workroom.decision_declined' => ['project', 'title'],
+        'freelancer.workroom.decision_declined' => ['project', 'title'],
         'client.talent.reminder' => ['name'],
         'client.dispute.appealed' => ['project'],
         'client.review.received' => ['project', 'name'],
@@ -220,8 +246,16 @@ class FreelanceNotifier
 
         $lang = 'freelance_'.str_replace('.', '_', $key);
 
+        // FS-104: the owner's project team hears of the same step, each as far as his role sees (amounts only with `money`).
+        $receivers = [$receiver];
+        if ($audience === 'client' && is_string($data['project'] ?? null) && isset(\Modules\Freelance\Services\Team\ClientTeam::FAN_OUT[$event])) {
+            $team = app(\Modules\Freelance\Services\Team\ClientTeam::class)->recipients($data['project'], (int) $receiver->getKey(), $event)
+                ->reject(fn ($u) => (int) $u->getKey() === (int) $receiver->getKey());
+            $receivers = array_merge($receivers, $team->all());
+        }
+
         $this->notifications->send(
-            $receiver,
+            count($receivers) === 1 ? $receiver : $receivers,
             'freelance.'.$event,
             $lang.'_title',
             $lang.'_body',

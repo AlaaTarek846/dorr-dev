@@ -136,7 +136,7 @@ private struct WorkTab: View {
                 case "orders": ServiceOrdersScreen(onBack: {}, onOpenOrder: actions.openServiceOrder, embedded: true)
                 case "consultations":
                     ConsultationsScreen(onBack: {}, onOpenEditor: actions.openConsultationEditor, onOpenConsultation: actions.openConsultation, embedded: true)
-                default: MyWorkTab(onBack: {}, onOpenProject: actions.openProject, embedded: true)
+                default: MyWorkTab(onBack: {}, onOpenProject: actions.openProject, onOpenAgreement: actions.openAgreement, embedded: true)
                 }
             }
         }

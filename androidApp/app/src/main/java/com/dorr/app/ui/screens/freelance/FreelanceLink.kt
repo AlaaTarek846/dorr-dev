@@ -39,6 +39,14 @@ object FreelanceLink {
         if (group == "consultation") return consultation?.takeIf { it.isNotBlank() }?.let { "consult:$it" } ?: "consults"
         // A message whose room is not known (an older notice): my projects list, where each project shows its unread chat — not the hub.
         if (project.isNullOrBlank()) return if (group == "message") "list" else "home"
+        // FS-104: the project team - an invitation (or being taken out) opens my shared projects; an answer, someone leaving, my changed role
+        // opens the project; a step my delegate took opens its agreement.
+        if (group == "team") return when (name) {
+            "team.invited", "team.removed" -> "shared"
+            "team.joined", "team.declined", "team.left" -> "team:$project"
+            "team.role_changed" -> "show:$project"
+            else -> "agreement:$project"
+        }
         return when (group) {
             // A message from the freelancer: their offer page (its chat button carries the unread count).
             "message" -> if (!offer.isNullOrBlank()) "offer:$project:$offer" else "offers:$project"
@@ -49,6 +57,13 @@ object FreelanceLink {
             // FL-L13: the rights of a part passed, or the freelancer asks to show a finished work: the agreement (the claim notice has no project).
             "agreement", "milestone", "change", "report", "review", "payment", "rights", "health" -> "agreement:$project"
             "sanction" -> "home"
+            // FS-150e: a Workroom notice opens the part it is about, over the agreement (so back lands on the agreement): a task given to me ·
+            // a file or a note on one · a decision to answer or answered.
+            "workroom" -> "agreement:$project|workroom:$project:" + when (name.substringAfter('.')) {
+                "task_assigned" -> "tasks"
+                "file_shared", "comment_added" -> "files"
+                else -> "decisions"
+            }
             else -> "show:$project"
         }
     }

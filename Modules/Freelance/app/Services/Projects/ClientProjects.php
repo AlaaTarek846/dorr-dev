@@ -535,7 +535,7 @@ class ClientProjects
                 'chosen' => FreelanceOffer::query()->where('project_id', $project->id)->where('status', 'accepted')->value('uuid'),
             ],
             'timeline' => $project->relationLoaded('events')
-                ? $project->events->sortBy('id')->map(fn (FreelanceProjectEvent $e) => [
+                ? $project->events->reject(fn (FreelanceProjectEvent $e) => $e->isWorkroom() || ! $e->isVisibleTo('client'))->sortBy('id')->map(fn (FreelanceProjectEvent $e) => [
                     'type' => $e->type,
                     'from' => $e->from_status,
                     'to' => $e->to_status,

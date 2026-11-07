@@ -9,7 +9,7 @@
     <string name="rights_state_pending">لسه ما انتقلتش</string>
     <string name="rights_state_partial">انتقلت جزئيًا</string>
     <string name="rights_state_granted">انتقلت بالكامل</string>
-    <string name="rights_parts_n">%1$d من %2$d أجزاء انتقلت حقوقها ليك</string>
+    <string name="rights_parts_n">%1$d من %2$d أجزاء انتقلت حقوقها لصاحب المشروع</string>
     <string name="rights_preview_only">لحد ما الجزء يتعتمد ويتدفع تقدر تعاينه وتراجعه بس. حقوقه بتنتقل ليك لما تعتمده ويتدفع.</string>
     <string name="rights_terms_show">اقرا النص كامل</string>
     <string name="rights_terms_hide">إخفاء النص</string>

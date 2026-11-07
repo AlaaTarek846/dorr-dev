@@ -7,8 +7,10 @@ import Foundation
 enum OffersApi {
     private static let base = Api.freelance
 
-    static func preview(_ uuid: String, priceMinor: Int? = nil) async -> ApiResult<OfferPreviewDto> {
-        await Api.call("GET", base + "projects/\(uuid)/offer-preview", query: ["price_minor": priceMinor.map(String.init)])
+    /// `team`: FS-209b - a team I am Owner or PM of (the team's quota and checks decide then, not mine); `signer`: the Owner who signs,
+    /// when a PM sends for the team.
+    static func preview(_ uuid: String, priceMinor: Int? = nil, team: String? = nil, signer: String? = nil) async -> ApiResult<OfferPreviewDto> {
+        await Api.call("GET", base + "projects/\(uuid)/offer-preview", query: ["price_minor": priceMinor.map(String.init), "team": team, "signer": signer])
     }
 
     /// FL-304: what to fix (error) or think about (warning) before sending.
@@ -41,6 +43,8 @@ enum OffersApi {
                                               "territory": r.territory, "portfolio": r.portfolio]
                 json["rights"] = fields.compactMapValues { $0 }
             }
+            // FS-209b: a team's offer changes who works on it (the whole list each time); nil leaves it as it is.
+            if let staff = body.staff { json["staff"] = staff.map { $0.json } }
             return json
         }())
     }
@@ -63,6 +67,14 @@ struct OfferPreviewDto: Decodable {
     var breakdown: OfferBreakdownDto?
     /// FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask).
     var loyalty: OfferLoyaltyDto?
+    /// FS-209b: the team's offers this month (asked with `team`; `limit` nil = no cap).
+    var teamQuota: TeamOfferQuotaDto?
+}
+
+struct TeamOfferQuotaDto: Decodable {
+    var limit: Int?
+    var used: Int?
+    var left: Int?
 }
 
 struct OfferLoyaltyDto: Decodable {
@@ -163,6 +175,39 @@ struct OfferDto: Decodable, Identifiable {
     /// FL-L13: who owns the work once it is paid and what the client may do with it (nil where the feature is off).
     var rights: RightsSummaryDto?
     var createdAt: String?
+    /// FS-209b: set when it is in a team's name - the team and the people on it.
+    var team: OfferTeamDto?
+    /// FS-209b: the PM who sent it, when it was not the Owner who signs.
+    var submittedBy: TeamPersonRefDto?
+}
+
+/// FS-209b: a team's offer - who works on it (`freelancer` is the person's uuid) and what each takes on; `role` = pm | executor.
+struct OfferTeamDto: Decodable, Equatable {
+    var uuid: String?
+    var name: String?
+    var members: [OfferTeamMemberDto]?
+}
+
+struct OfferTeamMemberDto: Decodable, Equatable {
+    var name: String?
+    /// Default `executor`.
+    var role: String?
+    var responsibility: String?
+    var freelancer: String?
+}
+
+/// FS-209b: one person put on a team's offer.
+struct OfferStaffInput {
+    let freelancer: String
+    let role: String
+    var responsibility: String? = nil
+
+    /// As Gson writes it: no `responsibility` when there is none (and no optional inside, so it goes through JSONSerialization).
+    var json: [String: Any] {
+        var out: [String: Any] = ["freelancer": freelancer, "role": role]
+        if let responsibility { out["responsibility"] = responsibility }
+        return out
+    }
 }
 
 struct OfferAnswerDto: Decodable {
@@ -187,6 +232,8 @@ struct OfferUpdateRequest {
     let details: String
     /// FL-L13: sent only when the feature is on.
     var rights: RightsInputDto? = nil
+    /// FS-209b: a team's offer changes who works on it (the whole list each time); nil leaves it as it is.
+    var staff: [OfferStaffInput]? = nil
 }
 
 struct OfferRevisionDto: Decodable {

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-150e: the client's Workroom - tasks, files, decisions and the timeline -->
+
+    <!-- The Workroom -->
+    <string name="wr_title">Workroom</string>
+    <string name="wr_subtitle">Tasks, files and decisions of this work</string>
+    <string name="wr_subtitle_with">Shared with %1$s</string>
+    <string name="wr_tab_tasks">Tasks</string>
+    <string name="wr_tab_files">Files</string>
+    <string name="wr_tab_decisions">Decisions</string>
+    <string name="wr_tab_timeline">Timeline</string>
+    <string name="wr_unavailable">The Workroom isn\'t available</string>
+    <string name="wr_read_only">This work is finished, so the Workroom is read only.</string>
+    <string name="wr_entry_idle">Tasks, files and decisions in one place</string>
+    <string name="wr_entry_tasks">%1$d of %2$d tasks done</string>
+    <string name="wr_entry_waiting">%1$d waiting for your answer</string>
+
+    <!-- Shared words -->
+    <string name="wr_all">All</string>
+    <string name="wr_you">You</string>
+    <string name="wr_freelancer">The freelancer</string>
+    <string name="wr_edit">Edit</string>
+    <string name="wr_delete">Delete</string>
+    <string name="wr_ok">OK</string>
+    <string name="wr_part">Part of the work</string>
+    <string name="wr_no_part">No part</string>
+    <string name="wr_no_day">No day</string>
+    <string name="wr_added_by">By %1$s  ·  %2$s</string>
+
+    <!-- Tasks -->
+    <string name="wr_task_todo">To do</string>
+    <string name="wr_task_doing">In progress</string>
+    <string name="wr_task_blocked">Blocked</string>
+    <string name="wr_task_done">Done</string>
+    <string name="wr_task_add">Add a task</string>
+    <string name="wr_task_new">New task</string>
+    <string name="wr_task_edit">Edit the task</string>
+    <string name="wr_task_form_body">Both of you see it in the Workroom. Say who it is for and by when.</string>
+    <string name="wr_task_title">What needs to be done</string>
+    <string name="wr_task_description">Details (optional)</string>
+    <string name="wr_task_due">Due day (optional)</string>
+    <string name="wr_for">For</string>
+    <string name="wr_for_you">For you</string>
+    <string name="wr_for_them">For %1$s</string>
+    <string name="wr_due">Due %1$s</string>
+    <string name="wr_task_mine">Mine</string>
+    <string name="wr_task_open">Open</string>
+    <string name="wr_task_overdue">Late</string>
+    <string name="wr_task_progress">%1$d of %2$d done</string>
+    <string name="wr_task_progress_line">Tasks of this work</string>
+    <string name="wr_task_status_title">Where is it?</string>
+    <string name="wr_task_none">No tasks yet</string>
+    <string name="wr_task_none_body">Add what each of you has to do, so nothing is forgotten.</string>
+    <string name="wr_task_none_filtered">No tasks here</string>
+    <string name="wr_task_none_filtered_body">Try another filter to see the rest.</string>
+    <string name="wr_task_delete_title">Delete this task?</string>
+    <string name="wr_task_delete_body">Delete “%1$s”? The freelancer will not see it anymore.</string>
+
+    <!-- Files -->
+    <string name="wr_file_upload">Upload a file</string>
+    <string name="wr_file_uploaded">The file was added.</string>
+    <string name="wr_file_new">New file</string>
+    <string name="wr_file_new_body">It is kept with its versions, and both of you can write notes on it.</string>
+    <string name="wr_file_new_version">Upload a new version</string>
+    <string name="wr_file_new_version_body">A newer version of “%1$s”. The older ones stay in its history.</string>
+    <string name="wr_file_version_added">The new version was added.</string>
+    <string name="wr_file_choose">Choose a file</string>
+    <string name="wr_file_choose_hint">Pick it from your phone</string>
+    <string name="wr_file_tap_change">Tap to choose another</string>
+    <string name="wr_file_rule_size">Up to %1$s</string>
+    <string name="wr_file_too_big">The file is larger than %1$s.</string>
+    <string name="wr_file_type">This kind of file is not accepted.</string>
+    <string name="wr_file_title">Name</string>
+    <string name="wr_file_description">What it is (optional)</string>
+    <string name="wr_file_note">Note (optional)</string>
+    <string name="wr_file_note_hint">What changed, or what to look at</string>
+    <string name="wr_file_send">Upload</string>
+    <string name="wr_file_search">Search the files</string>
+    <string name="wr_file_mine">Mine</string>
+    <string name="wr_file_count">Files</string>
+    <string name="wr_file_versions">Versions</string>
+    <string name="wr_file_storage">Space used</string>
+    <string name="wr_file_v_one">1 version</string>
+    <string name="wr_file_v_many">%1$d versions</string>
+    <string name="wr_file_preview_tag">Preview only</string>
+    <string name="wr_file_none">No files yet</string>
+    <string name="wr_file_none_body">Share a file here and both of you keep every version of it in one place.</string>
+    <string name="wr_file_none_filtered">No files found</string>
+    <string name="wr_file_none_filtered_body">Try another word or clear the filter.</string>
+    <string name="wr_file_page">File</string>
+    <string name="wr_file_versions_title">Versions (%1$d)</string>
+    <string name="wr_file_latest">Latest</string>
+    <string name="wr_file_open">Open</string>
+    <string name="wr_file_edit">Edit the file</string>
+    <string name="wr_file_edit_body">Its name, what it is and the part it belongs to. Its versions stay as they are.</string>
+    <string name="wr_file_delete_title">Delete this file?</string>
+    <string name="wr_file_delete_body">Delete “%1$s” with all its versions and notes? This can\'t be undone.</string>
+
+    <!-- Notes on a file -->
+    <string name="wr_notes_title">Notes</string>
+    <string name="wr_notes_none">No notes yet</string>
+    <string name="wr_notes_none_body">Write what you want the other side to look at in this file.</string>
+    <string name="wr_note_hint">Write a note…</string>
+    <string name="wr_note_hint_v">Write a note on v%1$d…</string>
+    <string name="wr_note_send">Send</string>
+    <string name="wr_note_edited">edited</string>
+    <string name="wr_note_edit">Edit the note</string>
+    <string name="wr_note_delete_title">Delete this note?</string>
+    <string name="wr_note_delete_body">It will disappear for both of you.</string>
+
+    <!-- Decisions -->
+    <string name="wr_dec_proposed">Waiting</string>
+    <string name="wr_dec_agreed">Agreed</string>
+    <string name="wr_dec_declined">Declined</string>
+    <string name="wr_dec_superseded">Replaced</string>
+    <string name="wr_dec_propose">Propose a decision</string>
+    <string name="wr_dec_new">New decision</string>
+    <string name="wr_dec_edit">Edit the proposal</string>
+    <string name="wr_dec_replace">Replace this decision</string>
+    <string name="wr_dec_replacing">This will replace: %1$s</string>
+    <string name="wr_dec_form_body">A detail you settle together (“the logo is blue”). The other side agrees or declines. It does not change the money or the parts.</string>
+    <string name="wr_dec_title">The decision in a few words</string>
+    <string name="wr_dec_text">What exactly was settled</string>
+    <string name="wr_dec_send">Send the proposal</string>
+    <string name="wr_dec_by">Proposed by %1$s</string>
+    <string name="wr_dec_your_answer">Waiting for your answer</string>
+    <string name="wr_dec_waiting_notice">Decisions waiting for your answer: %1$d</string>
+    <string name="wr_dec_filter_waiting">For me</string>
+    <string name="wr_dec_for_me">For my answer</string>
+    <string name="wr_dec_agree">Agree</string>
+    <string name="wr_dec_decline">Decline</string>
+    <string name="wr_dec_agree_title">Agree to this decision</string>
+    <string name="wr_dec_decline_title">Decline this decision</string>
+    <string name="wr_dec_note">A few words (optional)</string>
+    <string name="wr_dec_note_hint_agree">Anything to add?</string>
+    <string name="wr_dec_note_hint_decline">Why not, or what would you change?</string>
+    <string name="wr_dec_replaces">Replaces: %1$s</string>
+    <string name="wr_dec_replaced_by">Replaced by: %1$s</string>
+    <string name="wr_dec_withdraw">Withdraw</string>
+    <string name="wr_dec_withdraw_title">Withdraw this proposal?</string>
+    <string name="wr_dec_withdraw_body">Take back “%1$s”? The other side will not see it anymore.</string>
+    <string name="wr_dec_none">No decisions yet</string>
+    <string name="wr_dec_none_body">Write down what you settle with the freelancer, so it is not lost in the chat.</string>
+    <string name="wr_dec_none_filtered">No decisions here</string>
+    <string name="wr_dec_none_filtered_body">Try another filter to see the rest.</string>
+
+    <!-- Timeline -->
+    <string name="wr_time_tasks">Tasks</string>
+    <string name="wr_time_files">Files</string>
+    <string name="wr_time_notes">Notes</string>
+    <string name="wr_time_decisions">Decisions</string>
+    <string name="wr_time_parts">Parts</string>
+    <string name="wr_time_changes">Changes</string>
+    <string name="wr_time_none">Nothing yet</string>
+    <string name="wr_time_none_body">Every step of the work shows here, newest first.</string>
+</resources>
