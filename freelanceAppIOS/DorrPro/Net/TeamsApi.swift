@@ -489,6 +489,10 @@ struct TeamMembersDto: Decodable {
 struct TeamMembersMeDto: Decodable {
     var role: String?
     var abilities: [String: Bool]?
+    /// FS-212: the agreements of this team that I signed and that have not ended - while there are any I can not leave or step down.
+    var signedAgreements: Int?
+    /// FS-212: the offers in the team's name that I signed and that are still open - I take them back before I can leave or step down.
+    var openOffers: Int?
 }
 
 struct TeamMemberEnvelopeDto: Decodable {
@@ -501,6 +505,10 @@ struct TeamMemberDto: Decodable, Identifiable {
     var role: String?
     var joinedAt: String?
     var abilities: [String: Bool]?
+    /// FS-212: for an Owner, the agreements of the team he signed that have not ended (he stays an Owner until they do).
+    var signedAgreements: Int?
+    /// FS-212: and the offers in the team's name he signed that are still open (he stays an Owner until they end or are taken back).
+    var openOffers: Int?
 
     /// One ability of this person (see [teamAbility]).
     func can(_ key: String) -> Bool { teamAbility(abilities, key) }

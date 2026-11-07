@@ -94,6 +94,9 @@ struct ManageMemberSheet: View {
         let keys = teamSwitchOrder.filter { switches.contains($0) }
         let role = member.role ?? "member"
         let red = Color(hex: 0xDC2626)
+        // FS-212: an Owner who signed agreements of the team that have not ended, or has offers in its name still open, stays an Owner until they
+        // end or are taken back - the server refuses the rest.
+        let held = role == "owner" && (member.signedAgreements ?? 0) + (member.openOffers ?? 0) > 0
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
@@ -109,9 +112,12 @@ struct ManageMemberSheet: View {
                 FilterChips(
                     options: ["owner", "pm", "member"].map { FilterOption(key: $0, label: roleLabel($0)) },
                     selected: role,
-                    onSelect: { if !busy && $0 != role { onRole($0) } }
+                    onSelect: { if !busy && $0 != role && !(held && $0 != "owner") { onRole($0) } }
                 )
                 Text(verbatim: roleHint(role)).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+                if held {
+                    Text(verbatim: L("team_signer_hold", (member.freelancer?.name ?? "").components(separatedBy: " ").first ?? "")).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+                }
 
                 if role == "owner" {
                     Text(L("team_perm_owner_all")).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
@@ -130,13 +136,13 @@ struct ManageMemberSheet: View {
 
                 if !isMe {
                     Button(action: onRemove) {
-                        Text(L("team_remove")).font(.dorr(15, .heavy)).foregroundStyle(red)
+                        Text(L("team_remove")).font(.dorr(15, .heavy)).foregroundStyle(red.opacity(held ? 0.4 : 1))
                             .frame(maxWidth: .infinity, minHeight: 50)
-                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(red.opacity(0.45), lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(red.opacity(held ? 0.2 : 0.45), lineWidth: 1.5))
                             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .allowsHitTesting(!busy)
+                    .allowsHitTesting(!busy && !held)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -38,9 +38,13 @@ class TeamProfile
 {
     public const BIO_MAX = 2000;
 
+    public const CREATED = 'freelance.team.created';
+
     public const UPDATED = 'freelance.team.profile_updated';
 
     public const LOGO_CHANGED = 'freelance.team.logo_changed';
+
+    public const CONSENT_CHANGED = 'freelance.team.consent_changed';
 
     // Who reads the profile.
     public const MEMBER = 'member';
@@ -113,11 +117,24 @@ class TeamProfile
         return $team->refresh();
     }
 
-    /** D10: the person himself says whether he is shown on the team's profile (also in a suspended team - it is his own data). */
+    /** A team was made (FS-212): who made it and what it is called, on the audit log from the first minute. */
+    public function created(FreelanceTeam $team, Freelancer $by): void
+    {
+        $this->audit->record(self::CREATED, $team, null, ['name' => $team->name, 'by_freelancer_id' => $by->id]);
+    }
+
+    /**
+     * D10: the person himself says whether he is shown on the team's profile (also in a suspended team - it is his own data). Showing or
+     * hiding a name in front of clients is a privacy step, so a change is on the audit log (FS-212).
+     */
     public function consent(FreelanceTeam $team, Freelancer $who, bool $show): Member
     {
         $row = $this->teams->membership($team, $who) ?? throw new FreelanceException('freelancer_team_not_member', 404);
+        $before = (bool) $row->show_in_profile;
         $row->forceFill(['show_in_profile' => $show])->save();
+        if ($before !== $show) {
+            $this->audit->record(self::CONSENT_CHANGED, $row, ['show_in_profile' => $before], ['show_in_profile' => $show, 'team' => $team->uuid, 'by_freelancer_id' => $who->id]);
+        }
 
         return $row;
     }

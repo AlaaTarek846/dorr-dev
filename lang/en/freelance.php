@@ -245,6 +245,7 @@ return [
         'freelancer_team_limit_joined' => 'You already belong to the most teams you can join as a PM or a member (:max).',
         'freelancer_team_limit_members' => 'This team already has the most members it can hold (:max).',
         'freelancer_team_last_owner' => 'A team needs an Owner. Make another member an Owner first, then step down or leave.',
+        'freelancer_team_signer_active' => 'You signed agreements for this team that have not ended, or you have offers in its name that are still open, so they are still yours. Once the agreements end and you take the offers back, you can step down or leave.',
         'freelancer_team_forbidden' => 'Only an Owner of the team can do this, and only to somebody else (to leave the team yourself, leave it).',
         'freelancer_team_not_member' => 'This person is not an active member of the team.',
         'freelancer_team_already_member' => 'This person is already in the team.',

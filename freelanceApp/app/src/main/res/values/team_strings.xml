@@ -87,6 +87,8 @@
     <string name="team_leave_title">Leave this team?</string>
     <string name="team_leave_body">The parts given to you are released. You can only come back with a new invitation.</string>
     <string name="team_leave_last_owner">You are the only Owner. Make another member an Owner before you leave.</string>
+    <string name="team_leave_signer_active">You signed agreements for this team that have not ended, or you have offers in its name that are still open. You can leave once the agreements end and you take the offers back.</string>
+    <string name="team_signer_hold">%1$s signed agreements for this team that have not ended, or has offers in its name that are still open, so they stay an Owner until those end or are taken back.</string>
     <string name="team_left_toast">You left the team</string>
 
     <string name="team_you">You</string>

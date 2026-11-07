@@ -374,7 +374,14 @@ data class TeamMembersDto(
     val switches: List<String> = emptyList(),
 )
 
-data class TeamMembersMeDto(val role: String? = null, val abilities: Map<String, Boolean> = emptyMap())
+data class TeamMembersMeDto(
+    val role: String? = null,
+    val abilities: Map<String, Boolean> = emptyMap(),
+    /** FS-212: the agreements of this team that I signed and that have not ended - while there are any I can not leave or step down. */
+    @SerializedName("signed_agreements") val signedAgreements: Int = 0,
+    /** FS-212: the offers in the team's name that I signed and that are still open - I take them back before I can leave or step down. */
+    @SerializedName("open_offers") val openOffers: Int = 0,
+)
 
 data class TeamMemberEnvelopeDto(val member: TeamMemberDto = TeamMemberDto())
 
@@ -383,6 +390,10 @@ data class TeamMemberDto(
     val role: String = "member",
     @SerializedName("joined_at") val joinedAt: String? = null,
     val abilities: Map<String, Boolean> = emptyMap(),
+    /** FS-212: for an Owner, the agreements of the team he signed that have not ended (he stays an Owner until they do). */
+    @SerializedName("signed_agreements") val signedAgreements: Int = 0,
+    /** FS-212: and the offers in the team's name he signed that are still open (he stays an Owner until they end or are taken back). */
+    @SerializedName("open_offers") val openOffers: Int = 0,
 )
 
 data class TeamMemberPersonDto(val uuid: String? = null, val name: String? = null)

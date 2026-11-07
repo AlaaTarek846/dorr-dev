@@ -87,6 +87,8 @@
     <string name="team_leave_title">تخرج من الفريق؟</string>
     <string name="team_leave_body">الأجزاء اللي معاك هتتفك عنك، وما ترجعش للفريق إلا بدعوة جديدة.</string>
     <string name="team_leave_last_owner">إنت الـ Owner الوحيد. خلّي عضو تاني Owner قبل ما تخرج.</string>
+    <string name="team_leave_signer_active">إنت موقّع على اتفاقيات للفريق لسه ما خلصتش، أو عندك عروض باسمه لسه مفتوحة. تقدر تخرج بعد ما الاتفاقيات تخلص وتسحب العروض.</string>
+    <string name="team_signer_hold">%1$s موقّع على اتفاقيات للفريق لسه ما خلصتش، أو عنده عروض باسمه لسه مفتوحة، فيفضل Owner لحد ما تخلص أو تتسحب.</string>
     <string name="team_left_toast">خرجت من الفريق</string>
 
     <string name="team_you">إنت</string>

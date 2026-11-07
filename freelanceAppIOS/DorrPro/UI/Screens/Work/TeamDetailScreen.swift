@@ -252,7 +252,7 @@ struct TeamScreen: View {
     private func profilePart(_ t: TeamDto) -> some View {
         let owners = people?.members?.filter { $0.role == "owner" }.count ?? 0
         return TeamProfileSection(
-            t: t, lastOwner: isOwner && owners <= 1, busy: busy,
+            t: t, lastOwner: isOwner && owners <= 1, signs: (people?.me?.signedAgreements ?? 0) + (people?.me?.openOffers ?? 0), busy: busy,
             isOwner: isOwner, onOpenPortfolio: onOpenPortfolio, onOpenVerification: onOpenVerification, onOpenPlan: onOpenPlan,
             onEdit: { editing = true },
             onToggleVisibility: {
@@ -460,6 +460,8 @@ private struct TeamProfileSection: View {
     @Environment(\.wa) private var wa
     let t: TeamDto
     let lastOwner: Bool
+    /// FS-212: agreements of the team I signed that have not ended plus my open offers in its name; while there are any I stay (they are mine).
+    let signs: Int
     let busy: Bool
     let isOwner: Bool
     let onOpenPortfolio: () -> Void
@@ -567,17 +569,21 @@ private struct TeamProfileSection: View {
                 TeamNavRow(icon: "crown.fill", tint: Tints.blue, title: L("tpl_row_title"), subtitle: L("tpl_row_sub"), onTap: onOpenPlan)
             }
 
+            let held = lastOwner || signs > 0
             VStack(spacing: 8) {
                 Button(action: onLeave) {
-                    Text(L("team_leave")).font(.dorr(15, .heavy)).foregroundStyle(red.opacity(lastOwner ? 0.4 : 1))
+                    Text(L("team_leave")).font(.dorr(15, .heavy)).foregroundStyle(red.opacity(held ? 0.4 : 1))
                         .frame(maxWidth: .infinity, minHeight: 50)
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(red.opacity(lastOwner ? 0.2 : 0.45), lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(red.opacity(held ? 0.2 : 0.45), lineWidth: 1.5))
                         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .allowsHitTesting(!lastOwner && !busy)
+                .allowsHitTesting(!held && !busy)
                 if lastOwner {
                     Text(L("team_leave_last_owner")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if signs > 0 {
+                    Text(L("team_leave_signer_active")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }

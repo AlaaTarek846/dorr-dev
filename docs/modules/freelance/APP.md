@@ -815,3 +815,7 @@ JAVA_HOME=~/.jdks/jbr-21.0.11 ./gradlew :app:compileDebugKotlin -q -Pkotlin.daem
 **من غير polling:** بيقرا لما الصفحة تفتح، وبعد كل أمر (الرد هو الصفحة كلها)، ولما النت يرجع (`collectReconnectTick` / `network.reconnectTick`)؛ وأي رفض من السيرفر غير الرصيد بيعمل قراءة تانية (ممكن Owner تاني غيّر الباقة).
 
 **المنصّات:** أندرويد اتبنى (`:app:compileDebugKotlin`)؛ iOS **من غير بناء** (مفيش Swift toolchain) — شغّل `freelanceAppIOS/scripts/typecheck.sh` أو أمر البناء قبل الإصدار. مفيش جهاز اتجرّب عليه.
+
+### الموقّع على اتفاقية فريق (FS-212 / D12) — 2026-11-07
+
+في صفحة الفريق (أندرويد + iOS، `TeamDetailScreen` و`ManageMemberSheet`): لو الـ Owner موقّع على اتفاقية للفريق لسه ما خلصتش، أو عنده عرض باسم الفريق لسه مفتوح (`members.me.signed_agreements + open_offers > 0`) زرار **Leave the team** بيتقفل وتحته جملة «إنت موقّع على اتفاقيات للفريق لسه ما خلصتش، أو عندك عروض باسمه لسه مفتوحة…» (`team_leave_signer_active`)؛ وفي شيت إدارة Owner تاني بنفس الحالة: اختيار دور غير Owner وزرار الشيل بيتقفلوا وفوقهم جملة `team_signer_hold`. السيرفر هو الحكم (409 `freelance_freelancer_team_signer_active` والرسالة بتظهر كتوست)، والشاشة بتقفل الأزرار قبل التجربة بس؛ سحب العرض من «عروضي» زي ما هو. iOS كود من غير بناء.

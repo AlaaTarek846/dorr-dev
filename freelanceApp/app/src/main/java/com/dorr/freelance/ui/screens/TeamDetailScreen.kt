@@ -272,7 +272,7 @@ fun TeamScreen(
                     onCopied = { notice = null; notice = copiedText },
                 )
                 else -> TeamProfileSection(
-                    t = t, lastOwner = isOwner && (members?.members?.count { it.role == "owner" } ?: 0) <= 1, busy = busy,
+                    t = t, lastOwner = isOwner && (members?.members?.count { it.role == "owner" } ?: 0) <= 1, signs = (members?.me?.signedAgreements ?: 0) + (members?.me?.openOffers ?: 0), busy = busy,
                     isOwner = isOwner, onOpenPortfolio = onOpenPortfolio, onOpenVerification = onOpenVerification, onOpenPlan = onOpenPlan,
                     onEdit = { editing = true },
                     onToggleVisibility = {
@@ -447,6 +447,8 @@ private fun HeaderNumber(value: String, label: String, modifier: Modifier) {
 private fun TeamProfileSection(
     t: TeamDto,
     lastOwner: Boolean,
+    /** FS-212: agreements of the team I signed that have not ended plus my open offers in its name; while there are any I stay (they are mine). */
+    signs: Int,
     busy: Boolean,
     isOwner: Boolean,
     onOpenPortfolio: () -> Unit,
@@ -530,14 +532,16 @@ private fun TeamProfileSection(
         )
     }
 
+    val held = lastOwner || signs > 0
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp))
-                .border(1.5.dp, Color(0xFFDC2626).copy(alpha = if (lastOwner) 0.2f else 0.45f), RoundedCornerShape(16.dp))
-                .clickable(enabled = !lastOwner && !busy, onClick = onLeave),
+                .border(1.5.dp, Color(0xFFDC2626).copy(alpha = if (held) 0.2f else 0.45f), RoundedCornerShape(16.dp))
+                .clickable(enabled = !held && !busy, onClick = onLeave),
             contentAlignment = Alignment.Center,
-        ) { Text(stringResource(R.string.team_leave), color = Color(0xFFDC2626).copy(alpha = if (lastOwner) 0.4f else 1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
+        ) { Text(stringResource(R.string.team_leave), color = Color(0xFFDC2626).copy(alpha = if (held) 0.4f else 1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
         if (lastOwner) Text(stringResource(R.string.team_leave_last_owner), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
+        else if (signs > 0) Text(stringResource(R.string.team_leave_signer_active), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
     }
 }
 

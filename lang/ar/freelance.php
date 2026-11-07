@@ -245,6 +245,7 @@ return [
         'freelancer_team_limit_joined' => 'انت أصلاً عضو في أقصى عدد فرق تقدر تنضم لها كـ PM أو عضو (:max).',
         'freelancer_team_limit_members' => 'الفريق ده وصل لأقصى عدد أعضاء يقدر يشيله (:max).',
         'freelancer_team_last_owner' => 'الفريق لازم يبقى له Owner. خلّي عضو تاني Owner الأول، وبعدها اتنازل أو اخرج.',
+        'freelancer_team_signer_active' => 'إنت موقّع على اتفاقيات للفريق ده لسه ما خلصتش، أو عندك عروض باسمه لسه مفتوحة، فهي لسه بتاعتك. لما الاتفاقيات تخلص وتسحب العروض تقدر تتنازل أو تخرج.',
         'freelancer_team_forbidden' => 'الـ Owner بس هو اللي يعمل ده، وعلى حد غيره بس (عشان تخرج انت من الفريق اخرج منه).',
         'freelancer_team_not_member' => 'الشخص ده مش عضو نشط في الفريق.',
         'freelancer_team_already_member' => 'الشخص ده في الفريق أصلاً.',

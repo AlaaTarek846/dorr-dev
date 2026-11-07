@@ -4,7 +4,10 @@ namespace Modules\Freelance\Services\FreelancerTeam;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Freelance\Enums\FreelanceOfferStatus;
 use Modules\Freelance\Exceptions\FreelanceException;
+use Modules\Freelance\Models\FreelanceAgreement;
+use Modules\Freelance\Models\FreelanceOffer;
 use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\FreelanceTeamMember as Member;
 use Modules\Freelance\Models\Freelancer;
@@ -17,6 +20,10 @@ use Modules\Freelance\Services\Verification\FreelancerGate;
  *
  *  - A team always has an active Owner at least (D6): the last one can neither leave, nor be removed, nor step down - ownership is passed
  *    first (promote another member to Owner, then step down or leave).
+ *  - An Owner who signed an agreement in the team's name that has not ended (a draft, one waiting for his signature, or a running one), or
+ *    who has an offer in the team's name that is still open (`submitted`, `viewed`, `shortlisted`), can not leave, step down or be removed by
+ *    another Owner until the agreement ends or he takes the offer back (FS-212, decided 2026-11-07, D12): it is his, so he would keep it as a
+ *    person with no team behind it. Staff removing somebody (moderation) are not stopped by it.
  *  - A person is the Owner of at most `teams.owned_max` teams (one at first, D1) and is a PM or member of at most `teams.joined_max` others
  *    (five at first, D1), a team holds at most `teams.members_max` active people (no cap at first): admin policies, empty = no cap. A limit
  *    stops new additions only; what is there stays.
@@ -56,6 +63,50 @@ class FreelancerTeams
     public function isOwner(FreelanceTeam $team, Freelancer $who): bool
     {
         return $this->membership($team, $who)?->role === Member::OWNER;
+    }
+
+    /** The agreements in the team's name that this person signed and that have not ended (a draft, waiting for his signature, running). */
+    public function liveAgreements(FreelanceTeam $team, Freelancer $who): int
+    {
+        return $this->liveAgreementsQuery($team)->where('freelancer_id', $who->id)->count();
+    }
+
+    /** The offers in the team's name that this person signed and that are still open: the client may yet choose them. */
+    public function openOffers(FreelanceTeam $team, Freelancer $who): int
+    {
+        return $this->openOffersQuery($team)->where('freelancer_id', $who->id)->count();
+    }
+
+    /**
+     * The same counts for every signer of the team at once: `[freelancer id => number]` (only those with at least one).
+     *
+     * @return array<int, int>
+     */
+    public function liveAgreementsBySigner(FreelanceTeam $team): array
+    {
+        return $this->liveAgreementsQuery($team)->selectRaw('freelancer_id, count(*) as total')->groupBy('freelancer_id')->pluck('total', 'freelancer_id')
+            ->map(fn ($n) => (int) $n)->all();
+    }
+
+    /** @return array<int, int> */
+    public function openOffersBySigner(FreelanceTeam $team): array
+    {
+        return $this->openOffersQuery($team)->selectRaw('freelancer_id, count(*) as total')->groupBy('freelancer_id')->pluck('total', 'freelancer_id')
+            ->map(fn ($n) => (int) $n)->all();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<FreelanceOffer> */
+    private function openOffersQuery(FreelanceTeam $team)
+    {
+        return FreelanceOffer::query()->where('team_id', $team->id)
+            ->whereIn('status', [FreelanceOfferStatus::Submitted->value, FreelanceOfferStatus::Viewed->value, FreelanceOfferStatus::Shortlisted->value]);
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<FreelanceAgreement> */
+    private function liveAgreementsQuery(FreelanceTeam $team)
+    {
+        return FreelanceAgreement::query()->where('team_id', $team->id)
+            ->whereIn('status', [FreelanceAgreement::DRAFT, FreelanceAgreement::PENDING, FreelanceAgreement::ACTIVE]);
     }
 
     /**
@@ -147,7 +198,10 @@ class FreelancerTeams
         });
     }
 
-    /** The person leaves at once (D5), even a suspended or archived team. 404 freelancer_team_not_member, 409 freelancer_team_last_owner. */
+    /**
+     * The person leaves at once (D5), even a suspended or archived team. 404 freelancer_team_not_member, 409 freelancer_team_last_owner,
+     * 409 freelancer_team_signer_active (an Owner with an agreement of the team that has not ended, or an offer in its name that is open).
+     */
     public function leave(FreelanceTeam $team, Freelancer $who, ?string $reason = null): Member
     {
         return DB::transaction(function () use ($team, $who, $reason): Member {
@@ -155,6 +209,7 @@ class FreelancerTeams
             $team = $this->lockTeam($team, false);
             $row = $this->lockedMembership($team, $who);
             $this->assertNotLastOwner($team, $row);
+            $this->assertNoLiveAgreement($team, $row);
 
             $row->forceFill(['status' => Member::LEFT, 'left_at' => now(), 'left_reason' => $this->reason($reason)])->save();
 
@@ -164,7 +219,8 @@ class FreelancerTeams
 
     /**
      * An Owner removes somebody else from the team. 403 freelancer_team_forbidden (not an Owner, or himself - he leaves instead),
-     * 404 freelancer_team_not_member, 409 freelancer_team_inactive.
+     * 404 freelancer_team_not_member, 409 freelancer_team_inactive, 409 freelancer_team_signer_active (the Owner removed signed an agreement
+     * of the team that has not ended or has an offer in its name that is open).
      */
     public function remove(FreelanceTeam $team, Freelancer $by, Freelancer $target, ?string $reason = null): Member
     {
@@ -177,6 +233,7 @@ class FreelancerTeams
             }
             $row = $this->lockedMembership($team, $target);
             // The Owner doing this is one, so removing another Owner never leaves the team without one.
+            $this->assertNoLiveAgreement($team, $row);
             $row->forceFill(['status' => Member::REMOVED, 'left_at' => now(), 'left_reason' => $this->reason($reason), 'removed_by_freelancer_id' => $by->id])->save();
 
             return $row;
@@ -203,7 +260,8 @@ class FreelancerTeams
     /**
      * An Owner changes the role of a member (himself included): promoting somebody to Owner is how ownership is passed. The member's own
      * permissions are cleared - they were set for the old role. 403 freelancer_team_forbidden, 404 freelancer_team_not_member,
-     * 409 freelancer_team_last_owner (the last Owner can not step down), 422 freelancer_team_role_invalid, 422 freelancer_team_limit_owned /
+     * 409 freelancer_team_last_owner (the last Owner can not step down), 409 freelancer_team_signer_active (nor one who signed an agreement of
+     * the team that has not ended or has an open offer in its name), 422 freelancer_team_role_invalid, 422 freelancer_team_limit_owned /
      * freelancer_team_limit_joined (the person's own limits), 403 freelance_verification_required (a new Owner is verified).
      */
     public function changeRole(FreelanceTeam $team, Freelancer $by, Freelancer $target, string $role): Member
@@ -227,6 +285,7 @@ class FreelancerTeams
             } elseif ($row->role === Member::OWNER) {
                 // Stepping down turns an owned team into a joined one.
                 $this->assertNotLastOwner($team, $row);
+                $this->assertNoLiveAgreement($team, $row);
                 $this->assertPersonRoom($target, $role);
             }
             $row->forceFill(['role' => $role, 'permissions' => null])->save();
@@ -281,6 +340,22 @@ class FreelancerTeams
         $owners = Member::query()->where('team_id', $team->id)->where('status', Member::ACTIVE)->where('role', Member::OWNER)->count();
         if ($owners <= 1) {
             throw new FreelanceException('freelancer_team_last_owner', 409);
+        }
+    }
+
+    /**
+     * Called inside the team's lock (FS-212, D12): an Owner who signed an agreement of the team that has not ended, or who has an offer in its
+     * name that is still open, can not go until the agreement ends or he takes the offer back.
+     */
+    private function assertNoLiveAgreement(FreelanceTeam $team, Member $row): void
+    {
+        if ($row->role !== Member::OWNER) {
+            return;
+        }
+        $agreements = $this->liveAgreementsQuery($team)->where('freelancer_id', $row->freelancer_id)->count();
+        $offers = $this->openOffersQuery($team)->where('freelancer_id', $row->freelancer_id)->count();
+        if ($agreements + $offers > 0) {
+            throw new FreelanceException('freelancer_team_signer_active', 409, [], ['agreements' => $agreements, 'offers' => $offers]);
         }
     }
 

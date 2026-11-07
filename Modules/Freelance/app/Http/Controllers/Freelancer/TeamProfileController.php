@@ -30,6 +30,7 @@ class TeamProfileController extends Controller
         $data = $request->validate(['name' => ['required', 'string', 'max:'.FreelancerTeams::NAME_MAX]]);
         $me = $this->me($request);
         $team = $this->teams->create($me, $data['name']);
+        $this->profile->created($team, $me);
 
         return ApiResponse::created(['team' => $this->profile->present($team->refresh(), TeamProfile::MEMBER, $me)], __('freelance.team_created'));
     }

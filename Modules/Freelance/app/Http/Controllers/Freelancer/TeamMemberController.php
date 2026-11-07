@@ -41,10 +41,14 @@ class TeamMemberController extends Controller
         $rows = Member::query()->where('team_id', $t->id)->where('status', Member::ACTIVE)->with('freelancer:id,uuid,name')
             ->orderByRaw("case role when 'owner' then 0 when 'pm' then 1 else 2 end")->orderBy('id')->get();
         $mine = $rows->firstWhere('freelancer_id', $me->id);
+        // How many agreements of the team each Owner signed that have not ended, and how many offers in its name he has open - such an Owner
+        // can not leave or step down (FS-212, D12).
+        $signed = $this->teams->liveAgreementsBySigner($t);
+        $open = $this->teams->openOffersBySigner($t);
 
         return ApiResponse::success([
-            'members' => $rows->map(fn (Member $m) => $this->present($m))->values(),
-            'me' => ['role' => $mine?->role, 'abilities' => $this->abilities->of($mine)],
+            'members' => $rows->map(fn (Member $m) => $this->present($m, $signed, $open))->values(),
+            'me' => ['role' => $mine?->role, 'abilities' => $this->abilities->of($mine), 'signed_agreements' => $signed[$me->id] ?? 0, 'open_offers' => $open[$me->id] ?? 0],
             'switches' => TeamAbilities::SWITCHES,
         ], __('api.retrieved'));
     }
@@ -109,11 +113,17 @@ class TeamMemberController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function present(Member $m): array
+    /**
+     * @param  array<int, int>  $signed  `[freelancer id => agreements he signed that have not ended]`
+     * @param  array<int, int>  $open  `[freelancer id => offers in the team's name he signed that are still open]`
+     */
+    private function present(Member $m, array $signed = [], array $open = []): array
     {
         return [
             'freelancer' => ['uuid' => $m->freelancer?->uuid, 'name' => $m->freelancer?->name],
             'role' => $m->role,
+            'signed_agreements' => $m->role === Member::OWNER ? ($signed[(int) $m->freelancer_id] ?? 0) : 0,
+            'open_offers' => $m->role === Member::OWNER ? ($open[(int) $m->freelancer_id] ?? 0) : 0,
             'joined_at' => $m->joined_at?->toIso8601String(),
             'abilities' => $this->abilities->of($m),
             // The switches the Owner set on purpose (the rest follow the role's default); null for an Owner.

@@ -101,6 +101,9 @@ internal fun ManageMemberSheet(
     onDismiss: () -> Unit,
 ) {
     val keys = SWITCH_ORDER.filter { it in switches }
+    // FS-212: an Owner who signed agreements of the team that have not ended, or has offers in its name still open, stays an Owner until they
+    // end or are taken back - the server refuses the rest.
+    val held = member.role == "owner" && member.signedAgreements + member.openOffers > 0
     LocaleAwareBottomSheet(onDismissRequest = { if (!busy) onDismiss() }, containerColor = settingsCard(), shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
         Column(
             Modifier.fillMaxWidth().heightIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(bottom = 24.dp),
@@ -118,9 +121,10 @@ internal fun ManageMemberSheet(
             FilterChips(
                 options = listOf("owner", "pm", "member").map { FilterOption(it, roleLabel(it)) },
                 selected = member.role,
-                onSelect = { if (!busy && it != member.role) onRole(it) },
+                onSelect = { if (!busy && it != member.role && !(held && it != "owner")) onRole(it) },
             )
             Text(roleHint(member.role), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
+            if (held) Text(stringResource(R.string.team_signer_hold, member.freelancer.name.orEmpty().substringBefore(' ')), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
 
             if (member.role == "owner") {
                 Text(stringResource(R.string.team_perm_owner_all), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
@@ -135,10 +139,10 @@ internal fun ManageMemberSheet(
             }
 
             if (!isMe) Box(
-                Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).border(1.5.dp, Color(0xFFDC2626).copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-                    .clickable(enabled = !busy, onClick = onRemove),
+                Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).border(1.5.dp, Color(0xFFDC2626).copy(alpha = if (held) 0.2f else 0.45f), RoundedCornerShape(16.dp))
+                    .clickable(enabled = !busy && !held, onClick = onRemove),
                 contentAlignment = Alignment.Center,
-            ) { Text(stringResource(R.string.team_remove), color = Color(0xFFDC2626), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
+            ) { Text(stringResource(R.string.team_remove), color = Color(0xFFDC2626).copy(alpha = if (held) 0.4f else 1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
         }
     }
 }

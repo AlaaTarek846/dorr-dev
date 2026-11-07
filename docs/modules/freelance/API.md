@@ -1549,3 +1549,24 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - الأسعار بنفس `GET|PUT freelance-plans/{id}/prices…` والـ seeder بيزرع `team_starter` (مقفولة، `status=false`).
 
 **الكود:** `Services/FreelancerTeam/TeamPlans` و`TeamSubscriptions`، `Http/Controllers/Freelancer/TeamSubscriptionController`، `Models/FreelanceTeamSubscription(Invoice)`، migration `2026_12_09_100000_create_freelance_team_plans`. **الاختبارات:** `tests/Feature/FreelanceTeamPlansTest.php`.
+
+## سجل المراجعة لإجراءات الفريق (FS-212) — 2026-11-07
+
+كل خطوة بتغيّر فريق بتتكتب في `audit_logs` باسم `freelance.team.*` والشخص اللي عملها جوه `after` (`by_freelancer_id` أو `by` أو `freelancer`)، وسجل المشروع (`freelance_project_events`) بيقول مين عدّل الإسناد (`acted_by_freelancer_id`):
+
+| الإجراء | الـ action |
+|---|---|
+| إنشاء فريق ✅ جديد | `freelance.team.created` (`name`, `by_freelancer_id`) |
+| تعديل الملف / الشعار | `freelance.team.profile_updated` / `logo_changed` |
+| موافقة العضو على ظهور اسمه ✅ جديد | `freelance.team.consent_changed` (قبل/بعد، بس لما القيمة تتغيّر) |
+| دعوة / إلغاء / قبول / رفض | `freelance.team.invited` / `invitation_cancelled` / `invitation_accepted` / `invitation_declined` |
+| خروج / شيل (Owner) / شيل (موظف) | `freelance.team.member_left` / `member_removed` / `member_removed_by_staff` |
+| دور / مفاتيح | `freelance.team.role_changed` / `permissions_changed` |
+| إيقاف / تفعيل | `freelance.team.status_changed` |
+| التوثيق | `freelance.team.verification_submitted` / `verification_decided` / `verification_revoked` / `verification_file_opened` |
+| الباقة | `freelance.team.plan_taken` / `plan_changed` / `plan_canceled` |
+| إسناد مرحلة وفكّه (سجل المشروع) | `team.milestone.assignees` / `team.assignments.released` |
+
+**اللي بتقوله الاستجابات** (موثّق بالاختبار `FreelanceTeamHardTest`): مش عضو أو فريق تاني = **404** دايمًا (الفريق «مش موجود»)؛ عضو من غير الحق = **403**؛ أوراق التوثيق لغير الـ Owners = **404** والباقة = **403** (`freelance_team_plan_forbidden`)؛ آخر Owner = **409**.
+
+**الموقّع (D12، FS-212):** Owner وقّع على اتفاقية باسم الفريق لسه ما خلصتش (`draft` أو `pending_approval` أو `active`)، **أو** عنده عرض باسم الفريق لسه مفتوح (`submitted` أو `viewed` أو `shortlisted`)، لا يخرج (`POST teams/{team}/leave`) ولا يتنازل عن الـ Owner (`PUT …/members/{f}/role`) ولا Owner تاني يشيله (`DELETE …/members/{f}`) — **409 `freelance_freelancer_team_signer_active`** (`data.agreements` و`data.offers` = العددين) لحد ما الاتفاقيات تخلص (`completed`/`declined`/`cancelled`/`expired`) ويسحب عروضه (`POST /offers/{offer}/withdraw`، بإيده — مفيش سحب تلقائي). ترتيب الفحص: آخر Owner (`freelancer_team_last_owner`) الأول. **الموظف مش متقيّد** (`TeamModeration::removeMember`). `GET teams/{team}/members` بيرجّع `signed_agreements` و`open_offers` لكل عضو (غير الـ Owner = 0) وفي `me`، عشان الشاشة تقفل الأزرار قبل ما حد يجرّب.
