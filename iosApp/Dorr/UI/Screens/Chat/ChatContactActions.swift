@@ -4,7 +4,8 @@ import SwiftUI
 // androidApp `ContactActionsSheet.kt` — a shared contact's actions, and «Sara isn't in your contacts» on top of a chat.
 
 /// Tapping a shared contact: call it with the phone's own dialer, save it to the phone's contacts, message it on Dorr —
-/// or invite it when it isn't on Dorr yet — and copy the number. A card with several numbers lets you pick one first.
+/// or invite it when it isn't on Dorr — and copy the number from the row under the buttons. The same number written
+/// two ways counts once.
 struct ContactActionsSheet: View {
     @ObservedObject private var ch = Ch.shared
     let name: String
@@ -12,12 +13,12 @@ struct ContactActionsSheet: View {
     let onMessage: (String) -> Void
     let onDismiss: () -> Void
     @State private var phone = ""
+    private var numbers: [String] { distinctPhones(phones) }
     /// On Dorr? nil while checking (and when not).
     @State private var onDorr: ProfileDto?
     @State private var checked = false
     @State private var inviting = false
     @State private var saving = false
-    @State private var shown = false
 
     var body: some View {
         if inviting {
@@ -27,64 +28,63 @@ struct ContactActionsSheet: View {
                 VStack(spacing: 0) {
                     ChAvatar(url: onDorr?.avatar, name: name, key: onDorr?.key ?? phone, size: 72, ring: onDorr != nil)
                     Text(verbatim: name.isEmpty ? ltrNumber(phone) : name).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).multilineTextAlignment(.center).padding(.top, 10)
-                    Text(verbatim: ltrNumber(phone)).font(.dorr(14, .semibold)).foregroundStyle(ch.mut)
-                    // On Dorr or not, once known.
                     Group {
                         if !checked {
-                            ProgressView().tint(ch.red).scaleEffect(0.7)
-                        } else if onDorr != nil {
-                            Text(L("ch_contact_on_dorr")).font(.dorr(12.5, .bold)).foregroundStyle(ch.success)
+                            ProgressView().tint(ch.red).scaleEffect(0.7).frame(height: 26)
                         } else {
-                            Text(L("ch_contact_not_on_dorr")).font(.dorr(12.5, .semibold)).foregroundStyle(ch.soft)
+                            DorrStatusPill(onDorr: onDorr != nil)
                         }
                     }
-                    .frame(height: 22).padding(.top, 6)
-                    .animation(.easeInOut(duration: 0.2), value: checked)
-                    // Several numbers: pick which one the actions use.
-                    if phones.count > 1 {
-                        HStack(spacing: 6) {
-                            ForEach(phones, id: \.self) { p in
-                                let on = p == phone
-                                Button { phone = p } label: {
-                                    Text(verbatim: ltrNumber(p)).font(.dorr(12.5, .bold)).foregroundStyle(on ? .white : ch.ink)
-                                        .padding(.horizontal, 10).padding(.vertical, 6)
-                                        .background(on ? ch.red : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 12))
-                                }
-                                .buttonStyle(.plain)
+                    .padding(.top, 8)
+                    let there = onDorr != nil
+                    HStack(spacing: 8) {
+                        tile(there ? "bubble.left.and.bubble.right.fill" : "paperplane.fill", there ? L("ch_message_contact") : L("ch_invite"), there ? ch.red : Color(hex: 0x6366F1), filled: true, enabled: there || checked) {
+                            if there {
+                                onDismiss()
+                                onMessage(phone)
+                            } else {
+                                inviting = true
                             }
                         }
-                        .padding(.top, 8)
-                    }
-                    HStack(spacing: 0) {
-                        // The phone's own call, not a Dorr call.
-                        action("phone.fill", L("ch_contact_call"), Color(hex: 0x10B981), 0) {
+                        tile("phone.fill", L("ch_contact_call"), Color(hex: 0x10B981), filled: false) {
                             if let url = URL(string: "tel:\(phone.filter { $0.isNumber || $0 == "+" })") { UIApplication.shared.open(url) }
                             onDismiss()
                         }
-                        if onDorr != nil {
-                            action("bubble.left.and.bubble.right.fill", L("ch_message_contact"), ch.red, 1) {
-                                onDismiss()
-                                onMessage(phone)
-                            }
-                        } else {
-                            action("paperplane.fill", L("ch_invite"), Color(hex: 0x6366F1), 1, enabled: checked) { inviting = true }
-                        }
-                        action("person.badge.plus", L("ch_contact_save"), Color(hex: 0x0EA5E9), 2) { saving = true }
-                        action("doc.on.doc.fill", L("ch_contact_copy"), Color(hex: 0xF59E0B), 3) {
-                            UIPasteboard.general.string = phone
-                            AppToast.show(L("ch_number_copied"))
-                            onDismiss()
-                        }
+                        tile("person.badge.plus", L("ch_contact_save"), Color(hex: 0x0EA5E9), filled: false) { saving = true }
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 18)
+                    if !numbers.isEmpty {
+                        VStack(spacing: 8) {
+                            ForEach(numbers, id: \.self) { p in
+                                let picked = numbers.count > 1 && p == phone
+                                HStack(spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(L("ch_phone_mobile")).font(.dorr(11, .semibold)).foregroundStyle(ch.soft)
+                                        Text(verbatim: ltrNumber(p)).font(.dorr(15, .bold)).foregroundStyle(ch.ink)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    Button {
+                                        UIPasteboard.general.string = p
+                                        AppToast.show(L("ch_number_copied"))
+                                    } label: {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color(hex: 0xF59E0B))
+                                            .frame(width: 36, height: 36)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 10)
+                                .background(picked ? ch.red.opacity(0.12) : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16))
+                                .contentShape(RoundedRectangle(cornerRadius: 16))
+                                .onTapGesture { phone = p }
+                            }
+                        }
+                        .padding(.top, 14)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, 10)
             }
-            .onAppear {
-                if phone.isEmpty { phone = phones.first ?? "" }
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.55).delay(0.05)) { shown = true }
-            }
+            .onAppear { if phone.isEmpty { phone = numbers.first ?? "" } }
             .task(id: phone) {
                 guard !phone.isEmpty else { return }
                 checked = false
@@ -102,27 +102,50 @@ struct ContactActionsSheet: View {
         }
     }
 
-    private func action(_ icon: String, _ label: String, _ color: Color, _ index: Int, enabled: Bool = true, _ tap: @escaping () -> Void) -> some View {
-        Button(action: tap) {
+    private func tile(_ icon: String, _ label: String, _ color: Color, filled: Bool, enabled: Bool = true, _ tap: @escaping () -> Void) -> some View {
+        let fg = filled ? Color.white : color
+        return Button(action: tap) {
             VStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 22)).foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(LinearGradient(colors: [color, color.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing), in: Circle())
-                Text(verbatim: label).font(.dorr(12, .bold)).foregroundStyle(ch.ink).lineLimit(1)
+                Image(systemName: icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(fg)
+                Text(verbatim: label).font(.dorr(12, .bold)).foregroundStyle(fg).lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 12)
+            .background(filled ? color : ch.surfaceMuted, in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.4)
-        .scaleEffect(shown ? 1 : 0.01)
-        .animation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.05 + Double(index) * 0.05), value: shown)
+    }
+}
+
+/// «موجود على دُر» in green, «غير موجود على دُر» in the soft colour. The dot sits on the visual left.
+private struct DorrStatusPill: View {
+    @ObservedObject private var ch = Ch.shared
+    let onDorr: Bool
+
+    var body: some View {
+        let color = onDorr ? ch.success : ch.soft
+        HStack(spacing: 6) {
+            Text(L(onDorr ? "ch_contact_on_dorr" : "ch_contact_not_on_dorr")).font(.dorr(12.5, .bold)).foregroundStyle(color)
+            Circle().fill(color).frame(width: 6, height: 6)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(color.opacity(0.14), in: Capsule())
+    }
+}
+
+/// Same digits, written with or without spaces, are one number. The first spelling is kept.
+private func distinctPhones(_ phones: [String]) -> [String] {
+    var seen = Set<String>()
+    return phones.filter { p in
+        let key = String(p.filter(\.isNumber))
+        !key.isEmpty && seen.insert(key).inserted
     }
 }
 
 /// The phone's own «new contact» page, filled in (Android: the contacts app's insert screen).
-private struct NewPhoneContact: UIViewControllerRepresentable {
+struct NewPhoneContact: UIViewControllerRepresentable {
     let name: String
     let phone: String
     let onDone: () -> Void
@@ -170,27 +193,27 @@ struct NotInContactsBanner: View {
                 Image(systemName: "person.badge.plus").font(.system(size: 17)).foregroundStyle(ch.red)
                     .frame(width: 36, height: 36).background(ch.red.opacity(0.12), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(L("ch_not_in_contacts", conversation.title ?? "")).font(.dorr(13.5, .bold)).foregroundStyle(ch.ink).lineLimit(1)
+                    Text(L("ch_not_in_contacts")).font(.dorr(13.5, .heavy)).foregroundStyle(ch.ink).lineLimit(1)
                     Text(L("ch_not_in_contacts_why")).font(.dorr(11.5)).foregroundStyle(ch.mut).lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Button(action: add) {
                     Group {
-                        if saving { ProgressView().tint(.white).scaleEffect(0.7) } else { Text(L("ch_add")).font(.dorr(13, .heavy)).foregroundStyle(.white) }
+                        if saving { ProgressView().tint(.white).scaleEffect(0.65) } else { Text(L("ch_add")).font(.dorr(12.5, .heavy)).foregroundStyle(.white) }
                     }
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(ch.red, in: RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .background(ch.red, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(saving)
                 Button { withAnimation { closed = true } } label: {
-                    Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(ch.soft).frame(width: 32, height: 32)
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(ch.soft).frame(width: 30, height: 30)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 8)
+            .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 8)
             .background(ch.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(.horizontal, 10).padding(.vertical, 6)
+            .padding(.horizontal, 12).padding(.vertical, 6)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }

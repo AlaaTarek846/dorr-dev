@@ -197,6 +197,8 @@ struct ConversationDto: Codable, Equatable, Identifiable {
     var myRole: String?
     var isMember: Bool?
     var canSend: Bool?
+    /// How many messages the chat keeps pinned: a new pin past it replaces the oldest (asked first).
+    var maxPinnedMessages: Int?
     var lastMessage: LastMessageDto?
     var lastMessageAt: String?
     var unreadCount: Int?

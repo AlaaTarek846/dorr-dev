@@ -22,13 +22,12 @@ final class ChatStore: ObservableObject {
     @Published var screenOpen = false
     /// Past the chat list (a conversation, its info, media…): the tab bar steps away.
     @Published var immersive = false
-    /// "system" | "light" | "dark"
-    @Published private(set) var themeMode: String
     /// conversation id → unsent text.
     @Published private(set) var drafts: [String: String]
 
     private init() {
-        themeMode = UserDefaults.standard.string(forKey: "chat.theme") ?? "system"
+        // The chat's own light / dark choice is gone (it follows the app): drop what an older version saved.
+        UserDefaults.standard.removeObject(forKey: "chat.theme")
         drafts = (UserDefaults.standard.dictionary(forKey: "chat.drafts") as? [String: String]) ?? [:]
     }
 
@@ -41,11 +40,6 @@ final class ChatStore: ObservableObject {
         if clean == drafts[conversationId] { return }
         drafts[conversationId] = clean
         defaults.set(drafts, forKey: "chat.drafts")
-    }
-
-    func setTheme(_ mode: String) {
-        themeMode = mode
-        defaults.set(mode, forKey: "chat.theme")
     }
 
     var oneSignalAppId: String? {
@@ -72,10 +66,8 @@ final class ChatStore: ObservableObject {
         if let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
             files.forEach { try? FileManager.default.removeItem(at: $0) }
         }
-        defaults.removeObject(forKey: "chat.theme")
         defaults.removeObject(forKey: "chat.drafts")
         drafts = [:]
-        themeMode = "system"
     }
 
     private func file(_ id: String) -> String { "m-" + id.filter { $0.isLetter || $0.isNumber || $0 == "-" } + ".json" }

@@ -262,7 +262,8 @@ final class ConversationState: ObservableObject {
 
     // MARK: Sending
 
-    func send(_ out: Outgoing) {
+    /// `linkPreview`: the card of the message's link, already shown while typing — drawn with it at once.
+    func send(_ out: Outgoing, linkPreview: LinkPreviewDto? = nil) {
         let uuid = UUID().uuidString.lowercased()
         let me = AuthSession.shared.user
         var meta: JSONAny?
@@ -272,8 +273,9 @@ final class ConversationState: ObservableObject {
                                     sender: profileOf(me), isMine: true, status: nil,
                                     replyTo: replyTo.map { ReplyPreviewDto(id: $0.id, type: $0.type, body: $0.body, sender: $0.sender, thumbnail: nil, isDeleted: false) },
                                     expiresAt: nil, system: nil, createdAt: isoWithOffset(Date()))
-        // Drawn right away while it uploads: the poll's options, the «1» of a view-once, a money card.
+        // Drawn right away while it uploads: the poll's options, the «1» of a view-once, a money card, a link's card.
         optimistic.viewOnce = out.extra["view_once"] != nil
+        optimistic.linkPreview = linkPreview
         if out.type == "poll" {
             optimistic.poll = PollDto(question: out.body, multiple: out.extra["poll_multiple"]?.bool == true,
                                       options: ints("poll_options").enumerated().map { PollOptionDto(id: $0.offset + 1, text: $0.element, votes: 0) }, myVotes: [], voters: 0)
@@ -370,10 +372,24 @@ final class ConversationState: ObservableObject {
     }
 
     func deleteForMe(_ m: MessageDto) {
+        let index = messages.firstIndex { $0.id == m.id }
+        let removed = index.map { messages[$0] }
         withAnimation { messages.removeAll { $0.id == m.id } }
         // An unsent one is simply dropped from the outbox (never sent).
         ChatOutbox.shared.sent(m.id)
-        Task { _ = try? await ChatApi.deleteForMe(id, ids: [m.id]) }
+        // The phone's saved copy too, or it shows again on the next open before the server answers.
+        persist()
+        Task {
+            do {
+                _ = try await ChatApi.deleteForMe(id, ids: [m.id])
+            } catch {
+                if let removed, let index, !messages.contains(where: { $0.id == removed.id }) {
+                    messages.insert(removed, at: min(index, messages.count))
+                    persist()
+                }
+                host.showToast(error.apiFailure.message ?? L("ch_error_network"))
+            }
+        }
     }
 
     func react(_ m: MessageDto, _ emoji: String?) {
@@ -670,6 +686,7 @@ final class ConversationState: ObservableObject {
             var meta = messages[i].dto.meta?.obj ?? [:]
             if let lat = data.at("latitude") { meta["latitude"] = lat }
             if let lng = data.at("longitude") { meta["longitude"] = lng }
+            if let acc = data.at("accuracy"), acc.dbl != nil { meta["accuracy"] = acc }
             messages[i].dto.meta = .object(meta)
             messages[i].dto.liveLocation?.updatedAt = data.at("updated_at")?.str
         case "chat.pins.updated":
@@ -701,7 +718,15 @@ final class ConversationState: ObservableObject {
     func replaceMessage(_ id: String, _ m: UiMessage) {
         var m = m
         m.fresh = false
-        if let i = messages.firstIndex(where: { $0.id == id }) { messages[i] = m } else { messages.append(m) }
+        if let i = messages.firstIndex(where: { $0.id == id }) {
+            // The server adds a link's card a few seconds after sending: until then keep the one this phone already
+            // showed (same words — an edit that dropped the link drops the card).
+            let old = messages[i].dto
+            if m.dto.linkPreview == nil, old.linkPreview != nil, old.body == m.dto.body { m.dto.linkPreview = old.linkPreview }
+            messages[i] = m
+        } else {
+            messages.append(m)
+        }
         persist()
     }
 }

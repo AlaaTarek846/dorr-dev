@@ -39,6 +39,9 @@ final class ChatRealtime: NSObject, ObservableObject {
     /// A ride's private channel while its screen is open: status, the car's place, its chat.
     static let rideEvents = ["ride.changed", "ride.message", "ride.driver_location"]
 
+    /// A move's private channel while its pages are open (`private-moving.{uuid}`): it changed (reload once), and the truck's place.
+    static let movingEvents = ["moving.changed", "moving.driver_location"]
+
     /// One Watch & Earn ad while its comments are open (`private-watch-earn.ad.{uuid}`): comments and reaction counts.
     static let watchEarnAdEvents = ["watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions"]
 
@@ -53,6 +56,7 @@ final class ChatRealtime: NSObject, ObservableObject {
     private var starting = false
     private var heartbeat: Task<Void, Never>?
     private var watchedRides = Set<String>()
+    private var watchedMoves = Set<String>()
     private var watchedAds = Set<String>()
     /// A project's Workroom while it is open (`private-freelance-workroom.{project uuid}`, FS-150e): `freelance.workroom` arrives on
     /// `events` as `{kind: task|file|comment|decision, action, uuid, by}` plus the `project` it is about (added here). The count is how
@@ -109,6 +113,7 @@ final class ChatRealtime: NSObject, ObservableObject {
         }
         publicChannels.forEach { subscribePublic(client, $0.key, $0.value) }
         watchedRides.forEach { subscribeRide(client, $0) }
+        watchedMoves.forEach { subscribeMove(client, $0) }
         watchedAds.forEach { subscribeAd(client, $0) }
         watchedWorkrooms.keys.forEach { subscribeWorkroom(client, $0) }
     }
@@ -146,6 +151,19 @@ final class ChatRealtime: NSObject, ObservableObject {
 
     private func subscribeRide(_ client: Pusher, _ uuid: String) {
         bind(client.subscribe("private-rides.\(uuid)"), Self.rideEvents)
+    }
+
+    /// Listen to one move (`moving.changed`, `moving.driver_location` arrive on `events`). Safe before the connection is up.
+    func watchMoving(_ uuid: String) {
+        if watchedMoves.insert(uuid).inserted, let pusher { subscribeMove(pusher, uuid) }
+    }
+
+    func unwatchMoving(_ uuid: String) {
+        if watchedMoves.remove(uuid) != nil { pusher?.unsubscribe("private-moving.\(uuid)") }
+    }
+
+    private func subscribeMove(_ client: Pusher, _ uuid: String) {
+        bind(client.subscribe("private-moving.\(uuid)"), Self.movingEvents)
     }
 
     /// Listen to one Watch & Earn ad (its comments sheet is open). Safe before the connection is up.
@@ -204,6 +222,7 @@ final class ChatRealtime: NSObject, ObservableObject {
         pusher?.disconnect()
         pusher = nil
         watchedRides.removeAll()
+        watchedMoves.removeAll()
         watchedAds.removeAll()
         watchedWorkrooms.removeAll()
         userId = nil

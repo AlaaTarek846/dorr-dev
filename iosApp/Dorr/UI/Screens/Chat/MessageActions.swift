@@ -1,9 +1,9 @@
 import SwiftUI
 import UIKit
 
-// androidApp `ui/screens/chat/MessageActions.kt` — long-press on a message: the conversation blurs and dims behind, the
-// message lifts forward with a spring, the reaction bar opens (each emoji popping in one after another) and the
-// action menu slides up under it. Tap outside to put it all back. Plus the sheets it opens: delete for me / everyone,
+// androidApp `ui/screens/chat/MessageActions.kt` — long-press on a message: the conversation blurs and dims behind, a
+// bar opens at the top (back, reply, forward, star, reminder, pin, delete, and ⋮ for the rest), the message lifts
+// forward with a spring and the reaction bar opens under it. Tap outside to put it all back. Plus the sheets it opens: delete for me / everyone,
 // pin for how long, forward to up to 5 chats, star into a folder, every emoji, a reminder time.
 
 private let quickReactions = ["❤️", "😂", "👍", "😮", "😢", "🙏"]
@@ -26,30 +26,37 @@ struct MessageFocusOverlay: View {
 
     @State private var appear: CGFloat = 0
     @State private var sheet: String?
+    @State private var replaceOldestPin = false
+    @Environment(\.layoutDirection) private var appDirection
 
     var body: some View {
         if let focused = state.focused {
             GeometryReader { geo in
-                ZStack {
+                ZStack(alignment: .top) {
                     Color.black.opacity(0.42 * appear).ignoresSafeArea().onTapGesture { close() }
                     VStack(alignment: focused.isMine ? .trailing : .leading, spacing: 10) {
-                        reactions(focused)
-                        // The message itself: a long one scrolls in at most a third of the screen.
+                        // The message itself: a long one scrolls in at most 45% of the screen.
                         ScrollView {
                             MessageRow(m: UiMessage(dto: focused.dto, local: focused.local, localFiles: focused.localFiles, fresh: false, progress: nil, localThumb: focused.localThumb, ai: focused.ai),
                                        firstInRun: true, lastInRun: true, isGroup: false, actions: noActions)
                                 .allowsHitTesting(false)
                         }
-                        .frame(maxWidth: 340, maxHeight: geo.size.height * 0.32)
+                        .frame(maxWidth: 340, maxHeight: geo.size.height * 0.45)
                         .fixedSize(horizontal: false, vertical: true)
                         .scaleEffect(0.94 + 0.06 * appear)
-                        menu(focused)
-                            .frame(maxHeight: geo.size.height * 0.5)
-                            .offset(y: (1 - appear) * 40)
-                            .opacity(appear)
+                        // Reactions under the message.
+                        reactions(focused)
                     }
-                    .padding(.horizontal, 18).padding(.vertical, 14)
-                    .frame(maxWidth: .infinity, alignment: focused.isMine ? .trailing : .leading)
+                    .padding(.horizontal, 18).padding(.top, 96).padding(.bottom, 14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: focused.isMine ? .trailing : .leading)
+                    topBar(focused)
+                        .offset(y: (1 - appear) * -40)
+                        .opacity(appear)
+                }
+                .dorrDialog(isPresented: $replaceOldestPin) {
+                    ConfirmDialog(icon: "pin.fill", title: L("ch_pin_replace_title"), message: L("ch_pin_replace_text"), confirmLabel: L("ch_continue"),
+                                  onConfirm: { replaceOldestPin = false; sheet = "pin" },
+                                  onDismiss: { replaceOldestPin = false; close() })
                 }
             }
             .task(id: focused.id) { withAnimation(.spring(response: 0.38, dampingFraction: 0.7)) { appear = 1 } }
@@ -91,114 +98,140 @@ struct MessageFocusOverlay: View {
         }
     }
 
-    // MARK: Menu
+    // MARK: Top bar
 
-    private func menu(_ focused: UiMessage) -> some View {
+    /// Back, reply, forward, star, reminder, pin, delete — and ⋮ for everything else. Laid out left to right
+    /// in both languages: back on the left, ⋮ last.
+    private func topBar(_ focused: UiMessage) -> some View {
+        let dto = focused.dto
+        let canPin = !["system", "call"].contains(dto.type)
+        let canForward = !["wallet_transfer", "call", "system", "story_reply"].contains(dto.type)
+        let isPinned = state.pinned.contains { $0.id == dto.id }
+        return DarkHeroPanel {
+            HStack(spacing: 0) {
+                DarkHeroButton(icon: "arrow.backward", label: L("common_back")) { close() }
+                Spacer(minLength: 4)
+                DarkHeroButton(icon: "arrowshape.turn.up.left.fill", label: L("ch_reply")) { state.replyTo = dto; close() }
+                if canForward {
+                    Spacer(minLength: 4)
+                    DarkHeroButton(icon: "arrowshape.turn.up.right.fill", label: L("ch_forward")) { sheet = "forward" }
+                }
+                Spacer(minLength: 4)
+                DarkHeroButton(icon: dto.isStarred == true ? "star.fill" : "star", label: L(dto.isStarred == true ? "ch_unstar" : "ch_star")) {
+                    if dto.isStarred == true { state.star(dto); close() } else { sheet = "star" }
+                }
+                if dto.type != "system" {
+                    Spacer(minLength: 4)
+                    DarkHeroButton(icon: "alarm.fill", label: L(dto.reminderAt != nil ? "ch_reminder_remove" : "ch_reminder")) {
+                        if dto.reminderAt != nil { state.remind(dto, at: nil); close() } else { sheet = "remind" }
+                    }
+                }
+                if canPin {
+                    Spacer(minLength: 4)
+                    DarkHeroButton(icon: "pin.fill", label: L(isPinned ? "ch_unpin" : "ch_pin")) {
+                        if isPinned {
+                            state.unpin(dto); close()
+                        } else if state.pinned.count >= (state.conversation?.maxPinnedMessages ?? Int.max) {
+                            // All pin places taken: ask before the new one replaces the oldest (as WhatsApp does).
+                            replaceOldestPin = true
+                        } else {
+                            sheet = "pin"
+                        }
+                    }
+                }
+                Spacer(minLength: 4)
+                DarkHeroButton(icon: "trash.fill", label: L("ch_delete")) { sheet = "delete" }
+                Spacer(minLength: 4)
+                Menu {
+                    moreItems(focused).environment(\.layoutDirection, appDirection)
+                } label: {
+                    Image(systemName: "ellipsis").rotationEffect(.degrees(90))
+                        .font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Color.white.opacity(0.12), in: Circle())
+                }
+                .accessibilityLabel(L("ch_share_more"))
+            }
+            .environment(\.layoutDirection, .leftToRight)
+        }
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
+        .onTapGesture {}
+    }
+
+    // MARK: More (⋮)
+
+    @ViewBuilder
+    private func moreItems(_ focused: UiMessage) -> some View {
         let dto = focused.dto
         let mine = focused.isMine
         let c = state.conversation
         let body = dto.body ?? ""
         // Only what the server will still accept (the admin sets both time limits).
         let canEdit = mine && ["text", "image", "video", "document"].contains(dto.type) && stillOpen(dto.editUntil)
-        let canPin = !["system", "call"].contains(dto.type)
         let canForward = !["wallet_transfer", "call", "system", "story_reply"].contains(dto.type)
         let aiText = !body.isEmpty && dto.viewOnce != true && dto.sealed != true && dto.type != "system"
-        let isPinned = state.pinned.contains { $0.id == dto.id }
-        return ScrollView {
-            VStack(spacing: 0) {
-                row("arrowshape.turn.up.left.fill", L("ch_reply")) { state.replyTo = dto; close() }
-                // A side discussion under this message (spec 122).
-                if !["system", "call"].contains(dto.type) && dto.isDeleted != true && dto.threadRoot == nil {
-                    row("bubble.left.and.bubble.right.fill", L("ch_thread_reply")) {
-                        close()
-                        host.push(.thread(conversationId: dto.conversationId, rootId: dto.id))
-                    }
-                }
-                // Into something to do (spec 148): commitment, handoff, agreement, task, appointment, reminder, decision.
-                if !["system", "call", "commitment", "handoff", "agreement"].contains(dto.type) && dto.isDeleted != true && state.conversation?.isChannel != true {
-                    row("bolt.fill", L("lf_turn_into")) { sheet = "toAction" }
-                }
-                // In a group: put it to a vote, for the decisions log (spec 119–120).
-                if state.conversation?.type == "group" && !["system", "call", "poll"].contains(dto.type) && dto.isDeleted != true {
-                    row("hammer.fill", L("ch_make_decision")) {
-                        close()
-                        host.makeDecision(dto)
-                    }
-                }
-                if !body.isEmpty {
-                    row("doc.on.doc.fill", L("ch_copy")) {
-                        UIPasteboard.general.string = plainChatText(body)
-                        host.showToast(L("ch_copied"))
-                        close()
-                    }
-                }
-                if canForward { row("arrowshape.turn.up.right.fill", L("ch_forward")) { sheet = "forward" } }
-                // AI, on a tap: a question about this message (spec 125).
-                if ai.ask && !body.isEmpty && dto.viewOnce != true && dto.type != "system" {
-                    row("sparkles", L("ch_ai_ask_this")) { state.askAbout = [dto.id]; close() }
-                }
-                // DORR AI tools on this message (spec 37–39, 42, 46) — each one tap, suggestions only.
-                if aiText && !focused.isMine && ai.understand { row("brain.head.profile", L("ct_understand")) { state.aiTool = ("understand", dto); close() } }
-                if aiText && ai.simplify && body.count > 220 { row("text.alignleft", L("ct_simplify")) { state.aiTool = ("simplify", dto); close() } }
-                if aiText && ai.tasks { row("checkmark.circle.fill", L("ct_make_tasks")) { state.aiTool = ("tasks", dto); close() } }
-                // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
-                if ai.imageEdit && dto.type == "image" && dto.viewOnce != true && dto.sealed != true && dto.isDeleted != true {
-                    row("sparkles", L("ch_ai_image_edit_title")) { state.aiTool = ("edit_image", dto); close() }
-                }
-                if aiText && ai.notes { row("doc.text.fill", L("ct_make_note")) { state.aiNote([dto.id]); close() } }
-                // AI, on a tap: translate the text (never a view-once message).
-                if ai.translate && aiText { row("character.bubble.fill", L("ch_ai_translate")) { state.translate(focused); close() } }
-                row(dto.isStarred == true ? "star.fill" : "star", L(dto.isStarred == true ? "ch_unstar" : "ch_star")) {
-                    if dto.isStarred == true { state.star(dto); close() } else { sheet = "star" }
-                }
-                // Set it aside to come back to, or keep a copy in my own notes.
-                if dto.type != "system" {
-                    row("bookmark.fill", L(dto.isReadLater == true ? "ch_read_later_done" : "ch_read_later")) { state.readLater(dto); close() }
-                }
-                if canForward && dto.viewOnce != true && c?.isSelf != true {
-                    row("note.text.badge.plus", L("ch_save_to_notes")) { state.saveToNotes(dto, done: L("ch_saved_to_notes")); close() }
-                }
-                // DORR Moments capsules: keep a copy of it in an album for an occasion.
-                if dto.viewOnce != true && dto.sealed != true && !["system", "call"].contains(dto.type) {
-                    row("archivebox.fill", L("mo_capsule_keep")) { sheet = "capsule" }
-                }
-                // Someone else's message I owe an answer to; a reminder at a time I pick.
-                if !mine && dto.type != "system" {
-                    row("flag.fill", L(dto.isFollowUp == true ? "ch_needs_reply_done" : "ch_needs_reply")) { state.followUp(dto); close() }
-                }
-                if dto.type != "system" {
-                    row("alarm.fill", L(dto.reminderAt != nil ? "ch_reminder_remove" : "ch_reminder")) {
-                        if dto.reminderAt != nil { state.remind(dto, at: nil); close() } else { sheet = "remind" }
-                    }
-                }
-                if canPin {
-                    row("pin.fill", L(isPinned ? "ch_unpin" : "ch_pin")) {
-                        if isPinned { state.unpin(dto); close() } else { sheet = "pin" }
-                    }
-                }
-                if canEdit { row("pencil", L("ch_edit")) { state.editing = dto; state.replyTo = nil; close() } }
-                if mine { row("info.circle.fill", L("ch_info")) { onOpenInfo(dto); close() } }
-                row("trash.fill", L("ch_delete"), danger: true) { sheet = "delete" }
+        // A side discussion under this message (spec 122).
+        if !["system", "call"].contains(dto.type) && dto.isDeleted != true && dto.threadRoot == nil {
+            item("bubble.left.and.bubble.right.fill", L("ch_thread_reply")) {
+                close()
+                host.push(.thread(conversationId: dto.conversationId, rootId: dto.id))
             }
         }
-        .frame(width: 240)
-        .fixedSize(horizontal: false, vertical: true)
-        .background(ch.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.2), radius: 14, y: 5)
+        // Into something to do (spec 148): commitment, handoff, agreement, task, appointment, reminder, decision.
+        if !["system", "call", "commitment", "handoff", "agreement"].contains(dto.type) && dto.isDeleted != true && c?.isChannel != true {
+            item("bolt.fill", L("lf_turn_into")) { sheet = "toAction" }
+        }
+        // In a group: put it to a vote, for the decisions log (spec 119–120).
+        if c?.type == "group" && !["system", "call", "poll"].contains(dto.type) && dto.isDeleted != true {
+            item("hammer.fill", L("ch_make_decision")) {
+                close()
+                host.makeDecision(dto)
+            }
+        }
+        if !body.isEmpty {
+            item("doc.on.doc.fill", L("ch_copy")) {
+                UIPasteboard.general.string = plainChatText(body)
+                host.showToast(L("ch_copied"))
+                close()
+            }
+        }
+        // AI, on a tap: a question about this message (spec 125).
+        if ai.ask && !body.isEmpty && dto.viewOnce != true && dto.type != "system" {
+            item("sparkles", L("ch_ai_ask_this")) { state.askAbout = [dto.id]; close() }
+        }
+        // DORR AI tools on this message (spec 37–39, 42, 46) — each one tap, suggestions only.
+        if aiText && !mine && ai.understand { item("brain.head.profile", L("ct_understand")) { state.aiTool = ("understand", dto); close() } }
+        if aiText && ai.simplify && body.count > 220 { item("text.alignleft", L("ct_simplify")) { state.aiTool = ("simplify", dto); close() } }
+        if aiText && ai.tasks { item("checkmark.circle.fill", L("ct_make_tasks")) { state.aiTool = ("tasks", dto); close() } }
+        // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
+        if ai.imageEdit && dto.type == "image" && dto.viewOnce != true && dto.sealed != true && dto.isDeleted != true {
+            item("sparkles", L("ch_ai_image_edit_title")) { state.aiTool = ("edit_image", dto); close() }
+        }
+        if aiText && ai.notes { item("doc.text.fill", L("ct_make_note")) { state.aiNote([dto.id]); close() } }
+        // AI, on a tap: translate the text (never a view-once message).
+        if ai.translate && aiText { item("character.bubble.fill", L("ch_ai_translate")) { state.translate(focused); close() } }
+        // Set it aside to come back to, or keep a copy in my own notes.
+        if dto.type != "system" {
+            item("bookmark.fill", L(dto.isReadLater == true ? "ch_read_later_done" : "ch_read_later")) { state.readLater(dto); close() }
+        }
+        if canForward && dto.viewOnce != true && c?.isSelf != true {
+            item("note.text.badge.plus", L("ch_save_to_notes")) { state.saveToNotes(dto, done: L("ch_saved_to_notes")); close() }
+        }
+        // DORR Moments capsules: keep a copy of it in an album for an occasion.
+        if dto.viewOnce != true && dto.sealed != true && !["system", "call"].contains(dto.type) {
+            item("archivebox.fill", L("mo_capsule_keep")) { sheet = "capsule" }
+        }
+        // Someone else's message I owe an answer to.
+        if !mine && dto.type != "system" {
+            item("flag.fill", L(dto.isFollowUp == true ? "ch_needs_reply_done" : "ch_needs_reply")) { state.followUp(dto); close() }
+        }
+        if canEdit { item("pencil", L("ch_edit")) { state.editing = dto; state.replyTo = nil; close() } }
+        if mine { item("info.circle.fill", L("ch_info")) { onOpenInfo(dto); close() } }
     }
 
-    private func row(_ icon: String, _ text: String, danger: Bool = false, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(verbatim: text).font(.dorr(14.5, .semibold)).foregroundStyle(danger ? ch.danger : ch.ink)
-                Spacer()
-                Image(systemName: icon).font(.system(size: 17)).foregroundStyle(danger ? ch.danger : ch.mut)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+    private func item(_ icon: String, _ text: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label { Text(verbatim: text) } icon: { Image(systemName: icon) } }
     }
 
     // MARK: Sheets
@@ -291,29 +324,46 @@ struct ForwardSheet: View {
     let onDismiss: () -> Void
     let onSend: ([String]) -> Void
     @State private var selected: [String] = []
+    @State private var query = ""
+    /// Chats I can send to, 15 at a time from the server (search included), the next 15 near the end.
+    @State private var chats: [ConversationDto] = []
+    @State private var page = 0
+    @State private var hasMore = true
+    @State private var loading = false
 
     var body: some View {
         ChSheetCard {
             Text(L("ch_forward_to")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 10)
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(host.conversations.filter { $0.id != exclude && $0.canSend != false }) { c in
-                        let on = selected.contains(c.id)
-                        HStack(spacing: 12) {
-                            ChAvatar(url: c.avatar, name: c.title, key: c.peer?.key ?? c.id, size: 44, isGroup: c.isGroup)
-                            Text(verbatim: c.title ?? "").font(.dorr(15, .bold)).foregroundStyle(ch.ink).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                            Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 24)).foregroundStyle(on ? ch.red : ch.soft)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: on)
-                        }
-                        .padding(.vertical, 8).padding(.horizontal, 6)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if on { selected.removeAll { $0 == c.id } } else if selected.count < 5 { selected.append(c.id) }
+            ChField(placeholder: L("ch_forward_search"), text: $query, icon: "magnifyingglass", clearable: true)
+                .padding(.bottom, 8)
+            Group {
+                if chats.isEmpty && (loading || hasMore) {
+                    ProgressView().tint(ch.red).frame(maxWidth: .infinity, minHeight: 120)
+                } else if chats.isEmpty {
+                    Text(L("ch_forward_none")).font(.dorr(14)).foregroundStyle(ch.soft).frame(maxWidth: .infinity, minHeight: 120)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(chats.enumerated()), id: \.element.id) { i, c in
+                                row(c)
+                                    .onAppear { if i >= chats.count - 3 { Task { await loadPage(page + 1, query) } } }
+                            }
+                            if hasMore { ProgressView().tint(ch.red).padding(10) }
                         }
                     }
+                    .frame(maxHeight: 440)
                 }
             }
-            .frame(maxHeight: 440)
+            .task(id: query) {
+                if !query.isEmpty { try? await Task.sleep(nanoseconds: 300_000_000) }
+                guard !Task.isCancelled else { return }
+                loading = false
+                hasMore = true
+                if await loadPage(1, query) {
+                    // Chats I can't send to are left out: keep going until the first screen is full.
+                    while hasMore && chats.count < 15 { if !(await loadPage(page + 1, query)) { break } }
+                }
+            }
             if !selected.isEmpty {
                 ChPrimaryButton(text: L("ch_forward") + " (\(selected.count))", icon: "arrowshape.turn.up.right.fill") {
                     onSend(selected)
@@ -324,6 +374,40 @@ struct ForwardSheet: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selected.isEmpty)
+    }
+
+    private func row(_ c: ConversationDto) -> some View {
+        let on = selected.contains(c.id)
+        return HStack(spacing: 12) {
+            ChAvatar(url: c.avatar, name: c.title, key: c.peer?.key ?? c.id, size: 44, isGroup: c.isGroup)
+            Text(verbatim: ltrTitle(c.title)).font(.dorr(15, .bold)).foregroundStyle(ch.ink).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 24)).foregroundStyle(on ? ch.red : ch.soft)
+                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: on)
+        }
+        .padding(.vertical, 8).padding(.horizontal, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if on { selected.removeAll { $0 == c.id } } else if selected.count < 5 { selected.append(c.id) }
+        }
+    }
+
+    /// False when nothing was loaded (another load running, a newer search, or the server failed).
+    @discardableResult
+    private func loadPage(_ next: Int, _ q: String) async -> Bool {
+        guard !loading, next == 1 || hasMore else { return false }
+        loading = true
+        let trimmed = q.trimmingCharacters(in: .whitespaces)
+        let res = try? await ChatApi.conversations(search: trimmed.isEmpty ? nil : trimmed, page: next, perPage: 15)
+        loading = false
+        // A newer search started meanwhile: drop this answer.
+        guard q == query else { return false }
+        guard let res else { hasMore = false; return false }
+        if next == 1 { chats = [] }
+        let fresh = (res.data ?? []).filter { c in c.id != exclude && c.canSend != false && !chats.contains { $0.id == c.id } }
+        chats.append(contentsOf: fresh)
+        page = next
+        hasMore = res.pagination?.hasMorePages == true
+        return true
     }
 }
 
