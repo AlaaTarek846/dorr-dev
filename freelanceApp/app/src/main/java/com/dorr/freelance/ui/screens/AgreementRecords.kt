@@ -121,7 +121,9 @@ internal fun ApprovalTrailCard(projectUuid: String, refreshKey: String) {
             Column(Modifier.padding(vertical = 4.dp)) {
                 Text(s.label, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Text(listOf(
-                    stringResource(if (s.mine) R.string.trail_by_you else when (s.actor) { "client" -> R.string.trail_by_client; "admin" -> R.string.trail_by_admin; "system" -> R.string.trail_by_system; else -> R.string.trail_by_freelancer }),
+                    // FS-104: a step a person of the client's team took for the client names him.
+                    s.by?.let { stringResource(R.string.trail_by_client_team, it.name) }
+                        ?: stringResource(if (s.mine) R.string.trail_by_you else when (s.actor) { "client" -> R.string.trail_by_client; "admin" -> R.string.trail_by_admin; "system" -> R.string.trail_by_system; else -> R.string.trail_by_freelancer }),
                     "‎" + s.at?.take(16)?.replace('T', ' ').orEmpty(),
                 ).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
             }

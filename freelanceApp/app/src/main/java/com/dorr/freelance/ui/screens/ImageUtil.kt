@@ -73,3 +73,22 @@ fun preparePortfolioImage(context: Context, uri: Uri, name: String): File? = run
     bitmap.recycle()
     file
 }.getOrNull()
+
+/**
+ * A team's logo picked from the gallery: scaled down to 1600px on its longest side and saved as JPEG in the cache (the server takes JPG / PNG /
+ * WebP up to 5MB), as the field `logo`. Null when it can't be read. Run it off the main thread.
+ */
+fun logoPart(context: Context, uri: Uri): MultipartBody.Part? = runCatching {
+    val resolver = context.contentResolver
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0) return@runCatching null
+    var sample = 1
+    while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1600) sample *= 2
+    val bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
+        ?: return@runCatching null
+    val file = File(context.cacheDir, "team_logo_upload.jpg")
+    file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+    bitmap.recycle()
+    MultipartBody.Part.createFormData("logo", "logo.jpg", file.asRequestBody("image/jpeg".toMediaType()))
+}.getOrNull()

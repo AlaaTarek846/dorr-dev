@@ -67,6 +67,13 @@ import com.dorr.freelance.ui.screens.SpecialOffersScreen
 import com.dorr.freelance.ui.screens.OfferFormScreen
 import com.dorr.freelance.ui.screens.EditOfferScreen
 import com.dorr.freelance.ui.screens.InvitationsScreen
+import com.dorr.freelance.ui.screens.TeamPlanScreen
+import com.dorr.freelance.ui.screens.TeamScreen
+import com.dorr.freelance.ui.screens.TeamThreadScreen
+import com.dorr.freelance.ui.screens.TeamVerificationScreen
+import com.dorr.freelance.ui.screens.workroom.WorkroomFileScreen
+import com.dorr.freelance.ui.screens.workroom.WorkroomScreen
+import com.dorr.freelance.ui.screens.TeamsScreen
 import com.dorr.freelance.ui.screens.MyOffersScreen
 import com.dorr.freelance.ui.screens.OfferDetailScreen
 import com.dorr.freelance.ui.screens.LoginScreen
@@ -76,14 +83,12 @@ import com.dorr.freelance.ui.screens.SkillsScreen
 import com.dorr.freelance.ui.screens.SpecialtiesScreen
 import com.dorr.freelance.ui.screens.SplashScreen
 import com.dorr.freelance.ui.screens.StartScreen
-import com.dorr.freelance.ui.screens.TermsScreen
 import com.dorr.freelance.ui.screens.VerificationScreen
 import com.dorr.freelance.ui.screens.WalletRoute
 import com.dorr.freelance.ui.screens.stepText
 
 /**
- * The app's routes: splash → welcome (once, on the first launch after install) → sign-in (phone → code) → home. A signed-in
- * freelancer who has not agreed to the terms is sent to [Routes.TERMS] before the home; the profile (name included) is filled in later.
+ * The app's routes: splash → welcome (once, on the first launch after install) → sign-in (phone → code, the terms are agreed on that page) → home; the profile (name included) is filled in later.
  */
 object Routes {
     const val SPLASH = "splash"
@@ -91,7 +96,6 @@ object Routes {
     const val LOGIN = "login"
     const val OTP = "otp/{dial}/{phone}/{cooldown}"
     const val HOME = "home"
-    const val TERMS = "terms"
     const val PROFILE = "profile"
     const val SPECIALTIES = "specialties"
     const val SKILLS = "skills"
@@ -102,6 +106,16 @@ object Routes {
     const val COACH = "profile-coach"
     const val SKILL_TESTS = "skill-tests"
     const val CAPACITY = "capacity"
+    // FS-209: my freelancers' teams and one team's page.
+    const val TEAMS = "teams"
+    const val TEAM = "team/{uuid}"
+    // FS-209c: a team's inside chat thread, its works (the list and one work) and its verification.
+    const val TEAM_THREAD = "team/{uuid}/chat/{thread}"
+    const val TEAM_PORTFOLIO = "team/{uuid}/portfolio"
+    const val TEAM_PORTFOLIO_ITEM = "team/{uuid}/portfolio/{id}"
+    const val TEAM_VERIFICATION = "team/{uuid}/verification"
+    // FS-211: a team's plan (its Owners read it and subscribe).
+    const val TEAM_PLAN = "team/{uuid}/plan"
     const val PORTFOLIO = "portfolio"
     const val PROJECT = "project/{uuid}"
     const val OFFER_FORM = "offer/{uuid}"
@@ -111,6 +125,9 @@ object Routes {
     const val INVITATIONS = "invitations"
     const val CHAT = "chat/{uuid}"
     const val AGREEMENT = "agreement/{uuid}"
+    // FS-150e: a project's Workroom (opens on `tab` = tasks · files · decisions · timeline) and one file of it.
+    const val WORKROOM = "workroom/{uuid}?tab={tab}"
+    const val WORKROOM_FILE = "workroom/{uuid}/file/{file}"
     const val DISPUTE = "dispute/{uuid}/{dispute}"
     const val DISPUTE_NEW = "dispute-new/{uuid}/{milestone}"
     const val CERTIFICATES = "certificates"
@@ -161,10 +178,20 @@ object Routes {
     fun consultationEdit(uuid: String? = null) = if (uuid == null) "consultation-edit" else "consultation-edit?uuid=$uuid"
 
     fun project(uuid: String) = "project/$uuid"
+    fun team(uuid: String) = "team/$uuid"
+    fun teamThread(uuid: String, thread: String) = "team/$uuid/chat/$thread"
+    fun teamPortfolio(uuid: String) = "team/$uuid/portfolio"
+    fun teamPortfolioItem(uuid: String, id: Int) = "team/$uuid/portfolio/$id"
+    fun teamVerification(uuid: String) = "team/$uuid/verification"
+    fun teamPlan(uuid: String) = "team/$uuid/plan"
 
     fun chat(uuid: String) = "chat/$uuid"
 
     fun agreement(uuid: String) = "agreement/$uuid"
+
+    fun workroom(project: String, tab: String = "tasks") = "workroom/$project?tab=$tab"
+
+    fun workroomFile(project: String, file: String) = "workroom/$project/file/$file"
 
     fun offerForm(uuid: String) = "offer/$uuid"
 
@@ -191,11 +218,6 @@ fun FreelanceNavGraph() {
         if (!signedIn) CommunityHub.clear()
         if (!signedIn) com.dorr.freelance.net.HomeHub.clear()
         if (!signedIn && !beforeSignIn) nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
-    }
-
-    // The terms come first: as soon as the account is known and they are not accepted, from the home.
-    LaunchedEffect(signedIn, me?.terms?.accepted) {
-        if (signedIn && me?.terms?.accepted == false && nav.currentDestination?.route == Routes.HOME) nav.navigate(Routes.TERMS)
     }
 
     // FL-110: a request that needs a verified account was refused — say which step they are at, once, from any screen.
@@ -329,6 +351,7 @@ fun FreelanceNavGraph() {
                     openPlans = { nav.navigate(Routes.PLANS) },
                     openPortfolio = { nav.navigate(Routes.PORTFOLIO) },
                     openProject = { uuid -> nav.navigate(Routes.project(uuid)) },
+                    openAgreement = { uuid -> nav.navigate(Routes.agreement(uuid)) },
                     openMyOffers = { nav.navigate(Routes.MY_OFFERS) },
                     openOffer = { uuid -> nav.navigate(Routes.offerDetail(uuid)) },
                     openInvitations = { nav.navigate(Routes.INVITATIONS) },
@@ -344,6 +367,7 @@ fun FreelanceNavGraph() {
                     openCoach = { nav.navigate(Routes.COACH) },
                     openSkillTests = { nav.navigate(Routes.SKILL_TESTS) },
                     openCapacity = { nav.navigate(Routes.CAPACITY) },
+                    openTeams = { nav.navigate(Routes.TEAMS) },
                     openConsultations = { nav.navigate(Routes.CONSULTATIONS) },
                     openConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) },
                     openConsultationEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } },
@@ -362,7 +386,14 @@ fun FreelanceNavGraph() {
         }
         composable(Routes.AGREEMENT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
             val p = entry.arguments?.getString("uuid").orEmpty()
-            shell(true) { AgreementScreen(projectUuid = p, onBack = { nav.popBackStack() }, onDispute = { m, d -> nav.navigate(if (d != null) "dispute/$p/$d" else "dispute-new/$p/$m") }) }
+            shell(true) { AgreementScreen(projectUuid = p, onBack = { nav.popBackStack() }, onDispute = { m, d -> nav.navigate(if (d != null) "dispute/$p/$d" else "dispute-new/$p/$m") }, onWorkroom = { nav.navigate(Routes.workroom(p)) }) }
+        }
+        composable(Routes.WORKROOM, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("tab") { type = NavType.StringType; defaultValue = "tasks" })) { entry ->
+            val p = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) { WorkroomScreen(project = p, tab = entry.arguments?.getString("tab") ?: "tasks", onBack = { nav.popBackStack() }, onOpenFile = { f -> nav.navigate(Routes.workroomFile(p, f)) }) }
+        }
+        composable(Routes.WORKROOM_FILE, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("file") { type = NavType.StringType })) { entry ->
+            shell(true) { WorkroomFileScreen(project = entry.arguments?.getString("uuid").orEmpty(), fileUuid = entry.arguments?.getString("file").orEmpty(), onBack = { nav.popBackStack() }) }
         }
         composable(Routes.DISPUTE, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("dispute") { type = NavType.StringType })) { entry ->
             shell(true) { DisputeScreen(projectUuid = entry.arguments?.getString("uuid").orEmpty(), milestoneUuid = null, disputeUuid = entry.arguments?.getString("dispute"), onBack = { nav.popBackStack() }, onOpened = {}) }
@@ -406,6 +437,40 @@ fun FreelanceNavGraph() {
         composable(Routes.PLANS) { shell(true) { PlansScreen(onBack = { nav.popBackStack() }, onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } }, onOpenInsights = { nav.navigate(Routes.INSIGHTS) { launchSingleTop = true } }) } }
         composable(Routes.INSIGHTS) { shell(true) { InsightsScreen(onBack = { nav.popBackStack() }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) } }
         composable(Routes.CAPACITY) { shell(true) { CapacityScreen(onBack = { nav.popBackStack() }) } }
+        composable(Routes.TEAMS) { shell(true) { TeamsScreen(onBack = { nav.popBackStack() }, onOpenTeam = { uuid -> nav.navigate(Routes.team(uuid)) }) } }
+        composable(Routes.TEAM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            val team = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) {
+                TeamScreen(
+                    uuid = team, onBack = { nav.popBackStack() }, onOpenProject = { project -> nav.navigate(Routes.agreement(project)) },
+                    onOpenThread = { thread -> nav.navigate(Routes.teamThread(team, thread)) },
+                    onOpenPortfolio = { nav.navigate(Routes.teamPortfolio(team)) },
+                    onOpenVerification = { nav.navigate(Routes.teamVerification(team)) },
+                    onOpenPlan = { nav.navigate(Routes.teamPlan(team)) },
+                )
+            }
+        }
+        composable(Routes.TEAM_THREAD, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("thread") { type = NavType.StringType })) { entry ->
+            shell(true) { TeamThreadScreen(teamUuid = entry.arguments?.getString("uuid").orEmpty(), threadUuid = entry.arguments?.getString("thread").orEmpty(), onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.TEAM_PORTFOLIO, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            val team = entry.arguments?.getString("uuid").orEmpty()
+            shell(true) { PortfolioTab(team = team, onBack = { nav.popBackStack() }, onOpenItem = { id -> nav.navigate(Routes.teamPortfolioItem(team, id)) }) }
+        }
+        composable(Routes.TEAM_PORTFOLIO_ITEM, arguments = listOf(navArgument("uuid") { type = NavType.StringType }, navArgument("id") { type = NavType.IntType })) { entry ->
+            shell(true) { PortfolioFormScreen(itemId = entry.arguments?.getInt("id") ?: 0, team = entry.arguments?.getString("uuid"), onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.TEAM_VERIFICATION, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) { TeamVerificationScreen(teamUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() }) }
+        }
+        composable(Routes.TEAM_PLAN, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) {
+                TeamPlanScreen(
+                    teamUuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() },
+                    onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } },
+                )
+            }
+        }
         composable(Routes.CONSULTATIONS) {
             shell(true) { ConsultationsScreen(onBack = { nav.popBackStack() }, onOpenEditor = { uuid -> nav.navigate(Routes.consultationEdit(uuid)) { launchSingleTop = true } }, onOpenConsultation = { uuid -> nav.navigate(Routes.consultation(uuid)) }, onSwitchStore = switchStore) }
         }
@@ -499,13 +564,6 @@ fun FreelanceNavGraph() {
         composable(Routes.NOTIFICATIONS) { shell(false) { NotificationsScreen(onBack = { nav.popBackStack() }, onOpenRoute = { route -> nav.navigate(route) }) } }
         composable(Routes.CERTIFICATES) { shell(true) { CertificatesScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.VERIFICATION) { shell(true) { VerificationScreen(onBack = { nav.popBackStack() }, onOpenProfile = { nav.navigate(Routes.PROFILE) }) } }
-        composable(Routes.TERMS) {
-            TermsScreen(
-                version = me?.terms?.currentVersion ?: "1",
-                // The name is not asked for here: it can be added later from the profile.
-                onAccepted = { nav.popBackStack() },
-            )
-        }
         composable(Routes.PROFILE) {
             shell(true) {
                 ProfileScreen(

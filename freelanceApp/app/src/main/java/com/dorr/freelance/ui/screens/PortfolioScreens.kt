@@ -35,6 +35,8 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import com.dorr.freelance.ui.components.EmptyState
 import com.dorr.freelance.ui.kit.AlertDialog
 import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.CircularProgressIndicator
@@ -106,19 +108,43 @@ private const val MAX_WORKS = 30
 private const val MAX_IMAGES = 10
 private const val MAX_WORK_SKILLS = 10
 
-/** My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30. */
+/**
+ * FS-209c: where the works are kept — my own (`profile/portfolio`) or a team's (`teams/{team}/portfolio`, the same fields without the
+ * agreement link). The screens below work on either through this.
+ */
+private class PortfolioSource(val team: String?) {
+    suspend fun list() = if (team == null) ApiClient.portfolio.list() else ApiClient.teamPortfolio.list(team)
+    suspend fun order(ids: List<Int>) = if (team == null) ApiClient.portfolio.order(PortfolioOrderRequest(ids)) else ApiClient.teamPortfolio.order(team, PortfolioOrderRequest(ids))
+    suspend fun create(body: Map<String, Any?>) = if (team == null) ApiClient.portfolio.create(body) else ApiClient.teamPortfolio.create(team, body)
+    suspend fun update(id: Int, body: Map<String, Any?>) = if (team == null) ApiClient.portfolio.update(id, body) else ApiClient.teamPortfolio.update(team, id, body)
+    suspend fun delete(id: Int) = if (team == null) ApiClient.portfolio.delete(id) else ApiClient.teamPortfolio.delete(team, id)
+    suspend fun addImage(id: Int, part: MultipartBody.Part) = if (team == null) ApiClient.portfolio.addImage(id, part) else ApiClient.teamPortfolio.addImage(team, id, part)
+    suspend fun deleteImage(id: Int, media: Int) = if (team == null) ApiClient.portfolio.deleteImage(id, media) else ApiClient.teamPortfolio.deleteImage(team, id, media)
+}
+
+/**
+ * My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30.
+ * With [team] it is that team's: everybody in the team reads it, and only an Owner (of an active team) adds, changes and orders.
+ */
 @Composable
-fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit) {
+fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit, team: String? = null) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
+    val src = remember(team) { PortfolioSource(team) }
     val items = remember { mutableStateListOf<PortfolioItemDto>() }
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // A team's works are changed by its Owners only (and not while the team is suspended); my own always by me.
+    var canEdit by remember(team) { mutableStateOf(team == null) }
 
-    LaunchedEffect(reconnect) {
-        val result = apiCall { ApiClient.portfolio.list() }
+    LaunchedEffect(team, reconnect) {
+        if (team != null) {
+            val mine = (apiCall { ApiClient.teams.profile(team) } as? ApiResult.Ok)?.data?.team
+            if (mine != null) canEdit = mine.me.role == "owner" && mine.status == "active"
+        }
+        val result = apiCall { src.list() }
         if (result is ApiResult.Ok) {
             items.clear()
             items.addAll(result.data)
@@ -135,22 +161,26 @@ fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit) {
         val moved = items.removeAt(index)
         items.add(to, moved)
         scope.launch {
-            val result = apiCall { ApiClient.portfolio.order(PortfolioOrderRequest(items.map { it.id })) }
+            val result = apiCall { src.order(items.map { it.id }) }
             if (result !is ApiResult.Ok) error = result.errorText(offlineText) ?: genericError
         }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SubHeader(title = stringResource(R.string.portfolio_title), onBack = onBack)
+        SubHeader(title = stringResource(if (team == null) R.string.portfolio_title else R.string.tpf_title), onBack = onBack)
         Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.portfolio_hint), color = settingsMut(), fontSize = 12.sp)
+        Text(stringResource(if (team == null) R.string.portfolio_hint else if (canEdit) R.string.tpf_hint else R.string.tpf_hint_member), color = settingsMut(), fontSize = 12.sp)
         if (!loaded && error == null) SkeletonList()
         if (loaded) {
-            if (items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
-            if (items.isEmpty()) Text(stringResource(R.string.portfolio_empty), color = settingsMut(), fontSize = 13.sp)
+            if (canEdit && items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
+            if (items.isEmpty()) EmptyState(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = stringResource(if (team == null) R.string.portfolio_empty else R.string.tpf_empty),
+                body = stringResource(if (team == null) R.string.portfolio_empty_body else R.string.tpf_empty_body),
+            )
             items.forEachIndexed { index, item ->
                 Row(
-                    Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).clickable { onOpenItem(item.id) }.padding(10.dp),
+                    Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).then(if (canEdit) Modifier.clickable { onOpenItem(item.id) } else Modifier).padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -166,7 +196,7 @@ fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit) {
                         if (item.hidden) Text(stringResource(R.string.portfolio_hidden) + (item.hiddenReason?.let { ": $it" } ?: ""), color = settingsMut(), fontSize = 11.sp)
                         if (item.withdrawnByClient) Text(stringResource(R.string.rights_pf_withdrawn), color = Color(0xFFD97706), fontSize = 11.sp, maxLines = 2)
                     }
-                    Column {
+                    if (canEdit) Column {
                         Icon(Icons.Rounded.ArrowUpward, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(22.dp).clickable(enabled = index > 0) { move(index, -1) })
                         Spacer(Modifier.height(6.dp))
                         Icon(Icons.Rounded.ArrowDownward, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(22.dp).clickable(enabled = index < items.lastIndex) { move(index, 1) })
@@ -193,11 +223,12 @@ private fun visibilityLabel(visibility: String): String = when (visibility) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
+fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
+    val src = remember(team) { PortfolioSource(team) }
 
     var currentId by rememberSaveable { mutableStateOf(itemId) }
     var item by remember { mutableStateOf<PortfolioItemDto?>(null) }
@@ -238,15 +269,25 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
         videoUrl = ""
     }
 
-    // One read of each list when the page opens.
+    // One read of each list when the page opens. A team's work is filed under what the team covers (the union of its people's).
     LaunchedEffect(Unit) {
-        (apiCall { ApiClient.lists.mySpecialties() } as? ApiResult.Ok)?.data?.let { specialties = it }
-        (apiCall { ApiClient.lists.mySkills() } as? ApiResult.Ok)?.data?.let { mySkills = it }
+        if (team == null) {
+            (apiCall { ApiClient.lists.mySpecialties() } as? ApiResult.Ok)?.data?.let { specialties = it }
+            (apiCall { ApiClient.lists.mySkills() } as? ApiResult.Ok)?.data?.let { mySkills = it }
+        } else {
+            (apiCall { ApiClient.teams.profile(team) } as? ApiResult.Ok)?.data?.team?.let { t ->
+                specialties = t.specialties.mapNotNull { n -> n.name?.let { MySpecialtyDto(id = n.id, name = it) } }
+                mySkills = t.skills.mapNotNull { n -> n.name?.let { MySkillDto(id = n.id, name = it) } }
+            }
+        }
         if (itemId != 0) {
-            val result = apiCall { ApiClient.portfolio.list() }
+            val result = apiCall { src.list() }
             if (result is ApiResult.Ok) {
                 val found = result.data.firstOrNull { it.id == currentId }
                 if (found != null) {
+                    // What the work is already filed under stays pickable even when the team no longer covers it.
+                    found.specialty?.let { sp -> if (specialties.none { it.id == sp.id }) specialties = specialties + MySpecialtyDto(id = sp.id, name = sp.name.orEmpty()) }
+                    found.skills.forEach { sk -> if (mySkills.none { it.id == sk.id }) mySkills = mySkills + MySkillDto(id = sk.id, name = sk.name.orEmpty()) }
                     // A form restored after the app was killed keeps what was typed; only a fresh one is filled from the server.
                     if (!loaded) fill(found) else item = found
                 }
@@ -258,7 +299,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     }
 
     LaunchedEffect(rightsOptions != null) {
-        if (rightsOptions != null && itemId == 0) (apiCall { ApiClient.rights.portfolioSources() } as? ApiResult.Ok)?.data?.let { sources = it.filter { s -> !s.used } }
+        if (rightsOptions != null && itemId == 0 && team == null) (apiCall { ApiClient.rights.portfolioSources() } as? ApiResult.Ok)?.data?.let { sources = it.filter { s -> !s.used } }
     }
 
     // ---- images ----
@@ -290,7 +331,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     fun deleteExisting(media: Int) {
         busy = true
         scope.launch {
-            val result = apiCall { ApiClient.portfolio.deleteImage(currentId, media) }
+            val result = apiCall { src.deleteImage(currentId, media) }
             busy = false
             if (result is ApiResult.Ok) item = result.data else error = result.errorText(offlineText) ?: genericError
         }
@@ -313,7 +354,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
         )
         if (currentId == 0 && agreementUuid != null) body["agreement_uuid"] = agreementUuid
         scope.launch {
-            val saved = if (currentId == 0) apiCall { ApiClient.portfolio.create(body) } else apiCall { ApiClient.portfolio.update(currentId, body) }
+            val saved = if (currentId == 0) apiCall { src.create(body) } else apiCall { src.update(currentId, body) }
             if (saved !is ApiResult.Ok) {
                 busy = false
                 error = saved.errorText(offlineText) ?: genericError
@@ -330,7 +371,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                     continue
                 }
                 val part = MultipartBody.Part.createFormData("image", file.name, file.asRequestBody("image/jpeg".toMediaTypeOrNull()))
-                val up = apiCall { ApiClient.portfolio.addImage(currentId, part) }
+                val up = apiCall { src.addImage(currentId, part) }
                 if (up is ApiResult.Ok) {
                     item = up.data
                     pending.remove(path)
@@ -349,7 +390,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     fun delete() {
         busy = true
         scope.launch {
-            val failed = apiDone(offlineText, genericError) { ApiClient.portfolio.delete(currentId) }
+            val failed = apiDone(offlineText, genericError) { src.delete(currentId) }
             busy = false
             if (failed == null) onBack() else error = failed
         }
@@ -360,7 +401,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
         if (loaded) {
             com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Work, stringResource(R.string.pf_intro_title), stringResource(R.string.pf_intro))
             // FL-L13: a finished work may be shown only when its client allowed it.
-            if (rightsOptions != null && currentId == 0) com.dorr.freelance.ui.components.FormGroup {
+            if (rightsOptions != null && currentId == 0 && team == null) com.dorr.freelance.ui.components.FormGroup {
                 FieldLabel(stringResource(R.string.rights_pf_pick_title))
                 if (sources.isEmpty()) Text(stringResource(R.string.rights_pf_none), color = settingsMut(), fontSize = 12.sp)
                 else ChipRow(

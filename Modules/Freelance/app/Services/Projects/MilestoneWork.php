@@ -154,7 +154,7 @@ class MilestoneWork
             $locked->save();
             DB::table('freelance_milestone_events')->insert([
                 'milestone_id' => $locked->id, 'type' => $event, 'from_status' => $from->value, 'to_status' => $to->value,
-                'actor_type' => $actorType, 'actor_id' => $actorId, 'payload' => $payload === [] ? null : json_encode($payload), 'created_at' => now(),
+                'actor_type' => $actorType, 'actor_id' => $actorId, 'acted_by_user_id' => \Modules\Freelance\Services\Team\ClientTeamContext::actorId(), 'acted_by_freelancer_id' => \Modules\Freelance\Services\FreelancerTeam\FreelancerTeamContext::actorId(), 'payload' => $payload === [] ? null : json_encode($payload), 'created_at' => now(),
             ]);
             if (in_array($event, self::APPROVALS, true)) {
                 FreelanceProjectApproval::record((int) $locked->project_id, (int) $locked->agreement_id, $event, $actorType, $actorId, (int) $locked->version,

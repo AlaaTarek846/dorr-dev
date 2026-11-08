@@ -203,7 +203,8 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::get('profile/certificates/{certificate}/proof', [FreelancerProfileListsController::class, 'proof'])->whereNumber('certificate');
         Route::delete('profile/certificates/{certificate}', [FreelancerProfileListsController::class, 'destroyCertificate'])->whereNumber('certificate');
         // Browsing the clients' projects (FL-206 / FL-207): published, public, of the freelancer's own country.
-        Route::prefix('projects')->middleware('freelance.feature:projects')->group(function () {
+        // FS-206a: somebody of a freelancers' team reaches the team's project for the Owner who signed (`freelance.team-project-access`).
+        Route::prefix('projects')->middleware(['freelance.feature:projects', 'freelance.team-project-access'])->group(function () {
             Route::get('/', [FreelancerProjectController::class, 'index']);
             Route::get('{uuid}', [FreelancerProjectController::class, 'show'])->whereUuid('uuid');
             Route::post('{uuid}/favorite', [FreelancerProjectController::class, 'favorite'])->whereUuid('uuid');
@@ -216,6 +217,9 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             // FL-601 / FL-602: the versions delivered (files kept as uploaded, downloaded by the two people of the agreement only).
             Route::get('{uuid}/milestones/{milestone}/deliveries', [MilestoneDeliveryController::class, 'index'])->whereUuid(['uuid', 'milestone']);
             Route::get('{uuid}/milestones/{milestone}/deliveries/{delivery}/files/{media}', [MilestoneDeliveryController::class, 'file'])->whereUuid(['uuid', 'milestone', 'delivery'])->whereNumber('media');
+            // FS-206b: who of the team works on a part of a team's project.
+            Route::get('{uuid}/milestones/{milestone}/assignees', [\Modules\Freelance\Http\Controllers\Freelancer\MilestoneAssigneeController::class, 'index'])->whereUuid(['uuid', 'milestone']);
+            Route::put('{uuid}/milestones/{milestone}/assignees', [\Modules\Freelance\Http\Controllers\Freelancer\MilestoneAssigneeController::class, 'update'])->whereUuid(['uuid', 'milestone'])->middleware('throttle:60,1,freelance-team-assign');
             Route::post('{uuid}/milestones/{milestone}/{action}', [FreelancerAgreementController::class, 'milestoneAction'])->whereUuid(['uuid', 'milestone'])->whereIn('action', ['start', 'deliver', 'withdraw', 'cancel-accept', 'cancel-reject']);
             // FL-704: disputes on a part.
             Route::post('{uuid}/milestones/{milestone}/dispute', [DisputeController::class, 'open'])->whereUuid(['uuid', 'milestone'])->middleware('freelance.feature:disputes');
@@ -237,6 +241,45 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             // FL-605: optional progress reports (the freelancer sends, the two read).
             Route::get('{uuid}/reports', [ProgressReportController::class, 'index'])->whereUuid('uuid');
             Route::post('{uuid}/reports', [ProgressReportController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-report');
+            // FS-150a: the Workroom's tasks.
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/tasks')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomTaskController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-workroom-task');
+                Route::put('{task}', [$c, 'update'])->whereUuid(['uuid', 'task'])->middleware('throttle:120,1,freelance-workroom-task');
+                Route::post('{task}/status', [$c, 'status'])->whereUuid(['uuid', 'task'])->middleware('throttle:120,1,freelance-workroom-task');
+                Route::delete('{task}', [$c, 'destroy'])->whereUuid(['uuid', 'task'])->middleware('throttle:60,1,freelance-workroom-task');
+            });
+            // FS-150b: the Workroom's File Hub (files with versions) and its notes (on a file or a delivery).
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/files')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomFileController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-workroom-file');
+                Route::get('{file}', [$c, 'show'])->whereUuid(['uuid', 'file']);
+                Route::put('{file}', [$c, 'update'])->whereUuid(['uuid', 'file'])->middleware('throttle:60,1,freelance-workroom-file-edit');
+                Route::delete('{file}', [$c, 'destroy'])->whereUuid(['uuid', 'file'])->middleware('throttle:60,1,freelance-workroom-file-edit');
+                Route::post('{file}/versions', [$c, 'addVersion'])->whereUuid(['uuid', 'file'])->middleware('throttle:30,1,freelance-workroom-file');
+                Route::get('{file}/versions/{number}/download', [$c, 'download'])->whereUuid(['uuid', 'file'])->whereNumber('number');
+            });
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/comments')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomCommentController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-workroom-comment');
+                Route::put('{comment}', [$c, 'update'])->whereUuid(['uuid', 'comment'])->middleware('throttle:120,1,freelance-workroom-comment');
+                Route::delete('{comment}', [$c, 'destroy'])->whereUuid(['uuid', 'comment'])->middleware('throttle:60,1,freelance-workroom-comment');
+            });
+            // FS-150c: the decision log and the Workroom's timeline (reading only).
+            Route::middleware('freelance.feature:workroom')->prefix('{uuid}/workroom/decisions')->group(function () {
+                $c = \Modules\Freelance\Http\Controllers\WorkroomDecisionController::class;
+                Route::get('/', [$c, 'index'])->whereUuid('uuid');
+                Route::post('/', [$c, 'store'])->whereUuid('uuid')->middleware('throttle:30,1,freelance-workroom-decision');
+                Route::get('{decision}', [$c, 'show'])->whereUuid(['uuid', 'decision']);
+                Route::put('{decision}', [$c, 'update'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::post('{decision}/agree', [$c, 'agree'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::post('{decision}/decline', [$c, 'decline'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+                Route::delete('{decision}', [$c, 'destroy'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
+            });
+            Route::get('{uuid}/workroom/timeline', [\Modules\Freelance\Http\Controllers\WorkroomTimelineController::class, 'index'])->whereUuid('uuid')->middleware('freelance.feature:workroom');
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::get('{uuid}/agreement/changes/{change}/files/{media}', [ChangeRequestController::class, 'file'])->whereUuid(['uuid', 'change'])->whereNumber('media');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);
@@ -346,6 +389,74 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             // FL-709: report the other person's message.
             Route::post('messages/{message}/report', [\Modules\Freelance\Http\Controllers\MessageReportController::class, 'store'])->whereNumber('message')->middleware('throttle:20,1,freelance-message-report');
         });
+
+        // FS-150d: my teams and each team's internal chat (never the client's).
+        Route::middleware('freelance.feature:teams')->group(function () {
+            $c = \Modules\Freelance\Http\Controllers\Freelancer\TeamChatController::class;
+            Route::get('teams', [$c, 'teams']);
+            // FS-202a: making a team, its profile (the Owner writes it; each member says whether he is shown, D10) and its works.
+            $tp = \Modules\Freelance\Http\Controllers\Freelancer\TeamProfileController::class;
+            Route::post('teams', [$tp, 'store'])->middleware('throttle:10,1,freelance-team-create');
+            Route::get('teams/{team}/profile', [$tp, 'show'])->whereUuid('team');
+            Route::put('teams/{team}/profile', [$tp, 'update'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-profile');
+            Route::put('teams/{team}/profile/me', [$tp, 'consent'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-profile');
+            Route::delete('teams/{team}/profile/logo', [$tp, 'removeLogo'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-profile');
+            // FS-202b: the team's verification (D4, optional): papers, sending them, opening them again - the Owners.
+            $tv = \Modules\Freelance\Http\Controllers\Freelancer\TeamVerificationController::class;
+            Route::get('teams/{team}/verification', [$tv, 'show'])->whereUuid('team');
+            Route::post('teams/{team}/verification/submit', [$tv, 'submit'])->whereUuid('team')->middleware('throttle:10,1,freelance-team-verification');
+            Route::delete('teams/{team}/verification/documents/{document}', [$tv, 'destroy'])->whereUuid(['team', 'document']);
+            Route::get('teams/{team}/verification/documents/{document}', [$tv, 'file'])->whereUuid(['team', 'document']);
+            $tw = \Modules\Freelance\Http\Controllers\Freelancer\TeamPortfolioController::class;
+            Route::get('teams/{team}/portfolio', [$tw, 'index'])->whereUuid('team');
+            Route::post('teams/{team}/portfolio', [$tw, 'store'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-profile');
+            Route::put('teams/{team}/portfolio/order', [$tw, 'order'])->whereUuid('team');
+            Route::put('teams/{team}/portfolio/{item}', [$tw, 'update'])->whereUuid('team')->whereNumber('item');
+            Route::delete('teams/{team}/portfolio/{item}', [$tw, 'destroy'])->whereUuid('team')->whereNumber('item');
+            Route::get('teams/{team}/portfolio/{item}/images/{media}', [$tw, 'image'])->whereUuid('team')->whereNumber(['item', 'media']);
+            Route::delete('teams/{team}/portfolio/{item}/images/{media}', [$tw, 'destroyImage'])->whereUuid('team')->whereNumber(['item', 'media']);
+            Route::prefix('teams/{team}/chat')->group(function () use ($c) {
+                Route::get('threads', [$c, 'threads'])->whereUuid('team');
+                Route::post('threads', [$c, 'openProject'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-thread');
+                Route::get('threads/{thread}/messages', [$c, 'messages'])->whereUuid(['team', 'thread']);
+                Route::post('threads/{thread}/messages', [$c, 'send'])->whereUuid(['team', 'thread'])->middleware('throttle:60,1,freelance-team-chat-send');
+                Route::post('threads/{thread}/read', [$c, 'read'])->whereUuid(['team', 'thread']);
+                Route::delete('messages/{message}', [$c, 'destroy'])->whereUuid('team')->whereNumber('message');
+            });
+            // FS-204: the team's people, their roles and abilities; the Owner's switches for a PM or a member.
+            $m = \Modules\Freelance\Http\Controllers\Freelancer\TeamMemberController::class;
+            Route::get('teams/{team}/members', [$m, 'index'])->whereUuid('team');
+            Route::put('teams/{team}/members/{freelancer}/permissions', [$m, 'permissions'])->whereUuid(['team', 'freelancer'])->middleware('throttle:60,1,freelance-team-permissions');
+            Route::put('teams/{team}/members/{freelancer}/role', [$m, 'role'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-permissions');
+            Route::put('teams/{team}/members/{freelancer}/title', [$m, 'title'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-permissions');
+            Route::post('teams/{team}/leave', [$m, 'leave'])->whereUuid('team')->middleware('throttle:20,1,freelance-team-leave');
+            Route::delete('teams/{team}/members/{freelancer}', [$m, 'remove'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-leave');
+            // FS-206a: the team's projects I reach (all for an Owner / PM, mine for a member - D9); each is used through `projects/{uuid}/...`.
+            Route::get('teams/{team}/projects', [\Modules\Freelance\Http\Controllers\Freelancer\TeamProjectController::class, 'index'])->whereUuid('team');
+            // FS-207: what each member carries (an Owner / a PM reads all, a member his own).
+            Route::get('teams/{team}/workload', [\Modules\Freelance\Http\Controllers\Freelancer\TeamProjectController::class, 'workload'])->whereUuid('team');
+            // FS-211: the team's plan (Team Starter...), read and taken by an Owner out of his own wallet (D7); behind the `subscriptions` switch too.
+            Route::middleware('freelance.feature:subscriptions')->group(function () {
+                $ts = \Modules\Freelance\Http\Controllers\Freelancer\TeamSubscriptionController::class;
+                Route::get('teams/{team}/subscription', [$ts, 'show'])->whereUuid('team');
+                Route::middleware('throttle:10,1,freelance-team-subscription')->group(function () use ($ts) {
+                    Route::post('teams/{team}/subscription', [$ts, 'store'])->whereUuid('team');
+                    Route::post('teams/{team}/subscription/cancel', [$ts, 'cancel'])->whereUuid('team');
+                    Route::post('teams/{team}/subscription/resume', [$ts, 'resume'])->whereUuid('team');
+                    Route::post('teams/{team}/subscription/renew', [$ts, 'renew'])->whereUuid('team');
+                });
+            });
+            // FS-203: invitations into a team (the team's side, then the invited person's under `team-invitations`: `invitations` is FL-205's, private projects).
+            $v = \Modules\Freelance\Http\Controllers\Freelancer\TeamInvitationController::class;
+            Route::get('teams/{team}/invitations', [$v, 'open'])->whereUuid('team');
+            Route::post('teams/{team}/invitations', [$v, 'store'])->whereUuid('team')->middleware('throttle:30,1,freelance-team-invite');
+            Route::delete('teams/{team}/invitations/{invitation}', [$v, 'cancel'])->whereUuid(['team', 'invitation'])->middleware('throttle:30,1,freelance-team-invite');
+            Route::get('team-invitations', [$v, 'mine']);
+            Route::get('team-invitations/by-link/{token}', [$v, 'preview'])->middleware('throttle:30,1,freelance-team-link');
+            Route::post('team-invitations/by-link/{token}/accept', [$v, 'acceptLink'])->middleware('throttle:20,1,freelance-team-link');
+            Route::post('team-invitations/{invitation}/accept', [$v, 'accept'])->whereUuid('invitation')->middleware('throttle:30,1,freelance-team-invite');
+            Route::post('team-invitations/{invitation}/decline', [$v, 'decline'])->whereUuid('invitation')->middleware('throttle:30,1,freelance-team-invite');
+        });
     });
 
     Route::middleware(['auth:freelance_api', 'ensure-phone-verified:freelance_api', 'throttle:20,1,freelancer-uploads'])->group(function () {
@@ -353,6 +464,12 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         Route::post('profile/certificates', [FreelancerProfileListsController::class, 'storeCertificate']);
         Route::post('verification/documents', [FreelancerVerificationController::class, 'upload']);
         Route::post('profile/portfolio/{item}/images', [FreelancerPortfolioController::class, 'addImage'])->whereNumber('item');
+        // FS-202a: a team's logo and its works' images (an Owner).
+        Route::middleware('freelance.feature:teams')->group(function () {
+            Route::post('teams/{team}/profile/logo', [\Modules\Freelance\Http\Controllers\Freelancer\TeamProfileController::class, 'logo'])->whereUuid('team');
+            Route::post('teams/{team}/portfolio/{item}/images', [\Modules\Freelance\Http\Controllers\Freelancer\TeamPortfolioController::class, 'addImage'])->whereUuid('team')->whereNumber('item');
+            Route::post('teams/{team}/verification/documents', [\Modules\Freelance\Http\Controllers\Freelancer\TeamVerificationController::class, 'upload'])->whereUuid('team');
+        });
         Route::post('profile/certificates/{certificate}', [FreelancerProfileListsController::class, 'updateCertificate'])->whereNumber('certificate');
         Route::post('services/{uuid}/images', [FreelancerServiceController::class, 'addImage'])->whereUuid('uuid')->middleware(['freelance.feature:projects', 'freelance.feature:services']);
     });

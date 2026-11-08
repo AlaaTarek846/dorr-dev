@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-211: باقة الفريق - اللي بتفتحه للفريق كله، والمالك اللي بيدفع -->
+    <string name="tpl_row_title">باقة الفريق</string>
+    <string name="tpl_row_sub">أشخاص ومشاريع وعروض أكتر للفريق</string>
+    <string name="tpl_title">باقة الفريق</string>
+    <string name="tpl_unavailable_title">مفيش باقات للفرق لسه</string>
+    <string name="tpl_unavailable">باقات الفرق مش متاحة في بلدك دلوقتي.</string>
+
+    <string name="tpl_usage_title">فريقك حاليًا</string>
+    <string name="tpl_usage_hint">الحد بيمنع الجديد بس: محدش بيتشال ومفيش مشروع شغّال بيتقطع.</string>
+    <string name="tpl_people">الأشخاص</string>
+    <string name="tpl_projects">مشاريع مع بعض</string>
+    <string name="tpl_offers">عروض الشهر ده</string>
+    <string name="tpl_of">%1$d من %2$d</string>
+    <string name="tpl_no_cap">%1$d · من غير حد</string>
+    <string name="tpl_full">وصلت للحد</string>
+
+    <string name="tpl_benefit_people_n">لحد %1$d شخص</string>
+    <string name="tpl_benefit_people_any">من غير حد للأشخاص</string>
+    <string name="tpl_benefit_projects_n">لحد %1$d مشروع مع بعض</string>
+    <string name="tpl_benefit_projects_any">من غير حد للمشاريع</string>
+    <string name="tpl_benefit_offers_n">%1$d عرض للفريق في الشهر</string>
+    <string name="tpl_benefit_offers_any">عروض للفريق من غير حد</string>
+
+    <string name="tpl_paid_by_me">إنت اللي بتدفع الباقة دي من محفظتك.</string>
+    <string name="tpl_paid_by">%1$s هو اللي بيدفع الباقة دي من محفظته. هو بس اللي يقدر يغيّرها أو يدفع تاني أو يشغّل التجديد؛ أي مالك يقدر يقفل التجديد.</string>
+    <string name="tpl_payer_only">%1$s بس اللي يقدر يغيّر الباقة.</string>
+    <string name="tpl_cancel_confirm">الفريق هيفضل على %1$s لحد %2$s، وبعدها يرجع لحدود الباقة المجانية.</string>
+    <string name="tpl_footer">السعر على الفريق كله مش على كل عضو، وبيتخصم من محفظة المالك اللي بيشترك.</string>
+</resources>

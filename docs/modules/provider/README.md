@@ -79,33 +79,6 @@ Same patterns as User portal; **no AI chat**.
 
 ---
 
-## Providers app platform (establishments, team, vehicles) — phase A of [moving_tasks.md](../../moving_tasks.md)
-
-The shared base for every provider service (moving first). Business rules: [moving_business.md](../../moving_business.md) §5, §6, §12–§17.
-
-- **Account = `Provider`** (a person). The app signs in by phone OTP: `POST provider/v1/auth/otp | auth/verify | auth/resend | auth/logout`. The web portal keeps its email sign-in.
-- **Establishment** (`provider_establishments`): individual or company, one owned per person, with its own wallet alias `establishment` (`Modules/Wallet/config` → `morph_map`). Status `draft → under_review → approved / rejected / suspended`.
-- **Branches** (`provider_branches`): point + `radius_km`; the main branch is made with the establishment.
-- **Memberships** (`provider_memberships` + `_branches` + `_permissions` + `_events`): a person's seat; the owner holds every key. Keys and templates: `Modules/Provider/config/config.php`. Nobody grants a key or branch they don't hold. Exclusivity is shown before accepting; a member leaves any time (`MembershipEnded`).
-- **Vehicles & documents** (`provider_vehicle_types`, `provider_document_types` + `_requirements`, `provider_vehicles`, `provider_documents`): the admin sets what each country/service/vehicle type asks; the photo showing the plate (`vehicle_plate_photo`) is always asked. Expiry sweep: `provider:sweep-documents` (daily).
-- **Work gate:** `WorkGate::offerProblem()` — no offer before the establishment, the vehicle, its photos and papers (and an individual's own driving licence) are approved.
-
-| App endpoint (`provider/v1`, `auth:provider_api` + phone verified) | Purpose |
-|---|---|
-| `GET workspace`, `GET workspace/options` | establishments to switch between, invitations; services, vehicle types, permission groups |
-| `POST establishments`, `GET/PUT establishment`, `POST establishment/submit` | register, view, edit, send for review |
-| `GET/POST branches`, `PUT/DELETE branches/{uuid}` | branches |
-| `GET/POST members`, `PUT/DELETE members/{uuid}`, `GET members/events` | team and its log |
-| `POST invitations/{uuid}/accept|decline`, `POST memberships/{uuid}/leave` | the invited person's answer, leaving |
-| `GET/POST vehicles`, `GET/PUT vehicles/{uuid}`, `POST vehicles/{uuid}/deactivate` | vehicles with required/missing photos and papers |
-| `GET/POST documents` | establishment papers, a driver's licence (`driver_uuid`), vehicle papers |
-
-The app sends `X-Establishment: {uuid}` to say which establishment it is working in (needed when the person has more than one).
-
-Admin (`admin/v1`): `provider-establishments` (list, show, `status`, `vehicles/{uuid}/review`, `documents/{uuid}/review`), `provider-vehicle-types`, `provider-document-types` (+ `options`). Permissions: `provider-establishments`, `provider-vehicle-types`, `provider-document-types`.
-
----
-
 ## Not in Provider portal
 
 - **No AI Chat** — no `/api/provider/v1/ai-chat/*`, no chat views in provider SPA

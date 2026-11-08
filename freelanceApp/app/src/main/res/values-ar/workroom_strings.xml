@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-150e: غرفة الشغل (المهام والملفات والقرارات والمسار) -->
+
+    <!-- Workroom: the hub and its tabs -->
+    <string name="wr_title">غرفة الشغل</string>
+    <string name="wr_tab_tasks">المهام</string>
+    <string name="wr_tab_files">الملفات</string>
+    <string name="wr_tab_decisions">القرارات</string>
+    <string name="wr_tab_timeline">المسار</string>
+    <string name="wr_entry_body">المهام والملفات والقرارات بينك وبين العميل في مكان واحد</string>
+    <string name="wr_entry_body_done">المشروع خلص – راجع المهام والملفات والقرارات (للقراية بس)</string>
+    <string name="wr_read_only">المشروع خلص، فالغرفة للقراية بس.</string>
+    <string name="wr_side_me">أنا</string>
+    <string name="wr_side_client">العميل</string>
+    <string name="wr_today">النهارده</string>
+    <string name="wr_yesterday">إمبارح</string>
+
+    <!-- shared words -->
+    <string name="wr_f_all">الكل</string>
+    <string name="wr_f_mine">بتاعتي</string>
+    <string name="wr_f_client">على العميل</string>
+    <string name="wr_f_overdue">متأخرة</string>
+    <string name="wr_f_waiting">مستنياني</string>
+    <string name="wr_save">حفظ</string>
+    <string name="wr_send">إرسال</string>
+    <string name="wr_edit">تعديل</string>
+    <string name="wr_delete">مسح</string>
+    <string name="wr_description">الوصف</string>
+    <string name="wr_status">الحالة</string>
+    <string name="wr_part">الجزء</string>
+    <string name="wr_no_part">من غير جزء</string>
+    <string name="wr_part_tag">الجزء %1$d · %2$s</string>
+    <string name="wr_team_only">للفريق بس</string>
+    <string name="wr_preview_only">معاينة بس</string>
+
+    <!-- tasks -->
+    <string name="wr_task_todo">لسه</string>
+    <string name="wr_task_doing">شغّال عليها</string>
+    <string name="wr_task_blocked">واقفة</string>
+    <string name="wr_task_done">خلصت</string>
+    <string name="wr_n_open">مفتوحة</string>
+    <string name="wr_tasks_empty_title">مفيش مهام لسه</string>
+    <string name="wr_tasks_empty_body">قسّم الشغل لمهام صغيرة وتابع تقدمها مع العميل.</string>
+    <string name="wr_tasks_limit">المشروع ده وصل للحد الأقصى من المهام (%1$d).</string>
+    <string name="wr_task_add">مهمة جديدة</string>
+    <string name="wr_task_new">مهمة جديدة</string>
+    <string name="wr_task_edit">تعديل المهمة</string>
+    <string name="wr_task_view">المهمة</string>
+    <string name="wr_task_title">عنوان المهمة</string>
+    <string name="wr_task_title_hint">مثلًا: تجهيز النسخة الأولى</string>
+    <string name="wr_task_delete">مسح المهمة</string>
+    <string name="wr_task_delete_ask">المهمة هتتمسح نهائيًا.</string>
+    <string name="wr_due">الموعد %1$s</string>
+    <string name="wr_due_late">متأخرة · %1$s</string>
+    <string name="wr_due_label">الموعد</string>
+    <string name="wr_assignee">على مين</string>
+    <string name="wr_person">الشخص من فريقي</string>
+    <string name="wr_nobody">مش محدد</string>
+    <string name="wr_team_only_hint">مهمة داخلية: العميل مش هيشوفها.</string>
+
+    <!-- files -->
+    <string name="wr_file">ملف</string>
+    <string name="wr_files_empty_title">مفيش ملفات لسه</string>
+    <string name="wr_files_empty_body">ارفع ملفات الشغل هنا. كل نسخة بتتحفظ والعميل يقدر يعلّق عليها.</string>
+    <string name="wr_files_nomatch_title">مفيش نتيجة</string>
+    <string name="wr_files_nomatch_body">جرّب كلمة تانية.</string>
+    <string name="wr_files_search">دوّر في الملفات</string>
+    <string name="wr_n_files">ملفات</string>
+    <string name="wr_n_versions">نسخ</string>
+    <string name="wr_n_storage">المساحة</string>
+    <string name="wr_file_upload">رفع ملف</string>
+    <string name="wr_file_pick">اختار الملف</string>
+    <string name="wr_file_rules">لحد %1$d ميجا</string>
+    <string name="wr_file_too_large">الملف أكبر من %1$d ميجا.</string>
+    <string name="wr_file_wrong_type">نوع الملف ده مش مسموح. المسموح: %1$s</string>
+    <string name="wr_file_unreadable">مقدرناش نقرا الملف ده.</string>
+    <string name="wr_file_title">اسم الملف</string>
+    <string name="wr_file_open">فتح الملف</string>
+    <string name="wr_file_open_failed">مقدرناش نفتح الملف. اتأكد إن فيه تطبيق على الموبايل يفتحه.</string>
+    <string name="wr_file_edit">تعديل الملف</string>
+    <string name="wr_file_delete">مسح الملف</string>
+    <string name="wr_file_delete_ask">الملف بكل نسخه وملاحظاته هيتمسح.</string>
+    <string name="wr_team_only_file_hint">ملف داخلي: العميل مش هيشوفه.</string>
+    <string name="wr_version_add">نسخة جديدة</string>
+    <string name="wr_version_n">نسخة %1$d</string>
+    <string name="wr_versions">النسخ (%1$d)</string>
+    <string name="wr_version_note">ملاحظة على النسخة</string>
+    <string name="wr_version_note_hint">إيه اللي اتغيّر؟</string>
+    <string name="wr_notes">الملاحظات</string>
+    <string name="wr_notes_empty">مفيش ملاحظات لسه. اكتب أول ملاحظة على الملف.</string>
+    <string name="wr_note_hint">اكتب ملاحظة…</string>
+    <string name="wr_note_send">إرسال الملاحظة</string>
+    <string name="wr_note_edit">تعديل الملاحظة</string>
+    <string name="wr_note_delete">مسح الملاحظة</string>
+    <string name="wr_note_delete_ask">الملاحظة هتتمسح.</string>
+    <string name="wr_edited">اتعدّلت</string>
+
+    <!-- decisions -->
+    <string name="wr_dec_proposed">مستنية رد</string>
+    <string name="wr_dec_agreed">اتفقنا</string>
+    <string name="wr_dec_declined">اترفضت</string>
+    <string name="wr_dec_superseded">اتبدّلت</string>
+    <string name="wr_dec_empty_title">مفيش قرارات لسه</string>
+    <string name="wr_dec_empty_body">سجّل هنا أي اتفاق بينك وبين العميل عشان يفضل مكتوب وواضح.</string>
+    <string name="wr_dec_propose">اقتراح قرار</string>
+    <string name="wr_dec_edit">تعديل القرار</string>
+    <string name="wr_dec_replace">استبدال</string>
+    <string name="wr_dec_title">عنوان القرار</string>
+    <string name="wr_dec_body">نص القرار</string>
+    <string name="wr_dec_hint">القرار بيبقى معتمد لما الطرفين يوافقوا عليه.</string>
+    <string name="wr_dec_agree">موافقة</string>
+    <string name="wr_dec_decline">رفض</string>
+    <string name="wr_dec_withdraw">سحب</string>
+    <string name="wr_dec_withdraw_ask">تسحب اقتراحك؟</string>
+    <string name="wr_dec_waiting_me">فيه قرارات مستنية ردك</string>
+    <string name="wr_dec_by">اقتراح %1$s</string>
+    <string name="wr_dec_note">ملاحظة الرد: %1$s</string>
+    <string name="wr_dec_note_label">ملاحظة (اختياري)</string>
+    <string name="wr_dec_note_agree_hint">أي حاجة عايز تضيفها…</string>
+    <string name="wr_dec_note_decline_hint">ليه رفضت؟</string>
+    <string name="wr_dec_replaces">بيستبدل: %1$s</string>
+    <string name="wr_dec_replaced_by">اتبدّل بـ: %1$s</string>
+
+    <!-- timeline -->
+    <string name="wr_tl_empty_title">لسه مفيش حاجة حصلت</string>
+    <string name="wr_tl_empty_body">كل خطوة في المشروع هتظهر هنا بالترتيب.</string>
+    <string name="wr_k_task">المهام</string>
+    <string name="wr_k_file">الملفات</string>
+    <string name="wr_k_comment">الملاحظات</string>
+    <string name="wr_k_decision">القرارات</string>
+    <string name="wr_k_milestone">الأجزاء</string>
+</resources>

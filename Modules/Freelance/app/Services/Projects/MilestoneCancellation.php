@@ -84,7 +84,7 @@ class MilestoneCancellation
             $locked->forceFill(['cancel_requested_by' => null, 'cancel_requested_at' => null, 'cancel_reason' => null])->save();
             DB::table('freelance_milestone_events')->insert([
                 'milestone_id' => $locked->id, 'type' => 'milestone.cancel_rejected', 'from_status' => $locked->status->value, 'to_status' => $locked->status->value,
-                'actor_type' => $side, 'actor_id' => $actor->getKey(), 'payload' => null, 'created_at' => now(),
+                'actor_type' => $side, 'actor_id' => $actor->getKey(), 'acted_by_user_id' => \Modules\Freelance\Services\Team\ClientTeamContext::actorId(), 'acted_by_freelancer_id' => \Modules\Freelance\Services\FreelancerTeam\FreelancerTeamContext::actorId(), 'payload' => null, 'created_at' => now(),
             ]);
             FreelanceProjectApproval::record((int) $locked->project_id, (int) $locked->agreement_id, 'milestone.cancel_rejected', $side, $actor->getKey(), (int) $locked->version,
                 ['milestone' => $locked->uuid, 'title' => $locked->title]);
@@ -134,7 +134,7 @@ class MilestoneCancellation
         $keep();
         DB::table('freelance_milestone_events')->insert([
             'milestone_id' => $m->id, 'type' => 'milestone.cancel_requested', 'from_status' => $m->status->value, 'to_status' => $m->status->value,
-            'actor_type' => $side, 'actor_id' => $actorId, 'payload' => $reason === null ? null : json_encode(['reason' => $reason]), 'created_at' => now(),
+            'actor_type' => $side, 'actor_id' => $actorId, 'acted_by_user_id' => \Modules\Freelance\Services\Team\ClientTeamContext::actorId(), 'acted_by_freelancer_id' => \Modules\Freelance\Services\FreelancerTeam\FreelancerTeamContext::actorId(), 'payload' => $reason === null ? null : json_encode(['reason' => $reason]), 'created_at' => now(),
         ]);
         FreelanceProjectApproval::record((int) $m->project_id, (int) $m->agreement_id, 'milestone.cancel_requested', $side, $actorId, (int) $m->version,
             ['milestone' => $m->uuid, 'title' => $m->title] + ($reason === null ? [] : ['reason' => $reason]));

@@ -11,6 +11,7 @@ use Modules\Freelance\Enums\FreelancerStatus;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceSkill;
 use Modules\Freelance\Models\FreelanceSpecialty;
+use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Models\FreelancerPortfolioItem as Item;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
@@ -70,7 +71,12 @@ class FreelancerPortfolio
     /** @param  list<int>  $ids  the freelancer's works in their new order */
     public function reorder(Freelancer $freelancer, array $ids): void
     {
-        $own = $freelancer->portfolioItems()->pluck('id')->all();
+        $this->order($freelancer->portfolioItems()->pluck('id')->all(), $ids);
+    }
+
+    /** @param  list<int>  $own  @param  list<int>  $ids */
+    private function order(array $own, array $ids): void
+    {
         if (array_diff($ids, $own) !== [] || count($ids) !== count(array_unique($ids))) {
             throw new FreelanceException('portfolio_order_invalid', 422);
         }
@@ -79,6 +85,55 @@ class FreelancerPortfolio
                 Item::query()->whereKey($id)->update(['sort_order' => $position + 1]);
             }
         });
+    }
+
+    // -------------------------------------------------------------- a team's works (FS-202a)
+
+    /** @return Collection<int, Item> every work of the team (its people read them all) */
+    public function teamItems(FreelanceTeam $team): Collection
+    {
+        return $team->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations'])->orderBy('sort_order')->orderBy('id')->get();
+    }
+
+    /**
+     * A work in the team's name, added by one of its Owners (he stays as `freelancer_id`). Same rules as a person's work - the rights confirmed
+     * before it is shown, YouTube / Vimeo only, the same caps - but no link to a finished agreement (FL-L13 is a person's).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function createForTeam(FreelanceTeam $team, Freelancer $by, array $data): Item
+    {
+        unset($data['agreement_uuid']);
+        $max = (int) config('freelance.profile.max_portfolio', 30);
+        if ($team->portfolioItems()->count() >= $max) {
+            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max]);
+        }
+
+        return DB::transaction(function () use ($team, $by, $data) {
+            $item = $team->portfolioItems()->create($this->fields($data, null, $by) + ['freelancer_id' => $by->id, 'sort_order' => (int) $team->portfolioItems()->max('sort_order') + 1]);
+            $this->syncSkills($item, $data['skill_ids'] ?? []);
+
+            return $item->load(['media', 'skills.translations', 'specialty.translations']);
+        });
+    }
+
+    /** @param  list<int>  $ids  the team's works in their new order */
+    public function reorderTeam(FreelanceTeam $team, array $ids): void
+    {
+        $this->order($team->portfolioItems()->pluck('id')->all(), $ids);
+    }
+
+    /**
+     * The team's works somebody outside it may see: the public ones, and for a client the clients-only ones too - never a hidden one.
+     *
+     * @return Collection<int, Item>
+     */
+    public function visibleForTeam(FreelanceTeam $team, bool $client): Collection
+    {
+        return $team->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations'])
+            ->whereIn('visibility', $client ? [Item::PUBLIC, Item::CLIENTS_ONLY] : [Item::PUBLIC])
+            ->whereNull('hidden_by_admin_at')
+            ->orderBy('sort_order')->orderBy('id')->get();
     }
 
     public function addImage(Item $item, UploadedFile $file): Media
@@ -136,15 +191,18 @@ class FreelancerPortfolio
             ->orderBy('sort_order')->orderBy('id')->get();
     }
 
-    /** @return array<string, mixed> */
-    public function present(Item $item, bool $owner): array
+    /**
+     * @param  string  $base  where the owner downloads the images (a team's works: `teams/{uuid}/portfolio`)
+     * @return array<string, mixed>
+     */
+    public function present(Item $item, bool $owner, string $base = 'profile/portfolio'): array
     {
         $images = $item->getMedia('images')->map(fn (Media $m) => [
             'id' => $m->id,
             'name' => $m->file_name,
             'size' => $m->size,
             // The owner downloads through the signed-in endpoint; anyone else gets a link that expires.
-            'path' => $owner ? "profile/portfolio/{$item->id}/images/{$m->id}" : null,
+            'path' => $owner ? "{$base}/{$item->id}/images/{$m->id}" : null,
             'url' => $owner ? null : URL::temporarySignedRoute('api.freelance.portfolio.image', now()->addMinutes((int) config('freelance.portfolio.link_minutes', 30)), ['media' => $m->id]),
         ])->values()->all();
 

@@ -535,15 +535,25 @@ struct InvitationsPage: View {
                 let c = inviteStatusColor(i.status)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 10) {
-                        Image(systemName: "person.fill").font(.system(size: 18)).foregroundStyle(c)
-                            .frame(width: 42, height: 42)
-                            .background(c.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        let team = i.team
+                        if let team {
+                            TeamLogo(url: team.logoUrl, size: 42)
+                        } else {
+                            Image(systemName: "person.fill").font(.system(size: 18)).foregroundStyle(c)
+                                .frame(width: 42, height: 42)
+                                .background(c.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                         VStack(alignment: .leading, spacing: 0) {
                             HStack(spacing: 6) {
-                                Text(verbatim: i.freelancer?.name ?? "—").font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                                PlanBadge(badge: i.freelancer?.badge)
+                                Text(verbatim: team?.name ?? i.freelancer?.name ?? "—").font(.dorr(14.5, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                if team != nil { FreelancerTeamPill() } else { PlanBadge(badge: i.freelancer?.badge) }
                             }
-                            if let f = i.freelancer { Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut) }
+                            // FS-213: a team's invitation is its Owner's — he answers and offers in the team's name.
+                            if team != nil {
+                                Text(verbatim: L("fteam_inv_via", i.freelancer?.name ?? "")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                            } else if let f = i.freelancer {
+                                Text(verbatim: inviteeLine(f)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         FlPill(text: inviteStatusLabel(i.status), color: c)

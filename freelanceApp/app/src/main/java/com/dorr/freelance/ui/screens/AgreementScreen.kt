@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,7 +91,7 @@ internal fun agreementStatusText(status: String): String = stringResource(
  * decline it with a reason. Read on open, when a notice arrives and when the connection comes back.
  */
 @Composable
-fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milestone: String, dispute: String?) -> Unit = { _, _ -> }) {
+fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milestone: String, dispute: String?) -> Unit = { _, _ -> }, onWorkroom: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
@@ -98,6 +99,7 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
     var agreement by remember { mutableStateOf<AgreementDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    val workroomOn = com.dorr.freelance.net.HomeHub.home.collectAsState().value?.on("workroom") == true
     var busy by remember { mutableStateOf(false) }
     var declining by remember { mutableStateOf(false) }
     var reason by remember { mutableStateOf("") }
@@ -108,6 +110,8 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
     // FL-607: why I step back (a picked reason and a few words).
     var withdrawCode by remember { mutableStateOf<String?>(null) }
     var withdrawNote by remember { mutableStateOf("") }
+    // FS-209b: the part whose people an Owner or a PM is changing.
+    var assigning by remember { mutableStateOf<com.dorr.freelance.net.MilestoneDto?>(null) }
 
     // FL-601: a delivery carries files; it goes as one multipart request.
     fun deliver(uuid: String, text: String, files: List<PickedFile>, materials: List<MaterialRow>?) {
@@ -177,6 +181,8 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
         val done = live.count { it.status == "approved" }
         val money = "\u200E" + formatMinor(a.money.priceMinor, null) + " " + a.currency
 
+        // FS-209b: a team's project - whose team, my place in it, and why parts of the page may be missing.
+        a.teamAccess?.let { TeamAccessBanner(it) }
         // What it is and where it stands - with the answer buttons while it waits for me.
         Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -193,8 +199,8 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OfferStat(money, stringResource(R.string.ag_price), Modifier.weight(1f))
-                OfferStat("\u200E" + formatMinor(a.money.netMinor, null) + " " + a.currency, stringResource(R.string.ag_net), Modifier.weight(1f))
+                if (a.showMoney) OfferStat(money, stringResource(R.string.ag_price), Modifier.weight(1f))
+                if (a.showNet) OfferStat("\u200E" + formatMinor(a.money.netMinor, null) + " " + a.currency, stringResource(R.string.ag_net), Modifier.weight(1f))
                 OfferStat(stringResource(R.string.projects_days, a.durationDays), stringResource(R.string.ag_days), Modifier.weight(1f))
             }
             if (live.isNotEmpty() && a.status != "pending_approval") {
@@ -218,6 +224,9 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
         // FS-106: how the running project is doing (it reloads with the agreement, on the health notices too).
         if (a.status == "active") a.health?.let { ProjectHealthCard(it) }
 
+        // FS-150e: the project's Workroom (tasks, files, decisions, timeline) — while it runs, and to read once it is over.
+        if ((a.status == "active" || a.status == "completed") && workroomOn) com.dorr.freelance.ui.screens.workroom.WorkroomEntryCard(a.status == "completed", onWorkroom)
+
         AgreementTabs(
             listOf(
                 AgreementTab(Icons.Rounded.Description, stringResource(R.string.ag_tab_overview)),
@@ -231,7 +240,7 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
         when (tab) {
             0 -> {
                 OfferSection(stringResource(R.string.ag_terms)) {
-                    Line(stringResource(R.string.ag_commission), "\u200E${formatMinor(a.money.commissionMinor, null)} ${a.currency}")
+                    if (a.showNet) Line(stringResource(R.string.ag_commission), "\u200E${formatMinor(a.money.commissionMinor, null)} ${a.currency}")
                     a.terms.reviewDays?.let { Line(stringResource(R.string.ag_review_days), stringResource(R.string.projects_days, it)) }
                     a.terms.freeRevisions?.let { Line(stringResource(R.string.ag_free_revisions), it.toString()) }
                 }
@@ -249,6 +258,9 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                 a.milestones.forEach { m ->
                     MilestoneCard(
                         m = m, currency = a.currency, active = a.status == "active", busy = busy, projectUuid = projectUuid,
+                        showMoney = a.showMoney, showNet = a.showNet, teamParts = a.team != null,
+                        canAssign = a.status == "active" && a.teamAccess?.can("assign") == true,
+                        onAssign = { assigning = m },
                         onAction = { action -> milestone(m.uuid, action) },
                         onDeliver = { deliverFor = m.uuid },
                         onWithdraw = { withdrawCode = null; withdrawNote = ""; withdrawFor = m.uuid },
@@ -282,10 +294,12 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                     },
                 )
                 // FL-511 / FL-406: my receipts of this project and its record of approvals.
-                ProjectReceiptsCard(projectUuid, recordsKey)
+                // FS-209b: the receipts, the rating and the survey are the signing Owner's, not a team member's.
+                val signs = a.teamAccess?.signer != false
+                if (signs) ProjectReceiptsCard(projectUuid, recordsKey)
                 ApprovalTrailCard(projectUuid, recordsKey)
                 // FL-701: rating the client once it is completed.
-                a.review?.let { rv ->
+                a.review?.takeIf { signs }?.let { rv ->
                     ReviewClientCard(
                         rv, busy,
                         onObject = { body ->
@@ -306,9 +320,17 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
                     }
                 }
                 // FL-702: how satisfied, once it is over.
-                if (a.status == "completed" || a.status == "cancelled") ProjectSurveyCard(projectUuid, recordsKey)
+                if (signs && (a.status == "completed" || a.status == "cancelled")) ProjectSurveyCard(projectUuid, recordsKey)
             }
         }
+    }
+
+    assigning?.let { m ->
+        val teamUuid = agreement?.teamAccess?.team?.uuid
+        if (teamUuid != null) AssigneesSheet(
+            projectUuid = projectUuid, milestoneUuid = m.uuid, milestoneTitle = m.title, teamUuid = teamUuid, current = m.assignees,
+            onDismiss = { assigning = null }, onSaved = { assigning = null; scope.launch { load() } },
+        )
     }
 
     withdrawFor?.let { target ->
@@ -336,6 +358,7 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
 @Composable
 private fun MilestoneCard(
     m: com.dorr.freelance.net.MilestoneDto, currency: String, active: Boolean, busy: Boolean, projectUuid: String,
+    showMoney: Boolean, showNet: Boolean, teamParts: Boolean, canAssign: Boolean, onAssign: () -> Unit,
     onAction: (String) -> Unit, onDeliver: () -> Unit, onWithdraw: () -> Unit, onDispute: (String?) -> Unit,
 ) {
     val tint = milestoneColor(m.status)
@@ -348,7 +371,7 @@ private fun MilestoneCard(
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(m.title, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
-                Text("\u200E${formatMinor(m.amountMinor, null)} $currency  ·  " + stringResource(R.string.ag_part_net, "\u200E${formatMinor(m.netMinor, null)} $currency"), color = settingsMut(), fontSize = 11.5.sp)
+                if (showMoney) Text("\u200E${formatMinor(m.amountMinor, null)} $currency" + (if (showNet) "  ·  " + stringResource(R.string.ag_part_net, "\u200E${formatMinor(m.netMinor, null)} $currency") else ""), color = settingsMut(), fontSize = 11.5.sp)
             }
             if (active) Text(
                 milestoneStatusText(m.status), color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
@@ -360,6 +383,8 @@ private fun MilestoneCard(
         m.revisionReason?.let {
             Text(stringResource(R.string.ag_ms_revision_reason, it), color = amber, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(amber.copy(alpha = 0.08f)).padding(10.dp))
         }
+        // FS-209b: who of the team is on this part (the team's own - the client never sees it).
+        if (teamParts && m.status != "cancelled") AssigneesRow(m.assignees, canAssign, onAssign)
         ChecklistView(m)
         DeliveriesBlock(projectUuid, m)
         if (m.cancelRequestedBy == "client") Text(stringResource(R.string.ag_ms_cancel_asked), color = amber, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)

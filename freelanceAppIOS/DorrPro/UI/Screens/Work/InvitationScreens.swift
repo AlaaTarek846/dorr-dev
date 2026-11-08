@@ -132,11 +132,14 @@ private struct InvitationCard: View {
         let tint: Color = status == "accepted" ? Color(hex: 0x16A34A) : status == "declined" ? Color(hex: 0xDC2626) : blue
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 0) {
-                Image(systemName: "envelope.badge.fill").font(.system(size: 16)).foregroundStyle(blue)
+                Image(systemName: i.team != nil ? "person.3.fill" : "envelope.badge.fill").font(.system(size: 16)).foregroundStyle(blue)
                     .frame(width: 38, height: 38)
                     .background(blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 Spacer().frame(width: 10)
-                Text(L("inv_private")).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
+                // FS-213: the client invited my team - the offer goes in its name.
+                Text(verbatim: i.team.map { L("inv_team", $0.name ?? "") } ?? L("inv_private"))
+                    .font(.dorr(12, .bold)).foregroundStyle(i.team != nil ? blue : wa.settingsMut).lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Text(verbatim: invitationStatusLabel(status)).font(.dorr(11, .bold)).foregroundStyle(tint)
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(tint.opacity(0.12), in: Capsule())

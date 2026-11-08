@@ -71,6 +71,11 @@ class ClientHome
                     ->whereHas('agreement', fn ($q) => $q->where('client_id', $client->id))->sum('amount_minor'),
             ],
             'attention' => $this->attention($client, $on),
+            // FS-104: the projects others brought me into, and their invitations waiting for my answer.
+            'team' => ($on['client_team'] ?? false) ? [
+                'shared' => \Modules\Freelance\Models\FreelanceProjectMember::query()->where('user_id', $client->id)->where('status', 'active')->count(),
+                'invitations' => count(app(\Modules\Freelance\Services\Team\ClientTeam::class)->invitations($client)),
+            ] : ['shared' => 0, 'invitations' => 0],
             'next_consultation' => ($on['consultations'] ?? false) ? $this->nextConsultation($client) : null,
             'projects' => Project::query()->where('client_id', $client->id)->whereIn('status', $running)
                 ->with(['specialty.translations', 'skills.translations', 'media'])

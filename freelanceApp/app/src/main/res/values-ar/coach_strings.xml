@@ -38,7 +38,7 @@
     <string name="coach_tip_avatar_body">الملفات اللي عليها صورة بتتفتح أكتر وبتدي ثقة أكبر.</string>
     <string name="coach_tip_headline">اكتب عنوان مهني</string>
     <string name="coach_tip_headline_body">جملة قصيرة تقول إنت مين، مثلاً: مصمم واجهات تطبيقات.</string>
-    <string name="coach_tip_bio">اكتب نبذة عنك (٥٠ حرف على الأقل)</string>
+    <string name="coach_tip_bio">اكتب نبذة عنك (50 حرف على الأقل)</string>
     <string name="coach_tip_bio_body">احكي خبرتك وإيه اللي بتعمله أحسن، بأسلوب بسيط.</string>
     <string name="coach_tip_email">أكّد إيميلك</string>
     <string name="coach_tip_email_body">بيوصلك عليه الإيصالات والتنبيهات المهمة.</string>
@@ -48,15 +48,15 @@
     <string name="coach_tip_experience_body">رقم واحد بيساعد العميل يحدد مستواك بسرعة.</string>
     <string name="coach_tip_specialties">اختار تخصصك</string>
     <string name="coach_tip_specialties_body">من غيره مش هتظهرلك المشاريع اللي تناسبك.</string>
-    <string name="coach_tip_skills">ضيف ٣ مهارات على الأقل</string>
+    <string name="coach_tip_skills">ضيف 3 مهارات على الأقل</string>
     <string name="coach_tip_skills_body">المهارات هي اللي بنطابق بيها المشاريع معاك.</string>
     <string name="coach_tip_work">ضيف خبراتك السابقة</string>
     <string name="coach_tip_work_body">أماكن اشتغلت فيها قبل كده بتخلي العميل يطمّن.</string>
     <string name="coach_tip_portfolio">ضيف أول شغل في معرض أعمالك</string>
     <string name="coach_tip_portfolio_body">الصور أقوى من الكلام في إقناع العميل.</string>
-    <string name="coach_tip_more_skills">كمّل لـ٦ مهارات</string>
+    <string name="coach_tip_more_skills">كمّل لـ6 مهارات</string>
     <string name="coach_tip_more_skills_body">مهارات أكتر معناها مشاريع أكتر بتناسبك.</string>
-    <string name="coach_tip_more_portfolio">ضيف ٣ أعمال على الأقل</string>
+    <string name="coach_tip_more_portfolio">ضيف 3 أعمال على الأقل</string>
     <string name="coach_tip_more_portfolio_body">العميل بيقارن بين أعمالك قبل ما يقرر.</string>
     <string name="coach_tip_verification">وثّق حسابك</string>
     <string name="coach_tip_verification_body">من غير التوثيق مش هتقدر تقدّم عروض ولا تستلم شغل.</string>

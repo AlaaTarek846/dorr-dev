@@ -265,6 +265,7 @@
     <string name="portfolio_hint">Show your best work. Only a verified account is shown to others.</string>
     <string name="portfolio_add">Add a work</string>
     <string name="portfolio_empty">You have no works yet.</string>
+    <string name="portfolio_empty_body">Add your best work: clients look at it before they choose you.</string>
     <string name="portfolio_hidden">Hidden by the admin</string>
     <string name="portfolio_verified_hint">Others see your works only after your account is verified.</string>
     <string name="vis_private">Only me</string>

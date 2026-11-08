@@ -46,11 +46,14 @@ object ChatStore {
     /** Past the chat list (a conversation, its info, media…): the app's tab bar steps away. */
     var immersive by mutableStateOf(false)
 
+    /** "system" | "light" | "dark" */
+    var themeMode by mutableStateOf("system")
+        private set
+
     fun attach(context: Context) {
         prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         dir = File(context.filesDir, "chat-cache").apply { mkdirs() }
-        // The chat's own light / dark choice is gone (it follows the app): drop what an older version saved.
-        prefs?.edit()?.remove("theme")?.apply()
+        themeMode = prefs?.getString("theme", "system") ?: "system"
         drafts.clear()
         prefs?.all?.forEach { (key, value) ->
             if (key.startsWith(DRAFT) && value is String) drafts[key.removePrefix(DRAFT)] = value
@@ -71,6 +74,11 @@ object ChatStore {
         if (clean == drafts[conversationId] || clean == null && conversationId !in drafts) return
         if (clean == null) drafts.remove(conversationId) else drafts[conversationId] = clean
         prefs?.edit()?.apply { if (clean == null) remove(DRAFT + conversationId) else putString(DRAFT + conversationId, clean) }?.apply()
+    }
+
+    fun setTheme(mode: String) {
+        themeMode = mode
+        prefs?.edit()?.putString("theme", mode)?.apply()
     }
 
     var oneSignalAppId: String?
@@ -100,9 +108,11 @@ object ChatStore {
         pendingWrites.clear()
         dir?.listFiles()?.forEach { it.delete() }
         prefs?.edit()?.apply {
+            remove("theme")
             drafts.keys.forEach { remove(DRAFT + it) }
         }?.apply()
         drafts.clear()
+        themeMode = "system"
     }
 
     private fun fileFor(conversationId: String) = "m-" + conversationId.filter { it.isLetterOrDigit() || it == '-' } + ".json"

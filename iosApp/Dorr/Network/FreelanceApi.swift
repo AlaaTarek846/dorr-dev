@@ -157,6 +157,9 @@ struct FreelanceProjectDto: Codable, Equatable, Identifiable {
     var submittedAt: String?
     /// FS-102: set on a draft asked again from a freelancer.
     var hireAgain: FreelanceHireAgainDto?
+    /// FS-104: who I am on this project (the owner, or my role on his team) and, for the owner, his team at a glance.
+    var access: FreelanceAccessDto?
+    var team: FreelanceTeamSummaryDto?
     /// FL-210: the most I pay in all (fee included), or nil.
     var maxCostMinor: Int?
     /// FL-211: where the work stands (nil until there is work), and what is due from me next.
@@ -283,6 +286,8 @@ struct FreelanceOfferDto: Codable, Equatable, Identifiable {
     var loyaltyBp: Int?
     /// FL-L13: who owns the work once it is paid and what I may do with it (nil: the feature is off).
     var rights: FreelanceRightsSummaryDto?
+    /// FS-210: the freelancers' team the offer is made in the name of (nil: a freelancer's own offer; then `freelancer` is who offers).
+    var team: FreelancerTeamViewDto?
 
     var id: String { uuid }
     var state: String { status ?? "submitted" }
@@ -483,6 +488,8 @@ struct FreelanceMilestoneDto: Codable, Equatable, Identifiable {
     var heldMinor: Int?
     /// FL-504: an unanswered delivery is approved and paid by itself then.
     var autoApproveAt: String?
+    /// FS-104: for a delegate, this part is over his limit (its buttons are off).
+    var overLimit: Bool?
     /// FL-407: the free rounds of changes.
     var revisionsLeft: Int?
     var revisionsMax: Int?
@@ -554,6 +561,8 @@ struct FreelanceChangeDto: Codable, Equatable {
     /// FS-101: what it moved, {price_minor|duration_days|milestones: [before, after]} — only what moved. Null, an object, or an
     /// empty list `[]` when nothing moved; read it with `changeEffect()`.
     var effect: JSONAny?
+    /// FS-104: for a delegate, accepting this change adds more than his limit.
+    var overLimit: Bool?
     /// FS-101: the files it carries; `path` is under projects/{uuid}/.
     var files: [FreelanceAttachmentDto]?
 }
@@ -674,6 +683,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var uuid: String
     var status: String?
     var version: Int?
+    /// FS-104: who I am here; without `money` the amounts come blank and are not drawn.
+    var access: FreelanceAccessDto?
     var scope: String?
     var includes: String?
     var excludes: String?
@@ -699,6 +710,8 @@ struct FreelanceAgreementDto: Codable, Equatable {
     var rights: FreelanceAgreementRightsDto?
     /// FS-106: how the running project is doing (nil: the agreement is not running).
     var health: FreelanceHealthDto?
+    /// FS-210: the freelancers' team that does the work (nil: a freelancer's own; then `freelancer` is who does it).
+    var team: FreelancerTeamViewDto?
 
     var state: String { status ?? "draft" }
 }
@@ -782,6 +795,8 @@ struct FreelanceTrailDto: Codable, Equatable {
     var actor: String?
     var mine: Bool?
     var at: String?
+    /// FS-104: a member of the client's team took this step for the owner.
+    var by: FreelanceTrailByDto?
 }
 
 struct FreelanceInviteeDto: Codable, Equatable {
@@ -803,11 +818,47 @@ struct FreelanceInvitationDto: Codable, Equatable {
     /// The uuid of their offer, once they sent one.
     var offer: String?
     var canWithdraw: Bool?
+    /// FS-213: invited as this team (its Owner, `freelancer`, answers and offers in its name).
+    var team: FreelanceInvitedTeamDto?
+}
+
+/// FS-213: a team on my invitations: its name and logo.
+struct FreelanceInvitedTeamDto: Codable, Equatable {
+    var uuid: String?
+    var name: String?
+    var logoUrl: String?
+    var verified: Bool?
 }
 
 struct FreelanceInvitationsDto: Codable, Equatable {
     var summary: FreelanceInvitationsSummaryDto?
     var invitations: [FreelanceInvitationDto]?
+    /// FS-213: only on the answer to an invitation.
+    var result: FreelanceInviteResultDto?
+}
+
+/// FS-213: what an invitation said: how many went out and why the others did not (`already_invited`, `team_not_accepting`, …).
+struct FreelanceInviteResultDto: Codable, Equatable {
+    var invited: Int?
+    var skipped: [FreelanceInviteSkipDto]?
+}
+
+struct FreelanceInviteSkipDto: Codable, Equatable {
+    var uuid: String?
+    var reason: String?
+}
+
+/// FS-213: a freelancers' team I keep: its name and what its profile shows next to it, and whether we worked together.
+struct FreelanceTeamFavoriteDto: Codable, Equatable {
+    var uuid: String
+    var name: String?
+    var workedWith: Bool?
+    var logoUrl: String?
+    var verified: Bool?
+    var acceptingProjects: Bool?
+    var rating: Double?
+    var reviewsCount: Int?
+    var completedProjects: Int?
 }
 
 /// The whole project form, sent as it is: an empty field is sent as null (a draft may be half done).
@@ -1115,6 +1166,19 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/favorites/\(uuid)", method: "DELETE")
     }
 
+    /// FS-213: the freelancers' teams I keep (a team whose profile I may read).
+    static func teamFavorites(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceTeamFavoriteDto]> {
+        try await ApiClient.snake("\(base)/favorites/teams", query: ["page": String(page), "per_page": String(perPage)])
+    }
+
+    static func addTeamFavorite(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
+        try await ApiClient.snake("\(base)/favorites/teams/\(uuid)", method: "POST", body: [:])
+    }
+
+    static func removeTeamFavorite(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
+        try await ApiClient.snake("\(base)/favorites/teams/\(uuid)", method: "DELETE")
+    }
+
     /// The talk about an offer (FL-308): opens the room (or finds it).
     static func openChat(_ uuid: String, _ offer: String) async throws -> ApiEnvelope<FreelanceChatRoomDto> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/offers/\(offer)/chat", method: "POST", body: [:])
@@ -1184,8 +1248,11 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/invitees", query: ["q": q, "all": all ? "1" : nil])
     }
 
-    static func invite(_ uuid: String, freelancers: [String]) async throws -> ApiEnvelope<FreelanceInvitationsDto> {
-        try await ApiClient.snake("\(base)/projects/\(uuid)/invitations", method: "POST", body: ["freelancers": .array(freelancers.map(JSONValue.string))])
+    /// FS-213: `teams` too - each team's invitation goes to its Owner, who offers in the team's name.
+    static func invite(_ uuid: String, freelancers: [String] = [], teams: [String] = []) async throws -> ApiEnvelope<FreelanceInvitationsDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/invitations", method: "POST", body: [
+            "freelancers": .array(freelancers.map(JSONValue.string)), "teams": .array(teams.map(JSONValue.string)),
+        ])
     }
 
     static func withdrawInvitation(_ uuid: String, _ invitation: String) async throws -> ApiEnvelope<FreelanceInvitationsDto> {

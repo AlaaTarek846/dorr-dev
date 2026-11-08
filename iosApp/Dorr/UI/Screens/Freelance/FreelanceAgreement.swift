@@ -72,6 +72,10 @@ struct AgreementPage: View {
     let onBack: () -> Void
     let onEnded: () -> Void
     let onDispute: (_ milestone: String, _ dispute: String?) -> Void
+    /// FS-150e: opens the Workroom of this work (nil: the page has none to open).
+    var onWorkroom: (() -> Void)?
+    /// FS-210: opens the profile of the team that does the work (nil: the page has none to open).
+    var onTeam: ((String) -> Void)?
     @State private var agreement: FreelanceAgreementDto?
     @State private var scopeText = ""
     @State private var includes = ""
@@ -110,6 +114,8 @@ struct AgreementPage: View {
     }
 
     private func act(_ block: @escaping () async throws -> FreelanceAgreementDto?, after: (() -> Void)? = nil) {
+        // Stay on the tab the person acted from: the default follows the buttons, and funding one part takes its button away.
+        if tab == nil { tab = (agreement?.milestones ?? []).contains { m in m.can?.fund == true || m.can?.approve == true || m.can?.revision == true || m.can?.cancelAccept == true } ? 1 : 0 }
         busy = true
         error = nil
         notice = nil
@@ -164,6 +170,12 @@ struct AgreementPage: View {
         }
     }
 
+    /// FS-210: the button to the team's profile (nil when the page was given nothing to open it with).
+    private func teamProfileOpener(_ t: FreelancerTeamViewDto) -> (() -> Void)? {
+        guard let open = onTeam, let id = t.uuid else { return nil }
+        return { open(id) }
+    }
+
     @ViewBuilder
     private func content(_ a: FreelanceAgreementDto) -> some View {
         let milestones = a.milestones ?? []
@@ -185,7 +197,9 @@ struct AgreementPage: View {
                         .frame(width: 48, height: 48)
                         .background(sc.opacity(0.12), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(verbatim: a.freelancer?.name ?? "—").font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
+                        // FS-210: a team's work is with the team; the person who signs for it is named in the team's card below.
+                        Text(verbatim: a.team?.name ?? a.freelancer?.name ?? "—").font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
+                        if a.team != nil { FreelancerTeamPill() }
                         FlPill(text: agreementStatusLabel(a.state), color: sc)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -193,7 +207,7 @@ struct AgreementPage: View {
                 Text(verbatim: agreementHint(a.state)).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(4)
                 if let exp = a.expiresAt { FlNotice(text: L("fl_ag_answer_by", "\u{200E}" + String(exp.prefix(10))), icon: "hourglass", color: flAmber) }
                 HStack(spacing: 8) {
-                    FlStat(icon: "banknote", label: L("fl_total"), value: flAmount(money.totalMinor, a.currency)).layoutPriority(1)
+                    FlStat(icon: "banknote", label: L("fl_total"), value: a.access?.money != false ? flAmount(money.totalMinor, a.currency) : "—").layoutPriority(1)
                     FlStat(icon: "clock", label: L("fl_duration"), value: L("fl_days", a.durationDays ?? 0))
                 }
                 if !milestones.isEmpty && activity { StageSteps(parts: milestones) { tab = 1 } }
@@ -203,6 +217,14 @@ struct AgreementPage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .settingsSurface(FlCorners.card)
             .clipShape(RoundedRectangle(cornerRadius: FlCorners.card, style: .continuous))
+            // FS-210: who does the work when it is a team: the people named on it, who signs for the team, and the team's profile.
+            if let t = a.team {
+                TeamWorkCard(members: t.members ?? [], signer: a.freelancer?.name, title: L("fteam_agreement_title"), onProfile: teamProfileOpener(t))
+            }
+            // FS-104: someone else's project - whose it is, my role, and (a delegate) my limit.
+            if let access = a.access, !access.isOwner { TeamAccessBanner(access: access, currency: a.currency ?? "") }
+            // FS-150e: once the work runs (and after it ends, to read) its Workroom is one tap away — tasks, files, decisions, timeline.
+            if activity, let onWorkroom { WorkroomEntryCard(project: projectUuid, onOpen: onWorkroom) }
             FlTabs(tabs: [
                 FlTab(icon: "doc.text", label: L("fl_tab_overview")),
                 FlTab(icon: "flag.fill", label: L("fl_tab_parts"), badge: milestones.count),
@@ -222,12 +244,18 @@ struct AgreementPage: View {
         let money = a.money ?? FreelanceAgreementMoneyDto()
         let terms = a.terms ?? FreelanceAgreementTermsDto()
         let can = a.can ?? FreelanceAgreementCanDto()
+        let showMoney = a.access?.money != false
         FlCard(icon: "banknote", title: L("fl_ag_money")) {
-            FlField(label: L("fl_price"), value: flAmount(money.priceMinor, a.currency))
-            if (money.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(money.clientFeeMinor, a.currency)) }
-            FlField(label: L("fl_total"), value: flAmount(money.totalMinor, a.currency))
+            if showMoney {
+                FlField(label: L("fl_price"), value: flAmount(money.priceMinor, a.currency))
+                if (money.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(money.clientFeeMinor, a.currency)) }
+                FlField(label: L("fl_total"), value: flAmount(money.totalMinor, a.currency))
+            } else {
+                // FS-104: a member of the owner's team without `money` reads no amounts.
+                Text(verbatim: L("fs_tm_money_hidden")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            }
             // FL-510: the split made the total differ from the one told before choosing (a minimum fee on each part).
-            if let q = money.quotedTotalMinor, q != money.totalMinor {
+            if showMoney, let q = money.quotedTotalMinor, q != money.totalMinor {
                 Text(verbatim: L("fl_quoted_total", flAmount(q, a.currency))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
             }
             if let d = terms.reviewDays { FlField(label: L("fl_ag_review_days"), value: L("fl_days", d)) }
@@ -365,12 +393,12 @@ struct AgreementPage: View {
                 Text(verbatim: "\(m.position ?? 1)").font(.dorr(13, .heavy)).foregroundStyle(.white).frame(width: 28, height: 28).background(mc, in: Circle())
                 VStack(alignment: .leading, spacing: 0) {
                     Text(verbatim: m.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk)
-                    Text(verbatim: flAmount(m.amountMinor, a.currency)).font(.dorr(13, .bold)).foregroundStyle(wa.accent)
+                    if a.access?.money != false { Text(verbatim: flAmount(m.amountMinor, a.currency)).font(.dorr(13, .bold)).foregroundStyle(wa.accent) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if a.state == "active" { FlPill(text: milestoneStatusLabel(m.state), color: mc) }
             }
-            if a.state == "active", (m.heldMinor ?? 0) > 0 { FlNotice(text: L("fl_held", flAmount(m.heldMinor, a.currency)), icon: "lock.fill", color: Color(hex: 0x0EA5E9)) }
+            if a.access?.money != false, a.state == "active", (m.heldMinor ?? 0) > 0 { FlNotice(text: L("fl_held", flAmount(m.heldMinor, a.currency)), icon: "lock.fill", color: Color(hex: 0x0EA5E9)) }
             // FL-602 / FL-604: the versions delivered (opened in place) and the checklist for the part.
             if a.state == "active" || a.state == "completed" { DeliveryReview(projectUuid: projectUuid, m: m) }
             // FL-407: the free rounds of changes.
@@ -381,16 +409,19 @@ struct AgreementPage: View {
             // FL-506: a request to end a started part waits for an answer; what went back after it ended.
             if m.cancelRequestedBy == "freelancer" { FlNotice(text: L("fl_ms_cancel_asked_them"), icon: "hourglass", color: flAmber) }
             if m.cancelRequestedBy == "client" { FlNotice(text: L("fl_ms_cancel_asked_you"), icon: "hourglass", color: flAmber) }
-            if m.state == "cancelled", (m.refundedMinor ?? 0) > 0 {
+            if a.access?.money != false, m.state == "cancelled", (m.refundedMinor ?? 0) > 0 {
                 FlNotice(text: L("fl_ms_refunded", flAmount(m.refundedMinor, a.currency)), icon: "checkmark.circle.fill", color: flGreen)
             }
             if let auto = m.autoApproveAt { FlNotice(text: L("fl_auto_approve_on", "\u{200E}" + String(auto.prefix(10))), icon: "clock", color: flAmber) }
+            // FS-104: over my delegation limit - the owner does this one.
+            if m.overLimit == true { FlNotice(text: L("fs_tm_over_limit", a.access?.owner?.name ?? ""), icon: "nosign", color: flAmber) }
             if can.fund == true {
                 FlAction(text: L("fl_fund"), icon: "wallet.pass.fill", tone: .primary) {
                     // Not enough in the freelance wallet: straight to its top-up with what is missing already in (back here, the wallet is read again).
                     let need = (m.amountMinor ?? 0) + (m.clientFeeMinor ?? 0)
                     let have = agreement?.walletAvailableMinor ?? 0
-                    if have < need { TopupLauncher.shared.open(need - have, international: true) { reloads += 1 } } else { fundFor = m }
+                    // FS-104: a delegate funds from the owner's wallet, which he never sees: straight to the confirmation.
+                    if a.access?.isOwner == false { fundFor = m } else if have < need { TopupLauncher.shared.open(need - have, international: true) { reloads += 1 } } else { fundFor = m }
                 }
             }
             if can.approve == true {
@@ -474,17 +505,22 @@ struct AgreementPage: View {
         let cur = agreement?.currency
         let total = (m.amountMinor ?? 0) + (m.clientFeeMinor ?? 0)
         let available = agreement?.walletAvailableMinor ?? 0
-        let enough = available >= total
-        return FlSheet(icon: "wallet.pass.fill", title: L("fl_fund_title", m.title ?? ""), text: L(enough ? "fl_fund_note" : "fl_fund_short")) {
+        // FS-104: a delegate pays from the owner's wallet; the server says if it is short.
+        let delegate = agreement?.access?.isOwner == false
+        let enough = delegate || available >= total
+        let text = delegate ? L("fs_tm_fund_note", agreement?.access?.owner?.name ?? "") : L(enough ? "fl_fund_note" : "fl_fund_short")
+        return FlSheet(icon: "wallet.pass.fill", title: L("fl_fund_title", m.title ?? ""), text: text) {
             VStack(alignment: .leading, spacing: 8) {
                 FlField(label: L("fl_price"), value: flAmount(m.amountMinor, cur))
                 if (m.clientFeeMinor ?? 0) > 0 { FlField(label: L("fl_client_fee"), value: flAmount(m.clientFeeMinor, cur)) }
                 FlField(label: L("fl_total"), value: flAmount(total, cur))
-                FlField(label: L("fl_wallet_available"), value: flAmount(available, cur))
+                if !delegate { FlField(label: L("fl_wallet_available"), value: flAmount(available, cur)) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            // A refusal (the owner's wallet is short, the limit) is told here, not behind the sheet.
+            if let error { FlNotice(text: error, icon: "exclamationmark.circle", color: flRed) }
             if enough {
                 FlAction(text: L("fl_fund_confirm"), icon: "wallet.pass.fill", tone: .primary, loading: busy) {
                     act({ try await FreelanceApi.milestoneAction(projectUuid, m.uuid, action: "fund").data }, after: { fundFor = nil })
@@ -521,7 +557,7 @@ private let maxChangeFiles = 3
 private let maxChangeFileBytes = 10 * 1024 * 1024
 
 /// A server time ("2026-10-27T09:30:00+00:00") as "27/10/2026 12:30" in the phone's own time zone (Android `rides/localDateTime`).
-private func flLocalDateTime(_ iso: String) -> String {
+func flLocalDateTime(_ iso: String) -> String {
     let parser = ISO8601DateFormatter()
     var date = parser.date(from: iso)
     if date == nil {
@@ -541,9 +577,13 @@ private func changeText(_ c: FreelanceChangeDto, _ currency: String) -> String {
     let p = c.payload
     switch c.type {
     case "extend_days": return L("fl_ch_extend", p?.int("days") ?? 0) + (c.milestone.map { " · \($0.title ?? "")" } ?? "")
+    // FS-104: a member of the client's team without `money` gets the amounts blank - the line says what changes, not by how much.
     case "milestone_price":
-        return L("fl_ch_price", c.milestone?.title ?? "", "\u{200E}" + flMoney(p?.int("from") ?? 0), flAmount(p?.int("to") ?? 0, currency))
-    case "add_milestone": return L("fl_ch_add", p?.str("title") ?? "", flAmount(p?.int("amount_minor") ?? 0, currency))
+        guard let to = p?.int("to") else { return L("fs_tm_ch_price_hidden", c.milestone?.title ?? "") }
+        return L("fl_ch_price", c.milestone?.title ?? "", "\u{200E}" + flMoney(p?.int("from") ?? 0), flAmount(to, currency))
+    case "add_milestone":
+        guard let amount = p?.int("amount_minor") else { return L("fs_tm_ch_add_hidden", p?.str("title") ?? "") }
+        return L("fl_ch_add", p?.str("title") ?? "", flAmount(amount, currency))
     default: return L("fl_ch_scope")
     }
 }
@@ -628,6 +668,7 @@ private struct ChangesCard: View {
                         }
                     }
                     HStack(spacing: 16) {
+                        if c.overLimit == true { FlNotice(text: L("fs_tm_change_over_limit"), icon: "nosign", color: flAmber) }
                         if c.can?.accept == true { FlTextAction(text: L("fl_ch_accept"), fill: false) { onAnswer(c.uuid, "accept") } }
                         if c.can?.reject == true { FlTextAction(text: L("fl_ch_reject"), danger: true, fill: false) { onAnswer(c.uuid, "reject") } }
                         if c.can?.withdraw == true { FlTextAction(text: L("fl_ch_withdraw"), fill: false) { onAnswer(c.uuid, "withdraw") } }
@@ -1257,6 +1298,8 @@ private struct TrailCard: View {
     }
 
     private func actor(_ s: FreelanceTrailDto) -> String {
+        // FS-104: a step a member of the team took for the owner names him.
+        if let name = s.by?.name { return L("fs_tm_by", name) }
         if s.mine == true { return L("fl_trail_by_you") }
         switch s.actor {
         case "freelancer": return L("fl_trail_by_freelancer")

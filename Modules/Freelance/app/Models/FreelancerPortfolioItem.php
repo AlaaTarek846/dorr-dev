@@ -30,7 +30,7 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     public const VISIBILITIES = [self::PUBLIC, self::CLIENTS_ONLY, self::PRIVATE];
 
     protected $fillable = [
-        'uuid', 'freelancer_id', 'agreement_id', 'title', 'description', 'completed_on', 'freelance_specialty_id', 'visibility', 'rights_confirmed_at',
+        'uuid', 'freelancer_id', 'team_id', 'agreement_id', 'title', 'description', 'completed_on', 'freelance_specialty_id', 'visibility', 'rights_confirmed_at',
         'external_url', 'video_provider', 'video_id', 'sort_order', 'hidden_by_admin_at', 'hidden_reason', 'hidden_by_admin_id',
     ];
 
@@ -52,6 +52,12 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     public function freelancer(): BelongsTo
     {
         return $this->belongsTo(Freelancer::class)->withTrashed();
+    }
+
+    /** FS-202a: the team the work belongs to (null = the freelancer's own); `freelancer_id` is then who added it. */
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceTeam::class, 'team_id');
     }
 
     public function specialty(): BelongsTo

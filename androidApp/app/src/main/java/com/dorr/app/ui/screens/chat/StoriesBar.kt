@@ -236,7 +236,7 @@ private fun PersonStory(group: StoryGroupDto, index: Int, onClick: () -> Unit) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            ltrTitle(owner?.name), color = if (group.allSeen) Ch.Mut else Ch.Ink, fontSize = 10.5.sp,
+            owner?.name.orEmpty(), color = if (group.allSeen) Ch.Mut else Ch.Ink, fontSize = 10.5.sp,
             fontWeight = if (group.allSeen) FontWeight.Normal else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
@@ -270,42 +270,34 @@ internal fun StoryThumb(story: com.dorr.app.network.StoryDto, size: Dp) {
     }
 }
 
-/**
- * "Text", "Photo or video" or "Voice" — the ways to post: three tiles side by side, each with its own coloured
- * circle (text in the app's red). The sheet's × closes it.
- */
+/** "Text", "Photo or video" or "Voice" — the ways to post. Same sheet language as ChoiceSheet. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun StoryAddSheet(onDismiss: () -> Unit, onText: () -> Unit, onMedia: () -> Unit, onVoice: () -> Unit) {
-    data class Way(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val color: Color, val action: () -> Unit)
-    val ways = listOf(
-        Way(Icons.Rounded.Edit, stringResource(R.string.st_text), Ch.Red, onText),
-        Way(Icons.Rounded.PhotoCamera, stringResource(R.string.st_photo_video), Color(0xFF6D5BD0), onMedia),
-        Way(Icons.Rounded.Mic, stringResource(R.string.bk_voice_status), Color(0xFF3E8A99), onVoice),
+    val options = listOf(
+        Triple(Icons.Rounded.Edit, stringResource(R.string.st_text), onText),
+        Triple(Icons.Rounded.PhotoCamera, stringResource(R.string.st_photo_video), onMedia),
+        Triple(Icons.Rounded.Mic, stringResource(R.string.bk_voice_status), onVoice),
     )
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 26.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.st_add_status), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ways.forEachIndexed { i, way ->
-                    Column(
-                        Modifier.weight(1f).chStagger(i).clip(RoundedCornerShape(18.dp))
-                            .background(Ch.SurfaceMuted).border(1.dp, Ch.Line, RoundedCornerShape(18.dp))
-                            .clickable { way.action(); onDismiss() }
-                            .padding(vertical = 18.dp, horizontal = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Box(Modifier.size(46.dp).clip(CircleShape).background(way.color), contentAlignment = Alignment.Center) {
-                            Icon(way.icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            way.label, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
+            options.forEach { (icon, label, action) ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+                        .background(Ch.SurfaceMuted)
+                        .clickable { action(); onDismiss() }
+                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(label, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onDismiss).padding(15.dp), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.ch_cancel), color = Ch.Mut, fontWeight = FontWeight.Bold)
             }
         }
     }

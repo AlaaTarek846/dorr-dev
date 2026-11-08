@@ -131,8 +131,6 @@ class ConversationResource extends JsonResource
             'my_role' => $me->role->value,
             'is_member' => $me->isActive(),
             'can_send' => $this->canSend($me, $group),
-            // How many messages a chat keeps pinned (admin setting): the app asks before a new pin replaces the oldest.
-            'max_pinned_messages' => \Modules\Chat\Models\ChatSetting::current()->max_pinned_messages,
             'last_message' => $this->lastMessage($me),
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread_count' => $me->unread_count,

@@ -9,7 +9,7 @@
     <string name="rights_state_pending">Not passed yet</string>
     <string name="rights_state_partial">Partly passed</string>
     <string name="rights_state_granted">Fully passed</string>
-    <string name="rights_parts_n">%1$d of %2$d parts passed to you</string>
+    <string name="rights_parts_n">%1$d of %2$d parts passed to the project owner</string>
     <string name="rights_preview_only">Until a part is approved and paid you can only preview and review it. Its rights pass to you when you approve it and it is paid.</string>
     <string name="rights_terms_show">Read the full text</string>
     <string name="rights_terms_hide">Hide the text</string>

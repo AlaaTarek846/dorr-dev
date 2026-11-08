@@ -39,7 +39,9 @@ class PortfolioViewController extends Controller
     public function image(Media $media): BinaryFileResponse
     {
         $item = $media->model;
-        abort_unless($item instanceof Item && $media->collection_name === 'images' && ! $item->isHidden() && ! $item->withdrawnByClient() && $item->visibility !== Item::PRIVATE && $item->freelancer?->status?->value === 'verified', 404);
+        abort_unless($item instanceof Item && $media->collection_name === 'images' && ! $item->isHidden() && ! $item->withdrawnByClient() && $item->visibility !== Item::PRIVATE && $item->freelancer?->status?->value === 'verified'
+            // FS-202a: a team's work only while its team is active.
+            && ($item->team_id === null || $item->team?->isActive() === true), 404);
 
         return FreelancerPortfolioController::file($media);
     }

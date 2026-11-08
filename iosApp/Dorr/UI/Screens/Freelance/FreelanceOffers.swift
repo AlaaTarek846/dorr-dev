@@ -46,7 +46,7 @@ private struct OfferStatusPill: View {
     var body: some View { FlPill(text: offerStatusLabel(status), color: offerStatusColor(status)) }
 }
 
-private struct FlAvatar: View {
+struct FlAvatar: View {
     @Environment(\.wa) private var wa
     let name: String?
     let url: String?
@@ -170,6 +170,14 @@ struct OffersPage: View {
     }
 }
 
+/// The line under who offers: a team's own figures (never its Owner's), or the freelancer's completeness, work shown, skills fit and rating.
+private func offerFigures(_ o: FreelanceOfferDto) -> String {
+    if let t = o.team { return teamFigures(t) }
+    let f = o.freelancer
+    let parts: [String?] = [f.map { L("fl_completeness", $0.completeness ?? 0) }, f.map { L("fl_portfolio_n", $0.portfolioCount ?? 0) }, skillsMatch(f), ratingText(f)]
+    return parts.compactMap { $0 }.joined(separator: "  ·  ")
+}
+
 private struct OfferCard: View {
     @Environment(\.wa) private var wa
     let o: FreelanceOfferDto
@@ -180,18 +188,31 @@ private struct OfferCard: View {
 
     var body: some View {
         let f = o.freelancer
+        // FS-210: an offer made in a team's name leads with the team and its own figures — not with the Owner who signs for it.
+        let t = o.team
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                FlAvatar(name: f?.name, url: f?.avatarUrl, size: 46)
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
-                        Text(verbatim: f?.name ?? "—").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                        if f?.verified == true { VerifiedMark() }
-                        PlanBadge(badge: f?.badge).padding(.leading, 2)
-                        if f?.isFavorite == true { Image(systemName: "heart.fill").font(.system(size: 13)).foregroundStyle(flRed).accessibilityLabel(L("fl_favorite")) }
+                if let t {
+                    TeamLogo(url: t.profile?.logoUrl, size: 46)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 4) {
+                            Text(verbatim: t.name ?? "—").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                            if t.profile?.verified == true { VerifiedMark() }
+                        }
+                        FreelancerTeamPill()
                     }
-                    if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
-                    SkillBadges(badges: f?.skillBadges ?? []).padding(.top, 2)
+                } else {
+                    FlAvatar(name: f?.name, url: f?.avatarUrl, size: 46)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 4) {
+                            Text(verbatim: f?.name ?? "—").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                            if f?.verified == true { VerifiedMark() }
+                            PlanBadge(badge: f?.badge).padding(.leading, 2)
+                            if f?.isFavorite == true { Image(systemName: "heart.fill").font(.system(size: 13)).foregroundStyle(flRed).accessibilityLabel(L("fl_favorite")) }
+                        }
+                        if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                        SkillBadges(badges: f?.skillBadges ?? []).padding(.top, 2)
+                    }
                 }
                 Spacer(minLength: 0)
                 OfferStatusPill(status: o.state)
@@ -201,11 +222,11 @@ private struct OfferCard: View {
             LoyaltyWasLine(bp: o.loyaltyBp, list: o.listPriceMinor.map { flAmount($0, o.currency) })
             // FL-210: dearer than the most I said I'd pay.
             if o.overCap == true { FlNotice(text: L("fl_over_cap"), icon: "exclamationmark.triangle.fill", color: flRed) }
-            Text(verbatim: [f.map { L("fl_completeness", $0.completeness ?? 0) }, f.map { L("fl_portfolio_n", $0.portfolioCount ?? 0) },
-                            skillsMatch(f), ratingText(f)].compactMap { $0 }.joined(separator: "  ·  "))
-                .font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+            Text(verbatim: offerFigures(o)).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
             Text(verbatim: o.details ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(5).lineLimit(3)
             HStack(spacing: 0) {
+                // FS-210: the people the team put on this offer.
+                if let t { StaffStack(members: t.members ?? []).padding(.trailing, 12) }
                 // FL-L13: who owns the work once it is paid.
                 if let r = o.rights { FlPill(text: r.modelLabel ?? "", color: rightsModelColor(r.model)).padding(.trailing, 8) }
                 if o.edited == true { Text(L("fl_offer_edited")).font(.dorr(11)).foregroundStyle(wa.settingsMut).padding(.trailing, 10) }
@@ -309,9 +330,15 @@ struct ComparePage: View {
                             ForEach(offers) { o in
                                 Button { onOpen(o.uuid) } label: {
                                     VStack(spacing: 4) {
-                                        FlAvatar(name: o.freelancer?.name, url: o.freelancer?.avatarUrl, size: 48)
-                                        PlanBadge(badge: o.freelancer?.badge)
-                                        Text(verbatim: o.freelancer?.name ?? "—").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2).multilineTextAlignment(.center)
+                                        // FS-210: a team's offer is headed by the team (logo, name, «Team»), a person's by their photo and badge.
+                                        if let team = o.team {
+                                            TeamLogo(url: team.profile?.logoUrl, size: 48)
+                                            FreelancerTeamPill()
+                                        } else {
+                                            FlAvatar(name: o.freelancer?.name, url: o.freelancer?.avatarUrl, size: 48)
+                                            PlanBadge(badge: o.freelancer?.badge)
+                                        }
+                                        Text(verbatim: o.team?.name ?? o.freelancer?.name ?? "—").font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).lineLimit(2).multilineTextAlignment(.center)
                                         OfferStatusPill(status: o.state)
                                         if o.can?.choose == true {
                                             Text(L("fl_choose_offer")).font(.dorr(12, .heavy)).foregroundStyle(.white).multilineTextAlignment(.center)
@@ -329,22 +356,31 @@ struct ComparePage: View {
                         row(L("fl_price"), offers) { cell(flAmount($0.priceMinor, $0.currency), best: best.price == $0.uuid) }
                         row(L("fl_you_pay"), offers) { o in cell(o.clientCost.map { flAmount($0.totalMinor, $0.currency) } ?? "—") }
                         row(L("fl_duration"), offers) { cell(L("fl_days", $0.durationDays ?? 0), best: best.duration == $0.uuid) }
-                        row(L("fl_profile_complete"), offers) { cell("\(flNum($0.freelancer?.completeness ?? 0))%", best: best.completeness == $0.uuid) }
-                        row(L("fl_skills_fit"), offers) { o in
-                            cell(skillsMatch(o.freelancer) ?? "—", best: best.skills == o.uuid && !(o.freelancer?.matchingSkills ?? []).isEmpty)
+                        // FS-210: who offers — a team (with its people) or a person. A team is read by its own figures, never by its Owner's: what is
+                        // only a person's (profile completeness, skills fit, years, work shown, on-time share) is a dash for a team's offer.
+                        if offers.contains(where: { $0.team != nil }) {
+                            row(L("fteam_compare_by"), offers) { o in cell(o.team.map { L("fteam_team_of", ($0.members ?? []).count) } ?? L("fteam_individual")) }
                         }
-                        row(L("fl_verified"), offers) { cell(L($0.freelancer?.verified == true ? "fl_yes" : "fl_no")) }
-                        row(L("fl_experience_years"), offers) { o in cell(o.freelancer?.yearsOfExperience.map { L("fl_years", $0) } ?? "—") }
-                        row(L("fl_portfolio"), offers) { cell(flNum($0.freelancer?.portfolioCount ?? 0)) }
+                        row(L("fl_profile_complete"), offers) { o in
+                            cell(o.team != nil ? "—" : "\(flNum(o.freelancer?.completeness ?? 0))%", best: o.team == nil && best.completeness == o.uuid)
+                        }
+                        row(L("fl_skills_fit"), offers) { o in
+                            cell(o.team != nil ? "—" : (skillsMatch(o.freelancer) ?? "—"), best: o.team == nil && best.skills == o.uuid && !(o.freelancer?.matchingSkills ?? []).isEmpty)
+                        }
+                        row(L("fl_verified"), offers) { o in cell(L((o.team?.profile?.verified ?? o.freelancer?.verified) == true ? "fl_yes" : "fl_no")) }
+                        row(L("fl_experience_years"), offers) { o in cell(o.team != nil ? "—" : (o.freelancer?.yearsOfExperience.map { L("fl_years", $0) } ?? "—")) }
+                        row(L("fl_portfolio"), offers) { o in cell(o.team != nil ? "—" : flNum(o.freelancer?.portfolioCount ?? 0)) }
                         // FL-L13: the ownership model each one offers.
                         if offers.contains(where: { $0.rights != nil }) { row(L("rights_compare"), offers) { cell($0.rights?.modelLabel ?? "—") } }
                         // FL-703: what they finished, and on time.
                         row(L("fl_st_completed"), offers) { o in
-                            let similar = (o.freelancer?.similarProjects).flatMap { $0 > 0 ? " · " + L("fl_st_similar", $0) : nil } ?? ""
-                            cell(flNum(o.freelancer?.completedProjects ?? 0) + similar)
+                            if let t = o.team { cell(flNum(t.profile?.completedProjects ?? 0)) } else {
+                                let similar = (o.freelancer?.similarProjects).flatMap { $0 > 0 ? " · " + L("fl_st_similar", $0) : nil } ?? ""
+                                cell(flNum(o.freelancer?.completedProjects ?? 0) + similar)
+                            }
                         }
-                        row(L("fl_st_on_time"), offers) { o in cell(o.freelancer?.onTimeRate.map { "\(flNum($0))%" } ?? "—") }
-                        row(L("fl_rating_label"), offers) { cell(ratingText($0.freelancer)) }
+                        row(L("fl_st_on_time"), offers) { o in cell(o.team != nil ? "—" : (o.freelancer?.onTimeRate.map { "\(flNum($0))%" } ?? "—")) }
+                        row(L("fl_rating_label"), offers) { o in cell(o.team.map { teamRatingText($0.profile) } ?? ratingText(o.freelancer)) }
                         row(L("fl_offer_details"), offers) { cell($0.details ?? "", small: true) }
                         // FL-307: the same question, each one's answer.
                         ForEach(Array((offers.first?.answers ?? []).enumerated()), id: \.offset) { i, a in
@@ -420,6 +456,8 @@ struct OfferPage: View {
     let onProfile: () -> Void
     let onChat: (String) -> Void
     let onChosen: () -> Void
+    /// FS-210: opens a team's profile (the team a team's offer is made in the name of).
+    var onTeam: (String) -> Void = { _ in }
     @State private var offer: FreelanceOfferDto?
     @State private var error: String?
     @State private var notice: String?
@@ -462,7 +500,7 @@ struct OfferPage: View {
         .dorrDialog(isPresented: Binding(get: { sheet == "more" }, set: { if !$0 { sheet = nil } }), bottom: true) {
             if let o = offer {
                 let can = o.can ?? FreelanceOfferCanDto()
-                FlSheet(icon: "ellipsis.circle.fill", title: L("flo_more_title"), text: o.freelancer?.name ?? "") {
+                FlSheet(icon: "ellipsis.circle.fill", title: L("flo_more_title"), text: o.team?.name ?? o.freelancer?.name ?? "") {
                     if can.shortlist == true && o.state != "shortlisted" { FlAction(text: L("fl_shortlist"), icon: "star") { sheet = nil; decide("shortlist") } }
                     if can.unshortlist == true { FlAction(text: L("fl_unshortlist"), icon: "star.fill") { sheet = nil; decide("unshortlist") } }
                     if can.reject == true { FlAction(text: L("fl_reject_offer"), icon: "xmark.circle.fill", tone: .danger) { sheet = "reject" } }
@@ -483,27 +521,32 @@ struct OfferPage: View {
         let f = o.freelancer
         let can = o.can ?? FreelanceOfferCanDto()
         VStack(alignment: .leading, spacing: 12) {
-            // Who sent it — tap for the profile.
-            Button(action: onProfile) {
-                HStack(spacing: 12) {
-                    FlAvatar(name: f?.name, url: f?.avatarUrl, size: 52)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Text(verbatim: f?.name ?? "—").font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                            if f?.verified == true { VerifiedMark(size: 18) }
-                            PlanBadge(badge: f?.badge).padding(.leading, 2)
+            // FS-210: a team's offer — the team first (tap for its profile), and under the offer who works on it and who signs for it.
+            if let team = o.team {
+                TeamIdentityCard(t: team, onOpen: { if let id = team.uuid { onTeam(id) } }) { OfferStatusPill(status: o.state) }
+            } else {
+                // Who sent it — tap for the profile.
+                Button(action: onProfile) {
+                    HStack(spacing: 12) {
+                        FlAvatar(name: f?.name, url: f?.avatarUrl, size: 52)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Text(verbatim: f?.name ?? "—").font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                                if f?.verified == true { VerifiedMark(size: 18) }
+                                PlanBadge(badge: f?.badge).padding(.leading, 2)
+                            }
+                            if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                            Text(verbatim: ratingText(f)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                            Text(L("fl_see_profile")).font(.dorr(12, .bold)).foregroundStyle(wa.accent)
+                            OfferStatusPill(status: o.state)
                         }
-                        if let h = f?.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
-                        Text(verbatim: ratingText(f)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                        Text(L("fl_see_profile")).font(.dorr(12, .bold)).foregroundStyle(wa.accent)
-                        OfferStatusPill(status: o.state)
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
+                    .padding(14)
+                    .settingsSurface(18)
                 }
-                .padding(14)
-                .settingsSurface(18)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             FlCard {
                 OfferPriceRow(o: o)
                 LoyaltyWasLine(bp: o.loyaltyBp, list: o.listPriceMinor.map { flAmount($0, o.currency) })
@@ -513,7 +556,10 @@ struct OfferPage: View {
             }
             // FL-L13: who owns the work once it is paid and what I may do with it.
             RightsCard(rights: o.rights)
-            if let f {
+            if let team = o.team {
+                TeamWorkCard(members: team.members ?? [], signer: f?.name, onSigner: f != nil ? onProfile : nil)
+            }
+            if let f, o.team == nil {
                 FlCard(icon: "person.fill", title: L("fl_freelancer_profile")) {
                     HStack(spacing: 8) {
                         FlStat(icon: "checkmark.seal.fill", label: L("fl_profile_complete"), value: "\(f.completeness ?? 0)%")
@@ -885,7 +931,7 @@ struct FreelancerProfilePage: View {
     }
 }
 
-// MARK: - The freelancers I keep (FL-306)
+// MARK: - The freelancers and the teams I keep (FL-306, FS-213)
 
 @MainActor
 struct FavoritesPage: View {
@@ -894,53 +940,89 @@ struct FavoritesPage: View {
     let onBack: () -> Void
     /// FS-103: opens my talent lists.
     var onTalent: () -> Void = {}
+    /// FS-213: opens a kept team's profile.
+    var onTeam: (String) -> Void = { _ in }
+    // FS-213: freelancers | teams.
+    @State private var tab = 0
+    @State private var inviting: FreelanceTeamFavoriteDto?
     @StateObject private var paged = PagedRows<FreelanceFavoriteDto>(key: { $0.uuid })
+    @StateObject private var teams = PagedRows<FreelanceTeamFavoriteDto>(key: { $0.uuid })
 
     var body: some View {
-        let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
-            FlPageHeader(title: L("fl_favorites"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
+            FlPageHeader(title: L("fl_favorites_title"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
+            FlTabs(tabs: [FlTab(icon: "person.fill", label: L("fteam_fav_people")), FlTab(icon: "person.3.fill", label: L("fteam_fav_teams"))], selected: tab) { tab = $0 }
+                .padding(.horizontal, 16).padding(.top, 6)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    if list == nil && paged.error == nil {
-                        ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
-                    } else if let rows = list, rows.isEmpty {
-                        WaEmpty(icon: "heart.fill", tone: .pink, title: L("fl_favorites"), text: L("fl_favorites_empty"))
-                    } else if let rows = list {
-                        ForEach(Array(rows.enumerated()), id: \.element.uuid) { i, f in
-                            HStack(spacing: 10) {
-                                FlAvatar(name: f.name, url: f.avatarUrl)
-                                VStack(alignment: .leading, spacing: 0) {
-                                    HStack(spacing: 4) {
-                                        Text(verbatim: f.name ?? "—").font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk)
-                                        if f.verified == true { VerifiedMark() }
-                                    }
-                                    if let h = f.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
-                                    Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                                }
-                                Spacer(minLength: 0)
-                                SaveToListButton(freelancer: f.uuid)
-                                Button {
-                                    Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
-                                } label: {
-                                    Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(flRed).frame(width: 34, height: 34)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(L("fl_favorite_remove"))
-                            }
-                            .padding(14)
-                            .settingsSurface(18)
-                            .onAppear { paged.appeared(i) }
-                        }
-                    }
-                    PagedSpinner(paged: paged)
-                    PagedError(paged: paged)
+                    if tab == 1 { teamRows } else { peopleRows }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
-            .refreshable { await paged.reload() }
+            .refreshable { if tab == 1 { await teams.reload() } else { await paged.reload() } }
         }
-        .task { paged.reset { page in try await FreelanceApi.favorites(page: page) } }
-        .task(id: network.reconnectTick) { await paged.reload() }
+        .task {
+            paged.reset { page in try await FreelanceApi.favorites(page: page) }
+            teams.reset { page in try await FreelanceApi.teamFavorites(page: page) }
+        }
+        .task(id: "\(network.reconnectTick)|\(tab)") { if tab == 1 { await teams.reload() } else { await paged.reload() } }
+        .dorrDialog(isPresented: Binding(get: { inviting != nil }, set: { if !$0 { inviting = nil } }), bottom: true) {
+            if let t = inviting { InviteTeamSheet(team: t.uuid, teamName: t.name ?? "") { inviting = nil } }
+        }
+    }
+
+    /// FS-213: the kept teams (tap for its profile, the send icon invites it, the heart lets it go).
+    @ViewBuilder
+    private var teamRows: some View {
+        let list: [FreelanceTeamFavoriteDto]? = teams.loaded && (teams.error == nil || !teams.rows.isEmpty) ? teams.rows : nil
+        if list == nil && teams.error == nil {
+            ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
+        } else if let rows = list, rows.isEmpty {
+            TeamFavoritesEmpty()
+        } else if let rows = list {
+            TeamFavoriteRows(rows: rows, onOpen: onTeam, onInvite: { inviting = $0 }, onRemove: { id in
+                Task { if (try? await FreelanceApi.removeTeamFavorite(id)) != nil { teams.remove { $0.uuid == id } } }
+            }, onAppeared: { teams.appeared($0) })
+        }
+        PagedSpinner(paged: teams)
+        PagedError(paged: teams)
+    }
+
+    @ViewBuilder
+    private var peopleRows: some View {
+        let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
+        if list == nil && paged.error == nil {
+            ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
+        } else if let rows = list, rows.isEmpty {
+            WaEmpty(icon: "heart.fill", tone: .pink, title: L("fl_favorites"), text: L("fl_favorites_empty"))
+        } else if let rows = list {
+            ForEach(Array(rows.enumerated()), id: \.element.uuid) { i, f in
+                HStack(spacing: 10) {
+                    FlAvatar(name: f.name, url: f.avatarUrl)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 4) {
+                            Text(verbatim: f.name ?? "—").font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk)
+                            if f.verified == true { VerifiedMark() }
+                        }
+                        if let h = f.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                        Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    }
+                    Spacer(minLength: 0)
+                    SaveToListButton(freelancer: f.uuid)
+                    Button {
+                        Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
+                    } label: {
+                        Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(flRed).frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("fl_favorite_remove"))
+                }
+                .padding(14)
+                .settingsSurface(18)
+                .onAppear { paged.appeared(i) }
+            }
+        }
+        PagedSpinner(paged: paged)
+        PagedError(paged: paged)
     }
 }

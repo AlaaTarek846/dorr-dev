@@ -13,11 +13,16 @@
             </div>
         </div>
 
-        <div class="alert alert-light border fs-13">{{ t('freelance.plans.hint') }}</div>
+        <div class="alert alert-light border fs-13">{{ isTeam ? t('freelance.plans.team_hint') : t('freelance.plans.hint') }}</div>
 
         <div class="row g-3 mb-3">
             <div class="col-xl-3 col-md-6">
-                <FlStatTile icon="ri-vip-crown-2-line" tone="primary" :label="t('freelance.plans.subscribers')" :value="loading ? '…' : overview.subscribers" />
+                <FlStatTile
+                    icon="ri-vip-crown-2-line"
+                    tone="primary"
+                    :label="isTeam ? t('freelance.plans.team_subscribers') : t('freelance.plans.subscribers')"
+                    :value="loading ? '…' : (isTeam ? overview.team_subscribers : overview.subscribers)"
+                />
             </div>
             <div class="col-xl-3 col-md-6">
                 <FlStatTile icon="ri-user-add-line" tone="info" :label="t('freelance.plans.trialing')" :value="loading ? '…' : (subCounts.trialing ?? 0)" />
@@ -37,6 +42,19 @@
 
         <div class="card custom-card">
             <div class="card-header d-flex align-items-center flex-wrap gap-3 py-3">
+                <div class="btn-group btn-group-sm" role="group" :aria-label="t('freelance.plans.title')">
+                    <button
+                        v-for="a in audienceOptions"
+                        :key="a.value"
+                        type="button"
+                        class="btn"
+                        :class="audience === a.value ? 'btn-primary' : 'btn-outline-primary'"
+                        :aria-pressed="audience === a.value"
+                        @click="audience = a.value"
+                    >
+                        <i :class="[a.icon, 'me-1']"></i>{{ a.label }}
+                    </button>
+                </div>
                 <FlStatusFilter v-model="tab" :options="tabOptions" />
             </div>
 
@@ -44,7 +62,8 @@
             <div v-if="tab === 'plans'" class="card-body">
                 <div v-if="loading" class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm"></span></div>
                 <div v-else class="row g-3">
-                    <div v-for="p in overview.plans" :key="p.id" class="col-xl-4 col-md-6">
+                    <div v-if="!shownPlans.length" class="col-12 text-center text-muted py-5">{{ t('wallet.common.empty') }}</div>
+                    <div v-for="p in shownPlans" :key="p.id" class="col-xl-4 col-md-6">
                         <div class="border rounded-3 p-3 h-100 d-flex flex-column">
                             <div class="d-flex align-items-start gap-2 mb-2">
                                 <div class="flex-grow-1">
@@ -55,13 +74,22 @@
                                 <span v-else class="badge" :class="p.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">{{ p.status ? t('wallet.common.active') : t('wallet.common.inactive') }}</span>
                             </div>
                             <p v-if="descriptionOf(p)" class="text-muted fs-12 mb-2">{{ descriptionOf(p) }}</p>
-                            <ul class="list-unstyled fs-13 mb-3 flex-grow-1">
+                            <!-- A team plan: the room it opens for the whole team (never per member). -->
+                            <ul v-if="p.audience === 'team'" class="list-unstyled fs-13 mb-3 flex-grow-1">
+                                <li class="mb-1"><i class="ri-team-line me-2 text-primary"></i>{{ p.team_members_max == null ? t('freelance.plans.team_members_unlimited') : t('freelance.plans.team_members_n', { n: p.team_members_max }) }}</li>
+                                <li class="mb-1"><i class="ri-folder-chart-line me-2 text-primary"></i>{{ p.team_projects_max == null ? t('freelance.plans.team_projects_unlimited') : t('freelance.plans.team_projects_n', { n: p.team_projects_max }) }}</li>
+                                <li class="mb-1"><i class="ri-send-plane-line me-2 text-primary"></i>{{ teamOffersText(p) }}</li>
+                                <li class="mb-1"><i class="ri-gift-line me-2 text-primary"></i>{{ t('freelance.plans.trial_days', { n: p.trial_days }) }}</li>
+                                <li class="mb-1"><i class="ri-group-line me-2 text-primary"></i>{{ t('freelance.plans.on_plan_teams', { n: p.subscribers }) }}</li>
+                            </ul>
+                            <ul v-else class="list-unstyled fs-13 mb-3 flex-grow-1">
                                 <li class="mb-1"><i class="ri-send-plane-line me-2 text-primary"></i>{{ offersText(p) }}</li>
                                 <li class="mb-1"><i class="ri-percent-line me-2 text-primary"></i>{{ commissionText(p) }}</li>
                                 <li v-if="!p.free" class="mb-1"><i class="ri-gift-line me-2 text-primary"></i>{{ t('freelance.plans.trial_days', { n: p.trial_days }) }}</li>
                                 <li v-if="!p.free" class="mb-1"><i class="ri-medal-line me-2 text-primary"></i>{{ perksText(p) }}</li>
                                 <li class="mb-1"><i class="ri-group-line me-2 text-primary"></i>{{ t('freelance.plans.on_plan', { n: p.subscribers }) }}</li>
                             </ul>
+                            <div v-if="p.audience === 'team' && !p.status" class="alert alert-warning py-2 px-3 fs-12 mb-3">{{ t('freelance.plans.team_not_sold') }}</div>
                             <div v-if="canUpdate && !p.free" class="text-end">
                                 <button type="button" class="btn btn-sm btn-light btn-wave" @click="openEdit(p)"><i class="ri-edit-line me-1"></i>{{ t('freelance.plans.edit') }}</button>
                             </div>
@@ -151,7 +179,7 @@
                         <table class="table text-nowrap table-striped table-hover mb-0 align-middle">
                             <thead>
                                 <tr>
-                                    <th class="ps-4">{{ t('freelance.freelancers.freelancer') }}</th>
+                                    <th class="ps-4">{{ isTeam ? t('freelance.plans.team') : t('freelance.freelancers.freelancer') }}</th>
                                     <th>{{ t('freelance.plans.plan') }}</th>
                                     <th>{{ t('wallet.common.status') }}</th>
                                     <th>{{ t('freelance.plans.price') }}</th>
@@ -162,7 +190,11 @@
                                 <TableSkeleton v-if="subLoading" :rows="6" :layout="['two-lines', 'badge', 'badge', 'text', 'text']" />
                                 <tr v-else-if="!subs.length"><td colspan="5" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
                                 <tr v-for="s in subs" v-else :key="s.uuid">
-                                    <td class="ps-4">
+                                    <td v-if="isTeam" class="ps-4">
+                                        <span class="d-block fw-semibold">{{ s.team?.name || '—' }}</span>
+                                        <span class="text-muted fs-11">{{ t('freelance.plans.paid_by') }}: {{ s.freelancer?.name || '—' }} <span dir="ltr">{{ s.freelancer?.phone }}</span></span>
+                                    </td>
+                                    <td v-else class="ps-4">
                                         <span class="d-block fw-semibold">{{ s.freelancer.name || '—' }}</span>
                                         <span class="text-muted fs-11" dir="ltr">{{ s.freelancer.phone }}</span>
                                     </td>
@@ -326,6 +358,18 @@
                         <label class="form-label">{{ t('freelance.plans.description_en') }}</label>
                         <textarea v-model="form.description.en" class="form-control" dir="ltr" rows="2" maxlength="300"></textarea>
                     </div>
+                    <template v-if="editing.audience === 'team'">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('freelance.plans.team_members_max') }}</label>
+                            <input v-model="form.team_members_max" type="number" min="1" max="1000" class="form-control" :placeholder="t('freelance.plans.no_cap')">
+                            <div class="form-text">{{ t('freelance.plans.team_members_hint') }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('freelance.plans.team_projects_max') }}</label>
+                            <input v-model="form.team_projects_max" type="number" min="1" max="100000" class="form-control" :placeholder="t('freelance.plans.no_cap')">
+                            <div class="form-text">{{ t('freelance.plans.team_projects_hint') }}</div>
+                        </div>
+                    </template>
                     <div class="col-12">
                         <div class="form-check form-switch">
                             <input id="plan-unlimited" v-model="form.offers_unlimited" class="form-check-input" type="checkbox">
@@ -335,9 +379,9 @@
                     <div class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.offers_monthly') }}</label>
                         <input v-model.number="form.offers_monthly" type="number" min="0" class="form-control" :disabled="form.offers_unlimited">
-                        <div class="form-text">{{ t('freelance.plans.offers_monthly_hint') }}</div>
+                        <div class="form-text">{{ editing.audience === 'team' ? t('freelance.plans.team_offers_hint') : t('freelance.plans.offers_monthly_hint') }}</div>
                     </div>
-                    <div class="col-md-4">
+                    <div v-if="editing.audience !== 'team'" class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.commission') }}</label>
                         <div class="input-group">
                             <input v-model="form.commission" type="text" inputmode="decimal" class="form-control" dir="ltr">
@@ -349,21 +393,21 @@
                         <label class="form-label">{{ t('freelance.plans.trial_label') }}</label>
                         <input v-model.number="form.trial_days" type="number" min="0" max="90" class="form-control">
                     </div>
-                    <div class="col-12">
+                    <div v-if="editing.audience !== 'team'" class="col-12">
                         <div class="form-check form-switch">
                             <input id="plan-badge" v-model="form.badge" class="form-check-input" type="checkbox">
                             <label class="form-check-label" for="plan-badge">{{ t('freelance.plans.badge') }}</label>
                         </div>
                         <div class="form-text">{{ t('freelance.plans.badge_hint') }}</div>
                     </div>
-                    <div class="col-md-4">
+                    <div v-if="editing.audience !== 'team'" class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.boost') }}</label>
                         <select v-model.number="form.boost" class="form-select">
                             <option v-for="n in [0, 1, 2, 3]" :key="n" :value="n">{{ n === 0 ? t('freelance.plans.boost_none') : n }}</option>
                         </select>
                         <div class="form-text">{{ t('freelance.plans.boost_hint') }}</div>
                     </div>
-                    <div class="col-md-4">
+                    <div v-if="editing.audience !== 'team'" class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.analytics') }}</label>
                         <select v-model.number="form.analytics" class="form-select">
                             <option :value="0">{{ t('freelance.plans.analytics_0') }}</option>
@@ -372,7 +416,7 @@
                         </select>
                         <div class="form-text">{{ t('freelance.plans.analytics_hint') }}</div>
                     </div>
-                    <div class="col-md-4">
+                    <div v-if="editing.audience !== 'team'" class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.services_max') }}</label>
                         <input v-model="form.services_max" type="number" min="1" max="1000" class="form-control" :placeholder="t('freelance.plans.services_max_policy')">
                         <div class="form-text">{{ t('freelance.plans.services_max_hint') }}</div>
@@ -441,8 +485,9 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatCatalogDate } from '../../../../../../../utils/catalog';
 
-// The freelancer plans desk (FL-L01): what each plan gives, its monthly and yearly price in every country, and who is subscribed.
-// Prices are whole minor units of the country's currency; the screen shows them with the currency's own decimals.
+// The plans desk (FL-L01, FS-211): what each plan gives, its monthly and yearly price in every country, and who is subscribed. Two audiences
+// share it: the freelancers' plans, and the teams' plans (the room they open for a whole team, paid by one Owner). Prices are whole minor units
+// of the country's currency; the screen shows them with the currency's own decimals.
 const { t, locale } = useI18n();
 const { can } = usePermission();
 const { showSuccess, showError } = useToast();
@@ -465,12 +510,21 @@ const PagerFooter = defineComponent({
 });
 
 const tab = ref('plans');
+// Whose plans the screen shows: `freelancer` or `team`. The extra-offer packs are a freelancer's only.
+const audience = ref('freelancer');
+const isTeam = computed(() => audience.value === 'team');
+const audienceOptions = computed(() => [
+    { value: 'freelancer', label: t('freelance.plans.audience.freelancers'), icon: 'ri-user-star-line' },
+    { value: 'team', label: t('freelance.plans.audience.teams'), icon: 'ri-team-line' },
+]);
 const tabOptions = computed(() => [
     { value: 'plans', label: t('freelance.plans.tabs.plans'), tone: 'all' },
     { value: 'prices', label: t('freelance.plans.tabs.prices'), tone: 'all' },
     { value: 'subscribers', label: t('freelance.plans.tabs.subscribers'), tone: 'all' },
-    { value: 'packs', label: t('freelance.plans.tabs.packs'), tone: 'all' },
-    { value: 'purchases', label: t('freelance.plans.tabs.purchases'), tone: 'all' },
+    ...(isTeam.value ? [] : [
+        { value: 'packs', label: t('freelance.plans.tabs.packs'), tone: 'all' },
+        { value: 'purchases', label: t('freelance.plans.tabs.purchases'), tone: 'all' },
+    ]),
 ]);
 
 // ---- money: minor units <-> what the staff type, with the currency's decimals
@@ -482,14 +536,19 @@ const toMinor = (text, decimals = 2) => {
 
 // ---- the plans
 const loading = ref(false);
-const overview = reactive({ plans: [], revenue_30d: [], subscribers: 0 });
+const overview = reactive({ plans: [], revenue_30d: [], subscribers: 0, team_subscribers: 0 });
 const subCounts = ref({});
-const paidPlans = computed(() => overview.plans.filter((p) => !p.free));
+const shownPlans = computed(() => overview.plans.filter((p) => (p.audience ?? 'freelancer') === audience.value));
+const paidPlans = computed(() => shownPlans.value.filter((p) => !p.free));
 const planName = (p) => p.name?.[locale.value] || p.name?.en || p.slug;
 const descriptionOf = (p) => p.description?.[locale.value] || p.description?.en || '';
 const offersText = (p) => {
     if (p.free) return t('freelance.plans.offers_free');
     return p.offers_unlimited ? t('freelance.plans.offers_unlimited_text') : t('freelance.plans.offers_n', { n: p.offers_monthly ?? 0 });
+};
+const teamOffersText = (p) => {
+    if (p.offers_unlimited) return t('freelance.plans.offers_unlimited_text');
+    return p.offers_monthly == null ? t('freelance.plans.team_offers_policy') : t('freelance.plans.offers_n', { n: p.offers_monthly });
 };
 const commissionText = (p) => (p.commission_bp == null ? t('freelance.plans.commission_policy') : t('freelance.plans.commission_n', { n: p.commission_bp / 100 }));
 const perksText = (p) => [
@@ -515,7 +574,10 @@ async function loadOverview() {
 
 const editing = ref(null);
 const planSaving = ref(false);
-const form = reactive({ name: { ar: '', en: '' }, description: { ar: '', en: '' }, offers_monthly: 0, offers_unlimited: false, commission: '', trial_days: 0, badge: false, boost: 0, analytics: 0, services_max: '', status: true });
+const form = reactive({
+    name: { ar: '', en: '' }, description: { ar: '', en: '' }, offers_monthly: 0, offers_unlimited: false, commission: '', trial_days: 0, badge: false, boost: 0, analytics: 0, services_max: '',
+    team_members_max: '', team_projects_max: '', status: true,
+});
 
 function openEdit(p) {
     form.name = { ar: p.name?.ar ?? '', en: p.name?.en ?? '' };
@@ -528,31 +590,42 @@ function openEdit(p) {
     form.boost = p.boost ?? 0;
     form.analytics = p.analytics ?? 0;
     form.services_max = p.services_max == null ? '' : String(p.services_max);
+    form.team_members_max = p.team_members_max == null ? '' : String(p.team_members_max);
+    form.team_projects_max = p.team_projects_max == null ? '' : String(p.team_projects_max);
     form.status = !!p.status;
     editing.value = p;
 }
 
+const numberOrNull = (v) => (String(v ?? '').trim() === '' ? null : Number(v));
+
 async function savePlan() {
+    const team = editing.value.audience === 'team';
     const percent = String(form.commission ?? '').trim().replace(',', '.');
-    if (percent !== '' && !(Number(percent) >= 0 && Number(percent) <= 100)) {
+    if (!team && percent !== '' && !(Number(percent) >= 0 && Number(percent) <= 100)) {
         showError(t('freelance.plans.commission_invalid'));
         return;
     }
     planSaving.value = true;
     try {
-        const response = await adminAxios.put(`${base}/${editing.value.id}`, {
+        // A team plan has the room it opens and no commission, badge, boost, analytics or services: those are a freelancer's.
+        const body = {
             name: form.name,
             description: form.description,
             offers_unlimited: form.offers_unlimited,
             offers_monthly: form.offers_unlimited ? null : (form.offers_monthly ?? 0),
-            commission_bp: percent === '' ? null : Math.round(Number(percent) * 100),
             trial_days: form.trial_days ?? 0,
-            badge: form.badge,
-            boost: form.boost ?? 0,
-            analytics: form.analytics ?? 0,
-            services_max: String(form.services_max ?? '').trim() === '' ? null : Number(form.services_max),
             status: form.status,
-        });
+        };
+        Object.assign(body, team
+            ? { team_members_max: numberOrNull(form.team_members_max), team_projects_max: numberOrNull(form.team_projects_max) }
+            : {
+                commission_bp: percent === '' ? null : Math.round(Number(percent) * 100),
+                badge: form.badge,
+                boost: form.boost ?? 0,
+                analytics: form.analytics ?? 0,
+                services_max: numberOrNull(form.services_max),
+            });
+        const response = await adminAxios.put(`${base}/${editing.value.id}`, body);
         showSuccess(extractApiMessage(response, t('toast.success')));
         editing.value = null;
         loadOverview();
@@ -667,7 +740,7 @@ const subLoading = ref(false);
 const subStatus = ref('all');
 const subPlan = ref('all');
 const subSearch = ref('');
-const subPlanOptions = computed(() => [{ value: 'all', label: t('freelance.plans.all_plans') }, ...overview.plans.filter((p) => !p.free).map((p) => ({ value: p.slug, label: planName(p) }))]);
+const subPlanOptions = computed(() => [{ value: 'all', label: t('freelance.plans.all_plans') }, ...paidPlans.value.map((p) => ({ value: p.slug, label: planName(p) }))]);
 const subTotal = computed(() => Object.values(subCounts.value).reduce((a, b) => a + b, 0));
 const subStatusOptions = computed(() => [
     { value: 'all', label: t('users.filter_all'), count: subTotal.value, tone: 'all' },
@@ -680,8 +753,17 @@ const subBadge = (s) => ({ trialing: 'bg-info-transparent', active: 'bg-success-
 
 let subTimer = null;
 watch(subSearch, () => { clearTimeout(subTimer); subTimer = setTimeout(() => (subPageNo.value === 1 ? loadSubs() : (subPageNo.value = 1)), 300); });
-watch([subStatus, subPlan], () => (subPageNo.value === 1 ? loadSubs() : (subPageNo.value = 1)));
+watch([subStatus, subPlan, audience], () => (subPageNo.value === 1 ? loadSubs() : (subPageNo.value = 1)));
 watch(subPageNo, loadSubs);
+// Switching between the freelancers' plans and the teams': start that side from its first plan and an unfiltered list.
+watch(audience, () => {
+    if (isTeam.value && ['packs', 'purchases'].includes(tab.value)) tab.value = 'plans';
+    pricePlanId.value = paidPlans.value[0]?.id ?? null;
+    prices.value = [];
+    subPlan.value = 'all';
+    subStatus.value = 'all';
+    subSearch.value = '';
+});
 watch(tab, (v) => {
     if (v === 'prices' && !prices.value.length) loadPrices();
     if (v === 'subscribers') loadSubs();
@@ -699,7 +781,7 @@ async function loadSubs() {
     try {
         const { data } = await adminAxios.get(`${base}/subscriptions`, {
             params: {
-                page: subPageNo.value, search: subSearch.value || undefined,
+                page: subPageNo.value, search: subSearch.value || undefined, audience: isTeam.value ? 'team' : undefined,
                 status: subStatus.value === 'all' ? undefined : subStatus.value, plan: subPlan.value === 'all' ? undefined : subPlan.value,
             },
         });

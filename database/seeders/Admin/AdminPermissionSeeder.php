@@ -340,6 +340,10 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            // FS-150d: reading a team's internal chat about a disputed project - its own permission, not given with the disputes desk.
+            'freelance-internal-chat' => ['module_name' => 'freelance', 'actions' => ['view']],
+            // FS-208: the freelancers' teams desk.
+            'freelance-teams' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-reviews' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-message-reports' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -372,14 +376,6 @@ class AdminPermissionSeeder extends Seeder
             'driver-services' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
-            // Provider establishments: review, vehicle types, documents asked (docs/moving_tasks.md A-11).
-            'provider-establishments' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
-            'provider-vehicle-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
-            'provider-document-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
-            'moving-policies' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
-            'moving-cases' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
-            'moving-requests' => ['module_name' => 'moving', 'actions' => ['view']],
-            'moving-tickets' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).
             'sports-settings' => [
                 'module_name' => 'general_services',

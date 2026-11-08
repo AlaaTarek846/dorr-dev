@@ -19,6 +19,15 @@ struct InvitationRefDto: Decodable {
     var uuid: String?
     /// Default `sent`.
     var status: String?
+    /// FS-213: the client invited my team (I offer in its name).
+    var team: InvitationTeamDto?
+}
+
+/// FS-213: the team a client invited through me (its Owner).
+struct InvitationTeamDto: Decodable {
+    var uuid: String?
+    var name: String?
+    var logoUrl: String?
 }
 
 struct InvitationDto: Decodable, Identifiable {
@@ -30,6 +39,8 @@ struct InvitationDto: Decodable, Identifiable {
     var project: ProjectDto?
     var offered: Bool?
     var can: InvitationCanDto?
+    /// FS-213: the client invited my team, not me alone.
+    var team: InvitationTeamDto?
 }
 
 struct InvitationCanDto: Decodable {

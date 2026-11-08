@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Assignment
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -296,6 +297,7 @@ private fun promoAction(p: PromoDto, actions: MainActions, openUrl: (String) -> 
         "wallet" -> actions.openWallet
         "availability" -> actions.openAvailability
         "capacity" -> actions.openCapacity
+        "teams" -> actions.openTeams
         else -> null
     }
     else -> null
@@ -513,6 +515,7 @@ private fun ToolsGrid(h: HomeDto, actions: MainActions) {
         if (h.on("subscriptions")) add(Tool(Icons.Rounded.WorkspacePremium, R.string.plans_title, Tints.amber, onClick = actions.openPlans))
         add(Tool(Icons.Rounded.EventAvailable, R.string.availability_title, Tints.green, onClick = actions.openAvailability))
         if (h.on("skill_tests")) add(Tool(Icons.Rounded.Quiz, R.string.skt_home_card, Tints.blue, onClick = actions.openSkillTests))
+        if (h.on("teams")) add(Tool(Icons.Rounded.Groups, R.string.team_home_card, Tints.violet, onClick = actions.openTeams))
     }
     if (tools.isEmpty()) return
     SectionHeader(stringResource(R.string.home_tools))

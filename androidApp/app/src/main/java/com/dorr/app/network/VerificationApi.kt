@@ -1,7 +1,5 @@
 package com.dorr.app.network
 
-import com.google.gson.Gson
-import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -25,16 +23,13 @@ interface VerificationApi {
     @GET("mobile/v1/chat/verification/options")
     suspend fun options(@Header("Authorization") auth: String): ApiEnvelope<VerificationOptionsDto>
 
-    /**
-     * My badge (status, type, since, until). Never verified: the server's envelope turns the `null` into `[]`, which
-     * Gson can't read as the DTO — so these two come back raw and [objectOrNull] reads them.
-     */
+    /** My badge (status, type, since, until); `data` is null when never verified. */
     @GET("mobile/v1/chat/verification/badge")
-    suspend fun badge(@Header("Authorization") auth: String): ApiEnvelope<JsonElement?>
+    suspend fun badge(@Header("Authorization") auth: String): ApiEnvelope<VerificationBadgeDto>
 
-    /** The latest request (open or closed); none = `[]` (see [badge]). */
+    /** The latest request (open or closed); `data` is null when there is none. */
     @GET("mobile/v1/chat/verification/request")
-    suspend fun current(@Header("Authorization") auth: String): ApiEnvelope<JsonElement?>
+    suspend fun current(@Header("Authorization") auth: String): ApiEnvelope<VerificationRequestDto>
 
     /** Fields: track, full_name, contact_phone, contact_email, notes. Files: `documents[{typeId}][front|back]`. */
     @Multipart
@@ -71,10 +66,6 @@ data class VerificationBadgeDto(
     @SerializedName("expires_at") val expiresAt: String? = null,
     val reason: String? = null,
 )
-
-/** `data` as the DTO when it is an object; `null`, `[]` or anything else = nothing there. */
-internal inline fun <reified T> JsonElement?.objectOrNull(): T? =
-    if (this != null && isJsonObject) Gson().fromJson(this, T::class.java) else null
 
 data class VerificationOptionsDto(val tracks: List<VerificationTrackDto> = emptyList())
 

@@ -107,6 +107,20 @@ return [
         // the most steps one program has.
         'loyalty.max_discount_bp' => 3000,
         'loyalty.max_tiers' => 4,
+        // Workroom (FS-150a): the most tasks one project may hold. null = no limit (the owner's decision: open at first, the admin sets it later).
+        'workroom.tasks_max' => null,
+        // Workroom File Hub (FS-150b): the most files, and the most storage in megabytes, one project may hold. null = no limit, like the tasks.
+        'workroom.files_max' => null,
+        'workroom.storage_mb' => null,
+        // Teams (FS-201, D1): a freelancer is the Owner of one team and may join up to five more; the admin raises or clears (null = no limit) these.
+        // A team's size has no cap at first.
+        'teams.owned_max' => 1,
+        'teams.joined_max' => 5,
+        'teams.members_max' => null,
+        'teams.offers_monthly' => null,
+        // FS-211: the projects one team may run at the same time (an agreement that is `active`). These three team numbers are what a team with no
+        // plan gets; a team plan raises them (never lowers: an empty policy = no cap stays no cap).
+        'teams.projects_max' => null,
     ],
 
     // Skill suggestions (FL-102): how many new skills one freelancer may suggest a day.
@@ -159,6 +173,9 @@ return [
 
     // FL-208: the most freelancers told about one new project (the best fits first).
     'matching' => ['max_recipients' => 100],
+
+    // FS-104: the people an owner may bring into one project (docs/modules/freelance/PERMISSIONS.md).
+    'client_team' => ['max_members' => (int) env('FREELANCE_CLIENT_TEAM_MAX', 10)],
 
     // Offers (FL-301): how long the text must be, how many files.
     'offers' => ['details_min' => 30, 'details_max' => 3000, 'max_attachments' => 5],
@@ -217,6 +234,18 @@ return [
             'description' => ['ar' => 'عروض بلا حد وأقل عمولة للمحترف المتفرّغ.', 'en' => 'Unlimited offers and the lowest commission for a full-time freelancer.'],
             'offers_unlimited' => true, 'commission_bp' => 600, 'trial_days' => 14, 'usd' => 24,
             'badge' => true, 'boost' => 2, 'analytics' => 2, 'services_max' => 30,
+        ],
+        /*
+        | FS-211: Team Starter, a plan a freelancers' team's Owner takes for the team (`audience` team), paid from his own wallet (D7). Priced per
+        | team - one price whatever the number of people - and it opens room: the monthly offers, the people and the projects running at once.
+        | These numbers are only where the admin starts (they can all be changed on the plans desk). It is seeded NOT offered (`status` false):
+        | the limits it raises are the policies `teams.members_max`, `teams.projects_max` and `teams.offers_monthly`, which are open (no cap)
+        | until the admin sets them, so the plan would sell nothing before that. The admin turns it on once those are set.
+        */
+        'team_starter' => [
+            'audience' => 'team', 'rank' => 1, 'name' => ['ar' => 'ستارتر للفرق', 'en' => 'Team Starter'],
+            'description' => ['ar' => 'عروض ومشاريع وأعضاء أكتر لفريقك بسعر واحد للفريق كله.', 'en' => 'More offers, projects and people for your team, at one price for the whole team.'],
+            'offers_monthly' => 60, 'team_members_max' => 10, 'team_projects_max' => 5, 'trial_days' => 0, 'usd' => 29, 'status' => false,
         ],
     ],
     /*

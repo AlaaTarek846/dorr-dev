@@ -159,6 +159,9 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.collect { page ->
             val key = keysNow.getOrNull(page) ?: return@collect
+            // Before my wallet is known the list is only the dollar card (page 0): that is not a swipe to it. Taking it for one opened
+            // the wallet on the dollar side instead of the local one.
+            if (activeNow == null) return@collect
             if (key == activeNow) return@collect
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             if (key == "INT") {

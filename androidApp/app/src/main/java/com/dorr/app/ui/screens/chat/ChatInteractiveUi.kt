@@ -1,7 +1,6 @@
 package com.dorr.app.ui.screens.chat
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -74,10 +73,10 @@ fun InteractiveCard(m: UiMessage, mine: Boolean, onChoose: (Int) -> Unit, onShow
     val canTap = !mine && m.local == null
     var listOpen by remember { mutableStateOf(false) }
 
-    Column(Modifier.width(236.dp).padding(top = 7.dp)) {
-        Text(m.dto.body.orEmpty(), color = ink, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 10.dp))
-        ui.footer?.let { Text(it, color = ink.copy(alpha = 0.6f), fontSize = 11.5.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)) }
-        Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) { Box(Modifier.align(Alignment.CenterEnd)) { footer() } }
+    Column(Modifier.width(270.dp).padding(top = 10.dp)) {
+        Text(m.dto.body.orEmpty(), color = ink, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 12.dp))
+        ui.footer?.let { Text(it, color = ink.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) { Box(Modifier.align(Alignment.CenterEnd)) { footer() } }
         if (ui.kind == "list") {
             HorizontalDivider(color = ink.copy(alpha = 0.12f), modifier = Modifier.padding(top = 6.dp))
             ChoiceButton(Icons.AutoMirrored.Rounded.List, ui.button ?: stringResource(R.string.ia_choose), accent, chosen = false) { listOpen = true }
@@ -88,14 +87,16 @@ fun InteractiveCard(m: UiMessage, mine: Boolean, onChoose: (Int) -> Unit, onShow
             }
         }
         if (mine) {
-            HorizontalDivider(color = ink.copy(alpha = 0.18f), modifier = Modifier.padding(top = 4.dp))
             Row(
-                Modifier.fillMaxWidth().background(accent.copy(alpha = 0.16f)).clickable(enabled = ui.answers > 0, onClick = onShowAnswers).padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                Modifier.padding(horizontal = 8.dp, vertical = 6.dp).clip(RoundedCornerShape(10.dp)).clickable(enabled = ui.answers > 0, onClick = onShowAnswers).padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Rounded.BarChart, null, tint = accent, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(stringResource(R.string.ia_answers, ui.answers), color = accent, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    if (ui.answers == 0) stringResource(R.string.ia_no_answers) else stringResource(R.string.ia_answers, ui.answers),
+                    color = accent, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold,
+                )
             }
         } else {
             Spacer(Modifier.height(4.dp))
@@ -109,12 +110,12 @@ fun InteractiveCard(m: UiMessage, mine: Boolean, onChoose: (Int) -> Unit, onShow
 private fun ChoiceButton(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, accent: Color, chosen: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     val pop by animateFloatAsState(if (chosen) 1f else 0f, spring(dampingRatio = 0.45f), label = "choice")
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp),
+        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (chosen) Icons.Rounded.CheckCircle else icon, null, tint = accent, modifier = Modifier.size(16.dp).scale(1f + pop * 0.15f))
-        Spacer(Modifier.width(5.dp))
-        Text(title, color = accent, fontSize = 13.5.sp, fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Icon(if (chosen) Icons.Rounded.CheckCircle else icon, null, tint = accent, modifier = Modifier.size(18.dp).scale(1f + pop * 0.15f))
+        Spacer(Modifier.width(6.dp))
+        Text(title, color = accent, fontSize = 14.5.sp, fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -125,25 +126,18 @@ private fun InteractiveListSheet(title: String, ui: InteractiveDto, canTap: Bool
     var picked by remember { mutableStateOf(ui.myChoice) }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(Icons.AutoMirrored.Rounded.List, Ch.Red)
-                Spacer(Modifier.width(12.dp))
-                Text(ui.button ?: title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(12.dp))
+            Text(ui.button ?: title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(10.dp))
             ui.options.forEachIndexed { i, o ->
                 val on = picked == o.id
-                val rowBg by animateColorAsState(if (on) Ch.Red.copy(alpha = 0.16f) else Ch.SurfaceMuted, label = "listRow")
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp).chStagger(i).clip(RoundedCornerShape(14.dp)).background(rowBg)
-                        .clickable(enabled = canTap) { picked = o.id }.padding(vertical = 10.dp, horizontal = 12.dp),
+                    Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(14.dp)).clickable(enabled = canTap) { picked = o.id }.padding(vertical = 10.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(o.title, color = Ch.Ink, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold, fontSize = 15.sp)
                         o.description?.let { Text(it, color = Ch.Mut, fontSize = 12.5.sp) }
                     }
-                    Spacer(Modifier.width(10.dp))
                     Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
                 }
             }

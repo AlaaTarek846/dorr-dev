@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.MarkEmailUnread
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
@@ -172,10 +173,14 @@ private fun InvitationCard(i: InvitationDto, onOpen: () -> Unit, onAnswered: (St
     Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onOpen).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(blue.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.MarkEmailUnread, contentDescription = null, tint = blue, modifier = Modifier.size(20.dp))
+                Icon(if (i.team != null) Icons.Rounded.Groups else Icons.Rounded.MarkEmailUnread, contentDescription = null, tint = blue, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.inv_private), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            // FS-213: the client invited my team - the offer goes in its name.
+            Text(
+                i.team?.let { stringResource(R.string.inv_team, it.name) } ?: stringResource(R.string.inv_private),
+                color = if (i.team != null) blue else settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            )
             Text(
                 invitationStatusLabel(i.status), color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
