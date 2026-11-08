@@ -12,6 +12,9 @@ use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Models\FreelanceProjectInvitation as Invitation;
+use Modules\Freelance\Models\FreelanceTeam;
+use Modules\Freelance\Models\FreelanceTeamMember as TeamMember;
+use Modules\Freelance\Services\FreelancerTeam\TeamProfile;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Plans\FreelancePerks;
@@ -62,11 +65,13 @@ class ProjectInvitations
     {
         $offers = Offer::query()->where('project_id', $project->id)->where('status', '!=', 'withdrawn')->pluck('uuid', 'freelancer_id');
 
-        return Invitation::query()->where('project_id', $project->id)->with('freelancer')->orderByDesc('id')->get()
+        return Invitation::query()->where('project_id', $project->id)->with(['freelancer', 'team'])->orderByDesc('id')->get()
             ->map(fn (Invitation $i) => [
                 'uuid' => $i->uuid,
                 'status' => $i->status,
                 'freelancer' => $i->freelancer === null ? null : $this->card($i->freelancer, $project),
+                // FS-213: invited as this team (its Owner answers and offers in its name).
+                'team' => $i->team === null ? null : $this->teamCard($i->team),
                 'offer' => $offers[$i->freelancer_id] ?? null,
                 'invited_at' => $i->invited_at?->toIso8601String(),
                 'responded_at' => $i->responded_at?->toIso8601String(),
@@ -100,15 +105,18 @@ class ProjectInvitations
 
     /**
      * @param  list<string>  $uuids  freelancers (their uuids)
+     * @param  list<string>  $teamUuids  FS-213: freelancers' teams (their uuids) - each invitation is its Owner's, marked with the team
      * @return array{invited: int, skipped: list<array{uuid: string, reason: string}>}
      */
-    public function invite(Project $project, User $client, array $uuids): array
+    public function invite(Project $project, User $client, array $uuids, array $teamUuids = []): array
     {
         abort_unless((int) $project->client_id === (int) $client->id, 404);
         app(\Modules\Freelance\Services\Moderation\Sanctions::class)->assertAllowed($client, 'work');
         $invited = [];
-        $skipped = [];
-        DB::transaction(function () use ($project, $client, $uuids, &$invited, &$skipped) {
+        // FS-213: a team is invited through its (first) Owner; the row remembers the team, so he answers and offers in its name.
+        [$asTeam, $skipped] = $this->teamOwners($client, $teamUuids);
+        $uuids = array_values(array_unique(array_merge($uuids, array_keys($asTeam))));
+        DB::transaction(function () use ($project, $client, $uuids, $asTeam, &$invited, &$skipped) {
             $p = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             $this->assertInvitable($p);
             $max = $this->max($p);
@@ -142,7 +150,7 @@ class ProjectInvitations
                 if ($live + count($invited) >= $max) {
                     throw new FreelanceException('invitations_limit', 422, ['max' => $max], ['max' => $max]);
                 }
-                $fields = ['status' => Invitation::SENT, 'invited_at' => now(), 'responded_at' => null];
+                $fields = ['status' => Invitation::SENT, 'invited_at' => now(), 'responded_at' => null, 'team_id' => isset($asTeam[$uuid]) ? $asTeam[$uuid]->id : null];
                 $row === null
                     ? Invitation::query()->create(['project_id' => $p->id, 'freelancer_id' => $f->id, 'client_id' => $client->id] + $fields)
                     : $row->forceFill($fields)->save();
@@ -153,7 +161,10 @@ class ProjectInvitations
             }
         });
         foreach ($invited as $f) {
-            $this->notifier->notify($f, 'invitation.received', ['project' => (string) $project->title], ['project' => $project->uuid]);
+            $team = $asTeam[$f->uuid] ?? null;
+            $team === null
+                ? $this->notifier->notify($f, 'invitation.received', ['project' => (string) $project->title], ['project' => $project->uuid])
+                : $this->notifier->notify($f, 'invitation.team_received', ['project' => (string) $project->title, 'team' => (string) $team->name], ['project' => $project->uuid, 'team' => $team->uuid]);
         }
 
         return ['invited' => count($invited), 'skipped' => $skipped];
@@ -216,7 +227,8 @@ class ProjectInvitations
     {
         $i = Invitation::query()->where('project_id', $project->id)->where('freelancer_id', $freelancer->id)->first();
 
-        return $i === null ? null : ['uuid' => $i->uuid, 'status' => $i->status];
+        // FS-213: `team` when the client invited my team (offer in its name).
+        return $i === null ? null : ['uuid' => $i->uuid, 'status' => $i->status, 'team' => $i->team === null ? null : ['uuid' => $i->team->uuid, 'name' => $i->team->name]];
     }
 
     /** Sending an offer says yes to the invitation (inside the offer's transaction). */
@@ -236,7 +248,7 @@ class ProjectInvitations
     public function pageFor(Freelancer $freelancer, int $perPage, ?string $status = null): LengthAwarePaginator
     {
         $page = Invitation::query()->where('freelancer_id', $freelancer->id)->whereIn('status', $status !== null ? [$status] : [Invitation::SENT, Invitation::ACCEPTED, Invitation::DECLINED])
-            ->whereHas('project')->with(['project.specialty.translations', 'project.skills.translations'])->orderByDesc('id')->paginate($perPage);
+            ->whereHas('project')->with(['project.specialty.translations', 'project.skills.translations', 'team'])->orderByDesc('id')->paginate($perPage);
         $offered = app(FreelancerProjects::class)->offeredIds($freelancer, $page->getCollection()->pluck('project')->filter());
 
         return $page->setCollection($page->getCollection()->map(function (Invitation $i) use ($offered) {
@@ -250,6 +262,8 @@ class ProjectInvitations
                 'project' => app(FreelancerProjects::class)->present($i->project, false, false),
                 'offered' => isset($offered[$i->project_id]),
                 'invited_at' => $i->invited_at?->toIso8601String(),
+                // FS-213: the client invited my team (offer in its name).
+                'team' => $i->team === null ? null : ['uuid' => $i->team->uuid, 'name' => $i->team->name, 'logo_url' => $i->team->logoUrl()],
                 'can' => ['accept' => $i->status === Invitation::SENT && $open, 'decline' => $i->status === Invitation::SENT && $open, 'offer' => $live && ! isset($offered[$i->project_id])],
             ];
         })->values());
@@ -311,6 +325,55 @@ class ProjectInvitations
     private function max(Project $project): int
     {
         return max(1, (int) ($this->policies->for($project->country_id, $project->freelance_specialty_id)->get('invitations.max_per_project') ?? 10));
+    }
+
+    /**
+     * FS-213: the Owner each team is invited through - an active team that takes new projects and whose profile this client may read (a public
+     * team, or one that sent him an offer); its first active Owner who is verified and of a country where the service is open.
+     *
+     * @param  list<string>  $teamUuids
+     * @return array{0: array<string, FreelanceTeam>, 1: list<array{uuid: string, reason: string}>} [owner uuid => team], the teams skipped
+     */
+    private function teamOwners(User $client, array $teamUuids): array
+    {
+        $byOwner = [];
+        $skipped = [];
+        if ($teamUuids === []) {
+            return [$byOwner, $skipped];
+        }
+        $profile = app(TeamProfile::class);
+        $open = app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries();
+        $teams = FreelanceTeam::query()->whereIn('uuid', array_unique($teamUuids))->get()->keyBy('uuid');
+        foreach (array_unique($teamUuids) as $uuid) {
+            $team = $teams[$uuid] ?? null;
+            if ($team === null || $profile->viewer($team, null, $client) !== TeamProfile::CLIENT) {
+                $skipped[] = ['uuid' => $uuid, 'reason' => 'not_found'];
+
+                continue;
+            }
+            if (! $team->accepting_projects) {
+                $skipped[] = ['uuid' => $uuid, 'reason' => 'team_not_accepting'];
+
+                continue;
+            }
+            $owner = TeamMember::query()->where('team_id', $team->id)->where('role', TeamMember::OWNER)->where('status', TeamMember::ACTIVE)
+                ->orderBy('id')->with('freelancer')->get()->map(fn (TeamMember $m) => $m->freelancer)
+                ->first(fn (?Freelancer $f) => $f !== null && $f->status === FreelancerStatus::Verified && in_array((int) $f->country_id, $open, true));
+            if ($owner === null) {
+                $skipped[] = ['uuid' => $uuid, 'reason' => 'not_found'];
+
+                continue;
+            }
+            $byOwner[$owner->uuid] = $team;
+        }
+
+        return [$byOwner, $skipped];
+    }
+
+    /** @return array<string, mixed> a team as the client sees it on his invitations */
+    private function teamCard(FreelanceTeam $team): array
+    {
+        return ['uuid' => $team->uuid, 'name' => $team->name] + app(TeamProfile::class)->summary($team);
     }
 
     /** @return array<string, mixed> a freelancer as the client picks them to invite */

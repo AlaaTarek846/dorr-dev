@@ -436,7 +436,7 @@ object CallController {
     }
 
     fun flipCamera() {
-        val track = effectTrack ?: room?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? LocalVideoTrack ?: return
+        val track = room?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? LocalVideoTrack ?: return
         if (runCatching { track.switchCamera() }.isSuccess) flippedCamera = !flippedCamera
     }
 
@@ -554,14 +554,8 @@ object CallController {
         if (cameraOn && CallEffects.mode != CallEffects.Mode.None && effectTrack == null) {
             scope.launch {
                 val me = room?.localParticipant ?: return@launch
-                // Unpublish the plain camera, not just mute it: a muted second CAMERA publication is the one
-                // getTrackPublication() returns, so neither I nor the other side ever saw the effect.
-                (me.getTrackPublication(Track.Source.CAMERA)?.track as? LocalVideoTrack)?.let { t ->
-                    runCatching { me.unpublishTrack(t) }
-                    runCatching { t.stop() }
-                }
+                runCatching { me.setCameraEnabled(false) }
                 applyCamera()
-                refreshVideos()
             }
         }
     }
@@ -575,7 +569,6 @@ object CallController {
         track.startCapture()
         me.publishVideoTrack(track, io.livekit.android.room.participant.VideoTrackPublishOptions(source = Track.Source.CAMERA))
         effectTrack = track
-        flippedCamera = false
     }
 
     private suspend fun applyCamera() {
@@ -615,7 +608,7 @@ object CallController {
                 if (p.getTrackPublication(Track.Source.CAMERA)?.muted != true) list += CallVideo(keyOf(p), t, false)
             }
         }
-        (effectTrack ?: r.localParticipant.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack)?.let { t ->
+        (r.localParticipant.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack)?.let { t ->
             if (cameraOn) list += CallVideo(keyOf(r.localParticipant), t, true)
         }
         videos.clear()

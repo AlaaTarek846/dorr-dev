@@ -21,19 +21,26 @@ class FreelancerOfferController extends Controller
 {
     public function __construct(private readonly FreelancerOffers $offers, private readonly FreelancerProjects $projects) {}
 
-    /** GET projects/{uuid}/offer-preview[?price_minor=] — can I offer (and if not, why), my quota, and the net at a price. */
+    /**
+     * GET projects/{uuid}/offer-preview[?price_minor=][&team=] — can I offer (and if not, why), my quota, and the net at a price.
+     * FS-205: with `team` (a team I own) it is the team's quota that decides (`team_quota`), not mine.
+     */
     public function preview(Request $request, string $uuid): JsonResponse
     {
-        $data = $request->validate(['price_minor' => ['nullable', 'integer', 'min:0', 'max:100000000000']]);
+        $data = $request->validate(['price_minor' => ['nullable', 'integer', 'min:0', 'max:100000000000'], 'team' => ['nullable', 'uuid'], 'signer' => ['nullable', 'uuid']]);
         $me = $this->me($request);
         $project = $this->projects->find($me, $uuid);
+        // FS-206c: a PM names the Owner who signs; the checks and the net are the signer's.
+        [$team, , $signer] = empty($data['team']) ? [null, [], null] : app(\Modules\Freelance\Services\FreelancerTeam\TeamOffers::class)->prepare($me, $data['team'], [], $data['signer'] ?? null);
+        $me = $signer ?? $me;
         // FL-L09: a client back for more gets the loyalty step they earned off the price; the net is worked out on what they pay.
         $loyalty = app(Loyalty::class);
         $deal = isset($data['price_minor']) ? $loyalty->apply($me, (int) $project->client_id, (int) $data['price_minor']) : null;
 
         return ApiResponse::success([
-            'blocked' => $this->offers->blocked($me, $project),
+            'blocked' => $this->offers->blocked($me, $project, $team),
             'quota' => $this->offers->quota($me),
+            'team_quota' => $team === null ? null : app(\Modules\Freelance\Services\FreelancerTeam\TeamOffers::class)->quota($team),
             'min_price_minor' => $this->minPrice($project),
             'breakdown' => $deal === null ? null : $this->offers->preview($project, $deal['price_minor'], $me)
                 + ['list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'], 'saving_minor' => $deal['saving_minor']],
@@ -52,7 +59,7 @@ class FreelancerOfferController extends Controller
             'files.*' => ['file', 'max:'.(int) config('freelance.upload_max_kb', 20480), 'mimes:'.implode(',', (array) config('freelance.projects.attachment_types')), new \Modules\Freelance\Rules\CleanUpload],
             'answers' => ['nullable', 'array', 'max:10'],
             'answers.*' => ['nullable', 'string', 'max:1000'],
-        ] + self::rightsRules());
+        ] + self::rightsRules() + self::teamRules(true));
         $me = $this->me($request);
         $offer = $this->offers->send($me, $this->projects->find($me, $uuid), $data, $request->file('files', []));
 
@@ -86,7 +93,7 @@ class FreelancerOfferController extends Controller
             'details' => ['sometimes', 'string', 'min:'.(int) config('freelance.offers.details_min', 30), 'max:'.(int) config('freelance.offers.details_max', 3000)],
             'answers' => ['sometimes', 'array', 'max:10'],
             'answers.*' => ['nullable', 'string', 'max:1000'],
-        ] + self::rightsRules());
+        ] + self::rightsRules() + self::teamRules(false));
         $me = $this->me($request);
 
         return ApiResponse::success($this->present($this->offers->edit($me, $this->offers->find($me, $offer), $data)), __('api.updated'));
@@ -131,6 +138,21 @@ class FreelancerOfferController extends Controller
             'rights.term_months' => ['sometimes', 'nullable'],
             'rights.territory' => ['sometimes', 'nullable', 'string', 'max:16'],
             'rights.portfolio' => ['sometimes', 'nullable'],
+        ];
+    }
+
+    /**
+     * FS-205: an offer in a team's name - `team` (the team's uuid, sent only with a new offer). FS-213 (owner 2026-11-08): the offer no longer
+     * names who works on it - `staff` is not read any more (an old app that still sends it is not refused); the team's people are put on the
+     * parts and tasks once the project starts, and the client reads them on the team's profile.
+     *
+     * @return array<string, list<mixed>>
+     */
+    public static function teamRules(bool $sending): array
+    {
+        return [
+            'team' => $sending ? ['nullable', 'uuid'] : ['prohibited'],
+            'signer' => $sending ? ['nullable', 'uuid'] : ['prohibited'],
         ];
     }
 

@@ -4,6 +4,7 @@ namespace Modules\Freelance\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use Modules\User\Models\User;
 
@@ -26,7 +27,7 @@ class FreelanceAgreement extends Model
     public const COMPLETED = 'completed';
 
     protected $fillable = [
-        'uuid', 'project_id', 'offer_id', 'client_id', 'freelancer_id', 'scope', 'includes', 'excludes', 'price_minor', 'currency_code',
+        'uuid', 'project_id', 'offer_id', 'client_id', 'freelancer_id', 'team_id', 'scope', 'includes', 'excludes', 'price_minor', 'currency_code',
         'duration_days', 'policy', 'money', 'rights', 'portfolio_allowed', 'portfolio_asked_at', 'status', 'version', 'sent_at', 'client_approved_at', 'freelancer_approved_at', 'activated_at',
         'completed_at', 'expires_at', 'end_reason', 'report_every_days', 'next_report_due_at', 'last_report_at', 'report_reminded_at', 'report_late_notified_at', 'health_state', 'health_alerted_at',
     ];
@@ -94,6 +95,17 @@ class FreelanceAgreement extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(User::class, 'client_id');
+    }
+
+    /** FS-205: the team that works on it (null: the freelancer alone); its Owner is `freelancer`, who signs (D2). */
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceTeam::class, 'team_id');
+    }
+
+    public function staff(): HasMany
+    {
+        return $this->hasMany(FreelanceAgreementTeamMember::class, 'agreement_id')->orderBy('id');
     }
 
     public function freelancer(): BelongsTo

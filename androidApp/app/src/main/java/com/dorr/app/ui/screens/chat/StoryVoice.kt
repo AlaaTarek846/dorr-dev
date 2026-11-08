@@ -1,13 +1,6 @@
 package com.dorr.app.ui.screens.chat
 
 import android.Manifest
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import androidx.activity.compose.BackHandler
@@ -82,151 +75,79 @@ import kotlinx.coroutines.launch
  * (84), who may add it to their own status (85) without it saying whose it was (86).
  */
 
-/**
- * Record a voice status on a colour of my choice (up to the admin's story length): before — the mic and a hint;
- * while recording — the bars move with my voice, a big timer and a ring filling to the limit; after — ▶ to hear it
- * first (the bars fill as it plays) and 🗑 to record again.
- */
+/** Record a voice status on a colour of my choice (up to the admin's story length). */
 @Composable
-internal fun VoiceStoryEditor(editor: StoryEditorHost) {
+internal fun VoiceStoryEditor() {
     val host = LocalChat.current
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
     var clip by remember { mutableStateOf<com.dorr.app.chat.VoiceClip?>(null) }
     var bg by remember { mutableIntStateOf(0) }
-    var colors by remember { mutableStateOf(false) }
     var allowReplies by remember { mutableStateOf(true) }
     var mentions by remember { mutableStateOf<List<Int>>(emptyList()) }
     val backgrounds = StoryLook.backgrounds.keys.toList()
     val networkError = stringResource(R.string.ch_error_network)
     val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) recorder.start() }
-    // Hearing it before posting.
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    var playing by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
-    val limitMs = VIDEO_LIMIT_SECONDS * 1000L
 
-    fun releasePlayer() {
-        player?.let { runCatching { it.release() } }
-        player = null
-        playing = false
-        progress = 0f
-    }
     fun stop() {
         clip = recorder.finish()
     }
-    fun togglePlay() {
-        val c = clip ?: return
-        val mp = player ?: MediaPlayer().also { mp ->
-            runCatching { mp.setDataSource(c.file.absolutePath); mp.prepare() }
-            mp.setOnCompletionListener { playing = false; progress = 0f }
-            player = mp
-        }
-        if (playing) { runCatching { mp.pause() }; playing = false } else { runCatching { mp.start() }; playing = true }
-    }
-
     // The longest a status may be.
     LaunchedEffect(recorder.recording) {
         while (recorder.recording) {
-            if (recorder.elapsedMs >= limitMs) stop()
+            if (recorder.elapsedMs >= VIDEO_LIMIT_SECONDS * 1000L) stop()
             delay(100)
         }
     }
-    // The bars fill as it plays (the phone's own player — nothing asks the server).
-    LaunchedEffect(playing) {
-        while (playing) {
-            val mp = player ?: break
-            progress = runCatching { mp.currentPosition / mp.duration.coerceAtLeast(1).toFloat() }.getOrDefault(0f)
-            delay(60)
-        }
-    }
-    val made = clip != null || recorder.recording
-    LaunchedEffect(made) { editor.onDirty(made) }
-    DisposableEffect(Unit) { onDispose { if (recorder.recording) recorder.cancel(); releasePlayer() } }
-    BackHandler(colors) { colors = false }
+    DisposableEffect(Unit) { onDispose { if (recorder.recording) recorder.cancel() } }
+    BackHandler { host.pop() }
 
     Box(Modifier.fillMaxSize()) {
         Crossfade(targetState = backgrounds[bg], animationSpec = tween(450), label = "voiceBg") { name ->
             Box(Modifier.fillMaxSize().background(StoryLook.brush(name)))
         }
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp).padding(bottom = 120.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            val recorded = clip
-            when {
-                recorder.recording -> {
-                    VoiceBars(recorder.levels.toList(), Modifier.fillMaxWidth().height(90.dp))
-                    Spacer(Modifier.height(16.dp))
-                    Text(durationText(recorder.elapsedMs) + " / " + durationText(limitMs), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                }
-                recorded != null -> {
-                    VoiceBars(recorded.waveform, Modifier.fillMaxWidth().height(90.dp), progress = if (playing || progress > 0f) progress else 1f)
-                    Spacer(Modifier.height(16.dp))
-                    Text(durationText(recorded.durationMs), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-            Spacer(Modifier.height(26.dp))
-            if (recorded != null && !recorder.recording) {
-                // ▶ hear it · 🗑 record again.
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                    Box(
-                        Modifier.size(56.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f)).border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
-                            .clickable { releasePlayer(); clip = null },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Rounded.Delete, stringResource(R.string.st_voice_rerecord), tint = Color.White, modifier = Modifier.size(24.dp)) }
-                    Box(
-                        Modifier.size(92.dp).clip(CircleShape).background(Color.White).clickable { togglePlay() },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Ch.Red, modifier = Modifier.size(48.dp)) }
-                    Spacer(Modifier.size(56.dp))
-                }
-            } else {
-                // The mic, with a ring filling up to the limit while recording.
-                val pulse = rememberInfiniteTransition(label = "mic")
-                val scale by pulse.animateFloat(1f, 1.08f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "micScale")
-                val filled = if (recorder.recording) (recorder.elapsedMs / limitMs.toFloat()).coerceIn(0f, 1f) else 0f
-                Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        val stroke = 4.dp.toPx()
-                        drawArc(Color.White.copy(alpha = 0.25f), 0f, 360f, false, style = Stroke(stroke))
-                        if (filled > 0f) drawArc(Color.White, -90f, 360f * filled, false, style = Stroke(stroke, cap = StrokeCap.Round))
+        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            VoiceBars(if (recorder.recording) recorder.levels.toList() else clip?.waveform.orEmpty(), Modifier.fillMaxWidth().height(90.dp))
+            Spacer(Modifier.height(22.dp))
+            val pulse = rememberInfiniteTransition(label = "mic")
+            val scale by pulse.animateFloat(1f, 1.12f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "micScale")
+            Box(
+                Modifier.size(92.dp).scale(if (recorder.recording) scale else 1f).clip(CircleShape).background(Color.White).clickable {
+                    when {
+                        recorder.recording -> stop()
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> { clip = null; recorder.start() }
+                        else -> mic.launch(Manifest.permission.RECORD_AUDIO)
                     }
-                    Box(
-                        Modifier.size(92.dp).scale(if (recorder.recording) scale else 1f).clip(CircleShape).background(Color.White).clickable {
-                            when {
-                                recorder.recording -> stop()
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> { releasePlayer(); clip = null; recorder.start() }
-                                else -> mic.launch(Manifest.permission.RECORD_AUDIO)
-                            }
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(if (recorder.recording) Icons.Rounded.Stop else Icons.Rounded.Mic, null, tint = Ch.Red, modifier = Modifier.size(44.dp)) }
-                }
-            }
+                },
+                contentAlignment = Alignment.Center,
+            ) { Icon(if (recorder.recording) Icons.Rounded.Stop else Icons.Rounded.Mic, null, tint = Ch.Red, modifier = Modifier.size(44.dp)) }
             Spacer(Modifier.height(14.dp))
             Text(
                 when {
-                    recorder.recording -> stringResource(R.string.st_voice_tap_stop)
-                    recorded != null -> stringResource(R.string.st_voice_preview)
+                    recorder.recording -> stringResource(R.string.bk_voice_recording) + "  " + durationText(recorder.elapsedMs)
+                    clip != null -> durationText(clip!!.durationMs)
                     else -> stringResource(R.string.bk_voice_hold, VIDEO_LIMIT_SECONDS)
                 },
-                color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Center,
+                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Center,
             )
         }
 
-        StoryTopBar(editor.onClose) {
-            MentionTool(mentions) { mentions = it }
-            StoryTool(Icons.Rounded.Palette, stringResource(R.string.st_tool_colors), active = colors) { colors = !colors }
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassIcon(Icons.Rounded.Close) { host.pop() }
+            Spacer(Modifier.weight(1f))
+            MentionPill(mentions) { mentions = it }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier.size(46.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.25f)).border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape).clickable { bg = (bg + 1) % backgrounds.size },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Palette, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
         }
 
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            AnimatedVisibility(colors) { BackgroundSwatches(bg, Modifier.padding(bottom = 12.dp)) { bg = it } }
-            StoryModeSwitch(StoryMode.Voice, editor.onSwitch)
-            Spacer(Modifier.height(12.dp))
-            StoryBottomBar(allowReplies, onToggleReplies = { allowReplies = !allowReplies }, sendEnabled = clip != null && !recorder.recording) {
-                val c = clip ?: return@StoryBottomBar
-                releasePlayer()
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            PostOptions(allowReplies, onToggleReplies = { allowReplies = !allowReplies })
+            Spacer(Modifier.weight(1f))
+            PostButton(enabled = clip != null && !recorder.recording) {
+                val c = clip ?: return@PostButton
                 host.postStory(
                     buildMap {
                         put("type", "voice")
@@ -241,6 +162,24 @@ internal fun VoiceStoryEditor(editor: StoryEditorHost) {
                 )
             }
         }
+    }
+}
+
+/** "@ Mention": pick saved contacts; they're told in our chat. */
+@Composable
+internal fun MentionPill(mentions: List<Int>, onMentions: (List<Int>) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    Row(
+        Modifier.clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.35f)).clickable { picking = true }.padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.AlternateEmail, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(if (mentions.isEmpty()) stringResource(R.string.bk_mention) else stringResource(R.string.bk_mentioned_n, mentions.size), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+    if (picking) PeoplePickerSheet(mentions.toSet(), onDismiss = { picking = false }) { ids ->
+        onMentions(ids.take(10))
+        picking = false
     }
 }
 

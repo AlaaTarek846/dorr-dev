@@ -9,9 +9,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Admin\Models\Admin;
-use Modules\Driver\Models\Driver;
-use Modules\Freelance\Models\Freelancer;
-use Modules\Provider\Models\Provider;
 use Throwable;
 
 /**
@@ -193,9 +190,8 @@ class NotificationCenter
             $contents = $this->inEveryLanguage($body, $variables);
 
             $audience = match (true) {
-                $receiver instanceof Driver => 'driver',
-                $receiver instanceof Freelancer => 'freelance',
-                $receiver instanceof Provider => 'provider',
+                $receiver instanceof \Modules\Driver\Models\Driver => 'driver',
+                $receiver instanceof \Modules\Freelance\Models\Freelancer => 'freelance',
                 default => 'default',
             };
             $send = fn () => sendPushNotification(message: $contents, playerIds: $playerIds, title: $headings, data: $data, options: $options, audience: $audience);

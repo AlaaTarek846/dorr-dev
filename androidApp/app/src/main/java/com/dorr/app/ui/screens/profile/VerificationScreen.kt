@@ -73,7 +73,6 @@ import com.dorr.app.network.VerificationRequestDto
 import com.dorr.app.network.VerificationTrackDto
 import com.dorr.app.network.apiFailure
 import com.dorr.app.network.collectReconnectTick
-import com.dorr.app.network.objectOrNull
 import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.ui.screens.AccountDark
 import java.io.File
@@ -84,7 +83,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,16 +115,12 @@ fun VerificationScreen(onBack: () -> Unit) {
     suspend fun load() {
         val auth = "Bearer ${AuthSession.token.orEmpty()}"
         try {
-            // coroutineScope, not the screen's scope: a failed call must end up in the catch below. On the screen's
-            // scope it cancelled that scope and the composition with it — the spinner stayed and nothing responded.
-            coroutineScope {
-                val options = async { ApiClient.verification.options(auth).data?.tracks.orEmpty() }
-                val current = async { ApiClient.verification.current(auth).data.objectOrNull<VerificationRequestDto>() }
-                val mine = async { ApiClient.verification.badge(auth).data.objectOrNull<VerificationBadgeDto>() }
-                tracks = options.await()
-                request = current.await()
-                badge = mine.await()
-            }
+            val options = scope.async { ApiClient.verification.options(auth).data?.tracks.orEmpty() }
+            val current = scope.async { ApiClient.verification.current(auth).data }
+            val mine = scope.async { ApiClient.verification.badge(auth).data }
+            tracks = options.await()
+            request = current.await()
+            badge = mine.await()
             // The Account screen's tick reads the cached account: keep it in step with the badge.
             val verified = badge?.isVerified == true
             AuthSession.user?.let { if (it.isVerified != verified) AuthSession.user = it.copy(isVerified = verified) }

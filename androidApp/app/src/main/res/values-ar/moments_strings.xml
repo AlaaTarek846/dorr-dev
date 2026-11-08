@@ -52,7 +52,7 @@
     <string name="mo_card_title_hint">العنوان (اختياري)</string>
     <string name="mo_card_text_hint">اكتب كلامك…</string>
     <string name="mo_card_ai">اكتبهالي</string>
-    <string name="mo_card_ai_go">اقترح ٣ تهاني</string>
+    <string name="mo_card_ai_go">اقترح 3 تهاني</string>
     <string name="mo_card_voice">سجّل صوتك</string>
     <string name="mo_card_voice_stop">وقّف · %1$s</string>
     <string name="mo_card_voice_done">صوتك %1$s · امسح</string>
@@ -117,7 +117,7 @@
     <string name="mo_capsules_empty">مفيش كبسولات لسه</string>
     <string name="mo_capsules_empty_sub">دوس مطوّل على أي رسالة واختار احفظ في كبسولة.</string>
     <string name="mo_capsule_new">كبسولة جديدة</string>
-    <string name="mo_capsule_name">اسم الكبسولة (مثلًا عيد ٢٠٢٦)</string>
+    <string name="mo_capsule_name">اسم الكبسولة (مثلًا عيد 2026)</string>
     <string name="mo_capsule_count">%1$d محفوظة</string>
     <string name="mo_capsule_empty">مفيش حاجة هنا لسه</string>
     <string name="mo_capsule_empty_sub">احفظ هنا رسايل من أي شات.</string>

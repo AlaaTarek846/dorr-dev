@@ -171,9 +171,8 @@ fun ChatListPage() {
     val locale = rememberAppLocaleFrame()
     val listMenuContext = androidx.compose.ui.platform.LocalContext.current
     var folderFor by remember { mutableStateOf<ConversationDto?>(null) }
-    // Up to 10 photos / videos at once — each becomes its own status (as in WhatsApp).
-    val storyMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(STORY_MEDIA_MAX)) { uris ->
-        if (uris.isNotEmpty()) host.push(ChRoute.StoryComposer(storyMediaRoute(uris)))
+    val storyMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { host.push(ChRoute.StoryComposer(it.toString())) }
     }
 
     LaunchedEffect(host.filter) {
@@ -699,7 +698,7 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        ltrTitle(c.title), color = Ch.Ink, fontSize = if (compact) 14.sp else 15.sp,
+                        c.title.orEmpty(), color = Ch.Ink, fontSize = if (compact) 14.sp else 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     )

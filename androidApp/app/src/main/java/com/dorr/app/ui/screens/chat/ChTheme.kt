@@ -202,7 +202,12 @@ data class ChPalette(
  */
 @Composable
 fun BindChatAppearance() {
-    val chatDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val chatDark = when (ChatStore.themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> appDark
+    }
     val palette = chatPaletteFromSettings(chatDark)
     val accent = if (chatDark) AccountDark.accent else appearanceColor("primary", AppColors.waRed, night = false)
     SideEffect {
@@ -567,14 +572,13 @@ internal fun fileSizeText(bytes: Long?): String {
 /** A small rounded chip (date separators, system lines). */
 @Composable
 fun ChChip(text: String, modifier: Modifier = Modifier, dark: Boolean = false) {
-    // Quiet, as in WhatsApp: the app's surface colour (dark at night — no bright white pill), plain muted text.
     Box(
         modifier
-            .clip(RoundedCornerShape(9.dp))
-            .background(if (dark) Color(0xCC111928) else Ch.Surface.copy(alpha = 0.92f))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (dark) Color(0xCC111928) else Color.White.copy(alpha = 0.92f))
+            .padding(horizontal = 12.dp, vertical = 5.dp),
     ) {
-        Text(text, color = if (dark) Color.White else Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(text, color = if (dark) Color.White else Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

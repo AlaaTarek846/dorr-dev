@@ -28,6 +28,7 @@ use Modules\Freelance\Database\Seeders\FreelancePlansSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceLegalPageSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSettingsSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSkillSeeder;
+use Modules\Freelance\Database\Seeders\FreelanceSupportHelpSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSpecialtySeeder;
 use Modules\Driver\Database\Seeders\DriverDatabaseSeeder;
 use Modules\Rides\Database\Seeders\RidesDatabaseSeeder;

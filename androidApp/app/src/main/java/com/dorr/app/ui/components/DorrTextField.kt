@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -97,15 +98,15 @@ fun DorrTextField(
     val fieldShape = shape ?: if (singleLine) RoundedCornerShape(999.dp) else RoundedCornerShape(20.dp)
     val fill = containerColor ?: when {
         night -> AccountDark.bg
-        focused -> appearanceColor("surface", Color.White, night = false)
-        else -> FieldFill
+        else -> appearanceColor("surface", Color.White, night = false)
     }
     val borderColor by animateColorAsState(
         when {
             error -> danger
             focused -> accent
             night -> AccountDark.line
-            else -> FieldBorder
+            // Like the sign-in fields: a white pill lifted by a soft shadow, no outline until it is focused.
+            else -> Color.Transparent
         },
         tween(200), label = "fieldBorder",
     )
@@ -134,6 +135,7 @@ fun DorrTextField(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = minHeight)
+                        .then(if (night) Modifier else Modifier.shadow(3.dp, fieldShape))
                         .clip(fieldShape)
                         .background(fill)
                         .border(if (focused || error) 1.5.dp else 1.dp, borderColor, fieldShape)
@@ -169,8 +171,6 @@ fun DorrTextField(
 }
 
 /** The light-mode field fill / hairline of the system design (the profile page's fields). */
-private val FieldFill = Color(0xFFFBF7F8)
-private val FieldBorder = Color(0xFFF3D5DB)
 
 /**
  * One box of a verification code: a single centred digit. Fixed 44×52dp like the design, but built on

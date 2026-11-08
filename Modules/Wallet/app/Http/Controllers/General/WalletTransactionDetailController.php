@@ -9,7 +9,6 @@ use Modules\Wallet\Http\Resources\WalletTransactionResource;
 use Modules\Wallet\Models\WalletTransaction;
 use Modules\Wallet\Services\WalletStatementService;
 use Modules\Wallet\Support\TransactionReferences;
-use Modules\Wallet\Support\WalletOwner;
 
 /**
  * One row of the owner's own statement in full: the row, what it points at (a ride, when the module
@@ -29,7 +28,7 @@ class WalletTransactionDetailController extends Controller
 
         abort_if($country === null, 500, 'The country middleware did not run on this route.');
 
-        $owner = WalletOwner::of($request);
+        $owner = $request->user();
         $wallet = $this->statements->walletOf($owner, $country);
         $transaction = $wallet === null ? null : $this->statements->find($wallet, $uuid);
 

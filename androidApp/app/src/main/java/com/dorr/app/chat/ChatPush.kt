@@ -24,8 +24,6 @@ sealed interface ChatDeepLink {
     data class Conversation(val id: String) : ChatDeepLink
     /** A ride notification (arrived, started, ended…): the rides screen on that ride — ended: the receipt and the rating (O-41). */
     data class Ride(val uuid: String) : ChatDeepLink
-    /** A furniture move's notification (`moving_*`): its request page. */
-    data class Moving(val uuid: String) : ChatDeepLink
     /** A booked service's notification (bus, boat, driver, lessons): that booking. */
     data class Service(val kind: String, val uuid: String?) : ChatDeepLink
     data class Call(val id: String, val conversationId: String?) : ChatDeepLink
@@ -180,7 +178,6 @@ object ChatPush {
                         )
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "ride" && data.optString("ride_uuid").isNotBlank() -> ChatDeepLink.Ride(data.optString("ride_uuid"))
-                        data.optString("type").startsWith("moving_") && data.optString("request").isNotBlank() -> ChatDeepLink.Moving(data.optString("request"))
                         com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) } != null ->
                             com.dorr.app.ui.screens.rides.ServiceLink.of(data.optString("event")) { data.optString(it) }!!.let { (k, u) -> ChatDeepLink.Service(k, u) }
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks

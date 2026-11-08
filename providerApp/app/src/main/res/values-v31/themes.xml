@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Android 12+ draws its own launch screen first: the DORR mark on the Pro app's warm background. -->
-    <style name="Theme.DorrProvider.Splash" parent="Theme.DorrProvider">
-        <item name="android:windowBackground">@drawable/splash_background</item>
-        <item name="android:windowSplashScreenBackground">@color/pro_launcher_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground_inset</item>
-    </style>
-</resources>

@@ -17,7 +17,7 @@ internal class DynamicResources(
     code: String,
 ) : Resources(base.assets, base.displayMetrics, base.configuration) {
 
-    private val locale = Locale(code)
+    private val locale = com.dorr.app.network.AppLocale.latin(code)
     private val pluralRules: PluralRules by lazy { PluralRules.forLocale(locale) }
 
     override fun getText(id: Int): CharSequence = text(id) ?: base.getText(id)

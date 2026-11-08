@@ -73,7 +73,6 @@ Professional documentation system for developers and AI assistants:
 | [remaining_chat.md](./docs/remaining_chat.md) | Chat spec v5 (items 1–207 + AI rules) against what's built: done / partial / remaining, what depends on other systems, and the suggested order |
 | [rides-plan.md](./docs/rides-plan.md) | Ride-hailing plan (rider + driver + admin + Wasl), merged from the client files in `docs/modules/Bookings/`, Jawad and LeeTaxi — phases and open decisions |
 | [rides_tasks.md](./docs/rides_tasks.md) | Ride-hailing task list: every client spec item not built yet, who is on it, what's done |
-| [moving_business.md](./docs/moving_business.md) | Furniture moving: business discussion (moving companies as providers, their own drivers, quotes, assignment, payment) — open questions, no code yet |
 | [rides-structure.md](./docs/rides-structure.md) | Ride-hailing database structure (draft, not approved): `Modules/Driver` and `Modules/Rides` tables, enums, policy keys, migration order |
 | [15-CONTRIBUTING.md](./docs/15-CONTRIBUTING.md) | Contributing |
 | [16-STYLEGUIDE.md](./docs/16-STYLEGUIDE.md) | Coding standards |
@@ -94,8 +93,6 @@ Professional documentation system for developers and AI assistants:
 | Driver (account + `driverApp/`) | [docs/modules/driver/README.md](./docs/modules/driver/README.md) |
 | Freelance (`Modules/Freelance` + `freelanceApp/`) | [docs/modules/freelance/README.md](./docs/modules/freelance/README.md) · app: [APP.md](./docs/modules/freelance/APP.md) |
 | Rides | [docs/modules/rides/README.md](./docs/modules/rides/README.md) |
-| Providers app (`providerApp/` + iOS `providerAppIOS/`) | [providerApp/README.md](./providerApp/README.md) · iOS: [providerAppIOS/README.md](./providerAppIOS/README.md) |
-| Moving (`Modules/Moving`, on the provider platform) | [docs/modules/moving/README.md](./docs/modules/moving/README.md) · tasks: [moving_tasks.md](./docs/moving_tasks.md) |
 | Android app | [docs/modules/android/README.md](./docs/modules/android/README.md) |
 
 ---

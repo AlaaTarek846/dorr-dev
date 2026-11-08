@@ -6,8 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,7 +47,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -62,23 +68,17 @@ import kotlinx.coroutines.launch
 /** A phone number kept left-to-right inside Arabic text ("+966 50…", not "…50 966+"). */
 internal fun ltrNumber(text: String?): String = text?.takeIf { it.isNotBlank() }?.let { "⁦$it⁩" }.orEmpty()
 
-/** A chat's title: a number (someone not in my contacts) kept left-to-right, a name as it is. */
-internal fun ltrTitle(text: String?): String = text.orEmpty().let { if (it.trim().matches(PhoneLike)) ltrNumber(it) else it }
-
-private val PhoneLike = Regex("""\+?[\d\s\-()]{6,20}""")
-
 /**
  * Tapping a shared contact: call it with the phone's own dialer, save it to the phone's contacts,
- * message it on Dorr — or invite it when it isn't on Dorr — and copy the number from the row under
- * the buttons. The same number written two ways counts once.
+ * message it on Dorr — or invite it when it isn't on Dorr yet — and copy the number. A card with
+ * several numbers lets you pick one first.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ContactActionsSheet(name: String, phones: List<String>, onDismiss: () -> Unit) {
     val host = LocalChat.current
     val context = LocalContext.current
-    val numbers = remember(phones) { distinctPhones(phones) }
-    var phone by remember { mutableStateOf(numbers.firstOrNull().orEmpty()) }
+    var phone by remember { mutableStateOf(phones.firstOrNull().orEmpty()) }
     // Is this number on Dorr? null = still checking.
     var onDorr by remember { mutableStateOf<ProfileDto?>(null) }
     var checked by remember { mutableStateOf(false) }
@@ -103,35 +103,48 @@ internal fun ContactActionsSheet(name: String, phones: List<String>, onDismiss: 
             ChAvatar(onDorr?.avatar, name, onDorr?.key ?: phone, size = 72.dp, ring = onDorr != null)
             Spacer(Modifier.height(10.dp))
             Text(name.ifBlank { ltrNumber(phone) }, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(8.dp))
-            if (!checked) {
-                CircularProgressIndicator(Modifier.size(16.dp), color = Ch.Red, strokeWidth = 2.dp)
-            } else {
-                DorrStatusPill(onDorr != null)
-            }
-
-            Spacer(Modifier.height(18.dp))
-            val there = onDorr != null
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ContactTile(
-                    if (there) Icons.AutoMirrored.Rounded.Chat else Icons.Rounded.Send,
-                    stringResource(if (there) R.string.ch_message_contact else R.string.ch_invite),
-                    if (there) Ch.Red else Color(0xFF6366F1),
-                    filled = true,
-                    enabled = there || checked,
-                ) {
-                    if (there) {
-                        onDismiss()
-                        host.openChatWith(onDorr!!)
-                    } else {
-                        inviting = true
+            Text(ltrNumber(phone), color = Ch.Mut, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            // On Dorr or not, once known.
+            AnimatedContent(targetState = checked to (onDorr != null), label = "onDorr", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (done, there) ->
+                Box(Modifier.height(28.dp).padding(top = 6.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        !done -> CircularProgressIndicator(Modifier.size(16.dp), color = Ch.Red, strokeWidth = 2.dp)
+                        there -> Text(stringResource(R.string.ch_contact_on_dorr), color = Ch.Success, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        else -> Text(stringResource(R.string.ch_contact_not_on_dorr), color = Ch.Soft, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
-                ContactTile(Icons.Rounded.Call, stringResource(R.string.ch_contact_call), Color(0xFF10B981), filled = false) {
+            }
+
+            // Several numbers: pick which one the actions use.
+            if (phones.size > 1) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    phones.forEach { p ->
+                        val on = p == phone
+                        Text(
+                            ltrNumber(p), color = if (on) Color.White else Ch.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) Ch.Red else Ch.SurfaceMuted).clickable { phone = p }.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                // The phone's own call, not a Dorr call.
+                ContactAction(Icons.Rounded.Call, stringResource(R.string.ch_contact_call), Color(0xFF10B981), 0) {
                     open(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + phone.filter { it.isDigit() || it == '+' })))
                     onDismiss()
                 }
-                ContactTile(Icons.Rounded.PersonAdd, stringResource(R.string.ch_contact_save), Color(0xFF0EA5E9), filled = false) {
+                if (onDorr != null) {
+                    ContactAction(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.ch_message_contact), Ch.Red, 1) {
+                        onDismiss()
+                        host.openChatWith(onDorr!!)
+                    }
+                } else {
+                    ContactAction(Icons.Rounded.Send, stringResource(R.string.ch_invite), Color(0xFF6366F1), 1, enabled = checked) { inviting = true }
+                }
+                ContactAction(Icons.Rounded.PersonAdd, stringResource(R.string.ch_contact_save), Color(0xFF0EA5E9), 2) {
                     open(
                         Intent(ContactsContract.Intents.Insert.ACTION).setType(ContactsContract.RawContacts.CONTENT_TYPE)
                             .putExtra(ContactsContract.Intents.Insert.NAME, name)
@@ -139,75 +152,34 @@ internal fun ContactActionsSheet(name: String, phones: List<String>, onDismiss: 
                     )
                     onDismiss()
                 }
-            }
-
-            if (numbers.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    numbers.forEach { p ->
-                        val picked = numbers.size > 1 && p == phone
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                                .background(if (picked) Ch.Red.copy(alpha = 0.12f) else Ch.SurfaceMuted)
-                                .clickable { phone = p }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
-                                Text(stringResource(R.string.ch_phone_mobile), color = Ch.Soft, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text(ltrNumber(p), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            }
-                            Box(
-                                Modifier.size(36.dp).clip(CircleShape).clickable {
-                                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("phone", p))
-                                    host.showToast(copied)
-                                },
-                                contentAlignment = Alignment.Center,
-                            ) { Icon(Icons.Rounded.ContentCopy, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp)) }
-                        }
-                    }
+                ContactAction(Icons.Rounded.ContentCopy, stringResource(R.string.ch_contact_copy), Color(0xFFF59E0B), 3) {
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("phone", phone))
+                    host.showToast(copied)
+                    onDismiss()
                 }
             }
         }
     }
 }
 
-/** Same digits, written with or without spaces, are one number. The first spelling is kept. */
-private fun distinctPhones(phones: List<String>): List<String> {
-    val seen = LinkedHashSet<String>()
-    return phones.filter { p ->
-        val key = p.filter { it.isDigit() }
-        key.isNotEmpty() && seen.add(key)
-    }
-}
-
 @Composable
-private fun DorrStatusPill(onDorr: Boolean) {
-    val color = if (onDorr) Ch.Success else Ch.Soft
-    Row(
-        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            stringResource(if (onDorr) R.string.ch_contact_on_dorr else R.string.ch_contact_not_on_dorr),
-            color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
-        )
-        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+private fun ContactAction(icon: ImageVector, label: String, color: Color, index: Int, enabled: Boolean = true, onClick: () -> Unit) {
+    val pop = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(50L + index * 50L)
+        pop.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 420f))
     }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.RowScope.ContactTile(icon: ImageVector, label: String, color: Color, filled: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    val fg = if (filled) Color.White else color
     Column(
-        Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(if (filled) color else Ch.SurfaceMuted)
-            .clickable(enabled = enabled, onClick = onClick).padding(vertical = 12.dp),
+        Modifier.width(76.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = if (enabled) pop.value else pop.value * 0.4f }
+            .clip(RoundedCornerShape(16.dp)).clickable(enabled = enabled, onClick = onClick).padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, null, tint = fg.copy(alpha = if (enabled) 1f else 0.4f), modifier = Modifier.size(22.dp))
+        Box(
+            Modifier.size(54.dp).clip(CircleShape).background(Brush.linearGradient(listOf(color, color.copy(alpha = 0.75f)))),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(25.dp)) }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = fg.copy(alpha = if (enabled) 1f else 0.4f), fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+        Text(label, color = Ch.Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 
@@ -244,7 +216,7 @@ internal fun NotInContactsBanner(c: com.dorr.app.network.ConversationDto, onAdde
         exit = androidx.compose.animation.shrinkVertically() + fadeOut(),
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(36.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -252,12 +224,12 @@ internal fun NotInContactsBanner(c: com.dorr.app.network.ConversationDto, onAdde
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.ch_not_in_contacts), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp, maxLines = 1)
-                Text(stringResource(R.string.ch_not_in_contacts_why), color = Ch.Mut, fontSize = 11.5.sp, lineHeight = 16.sp, maxLines = 2)
+                Text(stringResource(R.string.ch_not_in_contacts, c.title.orEmpty()), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1)
+                Text(stringResource(R.string.ch_not_in_contacts_why), color = Ch.Mut, fontSize = 11.5.sp, maxLines = 2)
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             Box(
-                Modifier.clip(CircleShape).background(Ch.Red).clickable(enabled = !saving) {
+                Modifier.clip(RoundedCornerShape(14.dp)).background(Ch.Red).clickable(enabled = !saving) {
                     saving = true
                     scope.launch {
                         runCatching { addPeerToContacts(c) }
@@ -265,14 +237,14 @@ internal fun NotInContactsBanner(c: com.dorr.app.network.ConversationDto, onAdde
                             .onFailure { e -> host.showToast(e.apiFailure().message ?: networkError) }
                         saving = false
                     }
-                }.padding(horizontal = 14.dp, vertical = 6.dp),
+                }.padding(horizontal = 14.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (saving) CircularProgressIndicator(Modifier.size(15.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text(stringResource(R.string.ch_add), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp)
+                if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                else Text(stringResource(R.string.ch_add), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
             }
-            Box(Modifier.size(30.dp).clip(CircleShape).clickable { closed = true }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.size(17.dp))
+            Box(Modifier.size(32.dp).clip(CircleShape).clickable { closed = true }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.size(18.dp))
             }
         }
     }

@@ -248,7 +248,7 @@ internal fun SchedulePickerSheet(state: RidesState, onClose: () -> Unit) {
 
 /** One wheel: ▲ / the number (rolls in the direction moved) / ▼. */
 @Composable
-internal fun WheelColumn(value: String, onUp: () -> Unit, onDown: () -> Unit) {
+private fun WheelColumn(value: String, onUp: () -> Unit, onDown: () -> Unit) {
     var direction by remember { mutableStateOf(1) }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         WheelArrow(Icons.Rounded.KeyboardArrowUp) { direction = 1; onUp() }
@@ -367,7 +367,7 @@ internal fun ScheduledPanel(ride: RideDto, onDone: () -> Unit, onCancel: () -> U
 }
 
 @Composable
-internal fun TripLine(dot: Color, address: String?) {
+private fun TripLine(dot: Color, address: String?) {
     Row(Modifier.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(9.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(10.dp))
