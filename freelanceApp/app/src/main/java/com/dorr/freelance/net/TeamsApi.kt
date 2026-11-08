@@ -52,6 +52,10 @@ interface TeamsApi {
     @PUT("${ApiClient.FREELANCE}teams/{team}/members/{member}/role")
     suspend fun setRole(@Path("team") team: String, @Path("member") member: String, @Body body: TeamRoleRequest): Response<ApiEnvelope<TeamMemberEnvelopeDto>>
 
+    /** FS-213: what the person does in the team (an Owner writes anybody's, a person his own); an empty title clears it. */
+    @PUT("${ApiClient.FREELANCE}teams/{team}/members/{member}/title")
+    suspend fun setTitle(@Path("team") team: String, @Path("member") member: String, @Body body: TeamTitleRequest): Response<ApiEnvelope<TeamMemberEnvelopeDto>>
+
     @POST("${ApiClient.FREELANCE}teams/{team}/leave")
     suspend fun leave(@Path("team") team: String): Response<ApiEnvelope<Any>>
 
@@ -292,6 +296,9 @@ data class TeamPermissionsRequest(val permissions: Map<String, Boolean>)
 
 data class TeamRoleRequest(val role: String)
 
+/** FS-213: [jobTitle] null or empty clears it. */
+data class TeamTitleRequest(@SerializedName("job_title") val jobTitle: String?)
+
 /** [phone] null = an invitation by code (no phone number needed). */
 data class TeamInviteRequest(val phone: String? = null, val role: String)
 
@@ -344,6 +351,7 @@ data class TeamPersonDto(
     val freelancer: String? = null,
     val name: String? = null,
     val role: String = "member",
+    @SerializedName("job_title") val jobTitle: String? = null,
     @SerializedName("show_in_profile") val showInProfile: Boolean = false,
 )
 
@@ -359,6 +367,7 @@ data class TeamStatsDto(
 
 data class TeamMeDto(
     val role: String? = null,
+    @SerializedName("job_title") val jobTitle: String? = null,
     @SerializedName("show_in_profile") val showInProfile: Boolean = false,
     @SerializedName("can_edit") val canEdit: Boolean = false,
 )
@@ -388,6 +397,8 @@ data class TeamMemberEnvelopeDto(val member: TeamMemberDto = TeamMemberDto())
 data class TeamMemberDto(
     val freelancer: TeamMemberPersonDto = TeamMemberPersonDto(),
     val role: String = "member",
+    /** FS-213: what the person does in the team ("UI designer"); shown on the team's profile when he agreed to be shown. */
+    @SerializedName("job_title") val jobTitle: String? = null,
     @SerializedName("joined_at") val joinedAt: String? = null,
     val abilities: Map<String, Boolean> = emptyMap(),
     /** FS-212: for an Owner, the agreements of the team he signed that have not ended (he stays an Owner until they do). */

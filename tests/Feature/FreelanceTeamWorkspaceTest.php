@@ -122,7 +122,7 @@ class FreelanceTeamWorkspaceTest extends TestCase
         $this->as($this->sara);
         $uuid = $this->postJson(self::API."/projects/{$p->uuid}/offers", [
             'price_minor' => 350000, 'duration_days' => 21, 'details' => 'We built three booking sites like this; we will deliver in three steps with a demo each week.',
-            'team' => $this->team->uuid, 'staff' => [['freelancer' => $this->lina->uuid, 'role' => 'pm'], ['freelancer' => $this->noor->uuid, 'role' => 'executor', 'responsibility' => 'Screens']],
+            'team' => $this->team->uuid,
         ])->assertCreated()->json('data.uuid');
         $this->asClient();
         $this->getJson(self::CLIENT."/{$p->uuid}/offers")->assertOk();
@@ -130,6 +130,9 @@ class FreelanceTeamWorkspaceTest extends TestCase
         $this->postJson(self::CLIENT."/{$p->uuid}/agreement/send")->assertOk();
         $this->as($this->sara);
         $this->postJson(self::API."/projects/{$p->uuid}/agreement/approve")->assertOk()->assertJsonPath('data.status', 'active');
+        // FS-213: the offer names nobody any more - Noor works on the project by being put on its part (FS-206b); Lina is the team's PM.
+        $agreement = \Modules\Freelance\Models\FreelanceAgreement::query()->where('project_id', $p->id)->latest('id')->firstOrFail();
+        app(\Modules\Freelance\Services\FreelancerTeam\TeamAssignments::class)->setMilestone($agreement, $agreement->milestones()->orderBy('position')->firstOrFail(), [$this->noor->uuid], $this->sara);
     }
 
     private function fund(): FreelanceMilestone

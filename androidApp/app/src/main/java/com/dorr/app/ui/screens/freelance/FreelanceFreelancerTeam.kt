@@ -216,8 +216,9 @@ internal fun TeamWorkCard(
     /** A button to the team's profile at the foot (null: none — the page already has the team's card). */
     onProfile: (() -> Unit)? = null,
 ) {
-    Card(Icons.Rounded.Groups, title) {
-        if (members.isEmpty()) Text(stringResource(R.string.fteam_staff_empty), color = settingsMut(), fontSize = 13.sp)
+    Card(Icons.Rounded.Groups, if (members.isEmpty()) stringResource(R.string.fteam_with_team) else title) {
+        // FS-213: an offer no longer names its people - the team puts them on the parts once the work starts (an older offer keeps its list).
+        if (members.isEmpty()) Text(stringResource(R.string.fteam_staff_empty), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
         else TeamStaffRows(members)
         if (!signer.isNullOrBlank()) Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.07f))
@@ -231,7 +232,7 @@ internal fun TeamWorkCard(
             }
             if (onSigner != null) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = settingsMut(), modifier = Modifier.size(20.dp))
         }
-        Text(stringResource(R.string.fteam_work_hint), color = settingsMut(), fontSize = 11.5.sp, lineHeight = 17.sp)
+        if (members.isNotEmpty()) Text(stringResource(R.string.fteam_work_hint), color = settingsMut(), fontSize = 11.5.sp, lineHeight = 17.sp)
         if (onProfile != null) FlAction(stringResource(R.string.fteam_view_profile), Icons.Rounded.Groups, onClick = onProfile)
     }
 }
@@ -261,7 +262,11 @@ internal fun FreelancerTeamPage(team: String, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        FlPageHeader(stringResource(R.string.fteam_profile_title), onBack)
+        val loaded = profile
+        FlPageHeader(stringResource(R.string.fteam_profile_title), onBack, trailing = {
+            // FS-213: keep the team, to find it again and invite it to the next project.
+            if (loaded != null) TeamFavoriteHeart(loaded.uuid, loaded.isFavorite) { saved -> profile = loaded.copy(isFavorite = saved) }
+        })
         val p = profile
         if (p == null) {
             FlLoading(error)
@@ -293,6 +298,8 @@ internal fun FreelancerTeamPage(team: String, onBack: () -> Unit) {
                 )
                 Text(stringResource(R.string.fl_contact_in_dorr), color = settingsMut(), fontSize = 11.sp, textAlign = TextAlign.Center)
             }
+            // FS-213: invite the team to one of my private projects (its Owner answers and offers in its name).
+            if (p.acceptingProjects) InviteTeamAction(p.uuid, p.name)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FlStat(Icons.Rounded.TaskAlt, stringResource(R.string.fl_st_completed), "${s.completedProjects ?: 0}", Modifier.weight(1f))
                 FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_st_on_time), s.onTimeRate?.let { "$it%" } ?: "—", Modifier.weight(1f))
@@ -366,6 +373,8 @@ private fun PersonRow(m: FreelancerTeamPersonDto) {
                 Text(m.name, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 RolePill(m.role)
             }
+            // FS-213: what the person does in the team, above the headline they wrote themselves.
+            m.jobTitle?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsAccent(), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             m.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
     }

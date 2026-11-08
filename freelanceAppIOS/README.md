@@ -87,3 +87,10 @@ build (fast, no DerivedData).
   screens share them, like `StatusPill` / `Benefit` on Android). The meter bar is a `GeometryReader` capsule. **Not compiled**: there was no Swift
   toolchain when this was written — run `typecheck.sh` / the build check before shipping.
 - A signing Owner (FS-212 / D12 — `Net/TeamsApi.swift` `signedAgreements` on `TeamMembersMeDto` / `TeamMemberDto`, and `TeamDetailScreen.swift` / `TeamMembersSection.swift`): ported from `TeamsApi.kt` / `TeamDetailScreen.kt` / `TeamMembersSection.kt` — «Leave the team», the role chips and «Remove from the team» are locked, with the reason under them, while the Owner signed agreements of the team that have not ended or has offers in its name that are still open (`openOffers` next to `signedAgreements`). **Not compiled**: there was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.
+- The whole team on an offer (FS-213 — `Net/OffersApi.swift`, `Net/TeamsApi.swift` `setTitle` / `jobTitle`, `Net/InvitationsApi.swift` `InvitationTeamDto`,
+  `Net/NotificationsApi.swift`, and `OfferTeamParts`, `OfferScreens`, `TeamMembersSection`, `TeamDetailScreen`, `InvitationScreens`): ported from the
+  FS-213 edits of the same Kotlin files — an offer no longer names who works on it (`StaffPick` / `TeamStaffEditor` / `OfferStaffInput` are gone,
+  the picker shows `tw_offer_whole_team`), the send form starts in the invited team's name, a person's job title (an Owner in the manage sheet,
+  anybody else from his own row in `JobTitleSheet`, a `.cmSheet` that closes itself), and a client's invitation to my team on the invitations
+  card and in the notice router. `TeamTitleRequest` sends `job_title: null` to clear it (the server's rule is `present|nullable`). **Not
+  compiled**: there was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.

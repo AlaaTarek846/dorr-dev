@@ -353,6 +353,8 @@ return [
     'ride_wasl_expiring_title' => 'Your Wasl approval ends soon',
     'ride_wasl_expiring_body' => 'Your eligibility ends on :date. Register again before then to keep working.',
     'freelance_freelancer_invitation_received_title' => 'New invitation',
+    'freelance_freelancer_invitation_team_received_title' => 'Your team is invited',
+    'freelance_freelancer_invitation_team_received_body' => 'A client invited your team :team to :project.',
     'freelance_freelancer_invitation_received_body' => 'You were invited to :project.',
     'freelance_freelancer_project_matched_title' => 'A project that fits you',
     'freelance_freelancer_project_matched_body' => 'A new project was posted that matches your work: :project.',

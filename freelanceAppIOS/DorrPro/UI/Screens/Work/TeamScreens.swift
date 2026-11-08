@@ -16,6 +16,7 @@ struct TeamsScreen: View {
     @State private var answering: String?
     @State private var creating = false
     @State private var showCreate = false
+    @State private var createError: String?
     @State private var showJoin = false
 
     private func load() async {
@@ -49,6 +50,7 @@ struct TeamsScreen: View {
 
     private func create(_ name: String) {
         notice = nil
+        createError = nil
         creating = true
         Task {
             let result = await TeamsApi.create(TeamCreateRequest(name: name))
@@ -59,7 +61,8 @@ struct TeamsScreen: View {
                 Task { await HomeHub.shared.refresh() }
                 if let uuid = data.team?.uuid { onOpenTeam(uuid) }
             } else {
-                notice = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
+                // Inside the dialog: the page's toast sits under it, so the owned-teams limit message was never seen.
+                createError = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
             }
             creating = false
         }
@@ -77,7 +80,7 @@ struct TeamsScreen: View {
                 ],
                 action: L("team_create"),
                 actionIcon: "plus",
-                onAction: { showCreate = true }
+                onAction: { createError = nil; showCreate = true }
             )
             MenuRow(entry: MenuEntry(icon: "key.fill", label: L("team_join_code"), subtitle: L("team_join_code_sub"), action: { showJoin = true }))
 
@@ -110,7 +113,7 @@ struct TeamsScreen: View {
         .task(id: network.reconnectTick) { await load() }
         .onReceive(Realtime.shared.changed) { _ in Task { await load() } }
         .dorrDialog(isPresented: $showCreate) {
-            CreateTeamDialog(busy: creating, onCreate: create, onDismiss: { showCreate = false })
+            CreateTeamDialog(busy: creating, error: createError, onCreate: create, onDismiss: { showCreate = false })
         }
         .dorrDialog(isPresented: $showJoin) {
             JoinCodeDialog(
@@ -230,6 +233,7 @@ private struct TeamAnswerRow: View {
 /// Asks for the team's name; the server makes me its Owner.
 private struct CreateTeamDialog: View {
     let busy: Bool
+    let error: String?
     let onCreate: (String) -> Void
     let onDismiss: () -> Void
     @State private var name = ""
@@ -244,6 +248,7 @@ private struct CreateTeamDialog: View {
                 VStack(spacing: 14) {
                     Text(L("team_create_body")).frame(maxWidth: .infinity)
                     DorrTextField(value: agreementLimit($name, 80), label: L("team_name_label"), placeholder: L("team_name_hint"), enabled: !busy)
+                    if let error { Text(verbatim: error).font(.dorr(12.5, .semibold)).foregroundStyle(Color(hex: 0xDC2626)).frame(maxWidth: .infinity) }
                 }
             },
             confirmButton: {

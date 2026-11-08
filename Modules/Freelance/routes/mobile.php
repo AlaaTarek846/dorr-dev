@@ -261,6 +261,10 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
 
         Route::prefix('favorites')->middleware('freelance.feature:projects')->group(function () {
             Route::get('/', [ClientFavoriteController::class, 'index']);
+            // FS-213: the freelancers' teams I keep.
+            Route::get('teams', [ClientFavoriteController::class, 'teams']);
+            Route::post('teams/{uuid}', [ClientFavoriteController::class, 'storeTeam'])->whereUuid('uuid');
+            Route::delete('teams/{uuid}', [ClientFavoriteController::class, 'destroyTeam'])->whereUuid('uuid');
             Route::post('{uuid}', [ClientFavoriteController::class, 'store'])->whereUuid('uuid');
             Route::delete('{uuid}', [ClientFavoriteController::class, 'destroy'])->whereUuid('uuid');
         });

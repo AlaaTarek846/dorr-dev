@@ -34,6 +34,8 @@ struct TeamScreen: View {
     @State private var segment = "profile"
     @State private var editing = false
     @State private var managing: String?
+    // FS-213: a person writing his own job title.
+    @State private var titling: String?
     @State private var askOwner: String?
     @State private var askRemove: String?
     @State private var askLeave = false
@@ -44,6 +46,10 @@ struct TeamScreen: View {
     private var shownSegment: String { segment == "invites" && !canInvite ? "profile" : segment }
     private var managed: TeamMemberDto? {
         guard let id = managing else { return nil }
+        return people?.members?.first { $0.freelancer?.uuid == id }
+    }
+    private var titled: TeamMemberDto? {
+        guard let id = titling else { return nil }
         return people?.members?.first { $0.freelancer?.uuid == id }
     }
 
@@ -109,6 +115,14 @@ struct TeamScreen: View {
         }
     }
 
+    /// FS-213: what the person does in the team (an empty title clears it).
+    private func setTitle(_ member: String, _ title: String) {
+        change(done: L("common_saved")) {
+            let result = await TeamsApi.setTitle(uuid, member, TeamTitleRequest(jobTitle: title.isEmpty ? nil : title))
+            return problem(result)
+        }
+    }
+
     private func uploadLogo(_ data: Data) {
         uploading = true
         notice = nil
@@ -165,6 +179,7 @@ struct TeamScreen: View {
             }
             .cmSheet(isPresented: $editing, locked: busy) { editSheet }
             .cmSheet(isPresented: managingPresented, locked: busy) { manageSheet }
+            .cmSheet(isPresented: titlingPresented, locked: busy) { titleSheet }
             .dorrDialog(isPresented: $askLeave) {
                 ConfirmDialog(
                     icon: "rectangle.portrait.and.arrow.right", title: L("team_leave_title"), message: L("team_leave_body"),
@@ -175,6 +190,10 @@ struct TeamScreen: View {
 
     private var managingPresented: Binding<Bool> {
         Binding(get: { isOwner && managed != nil }, set: { if !$0 { managing = nil } })
+    }
+
+    private var titlingPresented: Binding<Bool> {
+        Binding(get: { titled != nil }, set: { if !$0 { titling = nil } })
     }
 
     private var segments: [Segment] {
@@ -226,7 +245,8 @@ struct TeamScreen: View {
         if let p = people {
             TeamMembersSection(
                 people: p, myUuid: session.me?.uuid, isOwner: isOwner, canInvite: canInvite,
-                onManage: { managing = $0.freelancer?.uuid }, onInvite: { segment = "invites" }
+                onManage: { managing = $0.freelancer?.uuid }, onInvite: { segment = "invites" },
+                onEditTitle: { titling = $0.freelancer?.uuid }
             )
         }
     }
@@ -303,6 +323,17 @@ struct TeamScreen: View {
         }
     }
 
+    /// FS-213: a person (not an Owner) writing his own job title; saving closes the sheet.
+    @ViewBuilder
+    private var titleSheet: some View {
+        if let m = titled {
+            JobTitleSheet(member: m, busy: busy, onSave: { title in
+                setTitle(m.freelancer?.uuid ?? "", title)
+                titling = nil
+            })
+        }
+    }
+
     /// The Owner's sheet for one person. The two questions it can ask (make an Owner, take out) are presented from the sheet itself: a cover can't
     /// open over the page while the sheet is up.
     @ViewBuilder
@@ -320,7 +351,8 @@ struct TeamScreen: View {
                         return problem(result)
                     }
                 },
-                onRemove: { askRemove = target }
+                onRemove: { askRemove = target },
+                onTitle: { title in setTitle(target, title) }
             )
             .dorrDialog(isPresented: cmPresence($askOwner)) {
                 ConfirmDialog(

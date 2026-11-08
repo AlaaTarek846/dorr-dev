@@ -861,6 +861,7 @@
 "inv_s_declined" = "Declined";
 "inv_s_sent" = "Waiting for you";
 "inv_send_offer" = "Send your offer";
+"inv_team" = "Your team %1$@ is invited";
 "inv_title" = "Invitations";
 "invite_code_failed" = "Could not load your invite code. Check the connection and try again.";
 "invite_code_label" = "Invite code";
@@ -1205,6 +1206,7 @@
 "plans_wallet_topup" = "Top up wallet";
 "portfolio_add" = "Add a work";
 "portfolio_empty" = "You have no works yet.";
+"portfolio_empty_body" = "Add your best work: clients look at it before they choose you.";
 "portfolio_hidden" = "Hidden by the admin";
 "portfolio_hint" = "Show your best work. Only a verified account is shown to others.";
 "portfolio_title" = "My work";
@@ -2030,7 +2032,7 @@
 "team_set_public_off" = "Only the team and the clients it made an offer to can open it.";
 "team_set_public_on" = "Anyone signed in can open the team’s profile.";
 "team_set_show_me" = "Show me on the team profile";
-"team_set_show_me_sub" = "Outside the team only your first name appears, and only if you agree.";
+"team_set_show_me_sub" = "Outside the team only your first name and your job in the team appear, and only if you agree.";
 "team_settings" = "Visibility and projects";
 "team_signer_hold" = "%1$@ signed agreements for this team that have not ended, or has offers in its name that are still open, so they stay an Owner until those end or are taken back.";
 "team_skills" = "Skills";
@@ -2047,6 +2049,11 @@
 "team_tab_members" = "Members";
 "team_tab_profile" = "Profile";
 "team_title" = "Teams";
+"team_title_add_mine" = "Write your job in the team";
+"team_title_hint" = "Shown next to the name on the team's profile for clients, if the person agreed to be shown.";
+"team_title_label" = "Job title";
+"team_title_placeholder" = "e.g. UI designer, Android developer";
+"team_title_save" = "Save the title";
 "team_ver_rejected" = "The papers were not accepted";
 "team_ver_submitted" = "The papers are under review";
 "team_ver_verified" = "The team is verified";
@@ -2059,6 +2066,7 @@
 "terms_head" = "Terms & Conditions";
 "terms_title" = "Terms of use";
 "tpf_empty" = "No works yet.";
+"tpf_empty_body" = "Add the work your team finished: clients see it next to the team page.";
 "tpf_hint" = "The team's works. Clients see the ones you make public, next to the team's page. Up to 30.";
 "tpf_hint_member" = "The team's works. Only an Owner adds or changes them.";
 "tpf_row_member" = "The team's works";
@@ -2166,6 +2174,7 @@
 "tw_offer_staff_none" = "Nobody picked — the team's offer goes without a list.";
 "tw_offer_team_badge" = "In the name of %1$@";
 "tw_offer_team_people" = "The team on this offer";
+"tw_offer_whole_team" = "The offer goes in the whole team's name. Once the client chooses it, split the work among the members with «Assign people» on each part. The client sees the members who agreed to be shown, and their jobs, on the team's profile.";
 "tw_projects_empty_body" = "When the team's offer is chosen, the project shows here.";
 "tw_projects_empty_member" = "The projects you are put on show here.";
 "tw_projects_empty_title" = "No team projects yet";

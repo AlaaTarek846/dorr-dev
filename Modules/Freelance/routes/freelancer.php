@@ -428,6 +428,7 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
             Route::get('teams/{team}/members', [$m, 'index'])->whereUuid('team');
             Route::put('teams/{team}/members/{freelancer}/permissions', [$m, 'permissions'])->whereUuid(['team', 'freelancer'])->middleware('throttle:60,1,freelance-team-permissions');
             Route::put('teams/{team}/members/{freelancer}/role', [$m, 'role'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-permissions');
+            Route::put('teams/{team}/members/{freelancer}/title', [$m, 'title'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-permissions');
             Route::post('teams/{team}/leave', [$m, 'leave'])->whereUuid('team')->middleware('throttle:20,1,freelance-team-leave');
             Route::delete('teams/{team}/members/{freelancer}', [$m, 'remove'])->whereUuid(['team', 'freelancer'])->middleware('throttle:30,1,freelance-team-leave');
             // FS-206a: the team's projects I reach (all for an Owner / PM, mine for a member - D9); each is used through `projects/{uuid}/...`.

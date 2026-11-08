@@ -120,9 +120,12 @@ func wrLocalDateTime(_ iso: String?) -> String {
 
 /// "1.4 MB" · "230 KB".
 func wrSize(_ bytes: Int) -> String {
-    if bytes >= 1_048_576 { return String(format: "%.1f MB", Double(bytes) / 1_048_576.0) }
-    if bytes >= 1024 { return "\(bytes / 1024) KB" }
-    return "\(bytes) B"
+    // Left-to-right marks: in an Arabic line «14 B» read as «B … 14» without them.
+    let text: String
+    if bytes >= 1_048_576 { text = String(format: "%.1f MB", Double(bytes) / 1_048_576.0) }
+    else if bytes >= 1024 { text = "\(bytes / 1024) KB" }
+    else { text = "\(bytes) B" }
+    return "\u{200E}" + text + "\u{200E}"
 }
 
 /// The icon of a file by its kind (an SF Symbol).

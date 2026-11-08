@@ -132,7 +132,7 @@ class FreelanceTeamProfileTest extends TestCase
         $this->as($this->sara);
         $this->postJson(self::API."/projects/{$p->uuid}/offers", [
             'price_minor' => 350000, 'duration_days' => 21, 'details' => 'We built three booking sites like this; we will deliver in three steps with a demo each week.',
-            'team' => $this->team->uuid, 'staff' => [['freelancer' => $this->lina->uuid, 'role' => 'pm']],
+            'team' => $this->team->uuid,
         ])->assertCreated();
 
         return $p;

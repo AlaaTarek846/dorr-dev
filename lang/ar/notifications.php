@@ -353,6 +353,8 @@ return [
     'ride_wasl_expiring_title' => 'أهليتك في وصل تنتهي قريباً',
     'ride_wasl_expiring_body' => 'تنتهي أهليتك في :date. أعد التسجيل قبل هذا التاريخ لتستمر في العمل.',
     'freelance_freelancer_invitation_received_title' => 'دعوة جديدة',
+    'freelance_freelancer_invitation_team_received_title' => 'دعوة لفريقك',
+    'freelance_freelancer_invitation_team_received_body' => 'العميل دعا فريقك :team لمشروع :project.',
     'freelance_freelancer_invitation_received_body' => 'تمت دعوتك إلى مشروع :project.',
     'freelance_freelancer_project_matched_title' => 'مشروع يناسبك',
     'freelance_freelancer_project_matched_body' => 'اتنشر مشروع جديد على قدّ شغلك: :project.',

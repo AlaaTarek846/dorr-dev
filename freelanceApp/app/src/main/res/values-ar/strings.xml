@@ -264,6 +264,7 @@
     <string name="portfolio_hint">اعرض أحسن أعمالك. الحساب الموثّق بس هو اللي بيتعرض للناس.</string>
     <string name="portfolio_add">إضافة عمل</string>
     <string name="portfolio_empty">لسه مفيش أعمال عندك.</string>
+    <string name="portfolio_empty_body">ضيف أحسن شغلك: العملاء بيشوفوه قبل ما يختاروك.</string>
     <string name="portfolio_hidden">مخفي من الإدارة</string>
     <string name="portfolio_verified_hint">غيرك مبيشوفش أعمالك إلا بعد توثيق حسابك.</string>
     <string name="vis_private">أنا بس</string>

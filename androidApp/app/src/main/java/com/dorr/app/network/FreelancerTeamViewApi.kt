@@ -55,12 +55,15 @@ data class FreelancerTeamProfileDto(
     val stats: FreelancerTeamStatsDto = FreelancerTeamStatsDto(),
     val reviews: List<FreelanceReviewLineDto> = emptyList(),
     val portfolio: List<FreelancePortfolioDto> = emptyList(),
+    /** FS-213: I keep this team (the heart on its page). */
+    @SerializedName("is_favorite") val isFavorite: Boolean = false,
 )
 
-/** A person who agreed to be shown: first name, `owner` · `pm` · `member`, headline and photo. */
+/** A person who agreed to be shown: first name, `owner` · `pm` · `member`, job title (FS-213), headline and photo. */
 data class FreelancerTeamPersonDto(
     val name: String = "",
     val role: String = "",
+    @SerializedName("job_title") val jobTitle: String? = null,
     val headline: String? = null,
     @SerializedName("avatar_url") val avatarUrl: String? = null,
 )

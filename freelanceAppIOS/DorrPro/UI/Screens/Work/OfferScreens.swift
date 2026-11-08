@@ -156,13 +156,12 @@ struct OfferFormScreen: View {
     // FL-L13: who owns the work once it is paid (nil options: the feature is off in my country).
     @State private var rights = RightsForm()
     @StateObject private var rightsOptions = RightsOptionsState()
-    // FS-209b: the offer may go in a team's name (a team I am Owner or PM of): the team, the Owner who signs, and the people on it.
+    // FS-209b: the offer may go in a team's name (a team I am Owner or PM of): the team and the Owner who signs (FS-213: not who works on it).
     @ObservedObject private var hub = HomeHub.shared
     @ObservedObject private var session = Session.shared
     @State private var myTeams: [TeamSummaryDto] = []
     @State private var teamUuid: String?
     @State private var signer: String?
-    @State private var staff: [StaffPick] = []
     @State private var teamMembers: [TeamMemberDto]?
 
     private var teamsOn: Bool { hub.home?.on("teams") == true }
@@ -184,7 +183,7 @@ struct OfferFormScreen: View {
 
     private func teamPicker(_ p: OfferPreviewDto, compact: Bool) -> some View {
         TeamOfferPicker(
-            teams: myTeams, teamUuid: teamUuid, onTeam: { teamUuid = $0 }, quota: p.teamQuota, members: teamMembers, staff: $staff,
+            teams: myTeams, teamUuid: teamUuid, onTeam: { teamUuid = $0 }, quota: p.teamQuota, members: teamMembers,
             signer: signer, onSigner: { signer = $0 }, myUuid: session.me?.uuid, compact: compact
         )
     }
@@ -207,7 +206,6 @@ struct OfferFormScreen: View {
         .messageToast(templateNotice)
         .task(id: "\(teamsOn)|\(network.reconnectTick)") { await loadMyTeams() }
         .task(id: teamUuid ?? "") {
-            staff = []
             signer = nil
             teamMembers = nil
             guard let chosen = teamUuid else { return }
@@ -226,7 +224,10 @@ struct OfferFormScreen: View {
         }
         .task(id: "\(projectUuid)|\(network.reconnectTick)") {
             if let list = await OffersApi.templates().value { templates = list }
-            if let q = await ProjectsApi.show(projectUuid).value?.questions {
+            let shown = await ProjectsApi.show(projectUuid).value
+            // FS-213: the client invited my team: the offer starts in its name (I can still change it).
+            if let invited = shown?.invitation?.team?.uuid, teamUuid == nil { teamUuid = invited }
+            if let q = shown?.questions {
                 questions = q
                 while answers.count < q.count { answers.append("") }
             }
@@ -450,7 +451,7 @@ struct OfferFormScreen: View {
         var fields: [String: String] = ["price_minor": String(minor), "duration_days": duration, "details": trimmed(details)]
         for (i, a) in answers.enumerated() { fields["answers[\(i)]"] = trimmed(a) }
         if rightsOptions.value != nil { fields.merge(rights.toFields()) { _, new in new } }
-        fields.merge(teamOfferFields(teamUuid, signer, staff)) { _, new in new }
+        fields.merge(teamOfferFields(teamUuid, signer)) { _, new in new }
         let parts = files.map { FilePart(field: "files[]", filename: $0.name, mimeType: $0.type, data: $0.bytes) }
         Task {
             let result = await OffersApi.send(projectUuid, fields: fields, files: parts)
@@ -580,9 +581,6 @@ struct EditOfferScreen: View {
     @State private var breakdown: OfferBreakdownDto?
     @State private var busy = false
     @State private var error: String?
-    // FS-209b: a team's offer changes who works on it too.
-    @State private var staff: [StaffPick] = []
-    @State private var teamMembers: [TeamMemberDto]?
     @State private var rights = RightsForm()
     @StateObject private var rightsOptions = RightsOptionsState()
 
@@ -601,12 +599,7 @@ struct EditOfferScreen: View {
                     Text(L("offer_details_count", detailsLength, DETAILS_MIN)).font(.dorr(11)).foregroundStyle(detailsLength < DETAILS_MIN ? wa.settingsMut : green)
                 }
                 if let options = rightsOptions.value { RightsEditor(form: rights, options: options) { rights = $0 } }
-                if let team = current.team {
-                    TeamOfferInfo(team: team, submittedBy: current.submittedBy, showPeople: false)
-                    FieldLabel(text: L("tw_offer_staff")).frame(maxWidth: .infinity, alignment: .leading)
-                    Text(L("tw_offer_staff_hint")).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
-                    if let teamMembers { TeamStaffEditor(members: teamMembers, staff: $staff) }
-                }
+                if let team = current.team { TeamOfferInfo(team: team, submittedBy: current.submittedBy, showPeople: false) }
                 Text(L("offer_edit_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
                 SettingsPrimaryButton(
                     text: L("offer_save_changes"),
@@ -627,7 +620,6 @@ struct EditOfferScreen: View {
                 duration = String(current.durationDays ?? 0)
                 details = current.details ?? ""
                 if let r = current.rights { rights = r.toForm() }
-                if let team = current.team, let teamId = team.uuid { await loadStaff(team, teamId) }
             } else if let e = result.error {
                 error = e.displayMessage
             } else {
@@ -643,28 +635,13 @@ struct EditOfferScreen: View {
         .rememberRightsOptions(rightsOptions)
     }
 
-    /// The team's people, and the ones already on the offer (only those still in the team stay on the list: the server refuses anybody else).
-    private func loadStaff(_ team: OfferTeamDto, _ teamId: String) async {
-        let people = await TeamsApi.members(teamId).value?.members
-        teamMembers = people
-        var here: Set<String>?
-        if let people { here = Set(people.compactMap { $0.freelancer?.uuid }) }
-        var picked: [StaffPick] = []
-        for m in team.members ?? [] {
-            guard let f = m.freelancer, here?.contains(f) ?? true else { continue }
-            picked.append(StaffPick(freelancer: f, role: m.role ?? "executor", responsibility: m.responsibility ?? ""))
-        }
-        staff = picked
-    }
-
     private func save(_ current: OfferDto) {
         guard let minor = parseMinor(price) else { error = L("offer_price_invalid"); return }
         busy = true
         error = nil
         Task {
             let result = await OffersApi.update(current.uuid ?? "", OfferUpdateRequest(priceMinor: minor, durationDays: Int(duration) ?? 0, details: trimmed(details),
-                                                                                        rights: rightsOptions.value != nil ? rights.toInput() : nil,
-                                                                                        staff: current.team != nil && teamMembers != nil ? staff.toInputs() : nil))
+                                                                                        rights: rightsOptions.value != nil ? rights.toInput() : nil))
             busy = false
             if result.value != nil { onDone() } else { error = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
         }

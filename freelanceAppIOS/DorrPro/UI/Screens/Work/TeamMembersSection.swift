@@ -5,8 +5,9 @@ import SwiftUI
 /// The abilities an Owner may switch for a PM or a member, in the order the sheet lists them (the server names them in `switches`).
 private let teamSwitchOrder = ["view_price", "client_chat", "internal_files", "invite_members"]
 
-/// The «Members» part of a team's page: everybody in the team with their role (Owners first, as the server sends them). An Owner taps a row to
-/// manage that person; somebody who may invite gets a shortcut to the invitations.
+/// The «Members» part of a team's page: everybody in the team with their role and job title (Owners first, as the server sends them). An Owner
+/// taps a row to manage that person; anybody else taps his own row to write his job title (FS-213); somebody who may invite gets a shortcut to
+/// the invitations.
 struct TeamMembersSection: View {
     @Environment(\.wa) private var wa
     let people: TeamMembersDto
@@ -15,6 +16,7 @@ struct TeamMembersSection: View {
     let canInvite: Bool
     let onManage: (TeamMemberDto) -> Void
     let onInvite: () -> Void
+    var onEditTitle: (TeamMemberDto) -> Void = { _ in }
 
     var body: some View {
         let members = people.members ?? []
@@ -24,7 +26,8 @@ struct TeamMembersSection: View {
                     if index > 0 {
                         Rectangle().fill(wa.settingsMut.opacity(0.12)).frame(height: 1).padding(.leading, 72)
                     }
-                    MemberRow(m: m, isMe: m.freelancer?.uuid != nil && m.freelancer?.uuid == myUuid, canManage: isOwner, onClick: { onManage(m) })
+                    let isMe = m.freelancer?.uuid != nil && m.freelancer?.uuid == myUuid
+                    MemberRow(m: m, isMe: isMe, canManage: isOwner || isMe, onClick: { if isOwner { onManage(m) } else { onEditTitle(m) } })
                 }
             }
             .padding(.vertical, 6)
@@ -59,7 +62,12 @@ private struct MemberRow: View {
                     Text(verbatim: m.freelancer?.name ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
                     if isMe { Text(L("team_you")).font(.dorr(11, .bold)).foregroundStyle(wa.red) }
                 }
-                if let since = teamDate(m.joinedAt) {
+                // FS-213: what the person does in the team; the date he joined when there is none.
+                if let title = m.jobTitle, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(verbatim: title).font(.dorr(12.5, .semibold)).foregroundStyle(wa.red).lineLimit(1)
+                } else if isMe {
+                    Text(L("team_title_add_mine")).font(.dorr(12, .semibold)).foregroundStyle(wa.red)
+                } else if let since = teamDate(m.joinedAt) {
                     Text(verbatim: L("team_member_since", since)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
                 }
             }
@@ -89,6 +97,8 @@ struct ManageMemberSheet: View {
     let onRole: (String) -> Void
     let onPermission: (String, Bool) -> Void
     let onRemove: () -> Void
+    /// FS-213: saves the person's job title (empty clears it).
+    var onTitle: (String) -> Void = { _ in }
 
     var body: some View {
         let keys = teamSwitchOrder.filter { switches.contains($0) }
@@ -107,6 +117,8 @@ struct ManageMemberSheet: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+
+                JobTitleField(current: member.jobTitle, busy: busy, onSave: onTitle)
 
                 Text(L("team_role_label")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
                 FilterChips(
@@ -169,5 +181,73 @@ struct ManageMemberSheet: View {
         case "internal_files": return L("team_perm_internal_files_sub")
         default: return L("team_perm_invite_members_sub")
         }
+    }
+}
+
+/// FS-213: the most letters of a job title (the server's limit).
+private let JOB_TITLE_MAX = 60
+
+/// «Job title» with its save button: what the person does in the team, shown next to his name on the team's profile when he agreed.
+struct JobTitleField: View {
+    @Environment(\.wa) private var wa
+    let current: String?
+    let busy: Bool
+    let onSave: (String) -> Void
+    @State private var text: String
+
+    init(current: String?, busy: Bool, onSave: @escaping (String) -> Void) {
+        self.current = current
+        self.busy = busy
+        self.onSave = onSave
+        _text = State(initialValue: current ?? "")
+    }
+
+    var body: some View {
+        let typed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("team_title_label")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
+            DorrTextField(
+                value: Binding(get: { text }, set: { text = String($0.prefix(JOB_TITLE_MAX)) }),
+                placeholder: L("team_title_placeholder"), icon: "person.text.rectangle"
+            )
+            Text(L("team_title_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+            if typed != (current ?? "") {
+                SettingsPrimaryButton(text: L("team_title_save"), loading: busy) { onSave(typed) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Android `rememberSaveable(current)`: a new copy from the server starts the field again.
+        .onChange(of: current ?? "") { text = $0 }
+    }
+}
+
+/// A person (not an Owner) writing his own job title. Shown with `.cmSheet` (Android `LocaleAwareBottomSheet`), which closes itself — so there
+/// is no `onDismiss` here.
+struct JobTitleSheet: View {
+    @Environment(\.wa) private var wa
+    let member: TeamMemberDto
+    let busy: Bool
+    let onSave: (String) -> Void
+
+    var body: some View {
+        let role = member.role ?? "member"
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    InitialsBadge(name: member.freelancer?.name, size: 52, tint: roleTint(role))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: member.freelancer?.name ?? "").font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                        Text(verbatim: roleLabel(role)).font(.dorr(13, .bold)).foregroundStyle(roleTint(role))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                JobTitleField(current: member.jobTitle, busy: busy, onSave: onSave)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 18)
+            .padding(.top, 24)
+            .padding(.bottom, 24)
+        }
+        .background(wa.settingsCard.ignoresSafeArea())
     }
 }

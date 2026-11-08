@@ -22,7 +22,7 @@
     <string name="rights_report">أبلّغ عن العمل ده</string>
     <string name="rights_report_title">الإبلاغ عن عمل</string>
     <string name="rights_report_body">استخدم ده بس لو العمل مش بتاع المحترف، زي إنه بتاعك أو بتاع حد تاني. بنراجع كل بلاغ.</string>
-    <string name="rights_report_hint">إيه اللي حصل؟ قول ليه مش بتاعه (١٠ حروف على الأقل)</string>
+    <string name="rights_report_hint">إيه اللي حصل؟ قول ليه مش بتاعه (10 حروف على الأقل)</string>
     <string name="rights_report_send">إرسال البلاغ</string>
     <string name="fl_dr_rights">حقوق الشغل (مش بتاعه أو ما اتسلمتليش حقوقه)</string>
     <string name="rights_preview_locked">للمعاينة فقط لحد ما الجزء يتعتمد ويتدفع</string>

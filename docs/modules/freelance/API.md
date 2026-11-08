@@ -1463,6 +1463,8 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 
 ## عرض باسم الفريق (FS-205) — 2026-11-06
 
+> **FS-213 (2026-11-08):** `staff` اتشال من الإرسال والتعديل — العرض باسم الفريق كله وما بيسمّيش حد. السيرفر **مش بيرفض** `staff` من تطبيق قديم، بس مش بيقراه (مفيش ناس على العرض ولا إشعار `team_offer_staffed`، وتعديل `staff` لوحده = `freelance_offer_unchanged`). العروض القديمة محتفظة بناسها، والاتفاقيات الجديدة ما بتتجمّدش عليها ناس من العرض؛ الأعضاء بيوصلوا للمشروع بالإسناد على المراحل والمهام (FS-206b). اللي تحت عن `staff` تاريخي.
+
 سيرفر بس؛ الشاشات في FS-209. ورا مفتاح `teams` (لدولة الـ Owner) فوق مفاتيح العروض العادية.
 
 **الإرسال** `POST projects/{uuid}/offers` (نفس عرض FL-301) + حقلين اختياريين:
@@ -1570,3 +1572,20 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 **اللي بتقوله الاستجابات** (موثّق بالاختبار `FreelanceTeamHardTest`): مش عضو أو فريق تاني = **404** دايمًا (الفريق «مش موجود»)؛ عضو من غير الحق = **403**؛ أوراق التوثيق لغير الـ Owners = **404** والباقة = **403** (`freelance_team_plan_forbidden`)؛ آخر Owner = **409**.
 
 **الموقّع (D12، FS-212):** Owner وقّع على اتفاقية باسم الفريق لسه ما خلصتش (`draft` أو `pending_approval` أو `active`)، **أو** عنده عرض باسم الفريق لسه مفتوح (`submitted` أو `viewed` أو `shortlisted`)، لا يخرج (`POST teams/{team}/leave`) ولا يتنازل عن الـ Owner (`PUT …/members/{f}/role`) ولا Owner تاني يشيله (`DELETE …/members/{f}`) — **409 `freelance_freelancer_team_signer_active`** (`data.agreements` و`data.offers` = العددين) لحد ما الاتفاقيات تخلص (`completed`/`declined`/`cancelled`/`expired`) ويسحب عروضه (`POST /offers/{offer}/withdraw`، بإيده — مفيش سحب تلقائي). ترتيب الفحص: آخر Owner (`freelancer_team_last_owner`) الأول. **الموظف مش متقيّد** (`TeamModeration::removeMember`). `GET teams/{team}/members` بيرجّع `signed_agreements` و`open_offers` لكل عضو (غير الـ Owner = 0) وفي `me`، عشان الشاشة تقفل الأزرار قبل ما حد يجرّب.
+
+## الفريق في المفضلة، دعوته لمشروع، والمسمى الوظيفي (FS-213) — 2026-11-08
+
+**مفضلة الفرق (العميل)** — `mobile/v1/freelance/favorites/teams` ورا مفتاح `projects`:
+- `GET favorites/teams` (`page`/`per_page`) — الأحدث أول: `uuid`، `name`، `worked_with` (بينا اتفاق شغّال أو خلص)، + ملخص الملف (`logo_url`، `verified`، `accepting_projects`، `rating`، `reviews_count`، `completed_projects`). الفريق اللي بطّل مقروء للعميل (اتوقف/اتأرشف/بقى خاص من غير عرض ليه) **بيختفي من القائمة بس بيفضل محفوظ**.
+- `POST favorites/teams/{uuid}` — فريق أقدر أقرا ملفه (`TeamProfile::viewer` = عام، أو خاص بعتلي عرض)؛ غير كده 404. مرتين = مرة.
+- `DELETE favorites/teams/{uuid}` — فريق محفوظ عندي (حتى لو مش مقروء دلوقتي)؛ مش محفوظ = 404.
+- `GET freelancer-teams/{uuid}` بيزود `team.is_favorite`.
+
+**دعوة فريق لمشروع خاص** — `POST mobile/v1/freelance/projects/{uuid}/invitations {freelancers?: [uuid], teams?: [uuid]}` (واحد منهم على الأقل، `teams` لحد 10):
+- الدعوة بتتسجّل على **أول Owner نشط موثّق** في الفريق ومعاها `team_id`؛ هو اللي بيرد ويبعت العرض باسم الفريق. الأعضاء التانيين ما بيوصلهمش حاجة، والمشروع الخاص مقفول عليهم.
+- بيتخطّى (في `result.skipped[].reason`): `not_found` (فريق مش مقروء للعميل أو مفيش Owner صالح)، `team_not_accepting` (`accepting_projects=false`)، و`already_invited`/`declined`/`already_offered` زي الأفراد. نفس حد `invitations.max_per_project`.
+- إشعار للـ Owner: `freelance.invitation.team_received` (`{project, team}`). قوائم الدعوات (العميل `GET …/invitations` والمحترف `GET freelance/v1/invitations`) و`invitation` في صفحة المشروع للمحترف بيزودوا `team {uuid, name, logo_url}` (null للدعوة الفردية).
+
+**المسمى الوظيفي** — `PUT freelance/v1/teams/{team}/members/{freelancer}/title {job_title?: ≤60}`:
+- Owner بيكتب لأي حد (`manage_members`)، والشخص بيكتب لنفسه؛ غير كده 403. مش عضو نشط = 404، فريق موقوف/مؤرشف = 409. فاضي أو مش مبعوت = يمسحه. HTML بيتشال. بيتسجّل في الـ audit (`freelance.team.job_title_changed`).
+- `job_title` في `GET teams/{team}/members`، وفي ملف الفريق (`members[]` و`me`)، وفي ملف الفريق للعميل جنب الاسم الأول **للي وافق على الظهور بس** (D10 زي ما هو).

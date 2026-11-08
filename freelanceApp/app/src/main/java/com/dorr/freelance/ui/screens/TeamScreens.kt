@@ -94,6 +94,7 @@ fun TeamsScreen(onBack: () -> Unit, onOpenTeam: (String) -> Unit) {
     var answering by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
+    var createError by remember { mutableStateOf<String?>(null) }
     var showJoin by rememberSaveable { mutableStateOf(false) }
 
     suspend fun load() {
@@ -130,6 +131,7 @@ fun TeamsScreen(onBack: () -> Unit, onOpenTeam: (String) -> Unit) {
 
     fun create(name: String) {
         notice = null
+        createError = null
         creating = true
         scope.launch {
             val result = apiCall { ApiClient.teams.create(TeamCreateRequest(name)) }
@@ -140,7 +142,8 @@ fun TeamsScreen(onBack: () -> Unit, onOpenTeam: (String) -> Unit) {
                 launch { HomeHub.refresh() }
                 onOpenTeam(result.data.team.uuid)
             } else {
-                notice = result.errorText(offlineText) ?: genericError
+                // Inside the dialog: the page's toast sits under it, so the limit message («you own the most teams») was never seen.
+                createError = result.errorText(offlineText) ?: genericError
             }
             creating = false
         }
@@ -158,7 +161,7 @@ fun TeamsScreen(onBack: () -> Unit, onOpenTeam: (String) -> Unit) {
             ),
             action = stringResource(R.string.team_create),
             actionIcon = Icons.Rounded.Add,
-            onAction = { showCreate = true },
+            onAction = { createError = null; showCreate = true },
         )
         MenuRow(MenuEntry(Icons.Rounded.VpnKey, R.string.team_join_code, R.string.team_join_code_sub, onClick = { showJoin = true }))
 
@@ -186,7 +189,7 @@ fun TeamsScreen(onBack: () -> Unit, onOpenTeam: (String) -> Unit) {
         }
     }
 
-    if (showCreate) CreateTeamDialog(busy = creating, onCreate = ::create, onDismiss = { showCreate = false })
+    if (showCreate) CreateTeamDialog(busy = creating, error = createError, onCreate = ::create, onDismiss = { showCreate = false })
     if (showJoin) JoinCodeDialog(
         onDismiss = { showJoin = false },
         onJoined = { uuid ->
@@ -258,7 +261,7 @@ private fun TeamInviteCard(i: TeamInvitationDto, busy: Boolean, onAnswer: (Boole
 
 /** Asks for the team's name; the server makes me its Owner. */
 @Composable
-private fun CreateTeamDialog(busy: Boolean, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
+private fun CreateTeamDialog(busy: Boolean, error: String?, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     val clean = name.trim()
     AlertDialog(
@@ -272,6 +275,7 @@ private fun CreateTeamDialog(busy: Boolean, onCreate: (String) -> Unit, onDismis
                     value = name, onValueChange = { name = it.take(80) }, modifier = Modifier.fillMaxWidth(),
                     label = stringResource(R.string.team_name_label), placeholder = stringResource(R.string.team_name_hint),
                 )
+                error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.fillMaxWidth()) }
             }
         },
         confirmButton = { DialogButton(onClick = { onCreate(clean) }, enabled = clean.length >= 2 && !busy) { Text(stringResource(R.string.team_create_confirm)) } },

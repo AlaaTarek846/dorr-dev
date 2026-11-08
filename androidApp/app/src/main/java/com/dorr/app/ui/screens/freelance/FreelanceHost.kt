@@ -210,7 +210,7 @@ fun FreelanceHost(onExit: () -> Unit) {
                 is FlRoute.WorkroomFile -> com.dorr.app.ui.screens.freelance.workroom.WorkroomFilePage(route.project, route.file, onBack = ::back)
                 is FlRoute.Dispute -> DisputePage(route.project, null, route.dispute, onBack = ::back, onOpened = {})
                 is FlRoute.NewDispute -> DisputePage(route.project, route.milestone, null, onBack = ::back, onOpened = { replace(FlRoute.Dispute(route.project, it)) })
-                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) })
+                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) }, onTeam = { open(FlRoute.FreelancerTeam(it)) })
                 FlRoute.TalentLists -> TalentListsPage(onBack = ::back, onOpen = { open(FlRoute.TalentList(it)) })
                 is FlRoute.TalentList -> TalentListPage(route.list, onBack = ::back, onGone = { back() })
                 is FlRoute.Team -> TeamPage(route.project, onBack = ::back)

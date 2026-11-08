@@ -43,8 +43,6 @@ enum OffersApi {
                                               "territory": r.territory, "portfolio": r.portfolio]
                 json["rights"] = fields.compactMapValues { $0 }
             }
-            // FS-209b: a team's offer changes who works on it (the whole list each time); nil leaves it as it is.
-            if let staff = body.staff { json["staff"] = staff.map { $0.json } }
             return json
         }())
     }
@@ -181,7 +179,7 @@ struct OfferDto: Decodable, Identifiable {
     var submittedBy: TeamPersonRefDto?
 }
 
-/// FS-209b: a team's offer - who works on it (`freelancer` is the person's uuid) and what each takes on; `role` = pm | executor.
+/// FS-209b: a team's offer. FS-213: a new offer names nobody (`members` empty); an older one keeps the people it named.
 struct OfferTeamDto: Decodable, Equatable {
     var uuid: String?
     var name: String?
@@ -194,20 +192,6 @@ struct OfferTeamMemberDto: Decodable, Equatable {
     var role: String?
     var responsibility: String?
     var freelancer: String?
-}
-
-/// FS-209b: one person put on a team's offer.
-struct OfferStaffInput {
-    let freelancer: String
-    let role: String
-    var responsibility: String? = nil
-
-    /// As Gson writes it: no `responsibility` when there is none (and no optional inside, so it goes through JSONSerialization).
-    var json: [String: Any] {
-        var out: [String: Any] = ["freelancer": freelancer, "role": role]
-        if let responsibility { out["responsibility"] = responsibility }
-        return out
-    }
 }
 
 struct OfferAnswerDto: Decodable {
@@ -232,8 +216,6 @@ struct OfferUpdateRequest {
     let details: String
     /// FL-L13: sent only when the feature is on.
     var rights: RightsInputDto? = nil
-    /// FS-209b: a team's offer changes who works on it (the whole list each time); nil leaves it as it is.
-    var staff: [OfferStaffInput]? = nil
 }
 
 struct OfferRevisionDto: Decodable {

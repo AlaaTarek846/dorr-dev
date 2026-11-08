@@ -196,14 +196,15 @@ struct TeamWorkCard: View {
     var onProfile: (() -> Void)?
 
     var body: some View {
-        FlCard(icon: "person.3.fill", title: title) {
+        FlCard(icon: "person.3.fill", title: members.isEmpty ? L("fteam_with_team") : title) {
+            // FS-213: an offer no longer names its people - the team puts them on the parts once the work starts (an older offer keeps its list).
             if members.isEmpty {
-                Text(L("fteam_staff_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
+                Text(L("fteam_staff_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
             } else {
                 TeamStaffRows(members: members)
             }
             if let signer, !signer.isEmpty { signerRow(signer) }
-            Text(L("fteam_work_hint")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+            if !members.isEmpty { Text(L("fteam_work_hint")).font(.dorr(11.5)).foregroundStyle(wa.settingsMut).lineSpacing(3) }
             if let onProfile { FlAction(text: L("fteam_view_profile"), icon: "person.3.fill", action: onProfile) }
         }
     }
@@ -242,7 +243,10 @@ struct FreelancerTeamPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FlPageHeader(title: L("fteam_profile_title"), onBack: onBack)
+            // FS-213: keep the team, to find it again and invite it to the next project.
+            FlPageHeader(title: L("fteam_profile_title"), onBack: onBack, trailing: profile.map { loaded in
+                AnyView(TeamFavoriteHeart(team: loaded.uuid ?? team, saved: loaded.isFavorite == true) { saved in profile?.isFavorite = saved })
+            })
             if let p = profile {
                 ScrollView { content(p).padding(.horizontal, 16) }
             } else {
@@ -290,6 +294,8 @@ struct FreelancerTeamPage: View {
             .frame(maxWidth: .infinity)
             .padding(16)
             .settingsSurface(FlCorners.card)
+            // FS-213: invite the team to one of my private projects (its Owner answers and offers in its name).
+            if p.acceptingProjects == true { InviteTeamAction(team: p.uuid ?? team, teamName: p.name ?? "") }
             HStack(spacing: 8) {
                 FlStat(icon: "checkmark.seal.fill", label: L("fl_st_completed"), value: "\(s.completedProjects ?? 0)")
                 FlStat(icon: "clock", label: L("fl_st_on_time"), value: s.onTimeRate.map { "\($0)%" } ?? "—")
@@ -398,6 +404,8 @@ private struct FreelancerTeamPersonRow: View {
                     Text(verbatim: m.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
                     TeamRolePill(role: m.role)
                 }
+                // FS-213: what the person does in the team, above the headline they wrote themselves.
+                if let j = m.jobTitle, !j.isEmpty { Text(verbatim: j).font(.dorr(12.5, .semibold)).foregroundStyle(wa.accent).lineLimit(1) }
                 if let h = m.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2) }
             }
             Spacer(minLength: 0)

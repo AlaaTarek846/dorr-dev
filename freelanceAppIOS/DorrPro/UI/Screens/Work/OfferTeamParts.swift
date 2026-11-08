@@ -3,43 +3,21 @@ import SwiftUI
 // freelanceApp `ui/screens/OfferTeamParts.kt`.
 
 /*
- * FS-209b: an offer in a team's name — the picker «Send the offer as» (me, or a team I am Owner or PM of) with the team's quota, who signs and
- * is paid, and who works on it; the same people list when the offer is changed; and the box that shows the team on an offer I already sent.
+ * FS-209b: an offer in a team's name — the picker «Send the offer as» (me, or a team I am Owner or PM of) with the team's quota and who signs
+ * and is paid; and the box that shows the team on an offer I already sent. FS-213: the offer no longer names who works on it — the team puts
+ * its people on the parts once the project starts.
  */
 
-/// The most people on one team offer (the server's limit), and the most words about what one takes on.
-private let STAFF_MAX = 20
-private let RESPONSIBILITY_MAX = 200
-
-/// One person put on a team's offer in the form: `role` = pm | executor.
-struct StaffPick: Equatable {
-    let freelancer: String
-    var role = "executor"
-    var responsibility = ""
-}
-
-extension Array where Element == StaffPick {
-    func toInputs() -> [OfferStaffInput] {
-        map { OfferStaffInput(freelancer: $0.freelancer, role: $0.role, responsibility: $0.responsibility.agreementTrimmedOrNil) }
-    }
-}
-
-/// The multipart fields of a team's offer (`team`, `signer`, `staff[i][...]`) the server reads next to the price and the details.
-func teamOfferFields(_ team: String?, _ signer: String?, _ staff: [StaffPick]) -> [String: String] {
+/// The multipart fields of a team's offer (`team`, `signer`) the server reads next to the price and the details.
+func teamOfferFields(_ team: String?, _ signer: String?) -> [String: String] {
     guard let team else { return [:] }
     var out = ["team": team]
     if let signer { out["signer"] = signer }
-    for (i, s) in staff.enumerated() {
-        out["staff[\(i)][freelancer]"] = s.freelancer
-        out["staff[\(i)][role]"] = s.role
-        let words = s.responsibility.agreementTrimmed
-        if !words.isEmpty { out["staff[\(i)][responsibility]"] = words }
-    }
     return out
 }
 
-/// «Send the offer as»: me, or a team I am an Owner or a PM of. For a team it shows the team's offers left this month, who signs and is paid
-/// (a PM names the Owner), and who works on the offer. `members` are the team's people (nil while they load). `compact` keeps only the choice
+/// «Send the offer as»: me, or a team I am an Owner or a PM of. For a team it shows the team's offers left this month and who signs and is
+/// paid (a PM names the Owner). FS-213: not who works on it. `members` are the team's people (nil while they load). `compact` keeps only the choice
 /// and the quota (the offer is blocked, so there is nothing to fill in, but the way back to «Me» stays in reach).
 struct TeamOfferPicker: View {
     @Environment(\.wa) private var wa
@@ -48,7 +26,6 @@ struct TeamOfferPicker: View {
     let onTeam: (String?) -> Void
     let quota: TeamOfferQuotaDto?
     let members: [TeamMemberDto]?
-    @Binding var staff: [StaffPick]
     let signer: String?
     let onSigner: (String?) -> Void
     let myUuid: String?
@@ -76,7 +53,7 @@ struct TeamOfferPicker: View {
             .background(wa.red.opacity(0.10), in: Capsule())
     }
 
-    /// Who signs and is paid, and the people on the offer.
+    /// Who signs and is paid, and that the whole team stands behind the offer.
     @ViewBuilder
     private func details(_ team: TeamSummaryDto) -> some View {
         let owners = (members ?? []).filter { $0.role == "owner" && $0.freelancer?.uuid != nil }
@@ -90,69 +67,7 @@ struct TeamOfferPicker: View {
                 onSelect: { onSigner(!asPm && $0 == myUuid ? nil : $0) }
             )
         }
-        FieldLabel(text: L("tw_offer_staff"))
-        Text(L("tw_offer_staff_hint")).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
-        if let members { TeamStaffEditor(members: members, staff: $staff) }
-    }
-}
-
-/// The team's people with a tick each; a ticked person gets a role (PM — only one — or executor) and a few words on what they take on.
-struct TeamStaffEditor: View {
-    @Environment(\.wa) private var wa
-    let members: [TeamMemberDto]
-    @Binding var staff: [StaffPick]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(members) { m in
-                if let uuid = m.freelancer?.uuid { row(m, uuid) }
-            }
-        }
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
-        .appCard(Corners.card)
-    }
-
-    @ViewBuilder
-    private func row(_ m: TeamMemberDto, _ uuid: String) -> some View {
-        let index = staff.firstIndex { $0.freelancer == uuid }
-        let role = m.role ?? "member"
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                if let index { staff.remove(at: index) } else if staff.count < STAFF_MAX { staff.append(StaffPick(freelancer: uuid)) }
-            } label: {
-                HStack(spacing: 12) {
-                    InitialsBadge(name: m.freelancer?.name, size: 38, tint: roleTint(role))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: m.freelancer?.name ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                        Text(verbatim: roleLabel(role)).font(.dorr(11.5, .semibold)).foregroundStyle(roleTint(role))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    TeamCheckBox(on: index != nil)
-                }
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            if let index, index < staff.count {
-                let pick = staff[index]
-                let pmElsewhere = staff.contains { $0.role == "pm" && $0.freelancer != uuid }
-                HStack(spacing: 8) {
-                    PillChip(text: L("tw_offer_role_exec"), selected: pick.role == "executor") { staff[index].role = "executor" }
-                    if !pmElsewhere { PillChip(text: L("tw_offer_role_pm"), selected: pick.role == "pm") { staff[index].role = "pm" } }
-                    Spacer(minLength: 0)
-                }
-                DorrTextField(
-                    value: Binding(
-                        get: { index < staff.count ? staff[index].responsibility : "" },
-                        set: { if index < staff.count { staff[index].responsibility = String($0.prefix(RESPONSIBILITY_MAX)) } }
-                    ),
-                    label: L("tw_offer_responsibility"), icon: "text.alignleft"
-                )
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        Text(L("tw_offer_whole_team")).font(.dorr(12.5)).foregroundStyle(wa.settingsMut).lineSpacing(3)
     }
 }
 

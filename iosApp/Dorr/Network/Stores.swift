@@ -80,7 +80,8 @@ enum AppLocale {
     static var isArabic: Bool { current == "ar" }
 
     /// Locale for dates and weekday names — the app language, not the phone's.
-    static var locale: Locale { Locale(identifier: current) }
+    /// Always Latin digits (0-9): an Arabic screen mixed ٣٠ with 1500.00 before.
+    static var locale: Locale { Locale(identifier: current.hasPrefix("ar") ? "ar@numbers=latn" : current) }
 }
 
 /// androidApp `OnboardingStore.kt` — kept apart from AuthSession so logout keeps it.

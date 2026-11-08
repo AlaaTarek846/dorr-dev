@@ -15,7 +15,7 @@
     <string name="team_section_mine">فرقي</string>
     <string name="team_empty_title">لسه مفيش فرق</string>
     <string name="team_empty_body">أنشئ فريقك، أو انضم لفريق لما حد يدعوك.</string>
-    <string name="team_members_line">الأعضاء · %1$d</string>
+    <string name="team_members_line">الأعضاء: %1$d</string>
     <string name="team_invited_by">دعاك %1$s</string>
     <string name="team_invite_expires">مفتوحة لحد %1$s</string>
     <string name="team_accept">انضم</string>
@@ -74,7 +74,7 @@
     <string name="team_set_accepting">بيستقبل مشاريع جديدة</string>
     <string name="team_set_accepting_sub">تلميح للعملاء على الملف، ومش بيمنع حاجة.</string>
     <string name="team_set_show_me">اظهرني على ملف الفريق</string>
-    <string name="team_set_show_me_sub">بره الفريق بيظهر اسمك الأول بس، ولو وافقت.</string>
+    <string name="team_set_show_me_sub">بره الفريق بيظهر اسمك الأول ووظيفتك في الفريق بس، ولو وافقت.</string>
     <string name="team_expertise">الفريق بيغطي إيه</string>
     <string name="team_specialties">التخصصات</string>
     <string name="team_skills">المهارات</string>
@@ -132,4 +132,12 @@
     <string name="team_invite_cancel">إلغاء</string>
     <string name="team_invite_cancelled_toast">الدعوة اتلغت</string>
     <string name="team_inv_s_expired">انتهت</string>
+
+    <!-- FS-213 -->
+    <string name="tw_offer_whole_team">العرض بيتبعت باسم الفريق كله. بعد ما العميل يختاره، وزّع الشغل على الأعضاء من «اسند ناس عليها» في كل مرحلة. العميل بيشوف أعضاء الفريق اللي وافقوا على الظهور ووظايفهم في ملف الفريق.</string>
+    <string name="team_title_label">المسمى الوظيفي</string>
+    <string name="team_title_placeholder">مثلاً: مصمم واجهات، مطوّر Android</string>
+    <string name="team_title_hint">بيظهر جنب الاسم في ملف الفريق قدام العملاء، لو صاحبه وافق على الظهور.</string>
+    <string name="team_title_save">احفظ المسمى</string>
+    <string name="team_title_add_mine">اكتب وظيفتك في الفريق</string>
 </resources>

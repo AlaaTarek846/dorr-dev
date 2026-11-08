@@ -11,7 +11,7 @@
     <!-- مين هيشتغل عليه -->
     <string name="fteam_work_title">مين هيشتغل عليه</string>
     <string name="fteam_work_hint">بتشوف الاسم الأول والدور والمسؤولية بس. مفيش أي بيانات تانية عنهم بتتشارك.</string>
-    <string name="fteam_staff_empty">الفريق لسه ما حدّدش الناس.</string>
+    <string name="fteam_staff_empty">العرض باسم الفريق كله. الفريق بيوزّع الشغل على أعضاءه بعد ما المشروع يبدأ، وتقدر تشوف أعضاءه ووظايفهم في ملف الفريق.</string>
     <string name="fteam_signs">بيوقّع باسم الفريق</string>
     <string name="fteam_role_pm">مدير المشروع</string>
     <string name="fteam_role_executor">منفّذ</string>
@@ -24,10 +24,29 @@
     <string name="fteam_running_n">شغّال حاليًا</string>
     <string name="fteam_completion">نسبة الإنجاز</string>
     <string name="fteam_members_title">الفريق</string>
-    <string name="fteam_members_hint">%1$d أشخاص. بيظهر هنا اللي وافق على الظهور بس، بالاسم الأول.</string>
+    <string name="fteam_members_hint">%1$d أشخاص. بيظهر هنا اللي وافق على الظهور بس، باسمه الأول ووظيفته في الفريق.</string>
 
     <!-- مقارنة العروض -->
     <string name="fteam_compare_by">مقدَّم من</string>
     <string name="fteam_individual">فرد</string>
     <string name="fteam_team_of">فريق · %1$d</string>
+
+    <!-- FS-213: الفرق في المفضلة ودعوتها لمشروع -->
+    <string name="fteam_with_team">مع الفريق</string>
+    <string name="fl_favorites_title">المفضلة</string>
+    <string name="fteam_fav_people">محترفين</string>
+    <string name="fteam_fav_teams">فرق</string>
+    <string name="fteam_fav_title">الفرق المفضّلة</string>
+    <string name="fteam_fav_empty">لسه ما حفظتش أي فريق. دوس على القلب في ملف الفريق.</string>
+    <string name="fteam_worked_with">اشتغلتوا سوا</string>
+    <string name="fteam_not_accepting_short">مش بيستقبل دلوقتي</string>
+    <string name="fteam_invite">ادعُ الفريق لمشروع</string>
+    <string name="fteam_invite_title">ادعُ %1$s لمشروع</string>
+    <string name="fteam_invite_body">اختار مشروع من مشاريعك الخاصة. الدعوة بتروح لمسؤول الفريق، وهو اللي بيرد ويبعت العرض باسم الفريق.</string>
+    <string name="fteam_invite_sent">اتبعتت الدعوة لـ %1$s.</string>
+    <string name="fteam_invite_already">الفريق مدعو للمشروع ده قبل كده أو بعت عليه عرض.</string>
+    <string name="fteam_invite_none">مفيش عندك مشروع خاص مفتوح للعروض دلوقتي. الدعوات بتتبعت على المشاريع الخاصة بس.</string>
+    <string name="fteam_invite_count">الدعوات: %1$d من %2$d</string>
+    <string name="fteam_invite_hint">المشروع العام بيشوفه كل المحترفين والفرق، فمش محتاج دعوة.</string>
+    <string name="fteam_inv_via">دعوة فريق · بيرد عليها %1$s</string>
 </resources>

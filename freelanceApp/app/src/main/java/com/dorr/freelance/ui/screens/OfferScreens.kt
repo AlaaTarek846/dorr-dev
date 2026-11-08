@@ -254,14 +254,13 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
     // FL-L13: who owns the work once it is paid (null options: the feature is off in my country).
     var rights by rememberSaveable(stateSaver = rightsFormSaver) { mutableStateOf(RightsForm()) }
     val rightsOptions = rememberRightsOptions()
-    // FS-209b: the offer may go in a team's name (a team I am Owner or PM of): the team, the Owner who signs, and the people on it.
+    // FS-209b: the offer may go in a team's name (a team I am Owner or PM of): the team and the Owner who signs (FS-213: not who works on it).
     val home by com.dorr.freelance.net.HomeHub.home.collectAsState()
     val teamsOn = home?.on("teams") == true
     val me by com.dorr.freelance.net.Session.me.collectAsState()
     var myTeams by remember { mutableStateOf<List<com.dorr.freelance.net.TeamSummaryDto>>(emptyList()) }
     var teamUuid by rememberSaveable { mutableStateOf<String?>(null) }
     var signer by rememberSaveable { mutableStateOf<String?>(null) }
-    val staff = remember { mutableStateListOf<StaffPick>() }
     var teamMembers by remember { mutableStateOf<List<com.dorr.freelance.net.TeamMemberDto>?>(null) }
 
     LaunchedEffect(teamsOn, reconnect) {
@@ -269,7 +268,6 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
         (apiCall { ApiClient.teams.mine() } as? ApiResult.Ok)?.data?.teams?.let { all -> myTeams = all.filter { it.status == "active" && (it.role == "owner" || it.role == "pm") } }
     }
     LaunchedEffect(teamUuid) {
-        staff.clear()
         signer = null
         teamMembers = null
         val chosen = teamUuid ?: return@LaunchedEffect
@@ -283,7 +281,10 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
     }
     LaunchedEffect(projectUuid, reconnect) {
         (apiCall { ApiClient.offers.templates() } as? ApiResult.Ok)?.data?.let { templates = it }
-        (apiCall { ApiClient.projects.show(projectUuid) } as? ApiResult.Ok)?.data?.questions?.let { q ->
+        val shown = (apiCall { ApiClient.projects.show(projectUuid) } as? ApiResult.Ok)?.data
+        // FS-213: the client invited my team: the offer starts in its name (I can still change it).
+        shown?.invitation?.team?.uuid?.let { invited -> if (teamUuid == null) teamUuid = invited }
+        shown?.questions?.let { q ->
             questions = q
             while (answers.size < q.size) answers.add("")
         }
@@ -317,7 +318,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 "price_minor" to minor.toString().toRequestBody(text),
                 "duration_days" to duration.toRequestBody(text),
                 "details" to details.trim().toRequestBody(text),
-            ) + answers.mapIndexed { i, a -> "answers[$i]" to a.trim().toRequestBody(text) } + (if (rightsOptions != null) rights.toFields() else emptyMap()) + teamOfferFields(teamUuid, signer, staff.toList(), text)
+            ) + answers.mapIndexed { i, a -> "answers[$i]" to a.trim().toRequestBody(text) } + (if (rightsOptions != null) rights.toFields() else emptyMap()) + teamOfferFields(teamUuid, signer, text)
             val parts = files.map { MultipartBody.Part.createFormData("files[]", it.name, it.bytes.toRequestBody(it.type.toMediaTypeOrNull())) }
             val result = apiCall { ApiClient.offers.send(projectUuid, fields, parts) }
             busy = false
@@ -333,7 +334,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
             return@Page
         }
         // FS-209b: the team's checks are different from mine, so the way back to Me stays in reach even when the offer is blocked.
-        if (myTeams.isNotEmpty() && p.blocked != null) TeamOfferPicker(myTeams, teamUuid, { teamUuid = it }, p.teamQuota, teamMembers, staff, signer, { signer = it }, me?.uuid, compact = true)
+        if (myTeams.isNotEmpty() && p.blocked != null) TeamOfferPicker(myTeams, teamUuid, { teamUuid = it }, p.teamQuota, teamMembers, signer, { signer = it }, me?.uuid, compact = true)
         p.blocked?.let { blocked ->
             // The server's reason in its own words, and nothing to fill in.
             val amber = Color(0xFFD97706)
@@ -373,7 +374,7 @@ fun OfferFormScreen(projectUuid: String, onBack: () -> Unit, onSent: () -> Unit,
                 Text(stringResource(R.string.offer_form_intro), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
             }
         }
-        if (myTeams.isNotEmpty()) TeamOfferPicker(myTeams, teamUuid, { teamUuid = it }, p.teamQuota, teamMembers, staff, signer, { signer = it }, me?.uuid)
+        if (myTeams.isNotEmpty()) TeamOfferPicker(myTeams, teamUuid, { teamUuid = it }, p.teamQuota, teamMembers, signer, { signer = it }, me?.uuid)
         if (teamUuid == null && p.quota.credits > 0) {
             Text(
                 stringResource(R.string.offer_quota_extra, p.quota.credits), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
@@ -566,9 +567,6 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
     var breakdown by remember { mutableStateOf<OfferBreakdownDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    // FS-209b: a team's offer changes who works on it too.
-    val staff = remember { mutableStateListOf<StaffPick>() }
-    var teamMembers by remember { mutableStateOf<List<com.dorr.freelance.net.TeamMemberDto>?>(null) }
     var rights by rememberSaveable(stateSaver = rightsFormSaver) { mutableStateOf(RightsForm()) }
     val rightsOptions = rememberRightsOptions()
 
@@ -582,14 +580,6 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
             duration = current.durationDays.toString()
             details = current.details
             current.rights?.let { rights = it.toForm() }
-            current.team?.let { team ->
-                val people = (apiCall { ApiClient.teams.members(team.uuid) } as? ApiResult.Ok)?.data?.members
-                teamMembers = people
-                // Only the people still in the team stay on the list (the server refuses anybody else).
-                val here = people?.mapNotNull { it.freelancer.uuid }?.toSet()
-                staff.clear()
-                team.members.forEach { m -> m.freelancer?.takeIf { here == null || it in here }?.let { staff.add(StaffPick(it, m.role, m.responsibility.orEmpty())) } }
-            }
         } else error = (result as? ApiResult.Failed)?.let { result.errorText(offlineText) } ?: genericError
     }
     LaunchedEffect(price) {
@@ -619,12 +609,7 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
             Text(stringResource(R.string.offer_details_count, details.trim().length, DETAILS_MIN), color = if (details.trim().length < DETAILS_MIN) settingsMut() else Color(0xFF16A34A), fontSize = 11.sp)
         }
         rightsOptions?.let { RightsEditor(rights, it) { r -> rights = r } }
-        current.team?.let { team ->
-            TeamOfferInfo(team, current.submittedBy, showPeople = false)
-            FieldLabel(stringResource(R.string.tw_offer_staff))
-            Text(stringResource(R.string.tw_offer_staff_hint), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
-            teamMembers?.let { TeamStaffEditor(it, staff) }
-        }
+        current.team?.let { team -> TeamOfferInfo(team, current.submittedBy, showPeople = false) }
         Text(stringResource(R.string.offer_edit_note), color = settingsMut(), fontSize = 12.sp)
         SettingsPrimaryButton(
             text = stringResource(R.string.offer_save_changes), loading = busy,
@@ -634,7 +619,7 @@ fun EditOfferScreen(projectUuid: String, onBack: () -> Unit, onDone: () -> Unit)
                 busy = true
                 error = null
                 scope.launch {
-                    val result = apiCall { ApiClient.offers.update(current.uuid, com.dorr.freelance.net.OfferUpdateRequest(minor, duration.toInt(), details.trim(), if (rightsOptions != null) rights.toInput() else null, if (current.team != null && teamMembers != null) staff.toList().toInputs() else null)) }
+                    val result = apiCall { ApiClient.offers.update(current.uuid, com.dorr.freelance.net.OfferUpdateRequest(minor, duration.toInt(), details.trim(), if (rightsOptions != null) rights.toInput() else null)) }
                     busy = false
                     if (result is ApiResult.Ok) onDone() else error = result.errorText(offlineText) ?: genericError
                 }

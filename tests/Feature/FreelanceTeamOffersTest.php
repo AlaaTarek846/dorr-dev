@@ -13,6 +13,7 @@ use Laravel\Sanctum\Sanctum;
 use Modules\Freelance\Enums\FreelanceProjectStatus;
 use Modules\Freelance\Models\FreelanceAgreement;
 use Modules\Freelance\Models\FreelanceAgreementTeamMember;
+use Modules\Freelance\Models\FreelanceOfferTeamMember;
 use Modules\Freelance\Models\FreelanceFeatureRule;
 use Modules\Freelance\Models\FreelanceMilestone;
 use Modules\Freelance\Models\FreelanceOffer;
@@ -128,7 +129,7 @@ class FreelanceTeamOffersTest extends TestCase
     /** The Owner offers in the team's name. */
     private function sendTeam(FreelanceProject $p, array $over = [])
     {
-        return $this->postJson(self::API."/projects/{$p->uuid}/offers", $this->body($over + ['team' => $this->team->uuid, 'staff' => $this->staff()]));
+        return $this->postJson(self::API."/projects/{$p->uuid}/offers", $this->body($over + ['team' => $this->team->uuid]));
     }
 
     private function told(Freelancer|User $who, string $event): int
@@ -157,27 +158,43 @@ class FreelanceTeamOffersTest extends TestCase
             ->assertJsonPath('data.blocked', null)->assertJsonPath('data.team_quota.limit', null)->assertJsonPath('data.team_quota.used', 0);
 
         $res = $this->sendTeam($p)->assertCreated()
-            ->assertJsonPath('data.team.uuid', $this->team->uuid)->assertJsonPath('data.team.name', 'Dorr Studio')->assertJsonCount(2, 'data.team.members')
-            ->assertJsonPath('data.team.members.0.name', 'Lina Hassan')->assertJsonPath('data.team.members.0.role', 'pm')
-            ->assertJsonPath('data.team.members.1.role', 'executor')->assertJsonPath('data.team.members.1.responsibility', 'Builds the screens');
+            ->assertJsonPath('data.team.uuid', $this->team->uuid)->assertJsonPath('data.team.name', 'Dorr Studio')->assertJsonCount(0, 'data.team.members');
 
         $offer = FreelanceOffer::query()->where('uuid', $res->json('data.uuid'))->firstOrFail();
         $this->assertSame($this->team->id, $offer->team_id);
         $this->assertSame($this->sara->id, $offer->freelancer_id, 'the Owner who sends is the one who signs');
         $this->assertFalse((bool) $offer->free, 'a team offer never spends the Owner\'s own free offers');
         $this->assertNull($offer->credit_id);
-        $this->assertSame(['pm', 'executor'], $offer->staff()->pluck('role')->all());
-
-        // The people on it are told; the Owner who put them there is not.
-        $this->assertSame(1, $this->told($this->lina, 'freelance.team_offer_staffed'));
-        $this->assertSame(1, $this->told($this->noor, 'freelance.team_offer_staffed'));
-        $this->assertSame(0, $this->told($this->sara, 'freelance.team_offer_staffed'));
-        $this->assertSame(0, $this->told($this->huda, 'freelance.team_offer_staffed'));
 
         // The Owner's own quota is untouched, and an ordinary offer says nothing of a team.
         $p2 = $this->project('Another job');
         $this->getJson(self::API."/projects/{$p2->uuid}/offer-preview")->assertJsonPath('data.quota.used', 0)->assertJsonPath('data.team_quota', null);
         $this->postJson(self::API."/projects/{$p2->uuid}/offers", $this->body())->assertCreated()->assertJsonPath('data.team', null);
+    }
+
+    /**
+     * FS-213 (owner 2026-11-08): an offer no longer names who works on it. `staff` from an old app is not refused - it is not read: no people
+     * on the offer, nobody told, and changing only them is no change. The people are put on the parts once the project starts.
+     */
+    public function test_an_offer_no_longer_names_its_people(): void
+    {
+        $p = $this->project();
+        $this->as($this->sara);
+        $uuid = $this->sendTeam($p, ['staff' => $this->staff()])->assertCreated()->assertJsonCount(0, 'data.team.members')->json('data.uuid');
+        $this->assertSame(0, FreelanceOfferTeamMember::query()->count());
+        foreach ([$this->lina, $this->noor, $this->huda] as $who) {
+            $this->assertSame(0, $this->told($who, 'freelance.team_offer_staffed'));
+        }
+        // Even people who are not in the team, or no team at all: nothing to refuse, nothing written.
+        $p2 = $this->project('Another job');
+        $this->postJson(self::API."/projects/{$p2->uuid}/offers", $this->body(['staff' => [['freelancer' => $this->huda->uuid, 'role' => 'boss']]]))->assertCreated();
+        $this->assertSame(0, FreelanceOfferTeamMember::query()->count());
+
+        // Changing only the people is no change; the offer's own terms still change.
+        $this->putJson(self::API."/offers/{$uuid}", ['staff' => $this->staff()])->assertUnprocessable()->assertJsonPath('error_code', 'freelance_offer_unchanged');
+        $this->putJson(self::API."/offers/{$uuid}", ['staff' => $this->staff(), 'duration_days' => 25])->assertOk()->assertJsonCount(0, 'data.team.members');
+        // The team of an offer can not be swapped.
+        $this->putJson(self::API."/offers/{$uuid}", ['team' => $this->team->uuid, 'details' => str_repeat('More words about the plan. ', 4)])->assertUnprocessable();
     }
 
     public function test_only_an_owner_sends_and_only_for_an_active_team_where_teams_are_on(): void
@@ -238,34 +255,6 @@ class FreelanceTeamOffersTest extends TestCase
         $this->sendTeam($this->project('Another'), ['signer' => $this->sara->uuid])->assertForbidden()->assertJsonPath('error_code', 'freelance_team_offer_forbidden');
     }
 
-    public function test_the_people_on_an_offer_must_be_active_members_each_once_with_one_pm_at_most(): void
-    {
-        $p = $this->project();
-        $this->as($this->sara);
-        $bad = [
-            'somebody outside the team' => [['freelancer' => $this->huda->uuid, 'role' => 'executor']],
-            'nobody at all' => [['freelancer' => (string) Str::uuid(), 'role' => 'executor']],
-            'the same person twice' => [['freelancer' => $this->lina->uuid, 'role' => 'pm'], ['freelancer' => $this->lina->uuid, 'role' => 'executor']],
-            'two PMs' => [['freelancer' => $this->lina->uuid, 'role' => 'pm'], ['freelancer' => $this->noor->uuid, 'role' => 'pm']],
-        ];
-        foreach ($bad as $why => $staff) {
-            $this->sendTeam($p, ['staff' => $staff])->assertUnprocessable()->assertJsonPath('error_code', 'freelance_team_offer_staff_invalid', $why);
-        }
-
-        // Somebody who left the team is not one of its people any more.
-        app(FreelancerTeams::class)->leave($this->team, $this->noor);
-        $this->sendTeam($p)->assertUnprocessable()->assertJsonPath('error_code', 'freelance_team_offer_staff_invalid');
-
-        // The shape is checked too: a role of the list, a team when there are people, not more than twenty.
-        $this->sendTeam($p, ['staff' => [['freelancer' => $this->lina->uuid, 'role' => 'boss']]])->assertUnprocessable();
-        $this->postJson(self::API."/projects/{$p->uuid}/offers", $this->body(['staff' => [['freelancer' => $this->lina->uuid, 'role' => 'pm']]]))->assertUnprocessable();
-        $this->sendTeam($p, ['staff' => array_fill(0, 21, ['freelancer' => $this->lina->uuid, 'role' => 'executor'])])->assertUnprocessable();
-        $this->assertSame(0, FreelanceOffer::query()->count(), 'nothing was written');
-
-        // A team's offer with nobody picked is fine: it is the team's name alone.
-        $this->sendTeam($p, ['staff' => []])->assertCreated()->assertJsonPath('data.team.name', 'Dorr Studio')->assertJsonCount(0, 'data.team.members');
-    }
-
     public function test_a_team_offer_counts_against_the_teams_quota_not_the_owners_and_taking_it_back_gives_the_place_back(): void
     {
         app(FreelancePolicies::class)->save($this->saudi->id, null, ['teams.offers_monthly' => 1]);
@@ -294,37 +283,7 @@ class FreelanceTeamOffersTest extends TestCase
         $this->sendTeam($p3)->assertCreated();
     }
 
-    public function test_the_owner_changes_the_people_while_the_offer_is_open(): void
-    {
-        $p = $this->project();
-        $this->as($this->sara);
-        $pm = ['freelancer' => $this->lina->uuid, 'role' => 'pm', 'responsibility' => 'Runs the project'];
-        $uuid = $this->sendTeam($p, ['staff' => [$pm]])->assertCreated()->json('data.uuid');
-
-        // Huda joins the team and is put on the offer; Lina is not told twice.
-        app(FreelancerTeams::class)->join($this->team, $this->huda);
-        $qa = ['freelancer' => $this->huda->uuid, 'role' => 'executor', 'responsibility' => 'Tests it'];
-        $this->putJson(self::API."/offers/{$uuid}", ['staff' => [$pm, $qa]])->assertOk()->assertJsonCount(2, 'data.team.members')->assertJsonPath('data.edited', true);
-        $this->assertSame(1, $this->told($this->huda, 'freelance.team_offer_staffed'));
-        $this->assertSame(1, $this->told($this->lina, 'freelance.team_offer_staffed'));
-        $this->assertSame(1, $this->told($this->client, 'freelance.offer.updated'), 'the client is told the offer changed');
-
-        // The same people again is no change.
-        $this->putJson(self::API."/offers/{$uuid}", ['staff' => [$pm, $qa]])->assertUnprocessable()->assertJsonPath('error_code', 'freelance_offer_unchanged');
-        // Somebody taken off.
-        $this->putJson(self::API."/offers/{$uuid}", ['staff' => [$qa]])->assertOk()->assertJsonCount(1, 'data.team.members')->assertJsonPath('data.team.members.0.name', 'Huda Omar');
-        // The team of an offer can not be swapped, and a personal offer has no people.
-        $this->putJson(self::API."/offers/{$uuid}", ['team' => $this->team->uuid, 'details' => str_repeat('More words about the plan. ', 4)])->assertUnprocessable();
-        $p2 = $this->project('Another job');
-        $mine = $this->postJson(self::API."/projects/{$p2->uuid}/offers", $this->body())->assertCreated()->json('data.uuid');
-        $this->putJson(self::API."/offers/{$mine}", ['staff' => [$pm]])->assertUnprocessable()->assertJsonPath('error_code', 'freelance_team_offer_staff_invalid');
-
-        // Only the Owner of the team changes them.
-        $this->as($this->lina);
-        $this->putJson(self::API."/offers/{$uuid}", ['staff' => [$pm]])->assertNotFound();
-    }
-
-    public function test_the_client_sees_the_team_and_first_names_only_and_the_owner_sees_everything_of_his_own(): void
+    public function test_the_client_sees_the_team_on_the_offer_and_never_its_peoples_details(): void
     {
         $p = $this->project();
         $this->as($this->sara);
@@ -332,22 +291,17 @@ class FreelanceTeamOffersTest extends TestCase
 
         $this->asClient();
         $res = $this->getJson(self::CLIENT."/{$p->uuid}/offers")->assertOk()
-            ->assertJsonPath('data.0.team.name', 'Dorr Studio')->assertJsonCount(2, 'data.0.team.members')
-            ->assertJsonPath('data.0.team.members.0.name', 'Lina')->assertJsonPath('data.0.team.members.0.role', 'pm')
-            ->assertJsonPath('data.0.team.members.0.responsibility', 'Runs the project and talks to the client')
-            ->assertJsonPath('data.0.team.members.1.name', 'Noor')
-            ->assertJsonMissingPath('data.0.team.members.0.freelancer')->assertJsonMissingPath('data.0.team.members.0.uuid');
+            ->assertJsonPath('data.0.team.name', 'Dorr Studio')->assertJsonPath('data.0.team.uuid', $this->team->uuid)->assertJsonCount(0, 'data.0.team.members');
         $body = $res->getContent();
-        foreach (['Hassan', 'Said', '+966500000092', '+966500000093', $this->lina->uuid, $this->noor->uuid] as $secret) {
+        foreach (['Lina', 'Hassan', 'Noor', 'Said', '+966500000092', '+966500000093', $this->lina->uuid, $this->noor->uuid] as $secret) {
             $this->assertStringNotContainsString($secret, $body, "the client must not see {$secret}");
         }
 
         $this->as($this->sara);
-        $this->getJson(self::API."/projects/{$p->uuid}/my-offer")->assertOk()
-            ->assertJsonPath('data.offer.team.members.0.name', 'Lina Hassan')->assertJsonPath('data.offer.team.members.0.freelancer', $this->lina->uuid);
+        $this->getJson(self::API."/projects/{$p->uuid}/my-offer")->assertOk()->assertJsonPath('data.offer.team.name', 'Dorr Studio');
     }
 
-    public function test_the_agreement_is_in_the_teams_name_signed_by_the_owner_and_keeps_the_people_it_started_with(): void
+    public function test_the_agreement_is_in_the_teams_name_and_signed_by_the_owner(): void
     {
         $p = $this->project();
         $this->as($this->sara);
@@ -359,23 +313,14 @@ class FreelanceTeamOffersTest extends TestCase
         $agreement = FreelanceAgreement::query()->firstOrFail();
         $this->assertSame($this->team->id, $agreement->team_id);
         $this->assertSame($this->sara->id, $agreement->freelancer_id, 'the Owner signs, and is paid (D2)');
-        $this->assertSame(0, FreelanceAgreementTeamMember::query()->count(), 'the people are frozen when the agreement starts, not before');
-        // Until then the client reads the offer's people.
-        $this->getJson(self::CLIENT."/{$p->uuid}/agreement")->assertOk()->assertJsonPath('data.team.name', 'Dorr Studio')->assertJsonCount(2, 'data.team.members')
-            ->assertJsonPath('data.team.members.0.name', 'Lina');
+        $this->getJson(self::CLIENT."/{$p->uuid}/agreement")->assertOk()->assertJsonPath('data.team.name', 'Dorr Studio');
 
         $this->postJson(self::CLIENT."/{$p->uuid}/agreement/send")->assertOk();
         $this->as($this->sara);
         $this->postJson(self::API."/projects/{$p->uuid}/agreement/approve")->assertOk()->assertJsonPath('data.status', 'active');
-        $this->assertSame(['pm', 'executor'], FreelanceAgreementTeamMember::query()->orderBy('id')->pluck('role')->all());
-        $this->assertSame($agreement->id, FreelanceAgreementTeamMember::query()->value('agreement_id'));
-
-        // The team changing later does not change who the agreement was made with.
-        app(FreelancerTeams::class)->leave($this->team, $this->lina);
-        $this->getJson(self::API."/projects/{$p->uuid}/agreement")->assertOk()->assertJsonCount(2, 'data.team.members')->assertJsonPath('data.team.members.0.name', 'Lina Hassan');
-        $this->asClient();
-        $this->getJson(self::CLIENT."/{$p->uuid}/agreement")->assertOk()->assertJsonPath('data.team.members.0.name', 'Lina');
-        $this->assertSame(2, FreelanceAgreementTeamMember::query()->count());
+        // Nobody is frozen on it from the offer: the people come with the parts and tasks they are put on.
+        $this->assertSame(0, FreelanceAgreementTeamMember::query()->count());
+        $this->getJson(self::API."/projects/{$p->uuid}/agreement")->assertOk()->assertJsonPath('data.team.name', 'Dorr Studio');
     }
 
     public function test_the_rating_of_a_teams_work_is_the_teams_and_never_goes_into_the_owners_own(): void
@@ -429,6 +374,8 @@ class FreelanceTeamOffersTest extends TestCase
         $this->as($this->sara);
         $this->postJson(self::API."/projects/{$p->uuid}/milestones/{$milestone->uuid}/start")->assertOk();
 
+        // Noor reaches the project by being put on the part (FS-206b); Lina is the team's PM.
+        app(\Modules\Freelance\Services\FreelancerTeam\TeamAssignments::class)->setMilestone($milestone->agreement, $milestone, [$this->noor->uuid], $this->sara);
         // Every switch on - even the ones a team does not offer (D11 holds even when the data says otherwise).
         Member::query()->whereIn('freelancer_id', [$this->lina->id, $this->noor->id])->update(['permissions' => json_encode(array_fill_keys(A::ALL, true))]);
         foreach ([$this->lina, $this->noor] as $who) {

@@ -39,6 +39,11 @@ enum TeamsApi {
         await Api.call("PUT", base + "teams/\(team)/members/\(member)/role", body: body.json)
     }
 
+    /// FS-213: what the person does in the team (an Owner writes anybody's, a person his own); an empty title clears it.
+    static func setTitle(_ team: String, _ member: String, _ body: TeamTitleRequest) async -> ApiResult<TeamMemberEnvelopeDto> {
+        await Api.call("PUT", base + "teams/\(team)/members/\(member)/title", body: body.json)
+    }
+
     static func leave(_ team: String, offline: String, generic: String) async -> String? {
         await Api.done("POST", base + "teams/\(team)/leave", offline: offline, generic: generic)
     }
@@ -383,6 +388,13 @@ struct TeamRoleRequest {
     var json: JsonBody { ["role": role] }
 }
 
+/// FS-213: `jobTitle` nil or empty clears it (sent as `null`: the server wants the key present).
+struct TeamTitleRequest {
+    let jobTitle: String?
+
+    var json: JsonBody { ["job_title": jobTitle] }
+}
+
 /// `phone` nil = an invitation by code (no phone number needed).
 struct TeamInviteRequest {
     var phone: String?
@@ -449,6 +461,8 @@ struct TeamPersonDto: Decodable {
     var freelancer: String?
     var name: String?
     var role: String?
+    /// FS-213
+    var jobTitle: String?
     var showInProfile: Bool?
 }
 
@@ -467,6 +481,8 @@ struct TeamStatsDto: Decodable {
 
 struct TeamMeDto: Decodable {
     var role: String?
+    /// FS-213
+    var jobTitle: String?
     var showInProfile: Bool?
     var canEdit: Bool?
 }
@@ -503,6 +519,8 @@ struct TeamMemberDto: Decodable, Identifiable {
     var id: String { freelancer?.uuid ?? "" }
     var freelancer: TeamMemberPersonDto?
     var role: String?
+    /// FS-213: what the person does in the team ("UI designer"); shown on the team's profile when he agreed to be shown.
+    var jobTitle: String?
     var joinedAt: String?
     var abilities: [String: Bool]?
     /// FS-212: for an Owner, the agreements of the team he signed that have not ended (he stays an Owner until they do).

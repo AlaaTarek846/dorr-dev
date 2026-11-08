@@ -931,7 +931,7 @@ struct FreelancerProfilePage: View {
     }
 }
 
-// MARK: - The freelancers I keep (FL-306)
+// MARK: - The freelancers and the teams I keep (FL-306, FS-213)
 
 @MainActor
 struct FavoritesPage: View {
@@ -940,53 +940,89 @@ struct FavoritesPage: View {
     let onBack: () -> Void
     /// FS-103: opens my talent lists.
     var onTalent: () -> Void = {}
+    /// FS-213: opens a kept team's profile.
+    var onTeam: (String) -> Void = { _ in }
+    // FS-213: freelancers | teams.
+    @State private var tab = 0
+    @State private var inviting: FreelanceTeamFavoriteDto?
     @StateObject private var paged = PagedRows<FreelanceFavoriteDto>(key: { $0.uuid })
+    @StateObject private var teams = PagedRows<FreelanceTeamFavoriteDto>(key: { $0.uuid })
 
     var body: some View {
-        let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
         VStack(spacing: 0) {
-            FlPageHeader(title: L("fl_favorites"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
+            FlPageHeader(title: L("fl_favorites_title"), onBack: onBack, trailing: AnyView(FlHeaderAction(text: L("fs_tp_title"), icon: "person.3.fill", action: onTalent)))
+            FlTabs(tabs: [FlTab(icon: "person.fill", label: L("fteam_fav_people")), FlTab(icon: "person.3.fill", label: L("fteam_fav_teams"))], selected: tab) { tab = $0 }
+                .padding(.horizontal, 16).padding(.top, 6)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    if list == nil && paged.error == nil {
-                        ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
-                    } else if let rows = list, rows.isEmpty {
-                        WaEmpty(icon: "heart.fill", tone: .pink, title: L("fl_favorites"), text: L("fl_favorites_empty"))
-                    } else if let rows = list {
-                        ForEach(Array(rows.enumerated()), id: \.element.uuid) { i, f in
-                            HStack(spacing: 10) {
-                                FlAvatar(name: f.name, url: f.avatarUrl)
-                                VStack(alignment: .leading, spacing: 0) {
-                                    HStack(spacing: 4) {
-                                        Text(verbatim: f.name ?? "—").font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk)
-                                        if f.verified == true { VerifiedMark() }
-                                    }
-                                    if let h = f.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
-                                    Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                                }
-                                Spacer(minLength: 0)
-                                SaveToListButton(freelancer: f.uuid)
-                                Button {
-                                    Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
-                                } label: {
-                                    Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(flRed).frame(width: 34, height: 34)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(L("fl_favorite_remove"))
-                            }
-                            .padding(14)
-                            .settingsSurface(18)
-                            .onAppear { paged.appeared(i) }
-                        }
-                    }
-                    PagedSpinner(paged: paged)
-                    PagedError(paged: paged)
+                    if tab == 1 { teamRows } else { peopleRows }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
             }
-            .refreshable { await paged.reload() }
+            .refreshable { if tab == 1 { await teams.reload() } else { await paged.reload() } }
         }
-        .task { paged.reset { page in try await FreelanceApi.favorites(page: page) } }
-        .task(id: network.reconnectTick) { await paged.reload() }
+        .task {
+            paged.reset { page in try await FreelanceApi.favorites(page: page) }
+            teams.reset { page in try await FreelanceApi.teamFavorites(page: page) }
+        }
+        .task(id: "\(network.reconnectTick)|\(tab)") { if tab == 1 { await teams.reload() } else { await paged.reload() } }
+        .dorrDialog(isPresented: Binding(get: { inviting != nil }, set: { if !$0 { inviting = nil } }), bottom: true) {
+            if let t = inviting { InviteTeamSheet(team: t.uuid, teamName: t.name ?? "") { inviting = nil } }
+        }
+    }
+
+    /// FS-213: the kept teams (tap for its profile, the send icon invites it, the heart lets it go).
+    @ViewBuilder
+    private var teamRows: some View {
+        let list: [FreelanceTeamFavoriteDto]? = teams.loaded && (teams.error == nil || !teams.rows.isEmpty) ? teams.rows : nil
+        if list == nil && teams.error == nil {
+            ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
+        } else if let rows = list, rows.isEmpty {
+            TeamFavoritesEmpty()
+        } else if let rows = list {
+            TeamFavoriteRows(rows: rows, onOpen: onTeam, onInvite: { inviting = $0 }, onRemove: { id in
+                Task { if (try? await FreelanceApi.removeTeamFavorite(id)) != nil { teams.remove { $0.uuid == id } } }
+            }, onAppeared: { teams.appeared($0) })
+        }
+        PagedSpinner(paged: teams)
+        PagedError(paged: teams)
+    }
+
+    @ViewBuilder
+    private var peopleRows: some View {
+        let list: [FreelanceFavoriteDto]? = paged.loaded && (paged.error == nil || !paged.rows.isEmpty) ? paged.rows : nil
+        if list == nil && paged.error == nil {
+            ForEach(0..<4, id: \.self) { _ in WaSkeleton(cornerRadius: 18).frame(height: 80) }
+        } else if let rows = list, rows.isEmpty {
+            WaEmpty(icon: "heart.fill", tone: .pink, title: L("fl_favorites"), text: L("fl_favorites_empty"))
+        } else if let rows = list {
+            ForEach(Array(rows.enumerated()), id: \.element.uuid) { i, f in
+                HStack(spacing: 10) {
+                    FlAvatar(name: f.name, url: f.avatarUrl)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 4) {
+                            Text(verbatim: f.name ?? "—").font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk)
+                            if f.verified == true { VerifiedMark() }
+                        }
+                        if let h = f.headline, !h.isEmpty { Text(verbatim: h).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1) }
+                        Text(verbatim: L("fl_completeness", f.completeness ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                    }
+                    Spacer(minLength: 0)
+                    SaveToListButton(freelancer: f.uuid)
+                    Button {
+                        Task { if (try? await FreelanceApi.removeFavorite(f.uuid)) != nil { paged.remove { $0.uuid == f.uuid } } }
+                    } label: {
+                        Image(systemName: "heart.fill").font(.system(size: 18)).foregroundStyle(flRed).frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("fl_favorite_remove"))
+                }
+                .padding(14)
+                .settingsSurface(18)
+                .onAppear { paged.appeared(i) }
+            }
+        }
+        PagedSpinner(paged: paged)
+        PagedError(paged: paged)
     }
 }

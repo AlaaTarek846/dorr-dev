@@ -182,11 +182,11 @@ internal fun wrLocalTime(iso: String?): String = local(iso)?.format(CLOCK).orEmp
 internal fun wrLocalDateTime(iso: String?): String = local(iso)?.let { it.format(DAY) + " " + it.format(CLOCK) }.orEmpty()
 
 /** "1.4 MB" · "230 KB". */
-internal fun wrSize(bytes: Long): String = when {
+internal fun wrSize(bytes: Long): String = "‎" + when {
     bytes >= 1_048_576L -> String.format(Locale.US, "%.1f MB", bytes / 1_048_576.0)
     bytes >= 1024L -> "${bytes / 1024} KB"
     else -> "$bytes B"
-}
+} + "‎" // left-to-right marks: in an Arabic line «14 B» read as «B … 14» without them
 
 internal fun fileIcon(mime: String, name: String): ImageVector {
     val ext = name.substringAfterLast('.', "").lowercase()

@@ -862,26 +862,43 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     reporting?.let { id -> ReportWorkSheet("portfolio_item", id, onDismiss = { reporting = null }) }
 }
 
-// ---------------------------------------------------------------- the freelancers I keep (FL-306)
+// ---------------------------------------------------------------- the freelancers and the teams I keep (FL-306, FS-213)
 
 @Composable
-internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}) {
+internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}, onTeam: (String) -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val paged = remember { PagedRows<com.dorr.app.network.FreelanceFavoriteDto>({ it.uuid }, { page -> ApiClient.freelance.favorites(auth(), page = page) }) }
-    val list = if (paged.loaded && (paged.error == null || paged.rows.isNotEmpty())) paged.rows.toList() else null
+    // FS-213: freelancers | teams.
+    var tab by rememberSaveable { mutableStateOf(0) }
+    var inviting by remember { mutableStateOf<com.dorr.app.network.FreelanceTeamFavoriteDto?>(null) }
+    val people = remember { PagedRows<com.dorr.app.network.FreelanceFavoriteDto>({ it.uuid }, { page -> ApiClient.freelance.favorites(auth(), page = page) }) }
+    val teams = rememberTeamFavorites()
+    val paged: PagedRows<*> = if (tab == 0) people else teams
     val error = paged.error
 
-    LaunchedEffect(reconnect) { paged.reload(generic) }
+    LaunchedEffect(reconnect, tab) { if (tab == 0) people.reload(generic) else teams.reload(generic) }
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        FlPageHeader(stringResource(R.string.fl_favorites), onBack, trailing = { FlHeaderAction(stringResource(R.string.fs_tp_title), Icons.Rounded.Groups, onTalent) })
+        FlPageHeader(stringResource(R.string.fl_favorites_title), onBack, trailing = { FlHeaderAction(stringResource(R.string.fs_tp_title), Icons.Rounded.Groups, onTalent) })
+        Box(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp)) {
+            FlTabs(listOf(FlTab(Icons.Rounded.Person, stringResource(R.string.fteam_fav_people)), FlTab(Icons.Rounded.Groups, stringResource(R.string.fteam_fav_teams))), tab) { tab = it }
+        }
         com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            val rows = list
+            if (tab == 1) {
+                val rows = if (teams.loaded && (teams.error == null || teams.rows.isNotEmpty())) teams.rows.toList() else null
+                when {
+                    rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
+                    rows != null && rows.isEmpty() -> item { TeamFavoritesEmpty() }
+                    rows != null -> teamFavoriteRows(rows, onOpen = onTeam, onInvite = { inviting = it }, onRemove = { id ->
+                        scope.launch { if (runCatching { ApiClient.freelance.removeTeamFavorite(auth(), id) }.isSuccess) teams.rows.removeAll { it.uuid == id } }
+                    })
+                }
+            } else {
+            val rows = if (people.loaded && (people.error == null || people.rows.isNotEmpty())) people.rows.toList() else null
             when {
                 rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
                 rows != null && rows.isEmpty() -> item { com.dorr.app.ui.screens.wallet.WaEmpty(Icons.Rounded.Favorite, com.dorr.app.ui.screens.wallet.Tone.Pink, stringResource(R.string.fl_favorites), stringResource(R.string.fl_favorites_empty)) }
@@ -900,15 +917,17 @@ internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}) {
                         SaveToListButton(f.uuid)
                         Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite_remove), tint = Red, modifier = Modifier.size(34.dp).clip(CircleShape).clickable {
                             scope.launch {
-                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) paged.rows.removeAll { it.uuid == f.uuid }
+                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) people.rows.removeAll { it.uuid == f.uuid }
                             }
                         }.padding(7.dp))
                     }
                 }
+            }
             }
             item { PagedSpinner(paged) }
             error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
         }
         }
     }
+    inviting?.let { t -> InviteTeamSheet(t.uuid, t.name) { inviting = null } }
 }

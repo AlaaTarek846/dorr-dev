@@ -81,6 +81,7 @@ import com.dorr.freelance.net.TeamMembersDto
 import com.dorr.freelance.net.TeamPermissionsRequest
 import com.dorr.freelance.net.TeamProfileRequest
 import com.dorr.freelance.net.TeamRoleRequest
+import com.dorr.freelance.net.TeamTitleRequest
 import com.dorr.freelance.net.TeamThreadsDto
 import com.dorr.freelance.net.apiDone
 import com.dorr.freelance.net.collectReconnectTick
@@ -145,6 +146,7 @@ fun TeamScreen(
     var segment by rememberSaveable { mutableStateOf("profile") }
     var editing by rememberSaveable { mutableStateOf(false) }
     var managing by rememberSaveable { mutableStateOf<String?>(null) }
+    var titling by remember { mutableStateOf<String?>(null) }
     var askOwner by rememberSaveable { mutableStateOf<String?>(null) }
     var askRemove by rememberSaveable { mutableStateOf<String?>(null) }
     var askLeave by rememberSaveable { mutableStateOf(false) }
@@ -229,6 +231,8 @@ fun TeamScreen(
     val canInvite = members?.me?.abilities?.get("invite_members") == true
     val shown = if (segment == "invites" && !canInvite) "profile" else segment
     val managed = members?.members?.firstOrNull { it.freelancer.uuid == managing }
+    // FS-213: a person writing his own job title.
+    val titled = members?.members?.firstOrNull { it.freelancer.uuid == titling }
 
     Page(title = stringResource(R.string.team_title), onBack = onBack) {
         if (t == null) {
@@ -255,6 +259,7 @@ fun TeamScreen(
                 "members" -> if (members != null) TeamMembersSection(
                     people = members, myUuid = me?.uuid, isOwner = isOwner, canInvite = canInvite,
                     onManage = { managing = it.freelancer.uuid }, onInvite = { segment = "invites" },
+                    onEditTitle = { titling = it.freelancer.uuid },
                 )
                 "projects" -> TeamProjectsList(teamUuid = uuid, role = t.me.role, onOpenProject = onOpenProject)
                 "workload" -> TeamWorkloadSection(teamUuid = uuid, role = t.me.role)
@@ -313,6 +318,16 @@ fun TeamScreen(
         },
         onRemove = { askRemove = managed.freelancer.uuid },
         onDismiss = { managing = null },
+        onTitle = { title -> change(savedText) { apiCall { ApiClient.teams.setTitle(uuid, managed.freelancer.uuid.orEmpty(), TeamTitleRequest(title.ifEmpty { null })) }.problem() } },
+    )
+
+    if (titled != null) JobTitleSheet(
+        member = titled, busy = busy,
+        onSave = { title ->
+            change(savedText) { apiCall { ApiClient.teams.setTitle(uuid, titled.freelancer.uuid.orEmpty(), TeamTitleRequest(title.ifEmpty { null })) }.problem() }
+            titling = null
+        },
+        onDismiss = { titling = null },
     )
 
     members?.members?.firstOrNull { it.freelancer.uuid == askOwner }?.let { target ->

@@ -8,6 +8,7 @@ return [
     'team_assignees_saved' => 'Saved. The people on this part are updated.',
     'team_permissions_saved' => 'Saved. The permissions of this member are updated.',
     'team_role_saved' => 'Saved. The role of this member is changed.',
+    'team_title_saved' => 'Saved. The job title is changed.',
     'team_invitation_sent' => 'The invitation is sent.',
     'team_invitation_cancelled' => 'The invitation is taken back.',
     'team_invitation_accepted' => 'You are in the team.',

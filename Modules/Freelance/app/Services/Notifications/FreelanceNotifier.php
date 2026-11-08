@@ -21,6 +21,7 @@ class FreelanceNotifier
     public const EVENTS = [
         // For the freelancer
         'freelancer.invitation.received' => ['project'],
+        'freelancer.invitation.team_received' => ['project', 'team'],
         'freelancer.project.matched' => ['project'],
         'freelancer.offer.viewed' => ['project'],
         'freelancer.offer.shortlisted' => ['project'],

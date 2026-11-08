@@ -657,8 +657,9 @@ struct DorrTextArea: View {
             .padding(.horizontal, 14)
             .padding(.vertical, singleLine ? 0 : 12)
             .frame(maxWidth: .infinity, minHeight: singleLine ? 46 : minHeight, alignment: singleLine ? .leading : .topLeading)
-            .background(wa.night ? wa.bg : (focused ? wa.surface : Color(hex: 0xFBF7F8)), in: shape)
-            .overlay(shape.stroke(error ? wa.danger : (focused ? wa.red : (wa.night ? wa.line : Color(hex: 0xF3D5DB))), lineWidth: focused || error ? 1.5 : 1))
+            .background(wa.night ? wa.bg : wa.surface, in: shape)
+            .shadow(color: wa.night ? .clear : .black.opacity(0.08), radius: 3, y: 1)
+            .overlay(shape.stroke(error ? wa.danger : (focused ? wa.red : (wa.night ? wa.line : Color.clear)), lineWidth: focused || error ? 1.5 : 1))
             .contentShape(Rectangle())
             .onTapGesture { if enabled { focused = true } }
         }

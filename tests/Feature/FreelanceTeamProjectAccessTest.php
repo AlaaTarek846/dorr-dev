@@ -124,7 +124,7 @@ class FreelanceTeamProjectAccessTest extends TestCase
         $this->as($this->sara);
         $uuid = $this->postJson(self::API."/projects/{$p->uuid}/offers", [
             'price_minor' => 350000, 'duration_days' => 21, 'details' => 'We built three booking sites like this; we will deliver in three steps with a demo each week.',
-            'team' => $this->team->uuid, 'staff' => [['freelancer' => $this->lina->uuid, 'role' => 'pm'], ['freelancer' => $this->noor->uuid, 'role' => 'executor', 'responsibility' => 'Screens']],
+            'team' => $this->team->uuid,
         ])->assertCreated()->json('data.uuid');
         $this->asClient();
         $this->getJson(self::CLIENT."/{$p->uuid}/offers")->assertOk();
@@ -132,6 +132,13 @@ class FreelanceTeamProjectAccessTest extends TestCase
         $this->postJson(self::CLIENT."/{$p->uuid}/agreement/send")->assertOk();
         $this->as($this->sara);
         $this->postJson(self::API."/projects/{$p->uuid}/agreement/approve")->assertOk()->assertJsonPath('data.status', 'active');
+        // FS-213: the offer names nobody any more - Noor works on the project through a task the Owner gives him (FS-206b), not on a part;
+        // Lina is the team's PM.
+        $agreement = \Modules\Freelance\Models\FreelanceAgreement::query()->where('project_id', $p->id)->latest('id')->firstOrFail();
+        \Modules\Freelance\Models\FreelanceWorkroomTask::query()->create([
+            'agreement_id' => $agreement->id, 'project_id' => $p->id, 'title' => 'The screens', 'status' => 'todo', 'scope' => 'team',
+            'created_by_side' => 'freelancer', 'created_by_id' => $this->sara->id, 'assignee_side' => 'freelancer', 'assignee_freelancer_id' => $this->noor->id,
+        ]);
     }
 
     private function fund(): FreelanceMilestone

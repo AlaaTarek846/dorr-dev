@@ -158,13 +158,10 @@ data class OfferDto(
     @SerializedName("submitted_by") val submittedBy: TeamPersonRefDto? = null,
 )
 
-/** FS-209b: a team's offer - who works on it (`freelancer` is the person's uuid) and what each takes on; `role` = pm | executor. */
+/** FS-209b: a team's offer. FS-213: a new offer names nobody ([members] empty); an older one keeps the people it named. */
 data class OfferTeamDto(val uuid: String = "", val name: String = "", val members: List<OfferTeamMemberDto> = emptyList())
 
 data class OfferTeamMemberDto(val name: String = "", val role: String = "executor", val responsibility: String? = null, val freelancer: String? = null)
-
-/** FS-209b: one person put on a team's offer. */
-data class OfferStaffInput(val freelancer: String, val role: String, val responsibility: String? = null)
 
 data class OfferAnswerDto(val question: String = "", val answer: String? = null)
 
@@ -178,8 +175,6 @@ data class OfferUpdateRequest(
     val details: String,
     /** FL-L13: sent only when the feature is on. */
     val rights: RightsInputDto? = null,
-    /** FS-209b: a team's offer changes who works on it (the whole list each time); null leaves it as it is. */
-    val staff: List<OfferStaffInput>? = null,
 )
 
 data class OfferRevisionDto(

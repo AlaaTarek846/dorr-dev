@@ -8,6 +8,7 @@ return [
     'team_assignees_saved' => 'اتحفظ مين شغال على المرحلة دي.',
     'team_permissions_saved' => 'اتحفظ. صلاحيات العضو اتحدّثت.',
     'team_role_saved' => 'اتحفظ. دور العضو اتغيّر.',
+    'team_title_saved' => 'اتحفظ. المسمى الوظيفي اتغيّر.',
     'team_invitation_sent' => 'الدعوة اتبعتت.',
     'team_invitation_cancelled' => 'الدعوة اتسحبت.',
     'team_invitation_accepted' => 'بقيت في الفريق.',

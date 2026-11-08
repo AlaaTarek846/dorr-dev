@@ -28,9 +28,10 @@
     <string name="tpf_row_owner">اعرض شغل الفريق المنتهي على العملاء</string>
     <string name="tpf_row_member">أعمال الفريق</string>
     <string name="tpf_title">معرض أعمال الفريق</string>
-    <string name="tpf_hint">أعمال الفريق. العملاء بيشوفوا اللي بتخليه عام جنب صفحة الفريق. لحد ٣٠ عمل.</string>
+    <string name="tpf_hint">أعمال الفريق. العملاء بيشوفوا اللي بتخليه عام جنب صفحة الفريق. لحد 30 عمل.</string>
     <string name="tpf_hint_member">أعمال الفريق. الـ Owner بس هو اللي بيضيف أو يعدّل.</string>
     <string name="tpf_empty">مفيش أعمال لسه.</string>
+    <string name="tpf_empty_body">ضيف شغل الفريق المنتهي: العملاء بيشوفوه جنب صفحة الفريق.</string>
 
     <!-- التوثيق -->
     <string name="tv_title">توثيق الفريق</string>
@@ -52,11 +53,11 @@
     <string name="tv_file_label">الملف</string>
     <string name="tv_choose">اختار ملف</string>
     <string name="tv_file_chosen">المختار: %1$s</string>
-    <string name="tv_file_hint">JPG أو PNG أو PDF، لحد ٨ ميجا.</string>
+    <string name="tv_file_hint">JPG أو PNG أو PDF، لحد 8 ميجا.</string>
     <string name="tv_upload">ارفع</string>
-    <string name="tv_file_large">الملف أكبر من ٨ ميجا.</string>
+    <string name="tv_file_large">الملف أكبر من 8 ميجا.</string>
     <string name="tv_file_type">بنقبل ملفات JPG أو PNG أو PDF بس.</string>
-    <string name="tv_limit">تقدر تضيف لحد ١٠ أوراق.</string>
+    <string name="tv_limit">تقدر تضيف لحد 10 أوراق.</string>
     <string name="tv_view">عرض</string>
     <string name="tv_remove">شيل</string>
     <string name="tv_submit">ابعت للمراجعة</string>

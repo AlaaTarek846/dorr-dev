@@ -23,6 +23,9 @@ class ClientTeamProfileController extends Controller
         $team = FreelanceTeam::query()->where('uuid', $uuid)->firstOrFail();
         $viewer = $this->profile->viewer($team, null, $request->user('user_api')) ?? throw new ModelNotFoundException;
 
-        return ApiResponse::success(['team' => $this->profile->present($team, $viewer)], __('api.retrieved'));
+        // FS-213: whether I keep this team (the heart on its page).
+        $saved = app(\Modules\Freelance\Services\Offers\ClientTeamFavorites::class)->has($request->user('user_api'), (int) $team->id);
+
+        return ApiResponse::success(['team' => $this->profile->present($team, $viewer) + ['is_favorite' => $saved]], __('api.retrieved'));
     }
 }

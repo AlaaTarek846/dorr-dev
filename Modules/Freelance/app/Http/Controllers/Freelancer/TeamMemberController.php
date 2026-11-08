@@ -26,6 +26,10 @@ class TeamMemberController extends Controller
 
     public const ROLE_CHANGED = 'freelance.team.role_changed';
 
+    public const TITLE_CHANGED = 'freelance.team.job_title_changed';
+
+    public const TITLE_MAX = 60;
+
     public function __construct(
         private readonly FreelancerTeams $teams,
         private readonly TeamAbilities $abilities,
@@ -90,6 +94,39 @@ class TeamMemberController extends Controller
         return ApiResponse::success(['member' => $this->present($row->load('freelancer:id,uuid,name'))], __('freelance.team_role_saved'));
     }
 
+    /**
+     * PUT teams/{team}/members/{freelancer}/title {job_title: ?string} (FS-213) - what the person does in the team ("UI designer"), shown next
+     * to his name on the team's profile when he agreed to be shown (D10). An Owner writes anybody's (`manage_members`), a person his own; an
+     * empty or missing value clears it. A suspended or archived team changes nothing (409).
+     */
+    public function title(Request $request, string $team, string $freelancer): JsonResponse
+    {
+        // A missing title clears it too: an app's JSON may leave a null out.
+        $data = $request->validate(['job_title' => ['nullable', 'string', 'max:'.self::TITLE_MAX]]);
+        $me = $this->me($request);
+        $t = $this->team($me, $team);
+        $target = Freelancer::query()->where('uuid', $freelancer)->firstOrFail();
+        $row = $this->teams->membership($t, $target);
+        if ($row === null || ! $row->isActive()) {
+            throw new ModelNotFoundException;
+        }
+        if ($t->trashed() || ! $t->isActive()) {
+            throw new \Modules\Freelance\Exceptions\FreelanceException('freelancer_team_inactive', 409);
+        }
+        if ((int) $target->id !== (int) $me->id) {
+            $this->abilities->assert($t, $me, TeamAbilities::MANAGE_MEMBERS);
+        }
+        $title = trim(strip_tags((string) ($data['job_title'] ?? '')));
+        $title = $title === '' ? null : mb_substr($title, 0, self::TITLE_MAX);
+        $before = $row->job_title;
+        if ($before !== $title) {
+            $row->forceFill(['job_title' => $title])->save();
+            $this->audit->record(self::TITLE_CHANGED, $row, ['job_title' => $before], ['job_title' => $title, 'team' => $t->uuid, 'by_freelancer_id' => $me->id]);
+        }
+
+        return ApiResponse::success(['member' => $this->present($row->load('freelancer:id,uuid,name'))], __('freelance.team_title_saved'));
+    }
+
     /** POST teams/{team}/leave {reason?} (FS-203) - at once (D5), even a suspended team; the last Owner can not (409). */
     public function leave(Request $request, string $team): JsonResponse
     {
@@ -122,6 +159,7 @@ class TeamMemberController extends Controller
         return [
             'freelancer' => ['uuid' => $m->freelancer?->uuid, 'name' => $m->freelancer?->name],
             'role' => $m->role,
+            'job_title' => $m->job_title,
             'signed_agreements' => $m->role === Member::OWNER ? ($signed[(int) $m->freelancer_id] ?? 0) : 0,
             'open_offers' => $m->role === Member::OWNER ? ($open[(int) $m->freelancer_id] ?? 0) : 0,
             'joined_at' => $m->joined_at?->toIso8601String(),

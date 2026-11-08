@@ -56,12 +56,15 @@ struct FreelancerTeamProfileDto: Codable, Equatable {
     var stats: FreelancerTeamStatsDto?
     var reviews: [FreelanceReviewLineDto]?
     var portfolio: [FreelancePortfolioDto]?
+    /// FS-213: I keep this team (the heart on its page).
+    var isFavorite: Bool?
 }
 
-/// A person who agreed to be shown: first name, `owner` · `pm` · `member`, headline and photo.
+/// A person who agreed to be shown: first name, `owner` · `pm` · `member`, job title (FS-213), headline and photo.
 struct FreelancerTeamPersonDto: Codable, Equatable {
     var name: String?
     var role: String?
+    var jobTitle: String?
     var headline: String?
     var avatarUrl: String?
 }

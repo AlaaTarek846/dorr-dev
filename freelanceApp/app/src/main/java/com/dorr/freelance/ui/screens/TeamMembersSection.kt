@@ -10,6 +10,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import com.dorr.freelance.ui.components.DorrTextField
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -51,15 +58,20 @@ import com.dorr.freelance.ui.kit.settingsMut
 private val SWITCH_ORDER = listOf("view_price", "client_chat", "internal_files", "invite_members")
 
 /**
- * The «Members» part of a team's page: everybody in the team with their role (Owners first, as the server sends them). An Owner taps a row to
- * manage that person; somebody who may invite gets a shortcut to the invitations.
+ * The «Members» part of a team's page: everybody in the team with their role and job title (Owners first, as the server sends them). An Owner
+ * taps a row to manage that person; anybody else taps his own row to write his job title (FS-213); somebody who may invite gets a shortcut to
+ * the invitations.
  */
 @Composable
-internal fun TeamMembersSection(people: TeamMembersDto, myUuid: String?, isOwner: Boolean, canInvite: Boolean, onManage: (TeamMemberDto) -> Unit, onInvite: () -> Unit) {
+internal fun TeamMembersSection(
+    people: TeamMembersDto, myUuid: String?, isOwner: Boolean, canInvite: Boolean, onManage: (TeamMemberDto) -> Unit, onInvite: () -> Unit,
+    onEditTitle: (TeamMemberDto) -> Unit = {},
+) {
     Column(Modifier.fillMaxWidth().appCard(Corners.card).padding(vertical = 6.dp)) {
         people.members.forEachIndexed { index, m ->
             if (index > 0) Box(Modifier.fillMaxWidth().padding(start = 72.dp).height(1.dp).background(settingsMut().copy(alpha = 0.12f)))
-            MemberRow(m, isMe = m.freelancer.uuid != null && m.freelancer.uuid == myUuid, canManage = isOwner, onClick = { onManage(m) })
+            val isMe = m.freelancer.uuid != null && m.freelancer.uuid == myUuid
+            MemberRow(m, isMe = isMe, canManage = isOwner || isMe, onClick = { if (isOwner) onManage(m) else onEditTitle(m) })
         }
     }
     if (canInvite) SettingsPrimaryButton(text = stringResource(R.string.team_invite_title), onClick = onInvite)
@@ -78,7 +90,10 @@ private fun MemberRow(m: TeamMemberDto, isMe: Boolean, canManage: Boolean, onCli
                 Text(m.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 if (isMe) Text(stringResource(R.string.team_you), color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            teamDate(m.joinedAt)?.let { Text(stringResource(R.string.team_member_since, it), color = settingsMut(), fontSize = 11.5.sp) }
+            // FS-213: what the person does in the team; the date he joined when there is none.
+            m.jobTitle?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsAccent(), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                ?: if (isMe) Text(stringResource(R.string.team_title_add_mine), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                else teamDate(m.joinedAt)?.let { Text(stringResource(R.string.team_member_since, it), color = settingsMut(), fontSize = 11.5.sp) }
         }
         RolePill(m.role)
         if (canManage) Icon(Icons.Rounded.ChevronRight, contentDescription = stringResource(R.string.team_manage), tint = settingsMut(), modifier = Modifier.size(18.dp).graphicsLayer { if (rtl) scaleX = -1f })
@@ -99,6 +114,8 @@ internal fun ManageMemberSheet(
     onPermission: (String, Boolean) -> Unit,
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
+    /** FS-213: saves the person's job title (empty clears it). */
+    onTitle: (String) -> Unit = {},
 ) {
     val keys = SWITCH_ORDER.filter { it in switches }
     // FS-212: an Owner who signed agreements of the team that have not ended, or has offers in its name still open, stays an Owner until they
@@ -116,6 +133,8 @@ internal fun ManageMemberSheet(
                     Text(roleLabel(member.role), color = roleTint(member.role), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
+
+            JobTitleField(member.jobTitle, busy, onTitle)
 
             Text(stringResource(R.string.team_role_label), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
             FilterChips(
@@ -143,6 +162,38 @@ internal fun ManageMemberSheet(
                     .clickable(enabled = !busy && !held, onClick = onRemove),
                 contentAlignment = Alignment.Center,
             ) { Text(stringResource(R.string.team_remove), color = Color(0xFFDC2626).copy(alpha = if (held) 0.4f else 1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold) }
+        }
+    }
+}
+
+/** FS-213: the most letters of a job title (the server's limit). */
+private const val JOB_TITLE_MAX = 60
+
+/** «Job title» with its save button: what the person does in the team, shown next to his name on the team's profile when he agreed. */
+@Composable
+internal fun JobTitleField(current: String?, busy: Boolean, onSave: (String) -> Unit) {
+    var text by rememberSaveable(current) { mutableStateOf(current.orEmpty()) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.team_title_label), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        DorrTextField(text, { text = it.take(JOB_TITLE_MAX) }, placeholder = stringResource(R.string.team_title_placeholder), icon = Icons.Rounded.Badge, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.team_title_hint), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
+        if (text.trim() != current.orEmpty()) SettingsPrimaryButton(text = stringResource(R.string.team_title_save), loading = busy, onClick = { onSave(text.trim()) })
+    }
+}
+
+/** A person (not an Owner) writing his own job title. */
+@Composable
+internal fun JobTitleSheet(member: TeamMemberDto, busy: Boolean, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    LocaleAwareBottomSheet(onDismissRequest = { if (!busy) onDismiss() }, containerColor = settingsCard(), shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
+        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 18.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                InitialsBadge(member.freelancer.name, 52.dp, roleTint(member.role))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(member.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(roleLabel(member.role), color = roleTint(member.role), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            JobTitleField(member.jobTitle, busy, onSave)
         }
     }
 }

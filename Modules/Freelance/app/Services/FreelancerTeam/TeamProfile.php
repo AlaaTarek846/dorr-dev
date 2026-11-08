@@ -32,7 +32,7 @@ use Modules\User\Models\User;
  *    signed-in client or freelancer, a `private` one only to a client the team sent an offer to (one taken back before he saw it does not
  *    count). Anybody else gets 404, as if there were no team.
  *  - A member is shown to people outside the team only if he agreed (`show_in_profile`, D10, off by default) - and then by first name, role,
- *    headline and photo; the others are only counted. Nobody turns this on for somebody else.
+ *    job title (FS-213), headline and photo; the others are only counted. Nobody turns this on for somebody else.
  */
 class TeamProfile
 {
@@ -205,6 +205,7 @@ class TeamProfile
                 'verification_status' => $this->verificationStatus($team),
                 'me' => [
                     'role' => $mine?->role,
+                    'job_title' => $mine?->job_title,
                     'show_in_profile' => (bool) $mine?->show_in_profile,
                     'can_edit' => $me !== null && $this->abilities->can($team, $me, TeamAbilities::EDIT_TEAM),
                 ],
@@ -281,13 +282,15 @@ class TeamProfile
     {
         $f = $m->freelancer;
         if ($inside) {
-            return ['freelancer' => $f?->uuid, 'name' => $f?->name, 'role' => $m->role, 'show_in_profile' => (bool) $m->show_in_profile];
+            return ['freelancer' => $f?->uuid, 'name' => $f?->name, 'role' => $m->role, 'job_title' => $m->job_title, 'show_in_profile' => (bool) $m->show_in_profile];
         }
 
         // D10: outside the team, a first name only.
         return [
             'name' => strtok((string) $f?->name, ' ') ?: (string) $f?->name,
             'role' => $m->role,
+            // FS-213: what he does in the team (written by an Owner or by himself).
+            'job_title' => $m->job_title,
             'headline' => $f?->headline,
             'avatar_url' => $f?->getFirstMediaUrl('avatar') ?: null,
         ];

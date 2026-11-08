@@ -120,7 +120,8 @@ internal fun workClock(iso: String?, locale: Locale): String? =
     parse(iso)?.atZoneSameInstant(ZoneId.systemDefault())?.format(DateTimeFormatter.ofPattern("HH:mm", locale))
 
 @Composable
-internal fun fileSize(bytes: Long): String = Formatter.formatShortFileSize(LocalContext.current, bytes)
+// Left-to-right marks: in an Arabic line «14 B» read as «B … 14» without them.
+internal fun fileSize(bytes: Long): String = "‎" + Formatter.formatShortFileSize(LocalContext.current, bytes) + "‎"
 
 // ---- who ----------------------------------------------------------------------------------------------------------------------
 

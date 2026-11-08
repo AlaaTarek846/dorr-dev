@@ -329,7 +329,7 @@
     <string name="ch_channel_create">إنشاء قناة</string>
     <string name="ch_channel_name_hint">اسم القناة</string>
     <string name="ch_channel_handle_hint">المعرّف (اختياري)</string>
-    <string name="ch_channel_handle_rule">من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية</string>
+    <string name="ch_channel_handle_rule">من 3 إلى 32 حرفًا أو رقمًا أو شرطة سفلية</string>
     <string name="ch_channel_public">عامة</string>
     <string name="ch_channel_public_sub">يستطيع أي شخص العثور عليها ومتابعتها</string>
     <string name="ch_channel_private">خاصة</string>

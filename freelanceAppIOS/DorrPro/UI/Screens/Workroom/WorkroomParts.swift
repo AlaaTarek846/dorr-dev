@@ -87,7 +87,8 @@ func workClock(_ iso: String?) -> String? {
     return workFormatter("HH:mm", latin: true).string(from: at)
 }
 
-func fileSize(_ bytes: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file) }
+// Left-to-right marks: in an Arabic line «14 B» read as «B … 14» without them.
+func fileSize(_ bytes: Int) -> String { "\u{200E}" + ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file) + "\u{200E}" }
 
 // MARK: - who
 

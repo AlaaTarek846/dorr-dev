@@ -818,11 +818,47 @@ struct FreelanceInvitationDto: Codable, Equatable {
     /// The uuid of their offer, once they sent one.
     var offer: String?
     var canWithdraw: Bool?
+    /// FS-213: invited as this team (its Owner, `freelancer`, answers and offers in its name).
+    var team: FreelanceInvitedTeamDto?
+}
+
+/// FS-213: a team on my invitations: its name and logo.
+struct FreelanceInvitedTeamDto: Codable, Equatable {
+    var uuid: String?
+    var name: String?
+    var logoUrl: String?
+    var verified: Bool?
 }
 
 struct FreelanceInvitationsDto: Codable, Equatable {
     var summary: FreelanceInvitationsSummaryDto?
     var invitations: [FreelanceInvitationDto]?
+    /// FS-213: only on the answer to an invitation.
+    var result: FreelanceInviteResultDto?
+}
+
+/// FS-213: what an invitation said: how many went out and why the others did not (`already_invited`, `team_not_accepting`, …).
+struct FreelanceInviteResultDto: Codable, Equatable {
+    var invited: Int?
+    var skipped: [FreelanceInviteSkipDto]?
+}
+
+struct FreelanceInviteSkipDto: Codable, Equatable {
+    var uuid: String?
+    var reason: String?
+}
+
+/// FS-213: a freelancers' team I keep: its name and what its profile shows next to it, and whether we worked together.
+struct FreelanceTeamFavoriteDto: Codable, Equatable {
+    var uuid: String
+    var name: String?
+    var workedWith: Bool?
+    var logoUrl: String?
+    var verified: Bool?
+    var acceptingProjects: Bool?
+    var rating: Double?
+    var reviewsCount: Int?
+    var completedProjects: Int?
 }
 
 /// The whole project form, sent as it is: an empty field is sent as null (a draft may be half done).
@@ -1130,6 +1166,19 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/favorites/\(uuid)", method: "DELETE")
     }
 
+    /// FS-213: the freelancers' teams I keep (a team whose profile I may read).
+    static func teamFavorites(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<[FreelanceTeamFavoriteDto]> {
+        try await ApiClient.snake("\(base)/favorites/teams", query: ["page": String(page), "per_page": String(perPage)])
+    }
+
+    static func addTeamFavorite(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
+        try await ApiClient.snake("\(base)/favorites/teams/\(uuid)", method: "POST", body: [:])
+    }
+
+    static func removeTeamFavorite(_ uuid: String) async throws -> ApiEnvelope<Ignored> {
+        try await ApiClient.snake("\(base)/favorites/teams/\(uuid)", method: "DELETE")
+    }
+
     /// The talk about an offer (FL-308): opens the room (or finds it).
     static func openChat(_ uuid: String, _ offer: String) async throws -> ApiEnvelope<FreelanceChatRoomDto> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/offers/\(offer)/chat", method: "POST", body: [:])
@@ -1199,8 +1248,11 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/invitees", query: ["q": q, "all": all ? "1" : nil])
     }
 
-    static func invite(_ uuid: String, freelancers: [String]) async throws -> ApiEnvelope<FreelanceInvitationsDto> {
-        try await ApiClient.snake("\(base)/projects/\(uuid)/invitations", method: "POST", body: ["freelancers": .array(freelancers.map(JSONValue.string))])
+    /// FS-213: `teams` too - each team's invitation goes to its Owner, who offers in the team's name.
+    static func invite(_ uuid: String, freelancers: [String] = [], teams: [String] = []) async throws -> ApiEnvelope<FreelanceInvitationsDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/invitations", method: "POST", body: [
+            "freelancers": .array(freelancers.map(JSONValue.string)), "teams": .array(teams.map(JSONValue.string)),
+        ])
     }
 
     static func withdrawInvitation(_ uuid: String, _ invitation: String) async throws -> ApiEnvelope<FreelanceInvitationsDto> {

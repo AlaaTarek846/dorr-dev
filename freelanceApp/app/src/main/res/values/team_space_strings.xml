@@ -31,6 +31,7 @@
     <string name="tpf_hint">The team\'s works. Clients see the ones you make public, next to the team\'s page. Up to 30.</string>
     <string name="tpf_hint_member">The team\'s works. Only an Owner adds or changes them.</string>
     <string name="tpf_empty">No works yet.</string>
+    <string name="tpf_empty_body">Add the work your team finished: clients see it next to the team page.</string>
 
     <!-- Verification -->
     <string name="tv_title">Verify the team</string>

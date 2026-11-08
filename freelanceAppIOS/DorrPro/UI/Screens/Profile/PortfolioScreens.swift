@@ -85,7 +85,7 @@ struct PortfolioTab: View {
                     if loaded {
                         if canEdit && items.count < maxWorks { SettingsPrimaryButton(text: L("portfolio_add")) { onOpenItem(0) } }
                         if items.isEmpty {
-                            Text(L(team == nil ? "portfolio_empty" : "tpf_empty")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
+                            EmptyState(icon: "photo.on.rectangle.angled", title: L(team == nil ? "portfolio_empty" : "tpf_empty"), body: L(team == nil ? "portfolio_empty_body" : "tpf_empty_body"))
                         }
                         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                             row(index, item)

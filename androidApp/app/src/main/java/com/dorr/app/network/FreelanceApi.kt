@@ -216,6 +216,16 @@ interface FreelanceApi {
     @retrofit2.http.DELETE("mobile/v1/freelance/favorites/{uuid}")
     suspend fun removeFavorite(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<Any?>
 
+    /** FS-213: the freelancers' teams I keep (a team whose profile I may read). */
+    @GET("mobile/v1/freelance/favorites/teams")
+    suspend fun teamFavorites(@Header("Authorization") auth: String, @Query("page") page: Int = 1, @Query("per_page") perPage: Int = 15): ApiEnvelope<List<FreelanceTeamFavoriteDto>>
+
+    @POST("mobile/v1/freelance/favorites/teams/{uuid}")
+    suspend fun addTeamFavorite(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<Any?>
+
+    @retrofit2.http.DELETE("mobile/v1/freelance/favorites/teams/{uuid}")
+    suspend fun removeTeamFavorite(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<Any?>
+
     /** The talk about an offer (FL-308): opens the room (or finds it). */
     @POST("mobile/v1/freelance/projects/{uuid}/offers/{offer}/chat")
     suspend fun openChat(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("offer") offer: String): ApiEnvelope<FreelanceChatRoomDto>
@@ -975,7 +985,12 @@ data class FreelanceInvitationsSummaryDto(
     @SerializedName("can_make_public") val canMakePublic: Boolean = false,
 )
 
-data class FreelanceInvitationsDto(val summary: FreelanceInvitationsSummaryDto = FreelanceInvitationsSummaryDto(), val invitations: List<FreelanceInvitationDto> = emptyList())
+data class FreelanceInvitationsDto(
+    val summary: FreelanceInvitationsSummaryDto = FreelanceInvitationsSummaryDto(),
+    val invitations: List<FreelanceInvitationDto> = emptyList(),
+    /** FS-213: only on the answer to an invitation. */
+    val result: FreelanceInviteResultDto? = null,
+)
 
 data class FreelanceInvitationDto(
     val uuid: String = "",
@@ -984,7 +999,12 @@ data class FreelanceInvitationDto(
     /** The uuid of their offer, once they sent one. */
     val offer: String? = null,
     @SerializedName("can_withdraw") val canWithdraw: Boolean = false,
+    /** FS-213: invited as this team (its Owner, [freelancer], answers and offers in its name). */
+    val team: FreelanceInvitedTeamDto? = null,
 )
+
+/** FS-213: a team on my invitations: its name and logo. */
+data class FreelanceInvitedTeamDto(val uuid: String = "", val name: String = "", @SerializedName("logo_url") val logoUrl: String? = null, val verified: Boolean = false)
 
 data class FreelanceInviteeDto(
     val uuid: String = "",
@@ -998,7 +1018,26 @@ data class FreelanceInviteeDto(
     @SerializedName("skill_badges") val skillBadges: List<FreelanceSkillBadgeDto> = emptyList(),
 )
 
-data class FreelanceInviteRequest(val freelancers: List<String>)
+/** FS-213: [teams] too - each team's invitation goes to its Owner, who offers in the team's name. */
+data class FreelanceInviteRequest(val freelancers: List<String> = emptyList(), val teams: List<String> = emptyList())
+
+/** FS-213: what an invitation said: how many went out and why the others did not (`already_invited`, `team_not_accepting`, …). */
+data class FreelanceInviteResultDto(val invited: Int = 0, val skipped: List<FreelanceInviteSkipDto> = emptyList())
+
+data class FreelanceInviteSkipDto(val uuid: String = "", val reason: String = "")
+
+/** FS-213: a freelancers' team I keep: its name and what its profile shows next to it, and whether we worked together. */
+data class FreelanceTeamFavoriteDto(
+    val uuid: String = "",
+    val name: String = "",
+    @SerializedName("worked_with") val workedWith: Boolean = false,
+    @SerializedName("logo_url") val logoUrl: String? = null,
+    val verified: Boolean = false,
+    @SerializedName("accepting_projects") val acceptingProjects: Boolean = false,
+    val rating: Double? = null,
+    @SerializedName("reviews_count") val reviewsCount: Int? = null,
+    @SerializedName("completed_projects") val completedProjects: Int? = null,
+)
 
 /** FL-310: a short interview in a chat room. */
 data class FreelanceInterviewDto(

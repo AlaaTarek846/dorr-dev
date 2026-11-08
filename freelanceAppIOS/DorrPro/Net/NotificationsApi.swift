@@ -78,7 +78,8 @@ enum NoticeRoute {
         if e.hasPrefix("freelance.subscription") { return .plans }
         // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.
         if e.hasPrefix("freelance.rights") { return project.map(Route.agreement) }
-        if e == "freelance.invitation.received" { return .invitations }
+        // FS-213: a client invited my team (I am its Owner) - the same list, the card says which team.
+        if e == "freelance.invitation.received" || e == "freelance.invitation.team_received" { return .invitations }
         // FS-150e: the other side's step in the Workroom opens that project's Workroom, on the part it is about
         // (task_assigned → tasks, file_shared / comment_added → files, decision_* → decisions).
         if e.hasPrefix("freelance.workroom") {

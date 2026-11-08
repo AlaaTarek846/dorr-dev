@@ -142,20 +142,17 @@ class FreelancerOfferController extends Controller
     }
 
     /**
-     * FS-205: an offer in a team's name - `team` (the team's uuid, sent only with a new offer) and `staff` (who works on it, the whole list each
-     * time; also form fields `staff[0][freelancer]` with the files). `staff` without `team` is refused when sending.
+     * FS-205: an offer in a team's name - `team` (the team's uuid, sent only with a new offer). FS-213 (owner 2026-11-08): the offer no longer
+     * names who works on it - `staff` is not read any more (an old app that still sends it is not refused); the team's people are put on the
+     * parts and tasks once the project starts, and the client reads them on the team's profile.
      *
      * @return array<string, list<mixed>>
      */
     public static function teamRules(bool $sending): array
     {
         return [
-            'team' => $sending ? ['nullable', 'uuid', 'required_with:staff'] : ['prohibited'],
+            'team' => $sending ? ['nullable', 'uuid'] : ['prohibited'],
             'signer' => $sending ? ['nullable', 'uuid'] : ['prohibited'],
-            'staff' => ['sometimes', 'array', 'max:'.\Modules\Freelance\Services\FreelancerTeam\TeamOffers::STAFF_MAX],
-            'staff.*.freelancer' => ['required', 'uuid'],
-            'staff.*.role' => ['required', 'string', 'in:'.implode(',', \Modules\Freelance\Models\FreelanceOfferTeamMember::ROLES)],
-            'staff.*.responsibility' => ['nullable', 'string', 'max:'.\Modules\Freelance\Services\FreelancerTeam\TeamOffers::RESPONSIBILITY_MAX],
         ];
     }
 

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.freelance.R
@@ -86,6 +88,8 @@ internal fun TeamInvitesSection(
             value = phone, onValueChange = { phone = it.take(30) }, modifier = Modifier.fillMaxWidth(),
             label = stringResource(R.string.team_invite_phone), placeholder = stringResource(R.string.team_invite_phone_hint),
             icon = Icons.Rounded.Phone, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), enabled = !busy,
+            // A number is always read left to right: in an Arabic field "+966…" otherwise showed as "966…+".
+            textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
         )
         SettingsPrimaryButton(
             text = stringResource(R.string.team_invite_send), loading = busy, enabled = clean.length >= 6,

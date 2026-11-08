@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string $role
  * @property string $status
  * @property ?array $permissions
+ * @property ?string $job_title FS-213: what he does in the team
  * @property bool $show_in_profile
  * @property ?Carbon $joined_at
  * @property ?Carbon $left_at
@@ -42,7 +43,7 @@ class FreelanceTeamMember extends Model
 
     protected $table = 'freelance_team_members';
 
-    protected $fillable = ['team_id', 'freelancer_id', 'role', 'status', 'permissions', 'show_in_profile', 'joined_at', 'left_at', 'left_reason', 'removed_by_freelancer_id'];
+    protected $fillable = ['team_id', 'freelancer_id', 'role', 'job_title', 'status', 'permissions', 'show_in_profile', 'joined_at', 'left_at', 'left_reason', 'removed_by_freelancer_id'];
 
     protected function casts(): array
     {

@@ -74,7 +74,7 @@
     <string name="team_set_accepting">Open to new projects</string>
     <string name="team_set_accepting_sub">A hint for clients on the profile; it does not block anything.</string>
     <string name="team_set_show_me">Show me on the team profile</string>
-    <string name="team_set_show_me_sub">Outside the team only your first name appears, and only if you agree.</string>
+    <string name="team_set_show_me_sub">Outside the team only your first name and your job in the team appear, and only if you agree.</string>
     <string name="team_expertise">What the team covers</string>
     <string name="team_specialties">Specialties</string>
     <string name="team_skills">Skills</string>
@@ -132,4 +132,12 @@
     <string name="team_invite_cancel">Cancel</string>
     <string name="team_invite_cancelled_toast">Invitation cancelled</string>
     <string name="team_inv_s_expired">Expired</string>
+
+    <!-- FS-213 -->
+    <string name="tw_offer_whole_team">The offer goes in the whole team\'s name. Once the client chooses it, split the work among the members with «Assign people» on each part. The client sees the members who agreed to be shown, and their jobs, on the team\'s profile.</string>
+    <string name="team_title_label">Job title</string>
+    <string name="team_title_placeholder">e.g. UI designer, Android developer</string>
+    <string name="team_title_hint">Shown next to the name on the team\'s profile for clients, if the person agreed to be shown.</string>
+    <string name="team_title_save">Save the title</string>
+    <string name="team_title_add_mine">Write your job in the team</string>
 </resources>

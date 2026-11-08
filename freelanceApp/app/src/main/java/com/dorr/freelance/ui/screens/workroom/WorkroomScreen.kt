@@ -128,8 +128,10 @@ fun WorkroomScreen(project: String, tab: String, onBack: () -> Unit, onOpenFile:
     }
     LaunchedEffect(selected, timelineStale) {
         if (selected == "timeline" && timelineStale) {
-            timelineStale = false
+            // The flag goes down only after the read: it is this effect's own key, so clearing it first restarted the effect in the middle
+            // of the call, dropped the answer and left the tab on its spinner.
             timeline.feed.reload()
+            timelineStale = false
         }
     }
 

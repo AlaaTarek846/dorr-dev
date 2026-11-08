@@ -1,7 +1,6 @@
 package com.dorr.freelance.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,54 +27,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.freelance.R
 import okhttp3.RequestBody.Companion.toRequestBody
-import com.dorr.freelance.net.OfferStaffInput
 import com.dorr.freelance.net.OfferTeamDto
 import com.dorr.freelance.net.TeamMemberDto
 import com.dorr.freelance.net.TeamOfferQuotaDto
 import com.dorr.freelance.net.TeamPersonRefDto
 import com.dorr.freelance.net.TeamSummaryDto
-import com.dorr.freelance.ui.components.DorrTextField
 import com.dorr.freelance.ui.components.FieldLabel
 import com.dorr.freelance.ui.kit.Corners
 import com.dorr.freelance.ui.kit.FilterChips
 import com.dorr.freelance.ui.kit.FilterOption
-import com.dorr.freelance.ui.kit.PillChip
-import com.dorr.freelance.ui.kit.appCard
 import com.dorr.freelance.ui.kit.settingsAccent
 import com.dorr.freelance.ui.kit.settingsInk
 import com.dorr.freelance.ui.kit.settingsMut
 
-/** The most people on one team offer (the server's limit), and the most words about what one takes on. */
-private const val STAFF_MAX = 20
-private const val RESPONSIBILITY_MAX = 200
-
-/** One person put on a team's offer in the form: `role` = pm | executor. */
-data class StaffPick(val freelancer: String, val role: String = "executor", val responsibility: String = "")
-
-internal fun List<StaffPick>.toInputs(): List<OfferStaffInput> = map { OfferStaffInput(it.freelancer, it.role, it.responsibility.trim().ifEmpty { null }) }
-
-/** The multipart fields of a team's offer (`team`, `signer`, `staff[i][...]`) the server reads next to the price and the details. */
-internal fun teamOfferFields(team: String?, signer: String?, staff: List<StaffPick>, plain: okhttp3.MediaType?): Map<String, okhttp3.RequestBody> {
+/** The multipart fields of a team's offer (`team`, `signer`) the server reads next to the price and the details. */
+internal fun teamOfferFields(team: String?, signer: String?, plain: okhttp3.MediaType?): Map<String, okhttp3.RequestBody> {
     if (team == null) return emptyMap()
     fun text(v: String) = v.toRequestBody(plain)
     val out = linkedMapOf("team" to text(team))
     signer?.let { out["signer"] = text(it) }
-    staff.forEachIndexed { i, s ->
-        out["staff[$i][freelancer]"] = text(s.freelancer)
-        out["staff[$i][role]"] = text(s.role)
-        if (s.responsibility.isNotBlank()) out["staff[$i][responsibility]"] = text(s.responsibility.trim())
-    }
     return out
 }
 
 /**
- * «Send the offer as»: me, or a team I am an Owner or a PM of. For a team it shows the team's offers left this month, who signs and is paid
- * (a PM names the Owner), and who works on the offer. [members] are the team's active people (null while they load).
+ * «Send the offer as»: me, or a team I am an Owner or a PM of. For a team it shows the team's offers left this month and who signs and is paid
+ * (a PM names the Owner). FS-213: the offer no longer names who works on it — the team puts its people on the parts once the project starts.
+ * [members] are the team's active people (null while they load).
  */
 @Composable
 internal fun TeamOfferPicker(
     teams: List<TeamSummaryDto>, teamUuid: String?, onTeam: (String?) -> Unit,
-    quota: TeamOfferQuotaDto?, members: List<TeamMemberDto>?, staff: SnapshotStateList<StaffPick>,
+    quota: TeamOfferQuotaDto?, members: List<TeamMemberDto>?,
     signer: String?, onSigner: (String?) -> Unit, myUuid: String?, compact: Boolean = false,
 ) {
     val team = teams.firstOrNull { it.uuid == teamUuid }
@@ -111,52 +90,7 @@ internal fun TeamOfferPicker(
             )
         }
 
-        FieldLabel(stringResource(R.string.tw_offer_staff))
-        Text(stringResource(R.string.tw_offer_staff_hint), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
-        if (members != null) TeamStaffEditor(members, staff)
-    }
-}
-
-/** The team's people with a tick each; a ticked person gets a role (PM — only one — or executor) and a few words on what they take on. */
-@Composable
-internal fun TeamStaffEditor(members: List<TeamMemberDto>, staff: SnapshotStateList<StaffPick>) {
-    Column(Modifier.fillMaxWidth().appCard(Corners.card).padding(vertical = 4.dp)) {
-        members.forEach { m ->
-            val uuid = m.freelancer.uuid ?: return@forEach
-            val index = staff.indexOfFirst { it.freelancer == uuid }
-            val on = index >= 0
-            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().clip(Corners.small).clickable {
-                        if (on) staff.removeAt(index) else if (staff.size < STAFF_MAX) staff.add(StaffPick(uuid))
-                    },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    InitialsBadge(m.freelancer.name, 38.dp, roleTint(m.role))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(m.freelancer.name.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(roleLabel(m.role), color = roleTint(m.role), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Box(
-                        Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(if (on) settingsAccent() else Color.Transparent)
-                            .border(1.5.dp, if (on) settingsAccent() else settingsMut().copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) { if (on) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp)) }
-                }
-                if (on) {
-                    val pick = staff[index]
-                    val pmElsewhere = staff.any { it.role == "pm" && it.freelancer != uuid }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PillChip(stringResource(R.string.tw_offer_role_exec), pick.role == "executor") { staff[index] = pick.copy(role = "executor") }
-                        if (!pmElsewhere) PillChip(stringResource(R.string.tw_offer_role_pm), pick.role == "pm") { staff[index] = pick.copy(role = "pm") }
-                    }
-                    DorrTextField(
-                        pick.responsibility, { v -> staff.getOrNull(index)?.let { staff[index] = it.copy(responsibility = v.take(RESPONSIBILITY_MAX)) } },
-                        label = stringResource(R.string.tw_offer_responsibility), icon = Icons.Rounded.Notes, modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
+        Text(stringResource(R.string.tw_offer_whole_team), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 18.sp)
     }
 }
 

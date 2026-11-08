@@ -35,6 +35,8 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import com.dorr.freelance.ui.components.EmptyState
 import com.dorr.freelance.ui.kit.AlertDialog
 import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.CircularProgressIndicator
@@ -171,7 +173,11 @@ fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit, team: String? = 
         if (!loaded && error == null) SkeletonList()
         if (loaded) {
             if (canEdit && items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
-            if (items.isEmpty()) Text(stringResource(if (team == null) R.string.portfolio_empty else R.string.tpf_empty), color = settingsMut(), fontSize = 13.sp)
+            if (items.isEmpty()) EmptyState(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = stringResource(if (team == null) R.string.portfolio_empty else R.string.tpf_empty),
+                body = stringResource(if (team == null) R.string.portfolio_empty_body else R.string.tpf_empty_body),
+            )
             items.forEachIndexed { index, item ->
                 Row(
                     Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).then(if (canEdit) Modifier.clickable { onOpenItem(item.id) } else Modifier).padding(10.dp),

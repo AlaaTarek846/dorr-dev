@@ -125,7 +125,7 @@ struct FreelanceHost: View {
         case .newDispute(let p, let m):
             DisputePage(projectUuid: p, milestoneUuid: m, disputeUuid: nil, onBack: back, onOpened: { replace(.dispute(p, $0)) })
         case .favorites:
-            FavoritesPage(onBack: back, onTalent: { open(.talentLists) })
+            FavoritesPage(onBack: back, onTalent: { open(.talentLists) }, onTeam: { open(.freelancerTeam($0)) })
         case .talentLists:
             TalentListsPage(onBack: back, onOpen: { open(.talentList($0)) })
         case .talentList(let l):
