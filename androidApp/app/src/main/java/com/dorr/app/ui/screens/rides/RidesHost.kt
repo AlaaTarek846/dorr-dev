@@ -157,8 +157,9 @@ internal class RidesState {
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
-    /** Block 06: «دُرر يفهم مقصدك» is open; the category it understood (chosen once the prices come); AI-09's suggestion. */
+    /** Block 06: «دُرر يفهم مقصدك» is open (with words to understand at once, from DORR AI's chat); the category it understood (chosen once the prices come); AI-09's suggestion. */
     var smartOpen by mutableStateOf(false)
+    var smartText by mutableStateOf<String?>(null)
     var preferCategory by mutableStateOf<String?>(null)
     var suggestion by mutableStateOf<com.dorr.app.network.RideAiSuggestDto?>(null)
 
@@ -310,6 +311,43 @@ fun RidesHost(onExit: () -> Unit) {
             "marine" -> state.marineOpen = true
             "hire" -> state.hireOpen = true
             "lesson" -> state.lessonsOpen = true
+        }
+    }
+    // DORR AI's chat: "Book with DORR" — the trip it understood fills the booking in: the pickup is where the
+    // rider is now, the destination the place understood, and the prices open at once with the route drawn on
+    // the map (the confirmation — the destination can still be changed there). When no place was found, the
+    // assistant opens with the person's words.
+    val aiBooking = RidesLink.prefill
+    LaunchedEffect(aiBooking, state.features) {
+        val action = aiBooking ?: return@LaunchedEffect
+        if (state.features == null || state.ride != null) return@LaunchedEffect
+        RidesLink.prefill = null
+        state.servicePicked = true
+        state.resetBooking()
+        val place = action.destination
+        if (place != null) {
+            state.applyAiBooking(action.understood)
+            // The pickup first: where the rider is now (the map may not have placed it yet).
+            if (state.pickup == null && hasLocation && locationOk) {
+                currentLocation(context)?.let { here ->
+                    state.me = here
+                    state.pickup = RidePoint(here.latitude, here.longitude, addressOf(context, here) ?: String.format("%.5f, %.5f", here.latitude, here.longitude))
+                }
+            }
+            state.editing = "destination"
+            state.set(RidePoint(place.lat, place.lng, place.address.ifBlank { place.name.orEmpty() }, place.name))
+            if (state.pickup != null) {
+                loadQuotes(state)
+            } else {
+                // No position (location off): the rider sets the pickup, the destination stays filled in.
+                state.editing = "pickup"
+                state.step = RideStep.Search
+            }
+        } else if (state.feature("ai_booking")) {
+            state.smartText = action.text
+            state.smartOpen = true
+        } else {
+            state.step = RideStep.Search
         }
     }
     val linked = RidesLink.pending
@@ -654,6 +692,17 @@ internal fun AccentButton(
 /** A ride to open when the rides screen shows — set by a tapped ride notification (O-41). */
 object RidesLink {
     var pending by androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    /** DORR AI's chat: "Book with DORR" — the trip it understood, to fill the booking in when rides opens. */
+    var prefill by androidx.compose.runtime.mutableStateOf<com.dorr.app.network.AiServiceActionDto?>(null)
+
+    /** Set with [prefill]: the app opens the rides screen (over DORR AI, which is there again on back). */
+    var openRequested by androidx.compose.runtime.mutableStateOf(false)
+
+    fun book(action: com.dorr.app.network.AiServiceActionDto) {
+        prefill = action
+        openRequested = true
+    }
 
     fun show(uuid: String) {
         pending = uuid

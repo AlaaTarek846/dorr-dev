@@ -84,6 +84,9 @@ class RidesServiceProvider extends ModuleServiceProvider
         // O-59: a free captain's car moves on the riders' maps around him.
         Event::listen(DriverLocationUpdated::class, \Modules\Rides\Listeners\BroadcastAreaDriver::class);
 
+        // DORR AI's chat offers DORR rides when the person wants to go somewhere (the card fills the booking in).
+        $this->app->booted(fn () => $this->app->make(\Modules\AI\Services\AiServiceActions::class)
+            ->register(\Modules\Rides\Services\Ai\RideBookingSuggestion::class));
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);
         // D-216..D-224, D-299: the captain's payout rules on the wallet's withdrawals.

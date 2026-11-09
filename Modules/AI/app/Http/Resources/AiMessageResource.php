@@ -45,6 +45,8 @@ class AiMessageResource extends JsonResource
             // invented page/sheet/slide/timestamp values, and never the
             // internal chunk_id/embedding ids (doc S37).
             'citations' => AiFileCitationResource::collection($this->whenLoaded('fileCitations')),
+            // DORR services offered with this answer (AiServiceActions) — e.g. a ride with the details filled in.
+            'actions' => $this->actions ?? [],
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

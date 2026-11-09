@@ -526,6 +526,8 @@ return [
         'unable_sent' => 'بلّغنا الراكب.',
     ],
     'ai' => [
+        'card_book_title' => 'احجز مشوارك مع دُرر',
+        'card_book_sub' => 'حدد وجهتك على الخريطة — والباقي جاهز',
         'saved_home' => 'البيت',
         'saved_work' => 'الشغل',
         'saved_favorite' => 'مكان محفوظ',

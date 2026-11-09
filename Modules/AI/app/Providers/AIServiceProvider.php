@@ -89,6 +89,8 @@ class AIServiceProvider extends ModuleServiceProvider
         parent::register();
 
         $this->app->bind(AiTokenCounterInterface::class, AiHeuristicTokenCounter::class);
+        // DORR services offered inside DORR AI's answers (rides…): one registry, filled by each module.
+        $this->app->singleton(\Modules\AI\Services\AiServiceActions::class);
         $this->app->bind(AiIndexStoreInterface::class, DatabaseIndexStore::class);
         // DORR AI WORLD: the maps provider is swappable by rebinding this interface.
         $this->app->bind(LocationProviderInterface::class, GooglePlacesProvider::class);

@@ -136,6 +136,14 @@ fun MainScreen(
         }
     }
 
+    // DORR AI's chat: "Book with DORR" opens rides over it, the trip filled in (back returns to the chat).
+    LaunchedEffect(com.dorr.app.ui.screens.rides.RidesLink.openRequested) {
+        if (com.dorr.app.ui.screens.rides.RidesLink.openRequested) {
+            com.dorr.app.ui.screens.rides.RidesLink.openRequested = false
+            ridesOpen = true
+        }
+    }
+
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
     LaunchedEffect(Unit) {
         com.dorr.app.chat.ChatPush.requestPermission()

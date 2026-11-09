@@ -831,6 +831,12 @@ class AiChatService
         // EvidencePlanner (spec 324): the evidence and accuracy rules for this request's topics.
         $domainGuidance = ($domainGuidance === null ? '' : $domainGuidance."\n\n").$this->evidencePlanner->guidance($outgoingContent);
 
+        // DORR's own services (AiServiceActions): e.g. "I want to go to the airport" → recommend DORR rides.
+        $serviceGuidance = app(AiServiceActions::class)->guidance($owner, $content);
+        if ($serviceGuidance !== null) {
+            $domainGuidance .= "\n\n".$serviceGuidance;
+        }
+
         // Memory only on an explicit request (spec 142): "افتكر إن…" / "remember that…" is saved
         // (when memory is on) and the answer confirms it — or says why it was not.
         $memoryNote = $this->rememberIfAsked($owner, $conversation, $content);
@@ -1018,10 +1024,16 @@ class AiChatService
         // one-time snapshot persisted straight onto the message (see the
         // ai_messages migration for why these duplicate ai_verifications
         // / ai_document_generations instead of being relations).
+        // The service cards under the answer (never when the answer failed or was held back).
+        $serviceActions = $result['success'] && $verification['status'] !== AiVerification::STATUS_ABSTAINED
+            ? app(AiServiceActions::class)->actions($owner, $content)
+            : [];
+
         $assistantMessage = $this->createSequencedMessage($conversation, [
             'role' => AiMessage::ROLE_ASSISTANT,
             'content' => $replyContent,
             'safety' => $safety,
+            'actions' => $serviceActions === [] ? null : $serviceActions,
             'provider_key' => $usedProvider->key,
             'model' => $usedModel,
             'tokens_used' => $outputTokens,
