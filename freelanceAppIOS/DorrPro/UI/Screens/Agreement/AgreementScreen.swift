@@ -32,9 +32,12 @@ struct AgreementScreen: View {
     let projectUuid: String
     let onBack: () -> Void
     let onDispute: (String, String?) -> Void
+    /// FS-150e: opens the project's Workroom (tasks, files, decisions, timeline).
+    var onWorkroom: () -> Void = {}
 
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
+    @ObservedObject private var hub = HomeHub.shared
     @State private var agreement: AgreementDto?
     @State private var error: String?
     @State private var busy = false
@@ -47,6 +50,8 @@ struct AgreementScreen: View {
     // FL-607: why I step back (a picked reason and a few words).
     @State private var withdrawCode: String?
     @State private var withdrawNote = ""
+    // FS-209b: the part whose people an Owner or a PM is changing.
+    @State private var assigning: MilestoneDto?
     @State private var tab = 0
 
     private var offline: String { L("login_error_offline") }
@@ -84,6 +89,21 @@ struct AgreementScreen: View {
             if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
             ActionButton(L("ag_decline"), "xmark.circle.fill", .danger, enabled: !busy, loading: busy) { act(false) }
         }
+        .cmSheet(isPresented: agreementPresence($assigning)) { assigneesSheet }
+    }
+
+    /// FS-209b: an Owner's or a PM's sheet to put people of the team on the part (shown with `.cmSheet`, which closes itself).
+    @ViewBuilder
+    private var assigneesSheet: some View {
+        if let m = assigning, let team = agreement?.teamAccess?.team?.uuid {
+            AssigneesSheet(
+                projectUuid: projectUuid, milestoneUuid: m.uuid ?? "", milestoneTitle: m.title ?? "", teamUuid: team, current: m.assignees ?? [],
+                onSaved: {
+                    assigning = nil
+                    Task { await load() }
+                }
+            )
+        }
     }
 
     @ViewBuilder private func content(_ a: AgreementDto) -> some View {
@@ -94,6 +114,8 @@ struct AgreementScreen: View {
         let cur = a.currency ?? ""
         let money = a.money
 
+        // FS-209b: a team's project - whose team, my place in it, and why parts of the page may be missing.
+        if let access = a.teamAccess { TeamAccessBanner(access: access) }
         // What it is and where it stands - with the answer buttons while it waits for me.
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
@@ -109,8 +131,8 @@ struct AgreementScreen: View {
                 Spacer(minLength: 0)
             }
             HStack(spacing: 8) {
-                AgreementStat(value: "\u{200E}" + formatMinor(money?.priceMinor ?? 0, nil) + " " + cur, label: L("ag_price"))
-                AgreementStat(value: "\u{200E}" + formatMinor(money?.netMinor ?? 0, nil) + " " + cur, label: L("ag_net"))
+                if a.showMoney { AgreementStat(value: "\u{200E}" + formatMinor(money?.priceMinor ?? 0, nil) + " " + cur, label: L("ag_price")) }
+                if a.showNet { AgreementStat(value: "\u{200E}" + formatMinor(money?.netMinor ?? 0, nil) + " " + cur, label: L("ag_net")) }
                 AgreementStat(value: L("projects_days", a.durationDays ?? 0), label: L("ag_days"))
             }
             if !live.isEmpty && a.status != "pending_approval" {
@@ -143,6 +165,11 @@ struct AgreementScreen: View {
         // FS-106: how the running project is doing (it reloads with the agreement, on the health notices too).
         if a.status == "active", let health = a.health { ProjectHealthCard(h: health) }
 
+        // FS-150e: the project's Workroom (tasks, files, decisions, timeline) — while it runs, and to read once it is over.
+        if (a.status == "active" || a.status == "completed") && hub.home?.on("workroom") == true {
+            WorkroomEntryCard(readOnly: a.status == "completed", onClick: onWorkroom)
+        }
+
         AgreementTabs(tabs: [
             AgreementTab(icon: "doc.text.fill", label: L("ag_tab_overview")),
             AgreementTab(icon: "checklist", label: L("ag_tab_parts"), badge: milestones.count),
@@ -153,7 +180,7 @@ struct AgreementScreen: View {
         switch tab {
         case 0:
             AgreementSection(title: L("ag_terms")) {
-                AgreementLine(label: L("ag_commission"), value: "\u{200E}\(formatMinor(money?.commissionMinor ?? 0, nil)) \(cur)")
+                if a.showNet { AgreementLine(label: L("ag_commission"), value: "\u{200E}\(formatMinor(money?.commissionMinor ?? 0, nil)) \(cur)") }
                 if let d = a.terms?.reviewDays { AgreementLine(label: L("ag_review_days"), value: L("projects_days", d)) }
                 if let r = a.terms?.freeRevisions { AgreementLine(label: L("ag_free_revisions"), value: String(r)) }
             }
@@ -177,6 +204,9 @@ struct AgreementScreen: View {
                 let uuid = m.uuid ?? ""
                 MilestoneCard(
                     m: m, currency: cur, active: a.status == "active", busy: busy, projectUuid: projectUuid,
+                    showMoney: a.showMoney, showNet: a.showNet, teamParts: a.team != nil,
+                    canAssign: a.status == "active" && a.teamAccess?.can("assign") == true,
+                    onAssign: { assigning = m },
                     onAction: { milestone(uuid, $0) },
                     onDeliver: { deliverFor = uuid },
                     onWithdraw: { withdrawCode = nil; withdrawNote = ""; withdrawFor = uuid },
@@ -202,10 +232,12 @@ struct AgreementScreen: View {
                 )
             }
             // FL-511 / FL-406: my receipts of this project and its record of approvals.
-            ProjectReceiptsCard(projectUuid: projectUuid, refreshKey: recordsKey)
+            // FS-209b: the receipts, the rating and the survey are the signing Owner's, not a team member's.
+            let signs = a.teamAccess?.signer != false
+            if signs { ProjectReceiptsCard(projectUuid: projectUuid, refreshKey: recordsKey) }
             ApprovalTrailCard(projectUuid: projectUuid, refreshKey: recordsKey)
             // FL-701: rating the client once it is completed.
-            if let rv = a.review {
+            if signs, let rv = a.review {
                 ReviewClientCard(
                     review: rv, busy: busy,
                     onObject: { body in run { await AgreementsApi.objectToReview(projectUuid, body).error(L("login_error_offline")) } },
@@ -213,7 +245,7 @@ struct AgreementScreen: View {
                 )
             }
             // FL-702: how satisfied, once it is over.
-            if a.status == "completed" || a.status == "cancelled" { ProjectSurveyCard(projectUuid: projectUuid, refreshKey: recordsKey) }
+            if signs && (a.status == "completed" || a.status == "cancelled") { ProjectSurveyCard(projectUuid: projectUuid, refreshKey: recordsKey) }
         }
     }
 
@@ -295,10 +327,23 @@ private struct MilestoneCard: View {
     let active: Bool
     let busy: Bool
     let projectUuid: String
+    // FS-209b: a team member without `money` sees no amounts, only an Owner sees the net; a team's part shows who is on it.
+    let showMoney: Bool
+    let showNet: Bool
+    let teamParts: Bool
+    let canAssign: Bool
+    let onAssign: () -> Void
     let onAction: (String) -> Void
     let onDeliver: () -> Void
     let onWithdraw: () -> Void
     let onDispute: (String?) -> Void
+
+    /// The part's amount, with what it leaves me when the net may be shown.
+    private var moneyLine: String {
+        var line = "\u{200E}\(formatMinor(m.amountMinor ?? 0, nil)) \(currency)"
+        if showNet { line += "  ·  " + L("ag_part_net", "\u{200E}\(formatMinor(m.netMinor ?? 0, nil)) \(currency)") }
+        return line
+    }
 
     var body: some View {
         let tint = milestoneColor(m.status)
@@ -311,8 +356,7 @@ private struct MilestoneCard: View {
                     .background(tint.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: m.title ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(2)
-                    Text(verbatim: "\u{200E}\(formatMinor(m.amountMinor ?? 0, nil)) \(currency)  ·  " + L("ag_part_net", "\u{200E}\(formatMinor(m.netMinor ?? 0, nil)) \(currency)"))
-                        .font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+                    if showMoney { Text(verbatim: moneyLine).font(.dorr(11.5)).foregroundStyle(wa.settingsMut) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if active {
@@ -333,6 +377,8 @@ private struct MilestoneCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(amber.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            // FS-209b: who of the team is on this part (the team's own - the client never sees it).
+            if teamParts && m.status != "cancelled" { AssigneesRow(people: m.assignees ?? [], canAssign: canAssign, onAssign: onAssign) }
             ChecklistView(m: m)
             DeliveriesBlock(projectUuid: projectUuid, m: m)
             if m.cancelRequestedBy == "client" { Text(L("ag_ms_cancel_asked")).font(.dorr(12, .semibold)).foregroundStyle(amber) }

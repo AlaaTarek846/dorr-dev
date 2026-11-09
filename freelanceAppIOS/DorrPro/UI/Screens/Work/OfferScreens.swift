@@ -156,11 +156,44 @@ struct OfferFormScreen: View {
     // FL-L13: who owns the work once it is paid (nil options: the feature is off in my country).
     @State private var rights = RightsForm()
     @StateObject private var rightsOptions = RightsOptionsState()
+    // FS-209b: the offer may go in a team's name (a team I am Owner or PM of): the team and the Owner who signs (FS-213: not who works on it).
+    @ObservedObject private var hub = HomeHub.shared
+    @ObservedObject private var session = Session.shared
+    @State private var myTeams: [TeamSummaryDto] = []
+    @State private var teamUuid: String?
+    @State private var signer: String?
+    @State private var teamMembers: [TeamMemberDto]?
+
+    private var teamsOn: Bool { hub.home?.on("teams") == true }
+
+    /// A PM sends in the team's name only once he has said which Owner signs: nothing to ask the server before that.
+    private var pmNeedsSigner: Bool {
+        teamUuid != nil && signer == nil && myTeams.first(where: { $0.uuid == teamUuid })?.role == "pm"
+    }
+
+    private func loadMyTeams() async {
+        guard teamsOn else {
+            myTeams = []
+            return
+        }
+        if let all = await TeamsApi.mine().value?.teams {
+            myTeams = all.filter { $0.status == "active" && ($0.role == "owner" || $0.role == "pm") }
+        }
+    }
+
+    private func teamPicker(_ p: OfferPreviewDto, compact: Bool) -> some View {
+        TeamOfferPicker(
+            teams: myTeams, teamUuid: teamUuid, onTeam: { teamUuid = $0 }, quota: p.teamQuota, members: teamMembers,
+            signer: signer, onSigner: { signer = $0 }, myUuid: session.me?.uuid, compact: compact
+        )
+    }
 
     var body: some View {
         Page(title: L("offer_title"), onBack: onBack) {
             if let p = preview {
                 if let blocked = p.blocked {
+                    // FS-209b: the team's checks are different from mine, so the way back to Me stays in reach even when the offer is blocked.
+                    if !myTeams.isEmpty { teamPicker(p, compact: true) }
                     blockedView(blocked, p)
                 } else {
                     form(p)
@@ -171,11 +204,30 @@ struct OfferFormScreen: View {
         }
         .messageToast(error)
         .messageToast(templateNotice)
+        .task(id: "\(teamsOn)|\(network.reconnectTick)") { await loadMyTeams() }
+        .task(id: teamUuid ?? "") {
+            signer = nil
+            teamMembers = nil
+            guard let chosen = teamUuid else { return }
+            if let list = await TeamsApi.members(chosen).value?.members { teamMembers = list }
+        }
+        .task(id: "\(projectUuid)|\(network.reconnectTick)|\(teamUuid ?? "")|\(signer ?? "")") {
+            if pmNeedsSigner { return }
+            let result = await OffersApi.preview(projectUuid, team: teamUuid, signer: signer)
+            if Task.isCancelled { return }
+            if let data = result.value {
+                preview = data
+                error = nil
+            } else {
+                error = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
+            }
+        }
         .task(id: "\(projectUuid)|\(network.reconnectTick)") {
-            let result = await OffersApi.preview(projectUuid)
-            if let data = result.value { preview = data } else { error = result.errorText(L("login_error_offline")) ?? L("login_error_generic") }
             if let list = await OffersApi.templates().value { templates = list }
-            if let q = await ProjectsApi.show(projectUuid).value?.questions {
+            let shown = await ProjectsApi.show(projectUuid).value
+            // FS-213: the client invited my team: the offer starts in its name (I can still change it).
+            if let invited = shown?.invitation?.team?.uuid, teamUuid == nil { teamUuid = invited }
+            if let q = shown?.questions {
                 questions = q
                 while answers.count < q.count { answers.append("") }
             }
@@ -189,11 +241,12 @@ struct OfferFormScreen: View {
             if let data = await OffersApi.check(projectUuid, body).value { checks = data.checks ?? [] }
         }
         // What the price leaves me, asked once the typing stops.
-        .task(id: price) {
+        .task(id: "\(price)|\(teamUuid ?? "")|\(signer ?? "")") {
             guard let minor = parseMinor(price) else { breakdown = nil; return }
+            if pmNeedsSigner { return }
             try? await Task.sleep(nanoseconds: 400_000_000)
             if Task.isCancelled { return }
-            if let b = await OffersApi.preview(projectUuid, priceMinor: minor).value?.breakdown { breakdown = b }
+            if let b = await OffersApi.preview(projectUuid, priceMinor: minor, team: teamUuid, signer: signer).value?.breakdown { breakdown = b }
         }
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result, files.count < MAX_OFFER_FILES, let f = readFile(url) { files.append(f) }
@@ -232,7 +285,7 @@ struct OfferFormScreen: View {
             Spacer().frame(height: 24)
             if verify {
                 SettingsPrimaryButton(text: L("offer_go_profile"), action: onOpenProfile)
-            } else if code == "offer_quota_exhausted" && p.quota?.packs == true {
+            } else if code == "offer_quota_exhausted" && p.quota?.packs == true && teamUuid == nil {
                 SettingsPrimaryButton(text: L("offer_buy_more"), action: onOpenPlans)
             } else {
                 SettingsPrimaryButton(text: L("common_back"), action: onBack)
@@ -257,7 +310,9 @@ struct OfferFormScreen: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        let quota = p.quota
+        // FS-209b: the picker (and, for a team, its quota); the monthly quota below is mine alone.
+        if !myTeams.isEmpty { teamPicker(p, compact: false) }
+        let quota = teamUuid == nil ? p.quota : nil
         if let credits = quota?.credits, credits > 0 { OfferPill(text: L("offer_quota_extra", credits)) }
         if quota?.enabled == true && quota?.limit == nil { OfferPill(text: L("offer_quota_unlimited")) }
         if let left = quota?.left { OfferPill(text: L("offer_quota_left", left, quota?.limit ?? left)) }
@@ -336,7 +391,7 @@ struct OfferFormScreen: View {
         SettingsPrimaryButton(
             text: L("offer_send"),
             enabled: parseMinor(price) != nil && (Int(duration) ?? 0) > 0 && detailsLength >= DETAILS_MIN
-                && !checks.contains { $0.level == "error" } && answers.prefix(questions.count).allSatisfy { trimmed($0).count >= 2 },
+                && !checks.contains { $0.level == "error" } && answers.prefix(questions.count).allSatisfy { trimmed($0).count >= 2 } && !pmNeedsSigner,
             loading: busy,
             action: send
         )
@@ -396,6 +451,7 @@ struct OfferFormScreen: View {
         var fields: [String: String] = ["price_minor": String(minor), "duration_days": duration, "details": trimmed(details)]
         for (i, a) in answers.enumerated() { fields["answers[\(i)]"] = trimmed(a) }
         if rightsOptions.value != nil { fields.merge(rights.toFields()) { _, new in new } }
+        fields.merge(teamOfferFields(teamUuid, signer)) { _, new in new }
         let parts = files.map { FilePart(field: "files[]", filename: $0.name, mimeType: $0.type, data: $0.bytes) }
         Task {
             let result = await OffersApi.send(projectUuid, fields: fields, files: parts)
@@ -543,6 +599,7 @@ struct EditOfferScreen: View {
                     Text(L("offer_details_count", detailsLength, DETAILS_MIN)).font(.dorr(11)).foregroundStyle(detailsLength < DETAILS_MIN ? wa.settingsMut : green)
                 }
                 if let options = rightsOptions.value { RightsEditor(form: rights, options: options) { rights = $0 } }
+                if let team = current.team { TeamOfferInfo(team: team, submittedBy: current.submittedBy, showPeople: false) }
                 Text(L("offer_edit_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
                 SettingsPrimaryButton(
                     text: L("offer_save_changes"),
@@ -612,6 +669,9 @@ struct OfferListCard: View {
                     FactLine(icon: "banknote.fill", text: "\u{200E}\(formatMinor(offer.priceMinor ?? 0, nil)) \(offer.currency ?? "")", strong: true)
                     FactLine(icon: "clock", text: L("projects_days", offer.durationDays ?? 0))
                     if let ago = publishedAgo(offer.createdAt) { FactLine(icon: "clock.arrow.circlepath", text: ago) }
+                }
+                if let team = offer.team {
+                    Text(verbatim: L("tw_offer_team_badge", team.name ?? "")).font(.dorr(12, .bold)).foregroundStyle(wa.red)
                 }
                 if (offer.loyaltyBp ?? 0) > 0 {
                     Text(L("offer_card_loyalty", loyPercent(offer.loyaltyBp ?? 0))).font(.dorr(11.5, .bold)).foregroundStyle(Tints.green)
@@ -751,6 +811,9 @@ struct OfferDetailScreen: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .settingsSurface(20)
+
+        // FS-209b: in a team's name - the team, who sent it, and the people on it.
+        if let team = o.team { TeamOfferInfo(team: team, submittedBy: o.submittedBy) }
 
         if let reason = o.statusReason, !blank(reason) {
             Text(L("offer_reject_reason", reason)).font(.dorr(13)).foregroundStyle(red).lineSpacing(4)

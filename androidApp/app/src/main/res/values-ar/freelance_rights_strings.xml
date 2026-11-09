@@ -9,7 +9,7 @@
     <string name="rights_state_pending">لسه ما انتقلتش</string>
     <string name="rights_state_partial">انتقلت جزئيًا</string>
     <string name="rights_state_granted">انتقلت بالكامل</string>
-    <string name="rights_parts_n">%1$d من %2$d أجزاء انتقلت حقوقها ليك</string>
+    <string name="rights_parts_n">%1$d من %2$d أجزاء انتقلت حقوقها لصاحب المشروع</string>
     <string name="rights_preview_only">لحد ما الجزء يتعتمد ويتدفع تقدر تعاينه وتراجعه بس. حقوقه بتنتقل ليك لما تعتمده ويتدفع.</string>
     <string name="rights_terms_show">اقرا النص كامل</string>
     <string name="rights_terms_hide">إخفاء النص</string>
@@ -22,7 +22,7 @@
     <string name="rights_report">أبلّغ عن العمل ده</string>
     <string name="rights_report_title">الإبلاغ عن عمل</string>
     <string name="rights_report_body">استخدم ده بس لو العمل مش بتاع المحترف، زي إنه بتاعك أو بتاع حد تاني. بنراجع كل بلاغ.</string>
-    <string name="rights_report_hint">إيه اللي حصل؟ قول ليه مش بتاعه (١٠ حروف على الأقل)</string>
+    <string name="rights_report_hint">إيه اللي حصل؟ قول ليه مش بتاعه (10 حروف على الأقل)</string>
     <string name="rights_report_send">إرسال البلاغ</string>
     <string name="fl_dr_rights">حقوق الشغل (مش بتاعه أو ما اتسلمتليش حقوقه)</string>
     <string name="rights_preview_locked">للمعاينة فقط لحد ما الجزء يتعتمد ويتدفع</string>

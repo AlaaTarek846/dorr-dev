@@ -130,6 +130,16 @@ struct AgreementDto: Decodable, Equatable {
     var rights: AgreementRightsDto?
     /// FS-106: how the running project is doing (nil: it is not running). Informational only.
     var health: ProjectHealthDto?
+    /// FS-209b: the team it is in the name of and who works on it (nil: mine alone).
+    var team: OfferTeamDto?
+    /// FS-209b: my place on it when I reach it as somebody of the team (nil: I signed it, or it is not a team's).
+    var teamAccess: TeamAccessDto?
+
+    /// The amounts are shown unless I reach it as a team member without `money` (the server leaves them blank then).
+    var showMoney: Bool { teamAccess?.can("money") != false }
+
+    /// The commission and the net are an Owner's.
+    var showNet: Bool { showMoney && teamAccess?.can("net") != false }
 }
 
 /// FS-106: `state` = healthy · at_risk · delayed · blocked; `nextStep` is the first thing I can do, else what I wait for.
@@ -204,6 +214,8 @@ struct MilestoneDto: Decodable, Equatable, Identifiable {
     var deliveriesCount: Int?
     var checklist: [ChecklistItemDto]?
     var can: MilestoneCanDto?
+    /// FS-209b: who of the team is on this part (only on a team's agreement).
+    var assignees: [TeamPersonRefDto]?
 }
 
 struct ChecklistItemDto: Decodable, Equatable, Identifiable {
@@ -527,6 +539,13 @@ struct TrailStepDto: Decodable, Equatable, Identifiable {
     var actor: String?
     var mine: Bool?
     var at: String?
+    /// FS-104: a person of the client's team took this step for the client (his name only).
+    var by: TrailByDto?
+}
+
+struct TrailByDto: Decodable, Equatable {
+    var name: String?
+    var team: Bool?
 }
 
 struct MyProjectRef: Decodable, Equatable {

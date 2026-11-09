@@ -109,6 +109,7 @@ object ApiClient {
     val lists: ListsApi by lazy { retrofit.create(ListsApi::class.java) }
     val verification: VerificationApi by lazy { retrofit.create(VerificationApi::class.java) }
     val portfolio: PortfolioApi by lazy { retrofit.create(PortfolioApi::class.java) }
+    val teamPortfolio: TeamPortfolioApi by lazy { retrofit.create(TeamPortfolioApi::class.java) }
     val notifications: NotificationsApi by lazy { retrofit.create(NotificationsApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val account: AccountApi by lazy { retrofit.create(AccountApi::class.java) }
@@ -127,6 +128,9 @@ object ApiClient {
     val rights: RightsApi by lazy { retrofit.create(RightsApi::class.java) }
     val community: CommunityApi by lazy { retrofit.create(CommunityApi::class.java) }
     val home: HomeApi by lazy { retrofit.create(HomeApi::class.java) }
+    val teams: TeamsApi by lazy { retrofit.create(TeamsApi::class.java) }
+    val teamPlan: TeamPlanApi by lazy { retrofit.create(TeamPlanApi::class.java) }
+    val workroom: WorkroomApi by lazy { retrofit.create(WorkroomApi::class.java) }
 
     /** The API's own origin — the live connection's channel authorization (`/broadcasting/auth`) lives next to `/api`. */
     val origin: String = BASE_URL.removeSuffix("api/").removeSuffix("/")

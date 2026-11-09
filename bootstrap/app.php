@@ -35,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'country' => ResolveCountryContext::class,
             'ensure-phone-verified' => EnsurePhoneVerified::class,
             'freelance.feature' => EnsureFreelanceFeature::class,
+            'freelance.project-access' => \Modules\Freelance\Http\Middleware\ProjectTeamAccess::class,
+            // FS-206a: somebody of a freelancers' team on the team's project (runs as the Owner who signed).
+            'freelance.team-project-access' => \Modules\Freelance\Http\Middleware\FreelancerProjectTeamAccess::class,
             'freelance.verified' => EnsureFreelancerVerified::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

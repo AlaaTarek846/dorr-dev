@@ -60,7 +60,8 @@ fun AlertDialog(
 ) {
     val night = settingsNight()
     val shape = RoundedCornerShape(20.dp)
-    LocaleAwareDialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // decorFitsSystemWindows = false is what lets imePadding() see the keyboard: before it, the keyboard covered the dialog's buttons.
         Box(
             modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).clickable(onClick = onDismissRequest).imePadding(),
             contentAlignment = Alignment.Center,

@@ -218,6 +218,7 @@ private func promoAction(_ p: PromoDto, _ actions: MainActions, openUrl: @escapi
         case "wallet": return actions.openWallet
         case "availability": return actions.openAvailability
         case "capacity": return actions.openCapacity
+        case "teams": return actions.openTeams
         default: return nil
         }
     default:
@@ -534,6 +535,7 @@ private struct ToolsGrid: View {
         if h.on("subscriptions") { tools.append(Tool(icon: "rosette", label: "plans_title", tint: Tints.amber, onClick: actions.openPlans)) }
         tools.append(Tool(icon: "calendar.badge.checkmark", label: "availability_title", tint: Tints.green, onClick: actions.openAvailability))
         if h.on("skill_tests") { tools.append(Tool(icon: "questionmark.square.fill", label: "skt_home_card", tint: Tints.blue, onClick: actions.openSkillTests)) }
+        if h.on("teams") { tools.append(Tool(icon: "person.3.fill", label: "team_home_card", tint: Tints.violet, onClick: actions.openTeams)) }
         let rows = stride(from: 0, to: tools.count, by: 4).map { Array(tools[$0..<min($0 + 4, tools.count)]) }
         return Group {
             if !tools.isEmpty {

@@ -205,6 +205,7 @@
     <string name="trail_hide">اخفي</string>
     <string name="trail_by_you">بواسطتك</string>
     <string name="trail_by_client">بواسطة العميل</string>
+    <string name="trail_by_client_team">بواسطة %1$s (من فريق العميل)</string>
     <string name="trail_by_freelancer">بواسطة المحترف</string>
     <string name="trail_by_admin">بواسطة فريق دور</string>
     <string name="trail_by_system">تلقائي</string>

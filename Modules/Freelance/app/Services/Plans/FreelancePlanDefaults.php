@@ -4,6 +4,7 @@ namespace Modules\Freelance\Services\Plans;
 
 use App\Models\Country;
 use App\Models\Currency;
+use Illuminate\Support\Facades\Schema;
 use Modules\Freelance\Models\FreelancePlan;
 use Modules\Freelance\Models\FreelancePlanPrice;
 
@@ -20,13 +21,23 @@ class FreelancePlanDefaults
         $plans = 0;
         $prices = 0;
 
+        // FS-211: the team columns arrive with their own migration, which is after the one that first calls this on an old database.
+        $teamReady = Schema::hasColumn('freelance_plans', 'audience');
+
         foreach ((array) config('freelance.plans') as $slug => $def) {
+            if (! $teamReady && ($def['audience'] ?? FreelancePlan::FREELANCER) === FreelancePlan::TEAM) {
+                continue;
+            }
             $plan = FreelancePlan::query()->firstOrCreate(['slug' => $slug], [
                 'rank' => $def['rank'], 'name' => $def['name'], 'description' => $def['description'] ?? null,
                 'offers_monthly' => $def['offers_monthly'] ?? null, 'offers_unlimited' => $def['offers_unlimited'] ?? false,
-                'commission_bp' => $def['commission_bp'] ?? null, 'trial_days' => $def['trial_days'] ?? 0, 'status' => true,
+                'commission_bp' => $def['commission_bp'] ?? null, 'trial_days' => $def['trial_days'] ?? 0, 'status' => $def['status'] ?? true,
                 'badge' => $def['badge'] ?? false, 'boost' => $def['boost'] ?? 0, 'analytics' => $def['analytics'] ?? 0, 'services_max' => $def['services_max'] ?? null,
-            ]);
+            ] + (! $teamReady ? [] : [
+                // FS-211: who the plan is sold to, and a team plan's room (null = no cap).
+                'audience' => $def['audience'] ?? FreelancePlan::FREELANCER,
+                'team_members_max' => $def['team_members_max'] ?? null, 'team_projects_max' => $def['team_projects_max'] ?? null,
+            ]));
             $plans += $plan->wasRecentlyCreated ? 1 : 0;
 
             if (! isset($def['usd'])) {

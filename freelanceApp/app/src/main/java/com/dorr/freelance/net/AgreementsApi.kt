@@ -140,7 +140,17 @@ data class AgreementDto(
     val rights: AgreementRightsDto? = null,
     /** FS-106: how the running project is doing (null: it is not running). Informational only. */
     val health: ProjectHealthDto? = null,
-)
+    /** FS-209b: the team it is in the name of and who works on it (null: mine alone). */
+    val team: OfferTeamDto? = null,
+    /** FS-209b: my place on it when I reach it as somebody of the team (null: I signed it, or it is not a team's). */
+    @SerializedName("team_access") val teamAccess: TeamAccessDto? = null,
+) {
+    /** The amounts are shown unless I reach it as a team member without `money` (the server leaves them blank then). */
+    val showMoney: Boolean get() = teamAccess?.can("money") != false
+
+    /** The commission and the net are an Owner's. */
+    val showNet: Boolean get() = showMoney && teamAccess?.can("net") != false
+}
 
 /** FS-106: `state` = healthy · at_risk · delayed · blocked; [nextStep] is the first thing I can do, else what I wait for. */
 data class ProjectHealthDto(
@@ -188,6 +198,8 @@ data class MilestoneDto(
     @SerializedName("deliveries_count") val deliveriesCount: Int = 0,
     val checklist: List<ChecklistItemDto> = emptyList(),
     val can: MilestoneCanDto = MilestoneCanDto(),
+    /** FS-209b: who of the team is on this part (only on a team's agreement). */
+    val assignees: List<TeamPersonRefDto> = emptyList(),
 )
 
 data class ChecklistItemDto(val uuid: String = "", val text: String = "", val checked: Boolean = false)
@@ -413,7 +425,10 @@ data class ReceiptDto(
 data class RefDto(val uuid: String? = null, val title: String? = null)
 
 /** FL-406: one step of the record of approvals. */
-data class TrailStepDto(val id: Long = 0, val action: String = "", val label: String = "", val actor: String = "", val mine: Boolean = false, val at: String? = null)
+/** [by]: FS-104 - a person of the client's team took this step for the client (his name only). */
+data class TrailStepDto(val id: Long = 0, val action: String = "", val label: String = "", val actor: String = "", val mine: Boolean = false, val at: String? = null, val by: TrailByDto? = null)
+
+data class TrailByDto(val name: String = "", val team: Boolean = true)
 
 data class MyProjectRef(val uuid: String? = null, val title: String? = null)
 

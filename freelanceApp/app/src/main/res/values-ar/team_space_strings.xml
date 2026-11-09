@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-209c: مساحة الفريق — الشات الداخلي ومعرض الأعمال والتوثيق -->
+
+    <!-- الشات الداخلي -->
+    <string name="tc_tab_chat">الشات</string>
+    <string name="tc_title">شات الفريق</string>
+    <string name="tc_general">العام</string>
+    <string name="tc_private_hint">الشات ده للفريق بس — العملاء عمرهم ما بيشوفوه.</string>
+    <string name="tc_read_only">الفريق مش نشط، فتقدر تقرا الشات بس مش تكتب فيه.</string>
+    <string name="tc_open_project">افتح شات مشروع</string>
+    <string name="tc_open_project_title">افتح شات مشروع</string>
+    <string name="tc_open_project_hint">اختار مشروع الفريق شغال عليه عشان تتكلموا عنه في محادثة لوحده.</string>
+    <string name="tc_open_project_none">كل مشاريع الفريق ليها محادثة بالفعل.</string>
+    <string name="tc_empty_title">مفيش محادثات لسه</string>
+    <string name="tc_empty_body">محادثة الفريق العامة ومحادثة لكل مشروع بتظهر هنا.</string>
+    <string name="tc_no_messages">مفيش رسايل لسه</string>
+    <string name="tc_under_review">الإدارة ممكن تقرا</string>
+    <string name="tc_empty_thread">مفيش رسايل لسه. ابدأ الكلام مع الفريق.</string>
+    <string name="tc_hint">اكتب للفريق…</string>
+    <string name="tc_send">إرسال</string>
+    <string name="tc_closed">تقدر تقرا المحادثة دي بس مش تكتب فيها دلوقتي.</string>
+    <string name="tc_deleted">الرسالة اتمسحت</string>
+    <string name="tc_take_back">امسح الرسالة</string>
+
+    <!-- الأعمال -->
+    <string name="tpf_row_title">معرض أعمال الفريق</string>
+    <string name="tpf_row_owner">اعرض شغل الفريق المنتهي على العملاء</string>
+    <string name="tpf_row_member">أعمال الفريق</string>
+    <string name="tpf_title">معرض أعمال الفريق</string>
+    <string name="tpf_hint">أعمال الفريق. العملاء بيشوفوا اللي بتخليه عام جنب صفحة الفريق. لحد 30 عمل.</string>
+    <string name="tpf_hint_member">أعمال الفريق. الـ Owner بس هو اللي بيضيف أو يعدّل.</string>
+    <string name="tpf_empty">مفيش أعمال لسه.</string>
+    <string name="tpf_empty_body">ضيف شغل الفريق المنتهي: العملاء بيشوفوه جنب صفحة الفريق.</string>
+
+    <!-- التوثيق -->
+    <string name="tv_title">توثيق الفريق</string>
+    <string name="tv_intro">علامة التوثيق بتوري العملاء إن أوراق الفريق اتراجعت. ابعت أوراق تسجيل الفريق (سجل تجاري، بطاقة ضريبية…) والإدارة بتراجعها. الـ Owner بس هو اللي يبعتها. والتوثيق اختياري.</string>
+    <string name="tv_status_none">لسه مش موثّق</string>
+    <string name="tv_status_submitted">تحت المراجعة</string>
+    <string name="tv_status_rejected">ما اتقبلش</string>
+    <string name="tv_status_verified">الفريق موثّق</string>
+    <string name="tv_none_hint">ضيف أوراق الفريق وابعتها للمراجعة.</string>
+    <string name="tv_submitted_hint">الإدارة بتراجع الأوراق. هيجيلك إشعار لما يقرروا.</string>
+    <string name="tv_rejected_hint">صلّح الأوراق وابعتها تاني.</string>
+    <string name="tv_verified_at">اتوثّق في %1$s</string>
+    <string name="tv_reason">السبب: %1$s</string>
+    <string name="tv_docs_title">أوراق جاهزة للإرسال</string>
+    <string name="tv_docs_empty">لسه ما ضفتش أوراق.</string>
+    <string name="tv_add">ضيف ورقة</string>
+    <string name="tv_add_title">ضيف ورقة</string>
+    <string name="tv_doc_title_label">العنوان (مثلاً: السجل التجاري)</string>
+    <string name="tv_file_label">الملف</string>
+    <string name="tv_choose">اختار ملف</string>
+    <string name="tv_file_chosen">المختار: %1$s</string>
+    <string name="tv_file_hint">JPG أو PNG أو PDF، لحد 8 ميجا.</string>
+    <string name="tv_upload">ارفع</string>
+    <string name="tv_file_large">الملف أكبر من 8 ميجا.</string>
+    <string name="tv_file_type">بنقبل ملفات JPG أو PNG أو PDF بس.</string>
+    <string name="tv_limit">تقدر تضيف لحد 10 أوراق.</string>
+    <string name="tv_view">عرض</string>
+    <string name="tv_remove">شيل</string>
+    <string name="tv_submit">ابعت للمراجعة</string>
+    <string name="tv_submit_hint">ضيف ورقة واحدة على الأقل عشان تبعت.</string>
+    <string name="tv_submitted_ok">اتبعت. الإدارة هتراجعه.</string>
+    <string name="tv_locked">الأوراق عند الإدارة. مفيش حاجة تتغيّر لحد ما يقرروا.</string>
+    <string name="tv_last_title">آخر طلب</string>
+    <string name="tv_req_submitted">اتبعت في %1$s</string>
+    <string name="tv_req_decided">اتقرر في %1$s</string>
+</resources>

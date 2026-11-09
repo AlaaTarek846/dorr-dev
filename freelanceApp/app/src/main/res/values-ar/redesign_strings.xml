@@ -79,6 +79,7 @@
     <string name="projects_read_less">اعرض أقل</string>
     <string name="projects_questions_hint">بتجاوب عليهم مع عرضك.</string>
     <string name="inv_private">دعوة لمشروع خاص</string>
+    <string name="inv_team">دعوة لفريقك %1$s</string>
     <!-- Batch D: my work. -->
     <string name="offer_card_loyalty">خصم ولاء %s</string>
     <string name="offer_step_sent">اتبعت</string>

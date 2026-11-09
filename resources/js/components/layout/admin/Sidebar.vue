@@ -949,6 +949,7 @@ const freelanceItems = [
     { route: 'admin.freelance.risk', permission: 'freelance-risk.view', icon: 'ri-alarm-warning-line', label: 'freelance.risk.title' },
     { route: 'admin.freelance.audit', permission: 'freelance-audit.view', icon: 'ri-history-line', label: 'freelance.audit.title' },
     { route: 'admin.freelance.freelancers', permission: 'freelancers.view', icon: 'ri-user-star-line', label: 'freelance.freelancers.title' },
+    { route: 'admin.freelance.teams', permission: 'freelance-teams.view', icon: 'ri-group-line', label: 'freelance.teams.title' },
     { route: 'admin.freelance.projects', permission: 'freelance-projects.view', icon: 'ri-survey-line', label: 'freelance.projects.title' },
     { route: 'admin.freelance.disputes', permission: 'freelance-disputes.view', icon: 'ri-scales-3-line', label: 'freelance.disputes.title' },
     { route: 'admin.freelance.sanctions', permission: 'freelance-sanctions.view', icon: 'ri-shield-user-line', label: 'freelance.sanctions.title' },

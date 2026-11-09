@@ -451,7 +451,7 @@ class FreelanceDisputeTest extends TestCase
         $category = \App\Models\ServiceCategory::query()->where('module_name', 'freelance')->first();
         $this->assertNotNull($category);
         \App\Models\ServiceAvailability::query()->create(['service_category_id' => $category->id, 'country_id' => $this->saudi->id, 'service_enabled' => false]);
-        \Illuminate\Support\Facades\Cache::forget('freelance:service-closed');
+        \Modules\Freelance\Services\Features\FreelanceFeatures::forget(); // the switch was written straight to the table, not through the admin service
         $this->getJson('/api/admin/v1/freelance-oversight/countries')->assertOk()->assertJsonPath('data.0.service_open', false)->assertJsonPath('data.0.closed_by_availability', true);
     }
 }

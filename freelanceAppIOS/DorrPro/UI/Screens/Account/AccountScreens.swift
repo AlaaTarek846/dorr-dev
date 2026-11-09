@@ -491,6 +491,7 @@ struct AccountScreen: View {
                     MenuEntry(icon: "chart.line.uptrend.xyaxis", label: L("insights_home_card"), subtitle: L("me_insights_sub"), action: actions.openInsights),
                     MenuEntry(icon: "calendar.badge.checkmark", label: L("availability_title"), subtitle: L("availability_sub"), action: actions.openAvailability),
                     MenuEntry(icon: "speedometer", label: L("cap_home_card"), subtitle: L("me_capacity_sub"), action: actions.openCapacity),
+                    on("teams") ? MenuEntry(icon: "person.3.fill", label: L("team_home_card"), subtitle: L("team_me_sub"), action: actions.openTeams) : nil,
                 ].compactMap { $0 })
                 MeSection(title: L("me_section_app"), startIndex: 2, entries: [
                     MenuEntry(icon: "gearshape.fill", label: L("account_settings"), subtitle: L("account_settings_sub"), action: { go(settingsOpen: true) }),

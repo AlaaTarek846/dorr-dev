@@ -79,6 +79,7 @@
     <string name="projects_read_less">Show less</string>
     <string name="projects_questions_hint">You answer these with your offer.</string>
     <string name="inv_private">Invitation to a private project</string>
+    <string name="inv_team">Your team %1$s is invited</string>
     <!-- Batch D: my work. -->
     <string name="offer_card_loyalty">Loyalty discount %s</string>
     <string name="offer_step_sent">Sent</string>

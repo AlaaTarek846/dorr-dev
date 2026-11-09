@@ -27,7 +27,7 @@ class FreelanceFeatures
         'bidding', 'free_offer_quota',
         'milestones', 'chat',
         'wallet_payment', 'client_fee', 'commission',
-        'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations', 'special_offers', 'loyalty', 'rights', 'community',
+        'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations', 'special_offers', 'loyalty', 'rights', 'community', 'client_team', 'workroom', 'teams',
     ];
 
     /** The service first, then the features — what the admin switches page lists. */
@@ -83,8 +83,10 @@ class FreelanceFeatures
 
     public static function forget(): void
     {
-        Cache::forget(self::CACHE);
-        Cache::forget(self::CLOSED_CACHE);
+        foreach ([Cache::store(), Cache::memo()] as $store) {
+            $store->forget(self::CACHE);
+            $store->forget(self::CLOSED_CACHE);
+        }
     }
 
     /**
@@ -93,7 +95,7 @@ class FreelanceFeatures
      */
     public function closedByAvailability(int $countryId): bool
     {
-        return in_array($countryId, Cache::remember(self::CLOSED_CACHE, 300, fn () => ServiceAvailability::query()
+        return in_array($countryId, Cache::memo()->remember(self::CLOSED_CACHE, 300, fn () => ServiceAvailability::query()
             ->whereNull('region_id')->where('service_enabled', false)
             ->whereIn('service_category_id', ServiceCategory::query()->where('module_name', config('freelance.service_module_name', 'freelance'))->select('id'))
             ->pluck('country_id')->map(fn ($id) => (int) $id)->all()), true);
@@ -107,6 +109,6 @@ class FreelanceFeatures
     /** @return Collection<int, FreelanceFeatureRule> */
     private function rules(): Collection
     {
-        return Cache::remember(self::CACHE, 300, fn () => FreelanceFeatureRule::query()->get());
+        return Cache::memo()->remember(self::CACHE, 300, fn () => FreelanceFeatureRule::query()->get());
     }
 }

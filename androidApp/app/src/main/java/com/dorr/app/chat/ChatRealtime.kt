@@ -84,6 +84,14 @@ object ChatRealtime {
     val WATCH_EARN_AD_EVENTS = listOf("watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions")
     private val watchedAds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * A project's Workroom while it is open (`private-freelance-workroom.{project uuid}`, FS-150e): `freelance.workroom` arrives on [events]
+     * as `{kind: task|file|comment|decision, action, uuid, by}` plus the `project` it is about (added here). The count is how many open
+     * screens listen to that project, so the channel is left when the last one closes.
+     */
+    const val WORKROOM_EVENT = "freelance.workroom"
+    private val watchedWorkrooms = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
     private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
 
@@ -185,6 +193,7 @@ object ChatRealtime {
             watchedRides.forEach { subscribeRide(client, it) }
             watchedMoves.forEach { subscribeMove(client, it) }
             watchedAds.forEach { subscribeAd(client, it) }
+            watchedWorkrooms.keys.forEach { subscribeWorkroom(client, it) }
         }
     }
 
@@ -305,6 +314,37 @@ object ChatRealtime {
         runCatching { pusher?.unsubscribe("private-freelance-chat.$uuid") }
     }
 
+    /** Listen to a project's Workroom (its screens are open). Safe before the connection is up; call [unwatchWorkroom] when the screen leaves. */
+    fun watchWorkroom(project: String) {
+        val first = watchedWorkrooms.merge(project, 1) { old, one -> old + one } == 1
+        if (first) pusher?.let { subscribeWorkroom(it, project) }
+    }
+
+    fun unwatchWorkroom(project: String) {
+        val left = watchedWorkrooms.compute(project) { _, count -> if (count == null || count <= 1) null else count - 1 }
+        if (left == null) runCatching { pusher?.unsubscribe("private-freelance-workroom.$project") }
+    }
+
+    private fun subscribeWorkroom(client: Pusher, project: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-freelance-workroom.$project") != null) return
+            client.subscribePrivate("private-freelance-workroom.$project", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    // The payload names no project (the channel does): say it, so a screen can tell its own project's events.
+                    data.addProperty("project", project)
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Workroom channel auth failed: $message", e)
+                }
+            }, WORKROOM_EVENT)
+        }.onFailure { Log.w(TAG, "Workroom channel $project failed", it) }
+    }
+
     fun unwatchPublic(channel: String) {
         if (publicChannels.remove(channel) != null) runCatching { pusher?.unsubscribe(channel) }
     }
@@ -331,6 +371,7 @@ object ChatRealtime {
         watchedRides.clear()
         watchedMoves.clear()
         watchedAds.clear()
+        watchedWorkrooms.clear()
         userId = null
         starting = false
         _connected.value = false

@@ -20,6 +20,8 @@ struct FlHomeDto: Codable, Equatable {
     var promos: [FlPromoDto]?
     var stats: FlHomeStatsDto?
     var attention: FlHomeAttentionDto?
+    /// FS-104: the projects others brought me into, and their invitations waiting for me.
+    var team: FlHomeTeamDto?
     var nextConsultation: FlHomeConsultationDto?
     var projects: [FreelanceProjectDto]?
     var services: [MarketServiceCardDto]?

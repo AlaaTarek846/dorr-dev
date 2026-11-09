@@ -13,7 +13,7 @@ use Modules\User\Models\User;
 
 /**
  * The client's invitations to a private project (FL-205), at `mobile/v1/freelance/projects/{uuid}/…`:
- * GET invitations, POST invitations {freelancers: [uuid…]}, DELETE invitations/{uuid}, GET invitees[?q=&all=1], POST make-public.
+ * GET invitations, POST invitations {freelancers?: [uuid…], teams?: [uuid…] (FS-213)}, DELETE invitations/{uuid}, GET invitees[?q=&all=1], POST make-public.
  */
 class ClientInvitationController extends Controller
 {
@@ -36,9 +36,13 @@ class ClientInvitationController extends Controller
 
     public function store(Request $request, string $uuid): JsonResponse
     {
-        $data = $request->validate(['freelancers' => ['required', 'array', 'min:1', 'max:30'], 'freelancers.*' => ['required', 'uuid']]);
+        $data = $request->validate([
+            'freelancers' => ['required_without:teams', 'array', 'max:30'], 'freelancers.*' => ['required', 'uuid'],
+            // FS-213: freelancers' teams - each invitation goes to the team's Owner.
+            'teams' => ['required_without:freelancers', 'array', 'max:10'], 'teams.*' => ['required', 'uuid'],
+        ]);
         $project = $this->project($request, $uuid);
-        $result = $this->invitations->invite($project, $this->me($request), array_values($data['freelancers']));
+        $result = $this->invitations->invite($project, $this->me($request), array_values($data['freelancers'] ?? []), array_values($data['teams'] ?? []));
 
         return ApiResponse::created($this->payload($project->refresh()) + ['result' => $result], __('freelance.invitations_sent'));
     }

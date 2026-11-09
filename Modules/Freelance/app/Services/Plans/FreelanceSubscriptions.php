@@ -62,7 +62,8 @@ class FreelanceSubscriptions
         $policyQuota = (int) $policy->get('offers.free_monthly_quota');
         $policyServices = (int) ($policy->get('services.max_active') ?? 5);
 
-        foreach (FreelancePlan::query()->where('status', true)->orderBy('rank')->get() as $plan) {
+        // FS-211: a team's plans are sold to its Owner for the team (`TeamSubscriptions`), never listed here.
+        foreach (FreelancePlan::query()->forFreelancers()->where('status', true)->orderBy('rank')->get() as $plan) {
             $prices = $plan->isFree() ? [] : $this->pricesOf($plan, $country->id);
             if (! $plan->isFree() && $prices === []) {
                 continue;
@@ -521,7 +522,7 @@ class FreelanceSubscriptions
         if (! in_array($period, FreelancePlanPrice::PERIODS, true)) {
             throw new FreelanceException('plan_unavailable', 422);
         }
-        $plan = FreelancePlan::query()->where('slug', $planSlug)->where('status', true)->first();
+        $plan = FreelancePlan::query()->forFreelancers()->where('slug', $planSlug)->where('status', true)->first();
         $price = $plan === null || $plan->isFree() ? null : ($this->pricesOf($plan, $country->id)[$period] ?? null);
         if ($plan === null || $price === null) {
             throw new FreelanceException('plan_unavailable', 422);

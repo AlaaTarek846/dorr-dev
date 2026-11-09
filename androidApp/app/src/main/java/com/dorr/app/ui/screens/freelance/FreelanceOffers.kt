@@ -250,6 +250,8 @@ internal fun OffersPage(projectUuid: String, onBack: () -> Unit, onOpen: (String
 @Composable
 private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, onPick: () -> Unit, onClick: () -> Unit) {
     val f = o.freelancer
+    // FS-210: an offer made in a team's name leads with the team and its own figures — not with the Owner who signs for it.
+    val t = o.team
     Column(
         Modifier.fillMaxWidth().settingsSurface(FlCorners.card)
             .then(if (picked) Modifier.border(2.dp, settingsAccent(), FlCorners.card) else Modifier)
@@ -257,17 +259,29 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(f, 46)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
-                    PlanBadge(f?.badge, Modifier.padding(start = 6.dp))
-                    if (f?.isFavorite == true) Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite), tint = Red, modifier = Modifier.padding(start = 4.dp).size(15.dp))
+            if (t != null) {
+                TeamLogo(t.profile.logoUrl, 46)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.name, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (t.profile.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                    }
+                    FreelancerTeamPill()
                 }
-                f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                SkillBadges(f?.skillBadges.orEmpty(), Modifier.padding(top = 2.dp))
+            } else {
+                Avatar(f, 46)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(f?.name ?: "—", color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        if (f?.verified == true) Icon(Icons.Rounded.Verified, stringResource(R.string.fl_verified), tint = Green, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                        PlanBadge(f?.badge, Modifier.padding(start = 6.dp))
+                        if (f?.isFavorite == true) Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite), tint = Red, modifier = Modifier.padding(start = 4.dp).size(15.dp))
+                    }
+                    f?.headline?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    SkillBadges(f?.skillBadges.orEmpty(), Modifier.padding(top = 2.dp))
+                }
             }
             OfferStatusPill(o.status)
         }
@@ -277,7 +291,7 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
         // FL-210: dearer than the most I said I'd pay.
         if (o.overCap) FlNotice(stringResource(R.string.fl_over_cap), Icons.Rounded.Warning, Red)
         Text(
-            listOfNotNull(
+            if (t != null) teamFigures(t) else listOfNotNull(
                 f?.let { stringResource(R.string.fl_completeness, it.completeness) },
                 f?.let { stringResource(R.string.fl_portfolio_n, it.portfolioCount) },
                 skillsMatch(f),
@@ -287,6 +301,8 @@ private fun OfferCard(o: FreelanceOfferDto, picked: Boolean, canPick: Boolean, o
         )
         Text(o.details, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // FS-210: the people the team put on this offer.
+            if (t != null) StaffStack(t.members, Modifier.padding(end = 12.dp))
             // FL-L13: who owns the work once it is paid.
             o.rights?.let { RightsPill(it.modelLabel, it.model, Modifier.padding(end = 8.dp)) }
             if (o.edited) Text(stringResource(R.string.fl_offer_edited), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(end = 10.dp))
@@ -364,9 +380,10 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
                         Modifier.weight(1f).settingsSurface(RoundedCornerShape(16.dp)).clickable { onOpen(o.uuid) }.padding(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Avatar(o.freelancer, 48)
-                        Text(o.freelancer?.name ?: "—", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        PlanBadge(o.freelancer?.badge)
+                        val team = o.team
+                        if (team != null) TeamLogo(team.profile.logoUrl, 48) else Avatar(o.freelancer, 48)
+                        Text(team?.name ?: o.freelancer?.name ?: "—", color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (team != null) FreelancerTeamPill() else PlanBadge(o.freelancer?.badge)
                         OfferStatusPill(o.status)
                         if (o.can.choose) Text(
                             stringResource(R.string.fl_choose_offer), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
@@ -378,17 +395,27 @@ internal fun ComparePage(projectUuid: String, ids: List<String>, onBack: () -> U
             CompareRow(stringResource(R.string.fl_price), d) { o -> Cell("‎${money(o.priceMinor)} ${o.currency}", best = d.best.price == o.uuid) }
             CompareRow(stringResource(R.string.fl_you_pay), d) { o -> Cell(o.clientCost?.let { "‎${money(it.totalMinor)} ${it.currency}" } ?: "—") }
             CompareRow(stringResource(R.string.fl_duration), d) { o -> Cell(stringResource(R.string.fl_days, o.durationDays), best = d.best.duration == o.uuid) }
-            CompareRow(stringResource(R.string.fl_profile_complete), d) { o -> Cell("${num(o.freelancer?.completeness ?: 0)}%", best = d.best.completeness == o.uuid) }
-            CompareRow(stringResource(R.string.fl_skills_fit), d) { o -> Cell(skillsMatch(o.freelancer) ?: "—", best = d.best.skills == o.uuid && (o.freelancer?.matchingSkills?.isNotEmpty() == true)) }
-            CompareRow(stringResource(R.string.fl_verified), d) { o -> Cell(stringResource(if (o.freelancer?.verified == true) R.string.fl_yes else R.string.fl_no)) }
-            CompareRow(stringResource(R.string.fl_experience_years), d) { o -> Cell(o.freelancer?.yearsOfExperience?.let { stringResource(R.string.fl_years, it) } ?: "—") }
-            CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell(num(o.freelancer?.portfolioCount ?: 0)) }
+            // FS-210: who offers — a team (with its people) or a person. A team is read by its own figures, never by its Owner's: what is only
+            // a person's (profile completeness, skills fit, years, work shown, on-time share) is a dash for a team's offer.
+            if (d.offers.any { it.team != null }) CompareRow(stringResource(R.string.fteam_compare_by), d) { o ->
+                Cell(o.team?.let { stringResource(R.string.fteam_team_of, it.members.size) } ?: stringResource(R.string.fteam_individual))
+            }
+            CompareRow(stringResource(R.string.fl_profile_complete), d) { o -> Cell(if (o.team != null) "—" else "${num(o.freelancer?.completeness ?: 0)}%", best = o.team == null && d.best.completeness == o.uuid) }
+            CompareRow(stringResource(R.string.fl_skills_fit), d) { o -> Cell(if (o.team != null) "—" else skillsMatch(o.freelancer) ?: "—", best = o.team == null && d.best.skills == o.uuid && (o.freelancer?.matchingSkills?.isNotEmpty() == true)) }
+            CompareRow(stringResource(R.string.fl_verified), d) { o -> Cell(stringResource(if ((o.team?.profile?.verified ?: o.freelancer?.verified) == true) R.string.fl_yes else R.string.fl_no)) }
+            CompareRow(stringResource(R.string.fl_experience_years), d) { o -> Cell(if (o.team != null) "—" else o.freelancer?.yearsOfExperience?.let { stringResource(R.string.fl_years, it) } ?: "—") }
+            CompareRow(stringResource(R.string.fl_portfolio), d) { o -> Cell(if (o.team != null) "—" else num(o.freelancer?.portfolioCount ?: 0)) }
             // FL-L13: the ownership model each one offers.
             if (d.offers.any { it.rights != null }) CompareRow(stringResource(R.string.rights_compare), d) { o -> Cell(o.rights?.modelLabel ?: "—") }
             // FL-703: what they finished, and on time.
-            CompareRow(stringResource(R.string.fl_st_completed), d) { o -> Cell(num(o.freelancer?.completedProjects ?: 0) + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")) }
-            CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(o.freelancer?.onTimeRate?.let { "${num(it)}%" } ?: "—") }
-            CompareRow(stringResource(R.string.fl_rating_label), d) { o -> Cell(ratingText(o.freelancer)) }
+            CompareRow(stringResource(R.string.fl_st_completed), d) { o ->
+                Cell(
+                    o.team?.let { num(it.profile.completedProjects ?: 0) }
+                        ?: (num(o.freelancer?.completedProjects ?: 0) + (o.freelancer?.similarProjects?.takeIf { it > 0 }?.let { " · " + stringResource(R.string.fl_st_similar, it) } ?: "")),
+                )
+            }
+            CompareRow(stringResource(R.string.fl_st_on_time), d) { o -> Cell(if (o.team != null) "—" else o.freelancer?.onTimeRate?.let { "${num(it)}%" } ?: "—") }
+            CompareRow(stringResource(R.string.fl_rating_label), d) { o -> Cell(o.team?.let { teamRatingText(it.profile) } ?: ratingText(o.freelancer)) }
             CompareRow(stringResource(R.string.fl_offer_details), d) { o -> Cell(o.details, small = true) }
             // FL-307: the same question, each one's answer.
             d.offers.firstOrNull()?.answers?.forEachIndexed { i, a ->
@@ -441,7 +468,11 @@ private fun Cell(text: String, best: Boolean = false, small: Boolean = false) {
 // ---------------------------------------------------------------- one offer
 
 @Composable
-internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Unit, onProfile: () -> Unit, onChat: (String) -> Unit, onChosen: () -> Unit) {
+internal fun OfferPage(
+    projectUuid: String, offerUuid: String, onBack: () -> Unit, onProfile: () -> Unit, onChat: (String) -> Unit, onChosen: () -> Unit,
+    /** FS-210: opens a team's profile (the team a team's offer is made in the name of). */
+    onTeam: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val generic = stringResource(R.string.fl_error_generic)
     val fileError = stringResource(R.string.fl_file_open_failed)
@@ -493,9 +524,12 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
             return@Column
         }
         val f = o.freelancer
+        val team = o.team
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // FS-210: a team's offer — the team first (tap for its profile), and under the offer who works on it and who signs for it.
+            if (team != null) TeamIdentityCard(team, onOpen = { onTeam(team.uuid) }) { OfferStatusPill(o.status) }
             // Who sent it — tap for the profile.
-            Row(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).clickable(onClick = onProfile).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (team == null) Row(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).clickable(onClick = onProfile).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(f, 52)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -520,7 +554,8 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
             }
             // FL-L13: who owns the work once it is paid and what I may do with it.
             RightsCard(o.rights)
-            if (f != null) Card(Icons.Rounded.Person, stringResource(R.string.fl_freelancer_profile)) {
+            if (team != null) TeamWorkCard(team.members, signer = f?.name, onSigner = if (f != null) onProfile else null)
+            if (f != null && team == null) Card(Icons.Rounded.Person, stringResource(R.string.fl_freelancer_profile)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FlStat(Icons.Rounded.Verified, stringResource(R.string.fl_profile_complete), "${f.completeness}%", Modifier.weight(1f))
                     FlStat(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio), "${f.portfolioCount}", Modifier.weight(1f))
@@ -589,7 +624,7 @@ internal fun OfferPage(projectUuid: String, offerUuid: String, onBack: () -> Uni
     }
 
     if (sheet == "more") offer?.let { o ->
-        FlSheet(Icons.Rounded.MoreHoriz, stringResource(R.string.flo_more_title), o.freelancer?.name ?: "", onDismiss = { sheet = null }) {
+        FlSheet(Icons.Rounded.MoreHoriz, stringResource(R.string.flo_more_title), o.team?.name ?: o.freelancer?.name ?: "", onDismiss = { sheet = null }) {
             if (o.can.shortlist && o.status != "shortlisted") FlAction(stringResource(R.string.fl_shortlist), Icons.Rounded.StarBorder) { sheet = null; decide("shortlist") }
             if (o.can.unshortlist) FlAction(stringResource(R.string.fl_unshortlist), Icons.Rounded.Star) { sheet = null; decide("unshortlist") }
             if (o.can.reject) FlAction(stringResource(R.string.fl_reject_offer), Icons.Rounded.Cancel, FlTone.Danger) { sheet = "reject" }
@@ -827,26 +862,43 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     reporting?.let { id -> ReportWorkSheet("portfolio_item", id, onDismiss = { reporting = null }) }
 }
 
-// ---------------------------------------------------------------- the freelancers I keep (FL-306)
+// ---------------------------------------------------------------- the freelancers and the teams I keep (FL-306, FS-213)
 
 @Composable
-internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}) {
+internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}, onTeam: (String) -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val paged = remember { PagedRows<com.dorr.app.network.FreelanceFavoriteDto>({ it.uuid }, { page -> ApiClient.freelance.favorites(auth(), page = page) }) }
-    val list = if (paged.loaded && (paged.error == null || paged.rows.isNotEmpty())) paged.rows.toList() else null
+    // FS-213: freelancers | teams.
+    var tab by rememberSaveable { mutableStateOf(0) }
+    var inviting by remember { mutableStateOf<com.dorr.app.network.FreelanceTeamFavoriteDto?>(null) }
+    val people = remember { PagedRows<com.dorr.app.network.FreelanceFavoriteDto>({ it.uuid }, { page -> ApiClient.freelance.favorites(auth(), page = page) }) }
+    val teams = rememberTeamFavorites()
+    val paged: PagedRows<*> = if (tab == 0) people else teams
     val error = paged.error
 
-    LaunchedEffect(reconnect) { paged.reload(generic) }
+    LaunchedEffect(reconnect, tab) { if (tab == 0) people.reload(generic) else teams.reload(generic) }
     listState.NearEnd(paged.rows.size) { scope.launch { paged.loadMore(generic) } }
 
     Column(Modifier.fillMaxSize()) {
-        FlPageHeader(stringResource(R.string.fl_favorites), onBack, trailing = { FlHeaderAction(stringResource(R.string.fs_tp_title), Icons.Rounded.Groups, onTalent) })
+        FlPageHeader(stringResource(R.string.fl_favorites_title), onBack, trailing = { FlHeaderAction(stringResource(R.string.fs_tp_title), Icons.Rounded.Groups, onTalent) })
+        Box(Modifier.padding(horizontal = 16.dp).padding(top = 6.dp)) {
+            FlTabs(listOf(FlTab(Icons.Rounded.Person, stringResource(R.string.fteam_fav_people)), FlTab(Icons.Rounded.Groups, stringResource(R.string.fteam_fav_teams))), tab) { tab = it }
+        }
         com.dorr.app.ui.components.PullToRefreshHost(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            val rows = list
+            if (tab == 1) {
+                val rows = if (teams.loaded && (teams.error == null || teams.rows.isNotEmpty())) teams.rows.toList() else null
+                when {
+                    rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
+                    rows != null && rows.isEmpty() -> item { TeamFavoritesEmpty() }
+                    rows != null -> teamFavoriteRows(rows, onOpen = onTeam, onInvite = { inviting = it }, onRemove = { id ->
+                        scope.launch { if (runCatching { ApiClient.freelance.removeTeamFavorite(auth(), id) }.isSuccess) teams.rows.removeAll { it.uuid == id } }
+                    })
+                }
+            } else {
+            val rows = if (people.loaded && (people.error == null || people.rows.isNotEmpty())) people.rows.toList() else null
             when {
                 rows == null && error == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(80.dp), RoundedCornerShape(18.dp)) }
                 rows != null && rows.isEmpty() -> item { com.dorr.app.ui.screens.wallet.WaEmpty(Icons.Rounded.Favorite, com.dorr.app.ui.screens.wallet.Tone.Pink, stringResource(R.string.fl_favorites), stringResource(R.string.fl_favorites_empty)) }
@@ -865,15 +917,17 @@ internal fun FavoritesPage(onBack: () -> Unit, onTalent: () -> Unit = {}) {
                         SaveToListButton(f.uuid)
                         Icon(Icons.Rounded.Favorite, stringResource(R.string.fl_favorite_remove), tint = Red, modifier = Modifier.size(34.dp).clip(CircleShape).clickable {
                             scope.launch {
-                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) paged.rows.removeAll { it.uuid == f.uuid }
+                                if (runCatching { ApiClient.freelance.removeFavorite(auth(), f.uuid) }.isSuccess) people.rows.removeAll { it.uuid == f.uuid }
                             }
                         }.padding(7.dp))
                     }
                 }
+            }
             }
             item { PagedSpinner(paged) }
             error?.let { item { Text(it, color = Red, fontSize = 13.sp, modifier = Modifier.clickable { paged.clearError(); scope.launch { paged.loadMore(generic) } }.padding(8.dp)) } }
         }
         }
     }
+    inviting?.let { t -> InviteTeamSheet(t.uuid, t.name) { inviting = null } }
 }
