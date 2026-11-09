@@ -39,13 +39,11 @@ use Modules\Rides\Models\RideCategory;
 use Modules\Rides\Models\RideEvent;
 use Modules\Rides\Models\RideFeatureRule;
 use Modules\Rides\Models\RideSetting;
-use Modules\Rides\Services\Dispatch\DispatchEngine;
 use Modules\Rides\Services\Dispatch\SmartDispatch;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Geo\CityResolver;
 use Modules\Rides\Services\Policy\RidePolicies;
 use Modules\Rides\Services\Pricing\SmartPrice;
-use Modules\Rides\Services\Safety\FraudSignals;
 use Modules\Rides\Services\Scheduling\LateRisk;
 use Modules\User\Models\Address;
 use Modules\User\Models\User;
@@ -186,6 +184,26 @@ class RidesAiBlock06Test extends TestCase
         RideFeatureRule::query()->where('feature', 'comfort')->update(['enabled' => false]);
         RideFeatures::forget();
         $this->book($this->quote())->assertCreated()->assertJsonPath('data.comfort', null);
+    }
+
+    public function test_a_quiet_ride_reaches_the_captain_with_the_request_even_where_comfort_is_off(): void
+    {
+        $this->switches(['quiet_ride']);
+        $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/comfort?lat=24.7136&lng=46.6753')->assertOk()
+            ->assertJsonPath('data.enabled', false)->assertJsonPath('data.quiet_enabled', true);
+        // Saved «راحتي» items don't travel where only the quiet ride is on.
+        $this->actingAs($this->rider, 'user_api')->putJson('/api/mobile/v1/rides/comfort', ['ac' => 'cold'])->assertOk();
+
+        $captain = $this->captain('Omar', '+966550000001', 24.7140, 46.6760);
+        $uuid = $this->book($this->quote(), ['quiet' => true])->assertCreated()
+            ->assertJsonPath('data.comfort.quiet', true)->assertJsonCount(1, 'data.comfort.items')->json('data.uuid');
+        // Attached before the search: the request the captain gets already says it.
+        $this->asDriver($captain)->getJson('/api/driver/v1/offers')->assertOk()
+            ->assertJsonPath('data.0.ride_uuid', $uuid)->assertJsonPath('data.0.comfort.quiet', true)->assertJsonPath('data.0.comfort.ac', 'any');
+        $this->cancel($uuid);
+
+        // Not asked for this trip: nothing goes with it.
+        $this->book($this->quote(), ['quiet' => false])->assertCreated()->assertJsonPath('data.comfort', null);
     }
 
     public function test_a_captain_finishing_a_ride_nearby_gets_the_next_trip_and_starts_it_after(): void

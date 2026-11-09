@@ -2,20 +2,27 @@
 
 package com.dorr.app.ui.screens.moving
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,21 +32,33 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Chair
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Construction
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Elevator
+import androidx.compose.material.icons.rounded.Engineering
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocalShipping
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.PlayCircleFilled
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Store
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -47,6 +66,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,9 +75,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
@@ -74,15 +96,19 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.rides.AccentButton
 import com.dorr.app.ui.screens.rides.RidePoint
 import com.dorr.app.ui.screens.rides.StepperLine
-import com.dorr.app.ui.screens.rides.ToggleLine
+import com.dorr.app.ui.screens.rides.addressOf
+import com.dorr.app.ui.screens.rides.currentLocation
 import com.dorr.app.ui.screens.rides.parseTime
+import com.dorr.app.ui.screens.rides.pressable
 import com.dorr.app.ui.screens.rides.rememberWhenLabels
+import com.dorr.app.ui.screens.rides.staggerIn
 import com.dorr.app.ui.screens.rides.whenText
 import com.dorr.app.ui.theme.AppColors
-import com.google.android.gms.maps.model.LatLng
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -92,16 +118,20 @@ import java.time.ZonedDateTime
 import java.util.Locale
 
 /*
- * A new request (REQ-081), one draft kept on the server so a lost connection loses nothing: the first "next" creates
- * it (`POST requests`) and every step after it saves it (`PUT requests/{uuid}`). Steps: load type · description, pieces
- * and media · vehicle, workers and extras · pickup, drop-off and time · review and publish. Nothing is required before
- * the review: the server says what is missing (`data.missing`), and that is shown beside the step it belongs to.
+ * A new request (REQ-081), one draft kept on the server so a lost connection loses nothing. The customer starts with
+ * what they know: from and to (on a map, with the road distance) · the load, what is moved and its photos · vehicle,
+ * workers and extras · the time and notes · review and publish. Nothing is required before the review: the server says
+ * what is missing (`data.missing`), and that is shown beside the step it belongs to.
+ *
+ * The server makes the draft with its load type (`POST requests` needs `load_type`), so the places typed before it stay
+ * on the phone; choosing the load type creates the draft (photos need it), and every "next" after that saves it
+ * (`PUT requests/{uuid}`).
  */
 
-private const val STEP_TYPE = 0
-private const val STEP_ITEMS = 1
+private const val STEP_PLACES = 0
+private const val STEP_LOAD = 1
 private const val STEP_VEHICLE = 2
-private const val STEP_PLACE = 3
+private const val STEP_TIME = 3
 private const val STEP_REVIEW = 4
 private const val STEP_COUNT = 5
 
@@ -109,10 +139,10 @@ private val IMAGE_OR_VIDEO = setOf("image/jpeg", "image/png", "image/webp", "vid
 
 /** Which step a field the server says is missing belongs to. */
 private fun stepOfMissing(key: String): Int = when (key) {
-    "load_type" -> STEP_TYPE
-    "description_or_photo" -> STEP_ITEMS
+    "pickup", "dropoff" -> STEP_PLACES
+    "load_type", "description_or_photo" -> STEP_LOAD
     "vehicle_type_id" -> STEP_VEHICLE
-    else -> STEP_PLACE
+    else -> STEP_TIME
 }
 
 /** One end of the move being filled in. */
@@ -135,6 +165,28 @@ internal class MovingEnd {
         floor = d.floor?.toString().orEmpty()
         elevator = d.elevator == true
         entrance = d.entrance.orEmpty()
+    }
+
+    /** Pickup and drop-off change places, with all their details. */
+    fun swapWith(other: MovingEnd) {
+        val p = point
+        val a = address
+        val ar = area
+        val f = floor
+        val e = elevator
+        val en = entrance
+        point = other.point
+        address = other.address
+        area = other.area
+        floor = other.floor
+        elevator = other.elevator
+        entrance = other.entrance
+        other.point = p
+        other.address = a
+        other.area = ar
+        other.floor = f
+        other.elevator = e
+        other.entrance = en
     }
 
     /** An empty text clears the field on the server (Laravel reads it as null). */
@@ -234,12 +286,16 @@ private suspend fun mediaFile(context: Context, uri: Uri, mime: String): File? =
 
 private fun Double.megabytes(): String = if (this % 1.0 == 0.0) toInt().toString() else String.format(Locale.US, "%.1f", this)
 
+private fun hasLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
 @Composable
 internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val draft = remember { MovingDraft() }
-    var step by remember { mutableIntStateOf(if (atReview) STEP_REVIEW else STEP_TYPE) }
+    var step by remember { mutableIntStateOf(if (atReview) STEP_REVIEW else STEP_PLACES) }
     var forward by remember { mutableStateOf(true) }
     var loaded by remember { mutableStateOf(initialUuid == null) }
     var options by remember { mutableStateOf<MovingOptionsDto?>(null) }
@@ -247,6 +303,11 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
     var error by remember { mutableStateOf<String?>(null) }
     var picker by remember { mutableStateOf<String?>(null) }
     var timeOpen by remember { mutableStateOf(false) }
+    var pickupIsHere by remember { mutableStateOf(false) }
+    var hasLocation by remember { mutableStateOf(hasLocationPermission(context)) }
+    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted -> hasLocation = granted.values.any { it } }
+    // One save at a time: two quick taps never make two drafts (the second one finds the uuid and updates).
+    val saving = remember { Mutex() }
     val failed = stringResource(R.string.rd_error)
     val saveFailed = stringResource(R.string.mv_save_failed)
 
@@ -266,11 +327,35 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
         }
     }
 
+    // A new request starts from where the customer is: the pickup is the phone's place when location is allowed, so
+    // most people only choose the drop-off. Asked once; without it they choose both.
+    LaunchedEffect(loaded) {
+        if (loaded && initialUuid == null && draft.pickup.point == null && !hasLocation) {
+            runCatching { askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
+        }
+    }
+    LaunchedEffect(loaded, hasLocation) {
+        if (!loaded || !hasLocation || initialUuid != null || draft.pickup.point != null) return@LaunchedEffect
+        val here = currentLocation(context) ?: return@LaunchedEffect
+        if (draft.pickup.point != null) return@LaunchedEffect
+        val address = addressOf(context, here) ?: String.format(Locale.US, "%.5f, %.5f", here.latitude, here.longitude)
+        if (draft.pickup.point != null) return@LaunchedEffect
+        draft.pickup.point = RidePoint(here.latitude, here.longitude, address)
+        draft.pickup.address = address
+        pickupIsHere = true
+        areaOf(context, here)?.takeIf { it.isNotBlank() }?.let { draft.pickup.area = it }
+    }
+
+    // The road between the two ends: asked once per pair, kept here so the places step and the review share it.
+    val route = rememberMovingRoute(draft.pickup.point?.latLng, draft.dropoff.point?.latLng)
+
     /** Saves what is on the phone; false when it couldn't (and says why, the server's words first). */
-    suspend fun save(): Boolean {
+    suspend fun save(): Boolean = saving.withLock {
+        // No load type yet: the server can't make the draft, so what is typed stays on the phone until it is chosen.
+        if (draft.uuid == null && draft.loadType == null) return@withLock true
         val body = draft.body()
         val uuid = draft.uuid
-        return runCatching {
+        runCatching {
             if (uuid == null) ApiClient.moving.create(mvAuth(), body).data else ApiClient.moving.update(mvAuth(), uuid, body).data
         }.fold(
             onSuccess = { fresh ->
@@ -322,27 +407,49 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
                             draft.missing = refusal.missing
                             error = refusal.message ?: failed
                         }
+                } else {
+                    // Never saved (no load type): the review shows what is missing.
+                    draft.missing = listOf("load_type")
                 }
             }
             busy = false
         }
     }
 
+    fun swapEnds() {
+        draft.pickup.swapWith(draft.dropoff)
+        pickupIsHere = false
+        draft.missing = draft.missing.filterNot { (it == "pickup" && draft.pickup.point != null) || (it == "dropoff" && draft.dropoff.point != null) }
+        scope.launch { save() }
+    }
+
+    fun chooseType(type: String) {
+        draft.loadType = type
+        draft.missing = draft.missing.filterNot { it == "load_type" }
+        // The first choice makes the draft on the server, so photos can be added right away.
+        if (draft.uuid == null) scope.launch { save() }
+    }
+
     // Back steps through the wizard before it leaves it; what was saved stays in «طلباتي» as a draft.
-    BackHandler(enabled = step > STEP_TYPE && picker == null) { go(step - 1) }
+    BackHandler(enabled = step > STEP_PLACES && picker == null) { go(step - 1) }
 
     val missingSteps = draft.missing.map { stepOfMissing(it) }.toSet()
     Box(Modifier.fillMaxSize()) {
         MvPage(
             title = stringResource(R.string.mv_new_title),
-            onBack = { if (step > STEP_TYPE) go(step - 1) else nav.pop() },
+            onBack = { if (step > STEP_PLACES) go(step - 1) else nav.pop() },
             bottom = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MvError(error)
                     if (step == STEP_REVIEW) {
                         AccentButton(stringResource(R.string.mv_publish), busy = busy, icon = Icons.Rounded.CheckCircle) { publish() }
                     } else {
-                        AccentButton(stringResource(R.string.mv_next), enabled = step != STEP_TYPE || draft.loadType != null, busy = busy) { next() }
+                        AccentButton(
+                            stringResource(R.string.mv_next),
+                            enabled = step != STEP_LOAD || draft.loadType != null,
+                            busy = busy,
+                            icon = Icons.AutoMirrored.Rounded.ArrowForward,
+                        ) { next() }
                     }
                 }
             },
@@ -352,7 +459,7 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
                 return@MvPage
             }
             Column(Modifier.fillMaxSize()) {
-                StepBar(step, missingSteps) { target -> if (target <= step) go(target) }
+                MovingStepBar(step, missingSteps) { target -> if (target <= step) go(target) }
                 AnimatedContent(
                     targetState = step,
                     transitionSpec = { val side = if (forward) 1 else -1; (slideInHorizontally(tween(300)) { side * it / 4 } + fadeIn(tween(240))) togetherWith fadeOut(tween(160)) },
@@ -360,17 +467,17 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 ) { current ->
                     when (current) {
-                        STEP_TYPE -> TypeStep(draft)
-                        STEP_ITEMS -> ItemsStep(draft, options, scope = { block -> scope.launch { block() } }, context = context)
+                        STEP_PLACES -> PlacesStep(draft, route, pickupIsHere, onPick = { picker = it }, onSwap = { swapEnds() })
+                        STEP_LOAD -> LoadStep(draft, options, onType = { chooseType(it) }, scope = { block -> scope.launch { block() } }, context = context)
                         STEP_VEHICLE -> VehicleStep(draft, options)
-                        STEP_PLACE -> PlaceStep(draft, onPick = { picker = it }, onTime = { timeOpen = true })
-                        else -> ReviewStep(draft, options, onEdit = { go(it) })
+                        STEP_TIME -> TimeStep(draft, onTime = { timeOpen = true })
+                        else -> ReviewStep(draft, options, route, onEdit = { go(it) })
                     }
                 }
             }
         }
 
-        // One end of the move: over the wizard. Picking it saves the draft, so a lost connection keeps it too.
+        // One end of the move: over the wizard. Picking it saves the draft (once there is one), so a lost connection keeps it too.
         picker?.let { which ->
             val end = if (which == "pickup") draft.pickup else draft.dropoff
             MovingPlacePicker(
@@ -381,10 +488,10 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
                 onPick = { place ->
                     end.point = place
                     end.address = place.address
+                    if (which == "pickup") pickupIsHere = false
                     picker = null
                     scope.launch {
-                        val latLng: LatLng = place.latLng
-                        val found = areaOf(context, latLng)
+                        val found = areaOf(context, place.latLng)
                         if (!found.isNullOrBlank()) end.area = found
                         draft.missing = draft.missing.filterNot { it == which }
                         save()
@@ -407,39 +514,92 @@ internal fun MovingWizard(initialUuid: String?, nav: MovingNav, atReview: Boolea
     }
 }
 
-/** The five steps as a bar; a step the server says is missing something turns red. */
+// ---------------------------------------------------------------- the step bar
+
+private fun stepIcon(i: Int): ImageVector = when (i) {
+    STEP_PLACES -> Icons.Rounded.Place
+    STEP_LOAD -> Icons.Rounded.Inventory2
+    STEP_VEHICLE -> Icons.Rounded.LocalShipping
+    STEP_TIME -> Icons.Rounded.Event
+    else -> Icons.Rounded.FactCheck
+}
+
 @Composable
-private fun StepBar(step: Int, missing: Set<Int>, onTap: (Int) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(STEP_COUNT) { i ->
-                val color by animateColorAsState(
-                    when {
-                        i in missing -> AppColors.danger
-                        i <= step -> settingsAccent()
-                        else -> settingsInk().copy(alpha = 0.12f)
+private fun stepShortLabel(i: Int): String = stringResource(
+    when (i) {
+        STEP_PLACES -> R.string.mv_step_short_places
+        STEP_LOAD -> R.string.mv_step_short_load
+        STEP_VEHICLE -> R.string.mv_step_short_vehicle
+        STEP_TIME -> R.string.mv_step_short_time
+        else -> R.string.mv_step_short_review
+    },
+)
+
+/**
+ * The five steps as icons joined by a line, each with its short name: done ones filled with a tick, the current one
+ * filled and a little bigger, the rest waiting. A step the server says is missing something turns red. A step already
+ * reached can be tapped.
+ */
+@Composable
+private fun MovingStepBar(step: Int, missing: Set<Int>, onTap: (Int) -> Unit) {
+    val accent = settingsAccent()
+    val idleLine = settingsInk().copy(alpha = 0.10f)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 12.dp), verticalAlignment = Alignment.Top) {
+        repeat(STEP_COUNT) { i ->
+            val done = i < step
+            val now = i == step
+            val bad = i in missing
+            val fill by animateColorAsState(
+                when {
+                    bad -> AppColors.danger
+                    done || now -> accent
+                    else -> mvInsetColor()
+                },
+                tween(260), label = "mv-step-fill",
+            )
+            val pop by animateFloatAsState(if (now) 1.12f else 1f, spring(dampingRatio = 0.5f), label = "mv-step-pop")
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(enabled = i <= step) { onTap(i) }.padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.fillMaxWidth().height(40.dp), contentAlignment = Alignment.Center) {
+                    // The line to the step before (start side) and to the one after (end side).
+                    if (i > 0) Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.5f).height(3.dp).background(if (i <= step) accent else idleLine))
+                    if (i < STEP_COUNT - 1) Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(0.5f).height(3.dp).background(if (i < step) accent else idleLine))
+                    Box(
+                        Modifier.scale(pop).size(34.dp).clip(CircleShape).background(fill)
+                            .border(if (now) 3.dp else 0.dp, if (now) fill.copy(alpha = 0.25f) else Color.Transparent, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (done && !bad) Icons.Rounded.Check else stepIcon(i), null,
+                            tint = if (done || now || bad) Color.White else settingsMut(),
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stepShortLabel(i),
+                    color = when {
+                        bad -> AppColors.danger
+                        now -> settingsInk()
+                        else -> settingsMut()
                     },
-                    tween(240), label = "mv-step",
+                    fontSize = 10.5.sp, fontWeight = if (now) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                 )
-                Box(Modifier.weight(1f).height(5.dp).clip(CircleShape).background(color).clickable { onTap(i) })
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(
-                R.string.mv_step_of, step + 1, STEP_COUNT,
-                stringResource(
-                    when (step) {
-                        STEP_TYPE -> R.string.mv_step_type
-                        STEP_ITEMS -> R.string.mv_step_items
-                        STEP_VEHICLE -> R.string.mv_step_vehicle
-                        STEP_PLACE -> R.string.mv_step_place
-                        else -> R.string.mv_step_review
-                    },
-                ),
-            ),
-            color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-        )
+    }
+}
+
+/** A step's heading and the line under it. */
+@Composable
+private fun StepTitle(title: String, hint: String? = null) {
+    Column(Modifier.staggerIn(0)) {
+        Text(title, color = settingsInk(), fontWeight = FontWeight.Black, fontSize = 22.sp)
+        hint?.let { Text(it, color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
     }
 }
 
@@ -458,52 +618,192 @@ private fun missingText(key: String): Int = when (key) {
     else -> R.string.mv_missing_vehicle
 }
 
-// ---------------------------------------------------------------- 1. the load
+// ---------------------------------------------------------------- 1. from and to
 
 @Composable
-private fun TypeStep(draft: MovingDraft) {
+private fun PlacesStep(draft: MovingDraft, route: MovingRouteState, pickupIsHere: Boolean, onPick: (String) -> Unit, onSwap: () -> Unit) {
+    val from = draft.pickup.point?.latLng
+    val to = draft.dropoff.point?.latLng
     MvScroll {
-        Text(stringResource(R.string.mv_type_title), color = settingsInk(), fontWeight = FontWeight.Black, fontSize = 22.sp)
-        MissingNote(draft, "load_type")
-        TypeTile(Icons.Rounded.Chair, stringResource(R.string.mv_load_single), stringResource(R.string.mv_load_single_hint), draft.loadType == "single_piece") { draft.loadType = "single_piece" }
-        TypeTile(Icons.Rounded.Home, stringResource(R.string.mv_load_home), stringResource(R.string.mv_load_home_hint), draft.loadType == "home") { draft.loadType = "home" }
-        TypeTile(Icons.Rounded.Store, stringResource(R.string.mv_load_commercial), stringResource(R.string.mv_load_commercial_hint), draft.loadType == "commercial") { draft.loadType = "commercial" }
+        StepTitle(stringResource(R.string.mv_places_title), stringResource(R.string.mv_places_hint))
+        MvCard(Modifier.staggerIn(1)) {
+            MovingRouteMap(
+                pickup = from, dropoff = to, route = route.route,
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                onTap = { onPick(if (from == null) "pickup" else "dropoff") },
+            )
+            MovingRouteChips(
+                route, bothEnds = from != null && to != null,
+                fallbackKm = if (from != null && to != null) straightKm(from, to) else null,
+                modifier = Modifier.padding(top = 10.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    EndRow(
+                        title = stringResource(R.string.mv_pickup), end = draft.pickup, dot = AppColors.brandNavy,
+                        badge = if (pickupIsHere) stringResource(R.string.mv_current_location) else null,
+                    ) { onPick("pickup") }
+                    MissingNote(draft, "pickup")
+                    Box(Modifier.padding(start = 16.dp).width(2.dp).height(12.dp).background(settingsInk().copy(alpha = 0.12f)))
+                    EndRow(title = stringResource(R.string.mv_dropoff), end = draft.dropoff, dot = AppColors.brandOrange, badge = null) { onPick("dropoff") }
+                    MissingNote(draft, "dropoff")
+                }
+                if (from != null && to != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.size(40.dp).clip(CircleShape).background(mvInsetColor()).pressable(onClick = onSwap),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.SwapVert, stringResource(R.string.mv_swap), tint = settingsAccent(), modifier = Modifier.size(22.dp)) }
+                }
+            }
+        }
+        if (draft.pickup.point != null) EndDetailsCard(stringResource(R.string.mv_pickup), AppColors.brandNavy, draft.pickup, 2)
+        if (draft.dropoff.point != null) EndDetailsCard(stringResource(R.string.mv_dropoff), AppColors.brandOrange, draft.dropoff, 3)
     }
 }
 
-/** A choice as a card: a soft wash and a border when it is the chosen one, with a small pop (the rides speed tiles). */
+/** One end as a row that opens the place picker: its coloured dot, its name and the chosen address. */
 @Composable
-private fun TypeTile(icon: ImageVector, title: String, hint: String, on: Boolean, onClick: () -> Unit) {
-    val tint = settingsAccent()
-    val bg by animateColorAsState(if (on) tint.copy(alpha = 0.12f) else mvCardColor(), tween(200), label = "mv-tile")
-    val pop by animateFloatAsState(if (on) 1.02f else 1f, spring(dampingRatio = 0.5f), label = "mv-tile-pop")
+private fun EndRow(title: String, end: MovingEnd, dot: Color, badge: String?, onClick: () -> Unit) {
+    val chosen = end.point
     Row(
-        Modifier.fillMaxWidth().scale(pop).clip(RoundedCornerShape(20.dp)).background(bg).border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(28.dp))
+        Box(Modifier.size(34.dp).clip(CircleShape).background(dot.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+            Icon(if (badge != null) Icons.Rounded.MyLocation else Icons.Rounded.Place, null, tint = dot, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(hint, color = settingsMut(), fontSize = 12.5.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = settingsMut(), fontSize = 11.sp)
+                badge?.let {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        it, color = settingsAccent(), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)).padding(horizontal = 6.dp, vertical = 1.dp),
+                    )
+                }
+            }
+            Text(
+                chosen?.let { end.address.ifBlank { it.address } } ?: stringResource(R.string.mv_pick_place),
+                color = if (chosen == null) settingsAccent() else settingsInk(), fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
         }
-        if (on) Icon(Icons.Rounded.CheckCircle, null, tint = tint, modifier = Modifier.size(22.dp))
+        Icon(if (chosen == null) Icons.Rounded.Add else Icons.Rounded.Edit, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
     }
 }
 
-// ---------------------------------------------------------------- 2. what is moved, with photos
+/** An end's building: the floor on a stepper, the elevator as a chip, and the rest folded under «تفاصيل أكثر». */
+@Composable
+private fun EndDetailsCard(title: String, dot: Color, end: MovingEnd, index: Int) {
+    var more by remember { mutableStateOf(end.entrance.isNotBlank()) }
+    val turn by animateFloatAsState(if (more) 180f else 0f, tween(220), label = "mv-more")
+    MvCard(Modifier.staggerIn(index)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            Spacer(Modifier.width(8.dp))
+            MvCardTitle(title)
+            Spacer(Modifier.width(8.dp))
+            Text(end.area, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        FloorStepper(end)
+        Spacer(Modifier.height(6.dp))
+        MvToggleChip(Icons.Rounded.Elevator, stringResource(R.string.mv_elevator), end.elevator) { end.elevator = !end.elevator }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { more = !more }.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.mv_more_details), color = settingsAccent(), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Icon(Icons.Rounded.ExpandMore, null, tint = settingsAccent(), modifier = Modifier.size(20.dp).rotate(turn))
+        }
+        AnimatedVisibility(visible = more, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                DorrTextField(
+                    value = end.area, onValueChange = { end.area = it.take(120) },
+                    label = stringResource(R.string.mv_area), placeholder = stringResource(R.string.mv_area_hint), modifier = Modifier.fillMaxWidth(),
+                )
+                DorrTextField(value = end.address, onValueChange = { end.address = it.take(255) }, label = stringResource(R.string.mv_address), modifier = Modifier.fillMaxWidth())
+                DorrTextField(
+                    value = end.entrance, onValueChange = { end.entrance = it.take(255) },
+                    label = stringResource(R.string.mv_entrance), placeholder = stringResource(R.string.mv_entrance_hint), modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
+
+/** The floor with − and +: "—" until touched (unknown), then the ground floor first; −5 to 200 as the server takes. */
+@Composable
+private fun FloorStepper(end: MovingEnd) {
+    val level = end.floor.trim().toIntOrNull()
+    val shown = when (level) {
+        null -> "—"
+        0 -> stringResource(R.string.mv_floor_ground)
+        else -> level.toString()
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.Layers, null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(stringResource(R.string.mv_floor), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        MvStepCircle(Icons.Rounded.Remove, level == null || level > -5) { end.floor = ((level ?: 1) - 1).toString() }
+        AnimatedContent(
+            targetState = shown,
+            transitionSpec = { (slideInVertically { it / 2 } + fadeIn(tween(160))) togetherWith (slideOutVertically { -it / 2 } + fadeOut(tween(120))) },
+            label = "mv-floor",
+            modifier = Modifier.width(64.dp),
+        ) { text ->
+            Text(text, color = settingsInk(), fontWeight = FontWeight.Black, fontSize = 15.sp, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.fillMaxWidth())
+        }
+        MvStepCircle(Icons.Rounded.Add, level == null || level < 200) { end.floor = ((level ?: -1) + 1).toString() }
+    }
+}
 
 @Composable
-private fun ItemsStep(draft: MovingDraft, options: MovingOptionsDto?, scope: (suspend () -> Unit) -> Unit, context: Context) {
+private fun MvStepCircle(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).background(if (enabled) settingsAccent().copy(alpha = 0.12f) else mvInsetColor()).pressable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = if (enabled) settingsAccent() else settingsMut().copy(alpha = 0.4f), modifier = Modifier.size(18.dp)) }
+}
+
+/** A yes/no as a chip: filled in the app colour with a tick when on. */
+@Composable
+private fun MvToggleChip(icon: ImageVector, label: String, on: Boolean, onClick: () -> Unit) {
+    val tint = settingsAccent()
+    val bg by animateColorAsState(if (on) tint.copy(alpha = 0.12f) else mvInsetColor(), tween(200), label = "mv-chip")
+    Row(
+        Modifier.clip(CircleShape).background(bg).border(1.5.dp, if (on) tint else Color.Transparent, CircleShape)
+            .pressable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = if (on) tint else settingsMut(), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, color = settingsInk(), fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, fontSize = 13.sp)
+        AnimatedVisibility(visible = on) {
+            Row {
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Rounded.CheckCircle, null, tint = tint, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- 2. the load, what is moved, with photos
+
+@Composable
+private fun LoadStep(draft: MovingDraft, options: MovingOptionsDto?, onType: (String) -> Unit, scope: (suspend () -> Unit) -> Unit, context: Context) {
     var uploading by remember { mutableIntStateOf(0) }
     var warning by remember { mutableStateOf<String?>(null) }
     val failed = stringResource(R.string.rd_error)
     val maxMb = options?.mediaMaxMb
     val tooBig = maxMb?.let { stringResource(R.string.mv_media_too_big, it.megabytes()) }
     val wrongType = stringResource(R.string.mv_media_type)
+    val typeFirst = stringResource(R.string.mv_media_first)
 
     fun upload(uris: List<Uri>) {
         val uuid = draft.uuid ?: return
@@ -550,7 +850,14 @@ private fun ItemsStep(draft: MovingDraft, options: MovingOptionsDto?, scope: (su
     }
 
     MvScroll {
-        MvCard {
+        StepTitle(stringResource(R.string.mv_type_title))
+        MissingNote(draft, "load_type")
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).staggerIn(1), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LoadTile(Icons.Rounded.Chair, stringResource(R.string.mv_load_single), stringResource(R.string.mv_load_single_hint), draft.loadType == "single_piece", Modifier.weight(1f)) { onType("single_piece") }
+            LoadTile(Icons.Rounded.Home, stringResource(R.string.mv_load_home), stringResource(R.string.mv_load_home_hint), draft.loadType == "home", Modifier.weight(1f)) { onType("home") }
+            LoadTile(Icons.Rounded.Store, stringResource(R.string.mv_load_commercial), stringResource(R.string.mv_load_commercial_hint), draft.loadType == "commercial", Modifier.weight(1f)) { onType("commercial") }
+        }
+        MvCard(Modifier.staggerIn(2)) {
             MvCardTitle(stringResource(R.string.mv_items_title))
             Spacer(Modifier.height(10.dp))
             DorrTextField(
@@ -574,7 +881,7 @@ private fun ItemsStep(draft: MovingDraft, options: MovingOptionsDto?, scope: (su
                 )
             }
         }
-        MvCard {
+        MvCard(Modifier.staggerIn(3)) {
             MvCardTitle(stringResource(R.string.mv_media_title))
             Text(
                 maxMb?.let { stringResource(R.string.mv_media_limit, it.megabytes()) } ?: stringResource(R.string.mv_media_hint),
@@ -601,8 +908,12 @@ private fun ItemsStep(draft: MovingDraft, options: MovingOptionsDto?, scope: (su
                     }
                 }
                 Box(
-                    Modifier.size(92.dp).clip(tile).background(settingsBackground()).border(1.5.dp, settingsInk().copy(alpha = 0.12f), tile)
-                        .clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+                    Modifier.size(92.dp).clip(tile).background(settingsAccent().copy(alpha = 0.08f)).border(1.5.dp, settingsAccent().copy(alpha = 0.35f), tile)
+                        .pressable {
+                            // Photos belong to the draft on the server, made when the load type is chosen.
+                            if (draft.uuid == null) warning = typeFirst
+                            else pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                        },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Rounded.AddPhotoAlternate, null, tint = settingsAccent(), modifier = Modifier.size(30.dp)) }
             }
@@ -611,6 +922,30 @@ private fun ItemsStep(draft: MovingDraft, options: MovingOptionsDto?, scope: (su
                 MvNote(it, AppColors.warning)
             }
         }
+    }
+}
+
+/** A load type as a tile: its icon in a soft square, the name and a hint; the chosen one washed, bordered and popped. */
+@Composable
+private fun LoadTile(icon: ImageVector, title: String, hint: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tint = settingsAccent()
+    val bg by animateColorAsState(if (on) tint.copy(alpha = 0.12f) else mvCardColor(), tween(200), label = "mv-tile")
+    val pop by animateFloatAsState(if (on) 1.04f else 1f, spring(dampingRatio = 0.5f), label = "mv-tile-pop")
+    val iconBg by animateColorAsState(if (on) tint else tint.copy(alpha = 0.12f), tween(200), label = "mv-tile-icon")
+    Box(
+        modifier.fillMaxHeight().scale(pop).clip(RoundedCornerShape(20.dp)).background(bg)
+            .border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(20.dp)).pressable(onClick = onClick),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(iconBg), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (on) Color.White else tint, modifier = Modifier.size(28.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(title, color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+            Spacer(Modifier.height(2.dp))
+            Text(hint, color = settingsMut(), fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 3, lineHeight = 14.sp)
+        }
+        if (on) Icon(Icons.Rounded.CheckCircle, null, tint = tint, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(18.dp))
     }
 }
 
@@ -626,120 +961,110 @@ private fun MediaRemove(modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun VehicleStep(draft: MovingDraft, options: MovingOptionsDto?) {
     MvScroll {
-        MvCard {
-            MvCardTitle(stringResource(R.string.mv_vehicle_title))
-            MissingNote(draft, "vehicle_type_id")
-            Spacer(Modifier.height(10.dp))
-            val types = options?.vehicleTypes.orEmpty()
-            if (options != null && types.isEmpty()) Text(stringResource(R.string.mv_no_vehicle_types), color = settingsMut(), fontSize = 13.sp)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                types.forEach { type ->
-                    val on = draft.vehicleTypeId == type.id
-                    val tint = settingsAccent()
-                    val bg by animateColorAsState(if (on) tint.copy(alpha = 0.10f) else settingsBackground(), tween(200), label = "mv-vehicle")
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(bg).border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(16.dp))
-                            .clickable { draft.vehicleTypeId = type.id; draft.missing = draft.missing.filterNot { it == "vehicle_type_id" } }.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-                            if (type.image != null) AsyncImage(ApiClient.mediaUrl(type.image), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(4.dp))
-                            else Icon(Icons.Rounded.LocalShipping, null, tint = tint, modifier = Modifier.size(30.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(type.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold)
-                            type.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
-                        }
-                        if (on) Icon(Icons.Rounded.CheckCircle, null, tint = tint, modifier = Modifier.size(22.dp))
-                    }
+        StepTitle(stringResource(R.string.mv_vehicle_title), stringResource(R.string.mv_vehicle_hint))
+        MissingNote(draft, "vehicle_type_id")
+        val types = options?.vehicleTypes.orEmpty()
+        if (options != null && types.isEmpty()) MvNote(stringResource(R.string.mv_no_vehicle_types))
+        types.forEachIndexed { index, type ->
+            val on = draft.vehicleTypeId == type.id
+            val tint = settingsAccent()
+            val bg by animateColorAsState(if (on) tint.copy(alpha = 0.10f) else mvCardColor(), tween(200), label = "mv-vehicle")
+            val pop by animateFloatAsState(if (on) 1.02f else 1f, spring(dampingRatio = 0.5f), label = "mv-vehicle-pop")
+            Row(
+                Modifier.fillMaxWidth().staggerIn(index + 1).scale(pop).clip(RoundedCornerShape(20.dp)).background(bg)
+                    .border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(20.dp))
+                    .pressable { draft.vehicleTypeId = type.id; draft.missing = draft.missing.filterNot { it == "vehicle_type_id" } }.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(width = 96.dp, height = 68.dp).clip(RoundedCornerShape(14.dp)).background(tint.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                    if (type.image != null) AsyncImage(ApiClient.mediaUrl(type.image), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(4.dp))
+                    else Icon(Icons.Rounded.LocalShipping, null, tint = tint, modifier = Modifier.size(34.dp))
                 }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(type.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    type.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                }
+                Box(
+                    Modifier.size(24.dp).clip(CircleShape).background(if (on) tint else Color.Transparent).border(1.5.dp, if (on) tint else settingsMut().copy(alpha = 0.4f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
             }
         }
-        MvCard {
+        MvCard(Modifier.staggerIn(types.size + 1)) {
             StepperLine(Icons.Rounded.Groups, stringResource(R.string.mv_workers), stringResource(R.string.mv_workers_hint), draft.workers, 0..50) { draft.workers = it }
         }
-        MvCard {
-            MvCardTitle(stringResource(R.string.mv_extras_title))
-            Spacer(Modifier.height(4.dp))
-            ToggleLine(Icons.Rounded.Inventory2, stringResource(R.string.mv_extra_packing), null, draft.packing) { draft.packing = it }
-            ToggleLine(Icons.Rounded.Build, stringResource(R.string.mv_extra_disassembly), null, draft.disassembly) { draft.disassembly = it }
-            ToggleLine(Icons.Rounded.LocalShipping, stringResource(R.string.mv_extra_crane), null, draft.crane) { draft.crane = it }
-            ToggleLine(Icons.Rounded.Build, stringResource(R.string.mv_extra_technician), null, draft.technician) { draft.technician = it }
+        Text(stringResource(R.string.mv_extras_title), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.staggerIn(types.size + 2))
+        Column(Modifier.staggerIn(types.size + 3), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ExtraTile(Icons.Rounded.Inventory2, stringResource(R.string.mv_extra_packing), stringResource(R.string.mv_extra_packing_hint), draft.packing, Modifier.weight(1f)) { draft.packing = !draft.packing }
+                ExtraTile(Icons.Rounded.Build, stringResource(R.string.mv_extra_disassembly), stringResource(R.string.mv_extra_disassembly_hint), draft.disassembly, Modifier.weight(1f)) { draft.disassembly = !draft.disassembly }
+            }
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ExtraTile(Icons.Rounded.Construction, stringResource(R.string.mv_extra_crane), stringResource(R.string.mv_extra_crane_hint), draft.crane, Modifier.weight(1f)) { draft.crane = !draft.crane }
+                ExtraTile(Icons.Rounded.Engineering, stringResource(R.string.mv_extra_technician), stringResource(R.string.mv_extra_technician_hint), draft.technician, Modifier.weight(1f)) { draft.technician = !draft.technician }
+            }
         }
     }
 }
 
-// ---------------------------------------------------------------- 4. the place and the time
+/** An extra service as a selectable tile: icon, name, a short line; a tick in the corner when chosen. */
+@Composable
+private fun ExtraTile(icon: ImageVector, title: String, hint: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tint = settingsAccent()
+    val bg by animateColorAsState(if (on) tint.copy(alpha = 0.12f) else mvCardColor(), tween(200), label = "mv-extra")
+    val iconBg by animateColorAsState(if (on) tint else tint.copy(alpha = 0.12f), tween(200), label = "mv-extra-icon")
+    Box(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(18.dp)).background(bg)
+            .border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(18.dp)).pressable(onClick = onClick),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(iconBg), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (on) Color.White else tint, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(title, color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(hint, color = settingsMut(), fontSize = 11.5.sp, lineHeight = 15.sp)
+        }
+        if (on) Icon(Icons.Rounded.CheckCircle, null, tint = tint, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(20.dp))
+    }
+}
+
+// ---------------------------------------------------------------- 4. the time and the notes
 
 @Composable
-private fun PlaceStep(draft: MovingDraft, onPick: (String) -> Unit, onTime: () -> Unit) {
+private fun TimeStep(draft: MovingDraft, onTime: () -> Unit) {
     val (today, tomorrow) = rememberWhenLabels()
     MvScroll {
-        EndCard(draft, "pickup", draft.pickup, stringResource(R.string.mv_pickup), AppColors.brandNavy, onPick)
-        EndCard(draft, "dropoff", draft.dropoff, stringResource(R.string.mv_dropoff), AppColors.brandOrange, onPick)
-        MvCard {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onTime).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(34.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Event, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.mv_when), color = settingsMut(), fontSize = 11.sp)
-                    val at = draft.scheduledAt
-                    Text(at?.let { whenText(it, today, tomorrow) } ?: stringResource(R.string.mv_pick_time), color = if (at == null) settingsMut() else settingsInk(), fontWeight = FontWeight.SemiBold)
-                }
-                Icon(Icons.Rounded.Edit, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+        StepTitle(stringResource(R.string.mv_time_title), stringResource(R.string.mv_time_hint))
+        val at = draft.scheduledAt
+        val tint = if ("scheduled_at" in draft.missing) AppColors.danger else settingsAccent()
+        Row(
+            Modifier.fillMaxWidth().staggerIn(1).clip(RoundedCornerShape(20.dp)).background(mvCardColor())
+                .border(1.5.dp, if (at == null) tint.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(20.dp))
+                .pressable(onClick = onTime).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Event, null, tint = tint, modifier = Modifier.size(26.dp))
             }
-            MissingNote(draft, "scheduled_at")
-            draft.scheduledAt?.takeIf { !it.isAfter(ZonedDateTime.now()) }?.let { Text(stringResource(R.string.mv_time_passed), color = AppColors.danger, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.mv_when), color = settingsMut(), fontSize = 12.sp)
+                Text(
+                    at?.let { whenText(it, today, tomorrow) } ?: stringResource(R.string.mv_pick_time),
+                    color = if (at == null) tint else settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+                )
+            }
+            Icon(if (at == null) Icons.AutoMirrored.Rounded.KeyboardArrowRight else Icons.Rounded.Edit, null, tint = tint, modifier = Modifier.size(20.dp))
         }
-        MvCard {
+        MissingNote(draft, "scheduled_at")
+        at?.takeIf { !it.isAfter(ZonedDateTime.now()) }?.let { Text(stringResource(R.string.mv_time_passed), color = AppColors.danger, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold) }
+        MvCard(Modifier.staggerIn(2)) {
             DorrTextField(
                 value = draft.notes, onValueChange = { draft.notes = it.take(2000) },
-                label = stringResource(R.string.mv_notes), singleLine = false, minLines = 2, modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.mv_notes), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth(),
             )
-        }
-    }
-}
-
-@Composable
-private fun EndCard(draft: MovingDraft, key: String, end: MovingEnd, title: String, dot: Color, onPick: (String) -> Unit) {
-    MvCard {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onPick(key) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(dot.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Place, null, tint = dot, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, color = settingsMut(), fontSize = 11.sp)
-                Text(
-                    end.point?.let { end.address.ifBlank { it.address } } ?: stringResource(R.string.mv_pick_place),
-                    color = if (end.point == null) settingsMut() else settingsInk(), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Icon(Icons.Rounded.Edit, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
-        }
-        MissingNote(draft, key)
-        if (end.point != null) {
-            Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DorrTextField(
-                    value = end.area, onValueChange = { end.area = it.take(120) },
-                    label = stringResource(R.string.mv_area), placeholder = stringResource(R.string.mv_area_hint), modifier = Modifier.fillMaxWidth(),
-                )
-                DorrTextField(value = end.address, onValueChange = { end.address = it.take(255) }, label = stringResource(R.string.mv_address), modifier = Modifier.fillMaxWidth())
-                DorrTextField(
-                    value = end.entrance, onValueChange = { end.entrance = it.take(255) },
-                    label = stringResource(R.string.mv_entrance), placeholder = stringResource(R.string.mv_entrance_hint), modifier = Modifier.fillMaxWidth(),
-                )
-                DorrTextField(
-                    value = end.floor,
-                    onValueChange = { typed -> end.floor = typed.filterIndexed { i, c -> c.isDigit() || (i == 0 && c == '-') }.take(4) },
-                    label = stringResource(R.string.mv_floor), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
-                )
-                ToggleLine(Icons.Rounded.Elevator, stringResource(R.string.mv_elevator), null, end.elevator) { end.elevator = it }
-            }
         }
     }
 }
@@ -747,49 +1072,62 @@ private fun EndCard(draft: MovingDraft, key: String, end: MovingEnd, title: Stri
 // ---------------------------------------------------------------- 5. the review
 
 @Composable
-private fun ReviewStep(draft: MovingDraft, options: MovingOptionsDto?, onEdit: (Int) -> Unit) {
+private fun ReviewStep(draft: MovingDraft, options: MovingOptionsDto?, route: MovingRouteState, onEdit: (Int) -> Unit) {
     val (today, tomorrow) = rememberWhenLabels()
+    val from = draft.pickup.point?.latLng
+    val to = draft.dropoff.point?.latLng
     MvScroll {
-        Text(stringResource(R.string.mv_review_title), color = settingsInk(), fontWeight = FontWeight.Black, fontSize = 22.sp)
-        Text(stringResource(R.string.mv_review_hint), color = settingsMut(), fontSize = 13.sp)
-        ReviewCard(stringResource(R.string.mv_step_type), onEdit = { onEdit(STEP_TYPE) }) {
+        StepTitle(stringResource(R.string.mv_review_title), stringResource(R.string.mv_review_hint))
+        ReviewCard(stringResource(R.string.mv_step_places), Modifier.staggerIn(1), onEdit = { onEdit(STEP_PLACES) }) {
+            MovingRouteMap(from, to, route.route, Modifier.fillMaxWidth().height(160.dp), onTap = { onEdit(STEP_PLACES) })
+            MovingRouteChips(
+                route, bothEnds = from != null && to != null,
+                fallbackKm = if (from != null && to != null) straightKm(from, to) else null,
+                modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
+            )
+            ReviewEnd(stringResource(R.string.mv_pickup), draft.pickup, AppColors.brandNavy)
+            MissingNote(draft, "pickup")
+            ReviewEnd(stringResource(R.string.mv_dropoff), draft.dropoff, AppColors.brandOrange)
+            MissingNote(draft, "dropoff")
+        }
+        ReviewCard(stringResource(R.string.mv_step_load), Modifier.staggerIn(2), onEdit = { onEdit(STEP_LOAD) }) {
             Text(draft.loadType?.let { loadTypeLabel(it) } ?: "—", color = settingsInk(), fontWeight = FontWeight.SemiBold)
             MissingNote(draft, "load_type")
-        }
-        ReviewCard(stringResource(R.string.mv_step_items), onEdit = { onEdit(STEP_ITEMS) }) {
-            if (draft.description.isNotBlank()) Text(draft.description.trim(), color = settingsInk(), fontSize = 14.sp)
+            if (draft.description.isNotBlank()) Text(draft.description.trim(), color = settingsInk(), fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
             if (draft.pieces.isNotBlank()) MvLine(stringResource(R.string.mv_pieces), draft.pieces)
             if (draft.dimensions.isNotBlank()) MvLine(stringResource(R.string.mv_dimensions), draft.dimensions)
             MvLine(stringResource(R.string.mv_media_title), stringResource(R.string.mv_media_counts, draft.photos.size, draft.videos.size))
             MissingNote(draft, "description_or_photo")
         }
-        ReviewCard(stringResource(R.string.mv_step_vehicle), onEdit = { onEdit(STEP_VEHICLE) }) {
+        ReviewCard(stringResource(R.string.mv_step_vehicle), Modifier.staggerIn(3), onEdit = { onEdit(STEP_VEHICLE) }) {
             val type = options?.vehicleTypes?.firstOrNull { it.id == draft.vehicleTypeId }
             MvLine(stringResource(R.string.mv_vehicle_title), type?.name ?: "—")
             MvLine(stringResource(R.string.mv_workers), draft.workers.toString())
             val extras = listOfNotNull(
-                stringResource(R.string.mv_extra_packing).takeIf { draft.packing },
-                stringResource(R.string.mv_extra_disassembly).takeIf { draft.disassembly },
-                stringResource(R.string.mv_extra_crane).takeIf { draft.crane },
-                stringResource(R.string.mv_extra_technician).takeIf { draft.technician },
+                "packing".takeIf { draft.packing },
+                "disassembly".takeIf { draft.disassembly },
+                "crane".takeIf { draft.crane },
+                "technician".takeIf { draft.technician },
             )
-            if (extras.isNotEmpty()) Text(extras.joinToString(" · "), color = settingsInk(), fontSize = 13.sp)
+            if (extras.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    extras.forEach { MvChip(extraLabel(it), settingsAccent()) }
+                }
+            }
             MissingNote(draft, "vehicle_type_id")
         }
-        ReviewCard(stringResource(R.string.mv_step_place), onEdit = { onEdit(STEP_PLACE) }) {
-            ReviewEnd(stringResource(R.string.mv_pickup), draft.pickup)
-            MissingNote(draft, "pickup")
-            ReviewEnd(stringResource(R.string.mv_dropoff), draft.dropoff)
-            MissingNote(draft, "dropoff")
+        ReviewCard(stringResource(R.string.mv_step_time), Modifier.staggerIn(4), onEdit = { onEdit(STEP_TIME) }) {
             MvLine(stringResource(R.string.mv_when), draft.scheduledAt?.let { whenText(it, today, tomorrow) } ?: "—")
             MissingNote(draft, "scheduled_at")
+            if (draft.notes.isNotBlank()) Text(draft.notes.trim(), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
 
 @Composable
-private fun ReviewCard(title: String, onEdit: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    MvCard {
+private fun ReviewCard(title: String, modifier: Modifier = Modifier, onEdit: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    MvCard(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             MvCardTitle(title, Modifier.weight(1f))
             Text(
@@ -797,21 +1135,27 @@ private fun ReviewCard(title: String, onEdit: () -> Unit, content: @Composable C
                 modifier = Modifier.clip(CircleShape).clickable(onClick = onEdit).padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         content()
     }
 }
 
 @Composable
-private fun ReviewEnd(title: String, end: MovingEnd) {
-    Column(Modifier.padding(vertical = 3.dp)) {
-        Text(title, color = settingsMut(), fontSize = 11.sp)
-        Text(end.point?.let { end.address.ifBlank { it.address } } ?: "—", color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-        val details = listOfNotNull(
-            end.area.takeIf { it.isNotBlank() },
-            end.floor.takeIf { it.isNotBlank() }?.let { stringResource(R.string.mv_floor_value, it) },
-            stringResource(if (end.elevator) R.string.mv_has_elevator else R.string.mv_no_elevator).takeIf { end.point != null },
-        )
-        if (details.isNotEmpty()) Text(details.joinToString(" · "), color = settingsMut(), fontSize = 12.sp)
+private fun ReviewEnd(title: String, end: MovingEnd, dot: Color) {
+    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 5.dp).size(9.dp).clip(CircleShape).background(dot))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(title, color = settingsMut(), fontSize = 11.sp)
+            Text(end.point?.let { end.address.ifBlank { it.address } } ?: "—", color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            val level = end.floor.trim().toIntOrNull()
+            val details = listOfNotNull(
+                end.area.takeIf { it.isNotBlank() },
+                level?.let { if (it == 0) stringResource(R.string.mv_floor_ground) else stringResource(R.string.mv_floor_value, it.toString()) },
+                stringResource(if (end.elevator) R.string.mv_has_elevator else R.string.mv_no_elevator).takeIf { end.point != null },
+                end.entrance.takeIf { it.isNotBlank() },
+            )
+            if (details.isNotEmpty()) Text(details.joinToString(" · "), color = settingsMut(), fontSize = 12.sp)
+        }
     }
 }

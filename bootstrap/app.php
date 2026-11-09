@@ -2,14 +2,19 @@
 
 use App\Exceptions\ApiExceptionRenderer;
 use App\Exceptions\ApiRenderable;
+use App\Http\Middleware\AdminAreaPermission;
 use App\Http\Middleware\EnsurePhoneVerified;
 use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\RememberLocale;
 use App\Http\Middleware\ResolveCountryContext;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
+use Modules\Freelance\Http\Middleware\EnsureFreelanceFeature;
+use Modules\Freelance\Http\Middleware\EnsureFreelancerVerified;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -26,18 +31,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'guest' => RedirectIfAuthenticated::class,
             'locale' => SetLocale::class,
-            'remember-locale' => \App\Http\Middleware\RememberLocale::class,
+            'remember-locale' => RememberLocale::class,
             'country' => ResolveCountryContext::class,
             'ensure-phone-verified' => EnsurePhoneVerified::class,
-            'freelance.feature' => \Modules\Freelance\Http\Middleware\EnsureFreelanceFeature::class,
-            'freelance.verified' => \Modules\Freelance\Http\Middleware\EnsureFreelancerVerified::class,
+            'freelance.feature' => EnsureFreelanceFeature::class,
+            'freelance.verified' => EnsureFreelancerVerified::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'admin.area' => AdminAreaPermission::class,
         ]);
 
         // The caller's real IP behind ngrok / a load balancer: app.trusted_proxies (TRUSTED_PROXIES).
-        $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
+        $middleware->replace(TrustProxies::class, App\Http\Middleware\TrustProxies::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // A domain rule turning a request down (403/422…) is an answer, not a fault — keep it out

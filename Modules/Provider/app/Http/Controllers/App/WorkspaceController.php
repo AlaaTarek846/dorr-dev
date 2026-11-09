@@ -44,7 +44,7 @@ class WorkspaceController extends Controller
         $countryId = (int) ($request->query('country_id') ?: $request->user('provider_api')->country_id);
 
         return ApiResponse::success([
-            'services' => $establishments->offerableServices()->get()->map(fn ($s) => [
+            'services' => $establishments->offerableServices()->with('translations')->get()->map(fn ($s) => [
                 'id' => $s->id,
                 'module_name' => $s->module_name,
                 'name' => $s->translatedName(),

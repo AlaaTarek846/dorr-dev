@@ -1,8 +1,9 @@
 // providerApp `ui/screens/BranchesScreen.kt`
+import CoreLocation
 import SwiftUI
 
 /// The establishment's branches (C-03, `branches.manage`): each with its place, the range it serves and whether it takes requests.
-/// Adding or editing one sets its place from the phone's current location (a map comes later); the main branch can't be switched off
+/// Adding or editing one sets its place on the map (the same map as the registration); the main branch can't be switched off
 /// or deleted. Read once on open and when the connection returns.
 @MainActor
 struct BranchesScreen: View {
@@ -115,7 +116,9 @@ func formatKm(_ km: Double) -> String {
     km.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(km)) : String(km)
 }
 
-/// Adding a branch (`branch` nil) or editing one: name, place (current location, or the one it has), address, range, on / off.
+/// Adding a branch (`branch` nil) or editing one, on the same map as the registration (`BranchMapScreen`): the pin on the branch's
+/// place (a new branch opens on the phone's location, an edited one on its own place), and on the card under the map its name, the
+/// address written from the map (editable), the range requests reach it from, and on / off.
 @MainActor
 private struct BranchForm: View {
     @Environment(\.wa) private var wa
@@ -125,13 +128,13 @@ private struct BranchForm: View {
 
     @State private var name: String
     @State private var address: String
-    @State private var radius: String
+    @State private var radiusKm: Double
     @State private var lat: Double?
     @State private var lng: Double?
     @State private var active: Bool
-    @State private var locating = false
     @State private var busy = false
     @State private var error: String?
+    private let start: CLLocationCoordinate2D?
 
     init(branch: BranchDto?, onBack: @escaping () -> Void, onSaved: @escaping () -> Void) {
         self.branch = branch
@@ -139,56 +142,44 @@ private struct BranchForm: View {
         self.onSaved = onSaved
         _name = State(initialValue: branch?.name ?? "")
         _address = State(initialValue: branch?.address ?? "")
-        _radius = State(initialValue: branch?.radiusKm.map(formatKm) ?? "")
+        _radiusKm = State(initialValue: branch?.radiusKm ?? defaultRadiusKm)
         _lat = State(initialValue: branch?.lat)
         _lng = State(initialValue: branch?.lng)
         _active = State(initialValue: branch?.status ?? true)
+        if let lat = branch?.lat, let lng = branch?.lng {
+            start = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+        } else {
+            start = nil
+        }
     }
 
-    private var radiusValue: Double? { Double(radius.replacingOccurrences(of: ",", with: ".")) }
-    private var radiusOk: Bool {
-        radius.trimmingCharacters(in: .whitespaces).isEmpty || (radiusValue.map { (0.5...500.0).contains($0) } ?? false)
-    }
-    private var ready: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty && lat != nil && lng != nil && radiusOk }
+    private var ready: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty && lat != nil && lng != nil }
 
     var body: some View {
-        let title = L(branch == nil ? "br_add" : "br_edit")
-        Page(title: title, onBack: onBack) {
-            FormIntro(icon: "storefront.fill", title: title, text: L("br_form_body"))
-            FormGroup {
-                DorrTextField(value: $name.profileTake(150), label: L("br_name"), icon: "storefront.fill")
-            }
-            Card {
-                HStack(spacing: 10) {
-                    Image(systemName: "location.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(wa.red).frame(width: 22)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(L(lat != nil ? "onb_location_set" : "onb_location_none")).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk)
-                        if let lat, let lng {
-                            Text(verbatim: coordinatesText(lat, lng)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    if locating { ProgressView().tint(wa.red).frame(width: 20, height: 20) }
-                }
-                ProfileTextLink(text: L(lat != nil ? "onb_location_again" : "onb_location_use"), enabled: !locating && !busy, action: locate)
-                Text(L("onb_map_later")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
-            }
-            FormGroup {
-                DorrTextField(value: $address.profileTake(255), label: L("onb_address"), placeholder: L("onb_optional"), icon: "mappin.and.ellipse")
-                DorrTextField(value: $radius.profileMap(decimalInput(5)), label: L("onb_radius"), placeholder: L("onb_radius_hint"),
-                              icon: "safari", keyboard: .decimalPad, error: !radiusOk)
-                if !radiusOk { Text(L("onb_radius_invalid")).font(.dorr(12)).foregroundStyle(Red) }
-            }
+        BranchMapScreen(
+            title: L(branch == nil ? "br_add" : "br_edit"),
+            start: start,
+            onBack: onBack,
+            onPlace: { at in
+                lat = at.latitude
+                lng = at.longitude
+            },
+            onAddress: { address = $0 },
+            radiusKm: radiusKm
+        ) {
+            Text(L("br_form_body")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            DorrTextField(value: $name.profileTake(150), label: L("br_name"), icon: "storefront.fill")
+            DorrTextField(value: $address.profileTake(255), label: L("onb_map_address_label"), placeholder: L("onb_map_address_placeholder"), icon: "mappin.and.ellipse")
+            Text(L("onb_map_address_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            RadiusPicker(km: radiusKm) { radiusKm = $0 }
             if branch?.isMain != true {
-                Card {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(L("br_takes_requests")).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-                            Text(L("br_takes_requests_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        RedToggle(on: active) { active.toggle() }
+                HStack {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(L("br_takes_requests")).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
+                        Text(L("br_takes_requests_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    RedToggle(on: active) { active.toggle() }
                 }
             } else {
                 Text(L("br_main_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
@@ -198,28 +189,13 @@ private struct BranchForm: View {
         .messageToast(error)
     }
 
-    private func locate() {
-        locating = true
-        error = nil
-        Task {
-            let here = await CurrentPosition.shared.fetch()
-            locating = false
-            if let here {
-                lat = here.latitude
-                lng = here.longitude
-            } else {
-                error = L("onb_location_failed")
-            }
-        }
-    }
-
     private func save() {
         guard let latitude = lat, let longitude = lng else { return }
         busy = true
         error = nil
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         let body = BranchBody(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines), lat: latitude, lng: longitude, radiusKm: radiusValue,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines), lat: latitude, lng: longitude, radiusKm: radiusKm,
             address: trimmed.isEmpty ? nil : trimmed,
             // The main branch always takes requests.
             status: branch?.isMain == true ? true : active

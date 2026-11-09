@@ -14,9 +14,9 @@ class AiPlanMediaLimitsApiTest extends TestCase
 
     protected function admin(): void
     {
-        Sanctum::actingAs(Admin::query()->create([
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create([
             'name' => 'Plan Admin', 'email' => 'plan-admin-'.uniqid().'@example.test', 'password' => 'password', 'status' => true,
-        ]), ['*'], 'admin_api');
+        ])), ['*'], 'admin_api');
     }
 
     protected function payload(array $extra = []): array

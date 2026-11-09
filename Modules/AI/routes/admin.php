@@ -49,8 +49,6 @@ use Modules\AI\Http\Controllers\AiSiteAdminProjectController;
 use Modules\AI\Http\Controllers\AiSiteDownloadSettingController;
 use Modules\AI\Http\Controllers\AiSiteHostingPlanController;
 use Modules\AI\Http\Controllers\AiSiteOfferController;
-use Modules\AI\Http\Controllers\Ar\AiArAdminController;
-use Modules\AI\Http\Controllers\World\AiWorldAdminController;
 use Modules\AI\Http\Controllers\AiSiteServiceRequestAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
@@ -59,8 +57,10 @@ use Modules\AI\Http\Controllers\AiUsageController;
 use Modules\AI\Http\Controllers\AiUsageSessionController;
 use Modules\AI\Http\Controllers\AiUserLanguagePreferenceController;
 use Modules\AI\Http\Controllers\AiVerificationController;
+use Modules\AI\Http\Controllers\Ar\AiArAdminController;
+use Modules\AI\Http\Controllers\World\AiWorldAdminController;
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-providers')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-settings'])->prefix('admin/v1/ai-providers')->group(function () {
     Route::get('/', [AiProviderController::class, 'index']);
 
     Route::post('{provider}', [AiProviderController::class, 'update'])
@@ -88,7 +88,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
         ->whereIn('provider', AiProviderKey::values())->whereNumber('model');
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-plans')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-plans'])->prefix('admin/v1/ai-plans')->group(function () {
     Route::get('/', [AiPlanController::class, 'index']);
     Route::post('/', [AiPlanController::class, 'store']);
     Route::get('{plan}', [AiPlanController::class, 'show']);
@@ -99,7 +99,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{plan}/prices/{price}', [AiPlanPriceController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-subscriptions')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-plans'])->prefix('admin/v1/ai-subscriptions')->group(function () {
     Route::get('overview', [AiSubscriptionAdminController::class, 'overview']);
     Route::get('/', [AiSubscriptionController::class, 'index']);
     Route::post('/', [AiSubscriptionController::class, 'store']);
@@ -112,18 +112,18 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::post('{subscription}/cancel', [AiSubscriptionAdminController::class, 'cancel']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-usage-sessions')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-plans'])->prefix('admin/v1/ai-usage-sessions')->group(function () {
     Route::get('/', [AiUsageSessionController::class, 'index']);
     Route::get('{usageSession}', [AiUsageSessionController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-trial-control')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-plans'])->prefix('admin/v1/ai-trial-control')->group(function () {
     Route::get('/', [AiTrialControlController::class, 'index']);
     Route::get('{trialControl}', [AiTrialControlController::class, 'show']);
     Route::put('{trialControl}', [AiTrialControlController::class, 'update']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-learned-intents')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-learned-intents')->group(function () {
     Route::get('/', [AiLearnedIntentController::class, 'index']);
     Route::get('stats', [AiLearnedIntentController::class, 'stats']);
     Route::post('test', [AiLearnedIntentController::class, 'test']);
@@ -132,7 +132,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{learnedIntent}', [AiLearnedIntentController::class, 'destroy'])->whereNumber('learnedIntent');
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-intents')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-intents')->group(function () {
     Route::get('/', [AiIntentController::class, 'index']);
     Route::post('/', [AiIntentController::class, 'store']);
     Route::get('{intent}', [AiIntentController::class, 'show']);
@@ -140,7 +140,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{intent}', [AiIntentController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-routing-policies')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-routing-policies')->group(function () {
     Route::get('/', [AiRoutingPolicyController::class, 'index']);
     Route::post('/', [AiRoutingPolicyController::class, 'store']);
     Route::get('{policy}', [AiRoutingPolicyController::class, 'show']);
@@ -148,7 +148,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{policy}', [AiRoutingPolicyController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-gateways')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-gateways')->group(function () {
     Route::get('/', [AiGatewayController::class, 'index']);
     Route::post('/', [AiGatewayController::class, 'store']);
     Route::get('{gateway}', [AiGatewayController::class, 'show']);
@@ -156,7 +156,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{gateway}', [AiGatewayController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-routing-rules')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-routing-rules')->group(function () {
     Route::get('/', [AiRoutingRuleController::class, 'index']);
     Route::post('/', [AiRoutingRuleController::class, 'store']);
     Route::get('{rule}', [AiRoutingRuleController::class, 'show']);
@@ -164,7 +164,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{rule}', [AiRoutingRuleController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-safety-policies')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-safety'])->prefix('admin/v1/ai-safety-policies')->group(function () {
     Route::get('/', [AiSafetyPolicyController::class, 'index']);
     Route::post('/', [AiSafetyPolicyController::class, 'store']);
     Route::get('{policy}', [AiSafetyPolicyController::class, 'show']);
@@ -172,7 +172,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{policy}', [AiSafetyPolicyController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-safety-rules')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-safety'])->prefix('admin/v1/ai-safety-rules')->group(function () {
     Route::get('/', [AiSafetyRuleController::class, 'index']);
     Route::post('/', [AiSafetyRuleController::class, 'store']);
     Route::get('{rule}', [AiSafetyRuleController::class, 'show']);
@@ -180,17 +180,17 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{rule}', [AiSafetyRuleController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-safety-events')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-safety'])->prefix('admin/v1/ai-safety-events')->group(function () {
     Route::get('/', [AiSafetyEventController::class, 'index']);
     Route::get('{safetyEvent}', [AiSafetyEventController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-safety-scans')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-safety'])->prefix('admin/v1/ai-safety-scans')->group(function () {
     Route::get('/', [AiSafetyScanController::class, 'index']);
     Route::get('{safetyScan}', [AiSafetyScanController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-security-policies')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-security'])->prefix('admin/v1/ai-security-policies')->group(function () {
     Route::get('/', [AiSecurityPolicyController::class, 'index']);
     Route::post('/', [AiSecurityPolicyController::class, 'store']);
     Route::get('{policy}', [AiSecurityPolicyController::class, 'show']);
@@ -198,7 +198,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{policy}', [AiSecurityPolicyController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-data-policies')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-security'])->prefix('admin/v1/ai-data-policies')->group(function () {
     Route::get('/', [AiDataPolicyController::class, 'index']);
     Route::post('/', [AiDataPolicyController::class, 'store']);
     Route::get('{policy}', [AiDataPolicyController::class, 'show']);
@@ -206,7 +206,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{policy}', [AiDataPolicyController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-provider-data-rules')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-security'])->prefix('admin/v1/ai-provider-data-rules')->group(function () {
     Route::get('/', [AiProviderDataRuleController::class, 'index']);
     Route::post('/', [AiProviderDataRuleController::class, 'store']);
     Route::get('{providerDataRule}', [AiProviderDataRuleController::class, 'show']);
@@ -214,37 +214,37 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{providerDataRule}', [AiProviderDataRuleController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-security-events')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-security'])->prefix('admin/v1/ai-security-events')->group(function () {
     Route::get('/', [AiSecurityEventController::class, 'index']);
     Route::get('{securityEvent}', [AiSecurityEventController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-requests')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-requests')->group(function () {
     Route::get('/', [AiRequestController::class, 'index']);
     Route::get('{aiRequest}', [AiRequestController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-responses')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-responses')->group(function () {
     Route::get('/', [AiResponseController::class, 'index']);
     Route::get('{response}', [AiResponseController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-usage')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-usage')->group(function () {
     Route::get('/', [AiUsageController::class, 'index']);
     Route::get('{usage}', [AiUsageController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-conversation-contexts')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-conversations'])->prefix('admin/v1/ai-conversation-contexts')->group(function () {
     Route::get('/', [AiConversationContextController::class, 'index']);
     Route::get('{context}', [AiConversationContextController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-conversation-attachments')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-conversations'])->prefix('admin/v1/ai-conversation-attachments')->group(function () {
     Route::get('/', [AiConversationAttachmentController::class, 'index']);
     Route::get('{attachment}', [AiConversationAttachmentController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-conversation-instructions')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-conversations'])->prefix('admin/v1/ai-conversation-instructions')->group(function () {
     Route::get('/', [AiConversationInstructionController::class, 'index']);
     Route::post('/', [AiConversationInstructionController::class, 'store']);
     Route::get('{instruction}', [AiConversationInstructionController::class, 'show']);
@@ -252,32 +252,32 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{instruction}', [AiConversationInstructionController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-provider-logs')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-monitoring'])->prefix('admin/v1/ai-provider-logs')->group(function () {
     Route::get('/', [AiProviderLogController::class, 'index']);
     Route::get('{log}', [AiProviderLogController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-audit-events')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-audit-events')->group(function () {
     Route::get('/', [AiAuditEventController::class, 'index']);
     Route::get('{event}', [AiAuditEventController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-provider-health')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-monitoring'])->prefix('admin/v1/ai-provider-health')->group(function () {
     Route::get('/', [AiProviderHealthController::class, 'index']);
     Route::get('{health}', [AiProviderHealthController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-failovers')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-monitoring'])->prefix('admin/v1/ai-failovers')->group(function () {
     Route::get('/', [AiFailoverController::class, 'index']);
     Route::get('{failover}', [AiFailoverController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-verifications')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-verifications')->group(function () {
     Route::get('/', [AiVerificationController::class, 'index']);
     Route::get('{verification}', [AiVerificationController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-feature-flags')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-feature-flags')->group(function () {
     Route::get('/', [AiFeatureFlagController::class, 'index']);
     Route::post('/', [AiFeatureFlagController::class, 'store']);
     Route::get('{flag}', [AiFeatureFlagController::class, 'show']);
@@ -285,7 +285,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{flag}', [AiFeatureFlagController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-domain-policies')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-routing'])->prefix('admin/v1/ai-domain-policies')->group(function () {
     Route::get('/', [AiDomainPolicyController::class, 'index']);
     Route::post('/', [AiDomainPolicyController::class, 'store']);
     Route::get('{policy}', [AiDomainPolicyController::class, 'show']);
@@ -293,12 +293,12 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{policy}', [AiDomainPolicyController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-code-executions')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-logs'])->prefix('admin/v1/ai-code-executions')->group(function () {
     Route::get('/', [AiCodeExecutionController::class, 'index']);
     Route::get('{execution}', [AiCodeExecutionController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-reliability-metrics')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-monitoring'])->prefix('admin/v1/ai-reliability-metrics')->group(function () {
     Route::get('/', [AiReliabilityMetricController::class, 'index']);
     Route::get('{metric}', [AiReliabilityMetricController::class, 'show']);
 });
@@ -308,13 +308,13 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 // deleting a language is the general Languages admin screen's job (see
 // AiLanguageController's docblock). The old "ai-locales" endpoint group
 // (an unused, never-wired-up duplicate of ai-language-variants) is gone.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-languages')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-languages'])->prefix('admin/v1/ai-languages')->group(function () {
     Route::get('/', [AiLanguageController::class, 'index']);
     Route::get('{language}', [AiLanguageController::class, 'show']);
     Route::put('{language}', [AiLanguageController::class, 'update']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-language-variants')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-languages'])->prefix('admin/v1/ai-language-variants')->group(function () {
     Route::get('/', [AiLanguageVariantController::class, 'index']);
     Route::post('/', [AiLanguageVariantController::class, 'store']);
     Route::get('{variant}', [AiLanguageVariantController::class, 'show']);
@@ -322,13 +322,13 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{variant}', [AiLanguageVariantController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-user-language-preferences')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-languages'])->prefix('admin/v1/ai-user-language-preferences')->group(function () {
     Route::get('/', [AiUserLanguagePreferenceController::class, 'index']);
     Route::get('{preference}', [AiUserLanguagePreferenceController::class, 'show']);
     Route::put('{preference}', [AiUserLanguagePreferenceController::class, 'update']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-language-evaluations')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-languages'])->prefix('admin/v1/ai-language-evaluations')->group(function () {
     Route::get('/', [AiLanguageEvaluationController::class, 'index']);
     Route::post('/', [AiLanguageEvaluationController::class, 'store']);
     Route::get('{evaluation}', [AiLanguageEvaluationController::class, 'show']);
@@ -336,17 +336,17 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{evaluation}', [AiLanguageEvaluationController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-files')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-knowledge'])->prefix('admin/v1/ai-files')->group(function () {
     Route::get('/', [AiFileController::class, 'index']);
     Route::get('{file}', [AiFileController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-file-processing')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-knowledge'])->prefix('admin/v1/ai-file-processing')->group(function () {
     Route::get('/', [AiFileProcessingController::class, 'index']);
     Route::get('{processing}', [AiFileProcessingController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-knowledge-sources')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-knowledge'])->prefix('admin/v1/ai-knowledge-sources')->group(function () {
     Route::get('/', [AiKnowledgeSourceController::class, 'index']);
     Route::post('/', [AiKnowledgeSourceController::class, 'store']);
     Route::get('{source}', [AiKnowledgeSourceController::class, 'show']);
@@ -355,17 +355,17 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::post('{source}/deprecate', [AiKnowledgeSourceController::class, 'deprecate']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-knowledge-chunks')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-knowledge'])->prefix('admin/v1/ai-knowledge-chunks')->group(function () {
     Route::get('/', [AiKnowledgeChunkController::class, 'index']);
     Route::get('{chunk}', [AiKnowledgeChunkController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-document-generations')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-knowledge'])->prefix('admin/v1/ai-document-generations')->group(function () {
     Route::get('/', [AiDocumentGenerationController::class, 'index']);
     Route::get('{generation}', [AiDocumentGenerationController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-project-instructions')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-projects'])->prefix('admin/v1/ai-project-instructions')->group(function () {
     Route::get('/', [AiProjectInstructionController::class, 'index']);
     Route::post('/', [AiProjectInstructionController::class, 'store']);
     Route::get('{instruction}', [AiProjectInstructionController::class, 'show']);
@@ -373,12 +373,12 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{instruction}', [AiProjectInstructionController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-project-context')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-projects'])->prefix('admin/v1/ai-project-context')->group(function () {
     Route::get('/', [AiProjectContextController::class, 'index']);
     Route::get('{context}', [AiProjectContextController::class, 'show']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-benchmark-cases')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-benchmarks'])->prefix('admin/v1/ai-benchmark-cases')->group(function () {
     Route::get('/', [AiBenchmarkCaseController::class, 'index']);
     Route::post('/', [AiBenchmarkCaseController::class, 'store']);
     Route::get('{case}', [AiBenchmarkCaseController::class, 'show']);
@@ -386,7 +386,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::delete('{case}', [AiBenchmarkCaseController::class, 'destroy']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-benchmark-runs')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-benchmarks'])->prefix('admin/v1/ai-benchmark-runs')->group(function () {
     Route::get('/', [AiBenchmarkRunController::class, 'index']);
     Route::post('/', [AiBenchmarkRunController::class, 'store']);
     // Must be registered before the {run} route below, or "config" would
@@ -396,7 +396,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // Website builder: standalone offers (price per country) and moderation of customer sites.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-offers')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-site-offers')->group(function () {
     Route::get('/', [AiSiteOfferController::class, 'index']);
     Route::post('/', [AiSiteOfferController::class, 'store']);
     Route::get('{offer}', [AiSiteOfferController::class, 'show']);
@@ -407,12 +407,12 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // Source download (ZIP) of a built site: on/off and free/paid.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-download')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-site-download')->group(function () {
     Route::get('/', [AiSiteDownloadSettingController::class, 'show']);
     Route::put('/', [AiSiteDownloadSettingController::class, 'update']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-sites')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-sites')->group(function () {
     Route::get('/', [AiSiteAdminProjectController::class, 'index']);
     Route::get('{project}', [AiSiteAdminProjectController::class, 'show'])->whereNumber('project');
     Route::post('{project}/disable', [AiSiteAdminProjectController::class, 'disable'])->whereNumber('project');
@@ -421,7 +421,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // Site hosting: plans with a price per country, and every hosted site.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-hosting-plans')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-site-hosting-plans')->group(function () {
     Route::get('/', [AiSiteHostingPlanController::class, 'index']);
     Route::post('/', [AiSiteHostingPlanController::class, 'store']);
     Route::get('{plan}', [AiSiteHostingPlanController::class, 'show']);
@@ -431,7 +431,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::put('{plan}/prices', [AiSiteHostingPlanController::class, 'syncPrices']);
 });
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-hostings')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-site-hostings')->group(function () {
     Route::get('/', [AiSiteAdminHostingController::class, 'index']);
     Route::get('{hosting}', [AiSiteAdminHostingController::class, 'show'])->whereNumber('hosting');
     Route::post('{hosting}/suspend', [AiSiteAdminHostingController::class, 'suspend'])->whereNumber('hosting');
@@ -440,7 +440,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // Human-assisted site requests: inbox, quote builder, run-the-work actions, conversation, switch and statuses.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-requests')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-sites'])->prefix('admin/v1/ai-site-requests')->group(function () {
     Route::get('summary', [AiSiteServiceRequestAdminController::class, 'summary']);
     Route::get('settings', [AiSiteServiceRequestAdminController::class, 'settings']);
     Route::put('settings', [AiSiteServiceRequestAdminController::class, 'updateSettings']);
@@ -463,7 +463,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // DORR AI WORLD ops console: settings, country modes, prices, projects with internal costs, reports.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-world')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-ar-world'])->prefix('admin/v1/ai-world')->group(function () {
     Route::get('stats', [AiWorldAdminController::class, 'stats']);
     Route::get('settings', [AiWorldAdminController::class, 'settings']);
     Route::put('settings', [AiWorldAdminController::class, 'updateSettings']);
@@ -478,7 +478,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 });
 
 // DORR AR engine ops console: settings, model library (licences, versions), tested devices.
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-ar')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-ar-world'])->prefix('admin/v1/ai-ar')->group(function () {
     Route::get('settings', [AiArAdminController::class, 'settings']);
     Route::put('settings', [AiArAdminController::class, 'updateSettings']);
     Route::get('assets', [AiArAdminController::class, 'assets']);

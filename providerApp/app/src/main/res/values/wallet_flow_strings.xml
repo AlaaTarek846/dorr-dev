@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The DORR app's wallet PIN pages (ui/wallet/WaPinFlows.kt): photo recovery methods, the photo picker, forgot-PIN by photo, the forced PIN change and the frozen wallet. Copied from the DORR app's strings. -->
+<resources>
+    <string name="wa_force_page_title">New PIN</string>
+    <string name="wa_force_sub">Your PIN was reset to 0000. Choose one only you know.</string>
+    <string name="wa_force_title">Choose a new PIN</string>
+    <string name="wa_forgot_approved_text">Your PIN is now 0000. Enter it and you\'ll be asked to choose a new one.</string>
+    <string name="wa_forgot_pending_text">We\'ll notify you as soon as it\'s approved.</string>
+    <string name="wa_forgot_pending_title">Your request is under review</string>
+    <string name="wa_forgot_photo_sub">We compare it with the one you uploaded before. You\'ll be notified once it\'s reviewed.</string>
+    <string name="wa_forgot_photo_title">Upload your %1$s again</string>
+    <string name="wa_forgot_rejected_text">You can upload the photo again.</string>
+    <string name="wa_forgot_rejected_title">Your request was declined</string>
+    <string name="wa_forgot_send">Send for review</string>
+    <string name="wa_frozen_id_label">ID or passport photo</string>
+    <string name="wa_frozen_pending_text">Support will verify your identity as soon as possible.</string>
+    <string name="wa_frozen_pending_title">Under review</string>
+    <string name="wa_frozen_selfie_label">A selfie of yourself</string>
+    <string name="wa_frozen_sub">Your wallet was permanently frozen after wrong PIN attempts. Take a selfie and upload an ID photo for support to review.</string>
+    <string name="wa_load_failed">Couldn\'t load your wallet</string>
+    <string name="wa_photo_id">ID</string>
+    <string name="wa_photo_passport">passport</string>
+    <string name="wa_rec_code_resend">Send the code again</string>
+    <string name="wa_rec_m_id_photo">ID photo</string>
+    <string name="wa_rec_m_id_photo_d">Upload your ID — a reviewer approves any recovery</string>
+    <string name="wa_rec_m_passport_photo">Passport photo</string>
+    <string name="wa_rec_m_passport_photo_d">Upload your passport — a reviewer approves any recovery</string>
+    <string name="wa_rec_photo_change">Choose another photo</string>
+    <string name="wa_rec_photo_id_hint">Upload a clear photo of your ID. If you forget your PIN you\'ll upload it again and we compare the two.</string>
+    <string name="wa_rec_photo_passport_hint">Upload a clear photo of your passport. If you forget your PIN you\'ll upload it again and we compare the two.</string>
+    <string name="wa_rec_photo_pick">Choose a photo</string>
+    <string name="wa_rec_photo_required">Choose a photo first.</string>
+    <string name="wa_rec_photo_retake">Retake photo</string>
+    <string name="wa_rec_photo_take">Take a photo</string>
+    <string name="wa_rec_photo_unreadable">Could not read that picture. Try another one.</string>
+    <string name="wa_retry">Try again</string>
+</resources>

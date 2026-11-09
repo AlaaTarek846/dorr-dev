@@ -5,5 +5,8 @@
 DORR_API_HOST = dorr.test
 DORR_API_SCHEME = http
 
+// providerApp `dorr.mapsKey` (the same Google Maps key as the captain app's).
+DORR_GOOGLE_MAPS_KEY =
+
 // To run on a real iPhone: your Apple team ID (Xcode → Settings → Accounts).
 // DEVELOPMENT_TEAM = XXXXXXXXXX

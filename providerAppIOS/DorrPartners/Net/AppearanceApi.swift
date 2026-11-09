@@ -55,6 +55,10 @@ struct AppLanguageDto: Codable, Equatable, Identifiable {
 
 enum AppearanceApi {
     static func show() async -> ApiResult<AppearanceDto> { await Api.call("GET", Api.provider + "appearance") }
+
+    /// Which map to draw — Google, Mapbox (token + style) or, on the iPhone, Apple Maps: the admin's choice (Map/DorrMap.swift
+    /// `MapEngine`), the same payload as the captain's `driver/v1/map-config`. Read once after sign-in.
+    static func mapConfig() async -> ApiResult<MapEngineConfig> { await Api.call("GET", Api.provider + "map-config") }
 }
 
 enum TranslationsApi {

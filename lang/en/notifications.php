@@ -1043,4 +1043,17 @@ return [
     'provider_document_expiring_body' => 'The document ":document" expires on :date; renew it to keep working.',
     'provider_invitation_title' => 'An invitation to join',
     'provider_invitation_body' => ':name invited you to join its team.',
+    // The dashboard: what waits for a person on the providers' side (ProviderAdminNotifier).
+    'admin_provider_establishment_submitted_title' => 'An establishment to review',
+    'admin_provider_establishment_submitted_body' => '«:name» sent its details and papers for review.',
+    'admin_provider_document_uploaded_title' => 'A new paper to review',
+    'admin_provider_document_uploaded_body' => '«:name» uploaded «:document».',
+    'admin_provider_vehicle_pending_title' => 'A vehicle to review',
+    'admin_provider_vehicle_pending_body' => '«:name» added the vehicle :plate or changed its details.',
+    'admin_moving_report_opened_title' => 'A new report on a move',
+    'admin_moving_report_opened_body' => 'The customer reported a problem on move :request; it waits for a decision.',
+    'admin_moving_exception_requested_title' => 'An exception asked on a cancellation',
+    'admin_moving_exception_requested_body' => 'An exception from the cancellation fee was asked on move :request; it waits for a decision.',
+    'admin_moving_ticket_escalated_title' => 'A moving ticket needs you',
+    'admin_moving_ticket_escalated_body' => 'The ticket «:subject» on move :request reached the DORR team.',
 ];

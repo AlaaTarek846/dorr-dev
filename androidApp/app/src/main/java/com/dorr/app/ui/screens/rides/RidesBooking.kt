@@ -408,6 +408,8 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
                 addProperty("passengers", state.passengers)
                 state.pickupNote.trim().takeIf { it.isNotEmpty() }?.let { addProperty("pickup_note", it) }
+                // A quiet ride for this trip (the captain sees it on the request).
+                state.quietRide?.let { addProperty("quiet", it) }
                 // R-13: the person the ride is for, with the rider's own consent tick.
                 // R-INN-07: the favourite captains first.
                 circleBody(state)?.let { add("circle", it) }
@@ -481,7 +483,7 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
             if (state.feature("saved_places")) SaveDestinationRow(state)
             // D-60, D-61: how many ride and a note for the captain.
             TripDetailsRow(state)
-            // «راحتي»: how I like the trip — requests, not guarantees.
+            // A quiet ride, then «راحتي»: how I like the trip — requests, not guarantees.
             ComfortRow(state)
             // R-13: the ride is for someone else.
             if (state.feature("book_for_other")) BookForOtherRow(state)

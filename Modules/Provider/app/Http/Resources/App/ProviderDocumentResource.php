@@ -16,6 +16,7 @@ class ProviderDocumentResource extends JsonResource
             'uuid' => $this->uuid,
             'document_type_id' => $this->document_type_id,
             'code' => $this->whenLoaded('type', fn () => $this->type->code),
+            'name' => $this->whenLoaded('type', fn () => $this->type->translatedName()),
             'number' => $this->number,
             'expires_on' => $this->expires_on?->toDateString(),
             'status' => $this->status->value,

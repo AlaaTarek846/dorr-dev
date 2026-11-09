@@ -852,6 +852,8 @@ data class RideComfortOptionsDto(val ac: List<RideChoiceDto> = emptyList(), val 
 
 data class RideComfortScreenDto(
     val enabled: Boolean = false,
+    /** The quiet-ride switch on the booking sheet (on with «راحتي», or on its own). */
+    @SerializedName("quiet_enabled") val quietEnabled: Boolean = false,
     val prefs: RideComfortPrefsDto = RideComfortPrefsDto(),
     val options: RideComfortOptionsDto = RideComfortOptionsDto(),
     val disclaimer: String? = null,

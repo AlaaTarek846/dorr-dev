@@ -189,7 +189,7 @@ class AiArApprovalTest extends TestCase
         $exp = $this->designed();
         $this->postJson("/api/user/v1/ai-ar/experiences/$exp/submit", ['provider_id' => $this->provider->id, 'note' => 'Hi'])->assertStatus(201);
 
-        Sanctum::actingAs(\Modules\Admin\Models\Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(\Modules\Admin\Models\Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
         $this->getJson('/api/admin/v1/ai-ar/reviews')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.customer_note', 'Hi')->assertJsonPath('data.0.status', 'pending');
         $this->getJson('/api/admin/v1/ai-ar/reviews?status=approved')->assertJsonCount(0, 'data');
     }

@@ -7,6 +7,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Http\Middleware\RideLocation;
 use Modules\Rides\Services\Ai\RideAi;
 use Modules\Rides\Services\Ai\RiderSuggestions;
@@ -48,7 +49,7 @@ class RideAiController extends Controller
         ]);
         [$countryId, $cityId] = RideLocation::of($request, $cities);
         if ($countryId === null) {
-            throw \Modules\Rides\Exceptions\RidesException::featureDisabled('rides');
+            throw RidesException::featureDisabled('rides');
         }
 
         return ApiResponse::success($smart->understand(
@@ -81,7 +82,7 @@ class RideAiController extends Controller
     {
         [$countryId, $cityId] = RideLocation::of($request, $cities);
 
-        return ApiResponse::success($comfort->screen($this->rider($request), $countryId !== null && $features->allows($countryId, $cityId, 'comfort')), __('api.retrieved'));
+        return ApiResponse::success($comfort->screen($this->rider($request), $countryId !== null && $features->allows($countryId, $cityId, 'comfort'), $countryId !== null && $features->allows($countryId, $cityId, 'quiet_ride')), __('api.retrieved'));
     }
 
     /** `PUT comfort {quiet?, ac?, music?, notes?[]}` */
@@ -91,7 +92,7 @@ class RideAiController extends Controller
         $comfort->save($this->rider($request), $data);
         [$countryId, $cityId] = RideLocation::of($request, $cities);
 
-        return ApiResponse::success($comfort->screen($this->rider($request), $countryId !== null && $features->allows($countryId, $cityId, 'comfort')), __('rides.comfort.saved'));
+        return ApiResponse::success($comfort->screen($this->rider($request), $countryId !== null && $features->allows($countryId, $cityId, 'comfort'), $countryId !== null && $features->allows($countryId, $cityId, 'quiet_ride')), __('rides.comfort.saved'));
     }
 
     /** @return array<string, list<mixed>> */

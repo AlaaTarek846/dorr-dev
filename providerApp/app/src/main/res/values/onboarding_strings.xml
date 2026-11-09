@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Registration (C-02): the branch's place on the map, the requests range, the location window, and the vehicle step. -->
+<resources>
+    <!-- The branch's place on the map (onboarding step 3 and the branches page). -->
+    <string name="onb_map_hint">Move the map to put the pin on your branch</string>
+    <string name="onb_map_pin_here">Your branch is here</string>
+    <string name="onb_map_finding_address">Finding the address…</string>
+    <string name="onb_map_my_location">My location</string>
+    <string name="onb_map_locate_failed">We could not find where you are right now. Move the map until the pin is on your branch.</string>
+    <string name="onb_map_address_label">Branch address</string>
+    <string name="onb_map_address_placeholder">Filled in from the map</string>
+    <string name="onb_map_address_note">The address is written from the pin\'s place on the map, and you can change it.</string>
+
+    <!-- The requests range. -->
+    <string name="onb_radius_title">Requests range</string>
+    <string name="onb_radius_sub">How far around your branch requests reach you from</string>
+    <string name="onb_radius_value">%1$s km</string>
+    <string name="onb_radius_explain">Every request within %1$s km of your branch is shown to you. The wider the range, the more requests you receive.</string>
+
+    <!-- Step 4 when moving is chosen: the first vehicle. -->
+    <string name="onb_step4_title">Your first vehicle</string>
+    <string name="onb_step4_body">Moving needs at least one vehicle. Add it with its photos and details to continue.</string>
+
+    <!-- The location window (the rider app's LocationGate). -->
+    <string name="lg_title_permission">We need your location</string>
+    <string name="lg_body_permission">To open the map where you are and set your branch\'s place exactly, allow the app to know your location.</string>
+    <string name="lg_title_off">Turn on location</string>
+    <string name="lg_body_off">Location is off on your phone. Turn it on and the map opens right where you are.</string>
+    <string name="lg_allow">Allow location</string>
+    <string name="lg_open_settings">Open settings and allow location</string>
+    <string name="lg_turn_on">Turn on location</string>
+    <string name="lg_leave">Go back</string>
+</resources>

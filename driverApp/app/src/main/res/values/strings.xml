@@ -72,6 +72,8 @@
     <string name="nt_card_title">Next: %1$s</string>
     <string name="nt_waiting">Starts after ride %1$s ends</string>
     <string name="cf_title">Rider\'s comfort</string>
+    <string name="cf_quiet_title">Quiet ride</string>
+    <string name="cf_quiet_body">The rider prefers not to talk. Speak only when the trip needs it (the way, the pickup or safety).</string>
     <string name="cf_tap_hint">Tap an item if it isn\'t possible — the rider is told why.</string>
     <string name="cf_told">«%1$s» — told the rider: %2$s</string>
     <string name="cf_unable_title">Can\'t do «%1$s»?</string>

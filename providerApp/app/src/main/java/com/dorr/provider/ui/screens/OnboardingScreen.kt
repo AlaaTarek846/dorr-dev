@@ -98,25 +98,26 @@ import com.dorr.provider.ui.kit.settingsMut
 import com.dorr.provider.ui.kit.settingsNight
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * After the sign-in, with no establishment yet (C-02, docs/moving_business.md §12): three short steps in the kit's look —
+ * After the sign-in, with no establishment yet (C-02, docs/moving_business.md §12): short steps in the kit's look —
  *  1. individual or company, and the name (a company adds its commercial register, and its tax number if it has one);
- *  2. the service(s) to register in, as a grid with each service's image in the admin's order (`workspace/options`);
- *  3. the main branch's place: the phone's current location, an address line and the area served (km).
- * Then `POST establishments`, and the establishment's papers page opens. A map to place the branch by hand comes later.
+ *  2. the service(s) to register in, as tiles with each service's image and name in the admin's order (`workspace/options`);
+ *  3. the main branch's place on a real map ([BranchMapScreen]: it opens on the phone's location, the pin in the middle, the
+ *     address written from the map and editable) and the range requests reach it from (100 km to start with).
+ * Then `POST establishments`. When moving is among the services, a 4th step follows: the first vehicle (the app's
+ * `first-vehicle` page), and only then the papers; [onCreated] says which (`true` = the vehicle step comes next).
  */
 @Composable
-fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
-    val context = LocalContext.current
+fun OnboardingScreen(onExit: () -> Unit, onCreated: (needsVehicle: Boolean) -> Unit) {
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
-    val locationFailed = stringResource(R.string.onb_location_failed)
 
     var step by rememberSaveable { mutableStateOf(1) }
     var type by rememberSaveable { mutableStateOf("individual") }
@@ -127,10 +128,9 @@ fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
     var lat by rememberSaveable { mutableStateOf<Double?>(null) }
     var lng by rememberSaveable { mutableStateOf<Double?>(null) }
     var address by rememberSaveable { mutableStateOf("") }
-    var radius by rememberSaveable { mutableStateOf("") }
+    var radiusKm by rememberSaveable { mutableStateOf(DEFAULT_RADIUS_KM) }
 
     var services by remember { mutableStateOf<List<ServiceOptionDto>?>(null) }
-    var locating by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -143,35 +143,12 @@ fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
         }
     }
 
-    fun locate() {
-        locating = true
-        error = null
-        scope.launch {
-            val here = currentPosition(context)
-            locating = false
-            if (here == null) {
-                error = locationFailed
-            } else {
-                lat = here.first
-                lng = here.second
-            }
-        }
-    }
-
-    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) locate() else error = locationFailed
-    }
-
-    fun useMyLocation() {
-        if (hasLocationPermission(context)) locate()
-        else askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-    }
-
-    val radiusValue = radius.replace(',', '.').toDoubleOrNull()
-    val radiusOk = radius.isBlank() || (radiusValue != null && radiusValue in 0.5..500.0)
+    // Moving needs a vehicle before the papers (§17): then registration has a 4th step.
+    val needsVehicle = services.orEmpty().any { it.id in picked && it.moduleName.equals(MOVING_MODULE, ignoreCase = true) }
+    val totalSteps = if (needsVehicle) 4 else 3
     val step1Ok = name.isNotBlank() && (type == "individual" || register.isNotBlank())
     val step2Ok = picked.isNotEmpty()
-    val step3Ok = lat != null && lng != null && radiusOk
+    val step3Ok = lat != null && lng != null
 
     fun submit() {
         val countryId = Session.me.value?.countryId
@@ -191,14 +168,14 @@ fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
                 commercialRegisterNo = register.trim().takeIf { type == "company" && it.isNotEmpty() },
                 taxNumber = tax.trim().takeIf { type == "company" && it.isNotEmpty() },
                 serviceIds = picked.toList(),
-                branch = BranchRequest(lat = latitude, lng = longitude, radiusKm = radiusValue, address = address.trim().ifEmpty { null }),
+                branch = BranchRequest(lat = latitude, lng = longitude, radiusKm = radiusKm, address = address.trim().ifEmpty { null }),
             )
             val result = apiCall { ApiClient.workspace.create(body) }
             busy = false
             if (result is ApiResult.Ok) {
                 Session.chooseEstablishment(result.data.establishment?.uuid)
                 Workspace.reload()
-                onCreated()
+                onCreated(needsVehicle)
             } else {
                 error = result.errorText(offlineText) ?: genericError
             }
@@ -207,23 +184,55 @@ fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
 
     BackHandler(enabled = step > 1) { step-- }
 
-    Page(title = stringResource(R.string.onb_title), onBack = { if (step > 1) step-- else onExit() }) {
-        StepBar(step)
-        AnimatedContent(
-            targetState = step,
-            label = "onboardingStep",
-            transitionSpec = {
-                val sign = if (targetState > initialState) 1 else -1
-                ContentTransform(
-                    slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { sign * it / 6 } + fadeIn(tween(260)),
-                    slideOutHorizontally(tween(280, easing = FastOutSlowInEasing)) { -sign * it / 6 } + fadeOut(tween(200)),
-                    sizeTransform = null,
+    AnimatedContent(
+        targetState = step,
+        label = "onboardingStep",
+        transitionSpec = {
+            val sign = if (targetState > initialState) 1 else -1
+            ContentTransform(
+                slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { sign * it / 6 } + fadeIn(tween(260)),
+                slideOutHorizontally(tween(280, easing = FastOutSlowInEasing)) { -sign * it / 6 } + fadeOut(tween(200)),
+                sizeTransform = null,
+            )
+        },
+    ) { shown ->
+        if (shown >= 3) {
+            // Step 3: the whole screen is the map; the address, the range and the button are on the card at the bottom.
+            val start = remember {
+                val savedLat = lat
+                val savedLng = lng
+                if (savedLat != null && savedLng != null) LatLng(savedLat, savedLng) else null
+            }
+            BranchMapScreen(
+                title = stringResource(R.string.onb_step3_title),
+                start = start,
+                onBack = { step = 2 },
+                onPlace = {
+                    lat = it.latitude
+                    lng = it.longitude
+                },
+                onAddress = { address = it },
+                radiusKm = radiusKm,
+                top = { OnboardingStepBar(3, totalSteps) },
+            ) {
+                Text(stringResource(R.string.onb_step3_body), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+                DorrTextField(
+                    address, { address = it.take(255) },
+                    label = stringResource(R.string.onb_map_address_label), placeholder = stringResource(R.string.onb_map_address_placeholder),
+                    icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth(),
                 )
-            },
-        ) { shown ->
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                when (shown) {
-                    1 -> {
+                Text(stringResource(R.string.onb_map_address_note), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
+                RadiusPicker(radiusKm) { radiusKm = it }
+                SettingsPrimaryButton(
+                    text = stringResource(if (needsVehicle) R.string.onb_next else R.string.onb_create),
+                    enabled = step3Ok, loading = busy, onClick = ::submit,
+                )
+            }
+        } else {
+            Page(title = stringResource(R.string.onb_title), onBack = { if (shown > 1) step-- else onExit() }) {
+                OnboardingStepBar(shown, totalSteps)
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (shown == 1) {
                         FormIntro(Icons.Rounded.Storefront, stringResource(R.string.onb_step1_title), stringResource(R.string.onb_step1_body))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             TypeCard(Icons.Rounded.Person, stringResource(R.string.est_type_individual), stringResource(R.string.onb_individual_hint), type == "individual", Modifier.weight(1f)) { type = "individual" }
@@ -247,81 +256,41 @@ fun OnboardingScreen(onExit: () -> Unit, onCreated: () -> Unit) {
                             }
                         }
                         SettingsPrimaryButton(text = stringResource(R.string.onb_next), enabled = step1Ok, onClick = { step = 2 })
-                    }
-                    2 -> {
+                    } else {
                         FormIntro(Icons.Rounded.Category, stringResource(R.string.onb_step2_title), stringResource(R.string.onb_step2_body))
                         val list = services
                         when {
                             list == null -> CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.5.dp, modifier = Modifier.align(Alignment.CenterHorizontally).size(28.dp))
                             list.isEmpty() -> Text(stringResource(R.string.onb_no_services), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.fillMaxWidth())
                             // The server's order is the admin's order (§12): kept as it comes, three to a row.
-                            else -> list.chunked(3).forEach { row ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    row.forEach { service ->
-                                        ServiceTile(service, service.id in picked, Modifier.weight(1f)) {
-                                            if (service.id in picked) picked.remove(service.id) else picked.add(service.id)
-                                        }
-                                    }
-                                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                            else -> ServiceTileGrid(list) { service, tileModifier ->
+                                ServiceTile(service.name, service.image, selected = service.id in picked, modifier = tileModifier) {
+                                    if (service.id in picked) picked.remove(service.id) else picked.add(service.id)
                                 }
                             }
                         }
                         SettingsPrimaryButton(text = stringResource(R.string.onb_next), enabled = step2Ok, onClick = { step = 3 })
                     }
-                    else -> {
-                        FormIntro(Icons.Rounded.Place, stringResource(R.string.onb_step3_title), stringResource(R.string.onb_step3_body))
-                        Card {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.MyLocation, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        stringResource(if (lat != null) R.string.onb_location_set else R.string.onb_location_none),
-                                        color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
-                                    )
-                                    if (lat != null && lng != null) {
-                                        // Coordinates keep their left-to-right order inside Arabic text.
-                                        Text("‎%.5f, %.5f".format(java.util.Locale.US, lat, lng), color = settingsMut(), fontSize = 12.sp)
-                                    }
-                                }
-                                if (locating) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                            }
-                            Text(
-                                stringResource(if (lat != null) R.string.onb_location_again else R.string.onb_location_use),
-                                color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable(enabled = !locating && !busy, onClick = ::useMyLocation),
-                            )
-                            Text(stringResource(R.string.onb_map_later), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
-                        }
-                        FormGroup {
-                            DorrTextField(
-                                address, { address = it.take(255) }, label = stringResource(R.string.onb_address), placeholder = stringResource(R.string.onb_optional),
-                                icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth(),
-                            )
-                            DorrTextField(
-                                radius, { radius = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(5) },
-                                label = stringResource(R.string.onb_radius), placeholder = stringResource(R.string.onb_radius_hint),
-                                icon = Icons.Rounded.Explore, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                error = !radiusOk, modifier = Modifier.fillMaxWidth(),
-                            )
-                            if (!radiusOk) Text(stringResource(R.string.onb_radius_invalid), color = Color(0xFFDC2626), fontSize = 12.sp)
-                        }
-                        SettingsPrimaryButton(text = stringResource(R.string.onb_create), enabled = step3Ok, loading = busy, onClick = ::submit)
-                    }
                 }
             }
         }
-        ErrorBanner(error, Modifier.fillMaxWidth())
     }
+    ErrorBanner(error)
 }
 
-/** Three segments on top: the steps done and the one open in the app colour. */
+/** The `module_name` of the moving service: picking it adds the vehicle step. */
+internal const val MOVING_MODULE = "moving"
+
+/**
+ * The registration's steps on top: the steps done and the one open in the app colour, and «Step n of total». [total] is 4 when
+ * moving is chosen (the 4th = the first vehicle; the vehicle page can show this same bar with `OnboardingStepBar(4, 4)`).
+ */
 @Composable
-private fun StepBar(step: Int) {
+internal fun OnboardingStepBar(step: Int, total: Int) {
     val night = settingsNight()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            (1..3).forEach { index ->
+            (1..total).forEach { index ->
                 val color by animateColorAsState(
                     if (index <= step) settingsAccent() else if (night) AccountDark.line else settingsAccent().copy(alpha = 0.15f),
                     tween(300), label = "step$index",
@@ -329,7 +298,7 @@ private fun StepBar(step: Int) {
                 Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(50)).background(color))
             }
         }
-        Text(stringResource(R.string.onb_step_of, step, 3), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.onb_step_of, step, total), color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -353,48 +322,6 @@ private fun TypeCard(icon: androidx.compose.ui.graphics.vector.ImageVector, titl
         }
         Text(title, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
         Text(hint, color = settingsMut(), fontSize = 11.sp, lineHeight = 16.sp, textAlign = TextAlign.Center)
-    }
-}
-
-/** One service: its image from the admin (a soft tile when there is none), its name, and a tick once chosen. */
-@Composable
-private fun ServiceTile(service: ServiceOptionDto, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val night = settingsNight()
-    val accent = settingsAccent()
-    val shape = RoundedCornerShape(18.dp)
-    Box(modifier) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(if (selected) accent.copy(alpha = if (night) 0.22f else 0.10f) else settingsCard())
-                .border(if (selected) 2.dp else 1.dp, if (selected) accent else if (night) AccountDark.line else Color(0xFFE5E7EB), shape)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(Modifier.fillMaxWidth(0.72f).aspectRatio(1f), contentAlignment = Alignment.Center) {
-                val image = ApiClient.mediaUrl(service.image)
-                if (image != null) {
-                    AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().aspectRatio(1f))
-                } else {
-                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Category, contentDescription = null, tint = accent, modifier = Modifier.size(26.dp))
-                    }
-                }
-            }
-            Text(
-                service.name.orEmpty(), color = settingsInk(), fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 16.sp,
-                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (selected) {
-            Box(
-                Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp).clip(CircleShape).background(accent),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp)) }
-        }
     }
 }
 

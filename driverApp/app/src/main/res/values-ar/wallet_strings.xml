@@ -3,13 +3,13 @@
 <resources>
     <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
     <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
-    <string name="pd_send_code">إرسال الكود</string>
+    <string name="pd_send_code">إرسال الرمز</string>
     <string name="profile_otp_timer">إعادة الإرسال بعد %1$d ثانية</string>
-    <string name="profile_otp_resend">إعادة إرسال الكود</string>
+    <string name="profile_otp_resend">إعادة إرسال الرمز</string>
     <string name="profile_otp_confirm">تأكيد</string>
     <string name="common_back">رجوع</string>
     <string name="wa_coupon_saved">وفّرت %1$s %2$s</string>
-    <string name="wa_coupon_hint">كود الكوبون</string>
+    <string name="wa_coupon_hint">رمز الكوبون</string>
     <string name="wa_coupon_apply">طبّق</string>
     <string name="wa_coupon_remove">إزالة</string>
     <string name="wa_wallet_of">محفظة %1$s</string>

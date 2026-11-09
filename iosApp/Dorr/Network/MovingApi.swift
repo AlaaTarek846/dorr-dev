@@ -75,6 +75,27 @@ struct MovingOptionsDto: Decodable, Equatable {
     }
 }
 
+/// `GET moving/route`: the road distance and time, and the line to draw (nil when `estimated`).
+struct MovingRouteDto: Decodable, Equatable {
+    var distanceM: Int?
+    var durationS: Int?
+    var polyline: String?
+    var estimated: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case polyline, estimated
+        case distanceM = "distance_m", durationS = "duration_s"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        distanceM = c.value(.distanceM, nil)
+        durationS = c.value(.durationS, nil)
+        polyline = c.value(.polyline, nil)
+        estimated = c.value(.estimated, true)
+    }
+}
+
 struct MovingMediaDto: Decodable, Equatable, Identifiable {
     var id: Int
     var url: String?
@@ -692,6 +713,15 @@ enum MovingApi {
 
     static func options() async throws -> ApiEnvelope<MovingOptionsDto> {
         try await ApiClient.get("\(base)/options", auth: true)
+    }
+
+    /// The road between the two ends (the admin's map engine, cached on the server per pair). Asked once when both ends
+    /// are set or one of them changes, never on a timer. `estimated`: no road was found, the numbers are a straight line.
+    static func route(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double) async throws -> ApiEnvelope<MovingRouteDto> {
+        try await ApiClient.get("\(base)/route", query: [
+            "from_lat": String(fromLat), "from_lng": String(fromLng),
+            "to_lat": String(toLat), "to_lng": String(toLng),
+        ], auth: true)
     }
 
     /// `status=active`: only what is not over yet. Paged (`pagination.has_more_pages`).

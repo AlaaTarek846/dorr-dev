@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Provider\Enums\DocumentSubject;
 use Modules\Provider\Enums\EstablishmentStatus;
 use Modules\Provider\Enums\EstablishmentType;
+use Modules\Provider\Enums\VehicleStatus;
 use Modules\Provider\Exceptions\ProviderException;
 use Modules\Provider\Models\Branch;
 use Modules\Provider\Models\Establishment;
@@ -68,7 +69,7 @@ class EstablishmentService
                 'is_main' => true,
                 'lat' => $data['branch']['lat'],
                 'lng' => $data['branch']['lng'],
-                'radius_km' => $data['branch']['radius_km'] ?? null,
+                'radius_km' => $data['branch']['radius_km'] ?? config('provider.default_radius_km', 100),
                 'address' => $data['branch']['address'] ?? null,
             ]);
 
@@ -113,6 +114,12 @@ class EstablishmentService
         if ($missing !== []) {
             throw new ProviderException('documents_missing', 422, [], ['missing' => $missing]);
         }
+        // Moving is done with vehicles: at least one, sent with its photos, before the review (closing the app on the
+        // registration's vehicle step must not skip it).
+        $moving = $establishment->services()->where('module_name', 'moving')->exists();
+        if ($moving && ! $establishment->vehicles()->where('status', '!=', VehicleStatus::Inactive->value)->exists()) {
+            throw new ProviderException('vehicle_required');
+        }
 
         $establishment->update(['status' => EstablishmentStatus::UnderReview, 'submitted_at' => now(), 'status_reason' => null]);
 
@@ -130,6 +137,8 @@ class EstablishmentService
         }
 
         if ($branch === null) {
+            $data['radius_km'] ??= config('provider.default_radius_km', 100);
+
             return $actor->establishment->branches()->create($data);
         }
 

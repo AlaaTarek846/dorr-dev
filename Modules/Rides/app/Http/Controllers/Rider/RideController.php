@@ -20,6 +20,7 @@ use Modules\Rides\Models\RideCancelReason;
 use Modules\Rides\Models\RideRatingTag;
 use Modules\Rides\Services\Bidding\BiddingService;
 use Modules\Rides\Services\Chat\RideChatService;
+use Modules\Rides\Services\Comfort\ComfortPreferences;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Geo\CityResolver;
 use Modules\Rides\Services\Geo\PickupPoints;
@@ -127,10 +128,14 @@ class RideController extends Controller
             // «راحتي» for this ride only (else the rider's saved preferences go with it).
             'comfort' => ['nullable', 'array'],
             ...RideAiController::comfortRules('comfort.'),
+            // A quiet ride for this trip (beats the saved choice): the captain is told the rider prefers no small talk.
+            'quiet' => ['nullable', 'boolean'],
         ]);
+        $rider = $this->rider($request);
+        $comfort = app(ComfortPreferences::class);
 
         $ride = $service->request(
-            $this->rider($request), $data['quote_uuid'], $data['fingerprint'],
+            $rider, $data['quote_uuid'], $data['fingerprint'],
             RidePaymentMethod::from($data['payment_method']), $request->header('Idempotency-Key'),
             isset($data['rider_price_minor']) ? (int) $data['rider_price_minor'] : null,
             isset($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'])->utc() : null,
@@ -140,8 +145,9 @@ class RideController extends Controller
             array_key_exists('circle', $data) && $data['circle'] !== null ? array_map('intval', $data['circle']['driver_ids'] ?? []) : null,
             $request->boolean('use_wallet'),
             $data['share_with'] ?? 'any',
+            // Attached before the search, so every captain who gets the request sees it.
+            fn (Ride $ride) => $comfort->attach($ride, $rider, isset($data['comfort']) ? (array) $data['comfort'] : null, isset($data['quiet']) ? (bool) $data['quiet'] : null),
         );
-        app(\Modules\Rides\Services\Comfort\ComfortPreferences::class)->attach($ride, $this->rider($request), isset($data['comfort']) ? (array) $data['comfort'] : null);
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
     }

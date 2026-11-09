@@ -28,6 +28,19 @@ interface MovingApi {
     @GET("mobile/v1/moving/options")
     suspend fun options(@Header("Authorization") auth: String): ApiEnvelope<MovingOptionsDto>
 
+    /**
+     * The road between the two ends (the admin's map engine, cached on the server per pair). Asked once when both ends
+     * are set or one of them changes, never on a timer. `estimated`: no road was found, the numbers are a straight line.
+     */
+    @GET("mobile/v1/moving/route")
+    suspend fun route(
+        @Header("Authorization") auth: String,
+        @Query("from_lat") fromLat: Double,
+        @Query("from_lng") fromLng: Double,
+        @Query("to_lat") toLat: Double,
+        @Query("to_lng") toLng: Double,
+    ): ApiEnvelope<MovingRouteDto>
+
     /** `status=active`: only what is not over yet. Paged (`pagination.has_more_pages`). */
     @GET("mobile/v1/moving/requests")
     suspend fun requests(@Header("Authorization") auth: String, @Query("status") status: String?, @Query("page") page: Int): ApiEnvelope<List<MovingRequestDto>>
@@ -149,6 +162,14 @@ data class MovingOptionsDto(
     @SerializedName("vehicle_types") val vehicleTypes: List<MovingVehicleTypeDto> = emptyList(),
     /** Largest photo or video the country allows, in megabytes; null when it set none. */
     @SerializedName("media_max_mb") val mediaMaxMb: Double? = null,
+)
+
+/** `GET moving/route`: the road distance and time, and the line to draw (null when [estimated]). */
+data class MovingRouteDto(
+    @SerializedName("distance_m") val distanceM: Int? = null,
+    @SerializedName("duration_s") val durationS: Int? = null,
+    val polyline: String? = null,
+    val estimated: Boolean = true,
 )
 
 data class MovingMediaDto(val id: Int = 0, val url: String? = null, val collection: String? = null)

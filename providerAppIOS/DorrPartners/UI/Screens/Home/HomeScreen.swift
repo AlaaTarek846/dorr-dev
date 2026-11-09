@@ -177,30 +177,15 @@ private struct PapersCard: View {
     }
 }
 
-/// The services the establishment registered in, with their images.
+/// The services the establishment works in: the same tiles as the registration (a service switched off shows faded).
 private struct ServicesRow: View {
     @Environment(\.wa) private var wa
     let services: [EstablishmentServiceDto]
 
     var body: some View {
         Text(L("home_services_title")).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk)
-        FlowLayout(spacing: 8) {
-            ForEach(Array(services.enumerated()), id: \.offset) { _, service in
-                HStack(spacing: 6) {
-                    if let image = Api.mediaUrl(service.image) {
-                        AsyncImage(url: image) { phase in
-                            if let loaded = phase.image { loaded.resizable().scaledToFit() } else { Color.clear }
-                        }
-                        .frame(width: 24, height: 24)
-                    }
-                    Text(verbatim: service.name ?? "").font(.dorr(12, .semibold)).foregroundStyle(wa.settingsInk)
-                }
-                .padding(.leading, 6)
-                .padding(.trailing, 12)
-                .padding(.vertical, 5)
-                .background(wa.settingsCard, in: Capsule())
-                .overlay(Capsule().stroke(wa.night ? wa.line : Color(hex: 0xE5E7EB), lineWidth: 1))
-            }
+        ServiceTileGrid(items: services) { service in
+            ServiceTile(name: service.name, image: service.image, selected: false, dimmed: service.on == false)
         }
     }
 }

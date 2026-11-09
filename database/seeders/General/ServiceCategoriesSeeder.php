@@ -20,6 +20,7 @@ class ServiceCategoriesSeeder extends Seeder
         'system_users',
         'admin',
         'admin_permission',
+        'watch_earn',
     ];
 
     public function run(): void
@@ -60,6 +61,8 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'الملاعب', 'en' => 'Sports Venues'], 'module_name' => 'sports_venues', 'requires_provider' => true],
             ['name' => ['ar' => 'الفعاليات', 'en' => 'Events'], 'module_name' => 'events', 'requires_provider' => true],
             ['name' => ['ar' => 'العمل الحر', 'en' => 'Freelance'], 'module_name' => 'freelance', 'requires_provider' => false],
+            // Watch & Earn's dashboard (Modules/WatchEarn): its own service in the header so its pages show alone.
+            ['name' => ['ar' => 'شاهد واكسب', 'en' => 'Watch & Earn'], 'module_name' => 'watch_earn', 'requires_provider' => false],
         ];
 
         foreach ($rows as $index => $row) {

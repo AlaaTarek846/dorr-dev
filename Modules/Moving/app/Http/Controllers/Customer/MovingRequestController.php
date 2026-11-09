@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Modules\Moving\Enums\LoadType;
 use Modules\Moving\Enums\MovingStatus;
 use Modules\Moving\Enums\OfferStatus;
@@ -25,6 +26,7 @@ use Modules\Moving\Services\Requests\MovingCancellationService;
 use Modules\Moving\Services\Requests\MovingRequestService;
 use Modules\Provider\Http\Resources\App\VehicleTypeResource;
 use Modules\Provider\Models\VehicleType;
+use Modules\Rides\Services\Geo\GeoProvider;
 use Modules\User\Models\User;
 use Modules\Wallet\Services\CheckoutService;
 
@@ -56,6 +58,35 @@ class MovingRequestController extends Controller
             ),
             'media_max_mb' => $policies->for($country->id)['values']['media.max_mb'],
         ], __('api.retrieved'));
+    }
+
+    /**
+     * The road between the two ends while the customer sets them: kilometres, minutes and the line the map draws —
+     * through the map engine the admin chose for rides (Google or Mapbox), the straight-line estimate when it can't
+     * answer. Asked once per change of an end, never on a timer; the same pair is kept for a day.
+     */
+    public function route(Request $request, GeoProvider $geo): JsonResponse
+    {
+        $data = $request->validate([
+            'from_lat' => ['required', 'numeric', 'between:-90,90'],
+            'from_lng' => ['required', 'numeric', 'between:-180,180'],
+            'to_lat' => ['required', 'numeric', 'between:-90,90'],
+            'to_lng' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+        $points = array_map(fn ($v) => round((float) $v, 4), $data);
+        $key = 'moving:route:'.implode(',', $points);
+        $route = Cache::remember($key, now()->addDay(), function () use ($geo, $points): array {
+            $found = $geo->route($points['from_lat'], $points['from_lng'], $points['to_lat'], $points['to_lng']);
+
+            return [
+                'distance_m' => $found?->distanceM,
+                'duration_s' => $found?->durationS,
+                'polyline' => $found?->polyline,
+                'estimated' => $found?->estimated ?? true,
+            ];
+        });
+
+        return ApiResponse::success($route, __('api.retrieved'));
     }
 
     public function index(Request $request): JsonResponse

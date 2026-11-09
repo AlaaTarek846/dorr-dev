@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The DORR app's wallet PIN pages (ui/wallet/WaPinFlows.kt): photo recovery methods, the photo picker, forgot-PIN by photo, the forced PIN change and the frozen wallet. Copied from the DORR app's strings. -->
+<resources>
+    <string name="wa_force_page_title">رقم سري جديد</string>
+    <string name="wa_force_sub">تمت إعادة ضبط رقمك السري إلى 0000. اختر رقماً لا يعرفه غيرك.</string>
+    <string name="wa_force_title">اختر رقماً سرياً جديداً</string>
+    <string name="wa_forgot_approved_text">رقمك السري الآن 0000. أدخله وسيُطلب منك اختيار رقم جديد.</string>
+    <string name="wa_forgot_pending_text">سنُخطرك فور الموافقة عليه.</string>
+    <string name="wa_forgot_pending_title">طلبك قيد المراجعة</string>
+    <string name="wa_forgot_photo_sub">سنقارنها بالصورة التي رفعتها سابقاً، وسنُخطرك فور مراجعة الطلب.</string>
+    <string name="wa_forgot_photo_title">ارفع %1$s مرة أخرى</string>
+    <string name="wa_forgot_rejected_text">يمكنك رفع الصورة مرة أخرى.</string>
+    <string name="wa_forgot_rejected_title">تم رفض طلبك</string>
+    <string name="wa_forgot_send">إرسال للمراجعة</string>
+    <string name="wa_frozen_id_label">صورة الهوية أو جواز السفر</string>
+    <string name="wa_frozen_pending_text">سيقوم الدعم بالتحقق من هويتك في أقرب وقت.</string>
+    <string name="wa_frozen_pending_title">قيد المراجعة</string>
+    <string name="wa_frozen_selfie_label">صورة شخصية (سيلفي)</string>
+    <string name="wa_frozen_sub">تم قفل محفظتك بشكل دائم بعد محاولات خاطئة للرقم السري. ارفع صورة هويتك وصورة شخصية (سيلفي) ليراجعهما الدعم.</string>
+    <string name="wa_load_failed">تعذّر تحميل المحفظة</string>
+    <string name="wa_photo_id">الهوية</string>
+    <string name="wa_photo_passport">جواز السفر</string>
+    <string name="wa_rec_code_resend">أعد إرسال الرمز</string>
+    <string name="wa_rec_m_id_photo">صورة الهوية</string>
+    <string name="wa_rec_m_id_photo_d">ارفع هويتك — وأي استرجاع يراجعه موظف</string>
+    <string name="wa_rec_m_passport_photo">صورة جواز السفر</string>
+    <string name="wa_rec_m_passport_photo_d">ارفع جواز سفرك — وأي استرجاع يراجعه موظف</string>
+    <string name="wa_rec_photo_change">اختر صورة أخرى</string>
+    <string name="wa_rec_photo_id_hint">ارفع صورة واضحة لهويتك. إن نسيت الرقم السري سترفعها مرة أخرى ونقارن بين الصورتين.</string>
+    <string name="wa_rec_photo_passport_hint">ارفع صورة واضحة لجواز سفرك. إن نسيت الرقم السري سترفعها مرة أخرى ونقارن بين الصورتين.</string>
+    <string name="wa_rec_photo_pick">اختر صورة</string>
+    <string name="wa_rec_photo_required">اختر صورة أولاً.</string>
+    <string name="wa_rec_photo_retake">أعد التقاط الصورة</string>
+    <string name="wa_rec_photo_take">التقط صورة</string>
+    <string name="wa_rec_photo_unreadable">تعذّرت قراءة هذه الصورة. جرّب صورة أخرى.</string>
+    <string name="wa_retry">حاول مرة أخرى</string>
+</resources>

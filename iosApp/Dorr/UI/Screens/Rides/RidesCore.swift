@@ -50,6 +50,8 @@ final class RidesState: ObservableObject {
     /// D-60, D-61: how many ride, and a short note for the captain about the pickup.
     @Published var passengers = 1
     @Published var pickupNote = ""
+    /// A quiet ride for this trip — nil = the rider's saved choice.
+    @Published var quietRide: Bool?
     /// R-13: booking for someone else — their name and number, and the rider's own consent tick.
     @Published var forOther = false
     @Published var beneficiaryName = ""
@@ -150,6 +152,7 @@ final class RidesState: ObservableObject {
         couponError = nil
         passengers = 1
         pickupNote = ""
+        quietRide = nil
         forOther = false
         beneficiaryName = ""
         beneficiaryPhone = ""

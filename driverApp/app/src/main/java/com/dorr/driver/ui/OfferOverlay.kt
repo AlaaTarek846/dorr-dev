@@ -229,7 +229,8 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
             Point(DorrBrand.orange, stringResource(R.string.offer_dropoff), offer.destination?.address ?: stringResource(R.string.offer_open_destination))
             // D-60, D-61: how many ride and the pickup note, before accepting.
             RiderDetails(offer.passengers, offer.pickupNote, offer.beneficiary?.name, offer.pickupPoint, offer.dropoffPoint, offer.fromCircle, offer.options)
-            // «راحتي»: how the rider likes the trip — before accepting.
+            // A quiet ride first and clear, then the rest of «راحتي» — before accepting.
+            QuietRideBadge(offer.comfort)
             ComfortChips(offer.comfort)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             Spacer(Modifier.height(16.dp))

@@ -61,11 +61,12 @@ import com.dorr.provider.ui.kit.SettingsPrimaryButton
 import com.dorr.provider.ui.kit.settingsAccent
 import com.dorr.provider.ui.kit.settingsInk
 import com.dorr.provider.ui.kit.settingsMut
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.launch
 
 /**
  * The establishment's branches (C-03, `branches.manage`): each with its place, the range it serves and whether it takes requests.
- * Adding or editing one sets its place from the phone's current location (a map comes later); the main branch can't be switched
+ * Adding or editing one sets its place on the map (the same map as the registration); the main branch can't be switched
  * off or deleted. Read once on open and when the connection returns.
  */
 @Composable
@@ -161,43 +162,32 @@ fun BranchesScreen(onBack: () -> Unit) {
 /** "12.5" without a trailing ".0". */
 internal fun formatKm(km: Double): String = if (km % 1.0 == 0.0) km.toLong().toString() else km.toString()
 
-/** Adding a branch ([branch] null) or editing one: name, place (current location, or the one it has), address, range, on / off. */
+/**
+ * Adding a branch ([branch] null) or editing one, on the same map as the registration ([BranchMapScreen]): the pin on the branch's
+ * place (a new branch opens on the phone's location, an edited one on its own place), and on the card under the map its name, the
+ * address written from the map (editable), the range requests reach it from, and on / off.
+ */
 @Composable
 private fun BranchForm(branch: BranchDto?, onBack: () -> Unit, onSaved: () -> Unit) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
-    val locationFailed = stringResource(R.string.onb_location_failed)
 
     var name by rememberSaveable { mutableStateOf(branch?.name.orEmpty()) }
     var address by rememberSaveable { mutableStateOf(branch?.address.orEmpty()) }
-    var radius by rememberSaveable { mutableStateOf(branch?.radiusKm?.let(::formatKm).orEmpty()) }
+    var radiusKm by rememberSaveable { mutableStateOf(branch?.radiusKm ?: DEFAULT_RADIUS_KM) }
     var lat by rememberSaveable { mutableStateOf(branch?.lat) }
     var lng by rememberSaveable { mutableStateOf(branch?.lng) }
     var active by rememberSaveable { mutableStateOf(branch?.status ?: true) }
-    var locating by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    fun locate() {
-        locating = true
-        scope.launch {
-            val here = currentPosition(context)
-            locating = false
-            if (here == null) error = locationFailed else {
-                lat = here.first
-                lng = here.second
-            }
-        }
+    val ready = name.isNotBlank() && lat != null && lng != null
+    val start = remember {
+        val savedLat = lat
+        val savedLng = lng
+        if (savedLat != null && savedLng != null) LatLng(savedLat, savedLng) else null
     }
-    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) locate() else error = locationFailed
-    }
-
-    val radiusValue = radius.replace(',', '.').toDoubleOrNull()
-    val radiusOk = radius.isBlank() || (radiusValue != null && radiusValue in 0.5..500.0)
-    val ready = name.isNotBlank() && lat != null && lng != null && radiusOk
 
     fun save() {
         val latitude = lat ?: return
@@ -206,7 +196,7 @@ private fun BranchForm(branch: BranchDto?, onBack: () -> Unit, onSaved: () -> Un
         error = null
         scope.launch {
             val body = BranchBody(
-                name = name.trim(), lat = latitude, lng = longitude, radiusKm = radiusValue, address = address.trim().ifEmpty { null },
+                name = name.trim(), lat = latitude, lng = longitude, radiusKm = radiusKm, address = address.trim().ifEmpty { null },
                 // The main branch always takes requests.
                 status = if (branch?.isMain == true) true else active,
             )
@@ -216,53 +206,38 @@ private fun BranchForm(branch: BranchDto?, onBack: () -> Unit, onSaved: () -> Un
         }
     }
 
-    Page(title = stringResource(if (branch == null) R.string.br_add else R.string.br_edit), onBack = onBack) {
-        FormIntro(Icons.Rounded.Store, stringResource(if (branch == null) R.string.br_add else R.string.br_edit), stringResource(R.string.br_form_body))
-        FormGroup {
-            DorrTextField(name, { name = it.take(150) }, label = stringResource(R.string.br_name), icon = Icons.Rounded.Store, modifier = Modifier.fillMaxWidth())
-        }
-        Card {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.MyLocation, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(if (lat != null) R.string.onb_location_set else R.string.onb_location_none), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                    if (lat != null && lng != null) Text("‎%.5f, %.5f".format(java.util.Locale.US, lat, lng), color = settingsMut(), fontSize = 12.sp)
-                }
-                if (locating) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-            }
-            Text(
-                stringResource(if (lat != null) R.string.onb_location_again else R.string.onb_location_use), color = settingsAccent(), fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable(enabled = !locating && !busy) {
-                    if (hasLocationPermission(context)) locate()
-                    else askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                },
-            )
-            Text(stringResource(R.string.onb_map_later), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
-        }
-        FormGroup {
-            DorrTextField(address, { address = it.take(255) }, label = stringResource(R.string.onb_address), placeholder = stringResource(R.string.onb_optional), icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth())
-            DorrTextField(
-                radius, { radius = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(5) },
-                label = stringResource(R.string.onb_radius), placeholder = stringResource(R.string.onb_radius_hint), icon = Icons.Rounded.Explore,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), error = !radiusOk, modifier = Modifier.fillMaxWidth(),
-            )
-            if (!radiusOk) Text(stringResource(R.string.onb_radius_invalid), color = Red, fontSize = 12.sp)
-        }
+    BranchMapScreen(
+        title = stringResource(if (branch == null) R.string.br_add else R.string.br_edit),
+        start = start,
+        onBack = onBack,
+        onPlace = {
+            lat = it.latitude
+            lng = it.longitude
+        },
+        onAddress = { address = it },
+        radiusKm = radiusKm,
+    ) {
+        Text(stringResource(R.string.br_form_body), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+        DorrTextField(name, { name = it.take(150) }, label = stringResource(R.string.br_name), icon = Icons.Rounded.Store, modifier = Modifier.fillMaxWidth())
+        DorrTextField(
+            address, { address = it.take(255) },
+            label = stringResource(R.string.onb_map_address_label), placeholder = stringResource(R.string.onb_map_address_placeholder),
+            icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.onb_map_address_note), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
+        RadiusPicker(radiusKm) { radiusKm = it }
         if (branch?.isMain != true) {
-            Card {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.br_takes_requests), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(stringResource(R.string.br_takes_requests_hint), color = settingsMut(), fontSize = 12.sp)
-                    }
-                    RedToggle(on = active) { active = !active }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.br_takes_requests), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.br_takes_requests_hint), color = settingsMut(), fontSize = 12.sp)
                 }
+                RedToggle(on = active) { active = !active }
             }
         } else {
             Text(stringResource(R.string.br_main_hint), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
         }
         SettingsPrimaryButton(text = stringResource(R.string.common_save), enabled = ready, loading = busy, onClick = ::save)
-        ErrorBanner(error, Modifier.fillMaxWidth())
     }
+    ErrorBanner(error)
 }

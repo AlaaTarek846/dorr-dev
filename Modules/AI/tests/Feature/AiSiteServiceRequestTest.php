@@ -53,7 +53,7 @@ class AiSiteServiceRequestTest extends TestCase
 
     private function admin(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
     }
 
     private function wallet(User $user, int $minor): Wallet

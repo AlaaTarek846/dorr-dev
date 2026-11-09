@@ -10,7 +10,7 @@
     <string name="nav_wallet">المحفظة</string>
     <string name="nav_account">حسابي</string>
 
-    <string name="login_hero">اشتغل مع دُرر</string>
+    <string name="login_hero">اعمل مع دُرر</string>
     <string name="login_terms">بالمتابعة أنت توافق على شروط الاستخدام وسياسة الخصوصية.</string>
     <string name="otp_wrong">الرمز غير صحيح. حاول مرة أخرى.</string>
 

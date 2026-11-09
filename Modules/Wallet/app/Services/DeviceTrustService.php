@@ -64,6 +64,19 @@ class DeviceTrustService
         );
     }
 
+    /** Trusts this device without a code — only where the account just proved itself on it (creating the PIN). */
+    public function trust(Model $owner, ?string $deviceId): void
+    {
+        if ($deviceId === null || $deviceId === '') {
+            return;
+        }
+
+        WalletTrustedDevice::query()->updateOrCreate(
+            ['owner_type' => OwnerType::aliasFor($owner), 'owner_id' => $owner->getKey(), 'device_id' => $deviceId],
+            ['trusted_at' => now(), 'last_seen_at' => now()],
+        );
+    }
+
     /** Bumps `last_seen_at` for an already-trusted device — best-effort, called from pin/verify. */
     public function touch(Model $owner, ?string $deviceId): void
     {

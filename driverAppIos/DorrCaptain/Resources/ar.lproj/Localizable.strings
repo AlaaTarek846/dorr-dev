@@ -109,7 +109,7 @@
 "bus_price_round" = "الذهاب والعودة";
 "bus_prices" = "الأسعار (للمقعد)";
 "bus_publish" = "نشر الرحلة";
-"bus_scan_prompt" = "وجّه الكاميرا لكود التذكرة";
+"bus_scan_prompt" = "وجّه الكاميرا إلى رمز التذكرة";
 "bus_scan_ticket" = "مسح تذكرة راكب";
 "bus_search_hint" = "اكتب 3 أحرف على الأقل";
 "bus_search_place" = "ابحث عن مكان";
@@ -135,6 +135,8 @@
 "bus_with_return" = "تشمل رحلة عودة";
 "cancel" = "إلغاء";
 "cf_cancel" = "إلغاء";
+"cf_quiet_body" = "يفضّل الراكب عدم الحديث. لا تتحدث إلا عند حاجة الرحلة (الطريق أو مكان الالتقاء أو السلامة).";
+"cf_quiet_title" = "رحلة هادئة";
 "cf_tap_hint" = "اضغط على أي طلب غير ممكن — وسيعرف الراكب السبب.";
 "cf_title" = "راحة الراكب";
 "cf_told" = "«%1$@» — أُبلغ الراكب: %2$@";
@@ -401,7 +403,7 @@
 "login_error_phone_invalid_length" = "يجب أن يتكون رقم الهاتف من %1$ld أرقام.";
 "login_error_phone_invalid_start" = "يجب أن يبدأ رقم الهاتف بالرقم %1$@.";
 "login_error_start" = "الرقم يبدأ بـ %1$@";
-"login_hero" = "اشتغل مع دُرر";
+"login_hero" = "اعمل مع دُرر";
 "login_phone_label" = "رقم الجوال";
 "login_send_code" = "إرسال الرمز";
 "login_subtitle" = "سجّل الدخول برقم جوالك";
@@ -459,7 +461,7 @@
 "mr_publish" = "نشر";
 "mr_resume" = "إعادة فتح الحجز";
 "mr_route" = "خط السير (اختياري)";
-"mr_scan_prompt" = "وجّه الكاميرا لكود الضيف";
+"mr_scan_prompt" = "وجّه الكاميرا إلى رمز الضيف";
 "mr_seat_price" = "سعر الفرد";
 "mr_shared" = "مقاعد";
 "mr_sms" = "رسالة";
@@ -598,7 +600,7 @@
 "otp_title" = "أدخل الرمز";
 "otp_verify" = "تأكيد";
 "otp_wrong" = "الرمز غير صحيح. حاول مرة أخرى.";
-"pd_send_code" = "إرسال الكود";
+"pd_send_code" = "إرسال الرمز";
 "pf_any" = "أي مسافة";
 "pf_auto" = "القبول التلقائي";
 "pf_auto_hint" = "الطلب الذي يناسب قواعدك يُقبل عنك — فتتوجه مباشرة إلى نقطة الالتقاط.";
@@ -653,7 +655,7 @@
 "problem_service_off_here" = "الرحلات متوقفة في منطقتك حاليًا.";
 "problem_terms_pending" = "وافق على الشروط المحدّثة لتتمكن من العمل.";
 "profile_otp_confirm" = "تأكيد";
-"profile_otp_resend" = "إعادة إرسال الكود";
+"profile_otp_resend" = "إعادة إرسال الرمز";
 "profile_otp_timer" = "إعادة الإرسال بعد %1$ld ثانية";
 "push_channel_general" = "الإشعارات";
 "rc_answer" = "رد";
@@ -740,7 +742,7 @@
 "sc_home_hint" = "SOS، وجهات موثوقة، والركاب المحظورون";
 "sc_manual" = "يدوياً";
 "sc_name" = "الاسم";
-"sc_night" = "بالليل فقط";
+"sc_night" = "ليلًا فقط";
 "sc_phone" = "رقم الجوال";
 "sc_remove" = "حذف";
 "sc_ride_check" = "فحص الرحلة الذكي";
@@ -767,7 +769,7 @@
 "sch_title" = "الرحلات المجدولة";
 "sch_today" = "اليوم";
 "sch_tomorrow" = "غداً";
-"sch_trip_km" = "%1$@ كم مشوار";
+"sch_trip_km" = "%1$@ كم للرحلة";
 "sp_about_last_trip" = "بخصوص رحلتي الأخيرة";
 "sp_attach" = "إرفاق صورة";
 "sp_attached" = "تم الإرفاق";
@@ -1002,7 +1004,7 @@
 "wa_continue_pay" = "متابعة الدفع";
 "wa_copy_number" = "نسخ الرقم";
 "wa_coupon_apply" = "طبّق";
-"wa_coupon_hint" = "كود الكوبون";
+"wa_coupon_hint" = "رمز الكوبون";
 "wa_coupon_remove" = "إزالة";
 "wa_coupon_saved" = "وفّرت %1$@ %2$@";
 "wa_date" = "التاريخ";

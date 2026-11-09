@@ -123,7 +123,7 @@ class AiSiteProjectFlowTest extends TestCase
 
     private function admin(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
     }
 
     private function planUser(int $projects = 2, int $daily = 5): User

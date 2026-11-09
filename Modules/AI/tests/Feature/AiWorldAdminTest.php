@@ -37,7 +37,7 @@ class AiWorldAdminTest extends TestCase
     private function admin(): Admin
     {
         $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
-        Sanctum::actingAs($admin, ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
 
         return $admin;
     }

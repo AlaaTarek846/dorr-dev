@@ -21,7 +21,7 @@ class AdminPermissionSeeder extends Seeder
      *
      * @return array<string, array{module_name: string, actions: list<string>}>
      */
-    private function permissionGroups(): array
+    public static function permissionGroups(): array
     {
         return [
             'admins' => [
@@ -286,19 +286,40 @@ class AdminPermissionSeeder extends Seeder
                 'actions' => ['view'],
             ],
             // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
-            // management, and the money report.
+            // management, and the money report — its own service in the dashboard's header, apart from the others.
             'watch-earn-settings' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-ads' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-finance' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view'],
             ],
+            // The old providers list (Modules/Provider ProviderController) — the dashboard's "Providers" page.
+            'providers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
+            ],
+            // The AI assistant's dashboard (Modules/AI routes/admin.php), one group per area of its sidebar: reading
+            // needs `.view`, any change `.update` (the `admin.area:{group}` route middleware).
+            'ai-settings' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-plans' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-sites' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-ar-world' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-routing' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-safety' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-security' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-logs' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-conversations' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-monitoring' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-languages' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-knowledge' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-projects' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            'ai-benchmarks' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
                 'module_name' => 'general_services',
@@ -520,7 +541,7 @@ class AdminPermissionSeeder extends Seeder
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        foreach ($this->permissionGroups() as $groupName => $group) {
+        foreach (self::permissionGroups() as $groupName => $group) {
             $serviceCategoryId = $this->resolveServiceCategoryId($group['module_name']);
 
             foreach ($group['actions'] as $action) {

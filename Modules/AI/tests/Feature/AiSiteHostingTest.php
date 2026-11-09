@@ -266,7 +266,7 @@ class AiSiteHostingTest extends TestCase
         $this->getRaw('/sites/ahmed-plumbing/')->assertOk();
 
         $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
-        Sanctum::actingAs($admin, ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
         $this->postJson("/api/admin/v1/ai-site-hostings/{$hosting->id}/suspend")->assertSuccessful();
         $this->getRaw('/sites/ahmed-plumbing/')->assertNotFound();
         $this->assertSame('hosting_suspended', $this->reason(fn () => app(AiSiteHostingService::class)->renew($hosting->fresh())));
@@ -390,7 +390,7 @@ class AiSiteHostingTest extends TestCase
 
     public function test_admin_manages_hosting_plans_and_country_prices(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
 
         $id = $this->postJson('/api/admin/v1/ai-site-hosting-plans', ['name' => 'Monthly', 'code' => 'monthly', 'period' => 'monthly', 'is_active' => true])
             ->assertCreated()->json('data.id');

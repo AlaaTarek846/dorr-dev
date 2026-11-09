@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The papers pages (establishment papers, a paper's upload, a vehicle's form, photos and papers, the first vehicle). -->
+<resources>
+    <!-- States and progress -->
+    <string name="pp_state_expiring">Expires soon</string>
+    <string name="pp_required">Required</string>
+    <string name="pp_progress_title">%1$d of %2$d ready</string>
+    <string name="pp_progress_all">Everything is ready</string>
+    <string name="pp_progress_hint">A paper counts as ready once it is uploaded and not rejected.</string>
+    <string name="pp_progress_done_hint">Every required paper is uploaded.</string>
+    <string name="pp_count_approved">%1$d approved</string>
+    <string name="pp_count_pending">%1$d under review</string>
+    <string name="pp_count_action">%1$d need action</string>
+    <string name="pp_until">Valid until %1$s</string>
+    <string name="pp_upload_now">Upload now</string>
+    <string name="pp_reupload">Upload again</string>
+
+    <!-- The establishment's papers -->
+    <string name="pp_status_approved_hint">Your establishment is approved. You can replace a paper when it is renewed.</string>
+    <string name="pp_status_rejected_hint">Correct the papers marked below, then send your establishment again.</string>
+    <string name="pp_submit_need">Upload the missing papers to send your establishment for review.</string>
+
+    <!-- Uploading one paper -->
+    <string name="pp_form_intro">Take a clear photo of the paper, or choose a file.</string>
+    <string name="pp_form_photos">Photos of the paper</string>
+    <string name="pp_form_details">Paper details</string>
+    <string name="pp_current_state">Current upload</string>
+    <string name="pp_replace_note">The new upload replaces the current one and goes to review.</string>
+    <string name="pp_tap_add">Add a photo</string>
+    <string name="pp_tap_change">Tap to change</string>
+    <string name="pp_remove">Remove</string>
+    <string name="pp_pdf_chosen">PDF file</string>
+    <string name="pp_camera_hint_doc">Lay the paper flat in good light, with its four corners showing and its text readable.</string>
+    <string name="pp_expiry_hint">The expiry date must be after today.</string>
+    <string name="pp_complete_first">Complete the highlighted fields first.</string>
+    <string name="pp_uploading">Uploading…</string>
+    <string name="pp_send_photo">Upload the photo</string>
+    <string name="pp_source_gallery">Gallery</string>
+    <string name="pp_source_files">Files</string>
+    <string name="pp_source_camera_hint">Take a new photo now</string>
+    <string name="pp_source_gallery_hint">Choose a photo from your phone</string>
+    <string name="pp_source_files_hint">Choose a photo, or a PDF file</string>
+
+    <!-- The vehicle -->
+    <string name="pp_vh_section_plate">Number plate</string>
+    <string name="pp_vh_section_details">Vehicle details</string>
+    <string name="pp_vh_plate_hint">Type the letters and the numbers exactly as they appear on the plate.</string>
+    <string name="pp_vh_save_next">Save and continue</string>
+    <string name="pp_err_type">Choose the vehicle type.</string>
+    <string name="pp_err_letters">Enter the plate letters.</string>
+    <string name="pp_err_number">Enter the plate number.</string>
+    <string name="pp_err_year">Enter a year between 1950 and %1$d.</string>
+
+    <!-- The first vehicle -->
+    <string name="pp_vh_first_title">Add your first vehicle</string>
+    <string name="pp_vh_first_heading">One vehicle is enough to start</string>
+    <string name="pp_vh_first_body">Moving work needs at least one vehicle. Enter its details, then upload its photos and papers for review.</string>
+    <string name="pp_vh_step_details">Details</string>
+    <string name="pp_vh_step_photos">Photos and papers</string>
+    <string name="pp_vh_done">Done, continue</string>
+    <string name="pp_vh_done_need">Upload every required photo and paper to continue.</string>
+    <string name="pp_vh_all_sent">Everything is uploaded. The Dorr team will review the vehicle.</string>
+</resources>

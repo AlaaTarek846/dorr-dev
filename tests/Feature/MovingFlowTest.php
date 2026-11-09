@@ -28,6 +28,8 @@ use Modules\Provider\Models\VehicleType;
 use Modules\Provider\Services\Documents\DocumentService;
 use Modules\Provider\Services\Establishments\EstablishmentService;
 use Modules\Provider\Services\Establishments\MembershipService;
+use Modules\Rides\Services\Geo\GeoProvider;
+use Modules\Rides\Services\Geo\RouteResult;
 use Modules\User\Models\User;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -358,6 +360,21 @@ class MovingFlowTest extends TestCase
 
         DB::table('country_service_category')->delete();
         $this->getJson('/api/mobile/v1/moving/options')->assertOk()->assertJsonPath('data.available', false);
+    }
+
+    public function test_the_route_between_the_two_ends_gives_the_road_distance_and_is_asked_once_per_pair(): void
+    {
+        $this->asCustomer();
+        $geo = \Mockery::mock(GeoProvider::class);
+        $geo->shouldReceive('route')->once()->andReturn(new RouteResult(18400, 1500, 'abc_poly'));
+        $this->app->instance(GeoProvider::class, $geo);
+
+        $query = '/api/mobile/v1/moving/route?from_lat=30.0444&from_lng=31.2357&to_lat=30.1&to_lng=31.3';
+        $this->getJson($query)->assertOk()
+            ->assertJsonPath('data.distance_m', 18400)->assertJsonPath('data.duration_s', 1500)
+            ->assertJsonPath('data.polyline', 'abc_poly')->assertJsonPath('data.estimated', false);
+        $this->getJson($query)->assertOk()->assertJsonPath('data.distance_m', 18400);
+        $this->getJson('/api/mobile/v1/moving/route?from_lat=300&from_lng=31&to_lat=30&to_lng=31')->assertStatus(422);
     }
 
     public function test_a_driver_only_seat_works_the_job_without_seeing_its_money(): void

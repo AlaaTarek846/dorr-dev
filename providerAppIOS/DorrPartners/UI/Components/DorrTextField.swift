@@ -137,12 +137,15 @@ struct DorrDigitBox: View {
 }
 
 /// A date as a field that opens the date picker. `value` is `YYYY-MM-DD` (what the server takes, in Latin digits);
-/// an empty string means no date. The X clears it.
+/// an empty string means no date. The X clears it. `minDate`: the first day the picker lets you choose (the days before it
+/// can't be picked), e.g. tomorrow for an expiry the server wants `after:today`.
 struct DateField: View {
     @Environment(\.wa) private var wa
     @Binding var value: String
     let label: String
     var enabled = true
+    var minDate: Date?
+    var error = false
     @State private var open = false
     @State private var picked = Date()
 
@@ -153,16 +156,18 @@ struct DateField: View {
                 Button { value = "" } label: { Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(wa.settingsMut) }
                     .buttonStyle(.plain)
             ),
+            error: error,
             enabled: enabled,
             onClick: {
-                picked = Self.parse(value) ?? Date()
+                let current = Self.parse(value) ?? minDate ?? Date()
+                picked = minDate.map { max(current, $0) } ?? current
                 open = true
             }
         )
         .dorrDialog(isPresented: $open) {
             DialogCard {
                 VStack(spacing: 12) {
-                    DatePicker("", selection: $picked, displayedComponents: .date)
+                    picker
                         .datePickerStyle(.graphical)
                         .tint(wa.red)
                         .environment(\.locale, AppLocale.locale)
@@ -170,7 +175,7 @@ struct DateField: View {
                         Button(L("common_cancel")) { open = false }.foregroundStyle(wa.settingsMut)
                         Spacer()
                         Button(L("common_ok")) {
-                            value = Self.format(picked)
+                            value = Self.format(minDate.map { max(picked, $0) } ?? picked)
                             open = false
                         }
                         .foregroundStyle(wa.red)
@@ -180,6 +185,14 @@ struct DateField: View {
                 .padding(14)
             }
             .frame(maxWidth: 360)
+        }
+    }
+
+    @ViewBuilder private var picker: some View {
+        if let minDate {
+            DatePicker("", selection: $picked, in: minDate..., displayedComponents: .date)
+        } else {
+            DatePicker("", selection: $picked, displayedComponents: .date)
         }
     }
 

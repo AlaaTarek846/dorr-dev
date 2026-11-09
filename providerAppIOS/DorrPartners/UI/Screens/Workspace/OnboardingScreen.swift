@@ -2,17 +2,19 @@
 import CoreLocation
 import SwiftUI
 
-/// After the sign-in, with no establishment yet (C-02, docs/moving_business.md §12): three short steps in the kit's look —
+/// After the sign-in, with no establishment yet (C-02, docs/moving_business.md §12): short steps in the kit's look —
 ///  1. individual or company, and the name (a company adds its commercial register, and its tax number if it has one);
-///  2. the service(s) to register in, as a grid with each service's image in the admin's order (`workspace/options`);
-///  3. the main branch's place: the phone's current location, an address line and the area served (km).
-/// Then `POST establishments`, and the establishment's papers page opens. A map to place the branch by hand comes later.
+///  2. the service(s) to register in, as tiles with each service's image and name in the admin's order (`workspace/options`);
+///  3. the main branch's place on a real map (`BranchMapScreen`: it opens on the phone's location, the pin in the middle, the
+///     address written from the map and editable) and the range requests reach it from (100 km to start with).
+/// Then `POST establishments`. When moving is among the services, a 4th step follows: the first vehicle (the app's
+/// `firstVehicle` stage), and only then the papers; `onCreated` says which (`true` = the vehicle step comes next).
 @MainActor
 struct OnboardingScreen: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     let onExit: () -> Void
-    let onCreated: () -> Void
+    let onCreated: (_ needsVehicle: Bool) -> Void
 
     @State private var step = 1
     /// The direction of the last step change: forward comes in from the trailing side, back from the leading one.
@@ -25,39 +27,49 @@ struct OnboardingScreen: View {
     @State private var lat: Double?
     @State private var lng: Double?
     @State private var address = ""
-    @State private var radius = ""
+    @State private var radiusKm = defaultRadiusKm
 
     @State private var services: [ServiceOptionDto]?
-    @State private var locating = false
     @State private var busy = false
     @State private var error: String?
 
-    private var radiusValue: Double? { Double(radius.replacingOccurrences(of: ",", with: ".")) }
-    private var radiusOk: Bool {
-        radius.trimmingCharacters(in: .whitespaces).isEmpty || (radiusValue.map { (0.5...500.0).contains($0) } ?? false)
+    /// Moving needs a vehicle before the papers (§17): then registration has a 4th step.
+    private var needsVehicle: Bool {
+        (services ?? []).contains { picked.contains($0.id) && $0.moduleName?.lowercased() == movingModule }
     }
+    private var totalSteps: Int { needsVehicle ? 4 : 3 }
     private var step1Ok: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty && (type == "individual" || !register.trimmingCharacters(in: .whitespaces).isEmpty) }
     private var step2Ok: Bool { !picked.isEmpty }
-    private var step3Ok: Bool { lat != nil && lng != nil && radiusOk }
+    private var step3Ok: Bool { lat != nil && lng != nil }
 
     var body: some View {
         let sign: CGFloat = forward ? 1 : -1
         let width = UIScreen.main.bounds.width
-        Page(title: L("onb_title"), onBack: { if step > 1 { go(step - 1) } else { onExit() } }) {
-            StepBar(step: step)
-            VStack(alignment: .leading, spacing: 14) {
-                switch step {
-                case 1: stepOne
-                case 2: stepTwo
-                default: stepThree
+        ZStack {
+            if step >= 3 {
+                stepThree
+                    .transition(.asymmetric(
+                        insertion: .offset(x: sign * width / 6).combined(with: .opacity),
+                        removal: .offset(x: -sign * width / 6).combined(with: .opacity)
+                    ))
+            } else {
+                Page(title: L("onb_title"), onBack: { if step > 1 { go(step - 1) } else { onExit() } }) {
+                    OnboardingStepBar(step: step, total: totalSteps)
+                    VStack(alignment: .leading, spacing: 14) {
+                        if step == 1 { stepOne } else { stepTwo }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .id(step)
+                    .transition(.asymmetric(
+                        insertion: .offset(x: sign * width / 6).combined(with: .opacity),
+                        removal: .offset(x: -sign * width / 6).combined(with: .opacity)
+                    ))
                 }
+                .transition(.asymmetric(
+                    insertion: .offset(x: sign * width / 6).combined(with: .opacity),
+                    removal: .offset(x: -sign * width / 6).combined(with: .opacity)
+                ))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .id(step)
-            .transition(.asymmetric(
-                insertion: .offset(x: sign * width / 6).combined(with: .opacity),
-                removal: .offset(x: -sign * width / 6).combined(with: .opacity)
-            ))
         }
         .messageToast(error)
         // The person's country decides the services and later the papers; read once (and again when the connection returns).
@@ -89,11 +101,9 @@ struct OnboardingScreen: View {
                 Text(L("onb_no_services")).font(.dorr(13)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 // The server's order is the admin's order (§12): kept as it comes, three to a row.
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: 3), spacing: 10) {
-                    ForEach(list) { service in
-                        ServiceTile(service: service, selected: picked.contains(service.id)) {
-                            if let i = picked.firstIndex(of: service.id) { picked.remove(at: i) } else { picked.append(service.id) }
-                        }
+                ServiceTileGrid(items: list) { service in
+                    ServiceTile(name: service.name, image: service.image, selected: picked.contains(service.id)) {
+                        if let i = picked.firstIndex(of: service.id) { picked.remove(at: i) } else { picked.append(service.id) }
                     }
                 }
             }
@@ -103,32 +113,32 @@ struct OnboardingScreen: View {
         SettingsPrimaryButton(text: L("onb_next"), enabled: step2Ok) { go(3) }
     }
 
-    @ViewBuilder private var stepThree: some View {
-        FormIntro(icon: "mappin.and.ellipse", title: L("onb_step3_title"), text: L("onb_step3_body"))
-        Card {
-            HStack(spacing: 10) {
-                Image(systemName: "location.fill").font(.system(size: 18, weight: .semibold)).foregroundStyle(wa.red).frame(width: 22)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(L(lat != nil ? "onb_location_set" : "onb_location_none")).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk)
-                    if let lat, let lng {
-                        // Coordinates keep their left-to-right order inside Arabic text.
-                        Text(verbatim: "\u{200E}" + String(format: "%.5f, %.5f", locale: Locale(identifier: "en_US_POSIX"), lat, lng))
-                            .font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                    }
-                }
-                Spacer(minLength: 0)
-                if locating { ProgressView().tint(wa.red).frame(width: 20, height: 20) }
-            }
-            ProfileTextLink(text: L(lat != nil ? "onb_location_again" : "onb_location_use"), enabled: !locating && !busy, action: useMyLocation)
-            Text(L("onb_map_later")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
+    /// Step 3: the whole screen is the map; the address, the range and the button are on the card at the bottom.
+    private var stepThree: some View {
+        BranchMapScreen(
+            title: L("onb_step3_title"),
+            start: placeStart,
+            onBack: { go(2) },
+            onPlace: { at in
+                lat = at.latitude
+                lng = at.longitude
+            },
+            onAddress: { address = $0 },
+            radiusKm: radiusKm,
+            top: { OnboardingStepBar(step: 3, total: totalSteps) }
+        ) {
+            Text(L("onb_step3_body")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+            DorrTextField(value: $address.profileTake(255), label: L("onb_map_address_label"), placeholder: L("onb_map_address_placeholder"), icon: "mappin.and.ellipse")
+            Text(L("onb_map_address_note")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+            RadiusPicker(km: radiusKm) { radiusKm = $0 }
+            SettingsPrimaryButton(text: L(needsVehicle ? "onb_next" : "onb_create"), enabled: step3Ok, loading: busy, action: submit)
         }
-        FormGroup {
-            DorrTextField(value: $address.profileTake(255), label: L("onb_address"), placeholder: L("onb_optional"), icon: "mappin.and.ellipse")
-            DorrTextField(value: $radius.profileMap { String($0.filter { $0.isASCII && ($0.isNumber || $0 == "." || $0 == ",") }.prefix(5)) },
-                          label: L("onb_radius"), placeholder: L("onb_radius_hint"), icon: "safari", keyboard: .decimalPad, error: !radiusOk)
-            if !radiusOk { Text(L("onb_radius_invalid")).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
-        }
-        SettingsPrimaryButton(text: L("onb_create"), enabled: step3Ok, loading: busy, action: submit)
+    }
+
+    /// The place chosen before (back from step 3 and in again), else nil: the map opens on the phone's location.
+    private var placeStart: CLLocationCoordinate2D? {
+        guard let lat, let lng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
     // MARK: - actions
@@ -154,23 +164,6 @@ struct OnboardingScreen: View {
         }
     }
 
-    /// The phone's position now, once — asking for the permission first when it was never asked (Android's
-    /// `RequestMultiplePermissions` then `currentPosition`).
-    private func useMyLocation() {
-        locating = true
-        error = nil
-        Task {
-            let here = await CurrentPosition.shared.fetch()
-            locating = false
-            if let here {
-                lat = here.latitude
-                lng = here.longitude
-            } else {
-                error = L("onb_location_failed")
-            }
-        }
-    }
-
     private func submit() {
         guard let countryId = Session.shared.me?.countryId, let latitude = lat, let longitude = lng else {
             error = L("login_error_generic")
@@ -181,6 +174,7 @@ struct OnboardingScreen: View {
         let trimmedRegister = register.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTax = tax.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let vehicleNext = needsVehicle
         let request = CreateEstablishmentRequest(
             type: type,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -188,7 +182,7 @@ struct OnboardingScreen: View {
             commercialRegisterNo: type == "company" && !trimmedRegister.isEmpty ? trimmedRegister : nil,
             taxNumber: type == "company" && !trimmedTax.isEmpty ? trimmedTax : nil,
             serviceIds: picked,
-            branch: BranchRequest(name: nil, lat: latitude, lng: longitude, radiusKm: radiusValue, address: trimmedAddress.isEmpty ? nil : trimmedAddress)
+            branch: BranchRequest(name: nil, lat: latitude, lng: longitude, radiusKm: radiusKm, address: trimmedAddress.isEmpty ? nil : trimmedAddress)
         )
         Task {
             let result = await WorkspaceApi.create(request)
@@ -196,7 +190,7 @@ struct OnboardingScreen: View {
             if let seat = result.value {
                 Session.shared.chooseEstablishment(seat.establishment?.uuid)
                 await Workspace.shared.reload()
-                onCreated()
+                onCreated(vehicleNext)
             } else {
                 error = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
             }
@@ -204,15 +198,20 @@ struct OnboardingScreen: View {
     }
 }
 
-/// Three segments on top: the steps done and the one open in the app colour.
-private struct StepBar: View {
+/// The `module_name` of the moving service: picking it adds the vehicle step.
+let movingModule = "moving"
+
+/// The registration's steps on top: the steps done and the one open in the app colour, and «Step n of total». `total` is 4
+/// when moving is chosen (the 4th = the first vehicle; the vehicle page can show this same bar with `OnboardingStepBar(step: 4, total: 4)`).
+struct OnboardingStepBar: View {
     @Environment(\.wa) private var wa
     let step: Int
+    let total: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                ForEach(1...3, id: \.self) { index in
+                ForEach(1...max(total, 1), id: \.self) { index in
                     Capsule()
                         .fill(index <= step ? wa.red : (wa.night ? wa.line : wa.red.opacity(0.15)))
                         .frame(height: 5)
@@ -220,7 +219,8 @@ private struct StepBar: View {
                         .animation(.easeInOut(duration: 0.3), value: step)
                 }
             }
-            Text(L("onb_step_of", step, 3)).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
+            .animation(.easeInOut(duration: 0.3), value: total)
+            Text(L("onb_step_of", step, total)).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -252,56 +252,6 @@ private struct TypeCard: View {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
-    }
-}
-
-/// One service: its image from the admin (a soft tile when there is none), its name, and a tick once chosen.
-private struct ServiceTile: View {
-    @Environment(\.wa) private var wa
-    let service: ServiceOptionDto
-    let selected: Bool
-    let onClick: () -> Void
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
-        Button(action: onClick) {
-            VStack(spacing: 8) {
-                GeometryReader { proxy in
-                    let side = proxy.size.width * 0.72
-                    ZStack {
-                        if let image = Api.mediaUrl(service.image) {
-                            AsyncImage(url: image) { phase in
-                                if let loaded = phase.image { loaded.resizable().scaledToFit() } else { Color.clear }
-                            }
-                        } else {
-                            Image(systemName: "square.grid.2x2.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(wa.red)
-                                .frame(width: side, height: side)
-                                .background(wa.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                    }
-                    .frame(width: side, height: side)
-                    .frame(maxWidth: .infinity)
-                }
-                .aspectRatio(1 / 0.72, contentMode: .fit)
-                Text(verbatim: service.name ?? "").font(.dorr(12, .bold)).foregroundStyle(wa.settingsInk)
-                    .multilineTextAlignment(.center).lineLimit(2).lineSpacing(1)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(selected ? wa.red.opacity(wa.night ? 0.22 : 0.10) : wa.settingsCard, in: shape)
-            .overlay(shape.stroke(selected ? wa.red : (wa.night ? wa.line : Color(hex: 0xE5E7EB)), lineWidth: selected ? 2 : 1))
-            .overlay(alignment: .topTrailing) {
-                if selected {
-                    Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(.white)
-                        .frame(width: 20, height: 20)
-                        .background(wa.red, in: Circle())
-                        .padding(6)
-                }
-            }
-            .contentShape(shape)
-        }
-        .buttonStyle(.plain)
     }
 }
 

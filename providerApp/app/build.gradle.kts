@@ -33,6 +33,9 @@ android {
         ndk { abiFilters += abis.split(",").map { it.trim() }.filter { it.isNotEmpty() } }
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
+        // Google Maps (the branch's place on a map, like driverApp — when the admin's map engine is Google): the key is never in git —
+        //   dorr.mapsKey=AIza... in local.properties, or -Pdorr.mapsKey=... — without it the map stays blank, the rest works.
+        manifestPlaceholders["mapsApiKey"] = (findProperty("dorr.mapsKey") as String?) ?: local.getProperty("dorr.mapsKey", "")
     }
 
     buildTypes {
@@ -90,6 +93,11 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     // The main branch's place at sign-up (the phone's current location, fused provider — same version as driverApp).
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // The branch's place on a map with a pin in the middle (onboarding + branches) — same versions as driverApp.
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.1.0")
+    // The second map engine (as driverApp, O-53): the admin chooses Google or Mapbox for the whole app (map/DorrMap.kt).
+    implementation("com.mapbox.maps:android:11.8.0")
     // Scanning the customer's delivery QR: the same scanner driverApp and androidApp already use.
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 

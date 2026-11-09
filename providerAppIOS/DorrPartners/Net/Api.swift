@@ -116,8 +116,9 @@ enum Api {
         return await finish(perform(path, method: method, query: query, body: payload, contentType: payload == nil ? nil : "application/json", headers: headers))
     }
 
-    /// `@Multipart`: plain text fields plus files.
-    static func upload<T: Decodable>(_ path: String, fields: [String: String] = [:], files: [FilePart], method: String = "POST") async -> ApiResult<T> {
+    /// `@Multipart`: plain text fields plus files. `progress` hears how much of the body has gone (0...1), off the main thread.
+    static func upload<T: Decodable>(_ path: String, fields: [String: String] = [:], files: [FilePart], method: String = "POST",
+                                     headers: [String: String] = [:], progress: (@Sendable (Double) -> Void)? = nil) async -> ApiResult<T> {
         let boundary = "dorr-\(UUID().uuidString)"
         var body = Data()
         func append(_ text: String) { body.append(Data(text.utf8)) }
@@ -131,7 +132,8 @@ enum Api {
             append("\r\n")
         }
         append("--\(boundary)--\r\n")
-        return await finish(perform(path, method: method, query: [:], body: body, contentType: "multipart/form-data; boundary=\(boundary)", headers: [:]))
+        return await finish(perform(path, method: method, query: [:], body: body, contentType: "multipart/form-data; boundary=\(boundary)", headers: headers,
+                                    delegate: progress.map { UploadProgress(onProgress: $0) }))
     }
 
     /// providerApp `apiDone`: a call whose success carries no data (a delete) — nil when it went through, else the text to show.
@@ -226,7 +228,7 @@ enum Api {
 
     /// Sends one request with the app's headers (CoreHttp + the app's own) and returns the body of a 2xx answer.
     private static func perform(_ path: String, method: String, query: [String: String?], body: Data?, contentType: String?,
-                                headers: [String: String]) async -> Result<Data, Failure> {
+                                headers: [String: String], delegate: URLSessionTaskDelegate? = nil) async -> Result<Data, Failure> {
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         let items = query.compactMap { key, value in value.map { URLQueryItem(name: key, value: $0) } }
         if !items.isEmpty { components.queryItems = items.sorted { $0.name < $1.name } }
@@ -254,7 +256,7 @@ enum Api {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: delegate)
             // A completed round-trip proves we are online.
             await NetworkMonitor.shared.reportReachable()
         } catch let error as URLError {
@@ -272,6 +274,19 @@ enum Api {
         if status == 401, token != nil { await MainActor.run { Session.shared.clear() } }
         guard (200..<300).contains(status) else { return .failure(.http(status, data)) }
         return .success(data)
+    }
+
+    /// Says how much of a request's body has been sent (an upload's progress bar).
+    private final class UploadProgress: NSObject, URLSessionTaskDelegate {
+        let onProgress: @Sendable (Double) -> Void
+
+        init(onProgress: @escaping @Sendable (Double) -> Void) { self.onProgress = onProgress }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64,
+                        totalBytesExpectedToSend: Int64) {
+            guard totalBytesExpectedToSend > 0 else { return }
+            onProgress(min(1, Double(totalBytesSent) / Double(totalBytesExpectedToSend)))
+        }
     }
 
     /// The API's own address for a path of the providers API (an image read signed in).

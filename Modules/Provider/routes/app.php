@@ -25,6 +25,9 @@ Route::middleware('locale')->prefix('provider/v1')->group(function () {
         Route::post('auth/logout', [ProviderPhoneAuthController::class, 'logout']);
         Route::get('realtime-config', ProviderRealtimeController::class);
         Route::get('appearance', ProviderAppearanceController::class);
+        // The map the app draws (the branch's place, a move's route): the engine the admin chose in Rides → Settings —
+        // Google or Mapbox, and Apple Maps on the iPhone when chosen — the same as the rider and captain apps.
+        Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
 
         Route::get('workspace', [WorkspaceController::class, 'index']);
         Route::get('workspace/options', [WorkspaceController::class, 'options']);

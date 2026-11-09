@@ -21,10 +21,11 @@ class WatchEarnSettingController extends Controller implements HasMiddleware
      */
     public static function middleware(): array
     {
-        return AdminPermissionMiddleware::fromActionMethodMap('watch-earn-settings', [
-            ['view', ['index']],
-            ['update', ['update']],
-        ]);
+        // The countries list is also what the finance page filters by: either page's permission reads it.
+        return [
+            new Middleware('permission:watch-earn-settings.view|watch-earn-finance.view,'.AdminPermissionMiddleware::GUARD, only: ['index']),
+            ...AdminPermissionMiddleware::fromActionMethodMap('watch-earn-settings', [['update', ['update']]]),
+        ];
     }
 
     /** GET watch-earn/settings — every active country with its row (or the defaults). */
@@ -59,7 +60,7 @@ class WatchEarnSettingController extends Controller implements HasMiddleware
         ]);
 
         // The split must add up to the price, or the money wouldn't balance.
-        if ($data['platform_share_minor'] + $data['view_reward_minor'] + $data['interaction_reward_minor'] !== $data['price_per_view_minor']) {
+        if ($data['price_per_view_minor'] !== $data['platform_share_minor'] + $data['view_reward_minor'] + $data['interaction_reward_minor']) {
             throw ValidationException::withMessages(['price_per_view_minor' => __('watch_earn.errors.split_mismatch')]);
         }
         if ($data['enabled'] && $data['price_per_view_minor'] <= 0) {

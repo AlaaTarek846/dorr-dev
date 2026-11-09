@@ -194,7 +194,7 @@ class AiArCoreTest extends TestCase
 
     public function test_admin_publishes_a_library_model_only_with_a_licence(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
 
         $id = $this->postJson('/api/admin/v1/ai-ar/assets', ['name_en' => 'Sofa', 'category' => 'furniture', 'file' => $this->file($this->glb(), 'sofa.glb')])->assertStatus(201)->json('data.id');
         $versionId = AiArAsset::find($id)->versions()->first()->id;

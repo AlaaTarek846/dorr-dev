@@ -1,9 +1,9 @@
 import SwiftUI
 
-// androidApp `moving/MovingHome.kt` — the moving home: «طلباتي» and the button for a new request. The tabs are the
-// "My rides" pill; each row is its history card with the status chip. Where the service is off in this country
-// (`options.available`) the rides' unavailable card takes the place of the button, before any wizard opens; requests
-// already made can still be followed.
+// androidApp `moving/MovingHome.kt` — the moving home: a hero that says what the service does (the truck on its road),
+// how it works in three steps, the button for a new request, then «طلباتي» with the "My rides" pill tabs and each
+// request as its history card. Where the service is off in this country (`options.available`) the rides' unavailable
+// card takes the place of the button, before any wizard opens; requests already made can still be followed.
 
 @MainActor
 struct MovingHomePage: View {
@@ -22,30 +22,29 @@ struct MovingHomePage: View {
     @State private var deleting: MovingRequestDto?
 
     var body: some View {
-        MvPage(title: L("mv_title"), onBack: onExit,
-               bottom: nav.serviceOff || !checked ? nil : AnyView(
-                   AccentButton(text: L("mv_new_request"), icon: "plus") { nav.push(.wizard(uuid: nil, atReview: false)) }
-               )) {
+        MvPage(title: L("mv_title"), onBack: onExit) {
             VStack(spacing: 0) {
-                // The tabs: a pill that fills the chosen one.
-                HStack(spacing: 0) {
-                    ForEach([("active", "mv_tab_active"), ("all", "mv_tab_all")], id: \.0) { key, label in
-                        let on = key == tab
-                        Button {
-                            if !on { tab = key; rows = nil }
-                        } label: {
-                            Text(L(label)).font(.dorr(14, on ? .bold : .semibold)).foregroundStyle(on ? .white : wa.settingsInk)
-                                .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                .background(on ? wa.accent : .clear, in: Capsule())
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        MovingHero().staggerIn(0)
+                        MovingHowItWorks().staggerIn(1)
+                        if !nav.serviceOff && checked {
+                            AccentButton(text: L("mv_new_request"), icon: "plus") { nav.push(.wizard(uuid: nil, atReview: false)) }
+                                .staggerIn(2)
                         }
-                        .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L("mv_my_requests")).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk)
+                            tabs
+                        }
+                        .padding(.top, 6)
+                        list
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 24)
                 }
-                .padding(4)
-                .background(wa.settingsCard, in: Capsule())
-                .padding(.horizontal, 16)
-                .animation(.easeInOut(duration: 0.24), value: tab)
-                list.padding(.top, 10).frame(maxHeight: .infinity)
+                .refreshable { await mvPull() }
+                .frame(maxHeight: .infinity)
                 if nav.serviceOff {
                     MovingUnavailablePanel {
                         checked = false
@@ -78,35 +77,45 @@ struct MovingHomePage: View {
         }
     }
 
+    /// The tabs: a pill that fills the chosen one.
+    private var tabs: some View {
+        HStack(spacing: 0) {
+            ForEach([("active", "mv_tab_active"), ("all", "mv_tab_all")], id: \.0) { key, label in
+                let on = key == tab
+                Button {
+                    if !on { tab = key; rows = nil }
+                } label: {
+                    Text(L(label)).font(.dorr(14, on ? .bold : .semibold)).foregroundStyle(on ? .white : wa.settingsInk)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                        .background(on ? wa.accent : .clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(wa.settingsCard, in: Capsule())
+        .animation(.easeInOut(duration: 0.24), value: tab)
+    }
+
     @ViewBuilder
     private var list: some View {
         if let list = rows {
             if list.isEmpty {
-                ScrollView {
-                    MvEmpty(icon: "box.truck.fill", text: error ?? L(nav.serviceOff ? "mv_empty_off" : "mv_empty")).frame(minHeight: 320)
-                }
-                .refreshable { await mvPull() }
+                MovingHomeEmpty(text: error ?? L(nav.serviceOff ? "mv_empty_off" : "mv_empty"))
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 10) {
-                        ForEach(Array(list.enumerated()), id: \.element.uuid) { i, row in
-                            RequestCard(item: row, onDelete: row.status == "draft" ? { deleting = row } : nil) {
-                                nav.push(row.status == "draft" ? .wizard(uuid: row.uuid, atReview: false) : .request(row.uuid))
-                            }
-                            .staggerIn(i)
-                        }
-                        if hasMore {
-                            ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(.vertical, 8)
-                                .onAppear { loadMore() }
-                        }
-                        Spacer().frame(height: 16)
+                ForEach(Array(list.enumerated()), id: \.element.uuid) { i, row in
+                    RequestCard(item: row, onDelete: row.status == "draft" ? { deleting = row } : nil) {
+                        nav.push(row.status == "draft" ? .wizard(uuid: row.uuid, atReview: false) : .request(row.uuid))
                     }
-                    .padding(.horizontal, 16)
+                    .staggerIn(i)
                 }
-                .refreshable { await mvPull() }
+                if hasMore {
+                    ProgressView().tint(wa.accent).frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .onAppear { loadMore() }
+                }
             }
         } else {
-            MvLoading()
+            ProgressView().tint(wa.accent).frame(maxWidth: .infinity).frame(height: 140)
         }
     }
 
@@ -147,6 +156,171 @@ struct MovingHomePage: View {
     }
 }
 
+/// The hero's colours: the same navy-to-accent wash as the app's dark hero panels (calendar, Moments), by day and night.
+@MainActor
+private func mvHeroColors(_ appearance: AppearanceState, night: Bool) -> [Color] {
+    if night {
+        let accent = appearance.color("primary", Color(hex: 0xFA7552), dark: true)
+        return [accent, accent.scaled(0.62), accent.scaled(0.40)]
+    }
+    let primary = appearance.color("primary", Color(hex: 0x001B53), dark: false)
+    let light = appearance.color("primaryLight", Color(hex: 0x1E3A7B), dark: false)
+    let dark = appearance.color("primaryDark", Color(hex: 0x00113A), dark: false)
+    let accent = appearance.color("accent", Color(hex: 0xFA7552), dark: false)
+    var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
+    var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+    UIColor(light).getRed(&lr, green: &lg, blue: &lb, alpha: &la)
+    UIColor(accent).getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+    let top = Color(red: Double(min(lr * 0.70 + ar * 0.30, 1)), green: Double(min(lg * 0.70 + ag * 0.30, 1)), blue: Double(min(lb * 0.70 + ab * 0.30, 1)))
+    return [top, primary, dark]
+}
+
+/// The hero: what the service is in one line, and the truck driving on its road (it faces the reading direction).
+/// The motion is the device's own animation; nothing is asked of the server.
+private struct MovingHero: View {
+    @Environment(\.wa) private var wa
+    @Environment(\.layoutDirection) private var direction
+    @ObservedObject private var appearance = AppearanceState.shared
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(L("mv_title")).font(.dorr(11, .bold)).foregroundStyle(.white)
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Color.white.opacity(0.16), in: Capsule())
+            Text(L("mv_hero_title")).font(.dorr(22, .black)).foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 10)
+            Text(L("mv_hero_body")).font(.dorr(13)).foregroundStyle(Color.white.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+            road.frame(height: 70).padding(.top, 16)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                LinearGradient(colors: mvHeroColors(appearance, night: wa.night), startPoint: .topLeading, endPoint: .bottomTrailing)
+                // Soft circles behind, for depth.
+                Circle().fill(Color.white.opacity(0.07)).frame(width: 170, height: 170)
+                    .offset(x: 40, y: -50)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                Circle().fill(Color.white.opacity(0.05)).frame(width: 120, height: 120)
+                    .offset(x: -30, y: 40)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            }
+        }
+        .clipShape(shape)
+    }
+
+    private var road: some View {
+        let rtl = direction == .rightToLeft
+        return TimelineView(.animation) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            let phase = (t / 0.9).truncatingRemainder(dividingBy: 1) * 44
+            let bobStep = (t / 0.42).truncatingRemainder(dividingBy: 2)
+            let bob = -4 * (0.5 - 0.5 * cos(Double.pi * (bobStep < 1 ? bobStep : 2 - bobStep)))
+            let glowStep = (t / 1.4).truncatingRemainder(dividingBy: 2)
+            let glow = 0.10 + 0.12 * (0.5 - 0.5 * cos(Double.pi * (glowStep < 1 ? glowStep : 2 - glowStep)))
+            ZStack {
+                HeroRoad(rtl: rtl, phase: phase)
+                    .frame(height: 10)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                ZStack {
+                    Circle().fill(Color.white.opacity(glow)).frame(width: 64, height: 64)
+                    Circle().fill(Color.white).frame(width: 48, height: 48)
+                    Image(systemName: "box.truck.fill").font(.system(size: 22)).foregroundStyle(AppColors.brandOrange)
+                        .environment(\.layoutDirection, .leftToRight)
+                        .scaleEffect(x: rtl ? -1 : 1, y: 1)
+                }
+                .offset(y: -8 + bob)
+            }
+        }
+    }
+}
+
+/// The hero's road: a soft band, and the dashes running against the truck (drawn from its front to its back).
+private struct HeroRoad: View {
+    let rtl: Bool
+    let phase: Double
+
+    var body: some View {
+        Canvas { g, size in
+            let y = size.height / 2
+            var base = Path()
+            base.move(to: CGPoint(x: 0, y: y))
+            base.addLine(to: CGPoint(x: size.width, y: y))
+            g.stroke(base, with: .color(Color.white.opacity(0.14)), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+            var dashes = Path()
+            dashes.move(to: CGPoint(x: rtl ? 0 : size.width, y: y))
+            dashes.addLine(to: CGPoint(x: rtl ? size.width : 0, y: y))
+            g.stroke(dashes, with: .color(Color.white.opacity(0.7)), style: StrokeStyle(lineWidth: 2, dash: [22, 22], dashPhase: CGFloat(-phase)))
+        }
+    }
+}
+
+/// How it works, in three steps side by side.
+private struct MovingHowItWorks: View {
+    var body: some View {
+        MvCard {
+            MvCardTitle(text: L("mv_how_title"))
+            HStack(alignment: .top, spacing: 8) {
+                HowStep(number: 1, icon: "square.and.pencil", title: L("mv_how_1_title"), text: L("mv_how_1_body"))
+                HowStep(number: 2, icon: "tag.fill", title: L("mv_how_2_title"), text: L("mv_how_2_body"))
+                HowStep(number: 3, icon: "checkmark.shield.fill", title: L("mv_how_3_title"), text: L("mv_how_3_body"))
+            }
+            .padding(.top, 14)
+        }
+    }
+}
+
+private struct HowStep: View {
+    @Environment(\.wa) private var wa
+    let number: Int
+    let icon: String
+    let title: String
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // The number sits on the tile's top-end corner, 6 points out.
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: icon).font(.system(size: 21)).foregroundStyle(wa.accent)
+                    .frame(width: 50, height: 50)
+                    .background(wa.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(6)
+                Text(verbatim: String(number)).font(.dorr(11, .black)).foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(wa.accent, in: Circle())
+            }
+            .padding(-6)
+            Text(verbatim: title).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
+                .multilineTextAlignment(.center).lineLimit(1).padding(.top, 8)
+            Text(verbatim: text).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// No requests yet: the truck in its circle and a line, inside the list.
+private struct MovingHomeEmpty: View {
+    @Environment(\.wa) private var wa
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(systemName: "box.truck.fill").font(.system(size: 26)).foregroundStyle(wa.accent)
+                .frame(width: 64, height: 64).background(wa.accent.opacity(0.1), in: Circle())
+            Text(verbatim: text).font(.dorr(13.5)).foregroundStyle(wa.settingsMut).multilineTextAlignment(.center).padding(.top, 10)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+}
+
 private struct RequestCard: View {
     @Environment(\.wa) private var wa
     let item: MovingRequestDto
@@ -158,8 +332,8 @@ private struct RequestCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "box.truck.fill").font(.system(size: 18)).foregroundStyle(color)
-                        .frame(width: 40, height: 40).background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Image(systemName: "box.truck.fill").font(.system(size: 20)).foregroundStyle(color)
+                        .frame(width: 44, height: 44).background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     VStack(alignment: .leading, spacing: 0) {
                         Text(verbatim: loadTypeLabel(item.loadType)).font(.dorr(15, .bold)).foregroundStyle(wa.settingsInk)
                         if let t = mvTime(item.scheduledAt) { Text(verbatim: rideWhenText(t)).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
@@ -170,8 +344,17 @@ private struct RequestCard: View {
                 let from = item.pickup?.area ?? item.pickup?.address
                 let to = item.dropoff?.area ?? item.dropoff?.address
                 if from != nil || to != nil {
-                    TripLine(dot: AppColors.brandNavy, address: from).padding(.top, 8)
-                    TripLine(dot: AppColors.brandOrange, address: to)
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            TripLine(dot: AppColors.brandNavy, address: from)
+                            TripLine(dot: AppColors.brandOrange, address: to)
+                        }
+                        Spacer(minLength: 0)
+                        if let km = item.distanceKm {
+                            Text(verbatim: L("mv_km", movingKmText(km))).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsMut)
+                        }
+                    }
+                    .padding(.top, 8)
                 }
                 let total = item.money?.totalMinor
                 if total != nil || item.establishment?.name != nil {
@@ -192,7 +375,7 @@ private struct RequestCard: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(wa.settingsCard, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(WaPressStyle())
     }

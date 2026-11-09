@@ -21,6 +21,14 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 packages:
+  GoogleMaps:
+    # The map engine the admin picks — Google (Android: play-services-maps / maps-compose), as driverAppIos.
+    url: https://github.com/googlemaps/ios-maps-sdk
+    from: 9.4.0
+  MapboxMaps:
+    # …or Mapbox — the same release as Android (11.8.0); newer ones need Xcode 16. (Apple Maps is MapKit, built in.)
+    url: https://github.com/mapbox/mapbox-maps-ios.git
+    exactVersion: 11.8.0
   PusherSwift:
     # The live connection (Android: pusher-java-client), settings from `provider/v1/realtime-config`.
     url: https://github.com/pusher/pusher-websocket-swift
@@ -36,6 +44,10 @@ targets:
     sources:
       - path: DorrPartners
     dependencies:
+      - package: GoogleMaps
+        products: [GoogleMaps]
+      - package: MapboxMaps
+        product: MapboxMaps
       - package: PusherSwift
         product: PusherSwift
       - package: OneSignal

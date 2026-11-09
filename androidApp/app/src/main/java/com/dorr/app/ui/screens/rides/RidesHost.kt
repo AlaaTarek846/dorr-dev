@@ -126,6 +126,8 @@ internal class RidesState {
     /** O-15: the category picked by itself for more riders (the popup says so), then cleared. */
     var categorySwitchedTo by mutableStateOf<String?>(null)
     var pickupNote by mutableStateOf("")
+    /** A quiet ride for this trip — null = the rider's saved choice. */
+    var quietRide by mutableStateOf<Boolean?>(null)
 
     /** R-13: booking for someone else — their name and number, and the rider's own consent tick (never pre-ticked). */
     var forOther by mutableStateOf(false)
@@ -245,6 +247,7 @@ internal class RidesState {
         addonsError = null
         passengers = 1
         pickupNote = ""
+        quietRide = null
         forOther = false
         beneficiaryName = ""
         beneficiaryPhone = ""

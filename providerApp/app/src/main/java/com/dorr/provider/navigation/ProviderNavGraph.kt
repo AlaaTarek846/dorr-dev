@@ -26,6 +26,7 @@ import com.dorr.provider.ui.components.TAB_WALLET
 import com.dorr.provider.net.can
 import com.dorr.provider.ui.screens.BranchesScreen
 import com.dorr.provider.ui.screens.DocumentsScreen
+import com.dorr.provider.ui.screens.FirstVehicleScreen
 import com.dorr.provider.ui.screens.JobScreen
 import com.dorr.provider.ui.screens.JobsScreen
 import com.dorr.provider.ui.screens.MyJobsScreen
@@ -58,6 +59,8 @@ object Routes {
     /** Reads `workspace` once and sends the person on (no screen of its own beyond a spinner / a retry). */
     const val WORKSPACE = "workspace"
     const val ONBOARDING = "onboarding"
+    /** Registration's 4th step when moving is chosen: the first vehicle (with its photos and data) before the papers. */
+    const val FIRST_VEHICLE = "first-vehicle"
     const val INVITATIONS = "invitations"
     const val HOME = "home"
     const val DOCUMENTS = "documents"
@@ -117,7 +120,8 @@ fun ProviderNavGraph() {
     val tappedRoute by Realtime.openedRoute.collectAsState()
     LaunchedEffect(tapped, tappedRoute, signedIn) {
         val here = nav.currentDestination?.route
-        val ready = here != null && here != Routes.SPLASH && here != Routes.LOGIN && here != Routes.OTP && here != Routes.WORKSPACE && here != Routes.ONBOARDING
+        val ready = here != null && here != Routes.SPLASH && here != Routes.LOGIN && here != Routes.OTP && here != Routes.WORKSPACE && here != Routes.ONBOARDING &&
+            here != Routes.FIRST_VEHICLE
         if (tapped != null && signedIn && ready) {
             val target = tappedRoute
             Realtime.consumeOpened()
@@ -193,12 +197,23 @@ fun ProviderNavGraph() {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 onExit = ::backOrLeave,
-                // The new establishment is chosen already: the home, with its papers page on top.
-                onCreated = {
-                    nav.navigate(Routes.HOME) { popUpTo(0) { inclusive = true } }
-                    nav.navigate(Routes.DOCUMENTS)
+                // The new establishment is chosen already. Moving chosen: its first vehicle first (registration's 4th step);
+                // then — or straight away otherwise — the home, with its papers page on top.
+                onCreated = { needsVehicle ->
+                    if (needsVehicle) {
+                        nav.navigate(Routes.FIRST_VEHICLE) { popUpTo(0) { inclusive = true } }
+                    } else {
+                        nav.navigate(Routes.HOME) { popUpTo(0) { inclusive = true } }
+                        nav.navigate(Routes.DOCUMENTS)
+                    }
                 },
             )
+        }
+        composable(Routes.FIRST_VEHICLE) {
+            FirstVehicleScreen(onDone = {
+                nav.navigate(Routes.HOME) { popUpTo(0) { inclusive = true } }
+                nav.navigate(Routes.DOCUMENTS)
+            })
         }
         composable(Routes.INVITATIONS) {
             InvitationsScreen(

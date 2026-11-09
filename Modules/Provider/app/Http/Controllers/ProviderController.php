@@ -2,14 +2,22 @@
 
 namespace Modules\Provider\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Enums\UserStatus;
+use App\Http\Controllers\Controller;
+use App\Support\Admin\AdminPermissionMiddleware;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Modules\Provider\Http\Requests\ProviderRequest;
 use Modules\Provider\Services\ProvidersService;
 
-class ProviderController extends Controller
+/** The dashboard's providers list: each action needs its `providers.*` permission. */
+class ProviderController extends Controller implements HasMiddleware
 {
     public function __construct(protected ProvidersService $service) {}
+
+    public static function middleware(): array
+    {
+        return AdminPermissionMiddleware::catalog('providers', secureDropdown: false);
+    }
 
     public function index()
     {

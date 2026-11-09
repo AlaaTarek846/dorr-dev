@@ -40,6 +40,12 @@ trait HasTranslations
             return $this->translation->{$field};
         }
 
+        // Nothing loaded yet (a list built without `with('translations')`): load them once rather than
+        // answer null — a blank name in the apps (only the image showed on the providers' services).
+        if (! $this->relationLoaded('translations') && $this->exists && method_exists($this, 'translations')) {
+            $this->load('translations');
+        }
+
         if ($this->relationLoaded('translations')) {
             return $this->translations->firstWhere('locale', app()->getLocale())?->{$field}
                 ?? $this->translations->first()?->{$field};

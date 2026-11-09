@@ -695,6 +695,8 @@
     <string name="rd_comfort_none">No preferences — tap to choose</string>
     <string name="rd_comfort_quiet">A quiet ride</string>
     <string name="rd_comfort_quiet_sub">No small talk unless needed</string>
+    <string name="rd_quiet_title">Quiet ride</string>
+    <string name="rd_quiet_sub">We will tell the captain you prefer not to talk; anything the trip needs can still be said</string>
     <string name="rd_comfort_ac">Air conditioning</string>
     <string name="rd_comfort_music">Music</string>
     <string name="rd_comfort_notes">Notes for the captain</string>

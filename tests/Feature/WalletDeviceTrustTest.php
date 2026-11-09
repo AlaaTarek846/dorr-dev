@@ -95,6 +95,21 @@ class WalletDeviceTrustTest extends TestCase
             ->assertOk()->assertJsonPath('data.device_trusted', false);
     }
 
+    public function test_the_phone_that_creates_the_pin_starts_trusted(): void
+    {
+        $bob = User::create(['name' => 'Bob', 'phone' => '+966500000002', 'status' => 'active', 'phone_verified_at' => now()]);
+        Sanctum::actingAs($bob, [], 'user_api');
+        $this->postJson(self::BASE.'/pin/recovery', ['method' => 'birth_date', 'birth_date' => '1990-05-17'], ['X-Country' => 'SA'])->assertOk();
+        $this->postJson(self::BASE.'/pin', ['pin' => '4321', 'pin_confirmation' => '4321'], ['X-Country' => 'SA', 'X-Device-Id' => 'phone-1'])->assertCreated();
+
+        // A brand-new account isn't asked to confirm a "new device" on the phone it was just made on…
+        $this->postJson(self::BASE.'/pin/verify', [], ['X-Country' => 'SA', 'X-Wallet-Pin' => '4321', 'X-Device-Id' => 'phone-1'])
+            ->assertOk()->assertJsonPath('data.device_trusted', true);
+        // …while another phone still is.
+        $this->postJson(self::BASE.'/pin/verify', [], ['X-Country' => 'SA', 'X-Wallet-Pin' => '4321', 'X-Device-Id' => 'phone-2'])
+            ->assertOk()->assertJsonPath('data.device_trusted', false);
+    }
+
     public function test_confirming_device_trust_needs_the_wallet_pin_like_everything_else(): void
     {
         $this->postJson(self::BASE.'/device/verify-code', [], ['X-Country' => 'SA'])

@@ -3,12 +3,25 @@
 namespace Modules\Admin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Support\Admin\AdminPermissionMiddleware;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Modules\Admin\Http\Requests\PermissionRequest;
 use Modules\Admin\Services\PermissionService;
 
-class PermissionController extends Controller
+/** The permissions list (read by the roles form): reading and changing it is part of managing roles. */
+class PermissionController extends Controller implements HasMiddleware
 {
     public function __construct(protected PermissionService $service) {}
+
+    public static function middleware(): array
+    {
+        return AdminPermissionMiddleware::fromActionMethodMap('roles', [
+            ['view', ['index', 'show']],
+            ['create', ['store']],
+            ['update', ['update']],
+            ['delete', ['destroy', 'deleteMultiple']],
+        ]);
+    }
 
     public function index()
     {
