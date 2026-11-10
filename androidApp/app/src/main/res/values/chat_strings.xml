@@ -62,7 +62,7 @@
     <string name="ch_info">Info</string>
     <string name="ch_copied">Copied</string>
     <string name="ch_delete_title">Delete message?</string>
-    <string name="ch_delete_for_me">Delete for me</string>
+    <string name="ch_delete_for_me">Delete for me only</string>
     <string name="ch_delete_for_everyone">Delete for everyone</string>
     <string name="ch_cancel">Cancel</string>
     <string name="ch_editing">Editing message</string>
@@ -72,6 +72,13 @@
     <string name="ch_pin_30d">30 days</string>
     <string name="ch_pinned_message">Pinned message</string>
     <string name="ch_forward_to">Forward to…</string>
+    <string name="ch_forward_search">Search chats</string>
+    <string name="ch_read_more">Read more</string>
+    <string name="ch_pinned_list">Pinned messages</string>
+    <string name="ch_pin_replace_title">Replace oldest pin?</string>
+    <string name="ch_pin_replace_text">Your new pin will replace the oldest one.</string>
+    <string name="ch_continue">Continue</string>
+    <string name="ch_forward_none">No matching chats</string>
     <string name="ch_forwarded_done">Forwarded</string>
     <string name="ch_message_info">Message info</string>
     <string name="ch_read_by">Read by</string>
@@ -100,6 +107,17 @@
     <string name="ch_pick_transfer">Choose a transfer to share</string>
     <string name="ch_no_transfers">You haven\'t sent any transfers yet</string>
 
+    <string name="ch_loc_page_title">Send location</string>
+    <string name="ch_loc_search_hint">Search for a place</string>
+    <string name="ch_loc_refresh">Refresh</string>
+    <string name="ch_loc_my_place">My location</string>
+    <string name="ch_loc_nearby">Nearby places</string>
+    <string name="ch_loc_send_current">Send your current location</string>
+    <string name="ch_loc_accuracy">Accurate to %1$d meters</string>
+    <string name="ch_loc_locating">Finding your location…</string>
+    <string name="ch_loc_send_pin">Send this location</string>
+    <string name="ch_loc_results">Results</string>
+    <string name="ch_loc_nothing">No places found here</string>
     <string name="ch_live_title">Share live location</string>
     <string name="ch_live_15m">For 15 minutes</string>
     <string name="ch_live_1h">For 1 hour</string>
@@ -111,6 +129,11 @@
     <string name="ch_live_minutes_left">%d min left</string>
     <string name="ch_live_until">Live until %s</string>
     <string name="ch_live_stop">Stop sharing</string>
+    <string name="ch_live_directions">Directions</string>
+    <string name="ch_live_recenter">Back to them</string>
+    <string name="ch_live_you">You</string>
+    <string name="ch_live_updated_now">Updated just now</string>
+    <string name="ch_live_updated_ago">Updated %1$d min ago</string>
     <string name="ch_live_channel">Live location</string>
     <string name="ch_live_sharing_title">Sharing live location</string>
     <plurals name="ch_live_sharing_text">
@@ -123,7 +146,7 @@
     <string name="ch_transfer_done">Transfer successful</string>
     <string name="ch_transfer_reversed">Reversed</string>
     <string name="ch_wallet_qr_title">Wallet QR code</string>
-    <string name="ch_wallet_qr_sub">Scan or tap to send money</string>
+    <string name="ch_wallet_qr_sub">Scan the QR code</string>
     <string name="ch_wallet_qr_pay">Send money</string>
 
     <string name="ch_call_voice">Voice call</string>
@@ -132,6 +155,8 @@
     <string name="ch_call_missed">Missed call</string>
     <string name="ch_call_declined">Declined</string>
     <string name="ch_call_cancelled">Cancelled</string>
+    <string name="ch_call_no_answer">No answer</string>
+    <string name="ch_call_missed_short">Missed</string>
     <string name="ch_call_incoming_voice">Incoming voice call</string>
     <string name="ch_call_incoming_video">Incoming video call</string>
     <string name="ch_call_calling">Calling…</string>
@@ -155,8 +180,9 @@
     <string name="ch_call_swipe_answer">Swipe up to answer</string>
     <string name="ch_permission_call">Allow the microphone (and camera for video) to make calls</string>
 
-    <string name="ch_request_title">%s wants to message you</string>
-    <string name="ch_request_text">They aren\'t in your contacts. They won\'t know you\'ve read their messages until you accept.</string>
+    <string name="ch_request_label">Message request</string>
+    <string name="ch_request_not_contact">Not in your contacts</string>
+    <string name="ch_request_no_read">Won\'t see you\'ve read it</string>
     <string name="ch_accept">Accept</string>
     <string name="ch_reject">Delete</string>
     <string name="ch_block">Block</string>
@@ -300,12 +326,9 @@
     <string name="ch_unlock_title">Unlock chat</string>
     <string name="ch_unlock_sub">Use your fingerprint, face or screen lock</string>
     <string name="ch_locked_note">This chat is locked</string>
-    <string name="ch_theme">Appearance</string>
-    <string name="ch_theme_system">Follow the device</string>
-    <string name="ch_theme_light">Light</string>
-    <string name="ch_theme_dark">Dark</string>
     <string name="ch_offline">Offline — showing saved messages</string>
     <string name="ch_invite">Invite</string>
+    <string name="ch_invite_dorr">Invite to Dorr</string>
     <string name="ch_invite_title">Invite %s</string>
     <string name="ch_share_more">More</string>
     <string name="ch_invite_section">Invite to Dorr</string>
@@ -358,6 +381,14 @@
     <string name="ch_expr_search_gifs">Search GIFs</string>
     <string name="ch_expr_search_stickers">Search stickers</string>
     <string name="ch_expr_powered">Powered by Dorr</string>
+    <string name="ch_expr_backspace">Delete</string>
+    <string name="ch_emoji_recent">Recent</string>
+    <string name="ch_emoji_smileys">Smileys</string>
+    <string name="ch_emoji_hands">Hands &amp; people</string>
+    <string name="ch_emoji_symbols">Hearts &amp; symbols</string>
+    <string name="ch_emoji_nature">Animals &amp; nature</string>
+    <string name="ch_emoji_food">Food &amp; drink</string>
+    <string name="ch_emoji_activity">Activities &amp; things</string>
 
     <!-- Moods -->
     <string name="ch_mood_haha">Haha</string>
@@ -397,6 +428,7 @@
     <string name="ch_money_decline">Decline</string>
     <string name="ch_money_note_hint">Add a note (optional)</string>
     <string name="ch_money_send_request">Request money</string>
+    <string name="ch_money_request_card">Money transfer request</string>
     <string name="ch_money_request_from">%s asked you for money</string>
     <string name="ch_money_requested_from_you">You asked %s for money</string>
     <string name="ch_money_you_requested">You asked for money</string>
@@ -429,7 +461,7 @@
 
     <!-- Stories -->
     <string name="st_my_status">My status</string>
-    <string name="st_add_status">Add to status</string>
+    <string name="st_add_status">Add status</string>
     <string name="st_uploading">Posting…</string>
     <string name="st_muted">Muted</string>
     <string name="st_text">Text</string>
@@ -550,10 +582,11 @@
     <string name="ch_contact_save">Save</string>
     <string name="ch_contact_copy">Copy number</string>
     <string name="ch_contact_on_dorr">On Dorr</string>
-    <string name="ch_contact_not_on_dorr">Not on Dorr yet</string>
+    <string name="ch_contact_not_on_dorr">Not on Dorr</string>
+    <string name="ch_phone_mobile">Mobile</string>
     <string name="ch_number_copied">Number copied</string>
-    <string name="ch_not_in_contacts">%1$s isn\'t in your contacts</string>
-    <string name="ch_not_in_contacts_why">Add them to see each other\'s status updates</string>
+    <string name="ch_not_in_contacts">Unsaved number</string>
+    <string name="ch_not_in_contacts_why">Add to your contacts so they can see your status</string>
     <string name="ch_add">Add</string>
     <string name="ch_contact_added">Added to your contacts</string>
     <string name="ch_in_contacts">In your contacts</string>
@@ -797,6 +830,23 @@
     <string name="ch_verify_no_plans">Verification isn\'t available in your country yet.</string>
     <!-- Public stories on the home page (ج.1). -->
     <string name="st_public_everyone">Public — everyone sees it</string>
+    <string name="st_public_hint">This status is public: it shows on the home page to everyone on Dorr, not only your contacts.</string>
+    <string name="st_discard_title">Discard this status?</string>
+    <string name="st_discard_text">What you made here will be lost.</string>
+    <string name="st_discard">Discard</string>
+    <string name="st_public_short">Public</string>
+    <string name="st_privacy_short">Privacy</string>
+    <string name="st_replies_short">Replies</string>
+    <string name="st_replies_closed">Replies off</string>
+    <string name="st_replies_on_toast">People can reply to this status</string>
+    <string name="st_replies_off_toast">Replies are off for this status</string>
+    <string name="st_tool_colors">Colours</string>
+    <string name="st_tool_font">Font</string>
+    <string name="st_tool_align">Alignment</string>
+    <string name="st_tool_draw">Draw</string>
+    <string name="st_voice_rerecord">Record again</string>
+    <string name="st_voice_tap_stop">Tap to stop</string>
+    <string name="st_voice_preview">Listen before you post</string>
     <string name="st_my_public">My story</string>
     <string name="st_add_public">Add</string>
     <string name="st_dorr">Dorr</string>
@@ -985,7 +1035,7 @@
     <string name="ia_footer_hint">Footer (optional)</string>
     <string name="ia_choose">Choose</string>
     <string name="ia_no_answers">No answers yet</string>
-    <string name="ia_answers">%1$d answered · see who</string>
+    <string name="ia_answers">View replies · %1$d</string>
     <!-- Communities (WhatsApp list 93–98) -->
     <string name="cm_title">Communities</string>
     <string name="cm_new">New community</string>

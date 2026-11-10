@@ -69,6 +69,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -128,6 +131,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.unit.coerceIn
+import androidx.compose.material.icons.rounded.Keyboard
+import androidx.activity.compose.BackHandler
+import com.dorr.app.ui.components.bleedHorizontal
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -165,6 +177,17 @@ fun Composer(state: ConversationState) {
     var scheduledOpen by remember { mutableStateOf(false) }
     var attachOpen by remember { mutableStateOf(false) }
     var exprOpen by remember { mutableStateOf(false) }
+    // Emoji / stickers / GIFs open in the keyboard's place (as in WhatsApp): the keyboard goes, the message box stays.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val fieldFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val insetDensity = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(insetDensity)
+    val navBottom = WindowInsets.navigationBars.getBottom(insetDensity)
+    // The keyboard's own height, kept once seen, so the panel matches it.
+    LaunchedEffect(imeBottom, navBottom) { if (imeBottom - navBottom > 200) LastKeyboard.px = imeBottom - navBottom }
+    val dockHeight = with(insetDensity) { if (LastKeyboard.px > 0) LastKeyboard.px.toDp() else 300.dp }.coerceIn(240.dp, 420.dp)
+    BackHandler(exprOpen) { exprOpen = false }
     var transferPicker by remember { mutableStateOf(false) }
     val recorder = remember { VoiceRecorder(context) }
     var locked by remember { mutableStateOf(false) }
@@ -211,9 +234,12 @@ fun Composer(state: ConversationState) {
     val slowLeft = if (state.slowUntil > clock) ((state.slowUntil - clock + 999) / 1000).toInt() else 0
     val slowWait = if (slowLeft > 0) stringResource(R.string.ch_slow_mode_wait, slowLeft) else ""
     val scheduledToast = stringResource(R.string.ch_scheduled_toast)
+    // The link card shown above the field right now, if any.
+    var shownLinkCard by remember { mutableStateOf<com.dorr.app.network.LinkPreviewDto?>(null) }
 
     fun send(silent: Boolean = false, urgent: Boolean = false, sensitive: Boolean = false) {
         val body = text.trim()
+        val linkCard = shownLinkCard
         if (body.isEmpty()) return
         if (slowLeft > 0 && state.editing == null) {
             host.showToast(slowWait)
@@ -234,7 +260,9 @@ fun Composer(state: ConversationState) {
                 // Hidden until they unlock it, and never in a notification.
                 if (sensitive) put("sensitive", true)
             }
-            state.send(Outgoing("text", body, extra = extra))
+            // The link's card already above the field goes with it (only while it's still that link).
+            val card = linkCard?.takeIf { body.contains(it.url.substringAfter("://").trimEnd('/'), ignoreCase = true) }
+            state.send(Outgoing("text", body, extra = extra), linkPreview = card)
         }
         text = ""
         mentioned.clear()
@@ -248,12 +276,16 @@ fun Composer(state: ConversationState) {
         state.send(Outgoing("voice", files = listOf(LocalFile(clip.file, "audio/mp4", clip.file.name)), extra = mapOf("duration_ms" to clip.durationMs, "waveform" to clip.waveform)))
     }
 
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 10.dp, vertical = 5.dp)) {
+    // With the emoji panel open, the panel itself reaches the bottom of the screen (under the system bar), as in WhatsApp.
+    Column(
+        Modifier.fillMaxWidth().then(if (exprOpen) Modifier else Modifier.navigationBarsPadding())
+            .padding(start = 10.dp, end = 10.dp, top = 5.dp, bottom = if (exprOpen) 0.dp else 5.dp),
+    ) {
         // --------------------------------------------------------------- my scheduled messages here
         ScheduledPill(state) { scheduledOpen = true }
 
         // --------------------------------------------------------------- the card of a link being typed
-        ComposerLinkPreview(text)
+        ComposerLinkPreview(text) { shownLinkCard = it }
 
         // --------------------------------------------------------------- "/" quick replies
         QuickReplySuggestions(quickQuery) { reply ->
@@ -303,19 +335,21 @@ fun Composer(state: ConversationState) {
             }
         }
 
-        // --------------------------------------------------------------- reply / edit preview
-        AnimatedVisibility(state.replyTo != null || state.editing != null, enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            val target = state.editing ?: state.replyTo
-            if (target != null) ContextBar(target, isEdit = state.editing != null) {
-                if (state.editing != null) text = ""
-                state.replyTo = null
-                state.editing = null
-            }
-        }
-
         Row(verticalAlignment = Alignment.Bottom) {
-            // --------------------------------------------------------------- field or recording bar
-            Box(Modifier.weight(1f)) {
+            // --------------------------------------------------------------- the message box: reply / edit card on top, then the field (or the recording bar)
+            Column(
+                Modifier.weight(1f).shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.12f))
+                    // Solid, in the app's surface colour (as WhatsApp's box): the wallpaper shows around it, not through it.
+                    .clip(RoundedCornerShape(22.dp)).background(Ch.Surface),
+            ) {
+                AnimatedVisibility(state.replyTo != null || state.editing != null, enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    val target = state.editing ?: state.replyTo
+                    if (target != null) ContextBar(target, isEdit = state.editing != null) {
+                        if (state.editing != null) text = ""
+                        state.replyTo = null
+                        state.editing = null
+                    }
+                }
                 AnimatedContent(targetState = recorder.recording, label = "composer", transitionSpec = {
                     (fadeIn(tween(200)) + slideInHorizontally { it / 4 }) togetherWith (fadeOut(tween(150)) + slideOutHorizontally { -it / 4 })
                 }) { recording ->
@@ -323,9 +357,7 @@ fun Composer(state: ConversationState) {
                         RecordingBar(recorder, dragX, locked, onCancel = { recorder.cancel(); locked = false; state.sendTyping(stop = true) })
                     } else {
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 44.dp).shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.12f))
-                                // Slightly see-through: the wallpaper shows around and under the message box.
-                                .clip(RoundedCornerShape(22.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 4.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 4.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             val rotation by animateFloatAsState(if (attachOpen) 45f else 0f, spring(dampingRatio = 0.45f), label = "attach")
@@ -348,7 +380,8 @@ fun Composer(state: ConversationState) {
                                     cursorBrush = SolidColor(Ch.Red),
                                     maxLines = 6,
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                                    modifier = Modifier.fillMaxWidth(),
+                                    // Typing again: the keyboard comes back and the panel steps aside.
+                                    modifier = Modifier.fillMaxWidth().focusRequester(fieldFocus).onFocusChanged { if (it.isFocused) exprOpen = false },
                                 )
                             }
                             // ✨ Suggest replies — only on an empty field, only when the AI is available.
@@ -359,9 +392,23 @@ fun Composer(state: ConversationState) {
                             }
                             // Emoji · stickers · GIFs — the face winks when the panel opens.
                             val wink by animateFloatAsState(if (exprOpen) 1f else 0f, spring(dampingRatio = 0.4f), label = "exprWink")
-                            Box(Modifier.padding(bottom = 3.dp).size(34.dp).clip(CircleShape).clickable { exprOpen = true }, contentAlignment = Alignment.Center) {
+                            // Open: the keyboard icon — a tap brings the keyboard back in the panel's place.
+                            Box(
+                                Modifier.padding(bottom = 3.dp).size(34.dp).clip(CircleShape).clickable {
+                                    if (exprOpen) {
+                                        exprOpen = false
+                                        runCatching { fieldFocus.requestFocus() }
+                                        keyboard?.show()
+                                    } else {
+                                        keyboard?.hide()
+                                        focusManager.clearFocus()
+                                        exprOpen = true
+                                    }
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Icon(
-                                    Icons.Rounded.EmojiEmotions, null, tint = if (exprOpen) Ch.Red else Ch.Mut,
+                                    if (exprOpen) Icons.Rounded.Keyboard else Icons.Rounded.EmojiEmotions, null, tint = if (exprOpen) Ch.Red else Ch.Mut,
                                     modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = wink * 18f; scaleX = 1f + wink * 0.15f; scaleY = 1f + wink * 0.15f },
                                 )
                             }
@@ -513,6 +560,21 @@ fun Composer(state: ConversationState) {
                 }
             }
         }
+
+        // --------------------------------------------------------------- emoji · stickers · GIFs, in the keyboard's place
+        AnimatedVisibility(exprOpen, enter = expandVertically(spring(dampingRatio = 0.9f, stiffness = 500f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            // Searching GIFs / stickers brings the keyboard up under it: the panel shrinks to leave the chat room.
+            val typingInDock = imeBottom - navBottom > 200
+            val shownHeight by androidx.compose.animation.core.animateDpAsState(if (typingInDock) 250.dp else dockHeight, label = "dockHeight")
+            Box(Modifier.bleedHorizontal(10.dp)) {
+                ExpressionDock(
+                    shownHeight,
+                    onEmoji = { text += it },
+                    onBackspace = { text = text.dropLastGrapheme() },
+                    onPick = { pick -> state.send(Outgoing(pick.type, extra = pick.extra.filterValues { it != null })) },
+                )
+            }
+        }
     }
 
     if (scheduling) ScheduleSheet(onDismiss = { scheduling = false }) { at ->
@@ -533,11 +595,6 @@ fun Composer(state: ConversationState) {
             state.send(Outgoing("video", files = listOf(clip), extra = mapOf("gif" to 1, "duration_ms" to lengthMs), thumbnail = poster))
         }
     }
-    if (exprOpen) ExpressionPanel(
-        onDismiss = { exprOpen = false },
-        onEmoji = { text += it },
-        onPick = { pick -> state.send(Outgoing(pick.type, extra = pick.extra.filterValues { it != null })) },
-    )
     if (transferPicker) TransferPicker(onDismiss = { transferPicker = false }) { tx ->
         transferPicker = false
         state.send(Outgoing("wallet_transfer", extra = mapOf("wallet_transaction_id" to tx.uuid)))
@@ -559,21 +616,92 @@ private fun SendMenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 /** Above the field: what I'm replying to, or the message I'm editing. */
 @Composable
 private fun ContextBar(target: MessageDto, isEdit: Boolean, onClose: () -> Unit) {
-    val accent = if (isEdit) Ch.Red else Ch.colorFor(target.sender?.key)
+    val mine = target.sender?.key == myKey()
+    // Me (and editing) in the app colour; someone else in their own name colour, as in group chats.
+    val accent = if (isEdit || mine) Ch.Red else Ch.colorFor(target.sender?.key)
+    val summary = replySummary(target)
     Row(
-        Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).height(IntrinsicSize.Min),
+        Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 6.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(5.dp).fillMaxHeight().background(accent))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(accent))
+        Column(Modifier.weight(1f).padding(start = 10.dp, end = 4.dp, top = 7.dp, bottom = 7.dp)) {
             Text(
-                if (isEdit) stringResource(R.string.ch_editing) else if (target.sender?.key == myKey()) stringResource(R.string.ch_you) else target.sender?.name.orEmpty(),
-                color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+                if (isEdit) stringResource(R.string.ch_editing) else if (mine) stringResource(R.string.ch_you) else target.sender?.name.orEmpty(),
+                color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
             )
-            val (_, label) = previewOf(target.type, false)
-            Text(target.body?.takeIf { it.isNotBlank() } ?: label, color = Ch.Mut, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // The same icons as the chat list's last-message line.
+                summary.icon?.let { Icon(it, null, tint = Ch.Mut, modifier = Modifier.padding(end = 4.dp).size(15.dp)) }
+                Text(summary.text, color = Ch.Mut, fontSize = 13.sp, lineHeight = 18.sp, maxLines = if (summary.icon == null) 3 else 1, overflow = TextOverflow.Ellipsis)
+            }
         }
-        Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.padding(10.dp).size(20.dp).clickable(onClick = onClose))
+        when {
+            // A picture of it on the side, the × on its corner (as WhatsApp does).
+            summary.thumb != null || summary.map || summary.contact != null -> Box(Modifier.padding(4.dp).size(52.dp).clip(RoundedCornerShape(10.dp))) {
+                when {
+                    summary.thumb != null -> AsyncImage(ApiClient.mediaUrl(summary.thumb), null, imageLoader = chatImages(LocalContext.current), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    summary.map -> MiniMap(Modifier.fillMaxSize())
+                    else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { ChAvatar(null, summary.contact, summary.contact, size = 40.dp) }
+                }
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(3.dp).size(20.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).clickable(onClick = onClose),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
+            }
+            else -> Box(Modifier.align(Alignment.Top).padding(6.dp).size(28.dp).clip(CircleShape).clickable(onClick = onClose), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/** What the reply / edit card shows for a message: its icon and words, and a picture when it has one. */
+internal class ReplySummary(val icon: androidx.compose.ui.graphics.vector.ImageVector?, val text: String, val thumb: String? = null, val map: Boolean = false, val contact: String? = null)
+
+@Composable
+internal fun replySummary(m: MessageDto): ReplySummary {
+    val (icon, label) = previewOf(m.type, false)
+    val body = m.body?.takeIf { it.isNotBlank() }
+    val file = m.attachments.firstOrNull()
+    // A view-once message never shows what's in it, not even here.
+    val picture = if (m.viewOnce) null else file?.thumbnail ?: file?.url?.takeIf { m.type in setOf("image", "sticker") }
+    return when (m.type) {
+        "text" -> ReplySummary(null, body.orEmpty())
+        "image", "sticker", "gif" -> ReplySummary(icon, body ?: label, thumb = picture)
+        "video" -> {
+            val ms = file?.durationMs ?: 0L
+            ReplySummary(icon, body ?: if (ms > 0) "$label (${durationText(ms)})" else label, thumb = picture)
+        }
+        "voice", "audio" -> {
+            val ms = m.meta?.get("duration_ms")?.let { runCatching { it.asLong }.getOrNull() } ?: file?.durationMs ?: 0L
+            ReplySummary(icon, if (ms > 0) "$label (${durationText(ms)})" else label)
+        }
+        "document" -> ReplySummary(icon, m.folderInfo()?.first ?: file?.name ?: body ?: label)
+        "location" -> ReplySummary(icon, m.meta?.str("name") ?: label, map = true)
+        "contact" -> {
+            val name = m.meta?.str("name")
+            ReplySummary(icon, if (name.isNullOrBlank()) label else "$label: $name", contact = name?.takeIf { it.isNotBlank() })
+        }
+        else -> ReplySummary(icon, body ?: label)
+    }
+}
+
+/** The keyboard's height (px, above the navigation bar) once it has been seen: the emoji panel takes the same. */
+private object LastKeyboard {
+    var px = 0
+}
+
+/** A small drawn map with a pin, like the location bubble's. */
+@Composable
+internal fun MiniMap(modifier: Modifier) {
+    Box(modifier) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize().background(Color(0xFFE8F0E3))) {
+            drawLine(Color.White, androidx.compose.ui.geometry.Offset(0f, size.height * 0.62f), androidx.compose.ui.geometry.Offset(size.width, size.height * 0.38f), strokeWidth = 6.dp.toPx())
+            drawLine(Color.White, androidx.compose.ui.geometry.Offset(size.width * 0.3f, 0f), androidx.compose.ui.geometry.Offset(size.width * 0.44f, size.height), strokeWidth = 4.dp.toPx())
+            drawLine(Color(0xFFBFDBFE), androidx.compose.ui.geometry.Offset(size.width * 0.75f, 0f), androidx.compose.ui.geometry.Offset(size.width, size.height * 0.3f), strokeWidth = 8.dp.toPx())
+        }
+        Icon(Icons.Rounded.Place, null, tint = Ch.Red, modifier = Modifier.align(Alignment.Center).size(22.dp))
     }
 }
 
@@ -589,8 +717,9 @@ private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean,
     val shake = remember { Animatable(0f) }
     val density = LocalDensity.current
 
+    // The message box around it draws the background and the shadow.
     Row(
-        Modifier.fillMaxWidth().height(44.dp).shadow(4.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 12.dp),
+        Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (locked) {
@@ -701,8 +830,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             state.send(Outgoing("contact", extra = mapOf("contact_name" to name, "contact_phones" to phones)))
         }
     }
-    // Location: pick "now" or live (15 min / 1 h / 8 h) first, then ask for the permission.
-    var locationChoice by remember { mutableStateOf(false) }
+    // Location: the permission first, then the «Send location» page (map, nearby places, live — as in WhatsApp).
+    var pickerOpen by remember { mutableStateOf(false) }
     var liveSeconds by remember { mutableStateOf<Int?>(null) }
     var askingLocation by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
@@ -740,9 +869,19 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         }
         onDismiss()
     }
+    // Location on → the page; off → a sheet that opens the settings.
+    fun openPicker() {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (!androidx.core.location.LocationManagerCompat.isLocationEnabled(manager)) {
+            locationNotice = "off"
+            return
+        }
+        locationNotice = null
+        pickerOpen = true
+    }
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         askingLocation = false
-        if (granted.values.any { it }) shareLocation() else locationNotice = "denied"
+        if (granted.values.any { it }) openPicker() else locationNotice = "denied"
     }
     // View once: one photo or video, never kept in the chat's gallery.
     val viewOnce = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -777,7 +916,10 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         AttachItem(Icons.Rounded.Gif, R.string.fg_attach_gif, listOf(Color(0xFFC084FC), Color(0xFF9333EA))) {
             gifVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
         },
-        AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
+        AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) {
+            askingLocation = true
+            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        },
         if (ChatAi.imageGenerate) AttachItem(Icons.Rounded.AutoAwesome, R.string.ch_ai_image_title, listOf(Color(0xFF818CF8), Color(0xFF4F46E5))) { aiImageOpen = true } else null,
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
         // Reply buttons / a list of choices (WhatsApp list 123–125).
@@ -827,7 +969,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
                 })
                 // Back from the settings: send it now.
                 add(stringResource(R.string.ch_location_try_again) to {
-                    if (off) shareLocation() else {
+                    if (off) openPicker() else {
                         locationNotice = null
                         askingLocation = true
                         locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
@@ -839,17 +981,26 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         )
         return
     }
-    if (locationChoice) {
-        fun ask(seconds: Int?) {
-            liveSeconds = seconds
-            locationChoice = false
-            askingLocation = true
-            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-        }
-        LocationShareSheet(
-            onDismiss = { locationChoice = false; onDismiss() },
-            onCurrent = { ask(null) },
-            onLive = { ask(it) },
+    if (pickerOpen) {
+        LocationPickerPage(
+            onDismiss = { pickerOpen = false; onDismiss() },
+            onSend = { pick ->
+                pickerOpen = false
+                state.send(Outgoing("location", extra = buildMap {
+                    put("latitude", pick.lat)
+                    put("longitude", pick.lng)
+                    // A place from the list / the search: its name and address go with it (shown in the bubble).
+                    pick.name?.takeIf { it.isNotBlank() }?.let { put("location_name", it.take(200)) }
+                    pick.address?.takeIf { it.isNotBlank() }?.let { put("address", it.take(500)) }
+                }))
+                onDismiss()
+            },
+            // Live: from where the phone is right now, for that long (the same path as before).
+            onLive = { seconds ->
+                pickerOpen = false
+                liveSeconds = seconds
+                shareLocation()
+            },
         )
         return
     }
