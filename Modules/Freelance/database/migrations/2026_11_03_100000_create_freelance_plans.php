@@ -14,81 +14,91 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('freelance_plans', function (Blueprint $table): void {
-            $table->id();
-            $table->string('slug', 40)->unique();
-            $table->unsignedTinyInteger('rank')->default(0)->comment('0 = Free; a higher rank is a better plan');
-            $table->json('name');
-            $table->json('description')->nullable();
-            // What the plan gives. Null = what the country's policy says (the Free plan keeps all of these null).
-            $table->unsignedInteger('offers_monthly')->nullable()->comment('free offers per month; null = the policy quota');
-            $table->boolean('offers_unlimited')->default(false);
-            $table->unsignedSmallInteger('commission_bp')->nullable()->comment('commission rate in basis points; null = the policy');
-            $table->unsignedSmallInteger('trial_days')->default(0);
-            $table->boolean('status')->default(true);
-            $table->timestamps();
-        });
+        // Safe on MariaDB (whose old timestamp defaults reject a second NOT NULL timestamp with no default) and
+        // safe to run again after a half-done run: a table that already exists is left as it is.
+        if (! Schema::hasTable('freelance_plans')) {
+            Schema::create('freelance_plans', function (Blueprint $table): void {
+                $table->id();
+                $table->string('slug', 40)->unique();
+                $table->unsignedTinyInteger('rank')->default(0)->comment('0 = Free; a higher rank is a better plan');
+                $table->json('name');
+                $table->json('description')->nullable();
+                // What the plan gives. Null = what the country's policy says (the Free plan keeps all of these null).
+                $table->unsignedInteger('offers_monthly')->nullable()->comment('free offers per month; null = the policy quota');
+                $table->boolean('offers_unlimited')->default(false);
+                $table->unsignedSmallInteger('commission_bp')->nullable()->comment('commission rate in basis points; null = the policy');
+                $table->unsignedSmallInteger('trial_days')->default(0);
+                $table->boolean('status')->default(true);
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('freelance_plan_prices', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('plan_id')->constrained('freelance_plans')->cascadeOnDelete();
-            $table->foreignId('country_id')->constrained('countries')->cascadeOnDelete();
-            $table->string('period', 10)->comment('monthly | yearly');
-            $table->unsignedBigInteger('price_minor')->comment('minor units of the country currency');
-            $table->boolean('status')->default(true);
-            $table->timestamps();
-            $table->unique(['plan_id', 'country_id', 'period']);
-        });
+        if (! Schema::hasTable('freelance_plan_prices')) {
+            Schema::create('freelance_plan_prices', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('plan_id')->constrained('freelance_plans')->cascadeOnDelete();
+                $table->foreignId('country_id')->constrained('countries')->cascadeOnDelete();
+                $table->string('period', 10)->comment('monthly | yearly');
+                $table->unsignedBigInteger('price_minor')->comment('minor units of the country currency');
+                $table->boolean('status')->default(true);
+                $table->timestamps();
+                $table->unique(['plan_id', 'country_id', 'period']);
+            });
+        }
 
-        Schema::create('freelance_subscriptions', function (Blueprint $table): void {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('freelancer_id')->constrained('freelancers')->cascadeOnDelete();
-            $table->foreignId('plan_id')->constrained('freelance_plans');
-            $table->foreignId('country_id')->constrained('countries');
-            $table->string('currency_code', 8);
-            $table->string('period', 10);
-            $table->unsignedBigInteger('price_minor')->default(0);
-            $table->string('status', 16)->comment('trialing | active | past_due | expired');
-            $table->boolean('auto_renew')->default(true);
-            $table->timestamp('started_at');
-            $table->timestamp('period_start');
-            $table->timestamp('period_end');
-            $table->timestamp('trial_ends_at')->nullable();
-            $table->timestamp('canceled_at')->nullable();
-            $table->timestamp('ended_at')->nullable();
-            // A change that waits for the end of the period (a downgrade).
-            $table->foreignId('pending_plan_id')->nullable()->constrained('freelance_plans')->nullOnDelete();
-            $table->string('pending_period', 10)->nullable();
-            $table->timestamp('grace_until')->nullable();
-            $table->timestamp('last_attempt_at')->nullable();
-            $table->timestamp('reminded_at')->nullable();
-            $table->timestamps();
-            $table->index(['freelancer_id', 'status']);
-            $table->index(['status', 'period_end']);
-        });
+        if (! Schema::hasTable('freelance_subscriptions')) {
+            Schema::create('freelance_subscriptions', function (Blueprint $table): void {
+                $table->id();
+                $table->uuid('uuid')->unique();
+                $table->foreignId('freelancer_id')->constrained('freelancers')->cascadeOnDelete();
+                $table->foreignId('plan_id')->constrained('freelance_plans');
+                $table->foreignId('country_id')->constrained('countries');
+                $table->string('currency_code', 8);
+                $table->string('period', 10);
+                $table->unsignedBigInteger('price_minor')->default(0);
+                $table->string('status', 16)->comment('trialing | active | past_due | expired');
+                $table->boolean('auto_renew')->default(true);
+                $table->timestamp('started_at')->useCurrent();
+                $table->timestamp('period_start')->useCurrent();
+                $table->timestamp('period_end')->useCurrent();
+                $table->timestamp('trial_ends_at')->nullable();
+                $table->timestamp('canceled_at')->nullable();
+                $table->timestamp('ended_at')->nullable();
+                // A change that waits for the end of the period (a downgrade).
+                $table->foreignId('pending_plan_id')->nullable()->constrained('freelance_plans')->nullOnDelete();
+                $table->string('pending_period', 10)->nullable();
+                $table->timestamp('grace_until')->nullable();
+                $table->timestamp('last_attempt_at')->nullable();
+                $table->timestamp('reminded_at')->nullable();
+                $table->timestamps();
+                $table->index(['freelancer_id', 'status']);
+                $table->index(['status', 'period_end']);
+            });
+        }
 
-        Schema::create('freelance_subscription_invoices', function (Blueprint $table): void {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('subscription_id')->constrained('freelance_subscriptions')->cascadeOnDelete();
-            $table->foreignId('freelancer_id')->constrained('freelancers')->cascadeOnDelete();
-            $table->foreignId('plan_id')->constrained('freelance_plans');
-            $table->string('period', 10);
-            $table->string('kind', 12)->comment('purchase | upgrade | renewal');
-            $table->unsignedBigInteger('price_minor');
-            $table->unsignedBigInteger('credit_minor')->default(0)->comment('unused time of the old plan taken off');
-            $table->unsignedBigInteger('amount_minor')->comment('what was charged');
-            $table->string('currency_code', 8);
-            $table->string('status', 10)->comment('paid | failed');
-            $table->string('failure_code', 40)->nullable();
-            $table->unsignedBigInteger('wallet_transaction_id')->nullable();
-            $table->timestamp('period_start')->nullable();
-            $table->timestamp('period_end')->nullable();
-            $table->timestamp('paid_at')->nullable();
-            $table->timestamps();
-            $table->index(['freelancer_id', 'created_at']);
-        });
+        if (! Schema::hasTable('freelance_subscription_invoices')) {
+            Schema::create('freelance_subscription_invoices', function (Blueprint $table): void {
+                $table->id();
+                $table->uuid('uuid')->unique();
+                $table->foreignId('subscription_id')->constrained('freelance_subscriptions')->cascadeOnDelete();
+                $table->foreignId('freelancer_id')->constrained('freelancers')->cascadeOnDelete();
+                $table->foreignId('plan_id')->constrained('freelance_plans');
+                $table->string('period', 10);
+                $table->string('kind', 12)->comment('purchase | upgrade | renewal');
+                $table->unsignedBigInteger('price_minor');
+                $table->unsignedBigInteger('credit_minor')->default(0)->comment('unused time of the old plan taken off');
+                $table->unsignedBigInteger('amount_minor')->comment('what was charged');
+                $table->string('currency_code', 8);
+                $table->string('status', 10)->comment('paid | failed');
+                $table->string('failure_code', 40)->nullable();
+                $table->unsignedBigInteger('wallet_transaction_id')->nullable();
+                $table->timestamp('period_start')->nullable();
+                $table->timestamp('period_end')->nullable();
+                $table->timestamp('paid_at')->nullable();
+                $table->timestamps();
+                $table->index(['freelancer_id', 'created_at']);
+            });
+        }
 
         if (Schema::hasTable('financial_categories') && ! DB::table('financial_categories')->where('slug', 'freelance_subscriptions')->exists()) {
             $id = DB::table('financial_categories')->insertGetId([

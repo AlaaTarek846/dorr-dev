@@ -26,7 +26,6 @@ import androidx.compose.material.icons.rounded.FamilyRestroom
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Diversity3
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Inbox
@@ -85,7 +84,6 @@ fun ChatSettingsPage() {
     val context = LocalContext.current
     val dark = settingsNight()
     val section = host.chatSettingsSection
-    var themeSheet by remember { mutableStateOf(false) }
     var comfort by remember { mutableStateOf(false) }
     var aiImagesOpen by remember { mutableStateOf(false) }
     var memoryOpen by remember { mutableStateOf(false) }
@@ -93,7 +91,6 @@ fun ChatSettingsPage() {
     var deletedOpen by remember { mutableStateOf(false) }
     val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
 
-    if (themeSheet) ThemeSheet { themeSheet = false }
     if (comfort) ChatComfortSheet { comfort = false }
     if (aiImagesOpen) ChatAiImagesSheet(onDismiss = { aiImagesOpen = false }) { c, m -> aiImagesOpen = false; openAt(c, m) }
     if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
@@ -178,11 +175,8 @@ fun ChatSettingsPage() {
                         }
                     }
                     ChatSetSection.Look -> item {
+                        // Light / dark is the app's own setting (Settings → Appearance); the chat follows it.
                         ChatSettingsGroup(dark) {
-                            ChatSettingsRow(
-                                Icons.Rounded.DarkMode, R.string.ch_theme, dark,
-                                value = stringResource(chatThemeLabel(com.dorr.app.chat.ChatStore.themeMode)),
-                            ) { themeSheet = true }
                             ChatSettingsRow(Icons.Rounded.TextFields, R.string.cp_comfort, dark) { comfort = true }
                             // The Watch & Earn card at the top of the chat list: hidden from its ×, shown again here.
                             com.dorr.app.ui.screens.watchearn.WatchEarnPrefs.load(context)

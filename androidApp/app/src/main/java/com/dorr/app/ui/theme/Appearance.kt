@@ -22,10 +22,11 @@ class AppearanceState {
     var fontFamily by mutableStateOf<androidx.compose.ui.text.font.FontFamily>(CairoBuiltIn)
         internal set
 
-    var platformLight by mutableStateOf(AppearanceStore.loadPlatformLight())
+    // Nothing saved yet (the first launch): the copy bundled in the app, until the server's answer replaces it.
+    var platformLight by mutableStateOf(AppearanceStore.loadPlatformLight()?.takeIf { it.isNotEmpty() } ?: BundledAppearance.light)
         private set
 
-    var platformDark by mutableStateOf(AppearanceStore.loadPlatformDark())
+    var platformDark by mutableStateOf(AppearanceStore.loadPlatformDark()?.takeIf { it.isNotEmpty() } ?: BundledAppearance.dark)
         private set
 
     fun apply(dto: AppearanceDto) {

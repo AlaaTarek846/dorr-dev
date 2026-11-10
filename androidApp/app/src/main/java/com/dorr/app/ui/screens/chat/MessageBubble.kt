@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.ContactsContract
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
@@ -42,10 +43,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
+import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.CallMissed
+import androidx.compose.material.icons.rounded.CallMade
+import androidx.compose.material.icons.rounded.CallReceived
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
@@ -60,6 +64,8 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.RequestQuote
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
@@ -105,11 +111,17 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.absolutePadding
 import com.dorr.app.R
 import com.dorr.app.chat.VoicePlayer
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AppLocale
 import com.dorr.app.network.AttachmentDto
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.ContactEntry
 import com.dorr.app.network.MessageDto
+import com.dorr.app.network.ProfileDto
 import com.dorr.app.ui.screens.wallet.formatMinor
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
@@ -130,6 +142,8 @@ class BubbleActions(
     val onChoose: (UiMessage, Int) -> Unit = { _, _ -> },
     val onOpenViewOnce: (UiMessage) -> Unit = {},
     val onStopLive: (UiMessage) -> Unit = {},
+    /** A live location's bubble was tapped: «View live location». */
+    val onOpenLive: (UiMessage) -> Unit = {},
     /** A Dorr group invite link (dorr://chat/join/…) was tapped. */
     val onJoinGroup: (String) -> Unit = {},
     /** Money request / bill split: pay (PIN), decline, or — the requester — call it off. */
@@ -163,7 +177,7 @@ fun MessageRow(
 ) {
     val dto = m.dto
     if (dto.type == "system" || dto.system != null && dto.sender == null) {
-        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp).chPopIn(m.fresh), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).chPopIn(m.fresh), contentAlignment = Alignment.Center) {
             ChChip(dto.system?.text?.takeIf { it.isNotBlank() } ?: "•")
         }
         return
@@ -172,12 +186,11 @@ fun MessageRow(
     val mine = m.isMine
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val drag = remember { Animatable(0f) }
     var armed by remember { mutableStateOf(false) }
     val threshold = 64f * LocalContext.current.resources.displayMetrics.density
-    // Swiping "into" the chat (towards the reading start) replies — mirrored in Arabic.
-    val sign = if (rtl) -1f else 1f
+    // Swiping right replies, in Arabic too (screen coordinates, not mirrored).
+    val sign = 1f
 
     val highlight by animateFloatAsState(if (highlighted) 1f else 0f, tween(600), label = "hl")
 
@@ -205,12 +218,12 @@ fun MessageRow(
                 }
             },
     ) {
-        // The reply arrow that grows out from under the bubble.
+        // The reply arrow that grows out on the left, where the bubble moves away from.
         val p = (drag.value / threshold).coerceIn(0f, 1f)
         Box(
             Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 12.dp)
+                .align(androidx.compose.ui.AbsoluteAlignment.CenterLeft)
+                .absolutePadding(left = 12.dp)
                 .graphicsLayer { alpha = p; scaleX = 0.4f + 0.6f * p; scaleY = 0.4f + 0.6f * p }
                 .size(34.dp)
                 .background(if (armed) Ch.Red else Color.White, CircleShape),
@@ -222,8 +235,8 @@ fun MessageRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                // `offset` already mirrors in Arabic, so the drag distance goes in as-is (the sign was applied twice).
-                .offset { androidx.compose.ui.unit.IntOffset(drag.value.roundToInt(), 0) }
+                // Screen coordinates: the bubble follows the finger to the right in every language.
+                .absoluteOffset { androidx.compose.ui.unit.IntOffset(drag.value.roundToInt(), 0) }
                 .padding(horizontal = 10.dp),
             horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.Bottom,
@@ -242,7 +255,7 @@ fun MessageRow(
 @Composable
 private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Boolean, actions: BubbleActions) {
     val dto = m.dto
-    val big = 20.dp
+    val big = 14.dp
     val small = 6.dp
     // The tail: the top corner on the sender's side of the first bubble in a run is sharp.
     val shape = if (mine) RoundedCornerShape(topStart = big, topEnd = if (firstInRun) small else big, bottomEnd = big, bottomStart = big)
@@ -251,15 +264,15 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
     // Cards that bring their own background (wallet cards, the green money request).
     // A sticker floats on the wallpaper: no bubble, no shadow.
     val bare = dto.type == "sticker" && !dto.isDeleted
-    val sendMoneyGift = dto.type == "wallet_transfer" && !dto.isDeleted && dto.meta?.str("gift") != null
-    val isCard = (dto.type in setOf("wallet_transfer", "wallet_qr", "money_request", "moment_card") || bare) && !dto.isDeleted && !sendMoneyGift
+    val isCard = (dto.type in setOf("wallet_qr", "money_request", "moment_card") || bare) && !dto.isDeleted
     val media = dto.type in setOf("image", "video") && !dto.isDeleted
     val haptic = LocalHapticFeedback.current
 
     Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Box(
             Modifier
-                .widthIn(max = 300.dp)
+                // A link's card keeps the bubble narrower (about WhatsApp's share of the screen); other messages up to 300.
+                .widthIn(max = if (dto.linkPreview != null && !dto.isDeleted) 260.dp else 300.dp)
                 .chPopIn(m.fresh, fromEnd = mine)
                 .shadow(if (bare) 0.dp else if (mine) 6.dp else 2.dp, shape, spotColor = if (mine) Ch.Red.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.12f), ambientColor = Color.Transparent)
                 .clip(shape)
@@ -355,7 +368,7 @@ private fun ReplyQuote(reply: com.dorr.app.network.ReplyPreviewDto, mine: Boolea
         Modifier
             .padding(start = 6.dp, end = 6.dp, top = 6.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
             .clickable(onClick = onClick)
             .height(IntrinsicSize.Min),
@@ -413,7 +426,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         "sticker" -> StickerBubble(m, mine) { Footer(m, mine, overlay = true) }
         "gif" -> GifBubble(m, mine) { Footer(m, mine, overlay = true) }
         "money_request" -> MoneyRequestCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
-            Footer(m, mine, overlay = true)
+            Footer(m, mine, overlay = false)
         }
         "bill_split" -> BillSplitCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
             Footer(m, mine, overlay = false)
@@ -433,7 +446,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         // A call broadcast live (spec 93).
         "live_card" -> LiveCardBubble(dto) { Footer(m, mine, overlay = true) }
         "location" -> if (dto.liveLocation != null) {
-            LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }) { Footer(m, mine, overlay = true) }
+            LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }, sender = dto.sender, onOpen = { actions.onOpenLive(m) }) { Footer(m, mine, overlay = true) }
         } else LocationCard(dto.meta, m, mine)
         "contact" -> ContactCard(dto.meta, m, mine, actions)
         "wallet_transfer" -> TransferReceiptCard(dto.meta, m, mine)
@@ -451,7 +464,12 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         else -> Column {
             // The link's card above the text, like WhatsApp (arrives a moment after sending).
             dto.linkPreview?.let { LinkPreviewCard(it, mine) }
-            TextBody(m, mine, actions)
+            // Only a link: the card says it all, the time sits under it (the address isn't written out again).
+            if (dto.linkPreview != null && isOnlyLink(dto.body)) {
+                Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.End).padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 6.dp))
+            } else {
+                TextBody(m, mine, actions)
+            }
         }
     }
 }
@@ -463,12 +481,20 @@ private val CardsWithLists = setOf("moment_card", "match_card", "live_card", "ev
 @Composable
 private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
     val context = LocalContext.current
+    val host = LocalChat.current
     val style = meta?.get("style")?.takeIf { it.isJsonObject }?.asJsonObject // JSON null (an image story has no style) is not an object
     val text = meta?.str("text")
     val thumb = meta?.str("thumbnail")
+    val storyId = meta?.str("story_id")
+    val gone = stringResource(R.string.st_story_unavailable)
     Row(
         Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min),
+            .clip(RoundedCornerShape(10.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min)
+            // A tap opens the status while it's still up (as in WhatsApp); after that, it says it's gone.
+            .clickable {
+                val expired = parseInstant(meta?.str("expires_at"))?.isBefore(java.time.Instant.now()) == true
+                if (storyId == null || expired) host.showToast(gone) else host.openStoryById(storyId, gone)
+            },
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(if (mine) Color.White else Ch.Red))
         Column(Modifier.weight(1f).padding(horizontal = 9.dp, vertical = 7.dp)) {
@@ -494,14 +520,20 @@ private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
 private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null) {
     val dto = m.dto
     val color = if (mine) Ch.OutText else Ch.InText
-    val body = dto.body.orEmpty()
+    val fullBody = dto.body.orEmpty()
+    // A long message shows its start and «… Read more» (as in WhatsApp); a tap shows all of it.
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable(m.id) { mutableStateOf(false) }
+    val cut = remember(fullBody) { readMoreCut(fullBody) }
+    val folded = !expanded && cut != null
+    val body = if (folded) fullBody.substring(0, cut!!).trimEnd() else fullBody
+    val readMore = stringResource(R.string.ch_read_more)
     val onlyEmoji = body.length <= 8 && body.isNotEmpty() && body.all { !it.isLetterOrDigit() && !it.isWhitespace() }
     val context = LocalContext.current
     val linkColor = if (mine) Ch.OutText else Color(0xFF2563EB)
     val mentionNames = dto.mentions.mapNotNull { it.name }.filter { it.isNotBlank() }
     val mentionColor = if (mine) Ch.OutText else Ch.Red
     val codeBg = if (mine) Color.White.copy(alpha = 0.2f) else Ch.Ink.copy(alpha = 0.08f)
-    val annotated = remember(body, mine, mentionNames, linkColor, mentionColor, codeBg) {
+    val annotated = remember(body, folded, readMore, mine, mentionNames, linkColor, mentionColor, codeBg) {
         buildAnnotatedString {
             fun pieces(text: String) = parseChatText(text).forEach { piece ->
                 when {
@@ -553,16 +585,36 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
                     from = shown.indexOf("@$name", from + 1)
                 }
             }
+            if (folded) {
+                append("… ")
+                pushStringAnnotation("more", "1")
+                withStyle(SpanStyle(color = mentionColor, fontWeight = FontWeight.ExtraBold)) { append(readMore) }
+                pop()
+            }
         }
     }
-    Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 7.dp)) {
-        val chatHost = LocalChat.current
+    // The text's lines as laid out, read by the layout below to place the time.
+    val lines = remember { arrayOfNulls<androidx.compose.ui.text.TextLayoutResult>(1) }
+    val chatHost = LocalChat.current
+    TimeAfterText(
+        Modifier.padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+        lines,
+        // Under a link's card the time gets its own line under the link (as in WhatsApp).
+        ownLine = dto.linkPreview != null,
+        text = {
         androidx.compose.foundation.text.ClickableText(
             text = annotated,
-            // My text size (spec 6).
-            style = androidx.compose.ui.text.TextStyle(color = color, fontSize = if (onlyEmoji) 38.sp else (15.5f * ChatPrefs.fontScale).sp, lineHeight = if (onlyEmoji) 44.sp else (21f * ChatPrefs.fontScale).sp, fontFamily = com.dorr.app.ui.theme.CairoFontFamily),
-            modifier = Modifier.padding(end = 62.dp, bottom = 2.dp),
+            // My text size (spec 6). Each paragraph runs the way its own words do (a link left to right).
+            style = androidx.compose.ui.text.TextStyle(
+                color = color, fontSize = if (onlyEmoji) 38.sp else (15f * ChatPrefs.fontScale).sp, lineHeight = if (onlyEmoji) 44.sp else (20.5f * ChatPrefs.fontScale).sp,
+                fontFamily = com.dorr.app.ui.theme.CairoFontFamily, textDirection = androidx.compose.ui.text.style.TextDirection.Content,
+            ),
+            onTextLayout = { lines[0] = it },
             onClick = { offset ->
+                if (annotated.getStringAnnotations("more", offset, offset).isNotEmpty()) {
+                    expanded = true
+                    return@ClickableText
+                }
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->
                     // A call link: its sheet, right here.
                     val callToken = callLinkTokenOf(a.item.trimEnd('.', ',', ')'))
@@ -586,8 +638,103 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
                 }
             },
         )
-        Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.BottomEnd))
+        },
+        footer = { Footer(m, mine, overlay = false) },
+    )
+}
+
+/**
+ * The time at the bubble's end corner, after the last word (as in WhatsApp): on the last line when it fits beside
+ * what that line really covers (so an English line in an Arabic chat, or a link, is never covered), otherwise on a
+ * line of its own. The bubble widens up to its limit first when that's enough.
+ */
+@Composable
+private fun TimeAfterText(
+    modifier: Modifier,
+    lines: Array<androidx.compose.ui.text.TextLayoutResult?>,
+    ownLine: Boolean = false,
+    text: @Composable () -> Unit,
+    footer: @Composable () -> Unit,
+) {
+    val policy = remember(lines, ownLine) {
+        object : androidx.compose.ui.layout.MeasurePolicy {
+            override fun androidx.compose.ui.layout.MeasureScope.measure(
+                measurables: List<androidx.compose.ui.layout.Measurable>,
+                constraints: androidx.compose.ui.unit.Constraints,
+            ): androidx.compose.ui.layout.MeasureResult {
+                val textP = measurables[0].measure(constraints.copy(minWidth = 0, minHeight = 0))
+                val footP = measurables[1].measure(androidx.compose.ui.unit.Constraints())
+                val gap = 6.dp.roundToPx()
+                val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+                val tl = lines[0]
+                val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+                var width = maxOf(textP.width, footP.width)
+                var inline = false
+                var lastBottom = textP.height
+                if (!ownLine && tl != null && tl.lineCount > 0) {
+                    val last = tl.lineCount - 1
+                    lastBottom = kotlin.math.ceil(tl.getLineBottom(last)).toInt()
+                    val left = tl.getLineLeft(last)
+                    val right = tl.getLineRight(last)
+                    // The width the bubble needs for the time to sit beside the last line, at the bubble's end.
+                    val need = if (rtl) {
+                        // The text sits at the right; the time at the left: room left of the line's start.
+                        (footP.width + gap + textP.width - left).toInt()
+                    } else {
+                        // The text sits at the left; the time at the right: room right of the line's end.
+                        kotlin.math.ceil(right + gap + footP.width).toInt()
+                    }
+                    if (need <= maxW) {
+                        inline = true
+                        width = maxOf(textP.width, need)
+                    }
+                }
+                val height = if (inline) maxOf(textP.height, lastBottom) else textP.height + footP.height
+                return layout(width, height) {
+                    val textX = if (rtl) width - textP.width else 0
+                    textP.place(textX, 0)
+                    val footX = if (rtl) 0 else width - footP.width
+                    val footY = if (inline) (lastBottom - footP.height).coerceAtLeast(0) else textP.height
+                    footP.place(footX, footY)
+                }
+            }
+
+            // A one-line message: as wide as its words plus the time (capped by the bubble's limit).
+            override fun androidx.compose.ui.layout.IntrinsicMeasureScope.maxIntrinsicWidth(
+                measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>, height: Int,
+            ): Int = if (ownLine) maxOf(measurables[0].maxIntrinsicWidth(height), measurables[1].maxIntrinsicWidth(height))
+            else measurables[0].maxIntrinsicWidth(height) + 6.dp.roundToPx() + measurables[1].maxIntrinsicWidth(height)
+
+            override fun androidx.compose.ui.layout.IntrinsicMeasureScope.minIntrinsicWidth(
+                measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>, height: Int,
+            ): Int = maxOf(measurables[0].minIntrinsicWidth(height), measurables[1].minIntrinsicWidth(height))
+
+            override fun androidx.compose.ui.layout.IntrinsicMeasureScope.maxIntrinsicHeight(
+                measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>, width: Int,
+            ): Int = measurables[0].maxIntrinsicHeight(width) + measurables[1].maxIntrinsicHeight(width)
+
+            override fun androidx.compose.ui.layout.IntrinsicMeasureScope.minIntrinsicHeight(
+                measurables: List<androidx.compose.ui.layout.IntrinsicMeasurable>, width: Int,
+            ): Int = measurables[0].minIntrinsicHeight(width)
+        }
     }
+    // Exactly two children: the text, then the time.
+    androidx.compose.ui.layout.Layout(content = { text(); footer() }, modifier = modifier, measurePolicy = policy)
+}
+
+/**
+ * Where a long message is folded: after about 700 characters or 16 lines, at a word's end. Null when it's short
+ * (or only a little over: folding a few words away isn't worth a tap).
+ */
+private fun readMoreCut(body: String): Int? {
+    var limit = 700
+    var lines = 0
+    for (i in body.indices) {
+        if (body[i] == '\n' && ++lines >= 16) { limit = minOf(limit, i); break }
+    }
+    if (body.length <= limit + 120) return null
+    val space = body.lastIndexOfAny(charArrayOf(' ', '\n'), limit)
+    return if (space > limit / 2) space else limit
 }
 
 /** 950 · 1.2K · 3.4M */
@@ -636,7 +783,7 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val isVideo = dto.type == "video"
     // A clip sent as a GIF plays by itself, muted, on a loop (spec 11).
     val gif = dto.isGifVideo()
-    val shape = RoundedCornerShape(17.dp)
+    val shape = RoundedCornerShape(11.dp)
     // "Blur photos and videos": covered until I tap (others' media only).
     val covered = !mine && com.dorr.app.chat.ChatShield.blurMedia && !actions.isRevealed(m.id) && remote.isNotEmpty()
     // Data saver (spec 82): others' photos wait for a tap, unless they're on the phone already;
@@ -756,8 +903,8 @@ private fun UploadRing(modifier: Modifier, progress: Float? = null) {
 }
 
 /**
- * Voice note: round play button, the waveform that fills in the brand colour as it plays (tap or
- * drag on it to seek), the duration, and a 1× / 1.5× / 2× speed pill while playing.
+ * Voice note: round play button, the 1× / 1.5× / 2× speed pill beside it on the waveform's line, the
+ * waveform that fills in the brand colour as it plays (tap or drag on it to seek), then the duration.
  */
 @Composable
 private fun VoiceNote(m: UiMessage, mine: Boolean) {
@@ -775,42 +922,42 @@ private fun VoiceNote(m: UiMessage, mine: Boolean) {
     val track = if (mine) Ch.OutText.copy(alpha = 0.38f) else Ch.Red.copy(alpha = 0.22f)
     val buttonScale by animateFloatAsState(if (playing) 1.08f else 1f, spring(dampingRatio = 0.4f), label = "play")
 
-    Row(Modifier.width(250.dp).padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.width(236.dp).padding(start = 8.dp, end = 10.dp, top = 7.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(42.dp).scale(buttonScale).clip(CircleShape).background(if (mine) Color.White else Ch.Red)
+            Modifier.size(38.dp).scale(buttonScale).clip(CircleShape).background(if (mine) Color.White else Ch.Red)
                 .clickable(enabled = url != null && m.local == null) { url?.let { VoicePlayer.toggle(dto.id, it) } },
             contentAlignment = Alignment.Center,
         ) {
-            if (m.local == "pending") UploadRing(Modifier.size(42.dp), m.progress)
-            else Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(26.dp))
+            if (m.local == "pending") UploadRing(Modifier.size(38.dp), m.progress)
+            else Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(23.dp))
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
-            Canvas(
-                Modifier.fillMaxWidth().height(30.dp).pointerInput(dto.id) {
-                    detectTapGestures { pos -> VoicePlayer.seek(dto.id, (pos.x / size.width).coerceIn(0f, 1f)) }
-                },
-            ) {
-                val bars = waveform.size
-                val gap = 2.dp.toPx()
-                val w = (size.width - gap * (bars - 1)) / bars
-                waveform.forEachIndexed { i, v ->
-                    val h = (size.height * (0.18f + 0.82f * v / 100f)).coerceAtLeast(3.dp.toPx())
-                    val x = i * (w + gap)
-                    val filled = (i + 0.5f) / bars <= progress
-                    drawRoundRect(if (filled) fg else track, Offset(x, (size.height - h) / 2), Size(w, h), CornerRadius(w / 2))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${VoicePlayer.speed.toString().removeSuffix(".0")}×",
+                    color = if (mine) Ch.Red else Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (mine) Color.White else Ch.Red).clickable { VoicePlayer.cycleSpeed() }.padding(horizontal = 6.dp, vertical = 1.dp),
+                )
+                Spacer(Modifier.width(7.dp))
+                Canvas(
+                    Modifier.weight(1f).height(26.dp).pointerInput(dto.id) {
+                        detectTapGestures { pos -> VoicePlayer.seek(dto.id, (pos.x / size.width).coerceIn(0f, 1f)) }
+                    },
+                ) {
+                    val bars = waveform.size
+                    val gap = 2.dp.toPx()
+                    val w = (size.width - gap * (bars - 1)) / bars
+                    waveform.forEachIndexed { i, v ->
+                        val h = (size.height * (0.18f + 0.82f * v / 100f)).coerceAtLeast(3.dp.toPx())
+                        val x = i * (w + gap)
+                        val filled = (i + 0.5f) / bars <= progress
+                        drawRoundRect(if (filled) fg else track, Offset(x, (size.height - h) / 2), Size(w, h), CornerRadius(w / 2))
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(durationText(if (current) VoicePlayer.positionMs else durationMs), color = if (mine) Ch.OutText.copy(alpha = 0.85f) else Ch.Mut, fontSize = 11.sp)
-                if (current) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "${VoicePlayer.speed.toString().removeSuffix(".0")}×",
-                        color = if (mine) Ch.Red else Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (mine) Color.White else Ch.Red).clickable { VoicePlayer.cycleSpeed() }.padding(horizontal = 6.dp, vertical = 1.dp),
-                    )
-                }
                 Spacer(Modifier.weight(1f))
                 Footer(m, mine, overlay = false)
             }
@@ -839,7 +986,7 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
         // A small PDF shows its first page.
         if (pdf && file != null && m.local == null) PdfFirstPage(file.url, file.size, Modifier.padding(bottom = 6.dp).clickable { open() })
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
                 .clickable(enabled = file != null) { open() }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -863,21 +1010,29 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
     }
 }
 
-/** A stylised map tile (drawn — no map API key needed) with the pin bouncing in. */
+/**
+ * The real map around the place (Google or Mapbox, the admin's choice — [com.dorr.app.map.DorrMapPreview]) with
+ * the pin bouncing in; the place's name and address under it (as in WhatsApp). With no map key in the build, a
+ * drawn map instead.
+ */
 @Composable
 private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val context = LocalContext.current
     val lat = meta?.dbl("latitude") ?: 0.0
     val lng = meta?.dbl("longitude") ?: 0.0
-    val name = meta?.str("name")
+    val name = meta?.str("name")?.takeIf { it.isNotBlank() }
+    val address = meta?.str("address")?.takeIf { it.isNotBlank() && it != name }
     val pin = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { pin.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 300f)) }
+    val realMap = remember { com.dorr.app.map.MapEngine.canDraw(context) }
     Column(Modifier.width(260.dp).padding(3.dp)) {
         Box(
-            Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(17.dp))
+            Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(11.dp))
                 .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))) } },
         ) {
-            Canvas(Modifier.matchParentSize().background(Color(0xFFE8F0E3))) {
+            if (realMap) com.dorr.app.map.DorrMapPreview(
+                com.google.android.gms.maps.model.LatLng(lat, lng), Modifier.matchParentSize(), night = Ch.dark,
+            ) else Canvas(Modifier.matchParentSize().background(Color(0xFFE8F0E3))) {
                 val road = Color.White
                 val block = Color(0xFFD5E4CF)
                 for (i in 0..6) drawRect(block, Offset(i * size.width / 5f - 20f, (i % 3) * size.height / 3f + 12f), Size(size.width / 7f, size.height / 4.5f))
@@ -891,40 +1046,96 @@ private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
             )
             Footer(m, mine, overlay = true, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
         }
-        Row(Modifier.padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        // As in WhatsApp: my current location is the map alone; a picked place has its name (and address) under it.
+        if (name != null) Row(Modifier.padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Map, null, tint = if (mine) Ch.OutText else Ch.Red, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(name ?: stringResource(R.string.ch_open_maps), color = if (mine) Ch.OutText else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f, fill = false)) {
+                Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (address != null) Text(
+                    address, color = (if (mine) Ch.OutText else Ch.Ink).copy(alpha = 0.7f), fontSize = 11.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    style = androidx.compose.ui.text.TextStyle(textDirection = androidx.compose.ui.text.style.TextDirection.Content),
+                )
+            }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions: BubbleActions) {
+    val context = LocalContext.current
+    val host = LocalChat.current
     val name = meta?.str("name").orEmpty()
     val phones = meta?.arr("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
-    // The whole card opens: call · message or invite · save · copy.
+    val phone = phones.firstOrNull().orEmpty()
+    var onDorr by remember(phone) { mutableStateOf<ProfileDto?>(null) }
+    var checked by remember(phone) { mutableStateOf(false) }
+    var inviting by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf(false) }
-    if (sheet) ContactActionsSheet(name, phones) { sheet = false }
-    Column(Modifier.width(250.dp).clip(RoundedCornerShape(16.dp)).clickable(enabled = phones.isNotEmpty()) { sheet = true }.padding(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ChAvatar(null, name, phones.firstOrNull() ?: name, size = 44.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1)
-                phones.firstOrNull()?.let { Text(ltrNumber(it) + if (phones.size > 1) "  +${phones.size - 1}" else "", color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp) }
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(if (mine) Ch.OutText.copy(alpha = 0.25f) else Ch.Line))
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.ch_message_contact), color = if (mine) Ch.OutText else Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp,
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = phones.isNotEmpty()) { sheet = true }.padding(vertical = 4.dp),
-            )
-            Footer(m, mine, overlay = false)
+    val ink = if (mine) Ch.OutText else Ch.Ink
+    val line = if (mine) Ch.OutText.copy(alpha = 0.28f) else Ch.Line
+    val copied = stringResource(R.string.ch_number_copied)
+    val haptic = LocalHapticFeedback.current
+    val hold = {
+        if (!m.dto.isDeleted && m.local == null) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            actions.onLongPress(m)
         }
     }
+    androidx.compose.runtime.LaunchedEffect(phone) {
+        checked = false
+        onDorr = if (phone.isBlank()) null else runCatching { ApiClient.chat.lookup(chatAuth(), mapOf("phone" to phone)).data }.getOrNull()?.takeIf { it.isMe != true }
+        checked = true
+    }
+    if (inviting) InviteSheet(ContactEntry(name, phone), contactCountry = AuthSession.user?.phone) { inviting = false }
+    if (sheet) ContactActionsSheet(name, phones) { sheet = false }
+    Column(Modifier.width(210.dp)) {
+        Column(
+            Modifier.combinedClickable(enabled = phones.isNotEmpty(), onClick = { sheet = true }, onLongClick = hold).padding(start = 8.dp, end = 8.dp, top = 6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ChAvatar(onDorr?.avatar, name, onDorr?.key ?: phone.ifBlank { name }, size = 34.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(name, color = ink, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Icon(Icons.Rounded.ChevronLeft, null, tint = ink.copy(alpha = 0.85f), modifier = Modifier.size(18.dp))
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp)) { Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.CenterEnd)) }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(line))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            val there = onDorr != null
+            ContactCardAction(if (there) R.string.ch_message_contact else R.string.ch_invite_dorr, ink, checked && phone.isNotBlank(), hold) {
+                if (there) host.openChatWith(onDorr!!) else inviting = true
+            }
+            Box(Modifier.width(1.dp).fillMaxHeight().background(line))
+            ContactCardAction(if (there) R.string.ch_contact_copy else R.string.ch_save_contact, ink, checked && phone.isNotBlank(), hold) {
+                if (there) {
+                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("phone", phone))
+                    host.showToast(copied)
+                } else {
+                    runCatching {
+                        context.startActivity(
+                            Intent(ContactsContract.Intents.Insert.ACTION).setType(ContactsContract.RawContacts.CONTENT_TYPE)
+                                .putExtra(ContactsContract.Intents.Insert.NAME, name)
+                                .putExtra(ContactsContract.Intents.Insert.PHONE, phone)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ContactCardAction(label: Int, ink: androidx.compose.ui.graphics.Color, enabled: Boolean, onLongClick: () -> Unit, onClick: () -> Unit) {
+    Text(
+        stringResource(label), color = ink.copy(alpha = if (enabled) 1f else 0.45f), fontWeight = FontWeight.ExtraBold, fontSize = 11.5.sp,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2,
+        modifier = Modifier.weight(1f).combinedClickable(onClick = { if (enabled) onClick() }, onLongClick = onLongClick).padding(horizontal = 4.dp, vertical = 8.dp),
+    )
 }
 
 /**
@@ -935,52 +1146,14 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
 @Composable
 private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val amount = meta?.get("amount_minor")?.let { runCatching { it.asLong }.getOrNull() } ?: 0L
-    val currency = meta?.str("currency_symbol") ?: meta?.str("currency")
+    val currency = meta?.str("currency") ?: meta?.str("currency_symbol")
     val reversed = meta?.bool("is_reversed") == true
     val check = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { check.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 260f)) }
-    // Send-money gift card: receipt layout, chat colours, compact. Shared transfer receipts stay below.
-    val gift = giftOf(meta?.str("gift"))
-    if (gift != null) {
-        SendMoneyGiftCard(meta, m, mine, amount, meta?.str("currency") ?: currency, reversed, gift, check.value)
-        return
-    }
-    Column(
-        Modifier.width(262.dp).clip(RoundedCornerShape(20.dp)).background(Ch.HeaderBrush).padding(16.dp),
-    ) {
-        if (gift != null) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(gift.first, fontSize = 46.sp, modifier = Modifier.scale(0.6f + 0.4f * check.value))
-                Text(gift.second, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).scale(check.value).clip(CircleShape).background(Ch.Surface), contentAlignment = Alignment.Center) {
-                Icon(if (reversed) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(stringResource(R.string.ch_transfer_receipt), color = Color.White.copy(alpha = 0.85f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Text(stringResource(if (reversed) R.string.ch_transfer_reversed else R.string.ch_transfer_done), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(formatMinor(amount, currency), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
-        }
-        Spacer(Modifier.height(6.dp))
-        meta?.str("recipient_name")?.let { Text(stringResource(R.string.ch_transfer_to, it), color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-        meta?.str("recipient_wallet_number")?.let { Text(it, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp) }
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.25f)))
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("#" + meta?.str("transaction_id").orEmpty().take(8).uppercase(), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, modifier = Modifier.weight(1f))
-            Footer(m, true, overlay = false)
-        }
-    }
+    SendMoneyGiftCard(meta, m, mine, amount, currency, reversed, giftOf(meta?.str("gift")), check.value)
 }
 
-/** Send-money with an occasion: same receipt sections as a bank slip, in chat colours, smaller. */
+/** Compact transfer receipt in the chat bubble: title row, success well, recipient, time + ref. */
 @Composable
 private fun SendMoneyGiftCard(
     meta: JsonObject?,
@@ -989,7 +1162,7 @@ private fun SendMoneyGiftCard(
     amount: Long,
     currency: String?,
     reversed: Boolean,
-    gift: Pair<String, String>,
+    gift: Pair<String, String>?,
     check: Float,
 ) {
     val context = LocalContext.current
@@ -1003,15 +1176,32 @@ private fun SendMoneyGiftCard(
     val line = if (mine) Ch.OutText.copy(alpha = 0.25f) else Ch.Line
     val mark = if (mine) Ch.OutText else Ch.Red
     Column(
-        Modifier.width(220.dp).padding(horizontal = 10.dp, vertical = 10.dp),
+        Modifier.width(200.dp).padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(gift.first, fontSize = 28.sp, modifier = Modifier.scale(0.85f + 0.15f * check))
-        Text(gift.second, color = ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-        Text(stringResource(R.string.ch_transfer_receipt), color = mut, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
+        if (gift != null) {
+            Text(gift.first, fontSize = 28.sp, modifier = Modifier.scale(0.85f + 0.15f * check))
+            Text(gift.second, color = ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.ch_transfer_receipt), color = mut, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(26.dp).clip(CircleShape).background(mark.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.RequestQuote, null, tint = mark, modifier = Modifier.size(15.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.ch_transfer_receipt),
+                    color = ink, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(well).padding(horizontal = 10.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(well).padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1028,20 +1218,34 @@ private fun SendMoneyGiftCard(
                 )
             }
             androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Text(
-                    formatMinor(amount, null),
-                    color = ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        formatMinor(amount, null),
+                        color = ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+                    )
+                    if (!currency.isNullOrBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(currency, color = mut, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 1.dp))
+                    }
+                }
             }
-            if (!currency.isNullOrBlank()) {
-                Box(Modifier.padding(top = 2.dp).width(40.dp).height(1.dp).background(line))
-                Text(currency, color = mut, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+            if (gift == null) {
+                val day = parseInstant(meta?.str("transferred_at") ?: m.dto.createdAt)?.let {
+                    java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy", AppLocale.java()).withZone(java.time.ZoneId.systemDefault()).format(it)
+                }
+                if (!day.isNullOrBlank()) {
+                    Box(Modifier.padding(top = 4.dp).width(40.dp).height(1.dp).background(line))
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CalendarMonth, null, tint = mut, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(day, color = mut, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(well).padding(horizontal = 8.dp, vertical = 7.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(well).padding(horizontal = 8.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(28.dp).clip(CircleShape).background(mark.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -1083,28 +1287,45 @@ private fun WalletQrCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions
     val payload = meta?.str("qr_payload").orEmpty()
     val bitmap = remember(payload) { runCatching { qrImage(payload) }.getOrNull() }
     Column(
-        Modifier.width(250.dp).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface),
+        Modifier.width(200.dp).shadow(3.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.fillMaxWidth().background(Ch.HeaderBrush).padding(12.dp)) {
+        Box(Modifier.fillMaxWidth().background(Ch.HeaderBrush).padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.QrCode2, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(stringResource(R.string.ch_wallet_qr_title), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(meta?.str("owner_name").orEmpty(), color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                }
+                Icon(Icons.Rounded.QrCode2, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.ch_wallet_qr_title), color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
         if (bitmap != null) {
-            Image(bitmap.asImageBitmap(), null, modifier = Modifier.padding(top = 14.dp).size(150.dp))
+            Image(bitmap.asImageBitmap(), null, modifier = Modifier.padding(top = 8.dp).size(118.dp))
         }
-        Text(meta?.str("wallet_number").orEmpty(), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 6.dp))
-        Text(stringResource(R.string.ch_wallet_qr_sub), color = Ch.Mut, fontSize = 11.5.sp)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(meta?.str("wallet_number").orEmpty(), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Red.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp).height(1.dp).background(Ch.Line))
+            androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.QrCodeScanner, null, tint = Ch.Mut, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.ch_wallet_qr_sub), color = Ch.Mut, fontSize = 11.sp)
+                }
+            }
+        }
         if (!mine && payload.isNotEmpty()) {
-            ChPrimaryButton(stringResource(R.string.ch_wallet_qr_pay), modifier = Modifier.padding(12.dp).fillMaxWidth(), icon = Icons.Rounded.QrCode2) { actions.onPayQr(payload) }
+            ChPrimaryButton(stringResource(R.string.ch_wallet_qr_pay), modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 8.dp).fillMaxWidth(), icon = Icons.Rounded.QrCode2) { actions.onPayQr(payload) }
         }
-        Footer(m, mine = false, overlay = false, modifier = Modifier.align(Alignment.End).padding(end = 12.dp, bottom = 8.dp, top = if (mine) 10.dp else 0.dp))
+        Footer(m, mine = false, overlay = false, modifier = Modifier.align(Alignment.End).padding(end = 10.dp, bottom = 8.dp, top = if (mine) 4.dp else 0.dp))
     }
 }
 
@@ -1127,29 +1348,39 @@ private fun CallLine(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val video = meta?.str("call_type") == "video"
     val missed = status == "missed" || status == "cancelled" || status == "declined"
     val duration = meta?.get("duration_seconds")?.takeIf { !it.isJsonNull }?.asInt
-    Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(if (mine) Ch.OutText.copy(alpha = 0.2f) else if (missed) Color(0xFFFEE2E2) else Color(0xFFDCFCE7)), contentAlignment = Alignment.Center) {
+    // As in WhatsApp: the kind on top (voice / video), then what happened (or how long it lasted); the icon is the
+    // kind with an arrow — out when I called, in when they did (red when I missed theirs).
+    val sub = when {
+        duration != null && duration > 0 -> durationText(duration * 1000L)
+        status == "declined" -> stringResource(R.string.ch_call_declined)
+        // My call nobody picked up (or I gave up on): «No answer». Theirs I didn't take: «Missed».
+        missed && mine -> stringResource(R.string.ch_call_no_answer)
+        missed -> stringResource(R.string.ch_call_missed_short)
+        else -> stringResource(R.string.ch_call_ended)
+    }
+    val ink = if (mine) Ch.OutText else Ch.Ink
+    val soft = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut
+    val arrowTint = when {
+        mine -> Ch.OutText
+        missed -> Ch.Danger
+        else -> Ch.Success
+    }
+    Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(34.dp)) {
+            Box(Modifier.matchParentSize().clip(CircleShape).background(if (mine) Ch.OutText.copy(alpha = 0.2f) else Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                Icon(if (video) Icons.Rounded.Videocam else Icons.Rounded.Call, null, tint = ink.copy(alpha = 0.9f), modifier = Modifier.size(17.dp))
+            }
             Icon(
-                if (missed) Icons.Rounded.CallMissed else if (video) Icons.Rounded.Videocam else Icons.Rounded.Call, null,
-                tint = if (mine) Ch.OutText else if (missed) Ch.Danger else Ch.Success, modifier = Modifier.size(20.dp),
+                if (mine) Icons.Rounded.CallMade else Icons.Rounded.CallReceived, null, tint = arrowTint,
+                modifier = Modifier.align(Alignment.BottomEnd).size(13.dp),
             )
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(9.dp))
         Column {
-            Text(
-                stringResource(
-                    when {
-                        status == "missed" -> R.string.ch_call_missed
-                        status == "declined" -> R.string.ch_call_declined
-                        status == "cancelled" -> R.string.ch_call_cancelled
-                        video -> R.string.ch_call_video
-                        else -> R.string.ch_call_voice
-                    },
-                ),
-                color = if (mine) Ch.OutText else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp,
-            )
+            Text(stringResource(if (video) R.string.ch_call_video else R.string.ch_call_voice), color = ink, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (duration != null && duration > 0) Text(durationText(duration * 1000L) + "  ", color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp)
+                Text(sub, color = if (missed && !mine) Ch.Danger else soft, fontSize = 12.sp, maxLines = 1)
+                Spacer(Modifier.width(10.dp))
                 Footer(m, mine, overlay = false)
             }
             // Recorded with everyone's yes (spec 92): the people who agreed can play it.
@@ -1186,7 +1417,7 @@ private fun Reactions(dto: MessageDto, mine: Boolean) {
 fun TypingBubble(label: String?) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).chPopIn(true), verticalAlignment = Alignment.CenterVertically) {
         Row(
-            Modifier.shadow(2.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)).background(Ch.Surface).padding(horizontal = 16.dp, vertical = 13.dp),
+            Modifier.shadow(2.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 14.dp, bottomEnd = 14.dp, bottomStart = 14.dp)).background(Ch.Surface).padding(horizontal = 16.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TypingDots(color = Ch.Red.copy(alpha = 0.8f), dot = 7.dp)

@@ -426,41 +426,45 @@ fun ChannelStatsPage(conversationId: String) {
         stats = null
         stats = runCatching { ApiClient.backlog.channelStats(chatAuth(), conversationId, days).data }.getOrNull()
     }
-    ChPage(stringResource(R.string.bk_channel_stats), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(7, 30, 90).forEach { d -> BkChip(stringResource(R.string.bk_days, d), days == d) { days = d } }
-            }
-            val s = stats
-            if (s == null) {
-                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-                return@Column
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(stringResource(R.string.bk_channel_followers), s.followers.toString(), Modifier.weight(1f))
-                StatTile(stringResource(R.string.bk_channel_joined), "+${s.joined}", Modifier.weight(1f))
-                StatTile(stringResource(R.string.bk_channel_left), "−${s.left}", Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(stringResource(R.string.bk_channel_posts), s.posts.toString(), Modifier.weight(1f))
-                StatTile(stringResource(R.string.bk_channel_views), s.views.toString(), Modifier.weight(1f))
-                StatTile(stringResource(R.string.bk_channel_reach), "${s.reachPercent}%", Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(10.dp))
-            StatTile(stringResource(R.string.bk_channel_avg), s.averageViews.toString(), Modifier.fillMaxWidth())
-            if (s.topPosts.isNotEmpty()) {
-                Text(stringResource(R.string.bk_channel_top), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
-                s.topPosts.forEach { post ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface)
-                            .clickable(enabled = post.id != null) { host.focusRequest = conversationId to post.id!!; host.pop() }.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(post.preview.orEmpty(), color = Ch.Ink, fontSize = 13.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(10.dp))
-                        Text("👁 ${post.views}", color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+    Box(Modifier.fillMaxSize()) {
+        com.dorr.app.ui.screens.profile.PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            com.dorr.app.ui.screens.profile.SubHeader(stringResource(R.string.bk_channel_stats)) { host.pop() }
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(7, 30, 90).forEach { d -> BkChip(stringResource(R.string.bk_days, d), days == d) { days = d } }
+                }
+                val s = stats
+                if (s == null) {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+                    return@Column
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatTile(stringResource(R.string.bk_channel_followers), s.followers.toString(), Modifier.weight(1f))
+                    StatTile(stringResource(R.string.bk_channel_joined), "+${s.joined}", Modifier.weight(1f))
+                    StatTile(stringResource(R.string.bk_channel_left), "−${s.left}", Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatTile(stringResource(R.string.bk_channel_posts), s.posts.toString(), Modifier.weight(1f))
+                    StatTile(stringResource(R.string.bk_channel_views), s.views.toString(), Modifier.weight(1f))
+                    StatTile(stringResource(R.string.bk_channel_reach), "${s.reachPercent}%", Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                StatTile(stringResource(R.string.bk_channel_avg), s.averageViews.toString(), Modifier.fillMaxWidth())
+                if (s.topPosts.isNotEmpty()) {
+                    Text(stringResource(R.string.bk_channel_top), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
+                    s.topPosts.forEach { post ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface)
+                                .clickable(enabled = post.id != null) { host.focusRequest = conversationId to post.id!!; host.pop() }.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(post.preview.orEmpty(), color = Ch.Ink, fontSize = 13.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(10.dp))
+                            Text("👁 ${post.views}", color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
                     }
                 }
             }

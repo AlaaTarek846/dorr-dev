@@ -716,43 +716,88 @@ private struct BurstEmoji: View {
 
 // MARK: - viewers
 
+/// Who watched my status: the title with how many in all, then the people — newest first, 15 at a time, the next 15
+/// as I scroll — each with when they watched and the emoji they reacted with (androidApp `ViewersSheet`).
 private struct ViewersSheet: View {
     @ObservedObject private var ch = Ch.shared
     let story: StoryDto
     let onDismiss: () -> Void
     @State private var viewers: [StoryViewerDto]?
+    @State private var total: Int?
+    @State private var page = 1
+    @State private var hasMore = false
+    @State private var loadingMore = false
 
     var body: some View {
         ChSheetCard {
-            Text(L("st_viewers", viewers?.count ?? story.views ?? 0)).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).padding(.bottom, 12)
+            // The title with its icon · how many watched, at the other end.
+            HStack(spacing: 10) {
+                ChIconBadge(icon: "eye.fill", color: ch.red, size: 38)
+                Text(L("st_viewers_title")).font(.dorr(18, .heavy)).foregroundStyle(ch.ink).frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 4) {
+                    Image(systemName: "eye.fill").font(.system(size: 12))
+                    Text(verbatim: "\(total ?? viewers?.count ?? story.views ?? 0)").font(.dorr(13, .bold))
+                }
+                .foregroundStyle(ch.red)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(ch.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .padding(.bottom, 14)
             if let list = viewers {
                 if list.isEmpty {
-                    Text(L("st_no_views")).font(.dorr(14)).foregroundStyle(ch.soft).padding(.vertical, 24)
+                    VStack(spacing: 10) {
+                        Image(systemName: "eye.fill").font(.system(size: 24)).foregroundStyle(ch.soft)
+                            .frame(width: 56, height: 56).background(ch.surfaceMuted, in: Circle())
+                        Text(L("st_no_views")).font(.dorr(14, .semibold)).foregroundStyle(ch.mut)
+                    }
+                    .frame(maxWidth: .infinity).padding(.vertical, 28)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(Array(list.enumerated()), id: \.offset) { i, v in
-                                HStack(spacing: 12) {
-                                    ChAvatar(url: v.viewer?.avatar, name: v.viewer?.name, key: v.viewer?.key, size: 44)
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        Text(verbatim: v.viewer?.name ?? "").font(.dorr(15, .bold)).foregroundStyle(ch.ink)
-                                        Text(verbatim: aiTimeAgo(v.viewedAt)).font(.dorr(12)).foregroundStyle(ch.mut)
-                                    }
-                                    Spacer()
-                                    if let r = v.reaction { Text(verbatim: r).font(.system(size: 24)) }
-                                }
-                                .padding(.vertical, 8)
-                                .chStagger(i)
+                                row(v).chStagger(min(i, 14))
+                                    // Near the end of the list → the next 15.
+                                    .onAppear { if i >= list.count - 3 { Task { await loadPage(reset: false) } } }
                             }
+                            if loadingMore { ProgressView().tint(ch.red).padding(10) }
                         }
                     }
-                    .frame(maxHeight: 420)
+                    .frame(maxHeight: 440)
                 }
             } else {
                 ChSkeletonRows()
             }
         }
-        .task { viewers = (try? await ChatApi.storyViewers(story.id).data) ?? [] }
+        .task { await loadPage(reset: true) }
+    }
+
+    private func row(_ v: StoryViewerDto) -> some View {
+        HStack(spacing: 12) {
+            ChAvatar(url: v.viewer?.avatar, name: v.viewer?.name, key: v.viewer?.key, size: 46)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: ltrTitle(v.viewer?.name)).font(.dorr(15, .bold)).foregroundStyle(ch.ink).lineLimit(1)
+                Text(verbatim: aiTimeAgo(v.viewedAt)).font(.dorr(12)).foregroundStyle(ch.mut)
+            }
+            Spacer()
+            // Their reaction, in a soft round badge.
+            if let r = v.reaction {
+                Text(verbatim: r).font(.system(size: 22)).frame(width: 40, height: 40).background(ch.surfaceMuted, in: Circle())
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func loadPage(reset: Bool) async {
+        if !reset && (loadingMore || !hasMore) { return }
+        if !reset { loadingMore = true }
+        let next = reset ? 1 : page + 1
+        let envelope = try? await ChatApi.storyViewers(story.id, page: next, perPage: 15)
+        let chunk = envelope?.data ?? []
+        viewers = reset ? chunk : (viewers ?? []) + chunk
+        total = envelope?.pagination?.total ?? total
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if !reset { loadingMore = false }
     }
 }
 

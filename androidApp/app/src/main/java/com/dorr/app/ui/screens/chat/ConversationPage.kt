@@ -19,6 +19,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
@@ -34,6 +36,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,6 +67,18 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
+import com.dorr.app.network.CountryCache
+import com.dorr.app.network.resolveForPhone
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.PersonOutline
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
@@ -146,6 +165,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
     var highlight by remember { mutableStateOf<String?>(null) }
     var infoFor by remember { mutableStateOf<MessageDto?>(null) }
     var votesFor by remember { mutableStateOf<MessageDto?>(null) }
+    // «View live location»: the live location message whose map is open.
+    var liveFor by remember { mutableStateOf<String?>(null) }
     // The money request / split being paid (PIN sheet open).
     var payFor by remember { mutableStateOf<MessageDto?>(null) }
     // A view-once file, opened this one time (closing the viewer is final).
@@ -312,6 +333,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
             onChoose = { m, option -> state.choose(m, option) },
             onOpenViewOnce = { m -> scope.launch { state.openViewOnce(m)?.takeIf { it.isNotEmpty() }?.let { viewOnceFiles = it } } },
             onStopLive = { state.stopLive(it) },
+            onOpenLive = { liveFor = it.id },
             onJoinGroup = { host.joinToken = it },
             onPay = { payFor = it.dto },
             onDeclineRequest = { state.declineRequest(it) },
@@ -344,7 +366,12 @@ fun ConversationPage(route: ChRoute.Conversation) {
         // (no white strip under the rounded header, no white band around the message box).
         ThemedWallpaper(chatTheme)
         Column(Modifier.fillMaxSize().imePadding().then(if (blurred > 0.5f && Build.VERSION.SDK_INT >= 31 && !com.dorr.app.chat.ChatLite.active) Modifier.blur(blurred.dp) else Modifier)) {
-            AnimatedContent(targetState = searching, label = "convHeader", transitionSpec = {
+            // Above what follows: the pinned bar tucks up under its rounded bottom.
+            // Its own empty spots keep their taps (they'd otherwise reach the tucked bar under them).
+            AnimatedContent(
+                targetState = searching, label = "convHeader",
+                modifier = Modifier.zIndex(1f).pointerInput(Unit) { detectTapGestures { } },
+                transitionSpec = {
                 (fadeIn(tween(220)) + slideInVertically { -it / 3 }) togetherWith (fadeOut(tween(150)) + slideOutVertically { -it / 3 })
             }) { isSearching ->
                 if (isSearching) ConversationSearchBar(searchQuery, onChange = { searchQuery = it }) { searching = false; searchQuery = "" }
@@ -380,6 +407,10 @@ fun ConversationPage(route: ChRoute.Conversation) {
             // Someone I haven't saved: "Add" (then they see my stories too).
             c?.let { NotInContactsBanner(it) { fresh -> state.conversation = fresh; host.upsert(fresh) } }
 
+            // The message box floats over the end of the list (as in WhatsApp): the messages and the wallpaper
+            // show beside it and scroll under it; the list keeps its height free at the end.
+            var bottomHeight by remember { mutableStateOf(0.dp) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red, strokeWidth = 3.dp) }
@@ -387,7 +418,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     else -> LazyColumn(
                         state = listState,
                         reverseLayout = true,
-                        contentPadding = PaddingValues(top = 12.dp, bottom = 8.dp),
+                        contentPadding = PaddingValues(top = 12.dp, bottom = 8.dp + bottomHeight),
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         val typing = host.activity(state.id).firstOrNull()
@@ -410,6 +441,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     }
                 }
 
+                Box(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .onSizeChanged { bottomHeight = with(density) { it.height.toDp() } },
+                ) { BottomArea(c, state) }
+
                 androidx.compose.animation.AnimatedVisibility(searching && searchResults != null, enter = fadeIn(), exit = fadeOut()) {
                     SearchResults(searchQuery, searchResults.orEmpty()) { id ->
                         searching = false
@@ -423,7 +459,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     visible = !atBottom,
                     enter = scaleIn(spring(dampingRatio = 0.5f)) + fadeIn(),
                     exit = scaleOut() + fadeOut(),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(14.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 14.dp + bottomHeight),
                 ) {
                     Box {
                         Box(
@@ -434,8 +470,6 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     }
                 }
             }
-
-            BottomArea(c, state)
         }
 
         MessageFocusOverlay(state, onOpenInfo = { infoFor = it })
@@ -445,6 +479,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
         }
         infoFor?.let { m -> MessageInfoSheet(m) { infoFor = null } }
         votesFor?.let { m -> PollVotesSheet(m) { votesFor = null } }
+        liveFor?.let { id -> LiveLocationPage(state, id) { liveFor = null } }
         summaryOpen?.let { unreadFirst -> AiSummarySheet(state.id, unreadFirst) { summaryOpen = null } }
         if (aiMenu) ChoiceSheet(
             stringResource(R.string.ch_ai_menu),
@@ -581,7 +616,7 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         com.dorr.app.ui.components.VerifiedName(
-                            c?.title.orEmpty(),
+                            ltrTitle(c?.title),
                             // A verified channel, or a verified person (account verification).
                             verified = c?.group?.isVerified == true || c?.peer?.isVerified == true,
                             color = Color.White,
@@ -731,24 +766,113 @@ private fun lastSeenText(iso: String): String {
 private fun PinnedBanner(state: ConversationState, onJump: (String) -> Unit) {
     val pinned = state.pinned
     var index by remember(pinned) { mutableStateOf(0) }
+    // +1 / -1: the way the last move went, so the preview slides that way.
+    var step by remember { mutableStateOf(1) }
+    var listOpen by remember { mutableStateOf(false) }
+    val swipe = with(androidx.compose.ui.platform.LocalDensity.current) { 48.dp.toPx() }
     AnimatedVisibility(pinned.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-        val current = pinned.getOrNull(index % pinned.size.coerceAtLeast(1)) ?: return@AnimatedVisibility
+        val count = pinned.size.coerceAtLeast(1)
+        val at = ((index % count) + count) % count
+        val current = pinned.getOrNull(at) ?: return@AnimatedVisibility
+        // Full width, tucked up under the header's rounded bottom (the header draws over it): it reads as
+        // hanging from the header instead of a separate card.
+        val tuck = 30.dp
+        val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Surface)
-                .clickable {
-                    onJump(current.id)
-                    index++ // tapping again cycles through the pins
+            Modifier.fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val p = measurable.measure(constraints)
+                    val up = tuck.roundToPx()
+                    layout(p.width, (p.height - up).coerceAtLeast(0)) { p.place(0, -up) }
                 }
-                .padding(horizontal = 12.dp, vertical = 9.dp),
+                .shadow(6.dp, shape).clip(shape).background(Ch.Surface)
+                .height(IntrinsicSize.Min)
+                // Tap: go to the pin shown. Swiping only changes which one is shown.
+                .clickable { onJump(current.id) }
+                // Swipe sideways: the next / previous pin, without leaving my place in the chat.
+                .pointerInput(pinned.size) {
+                    var dragged = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragged = 0f },
+                        onDragEnd = {
+                            if (kotlin.math.abs(dragged) > swipe && pinned.size > 1) {
+                                step = if (dragged < 0) 1 else -1
+                                index += step
+                            }
+                        },
+                    ) { change, amount -> change.consume(); dragged += amount }
+                }
+                .padding(start = 18.dp, end = 20.dp, top = 6.dp + tuck, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.PushPin, null, tint = Ch.Red, modifier = Modifier.size(18.dp).rotate(35f))
+            // One short line per pin, the one shown lit (only when there's more than one).
+            if (pinned.size > 1) {
+                Column(Modifier.width(3.dp).fillMaxHeight().padding(vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    pinned.indices.forEach { i ->
+                        Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(2.dp)).background(if (i == at) Ch.Red else Ch.Red.copy(alpha = 0.28f)))
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            // The pin: every pinned message in a list.
+            Box(
+                Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(Ch.Red.copy(alpha = 0.12f)).clickable { listOpen = true },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.PushPin, stringResource(R.string.ch_pinned_list), tint = Ch.Red, modifier = Modifier.size(18.dp).rotate(35f)) }
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.ch_pinned_message) + if (pinned.size > 1) " ${index % pinned.size + 1}/${pinned.size}" else "", color = Ch.Red, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                val (_, label) = previewOf(current.type, current.isDeleted)
-                AnimatedContent(current.body?.takeIf { it.isNotBlank() } ?: label, label = "pin") { text ->
-                    Text(text, color = Ch.Ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            AnimatedContent(
+                current, modifier = Modifier.weight(1f).clipToBounds(), label = "pin",
+                // Sideways, the way the finger went: swiped left, the next one comes in from the right.
+                transitionSpec = { (slideInHorizontally { it * step } + fadeIn()) togetherWith (slideOutHorizontally { -it * step } + fadeOut()) },
+            ) { m -> PinnedPreview(m) }
+        }
+    }
+    if (listOpen) PinnedListSheet(state, onDismiss = { listOpen = false }) { id -> listOpen = false; onJump(id) }
+}
+
+/** One pinned message in a line: the chat list's icon for its kind, its words, a small picture when it has one. */
+@Composable
+private fun PinnedPreview(m: MessageDto, modifier: Modifier = Modifier) {
+    val s = replySummary(m)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            s.icon?.let { Icon(it, null, tint = Ch.Mut, modifier = Modifier.padding(end = 4.dp).size(15.dp)) }
+            Text(if (m.isDeleted) stringResource(R.string.ch_deleted) else s.text, color = Ch.Ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        when {
+            s.thumb != null -> AsyncImage(ApiClient.mediaUrl(s.thumb), null, imageLoader = chatImages(LocalContext.current), contentScale = ContentScale.Crop, modifier = Modifier.padding(start = 8.dp).size(34.dp).clip(RoundedCornerShape(8.dp)))
+            s.map -> MiniMap(Modifier.padding(start = 8.dp).size(34.dp).clip(RoundedCornerShape(8.dp)))
+            else -> Unit
+        }
+    }
+}
+
+/** Every pinned message: tap one to go to it, or take its pin off. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PinnedListSheet(state: ConversationState, onDismiss: () -> Unit, onJump: (String) -> Unit) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 24.dp)) {
+            Text(stringResource(R.string.ch_pinned_list), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(10.dp))
+            // The last pin taken off: nothing left to list.
+            LaunchedEffect(state.pinned.isEmpty()) { if (state.pinned.isEmpty()) onDismiss() }
+            state.pinned.forEach { m ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted)
+                        .clickable { onJump(m.id) }.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (m.sender?.key == myKey()) stringResource(R.string.ch_you) else m.sender?.name.orEmpty(),
+                            color = if (m.sender?.key == myKey()) Ch.Red else Ch.colorFor(m.sender?.key), fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                        )
+                        PinnedPreview(m)
+                    }
+                    Box(Modifier.size(40.dp).clip(CircleShape).clickable { state.unpin(m) }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Close, stringResource(R.string.ch_unpin), tint = Ch.Mut, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
@@ -795,50 +919,115 @@ private fun NoticeBar(text: String, icon: androidx.compose.ui.graphics.vector.Im
     }
 }
 
-/** A stranger's first message: accept, or delete (optionally block). */
+/** A stranger's first message: who wants to talk, two short facts, then accept — or delete / block. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun RequestBar(c: ConversationDto, state: ConversationState) {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var accepting by remember { mutableStateOf(false) }
-    Column(
-        Modifier.fillMaxWidth().padding(12.dp).shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(Ch.Surface).padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stringResource(R.string.ch_request_title, c.title.orEmpty()), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.5.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(stringResource(R.string.ch_request_text), color = Ch.Mut, fontSize = 12.5.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
-                Triple(R.string.ch_block, Ch.Danger.copy(alpha = 0.1f), Ch.Danger),
-                Triple(R.string.ch_reject, Ch.SurfaceMuted, Ch.Ink),
-            ).forEach { (label, bg, fg) ->
-                Box(
-                    Modifier.clip(RoundedCornerShape(14.dp)).background(bg).clickable {
-                        scope.launch {
-                            runCatching { ApiClient.chat.reject(chatAuth(), c.id, mapOf("block" to (label == R.string.ch_block))) }
-                            host.remove(c.id)
-                            host.pop()
-                        }
-                    }.padding(horizontal = 18.dp, vertical = 11.dp),
-                ) { Text(stringResource(label), color = fg, fontWeight = FontWeight.ExtraBold) }
-            }
-            // One tap only: a second accept would hit a conversation that's no longer a request.
-            ChPrimaryButton(stringResource(R.string.ch_accept), modifier = Modifier, enabled = !accepting) {
-                if (accepting) return@ChPrimaryButton
-                accepting = true
-                scope.launch {
-                    runCatching { ApiClient.chat.accept(chatAuth(), c.id).data }.getOrNull()?.let {
-                        state.conversation = it
-                        host.upsert(it)
-                        state.markRead()
-                    }
-                    accepting = false
-                }
-            }
+    val who = remember(c.title) { spacedPhone(context, c.title.orEmpty()) }
+    fun reject(block: Boolean) {
+        scope.launch {
+            runCatching { ApiClient.chat.reject(chatAuth(), c.id, mapOf("block" to block)) }
+            host.remove(c.id)
+            host.pop()
         }
     }
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).shadow(10.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp))
+            .background(Ch.Surface).padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.PersonOutline, null, tint = Ch.Mut, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.ch_request_label), color = Ch.Mut, fontSize = 12.sp)
+        Text(who, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RequestFact(Icons.Rounded.ErrorOutline, stringResource(R.string.ch_request_not_contact))
+            RequestFact(Icons.Rounded.VisibilityOff, stringResource(R.string.ch_request_no_read))
+        }
+        Spacer(Modifier.height(12.dp))
+        // One tap only: a second accept would hit a conversation that's no longer a request.
+        RequestButton(stringResource(R.string.ch_accept), Icons.Rounded.Check, Color.White, Modifier.fillMaxWidth(), primary = true, enabled = !accepting) {
+            if (accepting) return@RequestButton
+            accepting = true
+            scope.launch {
+                runCatching { ApiClient.chat.accept(chatAuth(), c.id).data }.getOrNull()?.let {
+                    state.conversation = it
+                    host.upsert(it)
+                    state.markRead()
+                }
+                accepting = false
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            RequestButton(stringResource(R.string.ch_reject), Icons.Rounded.DeleteOutline, Ch.Ink, Modifier.weight(1f)) { reject(block = false) }
+            RequestButton(stringResource(R.string.ch_block), Icons.Rounded.Block, Ch.Danger, Modifier.weight(1f)) { reject(block = true) }
+        }
+    }
+}
+
+@Composable
+private fun RequestFact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(
+        Modifier.clip(CircleShape).background(Ch.SurfaceMuted).padding(horizontal = 9.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = Ch.Mut, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(text, color = Ch.Mut, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun RequestButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    modifier: Modifier,
+    primary: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier.graphicsLayer { alpha = if (enabled) 1f else 0.5f }.clip(RoundedCornerShape(14.dp))
+            .then(if (primary) Modifier.background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep))) else Modifier.background(Ch.SurfaceMuted))
+            .clickable(enabled = enabled, onClick = onClick).padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = color, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+    }
+}
+
+/**
+ * A number shown as "+20 127 773 8694": the country code from the cached countries, then the rest in
+ * groups (the last four, threes before them). Anything that isn't a number, or a code we don't know,
+ * stays as it is. Kept left-to-right inside Arabic text.
+ */
+private fun spacedPhone(context: android.content.Context, raw: String): String {
+    val digits = raw.filter(Char::isDigit)
+    if (raw.isBlank() || !raw.trim().matches(Regex("""\+?[\d\s\-()]{8,20}"""))) return raw
+    val dial = CountryCache.resolveForPhone(context, digits)?.dialCode?.filter(Char::isDigit).orEmpty()
+    if (dial.isEmpty()) return "⁦+$digits⁩"
+    val rest = digits.removePrefix(dial)
+    val groups = mutableListOf<String>()
+    var end = rest.length
+    if (end > 4) { groups += rest.substring(end - 4); end -= 4 }
+    while (end > 3) { groups += rest.substring(end - 3, end); end -= 3 }
+    if (end > 0) groups += rest.substring(0, end)
+    return "⁦+$dial ${groups.reversed().joinToString(" ")}⁩"
 }
 
 // ------------------------------------------------------------------------------- media viewer
