@@ -689,6 +689,8 @@ interface ChatApi {
         @Header("Authorization") auth: String,
         @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>,
         @Part file: MultipartBody.Part?,
+        /** A video's poster frame (`thumbnail`) — the picture in a reply's quote of it. */
+        @Part poster: MultipartBody.Part? = null,
     ): ApiEnvelope<JsonElement?>
 
     @DELETE("mobile/v1/chat/stories/{id}")
@@ -714,7 +716,7 @@ interface ChatApi {
     suspend fun replyStory(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<MessageDto>
 
     @GET("mobile/v1/chat/stories/{id}/viewers")
-    suspend fun storyViewers(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<StoryViewerDto>>
+    suspend fun storyViewers(@Header("Authorization") auth: String, @Path("id") id: String, @Query("page") page: Int? = null, @Query("per_page") perPage: Int? = null): ApiEnvelope<List<StoryViewerDto>>
 
     @GET("mobile/v1/chat/stories/privacy")
     suspend fun storyPrivacy(@Header("Authorization") auth: String): ApiEnvelope<StoryPrivacyDto>

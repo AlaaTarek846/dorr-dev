@@ -81,7 +81,7 @@
     <string name="cp_t_sent">You sent</string>
     <string name="cp_t_received">You received</string>
     <string name="cp_priority">Priority</string>
-    <string name="cp_why_mention">@ You</string>
+    <string name="cp_why_mention">\@ You</string>
     <string name="cp_why_urgent">Urgent</string>
     <string name="cp_why_owed">Reply owed</string>
     <string name="cp_why_direct">For you</string>

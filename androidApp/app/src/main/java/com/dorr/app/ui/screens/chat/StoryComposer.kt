@@ -223,7 +223,7 @@ private fun TextStoryEditor(editor: StoryEditorHost) {
             Box(Modifier.fillMaxSize().background(StoryLook.brush(name)))
         }
 
-        Box(Modifier.fillMaxSize().imePadding().padding(horizontal = 28.dp).padding(top = 80.dp, bottom = 200.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().imePadding().padding(horizontal = 28.dp).padding(top = 80.dp, bottom = 250.dp), contentAlignment = Alignment.Center) {
             val textAlign = storyTextAlign(align)
             if (text.isEmpty()) {
                 Text(
@@ -244,18 +244,11 @@ private fun TextStoryEditor(editor: StoryEditorHost) {
         StoryLayersEditable(ed, deselectOnTap = false)
 
         if (ed.drawing) DrawingBar(ed)
+        // On top only what every kind shares (stickers · pen · mention) — the text's own tools sit at the bottom,
+        // right under the colours / fonts they open, so the top bar never runs off a small screen.
         else StoryTopBar(editor.onClose) {
             LayerToolButtons(ed, withText = false)
             MentionTool(mentions) { mentions = it }
-            StoryTool(null, stringResource(R.string.st_tool_font), Modifier.scale(fontScale), label = "Aa", active = panel == TextPanel.Fonts) {
-                panel = if (panel == TextPanel.Fonts) TextPanel.None else TextPanel.Fonts
-            }
-            StoryTool(alignIcon(align), stringResource(R.string.st_tool_align)) {
-                align = when (align) { "center" -> "start"; "start" -> "end"; else -> "center" }
-            }
-            StoryTool(Icons.Rounded.Palette, stringResource(R.string.st_tool_colors), active = panel == TextPanel.Colors) {
-                panel = if (panel == TextPanel.Colors) TextPanel.None else TextPanel.Colors
-            }
         }
 
         if (!ed.drawing) Column(
@@ -266,6 +259,19 @@ private fun TextStoryEditor(editor: StoryEditorHost) {
             AnimatedVisibility(panel == TextPanel.Fonts) { FontChips(font, Modifier.padding(bottom = 12.dp)) { font = it; fontBounce = true } }
             // Near the limit: how much is left.
             if (text.length > 600) Text("${text.length}/700", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+            // The text's tools: colours · font · alignment — each right under what it opens.
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                StoryTool(Icons.Rounded.Palette, stringResource(R.string.st_tool_colors), active = panel == TextPanel.Colors) {
+                    panel = if (panel == TextPanel.Colors) TextPanel.None else TextPanel.Colors
+                }
+                StoryTool(null, stringResource(R.string.st_tool_font), Modifier.scale(fontScale), label = "Aa", active = panel == TextPanel.Fonts) {
+                    panel = if (panel == TextPanel.Fonts) TextPanel.None else TextPanel.Fonts
+                }
+                StoryTool(alignIcon(align), stringResource(R.string.st_tool_align)) {
+                    align = when (align) { "center" -> "start"; "start" -> "end"; else -> "center" }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             StoryModeSwitch(StoryMode.Text, editor.onSwitch)
             Spacer(Modifier.height(12.dp))
             val networkError = stringResource(R.string.ch_error_network)
@@ -405,7 +411,7 @@ private fun MediaStoryEditor(uris: List<Uri>, editor: StoryEditorHost) {
                     // Each one its own status, in order.
                     val batch = items.mapIndexedNotNull { i, it ->
                         val file = copyToCache(context, it.uri, if (it.isVideo) "story_$i.mp4" else "story_$i.jpg") ?: return@mapIndexedNotNull null
-                        buildMap {
+                        val fields = buildMap {
                             put("type", if (it.isVideo) "video" else "image")
                             if (it.caption.isNotBlank()) put("body", it.caption.trim())
                             it.durationMs?.let { d -> put("duration_ms", d.toString()) }
@@ -413,7 +419,8 @@ private fun MediaStoryEditor(uris: List<Uri>, editor: StoryEditorHost) {
                             putAll(mentionFields(mentions))
                             it.aspect?.let { a -> put("style[aspect]", String.format(java.util.Locale.US, "%.4f", a.coerceIn(0.2f, 5f))) }
                             putAll(it.ed.fields())
-                        } to file
+                        }
+                        Triple(fields, file, if (it.isVideo) videoPoster(context, it.uri, "story_poster_$i.jpg") else null)
                     }
                     if (batch.isNotEmpty()) host.postStories(batch, networkError)
                 }
@@ -459,6 +466,18 @@ private fun VideoThumb(uri: Uri) {
     frame?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
         ?: Box(Modifier.fillMaxSize().background(Color(0xFF1F2937)))
 }
+
+/** A video's poster frame, small, as a JPEG in the cache — the picture in quotes of the status. */
+private fun videoPoster(context: android.content.Context, uri: Uri, name: String): LocalFile? = runCatching {
+    val frame = MediaMetadataRetriever().run {
+        try { setDataSource(context, uri); getFrameAtTime(500_000) ?: getFrameAtTime(0) } finally { release() }
+    } ?: return null
+    val scale = 480f / maxOf(frame.width, frame.height)
+    val small = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(frame, (frame.width * scale).toInt(), (frame.height * scale).toInt(), true) else frame
+    val file = java.io.File(context.cacheDir, name)
+    file.outputStream().use { small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }
+    LocalFile(file, "image/jpeg", file.name)
+}.getOrNull()
 
 private fun videoDuration(context: android.content.Context, uri: Uri): Long? = runCatching {
     MediaMetadataRetriever().run {
@@ -667,20 +686,25 @@ internal fun BoxScope.StoryScrims() {
 private fun mentionFields(ids: List<Int>): Map<String, String> = ids.withIndex().associate { (i, id) -> "mentions[$i]" to id.toString() }
 
 /** Upload in the background: the page closes at once and «My status» spins until it's posted. */
-internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?, networkError: String) = postStories(listOf(fields to file), networkError)
+internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?, networkError: String) =
+    postStories(listOf(Triple(fields, file, null)), networkError)
 
-/** Several statuses (photos / videos picked together), uploaded one after the other in that order. */
-internal fun ChatHost.postStories(batch: List<Pair<Map<String, String>, LocalFile?>>, networkError: String) {
+/**
+ * Several statuses (photos / videos picked together), uploaded one after the other in that order. Each: its fields,
+ * its file, and — a video — its poster frame (the picture in a reply's quote of it).
+ */
+internal fun ChatHost.postStories(batch: List<Triple<Map<String, String>, LocalFile?, LocalFile?>>, networkError: String) {
     pop()
     storyUploading = true
     scope.launch {
         var posted = 0
-        for ((fields, file) in batch) {
+        for ((fields, file, poster) in batch) {
             try {
                 val all = if (publicMode) fields + ("public" to "1") else fields
                 val parts = all.mapValues { (_, v) -> v.toRequestBody("text/plain".toMediaTypeOrNull()) as RequestBody }
                 val filePart = file?.let { MultipartBody.Part.createFormData("file", it.name, it.file.asRequestBody(it.mime.toMediaTypeOrNull())) }
-                ApiClient.chat.postStory(chatAuth(), parts, filePart)
+                val posterPart = poster?.let { MultipartBody.Part.createFormData("thumbnail", it.name, it.file.asRequestBody(it.mime.toMediaTypeOrNull())) }
+                ApiClient.chat.postStory(chatAuth(), parts, filePart, posterPart)
                 posted++
             } catch (e: kotlinx.coroutines.CancellationException) {
                 storyUploading = false

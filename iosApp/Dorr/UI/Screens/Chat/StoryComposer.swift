@@ -161,7 +161,7 @@ private struct TextStoryEditor: View {
                     .focused($focused)
             }
             .animation(.spring(response: 0.4), value: size)
-            .padding(.horizontal, 28).padding(.top, 80).padding(.bottom, 200)
+            .padding(.horizontal, 28).padding(.top, 80).padding(.bottom, 250)
 
             // Stickers and drawing on top (backlog 79–80).
             StoryLayersEditable(ed: ed, deselectOnTap: false).ignoresSafeArea()
@@ -170,16 +170,11 @@ private struct TextStoryEditor: View {
                 if ed.drawing {
                     DrawingBar(ed: ed)
                 } else {
+                    // On top only what every kind shares (stickers · pen · mention) — the text's own tools sit at the
+                    // bottom, right under the colours / fonts they open, so the top bar never runs off a small screen.
                     StoryTopBar(onClose: editor.onClose) {
                         LayerToolButtons(ed: ed, withText: false)
                         MentionTool(mentions: $mentions)
-                        StoryTool(label: "Aa", description: L("st_tool_font"), active: panel == .fonts) { panel = panel == .fonts ? .closed : .fonts }
-                            .scaleEffect(fontBounce ? 1.25 : 1)
-                            .animation(.spring(response: 0.25, dampingFraction: 0.35), value: fontBounce)
-                        StoryTool(icon: alignIcon(align), description: L("st_tool_align")) {
-                            align = align == "center" ? "start" : align == "start" ? "end" : "center"
-                        }
-                        StoryTool(icon: "paintpalette.fill", description: L("st_tool_colors"), active: panel == .colors) { panel = panel == .colors ? .closed : .colors }
                     }
                 }
                 Spacer(minLength: 0)
@@ -195,6 +190,17 @@ private struct TextStoryEditor: View {
                         if text.count > 600 {
                             Text(verbatim: "\(text.count)/700").font(.dorr(12, .bold)).foregroundStyle(.white.opacity(0.8)).padding(.bottom, 8)
                         }
+                        // The text's tools: colours · font · alignment — each right under what it opens.
+                        HStack(spacing: 10) {
+                            StoryTool(icon: "paintpalette.fill", description: L("st_tool_colors"), active: panel == .colors) { panel = panel == .colors ? .closed : .colors }
+                            StoryTool(label: "Aa", description: L("st_tool_font"), active: panel == .fonts) { panel = panel == .fonts ? .closed : .fonts }
+                                .scaleEffect(fontBounce ? 1.25 : 1)
+                                .animation(.spring(response: 0.25, dampingFraction: 0.35), value: fontBounce)
+                            StoryTool(icon: alignIcon(align), description: L("st_tool_align")) {
+                                align = align == "center" ? "start" : align == "start" ? "end" : "center"
+                            }
+                        }
+                        .padding(.bottom, 12)
                         StoryModeSwitch(mode: .text, onSwitch: editor.onSwitch)
                         Spacer().frame(height: 12)
                         StoryBottomBar(host: host, allowReplies: allowReplies, onToggleReplies: { allowReplies.toggle() }, sendEnabled: !trimmed.isEmpty, onSend: post)
@@ -366,7 +372,7 @@ private struct MediaStoryEditor: View {
 
     /// Each one its own status, in order (the file is read when its turn comes).
     private func post() {
-        var uploads: [(fields: [String: String], file: () -> ChatFile?)] = []
+        var uploads: [(fields: [String: String], file: () -> ChatFile?, poster: ChatFile?)] = []
         for (i, it) in batch.items.enumerated() {
             var fields = ["type": it.isVideo ? "video" : "image", "allow_replies": allowReplies ? "1" : "0"]
             let body = it.caption.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -376,7 +382,9 @@ private struct MediaStoryEditor: View {
             fields.merge(mentionFields(mentions)) { $1 }
             fields.merge(it.ed.fields()) { $1 }
             let url = it.url, mime = it.mime, name = it.isVideo ? "story_\(i).mp4" : "story_\(i).jpg"
-            uploads.append((fields, { (try? Data(contentsOf: url)).map { ChatFile(field: "file", filename: name, mimeType: mime, data: $0) } }))
+            // A video's poster frame (its thumbnail): the picture in quotes of the status.
+            let poster = it.isVideo ? it.thumb?.jpegData(compressionQuality: 0.8).map { ChatFile(field: "thumbnail", filename: "story_poster_\(i).jpg", mimeType: "image/jpeg", data: $0) } : nil
+            uploads.append((fields, { (try? Data(contentsOf: url)).map { ChatFile(field: "file", filename: name, mimeType: mime, data: $0) } }, poster))
         }
         if !uploads.isEmpty { host.postStories(uploads) }
     }
@@ -591,18 +599,20 @@ private struct VoiceStoryEditor: View {
                 if clip != nil && !recorder.recording { playRow } else { micButton }
                 Text(verbatim: hint).font(.dorr(15, .bold)).foregroundStyle(.white.opacity(0.9)).multilineTextAlignment(.center).padding(.top, 14)
             }
-            .padding(.horizontal, 24).padding(.bottom, 120)
+            .padding(.horizontal, 24).padding(.bottom, 170)
 
             VStack(spacing: 0) {
                 StoryTopBar(onClose: editor.onClose) {
                     MentionTool(mentions: $mentions)
-                    StoryTool(icon: "paintpalette.fill", description: L("st_tool_colors"), active: colors) { colors.toggle() }
                 }
                 Spacer(minLength: 0)
                 VStack(spacing: 0) {
                     if colors {
                         BackgroundSwatches(selected: bg) { bg = $0 }.padding(.bottom, 12).transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                    // The colour tool at the bottom, right under the colours it opens (as the text status).
+                    StoryTool(icon: "paintpalette.fill", description: L("st_tool_colors"), active: colors) { colors.toggle() }
+                        .padding(.bottom, 12)
                     StoryModeSwitch(mode: .voice, onSwitch: editor.onSwitch)
                     Spacer().frame(height: 12)
                     StoryBottomBar(host: host, allowReplies: allowReplies, onToggleReplies: { allowReplies.toggle() },
@@ -986,12 +996,13 @@ private func mentionFields(_ ids: [Int]) -> [String: String] {
 extension ChatHost {
     /// Upload in the background: the page closes at once and «My status» spins until it's posted.
     func postStory(_ fields: [String: String], file: ChatFile?) {
-        postStories([(fields, { file })])
+        postStories([(fields, { file }, nil)])
     }
 
     /// Several statuses (photos / videos picked together), uploaded one after the other in that order; the first
     /// failure says why and stops the rest.
-    func postStories(_ batch: [(fields: [String: String], file: () -> ChatFile?)]) {
+    /// Each: its fields, its file (read when its turn comes) and — a video — its poster frame.
+    func postStories(_ batch: [(fields: [String: String], file: () -> ChatFile?, poster: ChatFile?)]) {
         pop()
         storyUploading = true
         Task {
@@ -1000,7 +1011,7 @@ extension ChatHost {
                 do {
                     var all = upload.fields
                     if publicMode { all["public"] = "1" }
-                    _ = try await ChatApi.postStory(fields: all, file: upload.file())
+                    _ = try await ChatApi.postStory(fields: all, file: upload.file(), poster: upload.poster)
                     posted += 1
                 } catch {
                     // No HTTP answer at all (offline, tunnel down, timeout): say so instead of staying silent.
