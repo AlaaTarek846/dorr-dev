@@ -261,22 +261,22 @@
     <string name="ch_contacts_title">اختر جهة اتصال</string>
     <string name="ch_sync_contacts">اعثر على أصدقائك من جهات الاتصال</string>
     <string name="ch_syncing">جارٍ مزامنة جهات الاتصال…</string>
-    <string name="ch_synced">%d من جهات اتصالك على دُر</string>
-    <string name="ch_contacts_permission">اسمح بالوصول إلى جهات الاتصال لمعرفة من يستخدم دُر</string>
+    <string name="ch_synced">%d من جهات اتصالك على دُرر</string>
+    <string name="ch_contacts_permission">اسمح بالوصول إلى جهات الاتصال لمعرفة من يستخدم دُرر</string>
     <string name="ch_find_by_number">البحث برقم الهاتف</string>
     <string name="ch_number_hint">05xxxxxxxx</string>
     <string name="ch_find">بحث</string>
-    <string name="ch_not_on_dorr">هذا الرقم غير مسجل على دُر</string>
-    <string name="ch_on_dorr">على دُر</string>
-    <string name="ch_contacts_on_dorr">جهات الاتصال على دُر</string>
-    <string name="ch_no_contacts">لا توجد جهات اتصال على دُر بعد</string>
+    <string name="ch_not_on_dorr">هذا الرقم غير مسجل على دُرر</string>
+    <string name="ch_on_dorr">على دُرر</string>
+    <string name="ch_contacts_on_dorr">جهات الاتصال على دُرر</string>
+    <string name="ch_no_contacts">لا توجد جهات اتصال على دُرر بعد</string>
 
     <string name="ch_my_qr_title">رمز المحادثة الخاص بي</string>
     <string name="ch_my_qr_sub">من يمسح هذا الرمز يمكنه بدء محادثة معك.</string>
     <string name="ch_reset_qr">إعادة تعيين الرمز</string>
     <string name="ch_conversation_link">لينك المحادثة</string>
     <string name="ch_qr_reset_done">رمزك القديم لم يعد يعمل</string>
-    <string name="ch_scan_prompt">امسح رمز محادثة دُر</string>
+    <string name="ch_scan_prompt">امسح رمز محادثة دُرر</string>
 
     <string name="ch_privacy_title">الخصوصية</string>
     <string name="ch_last_seen_setting">آخر ظهور والاتصال</string>
@@ -331,11 +331,11 @@
     <string name="ch_locked_note">هذه المحادثة مقفولة</string>
     <string name="ch_offline">لا يوجد اتصال — تعرض الرسائل المحفوظة</string>
     <string name="ch_invite">دعوة</string>
-    <string name="ch_invite_dorr">دعوة لدُر</string>
+    <string name="ch_invite_dorr">دعوة لدُرر</string>
     <string name="ch_invite_title">ادعُ %s</string>
     <string name="ch_share_more">المزيد</string>
-    <string name="ch_invite_section">ادعُ إلى دُر</string>
-    <string name="ch_invite_text">تعال نتكلم على دُر! حمّل التطبيق وراسلني.</string>
+    <string name="ch_invite_section">ادعُ إلى دُرر</string>
+    <string name="ch_invite_text">تعال نتكلم على دُرر! حمّل التطبيق وراسلني.</string>
     <string name="ch_sync_failed">تعذّرت مزامنة جهات الاتصال. تحقق من اتصالك وحاول مرة أخرى.</string>
     <string name="ch_contacts_denied">الوصول لجهات الاتصال مقفول — اضغط للسماح من الإعدادات</string>
 
@@ -475,29 +475,35 @@
     <string name="st_reply_hint">رد…</string>
     <string name="st_replied">تم إرسال الرد</string>
     <string name="st_viewers">شاهدها %d</string>
+    <string name="st_viewers_title">المشاهدات</string>
     <string name="st_no_views">لا توجد مشاهدات بعد</string>
     <string name="st_delete">حذف الحالة</string>
     <string name="st_deleted">تم حذف الحالة</string>
     <string name="st_mute">كتم حالات %s</string>
     <string name="st_unmute">إلغاء كتم حالات %s</string>
     <string name="st_privacy">خصوصية الحالة</string>
-    <string name="st_audience_contacts">جهات اتصالي</string>
-    <string name="st_audience_except">جهات اتصالي باستثناء…</string>
-    <string name="st_audience_only">مشاركة مع فقط…</string>
-    <string name="st_privacy_note">تغيير الخصوصية لا يؤثر على الحالات التي نشرتها من قبل.</string>
-    <string name="st_people_selected">%d محدد</string>
+    <string name="st_audience_contacts">جهات الاتصال</string>
+    <string name="st_audience_except">جهات الاتصال باستثناء…</string>
+    <string name="st_audience_only">أشخاص محددون فقط…</string>
+    <string name="st_privacy_note">تسري هذه الإعدادات على الحالات التي تنشرها من الآن فصاعدًا فقط.</string>
+    <string name="st_privacy_who">من يمكنه مشاهدة حالاتك؟</string>
+    <string name="st_audience_contacts_sub">كل جهات الاتصال المسجّلة على دُرر</string>
+    <string name="st_audience_except_sub">جهات الاتصال ما عدا الأشخاص الذين تستثنيهم</string>
+    <string name="st_audience_only_sub">الأشخاص الذين تحددهم فقط</string>
+    <string name="st_people_selected">تم تحديد %d</string>
     <string name="st_choose_people">اختر الأشخاص</string>
     <string name="st_done">تم</string>
     <string name="st_replies_off">الردود متوقفة</string>
     <string name="st_allow_replies">السماح بالردود</string>
     <string name="st_video_too_long">مدة الفيديو حتى %d ثانية</string>
     <string name="st_status_label">حالة</string>
+    <string name="st_story_unavailable">الحالة لم تعد متاحة</string>
     <string name="st_just_now">الآن</string>
     <string name="st_minutes_ago">منذ %d د</string>
     <string name="st_hours_ago">منذ %d س</string>
     <string name="ch_chat_theme">ثيم المحادثة</string>
     <string name="ch_chat_theme_sub">الخلفية وألوان الفقاعات — بتظهر ليك إنت بس.</string>
-    <string name="ch_theme_dorr">دُر</string>
+    <string name="ch_theme_dorr">دُرر</string>
     <string name="ch_apply">تطبيق</string>
     <string name="ch_theme_sample_in">أهلاً! عامل إيه؟ 👋</string>
     <string name="ch_theme_sample_out">تمام الحمد لله 😊</string>
@@ -522,11 +528,11 @@
     <string name="ch_contact_saved">اتحفظ في جهات اتصالك</string>
     <string name="ch_message">مراسلة</string>
     <string name="ch_call">اتصال</string>
-    <string name="ch_number_not_on_dorr">%1$s لسه مش على دُر</string>
-    <string name="ch_search_country">دوّر على دولة أو كود</string>
-    <string name="ch_search_contacts">دوّر بالاسم أو الرقم</string>
-    <string name="ch_group_empty_title">لسه مفيش حد من جهات اتصالك على دُر</string>
-    <string name="ch_group_empty_sub">ضيف الناس للجروب برقم موبايلهم، أو ادعي صحابك يدخلوا دُر.</string>
+    <string name="ch_number_not_on_dorr">%1$s لسه مش على دُرر</string>
+    <string name="ch_search_country">ابحث باسم الدولة أو الكود</string>
+    <string name="ch_search_contacts">ابحث بالاسم أو رقم الهاتف</string>
+    <string name="ch_group_empty_title">لسه مفيش حد من جهات اتصالك على دُرر</string>
+    <string name="ch_group_empty_sub">ضيف الناس للجروب برقم موبايلهم، أو ادعي صحابك يدخلوا دُرر.</string>
     <string name="ch_invite_friends">ادعي صحابك</string>
     <string name="ch_add_to_group">ضيفه للجروب</string>
     <string name="ch_poll">استطلاع</string>
@@ -572,13 +578,13 @@
     <string name="ch_location_open_settings">افتح إعدادات الموقع</string>
     <string name="ch_location_try_again">حاول تاني</string>
     <string name="ch_location_denied_title">محتاجين إذن الموقع</string>
-    <string name="ch_location_denied_sub">اسمح لدُر إنه يستخدم موقعك من إعدادات التطبيق.</string>
+    <string name="ch_location_denied_sub">اسمح لدُرر إنه يستخدم موقعك من إعدادات التطبيق.</string>
     <string name="ch_open_app_settings">افتح إعدادات التطبيق</string>
     <string name="ch_contact_call">اتصال</string>
     <string name="ch_contact_save">حفظ</string>
     <string name="ch_contact_copy">نسخ الرقم</string>
-    <string name="ch_contact_on_dorr">موجود على دُر</string>
-    <string name="ch_contact_not_on_dorr">غير موجود على دُر</string>
+    <string name="ch_contact_on_dorr">موجود على دُرر</string>
+    <string name="ch_contact_not_on_dorr">غير موجود على دُرر</string>
     <string name="ch_phone_mobile">موبايل</string>
     <string name="ch_number_copied">اتنسخ الرقم</string>
     <string name="ch_not_in_contacts">رقم غير محفوظ</string>
@@ -598,7 +604,7 @@
     <string name="ch_theme_message_colors">ألوان الرسائل</string>
     <string name="ch_theme_my_bubbles">رسائلي</string>
     <string name="ch_theme_their_bubbles">رسائله</string>
-    <string name="ch_theme_reset">رجوع لشكل دُر</string>
+    <string name="ch_theme_reset">رجوع لشكل دُرر</string>
     <string name="ch_folder_pick_title">اختار المحادثات</string>
     <string name="ch_folder_edit_chats">إضافة أو إزالة محادثات</string>
     <string name="ch_folder_empty_title">الفولدر ده فاضي</string>
@@ -607,7 +613,7 @@
     <string name="ch_folder_saved">%1$d محادثة في الفولدر</string>
     <string name="ch_channel_invite_contacts">دعوة من جهات الاتصال</string>
     <string name="ch_channel_invite_sub">هيوصلهم لينك القناة في رسالة، وهما يختاروا يتابعوها.</string>
-    <string name="ch_channel_invite_text">تابع قناة %1$s على دُر: %2$s</string>
+    <string name="ch_channel_invite_text">تابع قناة %1$s على دُرر: %2$s</string>
     <string name="ch_channel_invite_send">إرسال الدعوة (%1$d)</string>
     <string name="ch_channel_invited">اتبعتت الدعوة لـ %1$d</string>
     <string name="ch_unlock_chat">إلغاء قفل المحادثة</string>
@@ -829,7 +835,7 @@
     <string name="ch_verify_title">خد علامة التوثيق</string>
     <string name="ch_verify_sub">علامة ✔ جنب اسم قناتك عشان المتابعين يعرفوا إنها إنت فعلًا. بتفضل طول ما اشتراكك شغال.</string>
     <string name="ch_verified_until">موثّقة لحد %1$s</string>
-    <string name="ch_verified_by_dorr">موثّقة من دُر</string>
+    <string name="ch_verified_by_dorr">موثّقة من دُرر</string>
     <string name="ch_verify_continue">كمّل للدفع</string>
     <string name="ch_verify_no_plans">التوثيق لسه مش متاح في دولتك.</string>
     <!-- Public stories on the home page (ج.1). -->
@@ -853,7 +859,7 @@
     <string name="st_voice_preview">اسمع التسجيل قبل ما تنشره</string>
     <string name="st_my_public">استوريتي</string>
     <string name="st_add_public">أضف</string>
-    <string name="st_dorr">دُر</string>
+    <string name="st_dorr">دُرر</string>
     <string name="st_open_link">افتح</string>
     <string name="st_public_full">مسموحلك بـ %1$d استوري عامة في نفس الوقت — امسحها عشان تنزّل جديدة</string>
     <!-- Threads, decisions, circles, broadcast lists, smart quiet. -->
@@ -986,7 +992,7 @@
     </string-array>
     <!-- دُرر AI في الشات: البحث بالمعنى، والمتابعة في محادثة تانية، والذاكرة، وصور الذكاء الاصطناعي -->
     <string name="ch_ai_meaning_toggle">بالمعنى</string>
-    <string name="ch_ai_meaning_terms">دوّرنا كمان على: %1$s</string>
+    <string name="ch_ai_meaning_terms">بحثنا أيضًا عن: %1$s</string>
     <string name="ch_ai_capsule_title">كمّل في محادثة تانية</string>
     <string name="ch_ai_capsule_sub">ملخص للمحادثة دي عشان تكمّل الشغل في مكان تاني</string>
     <string name="ch_ai_capsule_note">عدّله زي ما تحب. مش هيتبعت غير للمحادثات اللي تختارها.</string>
@@ -1015,7 +1021,7 @@
     <string name="cl_cancel">إلغاء الرابط</string>
     <string name="cl_cancelled">اللينك اتلغى</string>
     <string name="cl_works_until">شغال لحد %1$s</string>
-    <string name="cl_share_text">ادخل مكالمتي على دُر: %1$s</string>
+    <string name="cl_share_text">ادخل مكالمتي على دُرر: %1$s</string>
     <string name="cl_in_call">انت في مكالمة دلوقتي</string>
     <!-- مشاركة الشاشة في المكالمة -->
     <string name="ch_call_share_failed">مقدرناش نشارك شاشتك</string>
@@ -1258,7 +1264,7 @@
     <string name="cl_quizzes">الاختبارات</string>
     <string name="cl_sessions">الحصص</string>
     <string name="cl_setup_hint">جهّز الفصل: ضيف ترمات أو مجموعات فرعية (اختياري) من أدوات الجروب، وادّي الأدوار للمعلمين. تقدر تتخطى ده.</string>
-    <string name="cl_search_lessons">دوّر في الدروس</string>
+    <string name="cl_search_lessons">ابحث في الدروس</string>
     <string name="cl_lessons_empty">لسه مفيش دروس.</string>
     <string name="cl_assignments_empty">لسه مفيش واجبات.</string>
     <string name="cl_quizzes_empty">لسه مفيش اختبارات.</string>

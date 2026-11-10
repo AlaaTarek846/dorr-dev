@@ -13,17 +13,24 @@
     <string name="onboarding_account_title">Your account</string>
     <string name="onboarding_account_body">Keep your details, addresses, and preferences.</string>
 
-    <string name="login_title">Sign In</string>
-    <string name="login_subtitle">Enter your phone number and we\'ll send a verification code</string>
+    <string name="login_title">Welcome to Dorr</string>
+    <string name="login_subtitle">Enter your phone number and we\'ll send you a verification code to sign in or create a new account.</string>
     <string name="login_hint">6000 0000</string>
     <string name="login_cta">Send verification code</string>
     <string name="login_country_code">Country code</string>
     <string name="login_country_search">Search country</string>
-    <string name="login_terms">I agree to the Terms of Use and Privacy Policy</string>
-    <string name="login_terms_prefix">I agree to the </string>
+    <string name="login_terms">By continuing, you agree to the Terms of Use and Privacy Policy</string>
+    <string name="login_terms_prefix">"By continuing, you agree to the "</string>
     <string name="login_terms_use">Terms of Use</string>
-    <string name="login_terms_mid"> and </string>
+    <string name="login_terms_mid">" and "</string>
     <string name="login_terms_privacy">Privacy Policy</string>
+    <!-- The phone field: its label, and under it what a number looks like («10 digits starting with 1»). -->
+    <string name="login_phone_label">Phone number</string>
+    <plurals name="login_phone_digits">
+        <item quantity="one">%1$s digit</item>
+        <item quantity="other">%1$s digits</item>
+    </plurals>
+    <string name="login_phone_starts">starting with %1$s</string>
     <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
     <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
     <string name="login_error_phone_invalid_country">The selected country or dial code is invalid.</string>
@@ -32,11 +39,12 @@
     <string name="session_expired_message">Your session has expired. Please sign in again to continue.</string>
 
     <string name="otp_title">Verify your phone</string>
-    <string name="otp_subtitle">Enter the code sent to %1$s</string>
+    <string name="otp_subtitle">Enter the %1$s-digit code we sent to</string>
     <string name="otp_verify">Verify</string>
-    <string name="otp_resend">Resend code</string>
-    <string name="otp_resend_in">Resend in %1$d seconds</string>
-    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 1234</string>
+    <string name="otp_resend">Resend</string>
+    <string name="otp_resend_question">Didn\'t get the code?</string>
+    <string name="otp_resend_in">You can resend in</string>
+    <string name="otp_dev_hint">For testing: 1234</string>
     <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
 
     <string name="home_greeting">Hello, %1$s</string>
@@ -224,6 +232,7 @@
     <string name="account_restore_action">Restore Account</string>
     <string name="account_restore_title">Restore your account</string>
     <string name="account_restore_message">Your account was deleted. Enter the code to restore it.</string>
+    <string name="otp_restore_subtitle">Your account was deleted. Enter the %1$s-digit code we sent to</string>
     <string name="logout_confirm_message">Are you sure you want to sign out?</string>
     <string name="delete_confirm_message">Your account and all data will be permanently deleted. You can recover your account by logging in again with the same phone number. Are you sure?</string>
 

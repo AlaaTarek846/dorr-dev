@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.chat
 
+import kotlinx.coroutines.flow.distinctUntilChanged
 import android.app.Activity
 import android.net.Uri
 import android.view.WindowManager
@@ -553,29 +554,91 @@ private fun BurstEmoji(b: Burst, onDone: () -> Unit) {
 
 // ------------------------------------------------------------------------------- viewers
 
+/**
+ * Who watched my status: the title with how many in all, then the people — newest first, 15 at a time, the next 15
+ * as I scroll — each with when they watched and the emoji they reacted with.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ViewersSheet(story: StoryDto, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var viewers by remember { mutableStateOf<List<StoryViewerDto>?>(null) }
-    LaunchedEffect(story.id) { viewers = runCatching { ApiClient.chat.storyViewers(chatAuth(), story.id).data }.getOrNull().orEmpty() }
+    var total by remember { mutableStateOf<Int?>(null) }
+    var page by remember { mutableStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching { ApiClient.chat.storyViewers(chatAuth(), story.id, page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        viewers = if (reset) chunk else viewers.orEmpty() + chunk
+        total = envelope?.pagination?.total ?: total
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+    LaunchedEffect(story.id) { loadPage(reset = true) }
+    // Near the end of the list → the next 15.
+    LaunchedEffect(listState, viewers?.size, hasMore) {
+        androidx.compose.runtime.snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().collect { near -> if (near) scope.launch { loadPage(reset = false) } }
+    }
+
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             val list = viewers
-            Text(stringResource(R.string.st_viewers, list?.size ?: story.views ?: 0), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(12.dp))
+            // The title with its icon · how many watched, at the other end.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(Icons.Rounded.Visibility, Ch.Red, size = 38)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.st_viewers_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                val count = total ?: list?.size ?: story.views ?: 0
+                Row(
+                    Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Visibility, null, tint = Ch.Red, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("$count", color = Ch.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
             when {
-                list == null -> com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(120.dp))
-                list.isEmpty() -> Text(stringResource(R.string.st_no_views), color = Ch.Soft, modifier = Modifier.padding(vertical = 24.dp))
-                else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    itemsIndexed(list) { i, v ->
-                        Row(Modifier.fillMaxWidth().chStagger(i).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            ChAvatar(v.viewer?.avatar, v.viewer?.name, v.viewer?.key, size = 44.dp)
+                list == null -> com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(160.dp))
+                list.isEmpty() -> Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(56.dp).clip(CircleShape).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Visibility, null, tint = Ch.Soft, modifier = Modifier.size(26.dp))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.st_no_views), color = Ch.Mut, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp), state = listState) {
+                    itemsIndexed(list, key = { i, v -> "${v.viewer?.key ?: i}:${v.viewedAt}" }) { i, v ->
+                        Row(Modifier.fillMaxWidth().chStagger(i.coerceAtMost(14)).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ChAvatar(v.viewer?.avatar, v.viewer?.name, v.viewer?.key, size = 46.dp)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(v.viewer?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold)
+                                Text(ltrTitle(v.viewer?.name), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
                                 Text(timeAgo(v.viewedAt), color = Ch.Mut, fontSize = 12.sp)
                             }
-                            v.reaction?.let { Text(it, fontSize = 24.sp) }
+                            // Their reaction, in a soft round badge.
+                            v.reaction?.let {
+                                Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                                    Text(it, fontSize = 22.sp)
+                                }
+                            }
+                        }
+                    }
+                    if (loadingMore) item {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                         }
                     }
                 }

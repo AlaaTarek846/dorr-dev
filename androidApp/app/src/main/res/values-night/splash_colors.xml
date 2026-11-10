@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's dark background (the admin's dark `background`, BundledAppearance.dark). -->
+    <color name="splash_bg">#111928</color>
+    <!-- The circle behind the mark by night: the app's dark card colour (a light circle would hide the mark's white R). -->
+    <color name="splash_icon_bg">#1F2937</color>
+</resources>

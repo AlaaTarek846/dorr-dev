@@ -30,14 +30,27 @@ import java.util.Locale
  * X-Locale header (via [AppLocale.current]) and the app's own UI strings.
  */
 object AppLanguagePreferences {
-    const val DEFAULT = "ar"
-
     private const val PREFS_NAME = "dorr_app_prefs"
     private const val KEY_LOCALE = "locale"
 
-    fun get(context: Context): String =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_LOCALE, DEFAULT) ?: DEFAULT
+    /**
+     * The saved choice. The very first launch has none: the phone's language when the app ships it (Arabic or
+     * English), English for any other — saved at once, so it stays put until the user picks another in the app.
+     */
+    fun get(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.getString(KEY_LOCALE, null)?.let { return it }
+        val first = phoneLanguage()
+        prefs.edit().putString(KEY_LOCALE, first).apply()
+        return first
+    }
+
+    /** The phone's own language (not the app's), mapped to one the app ships: ar, else en. */
+    private fun phoneLanguage(): String {
+        val phone = runCatching { android.content.res.Resources.getSystem().configuration.locales[0].language }
+            .getOrNull().orEmpty().lowercase()
+        return if (phone == "ar") "ar" else "en"
+    }
 
     fun save(context: Context, code: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

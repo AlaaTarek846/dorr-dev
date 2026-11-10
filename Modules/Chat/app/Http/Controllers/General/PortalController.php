@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Controllers\General;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Models\Language;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Chat\Models\ChatCategory;
@@ -50,10 +51,28 @@ class PortalController extends Controller
         return ApiResponse::success($rows, __('api.retrieved'));
     }
 
-    /** GET chat/portals?search=&category_id= — grouped by category. */
+    /**
+     * GET chat/portals?search=&category_ids[]=&page=&per_page= — with `page`: one list, 15 at a time (the app loads
+     * more as it scrolls). Without it: every listed portal grouped by category (older apps; `category_id` = one category).
+     */
     public function index(Request $request)
     {
-        $data = $request->validate(['search' => ['nullable', 'string', 'max:60'], 'category_id' => ['nullable', 'integer']]);
+        $data = $request->validate([
+            'search' => ['nullable', 'string', 'max:60'],
+            'category_id' => ['nullable', 'integer'],
+            'category_ids' => ['nullable', 'array', 'max:50'],
+            'category_ids.*' => ['integer'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        if (isset($data['page'])) {
+            $ids = collect($data['category_ids'] ?? [])->push($data['category_id'] ?? null)
+                ->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+            $page = $this->portals->page($data['search'] ?? null, $ids, (int) $data['page'], (int) ($data['per_page'] ?? 15));
+
+            return ApiResponse::success($page->getCollection()->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
+        }
 
         return ApiResponse::success($this->portals->directory($data['search'] ?? null, isset($data['category_id']) ? (int) $data['category_id'] : null), __('api.retrieved'));
     }
@@ -135,7 +154,9 @@ class PortalController extends Controller
             'translations.*.locale' => ['required', 'string', 'max:10'],
             'translations.*.name' => ['nullable', 'string', 'max:120'],
             'translations.*.description' => ['nullable', 'string', 'max:2000'],
-            'logo' => [$creating ? 'required' : 'nullable', 'image', 'max:5120'],
+            // Optional: a portal without a logo shows the shop icon. `remove_logo` takes the current one off.
+            'logo' => ['nullable', 'image', 'max:5120'],
+            'remove_logo' => ['sometimes', 'boolean'],
         ]);
     }
 

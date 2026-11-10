@@ -8,7 +8,7 @@ return [
     'join_request_rejected' => 'تم رفض الطلب.',
 
     // The name on Dorr's own stories circle (home page).
-    'dorr_stories_name' => 'دُر',
+    'dorr_stories_name' => 'دُرر',
 
     'broadcast_sent' => 'اتبعتت لـ :count شخص.',
 
@@ -233,7 +233,7 @@ return [
         'public_story_limit' => 'مسموحلك بـ :max استوري عامة في نفس الوقت. امسحها عشان تنزّل واحدة جديدة.',
         'public_stories_disabled' => 'الاستوريهات العامة متوقفة دلوقتي.',
         'portal_not_found' => 'البوابة دي مش موجودة.',
-        'portal_disabled' => 'البوابة دي اتقفلت من فريق دُر.',
+        'portal_disabled' => 'البوابة دي اتقفلت من فريق دُرر.',
         'portal_limit' => 'تقدر يكون عندك لحد :max بوابة.',
         'portal_name_required' => 'اكتب اسم البوابة بلغة واحدة على الأقل.',
         'package_unavailable' => 'الباقة دي مش متاحة في دولتك.',
@@ -351,7 +351,7 @@ return [
         'invalid_gallery' => 'نوع المعرض غير معروف.',
         'wallet_transfer_not_found' => 'التحويل غير موجود في محفظتك.',
         'wallet_not_found' => 'ليس لديك محفظة في هذه الدولة بعد.',
-        'user_not_found' => 'لا يوجد حساب على دُر.',
+        'user_not_found' => 'لا يوجد حساب على دُرر.',
         'invalid_qr' => 'رمز QR غير صالح.',
         'invite_invalid' => 'رابط الدعوة لم يعد صالحاً.',
         'calls_disabled' => 'المكالمات متوقفة.',
@@ -590,7 +590,7 @@ return [
         'handoff_done' => ':name خلّصها ✅',
         'handoff_cancelled' => ':name سحبها',
         'agreement_declined' => ':name ماوافقش',
-        'new_message_title' => 'دُر',
+        'new_message_title' => 'دُرر',
         'new_message_body' => 'رسالة جديدة',
         'incoming_voice_call' => 'مكالمة صوتية واردة',
         'incoming_video_call' => 'مكالمة فيديو واردة',

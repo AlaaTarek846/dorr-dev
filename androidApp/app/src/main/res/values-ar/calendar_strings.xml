@@ -69,8 +69,8 @@
     <string name="cal_all_day_reminders_sub">بتتطبق على المواعيد اللي طول اليوم.</string>
     <string name="cal_respect_quiet">استنى لما وقت الهدوء يخلص</string>
     <string name="cal_respect_quiet_sub">التذكيرات اللي في وقت الهدوء بتوصل لما يخلص.</string>
-    <string name="cal_search_hint">دوّر في المواعيد والمهام والمناسبات…</string>
-    <string name="cal_search_sub">الرسايل مش بيتدوّر فيها هنا.</string>
+    <string name="cal_search_hint">ابحث في المواعيد والمهام والمناسبات…</string>
+    <string name="cal_search_sub">البحث هنا لا يشمل الرسائل.</string>
     <string name="cal_search_none">مفيش نتايج</string>
     <string name="cal_search_none_sub">جرّب كلمة تانية.</string>
     <string name="cal_menu_sources_sub">المواعيد والمناسبات والتواريخ الشخصية والمهام وتذكيرات الرسايل.</string>
@@ -117,7 +117,7 @@
     <string name="cal_section_empty">مفيش حاجة النهاردة</string>
     <string name="cal_section_hidden">مخفي من يومك</string>
     <string name="cal_section_source_off">مش ظاهر: مصادره مقفولة</string>
-    <string name="cal_search_idle">دوّر في تقويمك</string>
+    <string name="cal_search_idle">ابحث في تقويمك</string>
     <string name="cal_search_idle_sub">مواعيد ومهام ومناسبات وفعاليات ومباريات.</string>
     <plurals name="cal_section_count">
         <item quantity="zero">مفيش حاجة النهاردة</item>

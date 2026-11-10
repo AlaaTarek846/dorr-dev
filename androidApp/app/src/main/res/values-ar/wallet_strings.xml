@@ -275,7 +275,7 @@
     <string name="wa_checkout_pin_sub">اكتب الرقم السري للدفع</string>
     <string name="wa_checkout_total">الإجمالي</string>
     <string name="wa_checkout_from_wallet">ادفع من محفظتك</string>
-    <string name="wa_checkout_wallet">محفظة دُر</string>
+    <string name="wa_checkout_wallet">محفظة دُرر</string>
     <string name="wa_checkout_balance">الرصيد %1$s %2$s</string>
     <string name="wa_checkout_short">ينقصك %1$s %2$s</string>
     <string name="wa_checkout_top_up">اشحن</string>

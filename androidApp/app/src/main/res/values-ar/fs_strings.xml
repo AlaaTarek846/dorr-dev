@@ -76,7 +76,7 @@
     <string name="fs_tp_new">قائمة جديدة</string>
     <string name="fs_tp_rename">غيّر الاسم</string>
     <string name="fs_tp_delete">امسح القائمة</string>
-    <string name="fs_tp_delete_confirm">“%1$s” هتتمسح. المستقلين فاضلين على دُرّ، قائمتك إنت بس اللي بتتشال.</string>
+    <string name="fs_tp_delete_confirm">“%1$s” هتتمسح. المستقلين فاضلين على دُرر، قائمتك إنت بس اللي بتتشال.</string>
     <string name="fs_tp_empty">مفيش قوايم لسه. اعمل واحدة زي “مصممين أثق فيهم” واحفظ فيها مستقلين.</string>
     <string name="fs_tp_count">%1$d مستقل</string>
     <string name="fs_tp_max">تقدر تعمل لحد %1$d قوايم.</string>

@@ -331,15 +331,15 @@ The log records:
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `stories` | `page`, `per_page` | `{mine, recent, muted, has_more}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first. `per_page` default 15; later pages append more people on the bar |
-| POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `public`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours`. `public`: also on the home page for everyone, up to `public_stories_free` running (`chat_public_story_limit` with `data.max`; `chat_public_stories_disabled` when the admin turned them off) |
+| POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `public`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours`. `public`: also on the home page for everyone, up to `public_stories_free` running (`chat_public_story_limit` with `data.max`; `chat_public_stories_disabled` when the admin turned them off) | `thumbnail` (jpeg/png/webp ≤ 2 MB): a video's poster frame — the picture in quotes of it (`story_meta.thumbnail`).
 | GET | `stories/public` | `page`, `per_page` | The home page: `{enabled, quota: {free, used}, mine, dorr, people[], has_more}`. With `per_page` (the app uses 10) the people come a page at a time (later pages: `mine` and `dorr` null); without it, everyone at once. `dorr` is Dorr's own stories as one group (`owner.type` = `dorr`, stories with `is_dorr`, `link_url`, `link_label`). `people` = everyone's public stories, the unseen first (most viewed + reacted first), the seen at the back; muted and blocked people left out. **`owner.phone` is null** unless I saved them or a direct chat between us was accepted |
 | POST | `stories/dorr/{id}/view` | | One of Dorr's stories watched (counted once per person) |
 | PATCH | `privacy` | also `quiet_schedule` `{from, to, days[], timezone}` (null = off), `quiet_scope` = all\|groups | **Smart quiet (spec 115):** in those times, messages that aren't urgent make no notification; `chat:quiet-digest` (every minute) sends one summary when the time is over. Calls and urgent messages come through. `privacy` answers `quiet: {on, schedule, scope}` |
 | DELETE | `stories/{id}` | | Mine only |
 | POST | `stories/{id}/view` | | Idempotent. When my read receipts are off, the owner isn't told |
-| PUT | `stories/{id}/reaction` | `emoji` | |
+| PUT | `stories/{id}/reaction` | `emoji` | | A new emoji (not the same one again) also sends a `story_reply` message with that emoji to our private chat, quoting the status, when replies are on — as in WhatsApp.
 | POST | `stories/{id}/reply` | `body` | Becomes a `story_reply` message in our direct chat, with a snapshot of the story in `meta` |
-| GET | `stories/{id}/viewers` | | Owner only. Returns an empty list when the owner's own read receipts are off |
+| GET | `stories/{id}/viewers` | `page`, `per_page` (≤ 50, default 15) | Owner only, newest first. With `page`: paginated (`pagination.total`, `has_more_pages`) — the apps load 15 more as the sheet scrolls; without it, the whole list. Empty when the owner's own read receipts are off |
 | GET / PUT | `stories/privacy` | `audience` = contacts\|except\|only, `except[]`, `only[]` (user ids) | The audience is frozen per story when it's posted |
 | POST | `stories/mute` | `participant_id`, `muted` | Returns the updated feed. Also hides them from the home page's public stories |
 
@@ -409,12 +409,12 @@ Anyone adds their website as a **portal** (logo, name and description per langua
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `categories` | | `[{id, name, icon}]` — the admin's list, for channels and portals |
-| GET | `portals?search=&category_id=` | | The page: `[{category, portals: [{id, name, description, logo, website_url, category, views_count}]}]`, listed portals only, most viewed first in each category |
+| GET | `portals?page=&per_page=&search=&category_ids[]=` | | The page, **one list 15 at a time** (`per_page` 1–50): `[{id, name, description, logo, website_url, category, views_count}]` + `pagination`, listed portals only, most viewed first. `category_ids[]` = several categories (none = all); `search` matches name or description in any language. **Without `page`** (older apps): every listed portal grouped `[{category, portals: […]}]` (`category_id` = one category, up to 500) |
 | GET | `portals/mine` | | Mine, listed or not, + `status` (false = switched off by the admin), `is_listed`, `listed_until`, `translations[]` |
 | GET | `portals/packages` | | Listing packages priced in my country: `[{id, kind, name, description, period, period_count, amount_minor, currency_code}]` |
 | GET | `portals/languages` | | The languages the name/description are kept in (one tab each), the app's one first |
-| POST | `portals` (multipart) | `website_url`, `category_id?`, `translations[i][locale/name/description]`, `logo` | `201`. A language left without a name is skipped; at least one is needed (`chat_portal_name_required`). `chat_portal_limit` past 20 |
-| GET / POST / DELETE | `portals/{id}` | (POST: same fields, `logo` optional) | Mine only (`chat_portal_not_found`) |
+| POST | `portals` (multipart) | `website_url`, `category_id?`, `translations[i][locale/name/description]`, `logo?` (optional — the page shows the shop icon without one) | `201`. A language left without a name is skipped; at least one is needed (`chat_portal_name_required`). `chat_portal_limit` past 20 |
+| GET / POST / DELETE | `portals/{id}` | (POST: same fields, `logo` optional; `remove_logo=1` takes the current logo off; `category_id` empty = no category) | Mine only (`chat_portal_not_found`) | GET also returns `history[]` — `{package, amount_minor, currency_code, paid_at, starts_at, ends_at, is_running, state: running \| upcoming \| ended}`, newest first.
 | POST | `portals/{id}/open` | | One view per person per day (never the owner's own); answers the card with `website_url` to open |
 | POST | `portals/translate` | `from`, `name`, `description?` | `{"ar": {"name", "description"}, …}` for every other language (AI; `chat_ai_unavailable` / `chat_ai_failed`) |
 
