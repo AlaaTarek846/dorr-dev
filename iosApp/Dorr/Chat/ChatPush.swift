@@ -12,6 +12,8 @@ enum ChatDeepLink: Equatable {
     case conversation(String)
     /// A ride notification: the rides screen on that ride (ended: the receipt and the rating).
     case ride(String)
+    /// A furniture move's notification (`moving_*`): its request page.
+    case moving(String)
     /// A booked service's notification (bus, boat, driver, lessons, points): that booking.
     case service(kind: String, uuid: String?)
     case call(id: String, conversationId: String?)
@@ -127,6 +129,7 @@ final class ChatPush: NSObject, ObservableObject {
         if type == "watch_earn" { return .watchEarn(event: event ?? "", adId: s("ad_id"), role: s("role")) }
         if let conversation { return .conversation(conversation) }
         if type == "ride", let ride = s("ride_uuid") { return .ride(ride) }
+        if let type, type.hasPrefix("moving_"), let request = s("request") { return .moving(request) }
         if let event, event.hasPrefix("freelance.") {
             return .freelance(FreelanceLink.pageFor(event: event, project: s("project"), offer: s("offer"), dispute: s("dispute"), consultation: s("consultation"), specialOffer: s("special_offer"), service: s("service")))
         }

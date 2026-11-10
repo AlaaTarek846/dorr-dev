@@ -3,9 +3,12 @@ import SwiftUI
 // MARK: - Launching it
 
 /// Something to pay for: a purpose the server knows, and what it's about (the server prices it).
+/// `checkoutId`: the service's own endpoint already made the checkout (accepting a moving offer): open that one
+/// instead of making another.
 struct CheckoutRequest: Equatable {
     let purpose: String
     let reference: [String: JSONValue]
+    var checkoutId: String? = nil
 }
 
 /// Survives leaving the page (to top up) and coming back: it lives in the route, not the page.
@@ -179,8 +182,8 @@ struct WalletCheckout: View {
         await host.refreshBalance()
         do {
             let fresh: CheckoutDto?
-            if let existing = state.checkout {
-                fresh = try await WalletApi.checkout(uuid: existing.id).data
+            if let existingId = state.checkout?.id ?? state.request.checkoutId {
+                fresh = try await WalletApi.checkout(uuid: existingId).data
             } else {
                 fresh = try await WalletApi.createCheckout(CheckoutCreateRequest(purpose: state.request.purpose, reference: state.request.reference)).data
             }

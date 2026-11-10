@@ -340,6 +340,10 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            // FS-150d: reading a team's internal chat about a disputed project - its own permission, not given with the disputes desk.
+            'freelance-internal-chat' => ['module_name' => 'freelance', 'actions' => ['view']],
+            // FS-208: the freelancers' teams desk.
+            'freelance-teams' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-reviews' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-message-reports' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],

@@ -39,6 +39,9 @@ final class ChatRealtime: NSObject, ObservableObject {
     /// A ride's private channel while its screen is open: status, the car's place, its chat.
     static let rideEvents = ["ride.changed", "ride.message", "ride.driver_location"]
 
+    /// A move's private channel while its pages are open (`private-moving.{uuid}`): it changed (reload once), and the truck's place.
+    static let movingEvents = ["moving.changed", "moving.driver_location"]
+
     /// One Watch & Earn ad while its comments are open (`private-watch-earn.ad.{uuid}`): comments and reaction counts.
     static let watchEarnAdEvents = ["watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions"]
 
@@ -53,7 +56,13 @@ final class ChatRealtime: NSObject, ObservableObject {
     private var starting = false
     private var heartbeat: Task<Void, Never>?
     private var watchedRides = Set<String>()
+    private var watchedMoves = Set<String>()
     private var watchedAds = Set<String>()
+    /// A project's Workroom while it is open (`private-freelance-workroom.{project uuid}`, FS-150e): `freelance.workroom` arrives on
+    /// `events` as `{kind: task|file|comment|decision, action, uuid, by}` plus the `project` it is about (added here). The count is how
+    /// many open screens listen to that project, so the channel is left when the last one closes. (Android: `WORKROOM_EVENT`.)
+    static let workroomEvent = "freelance.workroom"
+    private var watchedWorkrooms: [String: Int] = [:]
     private var publicChannels: [String: [String]] = [:]
 
     /// Connect (idempotent) for the signed-in user.
@@ -104,7 +113,9 @@ final class ChatRealtime: NSObject, ObservableObject {
         }
         publicChannels.forEach { subscribePublic(client, $0.key, $0.value) }
         watchedRides.forEach { subscribeRide(client, $0) }
+        watchedMoves.forEach { subscribeMove(client, $0) }
         watchedAds.forEach { subscribeAd(client, $0) }
+        watchedWorkrooms.keys.forEach { subscribeWorkroom(client, $0) }
     }
 
     private func bind(_ channel: PusherChannel, _ names: [String]) {
@@ -142,6 +153,19 @@ final class ChatRealtime: NSObject, ObservableObject {
         bind(client.subscribe("private-rides.\(uuid)"), Self.rideEvents)
     }
 
+    /// Listen to one move (`moving.changed`, `moving.driver_location` arrive on `events`). Safe before the connection is up.
+    func watchMoving(_ uuid: String) {
+        if watchedMoves.insert(uuid).inserted, let pusher { subscribeMove(pusher, uuid) }
+    }
+
+    func unwatchMoving(_ uuid: String) {
+        if watchedMoves.remove(uuid) != nil { pusher?.unsubscribe("private-moving.\(uuid)") }
+    }
+
+    private func subscribeMove(_ client: Pusher, _ uuid: String) {
+        bind(client.subscribe("private-moving.\(uuid)"), Self.movingEvents)
+    }
+
     /// Listen to one Watch & Earn ad (its comments sheet is open). Safe before the connection is up.
     func watchWatchEarnAd(_ uuid: String) {
         if watchedAds.insert(uuid).inserted, let pusher { subscribeAd(pusher, uuid) }
@@ -163,13 +187,44 @@ final class ChatRealtime: NSObject, ObservableObject {
 
     func unwatchFreelanceRoom(_ uuid: String) { pusher?.unsubscribe("private-freelance-chat.\(uuid)") }
 
+    /// Listen to a project's Workroom (its screens are open). Safe before the connection is up; call `unwatchWorkroom` when the screen leaves.
+    func watchWorkroom(_ project: String) {
+        let count = (watchedWorkrooms[project] ?? 0) + 1
+        watchedWorkrooms[project] = count
+        if count == 1, let pusher { subscribeWorkroom(pusher, project) }
+    }
+
+    func unwatchWorkroom(_ project: String) {
+        guard let count = watchedWorkrooms[project] else { return }
+        if count <= 1 {
+            watchedWorkrooms.removeValue(forKey: project)
+            pusher?.unsubscribe("private-freelance-workroom.\(project)")
+        } else {
+            watchedWorkrooms[project] = count - 1
+        }
+    }
+
+    private func subscribeWorkroom(_ client: Pusher, _ project: String) {
+        let name = Self.workroomEvent
+        let channel = client.subscribe("private-freelance-workroom.\(project)")
+        channel.bind(eventName: name) { [weak self] (event: PusherEvent) in
+            guard let raw = event.data, let data = try? JSONDecoder().decode(JSONAny.self, from: Data(raw.utf8)), case .object(var map) = data else { return }
+            // The payload names no project (the channel does): say it, so a screen can tell its own project's events.
+            map["project"] = .string(project)
+            let payload = JSONAny.object(map)
+            Task { @MainActor in self?.events.send(ChatEvent(name: name, data: payload)) }
+        }
+    }
+
     func stop() {
         heartbeat?.cancel()
         heartbeat = nil
         pusher?.disconnect()
         pusher = nil
         watchedRides.removeAll()
+        watchedMoves.removeAll()
         watchedAds.removeAll()
+        watchedWorkrooms.removeAll()
         userId = nil
         starting = false
         connected = false

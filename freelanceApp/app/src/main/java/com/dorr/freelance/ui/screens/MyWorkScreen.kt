@@ -3,6 +3,9 @@ package com.dorr.freelance.ui.screens
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -72,18 +75,44 @@ private val groups = listOf("all", "active", "completed", "disputes", "closed")
  * newest first, fifteen at a time while I scroll. Read when the tab opens, when a notice arrives and when the connection returns.
  */
 @Composable
-fun MyWorkTab(onBack: () -> Unit, onOpenProject: (String) -> Unit, embedded: Boolean = false) {
+fun MyWorkTab(onBack: () -> Unit, onOpenProject: (String) -> Unit, onOpenAgreement: (String) -> Unit = onOpenProject, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
     val scope = rememberCoroutineScope()
     var group by rememberSaveable { mutableStateOf("all") }
+    // FS-209b: «Me | My team» - the team's projects I reach, next to the ones I signed myself (only where the teams switch is on and I am in one).
+    val home by com.dorr.freelance.net.HomeHub.home.collectAsState()
+    val teamsOn = home?.on("teams") == true
+    var teams by remember { mutableStateOf<List<com.dorr.freelance.net.TeamSummaryDto>>(emptyList()) }
+    var scopeKey by rememberSaveable { mutableStateOf("me") }
+    var teamPick by rememberSaveable { mutableStateOf<String?>(null) }
     val paged = remember(group) { PagedRows<MyProjectDto>(15, { it.uuid }, { page -> apiCall { ApiClient.agreements.myProjects(page = page, perPage = 15, group = group) } }) }
 
     LaunchedEffect(reconnect, group) { paged.reload() }
     LaunchedEffect(group) { Realtime.changed.collect { paged.reload() } }
+    suspend fun loadTeams() {
+        if (!teamsOn) { teams = emptyList(); return }
+        (apiCall { ApiClient.teams.mine() } as? com.dorr.core.network.ApiResult.Ok)?.data?.let { d -> teams = d.teams.filter { it.status == "active" } }
+    }
+    LaunchedEffect(teamsOn, reconnect) { loadTeams() }
+    LaunchedEffect(teamsOn) { Realtime.changed.collect { loadTeams() } }
+    val team = teams.firstOrNull { it.uuid == teamPick } ?: teams.firstOrNull()
+    val teamScope = scopeKey == "team" && team != null
 
     TabPage(title = stringResource(R.string.work_title), onBack = onBack, onNearEnd = { scope.launch { paged.loadMore() } }, embedded = embedded) {
+        if (teams.isNotEmpty()) com.dorr.freelance.ui.kit.SegmentTabs(
+            listOf(
+                com.dorr.freelance.ui.kit.Segment("me", stringResource(R.string.tw_scope_me), Icons.Rounded.Person),
+                com.dorr.freelance.ui.kit.Segment("team", stringResource(R.string.tw_scope_team), Icons.Rounded.Groups),
+            ),
+            if (teamScope) "team" else "me", { scopeKey = it },
+        )
+        if (teamScope && team != null) {
+            if (teams.size > 1) com.dorr.freelance.ui.kit.FilterChips(teams.map { com.dorr.freelance.ui.kit.FilterOption(it.uuid, it.name) }, team.uuid, { teamPick = it })
+            TeamProjectsList(teamUuid = team.uuid, role = team.role, onOpenProject = onOpenAgreement)
+            return@TabPage
+        }
         com.dorr.freelance.ui.kit.FilterChips(groups.map { com.dorr.freelance.ui.kit.FilterOption(it, stringResource(workGroupLabel(it)), workGroupIcon(it)) }, group, { group = it })
         when {
             !paged.loaded && paged.failure == null -> SkeletonList()
@@ -132,7 +161,7 @@ private fun workEmptyBody(group: String) = when (group) {
     else -> R.string.work_empty_active_body
 }
 
-private fun statusColor(status: String): Color = when (status) {
+internal fun workStatusColor(status: String): Color = when (status) {
     "active" -> Color(0xFF2563EB)
     "completed" -> Color(0xFF16A34A)
     "pending_approval" -> Color(0xFFD97706)
@@ -140,7 +169,7 @@ private fun statusColor(status: String): Color = when (status) {
 }
 
 @Composable
-private fun statusLabel(status: String): String = stringResource(
+internal fun workStatusLabel(status: String): String = stringResource(
     when (status) {
         "active" -> R.string.work_status_active
         "completed" -> R.string.work_status_completed
@@ -157,7 +186,7 @@ private fun statusLabel(status: String): String = stringResource(
  */
 @Composable
 private fun MyProjectCard(p: MyProjectDto, onClick: () -> Unit) {
-    val tint = statusColor(p.status)
+    val tint = workStatusColor(p.status)
     val red = Color(0xFFDC2626)
     Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onClick)) {
         Box(Modifier.width(5.dp).fillMaxHeight().background(tint))
@@ -167,7 +196,7 @@ private fun MyProjectCard(p: MyProjectDto, onClick: () -> Unit) {
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(20.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                com.dorr.freelance.ui.kit.StatusPill(statusLabel(p.status), tint)
+                com.dorr.freelance.ui.kit.StatusPill(workStatusLabel(p.status), tint)
                 if (p.hasDispute) com.dorr.freelance.ui.kit.StatusPill(stringResource(R.string.work_dispute_badge), red, Icons.Rounded.Gavel)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {

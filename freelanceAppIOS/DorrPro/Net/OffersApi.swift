@@ -7,8 +7,10 @@ import Foundation
 enum OffersApi {
     private static let base = Api.freelance
 
-    static func preview(_ uuid: String, priceMinor: Int? = nil) async -> ApiResult<OfferPreviewDto> {
-        await Api.call("GET", base + "projects/\(uuid)/offer-preview", query: ["price_minor": priceMinor.map(String.init)])
+    /// `team`: FS-209b - a team I am Owner or PM of (the team's quota and checks decide then, not mine); `signer`: the Owner who signs,
+    /// when a PM sends for the team.
+    static func preview(_ uuid: String, priceMinor: Int? = nil, team: String? = nil, signer: String? = nil) async -> ApiResult<OfferPreviewDto> {
+        await Api.call("GET", base + "projects/\(uuid)/offer-preview", query: ["price_minor": priceMinor.map(String.init), "team": team, "signer": signer])
     }
 
     /// FL-304: what to fix (error) or think about (warning) before sending.
@@ -63,6 +65,14 @@ struct OfferPreviewDto: Decodable {
     var breakdown: OfferBreakdownDto?
     /// FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask).
     var loyalty: OfferLoyaltyDto?
+    /// FS-209b: the team's offers this month (asked with `team`; `limit` nil = no cap).
+    var teamQuota: TeamOfferQuotaDto?
+}
+
+struct TeamOfferQuotaDto: Decodable {
+    var limit: Int?
+    var used: Int?
+    var left: Int?
 }
 
 struct OfferLoyaltyDto: Decodable {
@@ -163,6 +173,25 @@ struct OfferDto: Decodable, Identifiable {
     /// FL-L13: who owns the work once it is paid and what the client may do with it (nil where the feature is off).
     var rights: RightsSummaryDto?
     var createdAt: String?
+    /// FS-209b: set when it is in a team's name - the team and the people on it.
+    var team: OfferTeamDto?
+    /// FS-209b: the PM who sent it, when it was not the Owner who signs.
+    var submittedBy: TeamPersonRefDto?
+}
+
+/// FS-209b: a team's offer. FS-213: a new offer names nobody (`members` empty); an older one keeps the people it named.
+struct OfferTeamDto: Decodable, Equatable {
+    var uuid: String?
+    var name: String?
+    var members: [OfferTeamMemberDto]?
+}
+
+struct OfferTeamMemberDto: Decodable, Equatable {
+    var name: String?
+    /// Default `executor`.
+    var role: String?
+    var responsibility: String?
+    var freelancer: String?
 }
 
 struct OfferAnswerDto: Decodable {

@@ -86,7 +86,13 @@ internal fun agreementStatusColor(status: String): Color = when (status) {
  * freelancer approves it (the work starts) or declines it (the client chooses again). Read once on open and on reconnect.
  */
 @Composable
-internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () -> Unit, onDispute: (milestone: String, dispute: String?) -> Unit = { _, _ -> }) {
+internal fun AgreementPage(
+    projectUuid: String, onBack: () -> Unit, onEnded: () -> Unit, onDispute: (milestone: String, dispute: String?) -> Unit = { _, _ -> },
+    /** FS-150e: opens the Workroom of this work (null: the page has none to open). */
+    onWorkroom: (() -> Unit)? = null,
+    /** FS-210: opens the profile of the team that does the work (null: the page has none to open). */
+    onTeam: ((String) -> Unit)? = null,
+) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -139,6 +145,8 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
     }
 
     fun act(block: suspend () -> FreelanceAgreementDto?, after: (() -> Unit)? = null) {
+        // Stay on the tab the person acted from: the default follows the buttons, and funding one part takes its button away.
+        if (tab == null) tab = if (agreement?.milestones?.any { it.can.fund || it.can.approve || it.can.revision || it.can.cancelAccept } == true) 1 else 0
         busy = true
         error = null
         notice = null
@@ -168,6 +176,8 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
         }
         val recordsKey = "${a.status}:${a.version}:" + a.milestones.joinToString(",") { it.status }
         val activity = a.status == "active" || a.status == "completed"
+        // FS-104: a member of the owner's team without `money` reads no amounts.
+        val showMoney = a.access?.money != false
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // The head: a band of its status colour, who, where it stands, the figures and the parts as steps.
             val sc = agreementStatusColor(a.status)
@@ -182,7 +192,9 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                         Icon(Icons.Rounded.Handshake, null, tint = sc, modifier = Modifier.size(24.dp))
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(a.freelancer?.name ?: "—", color = settingsInk(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                        // FS-210: a team's work is with the team; the person who signs for it is named in the team's card below.
+                        Text(a.team?.name ?: a.freelancer?.name ?: "—", color = settingsInk(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                        if (a.team != null) FreelancerTeamPill()
                         Text(
                             agreementStatusLabel(a.status), color = sc, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(sc.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp),
@@ -192,12 +204,23 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                 Text(stringResource(agreementHint(a.status)), color = settingsMut(), fontSize = 12.5.sp, lineHeight = 19.sp)
                 a.expiresAt?.let { FlNotice(stringResource(R.string.fl_ag_answer_by, "‎" + it.take(10)), Icons.Rounded.HourglassTop, Color(0xFFD97706)) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_total), "‎${money(a.money.totalMinor)} ${a.currency}", Modifier.weight(1.5f))
+                    FlStat(Icons.Rounded.Payments, stringResource(R.string.fl_total), if (showMoney) "‎${money(a.money.totalMinor)} ${a.currency}" else "—", Modifier.weight(1.5f))
                     FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_duration), stringResource(R.string.fl_days, a.durationDays), Modifier.weight(1f))
                 }
                 if (a.milestones.isNotEmpty() && activity) StageSteps(a.milestones) { tab = 1 }
                 }
             }
+            // FS-210: who does the work when it is a team: the people named on it, who signs for the team, and the team's profile.
+            a.team?.let { t ->
+                TeamWorkCard(
+                    t.members, signer = a.freelancer?.name, title = stringResource(R.string.fteam_agreement_title),
+                    onProfile = onTeam?.let { open -> { open(t.uuid) } },
+                )
+            }
+            // FS-104: someone else's project - whose it is, my role, and (a delegate) my limit.
+            a.access?.takeIf { !it.isOwner }?.let { TeamAccessBanner(it, a.currency) }
+            // FS-150e: once the work runs (and after it ends, to read) its Workroom is one tap away — tasks, files, decisions, timeline.
+            if (activity && onWorkroom != null) com.dorr.app.ui.screens.freelance.workroom.WorkroomEntryCard(projectUuid, onWorkroom)
             FlTabs(
                 listOf(
                     FlTab(Icons.Rounded.Description, stringResource(R.string.fl_tab_overview)),
@@ -209,11 +232,15 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
             when (current) {
                 0 -> {
                     Card(Icons.Rounded.Payments, stringResource(R.string.fl_ag_money)) {
-                        Field(stringResource(R.string.fl_price), "‎${money(a.money.priceMinor)} ${a.currency}")
-                        if (a.money.clientFeeMinor > 0) Field(stringResource(R.string.fl_client_fee), "‎${money(a.money.clientFeeMinor)} ${a.currency}")
-                        Field(stringResource(R.string.fl_total), "‎${money(a.money.totalMinor)} ${a.currency}")
+                        if (showMoney) {
+                            Field(stringResource(R.string.fl_price), "‎${money(a.money.priceMinor)} ${a.currency}")
+                            if (a.money.clientFeeMinor > 0) Field(stringResource(R.string.fl_client_fee), "‎${money(a.money.clientFeeMinor)} ${a.currency}")
+                            Field(stringResource(R.string.fl_total), "‎${money(a.money.totalMinor)} ${a.currency}")
+                        } else {
+                            Text(stringResource(R.string.fs_tm_money_hidden), color = settingsMut(), fontSize = 12.sp)
+                        }
                         // FL-510: the split made the total differ from the one told before choosing (a minimum fee on each part).
-                        a.money.quotedTotalMinor?.takeIf { it != a.money.totalMinor }?.let { q ->
+                        if (showMoney) a.money.quotedTotalMinor?.takeIf { it != a.money.totalMinor }?.let { q ->
                             Text(stringResource(R.string.fl_quoted_total, "‎${money(q)} ${a.currency}"), color = settingsMut(), fontSize = 12.sp)
                         }
                         a.terms.reviewDays?.let { Field(stringResource(R.string.fl_ag_review_days), stringResource(R.string.fl_days, it)) }
@@ -280,14 +307,14 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                                 Text(m.position.toString(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(50)).background(mc).wrapContentSize(Alignment.Center))
                                 Column(Modifier.weight(1f)) {
                                     Text(m.title, color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                                    Text("\u200E${money(m.amountMinor)} ${a.currency}", color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    if (showMoney) Text("\u200E${money(m.amountMinor)} ${a.currency}", color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                                 if (a.status == "active") Text(
                                     milestoneStatusLabel(m.status), color = mc, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(mc.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp),
                                 )
                             }
-                            if (a.status == "active" && m.heldMinor > 0) FlNotice(stringResource(R.string.fl_held, "\u200E${money(m.heldMinor)} ${a.currency}"), Icons.Rounded.Lock, Color(0xFF0EA5E9))
+                            if (showMoney && a.status == "active" && m.heldMinor > 0) FlNotice(stringResource(R.string.fl_held, "\u200E${money(m.heldMinor)} ${a.currency}"), Icons.Rounded.Lock, Color(0xFF0EA5E9))
                             // FL-602 / FL-604: the versions delivered (opened in place) and the checklist for the part.
                             if (a.status == "active" || a.status == "completed") DeliveryReview(projectUuid, m)
                             // FL-407: the free rounds of changes.
@@ -298,13 +325,17 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
                             // FL-506: a request to end a started part waits for an answer; what went back after it ended.
                             if (m.cancelRequestedBy == "freelancer") FlNotice(stringResource(R.string.fl_ms_cancel_asked_them), Icons.Rounded.HourglassTop, Color(0xFFD97706))
                             if (m.cancelRequestedBy == "client") FlNotice(stringResource(R.string.fl_ms_cancel_asked_you), Icons.Rounded.HourglassTop, Color(0xFFD97706))
-                            if (m.status == "cancelled" && (m.refundedMinor ?: 0L) > 0) FlNotice(stringResource(R.string.fl_ms_refunded, "\u200E${money(m.refundedMinor ?: 0L)} ${a.currency}"), Icons.Rounded.CheckCircle, Color(0xFF16A34A))
+                            if (showMoney && m.status == "cancelled" && (m.refundedMinor ?: 0L) > 0) FlNotice(stringResource(R.string.fl_ms_refunded, "\u200E${money(m.refundedMinor ?: 0L)} ${a.currency}"), Icons.Rounded.CheckCircle, Color(0xFF16A34A))
                             m.autoApproveAt?.let { FlNotice(stringResource(R.string.fl_auto_approve_on, "\u200E" + it.take(10)), Icons.Rounded.Schedule, Color(0xFFD97706)) }
+                            // FS-104: over my delegation limit - the owner does this one.
+                            if (m.overLimit) FlNotice(stringResource(R.string.fs_tm_over_limit, a.access?.owner?.name.orEmpty()), Icons.Rounded.Block, Color(0xFFD97706))
                             if (m.can.fund) FlAction(stringResource(R.string.fl_fund), Icons.Rounded.AccountBalanceWallet, FlTone.Primary) {
                                 // Not enough in the freelance wallet: straight to its top-up with what is missing already in (back here, the wallet is read again).
                                 val need = m.amountMinor + m.clientFeeMinor
                                 val have = a.walletAvailableMinor ?: 0L
-                                if (have < need) com.dorr.app.ui.screens.wallet.TopupLauncher.open(need - have, international = true) { reloads++ } else fundFor = m
+                                // FS-104: a delegate funds from the owner's wallet, which he never sees: straight to the confirmation.
+                                if (a.access?.isOwner == false) fundFor = m
+                                else if (have < need) com.dorr.app.ui.screens.wallet.TopupLauncher.open(need - have, international = true) { reloads++ } else fundFor = m
                             }
                             if (m.can.approve) FlAction(stringResource(R.string.fl_ms_approve), Icons.Rounded.CheckCircle, FlTone.Primary) { act({ ApiClient.freelance.milestoneAction(auth(), projectUuid, m.uuid, "approve", com.dorr.app.network.FreelanceDecisionRequest()).data }) }
                             if (m.can.revision) FlAction(stringResource(R.string.fl_ms_revision), Icons.Rounded.Replay) { revisionFor = m.uuid; revisionReason = "" }
@@ -400,14 +431,23 @@ internal fun AgreementPage(projectUuid: String, onBack: () -> Unit, onEnded: () 
         val cur = agreement?.currency.orEmpty()
         val total = m.amountMinor + m.clientFeeMinor
         val available = agreement?.walletAvailableMinor ?: 0L
-        val enough = available >= total
-        FlSheet(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.fl_fund_title, m.title), stringResource(if (enough) R.string.fl_fund_note else R.string.fl_fund_short), onDismiss = { if (!busy) fundFor = null }) {
+        // FS-104: a delegate pays from the owner's wallet; the server says if it is short.
+        val delegate = agreement?.access?.isOwner == false
+        val enough = delegate || available >= total
+        val ownerName = agreement?.access?.owner?.name.orEmpty()
+        FlSheet(
+            Icons.Rounded.AccountBalanceWallet, stringResource(R.string.fl_fund_title, m.title),
+            if (delegate) stringResource(R.string.fs_tm_fund_note, ownerName) else stringResource(if (enough) R.string.fl_fund_note else R.string.fl_fund_short),
+            onDismiss = { if (!busy) { fundFor = null; error = null } },
+        ) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Field(stringResource(R.string.fl_price), "\u200E${money(m.amountMinor)} $cur")
                 if (m.clientFeeMinor > 0) Field(stringResource(R.string.fl_client_fee), "\u200E${money(m.clientFeeMinor)} $cur")
                 Field(stringResource(R.string.fl_total), "\u200E${money(total)} $cur")
-                Field(stringResource(R.string.fl_wallet_available), "\u200E${money(available)} $cur")
+                if (!delegate) Field(stringResource(R.string.fl_wallet_available), "\u200E${money(available)} $cur")
             }
+            // A refusal (the owner's wallet is short, the limit) is told here, not behind the sheet.
+            error?.let { FlNotice(it, Icons.Rounded.ErrorOutline, Color(0xFFDC2626)) }
             if (enough) FlAction(stringResource(R.string.fl_fund_confirm), Icons.Rounded.AccountBalanceWallet, FlTone.Primary, loading = busy) {
                 act({ ApiClient.freelance.milestoneAction(auth(), projectUuid, m.uuid, "fund", com.dorr.app.network.FreelanceDecisionRequest()).data }, after = { fundFor = null })
             } else FlAction(stringResource(R.string.fl_topup), Icons.Rounded.AddCard, FlTone.Primary) {

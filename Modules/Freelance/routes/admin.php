@@ -133,6 +133,17 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-consultations/{uuid}/session/{action}', [\Modules\Freelance\Http\Controllers\Admin\FreelanceConsultationAdminController::class, 'sessionAction'])->whereUuid('uuid')->whereIn('action', ['close', 'reopen']);
         Route::get('freelance-risk/overview',[\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'overview']);
         Route::get('freelance-risk/accounts', [\Modules\Freelance\Http\Controllers\Admin\FreelanceRiskController::class, 'accounts']);
+        // FS-208: the freelancers' teams - find, open, suspend / bring back, take a member out.
+        $teamsAdmin = \Modules\Freelance\Http\Controllers\Admin\FreelanceTeamAdminController::class;
+        Route::get('freelance-teams/options', [$teamsAdmin, 'options']);
+        Route::get('freelance-teams', [$teamsAdmin, 'index']);
+        Route::get('freelance-teams/{uuid}', [$teamsAdmin, 'show'])->whereUuid('uuid');
+        Route::post('freelance-teams/{uuid}/status', [$teamsAdmin, 'status'])->whereUuid('uuid');
+        Route::post('freelance-teams/{uuid}/members/{freelancer}/remove', [$teamsAdmin, 'removeMember'])->whereUuid(['uuid', 'freelancer']);
+        // FS-202b: the team's verification - open a paper, approve or reject the request, take the badge back.
+        Route::get('freelance-teams/{uuid}/verification/documents/{document}', [$teamsAdmin, 'verificationFile'])->whereUuid(['uuid', 'document']);
+        Route::post('freelance-teams/{uuid}/verification/decide', [$teamsAdmin, 'verificationDecide'])->whereUuid('uuid');
+        Route::post('freelance-teams/{uuid}/verification/revoke', [$teamsAdmin, 'verificationRevoke'])->whereUuid('uuid');
         Route::get('freelance-audit', [\Modules\Freelance\Http\Controllers\Admin\FreelanceAuditController::class, 'index']);
         Route::get('freelance-reports/cancel-reasons', [FreelanceReportController::class, 'cancelReasons']);
 
@@ -165,6 +176,12 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-disputes/{uuid}/decide', [FreelanceDisputeController::class, 'decide'])->whereUuid('uuid');
         Route::post('freelance-disputes/{uuid}/classify', [FreelanceDisputeController::class, 'classify'])->whereUuid('uuid');
         Route::get('freelance-disputes/{uuid}/files/{media}', [FreelanceDisputeController::class, 'file'])->whereUuid('uuid')->whereNumber('media');
+        // FS-150d: the team's internal chat about the disputed project, read only, while the dispute is being decided (its own permission, audited).
+        // FS-150f: the shared Workroom of the disputed project, read only (audited).
+        Route::get('freelance-disputes/{uuid}/workroom', [\Modules\Freelance\Http\Controllers\Admin\FreelanceDisputeWorkroomController::class, 'show'])->whereUuid('uuid');
+        Route::get('freelance-disputes/{uuid}/workroom/timeline', [\Modules\Freelance\Http\Controllers\Admin\FreelanceDisputeWorkroomController::class, 'timeline'])->whereUuid('uuid');
+        Route::get('freelance-disputes/{uuid}/workroom/files/{file}/versions/{number}/download', [\Modules\Freelance\Http\Controllers\Admin\FreelanceDisputeWorkroomController::class, 'download'])->whereUuid(['uuid', 'file'])->whereNumber('number');
+        Route::get('freelance-disputes/{uuid}/internal-chat', [\Modules\Freelance\Http\Controllers\Admin\FreelanceInternalChatController::class, 'show'])->whereUuid('uuid');
 
         // Reviewing the clients' projects (FL-203): the queue, one project with its files, a fix, and the decision.
         Route::get('freelance-projects/options', [FreelanceProjectReviewController::class, 'options']);

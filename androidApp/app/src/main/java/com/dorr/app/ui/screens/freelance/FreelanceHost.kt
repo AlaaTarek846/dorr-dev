@@ -180,6 +180,7 @@ fun FreelanceHost(onExit: () -> Unit) {
                     onOpenOffer = { open(FlRoute.Offer(route.project, it)) },
                     onAgreement = { open(FlRoute.Agreement(route.project)) },
                     onInvitations = { open(FlRoute.Invitations(route.project)) },
+                    onTeam = { open(FlRoute.Team(route.project)) },
                 )
                 is FlRoute.Preview -> PreviewPage(route.project, onBack = ::back, onEdit = { replace(FlRoute.EditProject(route.project)) }, onSent = { listVersion++; back() })
                 is FlRoute.Invitations -> InvitationsPage(route.project, onBack = ::back, onOpenOffer = { open(FlRoute.Offer(route.project, it)) }, onMadePublic = { listVersion++; back() })
@@ -192,18 +193,28 @@ fun FreelanceHost(onExit: () -> Unit) {
                     route.project, route.offer, onBack = ::back,
                     onProfile = { open(FlRoute.Freelancer(route.project, route.offer)) },
                     onChat = { open(FlRoute.Chat(route.project, route.offer, it)) },
+                    onTeam = { open(FlRoute.FreelancerTeam(it)) },
                     // The work is agreed: its agreement opens over the project (back from it is the project, not the offers).
                     onChosen = { listVersion++; go(stack.after({ it == FlRoute.Project(route.project) }, FlRoute.Agreement(route.project))) },
                 )
                 is FlRoute.Agreement -> AgreementPage(
                     route.project, onBack = ::back, onEnded = { listVersion++ },
                     onDispute = { m, d -> open(if (d != null) FlRoute.Dispute(route.project, d) else FlRoute.NewDispute(route.project, m)) },
+                    onWorkroom = { open(FlRoute.Workroom(route.project)) },
+                    onTeam = { open(FlRoute.FreelancerTeam(it)) },
                 )
+                // FS-150e: the Workroom (tasks, files, decisions, timeline) of the running work, and one of its files.
+                is FlRoute.Workroom -> com.dorr.app.ui.screens.freelance.workroom.WorkroomPage(
+                    route.project, route.tab, onBack = ::back, onOpenFile = { open(FlRoute.WorkroomFile(route.project, it)) },
+                )
+                is FlRoute.WorkroomFile -> com.dorr.app.ui.screens.freelance.workroom.WorkroomFilePage(route.project, route.file, onBack = ::back)
                 is FlRoute.Dispute -> DisputePage(route.project, null, route.dispute, onBack = ::back, onOpened = {})
                 is FlRoute.NewDispute -> DisputePage(route.project, route.milestone, null, onBack = ::back, onOpened = { replace(FlRoute.Dispute(route.project, it)) })
-                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) })
+                FlRoute.Favorites -> FavoritesPage(onBack = ::back, onTalent = { open(FlRoute.TalentLists) }, onTeam = { open(FlRoute.FreelancerTeam(it)) })
                 FlRoute.TalentLists -> TalentListsPage(onBack = ::back, onOpen = { open(FlRoute.TalentList(it)) })
                 is FlRoute.TalentList -> TalentListPage(route.list, onBack = ::back, onGone = { back() })
+                is FlRoute.Team -> TeamPage(route.project, onBack = ::back)
+                FlRoute.Shared -> SharedProjectsPage(onBack = ::back, onOpen = { listVersion++; open(FlRoute.Project(it)) })
                 FlRoute.Receipts -> ReceiptsPage(onBack = ::back)
                 // «Services»: the ready-made services and the consultations as two parts of one page.
                 FlRoute.Services, FlRoute.ConsultMarket -> ServicesPage(
@@ -230,6 +241,7 @@ fun FreelanceHost(onExit: () -> Unit) {
                 is FlRoute.Order -> MyOrderPage(route.order, onBack = ::back, onOpenWork = { open(FlRoute.Agreement(it)) }, onOrderAgain = { open(FlRoute.Service(it)) })
                 is FlRoute.Chat -> ChatPage(route.room, onBack = ::back)
                 is FlRoute.Freelancer -> FreelancerProfilePage(route.project, route.offer, onBack = ::back, onBookConsultation = { open(FlRoute.Book(it)) })
+                is FlRoute.FreelancerTeam -> FreelancerTeamPage(route.team, onBack = ::back)
             }
         }
     }
@@ -448,8 +460,9 @@ private fun ProgressBar(done: Int, total: Int) {
 }
 
 @Composable
-private fun NextActionLine(code: String) {
-    FlNotice(stringResource(R.string.fl_next_label, nextActionLabel(code)), Icons.Rounded.NotificationsActive, Color(0xFFD97706))
+private fun NextActionLine(code: String, owner: Boolean = true) {
+    // FS-104: on someone else's project the step is the owner's - "waiting in the project", not "asked of you".
+    FlNotice(stringResource(if (owner) R.string.fl_next_label else R.string.fs_tm_next_label, nextActionLabel(code)), Icons.Rounded.NotificationsActive, Color(0xFFD97706))
 }
 
 @Composable
@@ -476,7 +489,7 @@ private fun budgetText(p: FreelanceProjectDto): String? {
 // ---------------------------------------------------------------- one project
 
 @Composable
-private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onPreview: () -> Unit, onCopied: (String) -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}) {
+private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onPreview: () -> Unit, onCopied: (String) -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}, onTeam: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
@@ -556,6 +569,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
 
     var tab by rememberSaveable(uuid) { mutableStateOf<String?>(null) }
     var more by remember { mutableStateOf(false) }
+    var leaving by remember { mutableStateOf(false) }
+    if (leaving) LeaveTeamDialog(uuid, onDismiss = { leaving = false }, onLeft = { leaving = false; onGone() })
 
     Column(Modifier.fillMaxSize()) {
         FlPageHeader(stringResource(R.string.fl_project), onBack)
@@ -567,7 +582,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
         // The parts of the page: the details always; the offers while they are taken (or there are some); the work once agreed.
         val tabs = buildList {
             add("details")
-            if (p.status == "published" || p.status == "awarded" || p.offers.count > 0) add("offers")
+            // FS-104: a member sees the offers only when his role may.
+            if ((p.status == "published" || p.status == "awarded" || p.offers.count > 0) && p.access?.can("offers") != false) add("offers")
             if (p.agreement != null || !p.milestones.isNullOrEmpty()) add("work")
         }
         val current = tab?.takeIf { it in tabs } ?: when (p.nextAction) {
@@ -580,6 +596,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ProjectHero(p)
+            // FS-104: someone else's project - whose it is and what my role lets me do.
+            p.access?.takeIf { !it.isOwner }?.let { TeamAccessBanner(it, p.budget.currency) { leaving = true } }
             if (tabs.size > 1) FlTabs(
                 tabs.map { t ->
                     when (t) {
@@ -612,6 +630,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                     if (p.offers.canReopen) FlAction(stringResource(R.string.fl_offers_reopen, p.offers.reopensLeft), Icons.Rounded.LockOpen) { act({ ApiClient.freelance.reopenOffers(auth(), p.uuid).data }) }
                 }
                 "work" -> {
+                    // FS-104: the team is part of running the work too, so its card is one tap away here, not only under the details.
+                    p.team?.takeIf { p.access?.isOwner != false && p.agreement != null }?.let { ProjectTeamCard(it, onTeam) }
                     // FL-401: the agreement with the chosen freelancer.
                     p.agreement?.let { ag ->
                         Card(Icons.Rounded.Handshake, stringResource(R.string.fl_agreement)) {
@@ -625,6 +645,8 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                 else -> {
                     // FS-102: asked again from a freelancer - who, and last time's parts as a reference.
                     p.hireAgain?.let { HireAgainCard(it, p.budget.currency) }
+                    // FS-104: my team on this project (the owner's way in).
+                    p.team?.takeIf { p.access?.isOwner != false }?.let { ProjectTeamCard(it, onTeam) }
                     Card(Icons.Rounded.Article, stringResource(R.string.fl_description)) { ProjectSummary(p) }
                     if (p.attachments.isNotEmpty()) Card(Icons.Rounded.AttachFile, stringResource(R.string.fl_files)) {
                         p.attachments.forEach { a ->
@@ -736,7 +758,7 @@ private class ProjectStep(val key: String, val text: String, val icon: androidx.
 private fun primaryStep(p: FreelanceProjectDto, onPreview: () -> Unit, onOffers: () -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit, onEdit: (String) -> Unit): ProjectStep? = when {
     // FL-210: a last look before it goes out (it also says what doesn't add up).
     p.can.submit -> ProjectStep("submit", stringResource(R.string.fl_review_and_send), Icons.Rounded.Send, FlTone.Primary, enabled = p.missing.isEmpty(), onClick = onPreview)
-    p.status == "published" && p.offers.count > 0 -> ProjectStep("offers", stringResource(R.string.fl_compare_choose), Icons.Rounded.CompareArrows, FlTone.Primary, onClick = onOffers)
+    p.status == "published" && p.offers.count > 0 && p.access?.can("offers") != false -> ProjectStep("offers", stringResource(R.string.fl_compare_choose), Icons.Rounded.CompareArrows, FlTone.Primary, onClick = onOffers)
     p.agreement != null -> ProjectStep("agreement", stringResource(if (p.agreement.status == "draft") R.string.fl_ag_open_draft else R.string.fl_ag_open), Icons.Rounded.Handshake, FlTone.Primary, onClick = onAgreement)
     p.status == "published" && p.invitations?.canInvite == true -> ProjectStep("invitations", stringResource(R.string.fl_inv_manage), Icons.Rounded.PersonAdd, FlTone.Primary, onClick = onInvitations)
     p.can.edit -> ProjectStep("edit", stringResource(R.string.fl_edit), Icons.Rounded.Edit, FlTone.Primary) { onEdit(p.uuid) }
@@ -785,7 +807,7 @@ private fun ProjectHero(p: FreelanceProjectDto) {
             if (!p.statusReason.isNullOrBlank()) FlNotice(stringResource(R.string.fl_reviewer_note, p.statusReason), Icons.Rounded.Info, c)
             if (p.status == "pending_review") FlNotice(stringResource(R.string.fl_under_review_hint), Icons.Rounded.HourglassTop, Color(0xFFD97706))
             if (p.status == "rejected") FlNotice(stringResource(R.string.fl_rejected_hint), Icons.Rounded.Block, Color(0xFFDC2626))
-            p.nextAction?.let { NextActionLine(it) }
+            p.nextAction?.let { NextActionLine(it, owner = p.access?.isOwner != false) }
         }
     }
 }
@@ -793,12 +815,14 @@ private fun ProjectHero(p: FreelanceProjectDto) {
 /** FL-211: the stages of the work, each with where it stands, and the money passed so far. */
 @Composable
 private fun StagesCard(p: FreelanceProjectDto, stages: List<com.dorr.app.network.FreelanceProjectPartDto>) {
+    // FS-104: a team member without `money` reads the parts and their state, not the amounts.
+    val showMoney = p.access?.money != false
     Card(Icons.Rounded.Flag, stringResource(R.string.fl_stages)) {
         p.progress?.let { g ->
             ProgressBar(g.approved, g.total)
             Text(
-                stringResource(R.string.fl_progress_parts, g.approved, g.total) + "  ·  " +
-                    stringResource(R.string.fl_progress_money, "‎" + money(g.approvedMinor), money(g.priceMinor), p.budget.currency),
+                stringResource(R.string.fl_progress_parts, g.approved, g.total) +
+                    (if (showMoney) "  ·  " + stringResource(R.string.fl_progress_money, "‎" + money(g.approvedMinor), money(g.priceMinor), p.budget.currency) else ""),
                 color = settingsMut(), fontSize = 12.sp,
             )
         }
@@ -815,10 +839,11 @@ private fun StagesCard(p: FreelanceProjectDto, stages: List<com.dorr.app.network
                         Text(m.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         Text(milestoneStatusLabel(m.status), color = mc, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text(
-                        "‎${money(m.amountMinor)} ${p.budget.currency}" + (m.durationDays?.let { "  ·  " + stringResource(R.string.fl_days, it) } ?: ""),
-                        color = settingsMut(), fontSize = 12.sp,
-                    )
+                    val line = listOfNotNull(
+                        if (showMoney) "‎${money(m.amountMinor)} ${p.budget.currency}" else null,
+                        m.durationDays?.let { stringResource(R.string.fl_days, it) },
+                    ).joinToString("  ·  ")
+                    if (line.isNotEmpty()) Text(line, color = settingsMut(), fontSize = 12.sp)
                 }
             }
         }

@@ -19,7 +19,11 @@ interface InvitationsApi {
     suspend fun decline(@Path("uuid") uuid: String): Response<ApiEnvelope<InvitationRefDto>>
 }
 
-data class InvitationRefDto(val uuid: String = "", val status: String = "sent")
+/** [team]: FS-213 - the client invited my team (I offer in its name). */
+data class InvitationRefDto(val uuid: String = "", val status: String = "sent", val team: InvitationTeamDto? = null)
+
+/** FS-213: the team a client invited through me (its Owner). */
+data class InvitationTeamDto(val uuid: String = "", val name: String = "", @com.google.gson.annotations.SerializedName("logo_url") val logoUrl: String? = null)
 
 data class InvitationDto(
     val uuid: String = "",
@@ -29,6 +33,8 @@ data class InvitationDto(
     val project: ProjectDto? = null,
     val offered: Boolean = false,
     val can: InvitationCanDto = InvitationCanDto(),
+    /** FS-213: the client invited my team, not me alone. */
+    val team: InvitationTeamDto? = null,
 )
 
 data class InvitationCanDto(val accept: Boolean = false, val decline: Boolean = false, val offer: Boolean = false)

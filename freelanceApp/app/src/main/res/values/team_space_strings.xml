@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-209c: the team's space — its inside chat, its works and its verification -->
+
+    <!-- Inside chat -->
+    <string name="tc_tab_chat">Chat</string>
+    <string name="tc_title">Team chat</string>
+    <string name="tc_general">General</string>
+    <string name="tc_private_hint">This chat is for the team only — clients never see it.</string>
+    <string name="tc_read_only">The team is not active, so you can read the chat but not write in it.</string>
+    <string name="tc_open_project">Open a project chat</string>
+    <string name="tc_open_project_title">Open a project chat</string>
+    <string name="tc_open_project_hint">Pick a project the team works on to talk about it in its own thread.</string>
+    <string name="tc_open_project_none">Every project of the team already has a thread.</string>
+    <string name="tc_empty_title">No threads yet</string>
+    <string name="tc_empty_body">The team\'s general thread and a thread for each project show here.</string>
+    <string name="tc_no_messages">No messages yet</string>
+    <string name="tc_under_review">Staff may read</string>
+    <string name="tc_empty_thread">No messages yet. Say hello to the team.</string>
+    <string name="tc_hint">Write to the team…</string>
+    <string name="tc_send">Send</string>
+    <string name="tc_closed">You can read this thread but not write in it now.</string>
+    <string name="tc_deleted">Message deleted</string>
+    <string name="tc_take_back">Delete message</string>
+
+    <!-- Works -->
+    <string name="tpf_row_title">Team portfolio</string>
+    <string name="tpf_row_owner">Show the team\'s finished work to clients</string>
+    <string name="tpf_row_member">The team\'s works</string>
+    <string name="tpf_title">Team portfolio</string>
+    <string name="tpf_hint">The team\'s works. Clients see the ones you make public, next to the team\'s page. Up to 30.</string>
+    <string name="tpf_hint_member">The team\'s works. Only an Owner adds or changes them.</string>
+    <string name="tpf_empty">No works yet.</string>
+    <string name="tpf_empty_body">Add the work your team finished: clients see it next to the team page.</string>
+
+    <!-- Verification -->
+    <string name="tv_title">Verify the team</string>
+    <string name="tv_intro">A verified badge shows clients that the team\'s papers were checked. Send the team\'s registration papers (a commercial register, a tax card…); the staff review them. Only Owners can send them. Verifying is optional.</string>
+    <string name="tv_status_none">Not verified yet</string>
+    <string name="tv_status_submitted">Under review</string>
+    <string name="tv_status_rejected">Not accepted</string>
+    <string name="tv_status_verified">The team is verified</string>
+    <string name="tv_none_hint">Add the team\'s papers and send them for review.</string>
+    <string name="tv_submitted_hint">The staff are reviewing the papers. You will be told when they decide.</string>
+    <string name="tv_rejected_hint">Fix the papers and send them again.</string>
+    <string name="tv_verified_at">Verified on %1$s</string>
+    <string name="tv_reason">Reason: %1$s</string>
+    <string name="tv_docs_title">Papers ready to send</string>
+    <string name="tv_docs_empty">No papers added yet.</string>
+    <string name="tv_add">Add a paper</string>
+    <string name="tv_add_title">Add a paper</string>
+    <string name="tv_doc_title_label">Title (for example: Commercial register)</string>
+    <string name="tv_file_label">File</string>
+    <string name="tv_choose">Choose a file</string>
+    <string name="tv_file_chosen">Chosen: %1$s</string>
+    <string name="tv_file_hint">JPG, PNG or PDF, up to 8 MB.</string>
+    <string name="tv_upload">Upload</string>
+    <string name="tv_file_large">The file is larger than 8 MB.</string>
+    <string name="tv_file_type">Only JPG, PNG or PDF files are accepted.</string>
+    <string name="tv_limit">You can add up to 10 papers.</string>
+    <string name="tv_view">View</string>
+    <string name="tv_remove">Remove</string>
+    <string name="tv_submit">Send for review</string>
+    <string name="tv_submit_hint">Add at least one paper to send.</string>
+    <string name="tv_submitted_ok">Sent. The staff will review it.</string>
+    <string name="tv_locked">The papers are with the staff. Nothing can change until they decide.</string>
+    <string name="tv_last_title">Last request</string>
+    <string name="tv_req_submitted">Sent on %1$s</string>
+    <string name="tv_req_decided">Decided on %1$s</string>
+</resources>

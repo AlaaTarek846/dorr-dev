@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-211: a team's paid plan - what it opens for the whole team, and the Owner who pays -->
+    <string name="tpl_row_title">Team plan</string>
+    <string name="tpl_row_sub">More people, projects and offers for the team</string>
+    <string name="tpl_title">Team plan</string>
+    <string name="tpl_unavailable_title">No team plans yet</string>
+    <string name="tpl_unavailable">Team plans are not available in your country right now.</string>
+
+    <string name="tpl_usage_title">What your team holds</string>
+    <string name="tpl_usage_hint">A limit only stops what is new: nobody is removed and no running project is cut.</string>
+    <string name="tpl_people">People</string>
+    <string name="tpl_projects">Projects at once</string>
+    <string name="tpl_offers">Offers this month</string>
+    <string name="tpl_of">%1$d of %2$d</string>
+    <string name="tpl_no_cap">%1$d · no cap</string>
+    <string name="tpl_full">Limit reached</string>
+
+    <string name="tpl_benefit_people_n">Up to %1$d people</string>
+    <string name="tpl_benefit_people_any">No cap on people</string>
+    <string name="tpl_benefit_projects_n">Up to %1$d projects at once</string>
+    <string name="tpl_benefit_projects_any">No cap on projects</string>
+    <string name="tpl_benefit_offers_n">%1$d team offers per month</string>
+    <string name="tpl_benefit_offers_any">Unlimited team offers</string>
+
+    <string name="tpl_paid_by_me">You pay for this plan from your wallet.</string>
+    <string name="tpl_paid_by">%1$s pays for this plan from their wallet. Only they can change it, pay again or turn renewal back on; any Owner can turn renewal off.</string>
+    <string name="tpl_payer_only">Only %1$s can change the plan.</string>
+    <string name="tpl_cancel_confirm">The team keeps %1$s until %2$s, then goes back to the free limits.</string>
+    <string name="tpl_footer">The price is for the whole team, not per member. It is charged from the wallet of the Owner who subscribes.</string>
+</resources>

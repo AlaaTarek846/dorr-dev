@@ -152,9 +152,10 @@ class Freelancer extends Authenticatable implements HasMedia
         return $this->hasMany(FreelancerTimeOff::class);
     }
 
+    /** The freelancer's own works; a team's works he added (FS-202a, `team_id`) are the team's, not his. */
     public function portfolioItems(): HasMany
     {
-        return $this->hasMany(FreelancerPortfolioItem::class);
+        return $this->hasMany(FreelancerPortfolioItem::class)->whereNull('team_id');
     }
 
     /** FL-L04: my ready-made services. */

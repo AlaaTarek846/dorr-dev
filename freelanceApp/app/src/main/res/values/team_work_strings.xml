@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-209b: working as a team — the projects, the workload, who is on a part, and an offer in the team's name -->
+    <string name="tw_tab_projects">Projects</string>
+    <string name="tw_tab_workload">Workload</string>
+    <string name="tw_scope_me">Me</string>
+    <string name="tw_scope_team">My team</string>
+
+    <string name="tw_banner_title">You work on this with %1$s</string>
+    <string name="tw_banner_signer">You signed this for the team and the money comes to you.</string>
+    <string name="tw_banner_pm">You manage the work: start parts, put people on them and follow the reports. Delivering and answering the client are the Owner\'s.</string>
+    <string name="tw_banner_member">You follow the work and start the parts you are put on. Delivering and answering the client are the Owner\'s.</string>
+    <string name="tw_banner_no_money">Amounts are hidden for your place in the team.</string>
+
+    <string name="tw_projects_empty_title">No team projects yet</string>
+    <string name="tw_projects_empty_body">When the team\'s offer is chosen, the project shows here.</string>
+    <string name="tw_projects_empty_member">The projects you are put on show here.</string>
+    <string name="tw_signed_by">Signed by %1$s</string>
+
+    <string name="tw_load_intro">What each person carries on the team\'s running projects.</string>
+    <string name="tw_load_mine">You see your own numbers only.</string>
+    <string name="tw_load_empty_title">Nobody carries anything</string>
+    <string name="tw_load_empty_body">Put people on the parts of a running project and their load shows here.</string>
+    <string name="tw_load_projects">Projects</string>
+    <string name="tw_load_parts">Open parts</string>
+    <string name="tw_load_tasks">Open tasks</string>
+    <string name="tw_load_overdue">Late</string>
+    <string name="tw_load_blocked">Blocked</string>
+    <string name="tw_load_done">Done</string>
+
+    <string name="tw_assign">Put people on it</string>
+    <string name="tw_assign_title">Who works on this part</string>
+    <string name="tw_assign_hint">Pick active people of the team. A member sees the project once he is on one of its parts.</string>
+    <string name="tw_assign_none">Nobody is on it yet</string>
+
+    <string name="tw_offer_as">Send the offer as</string>
+    <string name="tw_offer_quota_left">%1$d of %2$d team offers left this month</string>
+    <string name="tw_offer_quota_free">Team offers this month: %1$d (no limit)</string>
+    <string name="tw_offer_staff">Who works on it</string>
+    <string name="tw_offer_staff_hint">The client sees first names, roles and what each person takes on. At most one PM, and no more than 20 people.</string>
+    <string name="tw_offer_staff_none">Nobody picked — the team\'s offer goes without a list.</string>
+    <string name="tw_offer_role_pm">PM</string>
+    <string name="tw_offer_role_exec">Executor</string>
+    <string name="tw_offer_responsibility">What they take on (optional)</string>
+    <string name="tw_offer_signer">Who signs and is paid</string>
+    <string name="tw_offer_signer_pm">You send as a PM, so pick the Owner who signs the agreement and is paid.</string>
+    <string name="tw_offer_signer_owner">The agreement is signed in your name unless you pick another Owner.</string>
+    <string name="tw_offer_team_badge">In the name of %1$s</string>
+    <string name="tw_offer_sent_by">Sent by %1$s</string>
+    <string name="tw_offer_team_people">The team on this offer</string>
+    <string name="tw_offer_staff_edit">Change who works on it</string>
+</resources>

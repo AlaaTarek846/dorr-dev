@@ -15,12 +15,11 @@ use Throwable;
  * cached per URL for a day, and saved into the message's meta so every viewer sees the same card.
  *
  * The server fetches pages people paste, so it refuses anything that isn't a public web address
- * (no localhost, private or reserved IPs — also after a redirect), stops at 3 redirects and reads up to 2MB.
+ * (no localhost, private or reserved IPs — also after a redirect), stops at 3 redirects and 512KB.
  */
 class LinkPreviewService
 {
-    // Some pages put their tags after a big inline script (Google Meet's are past 512KB of a ~700KB page).
-    private const MAX_BYTES = 2_097_152;
+    private const MAX_BYTES = 524_288;
 
     private const TTL_HOURS = 24;
 

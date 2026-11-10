@@ -34,6 +34,12 @@ class FreelanceProjectApproval extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (self $r): void {
+            // FS-104: a member of the owner's team took this step for him.
+            $r->acted_by_user_id ??= \Modules\Freelance\Services\Team\ClientTeamContext::actorId();
+            // FS-206a: somebody of the freelancers' team took it for the Owner who signed.
+            $r->acted_by_freelancer_id ??= \Modules\Freelance\Services\FreelancerTeam\FreelancerTeamContext::actorId();
+        });
         static::updating(fn () => throw new LogicException('The approvals record is written only.'));
         static::deleting(fn () => throw new LogicException('The approvals record is written only.'));
     }

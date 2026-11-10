@@ -205,6 +205,7 @@
     <string name="trail_hide">Hide</string>
     <string name="trail_by_you">By you</string>
     <string name="trail_by_client">By the client</string>
+    <string name="trail_by_client_team">By %1$s (client’s team)</string>
     <string name="trail_by_freelancer">By the freelancer</string>
     <string name="trail_by_admin">By DORR staff</string>
     <string name="trail_by_system">Automatically</string>

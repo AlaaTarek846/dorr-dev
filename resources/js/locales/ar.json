@@ -60,6 +60,7 @@
         "back_to_dashboard": "العودة للوحة التحكم"
     },
     "sidebar": {
+        "moving": "نقل العفش",
         "main": "الرئيسية",
         "services": "الخدمات",
         "catalog": "البيانات الأساسية",
@@ -5115,6 +5116,27 @@
             "free_note": "المجانية بتمشي على سياسة كل دولة، فمفيش أرقام ليها هنا.",
             "trial_days": "تجربة مجانية {n} يوم",
             "on_plan": "{n} على الباقة دي",
+            "on_plan_teams": "{n} فريق على الباقة دي",
+            "audience": {
+                "freelancers": "باقات الفريلانسرز",
+                "teams": "باقات الفرق"
+            },
+            "team_hint": "الباقات اللي يقدر فريق الفريلانسرز يشترك فيها، وأحد مالكي الفريق هو اللي بيدفعها من محفظته. السعر على الفريق كله مش على كل عضو. الباقة بتزوّد اللي بتديه سياسة الفرق (عدد الأشخاص، والمشاريع الشغّالة مع بعض، والعروض في الشهر) وعمرها ما بتقلّله؛ الفاضي يعني من غير حد. وهي بتوقف الجديد بس: محدش بيتشال ومفيش مشروع شغّال بيتقطع. الباقة اللي ماتفتحش أكتر من السياسة مش بتتعرض على الفرق، فاضبط حدود الفرق الأول.",
+            "team_subscribers": "فرق على باقة",
+            "team_members_n": "لحد {n} شخص",
+            "team_members_unlimited": "من غير حد للأشخاص",
+            "team_projects_n": "لحد {n} مشروع مع بعض",
+            "team_projects_unlimited": "من غير حد للمشاريع",
+            "team_offers_policy": "العروض: حسب سياسة الفرق",
+            "team_not_sold": "مش معروضة على الفرق. فعّلها بعد ما تضبط حدود الفرق، غير كده مش هتفتح حاجة ومش هتتباع.",
+            "team_members_max": "الأشخاص في الفريق",
+            "team_members_hint": "الفاضي = من غير حد. بيتطبق الأكبر بين الرقم ده ورقم السياسة.",
+            "team_projects_max": "المشاريع مع بعض",
+            "team_projects_hint": "المشاريع اللي الفريق بيشغّلها في نفس الوقت. الفاضي = من غير حد.",
+            "team_offers_hint": "العروض اللي الفريق كله بيبعتها في الشهر. بيتطبق الأكبر بين الرقم ده ورقم السياسة.",
+            "no_cap": "من غير حد",
+            "team": "الفريق",
+            "paid_by": "اللي بيدفع",
             "edit": "تعديل",
             "edit_title": "تعديل الباقة: {name}",
             "search_country": "اسم الدولة أو كودها",
@@ -5581,7 +5603,9 @@
                 "services": "الخدمات الجاهزة",
                 "consultations": "الاستشارات المدفوعة",
                 "special_offers": "العروض الخاصة",
-                "loyalty": "برنامج الولاء"
+                "loyalty": "برنامج الولاء",
+                "workroom": "غرفة العمل",
+                "teams": "فرق المحترفين"
             },
             "choice": {
                 "percent": "نسبة",
@@ -5628,7 +5652,15 @@
                 "special_offers__cooldown_days": "أيام قبل عرض جديد لعميل رفض",
                 "special_offers__max_valid_days": "أطول مدة للعرض الخاص (أيام)",
                 "loyalty__max_discount_bp": "أكبر خصم ولاء يقدر المحترف يديه",
-                "loyalty__max_tiers": "أكتر عدد شرائح في برنامج الولاء"
+                "loyalty__max_tiers": "أكتر عدد شرائح في برنامج الولاء",
+                "workroom__tasks_max": "أقصى عدد مهام في غرفة عمل المشروع",
+                "workroom__files_max": "أقصى عدد ملفات في غرفة عمل المشروع",
+                "workroom__storage_mb": "أقصى مساحة ملفات في غرفة عمل المشروع (ميجا)",
+                "teams__owned_max": "أقصى عدد فرق يكون المحترف Owner لها",
+                "teams__joined_max": "أقصى عدد فرق ينضم لها المحترف كـ PM أو عضو",
+                "teams__members_max": "أقصى عدد أعضاء نشطين في الفريق الواحد",
+                "teams__offers_monthly": "أقصى عدد عروض يبعتها الفريق في الشهر",
+                "teams__projects_max": "أقصى عدد مشاريع شغّالة في نفس الوقت للفريق"
             }
         },
         "overview": {
@@ -5703,7 +5735,10 @@
                 "special_offers": "العروض الخاصة للعملاء السابقين",
                 "loyalty": "برنامج الولاء (خصم للعملاء المتكررين)",
                 "rights": "الملكية والتراخيص (حقوق العمل)",
-                "community": "المجتمع المهني"
+                "community": "المجتمع المهني",
+                "client_team": "فريق مشروع العميل",
+                "workroom": "غرفة العمل (مهام وملفات وقرارات)",
+                "teams": "فرق المحترفين (Owner وPM وأعضاء)"
             }
         },
         "projects": {
@@ -5779,6 +5814,57 @@
             "offers_count": "{n} عرض",
             "offers_closed_max_offers": "اكتمل: وصل لأقصى عدد عروض",
             "offers_closed_chosen": "العميل اختار عرض"
+        },
+        "teams": {
+            "title": "الفرق",
+            "search": "اسم الفريق",
+            "team": "الفريق",
+            "country": "الدولة",
+            "members": "الأعضاء",
+            "running": "مشاريع شغّالة",
+            "open": "فتح",
+            "person": "الشخص",
+            "role": "الدور",
+            "parts": "المراحل",
+            "tasks": "مهام مفتوحة",
+            "overdue": "متأخرة",
+            "by_staff": "(من الإدارة)",
+            "remove": "شيل",
+            "remove_reason": "السبب؟ (الشخص هيتبلّغ)",
+            "projects": "المشاريع (شغّالة / خلصانة)",
+            "offers": "العروض",
+            "limit": "حد الأعضاء: {n}",
+            "plan": "الباقة",
+            "plan_free": "مجانية (من غير باقة)",
+            "plan_people": "الأشخاص",
+            "plan_projects": "المشاريع مع بعض",
+            "plan_offers": "عروض الشهر ده",
+            "plan_no_cap": "من غير حد",
+            "switch_off": "الفرق مقفولة في الدولة دي",
+            "audit": "اللي عملته الإدارة في الفريق ده",
+            "no_audit": "لسه مفيش.",
+            "change_status": "حالة الفريق",
+            "reason": "سبب الإيقاف؟ (الـ Owners هيتبلّغوا)",
+            "suspend": "إيقاف الفريق",
+            "reactivate": "رجّع الفريق",
+            "saved": "اتحفظ.",
+            "verification": {
+                "title": "توثيق الفريق",
+                "none": "الفريق ما بعتش مستندات.",
+                "verified": "موثّق",
+                "waiting": "مستني مراجعة",
+                "filter_all": "كل التوثيق",
+                "open_file": "فتح",
+                "approve": "موافقة",
+                "reject": "رفض",
+                "revoke": "سحب الشارة",
+                "reject_reason": "سبب الرفض؟ (الـ Owners هيتبلّغوا)",
+                "revoke_reason": "سبب سحب الشارة؟ (الـ Owners هيتبلّغوا)",
+                "status": { "submitted": "مستني", "approved": "اتقبل", "rejected": "اترفض" }
+            },
+            "status": { "active": "شغّال", "suspended": "موقوف", "archived": "متأرشف" },
+            "member_status": { "active": "في الفريق", "left": "خرج", "removed": "اتشال" },
+            "roles": { "owner": "Owner", "pm": "مدير مشروع", "member": "عضو" }
         },
         "freelancers": {
             "title": "المحترفون",
@@ -6063,6 +6149,32 @@
             "timeline_export": "نزّل CSV",
             "timeline_empty": "مفيش حاجة متسجلة لسه.",
             "timeline_staff": "الموظف",
+            "workroom": {
+                "title": "غرفة العمل المشتركة",
+                "hint": "المهام والملفات والملاحظات والقرارات اللي الطرفين شايفينها. قراءة بس، وفتحها بيتسجّل في سجل المراجعة.",
+                "show": "افتح غرفة العمل",
+                "hide": "اقفل",
+                "tasks": "المهام",
+                "files": "الملفات",
+                "decisions": "القرارات",
+                "timeline": "الخط الزمني",
+                "empty": "مفيش حاجة هنا.",
+                "assignee": "على",
+                "due": "الموعد {date}",
+                "version": "الإصدار {n}",
+                "proposed_by": "اقترحه {side}",
+                "replaced_by": "اتبدّل بـ: {title}",
+                "task_status": { "todo": "لسه", "doing": "شغّال", "done": "خلصت", "blocked": "واقفة" },
+                "decision_status": { "proposed": "مستني", "agreed": "متفق عليه", "declined": "مرفوض", "superseded": "اتبدّل" }
+            },
+            "internal": {
+                "title": "المحادثة الداخلية للفريق",
+                "warn": "فتحها بيتسجّل في سجل المراجعة ومُلّاك الفريق بيتبلّغوا. افتحها لما القضية تحتاجها بس.",
+                "open": "افتح المحادثة",
+                "empty": "المشروع ده ملوش محادثة داخلية.",
+                "messages": "{n} رسالة",
+                "deleted": "اتسحبت"
+            },
             "timeline_kind": {
                 "agreement": "الاتفاق",
                 "approval": "موافقة",
@@ -6249,6 +6361,297 @@
                 "loyalty": "خصوماتي",
                 "favorites": "المفضلة"
             }
+        }
+    },
+    "moving": {
+        "request_status": {
+            "draft": "مسودة",
+            "open": "بانتظار العروض",
+            "expired": "انتهت المهلة",
+            "withdrawn": "مسحوب",
+            "confirmed": "مؤكَّد، بانتظار الإسناد",
+            "assigned": "تم الإسناد",
+            "driver_on_way": "السائق في الطريق",
+            "arrived": "وصل السائق",
+            "loading": "جارٍ التحميل",
+            "in_transit": "في الطريق إلى الوجهة",
+            "unloading": "جارٍ التنزيل",
+            "delivered": "تم التسليم",
+            "completed": "مكتمل",
+            "cancelled": "ملغى",
+            "disputed": "بلاغ قيد البت"
+        },
+        "requests": {
+            "title": "طلبات النقل",
+            "search": "رقم الطلب أو الجوال أو المنشأة",
+            "all_statuses": "كل الحالات",
+            "running": "قيد التنفيذ",
+            "after_delivery": "بعد التسليم",
+            "route": "من ← إلى",
+            "customer": "العميل",
+            "establishment": "المنشأة",
+            "time": "الموعد",
+            "total": "الإجمالي",
+            "price": "السعر",
+            "tax": "الضريبة",
+            "commission": "عمولة دُرر",
+            "net": "صافي المنشأة",
+            "held": "المحجوز الآن",
+            "refunded": "المُعاد للعميل",
+            "jobs": "نقلة",
+            "settled_this_month": "المُسوّى هذا الشهر",
+            "tabs": {
+                "timeline": "الخطوات",
+                "offers": "العروض",
+                "changes": "التعديلات",
+                "inventory": "الجرد",
+                "tickets": "التذاكر"
+            },
+            "change_kind": {
+                "change": "فرق سعر",
+                "waiting": "رسوم انتظار",
+                "reschedule": "موعد جديد"
+            }
+        },
+        "tickets": {
+            "title": "تذاكر النقل",
+            "all_types": "كل الأنواع",
+            "subject": "الموضوع",
+            "type_label": "النوع",
+            "escalation_reason": "سبب الرفع للإدارة",
+            "reply": "الرد",
+            "keep_open": "تبقى مفتوحة",
+            "closing_reason": "سبب الإغلاق",
+            "type": {
+                "suggestion": "اقتراح",
+                "inquiry": "استفسار",
+                "complaint": "شكوى تشغيلية",
+                "safety": "سلامة",
+                "inventory": "اختلاف في الجرد",
+                "delay": "تأخر",
+                "financial": "مالية",
+                "note": "ملاحظة"
+            },
+            "status": {
+                "new": "جديدة",
+                "awaiting_company": "بانتظار المنشأة",
+                "company_replied": "ردّت المنشأة",
+                "awaiting_customer": "بانتظار العميل",
+                "resolved": "حُلّت",
+                "unresolved": "لم تُحل",
+                "escalated": "مرفوعة للإدارة"
+            },
+            "author": {
+                "user": "العميل",
+                "provider": "المنشأة",
+                "admin": "الإدارة"
+            }
+        },
+        "policies": {
+            "title": "قيم نقل العفش",
+            "hint": "قيم كل دولة لخدمة نقل العفش. الحقل الفارغ يعني أن القيمة لم تُحدد بعد، ولا تُطبق قاعدتها. وكل طلب يحتفظ بالقيم السارية وقت نشره.",
+            "default_all": "الافتراضي لكل الدول",
+            "version": "الإصدار",
+            "not_set": "غير محددة",
+            "from_default": "من الافتراضي:",
+            "footer": "تغيير القيم يسري على الطلبات الجديدة فقط.",
+            "groups": {
+                "offers": "العروض والجدولة",
+                "money": "العمولة والضريبة",
+                "delivery": "التسليم والبلاغات",
+                "cancellation": "الإلغاء",
+                "waiting": "الانتظار والتذاكر"
+            },
+            "units": {
+                "bp": "نقطة أساس (100 = 1%)",
+                "minor": "بأصغر وحدة للعملة",
+                "minutes": "دقيقة",
+                "hours": "ساعة",
+                "km": "كم",
+                "mb": "ميغابايت",
+                "number": ""
+            },
+            "keys": {
+                "offers__window_minutes": "مهلة استقبال العروض",
+                "offers__max_validity_hours": "أقصى صلاحية للعرض",
+                "broadcast__max_radius_km": "أقصى نطاق للفرع",
+                "schedule__block_hours": "الفاصل بين نقلتين للمركبة أو السائق",
+                "assignment__lead_minutes": "الإسناد قبل موعد النقلة بـ",
+                "commission__bp": "عمولة دُرر",
+                "commission__min_minor": "أقل عمولة",
+                "commission__max_minor": "أعلى عمولة",
+                "tax__bp": "الضريبة",
+                "delivery__objection_hours": "مدة البلاغ بعد التسليم",
+                "dispute__max_hold_bp": "أقصى حجز عند البلاغ",
+                "media__max_mb": "أكبر حجم للصورة أو الفيديو",
+                "cancel__near_hours": "بداية «قرب الموعد» قبله بـ",
+                "cancel__customer__early_bp": "رسوم إلغاء العميل مبكرًا",
+                "cancel__customer__near_bp": "رسوم إلغاء العميل قرب الموعد",
+                "cancel__customer__on_way_bp": "رسوم إلغاء العميل والسائق في الطريق",
+                "cancel__customer__arrived_bp": "رسوم إلغاء العميل والسائق عند الباب",
+                "waiting__grace_minutes": "دقائق الانتظار المجانية",
+                "waiting__fee_per_hour_minor": "رسوم الانتظار لكل ساعة",
+                "waiting__cap_minor": "أقصى رسوم انتظار",
+                "tickets__escalate_hours": "رفع التذكرة للإدارة بعد"
+            }
+        },
+        "cases": {
+            "title": "البلاغات والاستثناءات",
+            "all_kinds": "كل الأنواع",
+            "kind_label": "النوع",
+            "reason": "السبب",
+            "claim": "المبلغ المطالب به",
+            "held": "المحجوز",
+            "opened_by": "مقدم من",
+            "opened_at": "التاريخ",
+            "total": "قيمة النقلة",
+            "inventory": "الجرد بالصور",
+            "timeline": "خطوات النقلة",
+            "award": "المبلغ المعاد للعميل",
+            "award_hint": "الباقي من المبلغ المحجوز يذهب للمنشأة.",
+            "outcome": "القرار",
+            "note": "سبب القرار",
+            "decide": "اعتماد القرار",
+            "status": {
+                "open": "مفتوحة",
+                "decided": "تم البت"
+            },
+            "kind": {
+                "report": "بلاغ",
+                "exception": "طلب استثناء"
+            },
+            "side": {
+                "user": "العميل",
+                "provider": "المنشأة"
+            },
+            "outcomes": {
+                "refund_all": "إلغاء وإعادة المبلغ كاملًا",
+                "fee": "إلغاء برسوم المرحلة",
+                "continue": "رفض الطلب واستمرار النقلة"
+            },
+            "decision": {
+                "accepted": "قُبل",
+                "partial": "قُبل جزئيًا",
+                "rejected": "رُفض"
+            },
+            "reasons": {
+                "damage": "تلف",
+                "missing_item": "قطعة مفقودة",
+                "incomplete_service": "خدمة غير مكتملة",
+                "other": "سبب آخر",
+                "driver_late": "تأخر السائق",
+                "extra_money_asked": "طلب مبلغ إضافي خارج العرض",
+                "vehicle_mismatch": "مركبة غير المتفق عليها",
+                "vehicle_breakdown": "عطل المركبة",
+                "load_differs": "الحمولة مختلفة عن الوصف",
+                "customer_absent": "العميل غير موجود",
+                "unsafe_place": "مكان غير آمن",
+                "changed_plans": "تغيرت الخطة",
+                "found_another": "وجد بديلًا",
+                "driver_unavailable": "السائق غير متاح"
+            }
+        },
+        "common": {
+            "active": "مفعّل",
+            "sort": "الترتيب",
+            "saved": "تم الحفظ",
+            "confirm_delete": "هل تريد الحذف؟",
+            "km": "كم"
+        },
+        "establishment_type": {
+            "individual": "فرد",
+            "company": "شركة"
+        },
+        "establishment_status": {
+            "draft": "مسودة",
+            "under_review": "قيد المراجعة",
+            "approved": "معتمدة",
+            "rejected": "مرفوضة",
+            "suspended": "موقوفة"
+        },
+        "vehicle_status": {
+            "pending": "قيد المراجعة",
+            "approved": "معتمدة",
+            "rejected": "مرفوضة",
+            "inactive": "غير مفعّلة"
+        },
+        "document_status": {
+            "pending": "قيد المراجعة",
+            "approved": "معتمد",
+            "rejected": "مرفوض",
+            "expired": "منتهي",
+            "replaced": "مستبدل"
+        },
+        "establishments": {
+            "title": "مقدمو الخدمات",
+            "search": "الاسم أو رقم الجوال",
+            "all_statuses": "كل الحالات",
+            "all_types": "فرد وشركة",
+            "needs_review": "بانتظار المراجعة",
+            "name": "المنشأة",
+            "owner": "المالك",
+            "country": "الدولة",
+            "status": "الحالة",
+            "pending": "بانتظار المراجعة",
+            "submitted_at": "أُرسلت للمراجعة",
+            "approve": "اعتماد",
+            "reject": "رفض",
+            "suspend": "إيقاف",
+            "reason": "اكتب السبب (يظهر لمقدم الخدمة)",
+            "commercial_register": "السجل التجاري",
+            "documents": "مستندات المنشأة",
+            "branches": "الفروع",
+            "main_branch": "الرئيسي",
+            "vehicles": "المركبات",
+            "missing": "ناقص",
+            "team": "الفريق",
+            "exclusive": "حصري",
+            "invited": "مدعو",
+            "all_permissions": "كل الصلاحيات",
+            "no_documents": "لا توجد مستندات بعد",
+            "expires": "ينتهي"
+        },
+        "vehicle_types": {
+            "title": "أنواع المركبات",
+            "hint": "أنواع مركبات مقدمي الخدمات (ربع نقل، نصف نقل…)، والدول التي توجد فيها، والخدمات التي تناسبها. تظهر في التطبيق بصورتها وترتيبها.",
+            "add": "إضافة نوع",
+            "edit": "تعديل النوع",
+            "name": "النوع",
+            "countries": "الدول",
+            "services": "الخدمات",
+            "description": "الوصف",
+            "image": "الصورة"
+        },
+        "document_types": {
+            "title": "المستندات والصور المطلوبة",
+            "hint": "المستندات وصور المركبات المطلوبة من المنشآت والمركبات والسائقين، وأين تُطلب. صورة المركبة التي تظهر فيها اللوحة مطلوبة دائمًا.",
+            "add": "إضافة مستند",
+            "edit": "تعديل المستند",
+            "name": "المستند",
+            "code": "الرمز",
+            "subject_label": "يُطلب من",
+            "kind_label": "النوع",
+            "subject": {
+                "establishment": "المنشأة",
+                "vehicle": "المركبة",
+                "driver": "السائق"
+            },
+            "kind": {
+                "document": "مستند",
+                "photo": "صورة للمركبة"
+            },
+            "fields": "الحقول",
+            "has_number": "له رقم",
+            "has_expiry": "له تاريخ انتهاء",
+            "needs_back_side": "له وجه خلفي",
+            "expiry_alert_days": "التنبيه قبل الانتهاء (أيام)",
+            "required_from": "مطلوب في",
+            "add_requirement": "إضافة",
+            "optional_everywhere": "غير مطلوب في أي مكان",
+            "any_service": "كل الخدمات",
+            "any_vehicle": "كل المركبات",
+            "both_types": "فرد وشركة",
+            "always": "مطلوب دائمًا"
         }
     },
     "rides": {

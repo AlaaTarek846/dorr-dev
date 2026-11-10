@@ -66,8 +66,11 @@ private fun changeText(c: FreelanceChangeDto, currency: String): String {
     val p = c.payload
     return when (c.type) {
         "extend_days" -> stringResource(R.string.fl_ch_extend, num(p["days"]).toInt()) + (c.milestone?.let { " · ${it.title}" } ?: "")
-        "milestone_price" -> stringResource(R.string.fl_ch_price, c.milestone?.title.orEmpty(), "‎${money(num(p["from"]))}", "‎${money(num(p["to"]))} $currency")
-        "add_milestone" -> stringResource(R.string.fl_ch_add, p["title"]?.toString().orEmpty(), "‎${money(num(p["amount_minor"]))} $currency")
+        // FS-104: a member of the client's team without `money` gets the amounts blank - the line says what changes, not by how much.
+        "milestone_price" -> if (p["to"] == null) stringResource(R.string.fs_tm_ch_price_hidden, c.milestone?.title.orEmpty())
+            else stringResource(R.string.fl_ch_price, c.milestone?.title.orEmpty(), "‎${money(num(p["from"]))}", "‎${money(num(p["to"]))} $currency")
+        "add_milestone" -> if (p["amount_minor"] == null) stringResource(R.string.fs_tm_ch_add_hidden, p["title"]?.toString().orEmpty())
+            else stringResource(R.string.fl_ch_add, p["title"]?.toString().orEmpty(), "‎${money(num(p["amount_minor"]))} $currency")
         else -> stringResource(R.string.fl_ch_scope)
     }
 }
@@ -160,6 +163,8 @@ internal fun ChangesCard(
                         }
                     }
                 }
+                // FS-104: over my delegation limit - the owner answers this one.
+                if (c.overLimit) FlNotice(stringResource(R.string.fs_tm_change_over_limit), Icons.Rounded.Block, Color(0xFFD97706))
                 // Side by side, each its share of the width (a full-width button in a plain row squeezed the others out).
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (c.can.accept) TextAction(stringResource(R.string.fl_ch_accept), modifier = Modifier.weight(1f)) { onAnswer(c.uuid, "accept") }

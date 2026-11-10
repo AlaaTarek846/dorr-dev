@@ -29,6 +29,15 @@ func avatarPart(_ data: Data) -> FilePart? {
 }
 
 /**
+ * FS-209: a team's logo picked from the gallery, as the upload part (`logo`): scaled down to 1600px on its longest side and saved as
+ * JPEG like the avatar. Nil when it can't be read. Run it off the main thread.
+ */
+func logoPart(_ data: Data) -> FilePart? {
+    guard let image = UIImage(data: data), let jpeg = scaledJpeg(image, maxSide: 1600) else { return nil }
+    return FilePart(field: "logo", filename: "logo.jpg", mimeType: "image/jpeg", data: jpeg)
+}
+
+/**
  * A verification document picked from the files or photographed: a PDF is kept as it is, an image is scaled to 2000px on its
  * longest side and saved as JPEG (the server takes up to 8MB). Named `name` (`name.pdf` / `name.jpg`, the part's field is
  * `name` too — set the real field with `asField`); nil when the file is neither a JPG, PNG nor PDF or can't be read.

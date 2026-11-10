@@ -2,6 +2,16 @@
 
 use Illuminate\Support\Facades\Broadcast;
 use Modules\AI\Models\AiConversation;
+use Modules\Driver\Models\Driver;
+use Modules\Freelance\Models\FreelanceConversation;
+use Modules\Freelance\Models\Freelancer;
+use Modules\Moving\Models\MovingRequest;
+use Modules\Provider\Models\Branch;
+use Modules\Provider\Models\Provider;
+use Modules\Provider\Services\Establishments\EstablishmentAccess;
+use Modules\Rides\Models\Ride;
+use Modules\User\Models\User;
+use Modules\WatchEarn\Models\Ad;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,27 +73,56 @@ Broadcast::channel('Modules.Driver.Models.Driver.{id}', function ($driver, $id) 
 
 // A passenger ride (Modules/Rides): its rider and its current driver follow the status and the car.
 Broadcast::channel('rides.{uuid}', function ($person, string $uuid) {
-    $ride = \Modules\Rides\Models\Ride::query()->where('uuid', $uuid)->first(['user_id', 'driver_id']);
+    $ride = Ride::query()->where('uuid', $uuid)->first(['user_id', 'driver_id']);
     if ($ride === null) {
         return false;
     }
 
-    return $person instanceof \Modules\Driver\Models\Driver
+    return $person instanceof Driver
         ? (int) $ride->driver_id === (int) $person->id
-        : $person instanceof \Modules\User\Models\User && (int) $ride->user_id === (int) $person->id;
+        : $person instanceof User && (int) $ride->user_id === (int) $person->id;
 }, ['guards' => ['user_api', 'driver_api']]);
+
+// A move (Modules/Moving): its customer, and in its establishment the assigned driver and whoever may follow the jobs.
+Broadcast::channel('moving.{uuid}', function ($person, string $uuid) {
+    $move = MovingRequest::query()->where('uuid', $uuid)->first(['user_id', 'establishment_id', 'branch_id', 'driver_membership_id']);
+    if ($move === null) {
+        return false;
+    }
+    if ($person instanceof User) {
+        return (int) $move->user_id === (int) $person->id;
+    }
+    if (! $person instanceof Provider || $move->establishment_id === null) {
+        return false;
+    }
+    $access = app(EstablishmentAccess::class);
+    $branch = Branch::query()->find($move->branch_id);
+
+    return $person->memberships()->where('establishment_id', $move->establishment_id)->where('status', 'active')->get()
+        ->contains(fn ($m) => (int) $m->id === (int) $move->driver_membership_id || $access->can($m, 'jobs.track', $branch));
+}, ['guards' => ['user_api', 'provider_api']]);
 
 // A client-freelancer room (Modules/Freelance, FL-006): only its two people listen.
 Broadcast::channel('freelance-chat.{uuid}', function ($person, string $uuid) {
-    $room = \Modules\Freelance\Models\FreelanceConversation::query()->where('uuid', $uuid)->first(['client_id', 'freelancer_id']);
+    $room = FreelanceConversation::query()->where('uuid', $uuid)->first(['client_id', 'freelancer_id']);
     if ($room === null) {
         return false;
     }
 
-    return $person instanceof \Modules\Freelance\Models\Freelancer
+    return $person instanceof Freelancer
         ? (int) $room->freelancer_id === (int) $person->id
-        : $person instanceof \Modules\User\Models\User && (int) $room->client_id === (int) $person->id;
+        : $person instanceof User && (int) $room->client_id === (int) $person->id;
 }, ['guards' => ['user_api', 'freelance_api']]);
+
+// A project's Workroom (Modules/Freelance, FS-150a): its client, the people of the client's team, and the freelancer of its agreement.
+Broadcast::channel('freelance-workroom.{uuid}', function ($person, string $uuid) {
+    return app(\Modules\Freelance\Services\Workroom\WorkroomAccess::class)->listens($person, $uuid);
+}, ['guards' => ['user_api', 'freelance_api']]);
+
+// FS-150d: a freelancers' team's internal chat - its active people only (never the client).
+Broadcast::channel('freelance-team.{uuid}', function ($person, string $uuid) {
+    return app(\Modules\Freelance\Services\FreelancerTeam\TeamChat::class)->listens($person, $uuid);
+}, ['guards' => ['freelance_api']]);
 
 // The freelancer's own channel: every live notification reaches them here (Modules/Freelance, FL-007).
 Broadcast::channel('Modules.Freelance.Models.Freelancer.{id}', function ($freelancer, $id) {
@@ -93,6 +132,6 @@ Broadcast::channel('Modules.Freelance.Models.Freelancer.{id}', function ($freela
 // Watch & Earn: everyone with an ad open hears its new comments and reaction counts (comments are seen by every
 // viewer — docs/watch_earn_tasks.md D4). Any signed-in user, for an ad that exists.
 Broadcast::channel('watch-earn.ad.{uuid}', function ($user, string $uuid) {
-    return $user instanceof \Modules\User\Models\User
-        && \Modules\WatchEarn\Models\Ad::query()->where('uuid', $uuid)->exists();
+    return $user instanceof User
+        && Ad::query()->where('uuid', $uuid)->exists();
 }, ['guards' => ['user_api']]);

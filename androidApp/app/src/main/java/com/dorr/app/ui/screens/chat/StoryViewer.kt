@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -306,33 +305,28 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                     if (story.isDorr) DorrAvatar(38.dp) else ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 38.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (story.isMine) stringResource(R.string.st_my_status) else ltrTitle(owner?.name), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(if (story.isMine) stringResource(R.string.st_my_status) else owner?.name.orEmpty(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                         Text(timeAgo(story.createdAt), color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
                     }
                     if (!story.isDorr) Box {
                         Icon(Icons.Rounded.MoreVert, null, tint = Color.White, modifier = Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }.padding(8.dp))
-                        // The menu is its own window: the app's language (not the phone's) is given to it again.
-                        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
-                        // The app's surface (as the chat's menus), so its text reads in light and dark.
-                        DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = Ch.Surface, shape = RoundedCornerShape(14.dp), modifier = Modifier.widthIn(max = 260.dp)) {
-                            locale.Provide {
-                                if (story.isMine) {
-                                    MenuItem(Icons.Rounded.Delete, stringResource(R.string.st_delete), tint = Ch.Danger) {
-                                        menu = false
-                                        scope.launch {
-                                            runCatching { ApiClient.chat.deleteStory(chatAuth(), story.id) }
-                                            host.showToast(deleted)
-                                            stories.removeAt(index)
-                                            if (stories.isEmpty()) onClose() else if (index > stories.lastIndex) index = stories.lastIndex
-                                        }
+                        DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = Color.White, shape = RoundedCornerShape(16.dp)) {
+                            if (story.isMine) {
+                                MenuItem(Icons.Rounded.Delete, stringResource(R.string.st_delete), tint = Ch.Danger) {
+                                    menu = false
+                                    scope.launch {
+                                        runCatching { ApiClient.chat.deleteStory(chatAuth(), story.id) }
+                                        host.showToast(deleted)
+                                        stories.removeAt(index)
+                                        if (stories.isEmpty()) onClose() else if (index > stories.lastIndex) index = stories.lastIndex
                                     }
-                                } else if (owner != null) {
-                                    MenuItem(Icons.Rounded.NotificationsOff, stringResource(R.string.st_mute, ltrTitle(owner.name))) {
-                                        menu = false
-                                        scope.launch {
-                                            runCatching { ApiClient.chat.muteStories(chatAuth(), mapOf("participant_id" to owner.id, "muted" to true)).data }.getOrNull()?.let { host.stories = it }
-                                            onNextGroup()
-                                        }
+                                }
+                            } else if (owner != null) {
+                                MenuItem(Icons.Rounded.NotificationsOff, stringResource(R.string.st_mute, owner.name.orEmpty())) {
+                                    menu = false
+                                    scope.launch {
+                                        runCatching { ApiClient.chat.muteStories(chatAuth(), mapOf("participant_id" to owner.id, "muted" to true)).data }.getOrNull()?.let { host.stories = it }
+                                        onNextGroup()
                                     }
                                 }
                             }
@@ -412,9 +406,7 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
                     val body = story.body.orEmpty()
                     Text(
                         body, color = Color.White, fontFamily = StoryLook.font(style?.font), fontWeight = StoryLook.weight(style?.font),
-                        fontSize = StoryLook.textSize(body.length).sp, lineHeight = (StoryLook.textSize(body.length) * 1.25f).sp,
-                        // Lined up as it was written (start / centre / end).
-                        textAlign = storyTextAlign(style?.align), modifier = Modifier.fillMaxWidth(),
+                        fontSize = StoryLook.textSize(body.length).sp, lineHeight = (StoryLook.textSize(body.length) * 1.25f).sp, textAlign = TextAlign.Center,
                     )
                 }
                 StoryLayersView(style?.layers)

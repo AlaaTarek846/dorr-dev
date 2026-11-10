@@ -12,6 +12,8 @@ struct MainActions {
     let openPlans: () -> Void
     let openPortfolio: () -> Void
     let openProject: (String) -> Void
+    /// FS-209b: a team's project opens its agreement page (the project page is the signer's own offer view).
+    let openAgreement: (String) -> Void
     let openMyOffers: () -> Void
     let openOffer: (String) -> Void
     let openInvitations: () -> Void
@@ -32,6 +34,8 @@ struct MainActions {
     let openSkillTests: () -> Void
     // FL-L10: my capacity and the line on my services
     let openCapacity: () -> Void
+    // FS-209: my freelancers' teams
+    let openTeams: () -> Void
     // FL-L07: paid consultations
     let openConsultations: () -> Void
     let openConsultation: (String) -> Void
@@ -53,6 +57,7 @@ struct MainActions {
             openPlans: { nav.push(.plans) },
             openPortfolio: { nav.push(.portfolio) },
             openProject: { nav.push(.project($0)) },
+            openAgreement: { nav.push(.agreement($0)) },
             openMyOffers: { nav.push(.myOffers) },
             openOffer: { nav.push(.offerDetail($0)) },
             openInvitations: { nav.push(.invitations) },
@@ -68,6 +73,7 @@ struct MainActions {
             openCoach: { nav.push(.coach) },
             openSkillTests: { nav.push(.skillTests) },
             openCapacity: { nav.push(.capacity) },
+            openTeams: { nav.push(.teams) },
             openConsultations: { nav.push(.consultations) },
             openConsultation: { nav.push(.consultation($0)) },
             openConsultationEditor: { nav.pushSingleTop(.consultationEdit($0)) },

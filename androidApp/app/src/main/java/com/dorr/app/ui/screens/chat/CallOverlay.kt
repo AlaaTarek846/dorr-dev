@@ -40,10 +40,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,15 +75,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import kotlin.math.abs
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -154,9 +148,6 @@ fun CallOverlay() {
     if (phase != null && phase != CallPhase.Ended && CallController.minimized && !CallController.inPip) CallMiniBubble()
 }
 
-/** The call screen's own dark red, for the minimised window and picture-in-picture too. */
-private val CallBackdropBrush = Brush.verticalGradient(listOf(Color(0xFF3B0206), Color(0xFF120203)))
-
 /** The call, minimised: its video (or photo, name and timer), anywhere on screen. */
 @Composable
 private fun CallMiniBubble() {
@@ -170,41 +161,26 @@ private fun CallMiniBubble() {
     val remote = CallController.videos.firstOrNull { !it.isLocal }
     val w = if (remote != null) 112.dp else 190.dp
     val h = if (remote != null) 168.dp else 62.dp
-    // Top-left in every language: absoluteOffset counts from there (Arabic's TopStart is the right edge).
-    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(12.dp), contentAlignment = AbsoluteAlignment.TopLeft) {
+    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(12.dp)) {
         val wPx = with(density) { w.toPx() }
         val hPx = with(density) { h.toPx() }
         val maxX = (constraints.maxWidth - wPx).coerceAtLeast(0f)
         val maxY = (constraints.maxHeight - hPx).coerceAtLeast(0f)
-        // Screen coordinates (absoluteOffset): `offset` is mirrored in Arabic, so a drag went the other way.
-        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val x = remember { Animatable(if (rtl) 0f else maxX) }
+        val x = remember { Animatable(maxX) }
         val y = remember { Animatable(with(density) { 64.dp.toPx() }.coerceAtMost(maxY)) }
         Box(
             Modifier
-                .absoluteOffset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
+                .offset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
                 .size(w, h)
                 .shadow(18.dp, RoundedCornerShape(20.dp))
                 .clip(RoundedCornerShape(20.dp))
-                .background(CallBackdropBrush)
+                .background(Color(0xFF001B53))
                 .pointerInput(maxX, maxY) {
-                    // The finger's speed, from the total drag (the window moves with the finger, so its own
-                    // positions would read as standing still).
-                    val tracker = VelocityTracker()
-                    var travelled = Offset.Zero
-                    val fling = 400.dp.toPx()
                     detectDragGestures(
-                        onDragStart = { tracker.resetTracking(); travelled = Offset.Zero },
-                        // Let go: a flick sends it to that side; otherwise the nearest side.
-                        onDragEnd = {
-                            val vx = tracker.calculateVelocity().x
-                            val right = if (abs(vx) > fling) vx > 0 else x.value >= maxX / 2
-                            scope.launch { x.animateTo(if (right) maxX else 0f, spring(dampingRatio = 0.75f, stiffness = 380f), initialVelocity = vx) }
-                        },
+                        // Let go: it snaps to the nearest side.
+                        onDragEnd = { scope.launch { x.animateTo(if (x.value < maxX / 2) 0f else maxX, spring(dampingRatio = 0.7f)) } },
                     ) { change, drag ->
                         change.consume()
-                        travelled += drag
-                        tracker.addPosition(change.uptimeMillis, travelled)
                         scope.launch {
                             x.snapTo((x.value + drag.x).coerceIn(0f, maxX))
                             y.snapTo((y.value + drag.y).coerceIn(0f, maxY))
@@ -224,7 +200,7 @@ private fun CallMiniBubble() {
                     ChAvatar(CallController.avatar, CallController.title, CallController.peerKey, size = 40.dp)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(ltrTitle(CallController.title), color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(CallController.title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         Text(
                             if (CallController.phase == CallPhase.Active) durationText(tick * 1000) else stringResource(R.string.ch_call_calling),
                             color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp,
@@ -249,14 +225,14 @@ fun CallPipView() {
         try { kotlinx.coroutines.awaitCancellation() } finally { job.cancel() }
     }
     val remote = CallController.videos.firstOrNull { !it.isLocal }
-    Box(Modifier.fillMaxSize().background(CallBackdropBrush), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Color(0xFF001B53)), contentAlignment = Alignment.Center) {
         if (remote != null) {
             key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 ChAvatar(CallController.avatar, CallController.title, CallController.peerKey, size = 56.dp)
                 Spacer(Modifier.height(6.dp))
-                Text(ltrTitle(CallController.title), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(CallController.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text(
                     if (CallController.phase == CallPhase.Active) durationText(tick * 1000) else stringResource(R.string.ch_call_calling),
                     color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp,
@@ -322,7 +298,7 @@ private fun CallScreen() {
             AnimatedBackdrop()
             GroupGrid(Modifier.fillMaxSize().padding(top = 96.dp, bottom = 124.dp).navigationBarsPadding())
             Column(Modifier.fillMaxWidth().padding(top = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(ltrTitle(CallController.title), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text(CallController.title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 Text(
                     stringResource(R.string.ch_call_people, CallController.members.size) + "  ·  " + durationText(tick * 1000),
                     color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
@@ -347,7 +323,7 @@ private fun CallScreen() {
                     }
                     Spacer(Modifier.height(26.dp))
                 }
-                Text(ltrTitle(CallController.title), color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
+                Text(CallController.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
                 Spacer(Modifier.height(6.dp))
                 AnimatedContent(targetState = phase, label = "callState", transitionSpec = { fadeIn() togetherWith fadeOut() }) { p ->
                     Text(
@@ -695,17 +671,16 @@ private fun VideoSurface(video: CallVideo, modifier: Modifier) {
 private fun LocalPreview(local: CallVideo) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    BoxWithConstraints(Modifier.fillMaxSize().padding(16.dp), contentAlignment = AbsoluteAlignment.TopLeft) {
+    BoxWithConstraints(Modifier.fillMaxSize().padding(16.dp)) {
         val w = with(density) { 110.dp.toPx() }
         val h = with(density) { 160.dp.toPx() }
         val maxX = with(density) { maxWidth.toPx() } - w
         val maxY = with(density) { maxHeight.toPx() } - h - with(density) { 120.dp.toPx() }
-        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val x = remember { Animatable(if (rtl) 0f else maxX) }
+        val x = remember { Animatable(maxX) }
         val y = remember { Animatable(with(density) { 40.dp.toPx() }) }
         Box(
             Modifier
-                .absoluteOffset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
+                .offset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
                 .size(110.dp, 160.dp)
                 .shadow(16.dp, RoundedCornerShape(20.dp))
                 .clip(RoundedCornerShape(20.dp))

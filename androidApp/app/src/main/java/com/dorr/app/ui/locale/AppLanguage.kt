@@ -147,7 +147,11 @@ fun LocalizedApp(content: @Composable () -> Unit) {
 
     // Keep the X-Locale header (read by the OkHttp interceptor) in sync with
     // the persisted choice — including on cold start from stored prefs.
-    SideEffect { AppLocale.current = code }
+    SideEffect {
+        AppLocale.current = code
+        // Material's date picker and the number formats read the default locale: keep it on Latin digits too.
+        Locale.setDefault(AppLocale.latin(code))
+    }
 
     // Rebuilt when the screen changes too (rotation, split screen, unfolding — the activity isn't
     // restarted for those), so LocalConfiguration below carries the new size.
@@ -258,7 +262,7 @@ fun LocaleAwareDialog(
  */
 private fun Context.forLocale(code: String, downloaded: Map<String, Any>?): Context {
     val config = Configuration(resources.configuration).apply {
-        setLocales(LocaleList(Locale(code)))
+        setLocales(LocaleList(com.dorr.app.network.AppLocale.latin(code)))
     }
     val localized = createConfigurationContext(config)
     val resources = downloaded?.let { DynamicResources(localized.resources, it, code) } ?: localized.resources

@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -55,16 +54,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.HourglassTop
@@ -93,14 +88,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -140,52 +133,36 @@ import kotlinx.coroutines.launch
 
 // =============================================================================== link card
 
-/**
- * The page behind a link (as in WhatsApp): its picture on top, the title, a line of text, then the site's address
- * with a link icon. Each line reads the way its words do (English left to right). Tap → browser.
- */
+/** The page behind a link: its picture on top, then site · title · a line of text. Tap → browser. */
 @Composable
 fun LinkPreviewCard(preview: LinkPreviewDto, mine: Boolean) {
     val context = LocalContext.current
     val ink = if (mine) Ch.OutText else Ch.InText
     val pop = remember { Animatable(0f) }
     LaunchedEffect(preview.url) { pop.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 300f)) }
-    val host = remember(preview.url) { runCatching { Uri.parse(preview.url).host?.removePrefix("www.") }.getOrNull() ?: preview.siteName.orEmpty() }
-    val byContent = androidx.compose.ui.text.TextStyle(textDirection = androidx.compose.ui.text.style.TextDirection.Content)
     Column(
-        // As wide as the bubble (at most 260), close to its edges, no strip beside it; at least 220 so a short link still gets a real card.
-        Modifier.padding(start = 3.dp, end = 3.dp, top = 3.dp).fillMaxWidth().widthIn(min = 220.dp)
+        Modifier.padding(start = 4.dp, end = 4.dp, top = 4.dp).width(260.dp)
             .graphicsLayer { alpha = pop.value; scaleY = 0.85f + 0.15f * pop.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }
-            .clip(RoundedCornerShape(11.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(if (mine) Color.Black.copy(alpha = 0.14f) else Ch.SurfaceMuted)
             .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(preview.url))) } },
     ) {
         preview.image?.let { image ->
             AsyncImage(
                 ApiClient.mediaUrl(image), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().height(150.dp),
+                modifier = Modifier.fillMaxWidth().height(136.dp),
             )
         }
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            preview.title?.let { Text(it, style = byContent, color = ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp, modifier = Modifier.fillMaxWidth()) }
-            preview.description?.let { Text(it, style = byContent, color = ink.copy(alpha = 0.75f), fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp, modifier = Modifier.fillMaxWidth()) }
-            if (host.isNotBlank()) {
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                    Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Link, null, tint = ink.copy(alpha = 0.7f), modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text(host, color = ink.copy(alpha = 0.8f), fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Language, null, tint = ink.copy(alpha = 0.6f), modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(preview.siteName.orEmpty().uppercase(), color = ink.copy(alpha = 0.6f), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            preview.title?.let { Text(it, color = ink, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp) }
+            preview.description?.let { Text(it, color = ink.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp) }
         }
     }
-}
-
-/** The message is only a link (nothing else written): under its card, the address isn't written out again. */
-internal fun isOnlyLink(body: String?): Boolean {
-    val b = body?.trim().orEmpty()
-    return b.isNotEmpty() && b.none { it.isWhitespace() } && (b.startsWith("http://", true) || b.startsWith("https://", true) || b.startsWith("www.", true))
 }
 
 /**
@@ -193,7 +170,7 @@ internal fun isOnlyLink(body: String?): Boolean {
  * once; the message then carries the same card). The ✕ hides it for this link.
  */
 @Composable
-fun ComposerLinkPreview(text: String, onShown: (LinkPreviewDto?) -> Unit = {}) {
+fun ComposerLinkPreview(text: String) {
     val url = remember(text) { Regex("(https?://\\S+|www\\.\\S+)").find(text)?.value?.trimEnd('.', ',', ')', '!', '?') }
     var preview by remember { mutableStateOf<LinkPreviewDto?>(null) }
     var dismissed by remember { mutableStateOf<String?>(null) }
@@ -207,8 +184,6 @@ fun ComposerLinkPreview(text: String, onShown: (LinkPreviewDto?) -> Unit = {}) {
         }
     }
     val show = preview != null && dismissed != url
-    // The card on screen (or none): sent along with the message so it shows on its bubble at once.
-    LaunchedEffect(show, preview) { onShown(if (show) preview else null) }
     AnimatedVisibility(show, enter = slideInVertically { it / 2 } + fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
         val p = preview ?: return@AnimatedVisibility
         Row(
@@ -247,50 +222,50 @@ fun PollCard(m: UiMessage, mine: Boolean, onVote: (Int) -> Unit, onShowVotes: ()
     val accent = if (mine) Ch.OutText else Ch.Red
     val total = poll.options.sumOf { it.votes }.coerceAtLeast(1)
     val top = poll.options.maxOfOrNull { it.votes } ?: 0
-    Column(Modifier.width(236.dp).padding(horizontal = 10.dp, vertical = 7.dp)) {
+    Column(Modifier.width(270.dp).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Poll, null, tint = accent, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(5.dp))
+            Icon(Icons.Rounded.Poll, null, tint = accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
                 stringResource(if (poll.multiple) R.string.ch_poll_pick_many else R.string.ch_poll_pick_one),
-                color = ink.copy(alpha = 0.65f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                color = ink.copy(alpha = 0.65f), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold,
             )
         }
-        Text(poll.question.orEmpty(), color = ink, fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+        Text(poll.question.orEmpty(), color = ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
         poll.options.forEachIndexed { i, option ->
             val chosen = option.id in poll.myVotes
             val share by animateFloatAsState(option.votes.toFloat() / total, spring(dampingRatio = 0.75f, stiffness = 220f), label = "pollShare")
             val tick by animateFloatAsState(if (chosen) 1f else 0f, spring(dampingRatio = 0.45f), label = "pollTick")
             Column(
-                Modifier.fillMaxWidth().chStagger(i).padding(vertical = 2.dp).clip(RoundedCornerShape(10.dp))
-                    .clickable(enabled = m.local == null) { onVote(option.id) }.padding(vertical = 2.dp),
+                Modifier.fillMaxWidth().chStagger(i).padding(vertical = 5.dp).clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = m.local == null) { onVote(option.id) }.padding(vertical = 3.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
                         Icon(
                             if (poll.multiple) Icons.Rounded.CheckBoxOutlineBlank else Icons.Rounded.RadioButtonUnchecked, null,
-                            tint = ink.copy(alpha = 0.45f), modifier = Modifier.size(17.dp).graphicsLayer { alpha = 1f - tick },
+                            tint = ink.copy(alpha = 0.45f), modifier = Modifier.size(21.dp).graphicsLayer { alpha = 1f - tick },
                         )
                         Icon(
                             if (poll.multiple) Icons.Rounded.CheckBox else Icons.Rounded.CheckCircle, null,
-                            tint = accent, modifier = Modifier.size(17.dp).scale(tick).graphicsLayer { alpha = tick },
+                            tint = accent, modifier = Modifier.size(21.dp).scale(tick).graphicsLayer { alpha = tick },
                         )
                     }
-                    Spacer(Modifier.width(6.dp))
-                    Text(option.text, color = ink, fontSize = 13.sp, fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Text(option.text, color = ink, fontSize = 14.sp, fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     AnimatedContent(option.votes, label = "pollCount", transitionSpec = { (slideInVertically { -it } + fadeIn()) togetherWith fadeOut() }) { n ->
-                        Text("$n", color = ink.copy(alpha = 0.75f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("$n", color = ink.copy(alpha = 0.75f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Box(Modifier.padding(start = 24.dp, top = 3.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(ink.copy(alpha = 0.12f))) {
+                Box(Modifier.padding(start = 30.dp, top = 5.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(ink.copy(alpha = 0.12f))) {
                     Box(
-                        Modifier.fillMaxWidth(share).height(4.dp).clip(RoundedCornerShape(2.dp))
+                        Modifier.fillMaxWidth(share).height(6.dp).clip(RoundedCornerShape(3.dp))
                             .background(if (option.votes == top && top > 0) accent else accent.copy(alpha = 0.55f)),
                     )
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+        Box(Modifier.fillMaxWidth().padding(top = 6.dp)) {
             Row(
                 Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = poll.voters > 0, onClick = onShowVotes).padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -325,77 +300,21 @@ fun PollVotesSheet(message: MessageDto, onDismiss: () -> Unit) {
             if (list == null) {
                 Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), color = Ch.Red, strokeWidth = 2.5.dp) }
             } else {
-                val sorted = list.sortedByDescending { it.voters.size }
-                val firstId = sorted.firstOrNull()?.id
-                var open by remember(message.id) { mutableStateOf(setOfNotNull(firstId)) }
-                val pages = remember(message.id) { mutableStateMapOf<Int, Int>() }
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                    sorted.forEachIndexed { i, option ->
-                        VoteOptionCard(
-                            option, i,
-                            expanded = option.id in open,
-                            lockedOpen = option.id == firstId,
-                            page = pages[option.id] ?: 0,
-                            onToggle = {
-                                if (option.id == firstId) return@VoteOptionCard
-                                open = if (option.id in open) open - option.id else open + option.id
-                            },
-                            onPage = { pages[option.id] = it },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private const val VOTE_PAGE = 8
-
-/** One option as a card. The first stays open; the arrow on the others drops the people out underneath, a page at a time. */
-@Composable
-private fun VoteOptionCard(
-    option: PollOptionVotersDto,
-    index: Int,
-    expanded: Boolean,
-    lockedOpen: Boolean,
-    page: Int,
-    onToggle: () -> Unit,
-    onPage: (Int) -> Unit,
-) {
-    val pages = (option.voters.size + VOTE_PAGE - 1) / VOTE_PAGE
-    val safePage = page.coerceIn(0, (pages - 1).coerceAtLeast(0))
-    val shown = option.voters.drop(safePage * VOTE_PAGE).take(VOTE_PAGE)
-    val turn by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "voteArrow")
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp).chStagger(index).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted)) {
-        Row(
-            Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(option.text, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-            Text(stringResource(R.string.ch_poll_votes_count, option.voters.size), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Rounded.KeyboardArrowDown, null, tint = if (lockedOpen) Ch.Mut else Ch.Ink, modifier = Modifier.size(22.dp).rotate(turn))
-        }
-        AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp)) {
-                shown.forEach { person ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChAvatar(person.avatar, person.name, person.key, size = 36.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(if (person.isMe) stringResource(R.string.ch_you) else person.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-                }
-                if (pages > 1) {
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.ChevronLeft, null, tint = if (safePage > 0) Ch.Ink else Ch.Mut,
-                            modifier = Modifier.size(22.dp).clip(CircleShape).clickable(enabled = safePage > 0) { onPage(safePage - 1) },
-                        )
-                        Text(stringResource(R.string.ch_pdf_page, safePage + 1, pages), color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp))
-                        Icon(
-                            Icons.Rounded.ChevronRight, null, tint = if (safePage < pages - 1) Ch.Ink else Ch.Mut,
-                            modifier = Modifier.size(22.dp).clip(CircleShape).clickable(enabled = safePage < pages - 1) { onPage(safePage + 1) },
-                        )
+                LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                    list.sortedByDescending { it.voters.size }.forEachIndexed { i, option ->
+                        item(key = "o${option.id}") {
+                            Row(Modifier.fillMaxWidth().chStagger(i).padding(top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(option.text, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+                                Text(stringResource(R.string.ch_poll_votes_count, option.voters.size), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        itemsIndexed(option.voters, key = { _, p -> "o${option.id}-${p.key}" }) { j, person ->
+                            Row(Modifier.fillMaxWidth().chStagger(i + j).padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                ChAvatar(person.avatar, person.name, person.key, size = 36.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text(if (person.isMe) stringResource(R.string.ch_you) else person.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -585,10 +504,7 @@ fun ViewOnceViewer(files: List<AttachmentDto>, onClose: () -> Unit) {
  * while it's live, "Live until 3:45 PM" (a countdown in the last hour), and — mine — "Stop sharing".
  */
 @Composable
-fun LiveLocationCard(
-    meta: JsonObject?, live: LiveLocationDto, mine: Boolean, onStop: () -> Unit,
-    sender: com.dorr.app.network.ProfileDto? = null, onOpen: (() -> Unit)? = null, footer: @Composable () -> Unit,
-) {
+fun LiveLocationCard(meta: JsonObject?, live: LiveLocationDto, mine: Boolean, onStop: () -> Unit, footer: @Composable () -> Unit) {
     val context = LocalContext.current
     val lat = meta?.dbl("latitude") ?: 0.0
     val lng = meta?.dbl("longitude") ?: 0.0
@@ -597,40 +513,35 @@ fun LiveLocationCard(
     val until = parseInstant(live.liveUntil)?.toEpochMilli() ?: 0L
     val active = live.active && until > now
     val ink = if (mine) Ch.OutText else Ch.InText
+    val pulse = rememberInfiniteTransition(label = "live")
+    val ring by pulse.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "liveRing")
     // Each new position nudges the pin a little: it looks like it's walking.
     val nudge = remember { Animatable(0f) }
     LaunchedEffect(lat, lng) {
         nudge.snapTo(-8f)
         nudge.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 300f))
     }
-    // The app's red while live (as the rest of the chat), grey once it has ended.
-    val activeColor by animateColorAsState(if (active) Ch.Red else Ch.Mut, label = "liveColor")
+    val activeColor by animateColorAsState(if (active) Ch.Success else Ch.Mut, label = "liveColor")
 
     Column(Modifier.width(260.dp).padding(3.dp)) {
         Box(
-            Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(11.dp))
-                // «View live location» in the app (a map that follows them); the phone's maps app without one.
-                .clickable { onOpen?.invoke() ?: runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))) } },
+            Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(17.dp))
+                .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))) } },
         ) {
-            // The real map around the last position (as in a plain location), the drawn one without a map key.
-            val realMap = remember { com.dorr.app.map.MapEngine.canDraw(context) }
-            if (realMap) com.dorr.app.map.DorrMapPreview(
-                // ~10 m steps: a new picture only when the person has really moved.
-                com.google.android.gms.maps.model.LatLng(Math.round(lat * 10_000) / 10_000.0, Math.round(lng * 10_000) / 10_000.0),
-                Modifier.matchParentSize(), night = Ch.dark,
-            )
-            Canvas(Modifier.fillMaxSize().then(if (realMap) Modifier else Modifier.background(Color(0xFFE8F0E3)))) {
-                if (!realMap) {
-                    val block = Color(0xFFD5E4CF)
-                    for (i in 0..6) drawRect(block, Offset(i * size.width / 5f - 20f, (i % 3) * size.height / 3f + 12f), Size(size.width / 7f, size.height / 4.5f))
-                    drawLine(Color.White, Offset(0f, size.height * 0.62f), Offset(size.width, size.height * 0.38f), strokeWidth = 14.dp.toPx())
-                    drawLine(Color.White, Offset(size.width * 0.3f, 0f), Offset(size.width * 0.44f, size.height), strokeWidth = 9.dp.toPx())
-                    drawLine(Color(0xFFBFDBFE), Offset(size.width * 0.75f, 0f), Offset(size.width, size.height * 0.3f), strokeWidth = 18.dp.toPx())
+            Canvas(Modifier.fillMaxSize().background(Color(0xFFE8F0E3))) {
+                val block = Color(0xFFD5E4CF)
+                for (i in 0..6) drawRect(block, Offset(i * size.width / 5f - 20f, (i % 3) * size.height / 3f + 12f), Size(size.width / 7f, size.height / 4.5f))
+                drawLine(Color.White, Offset(0f, size.height * 0.62f), Offset(size.width, size.height * 0.38f), strokeWidth = 14.dp.toPx())
+                drawLine(Color.White, Offset(size.width * 0.3f, 0f), Offset(size.width * 0.44f, size.height), strokeWidth = 9.dp.toPx())
+                drawLine(Color(0xFFBFDBFE), Offset(size.width * 0.75f, 0f), Offset(size.width, size.height * 0.3f), strokeWidth = 18.dp.toPx())
+                if (active) {
+                    val c = Offset(size.width / 2, size.height / 2)
+                    drawCircle(Ch.Success.copy(alpha = 0.35f * (1f - ring)), radius = 16.dp.toPx() + 34.dp.toPx() * ring, center = c)
+                    drawCircle(Ch.Success.copy(alpha = 0.18f), radius = 16.dp.toPx(), center = c)
                 }
             }
-            // Their photo is the pin (the app's red ring, a red pulse while live), as in WhatsApp.
-            Box(Modifier.align(Alignment.Center).graphicsLayer { translationY = nudge.value.dp.toPx() }) {
-                LiveAvatarPin(sender, active, size = 44.dp)
+            Box(Modifier.align(Alignment.Center).graphicsLayer { translationY = nudge.value.dp.toPx() - 14.dp.toPx() }) {
+                Icon(Icons.Rounded.Place, null, tint = if (active) Ch.Success else Ch.Red, modifier = Modifier.size(44.dp))
             }
             Row(
                 Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 8.dp, vertical = 3.dp),
@@ -643,7 +554,7 @@ fun LiveLocationCard(
             Box(Modifier.align(Alignment.BottomEnd).padding(8.dp)) { footer() }
         }
         Row(Modifier.padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.NearMe, null, tint = if (active && !mine) activeColor else ink.copy(alpha = if (active) 1f else 0.6f), modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.NearMe, null, tint = if (active) activeColor else ink.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(
                 if (active) liveLabel(until, now) else stringResource(R.string.ch_live_ended_long),
@@ -669,6 +580,45 @@ private fun liveLabel(until: Long, now: Long): String {
     val minutes = ((until - now) / 60_000L).coerceAtLeast(1)
     return if (minutes < 60) stringResource(R.string.ch_live_minutes_left, minutes.toInt())
     else stringResource(R.string.ch_live_until, java.time.Instant.ofEpochMilli(until).atZone(java.time.ZoneId.systemDefault()).toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a")))
+}
+
+/** Send my location now, or share it live for 15 min / 1 h / 8 h. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocationShareSheet(onDismiss: () -> Unit, onCurrent: () -> Unit, onLive: (Int) -> Unit) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
+            Text(stringResource(R.string.ch_attach_location), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(14.dp))
+            ShareRow(Icons.Rounded.MyLocation, stringResource(R.string.ch_location_current), stringResource(R.string.ch_location_current_sub), Color(0xFF2563EB), 0, iconTint = Ch.Red) { onCurrent() }
+            Row(
+                Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.NearMe, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.ch_live_title), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+            }
+            listOf(900 to R.string.ch_live_15m, 3600 to R.string.ch_live_1h, 28800 to R.string.ch_live_8h).forEachIndexed { i, (seconds, label) ->
+                ShareRow(Icons.Rounded.NearMe, stringResource(label), stringResource(R.string.ch_live_sub), Ch.Success, i + 1, iconTint = Ch.Red) { onLive(seconds) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareRow(icon: ImageVector, title: String, sub: String, color: Color, index: Int, iconTint: Color = color, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(index).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBadge(icon, color, iconTint = iconTint)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp)
+            Text(sub, color = Ch.Mut, fontSize = 12.sp)
+        }
+    }
 }
 
 // =============================================================================== joining a group by link

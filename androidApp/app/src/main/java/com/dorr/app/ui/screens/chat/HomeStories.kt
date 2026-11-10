@@ -150,9 +150,8 @@ fun HomeStoriesLayer(state: HomeStoriesState) {
         Ch.accent = accent
         Ch.palette = palette
     }
-    // Up to 10 photos / videos at once — each becomes its own status (as in WhatsApp).
-    val media = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(STORY_MEDIA_MAX)) { uris ->
-        if (uris.isNotEmpty()) host.push(ChRoute.StoryComposer(storyMediaRoute(uris)))
+    val media = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { host.push(ChRoute.StoryComposer(it.toString())) }
     }
 
     CompositionLocalProvider(LocalChat provides host) {
@@ -235,7 +234,7 @@ fun HomePersonCircle(state: HomeStoriesState, group: StoryGroupDto) {
             ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 48.dp)
         }
         Spacer(Modifier.height(4.dp))
-        CircleLabel(ltrTitle(owner?.name), bold = !group.allSeen)
+        CircleLabel(owner?.name.orEmpty(), bold = !group.allSeen)
     }
 }
 

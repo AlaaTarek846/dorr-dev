@@ -63,7 +63,8 @@ enum AppLocale {
     static var isArabic: Bool { current == "ar" }
 
     /// Locale for dates and numbers — the app language, not the phone's.
-    static var locale: Locale { Locale(identifier: current) }
+    /// Always Latin digits (0-9): an Arabic screen mixed ٣٠ with 1500.00 before.
+    static var locale: Locale { Locale(identifier: current.hasPrefix("ar") ? "ar@numbers=latn" : current) }
 }
 
 /// Whether the welcome page (StartScreen) was shown: it appears once, the first time the app opens after install.

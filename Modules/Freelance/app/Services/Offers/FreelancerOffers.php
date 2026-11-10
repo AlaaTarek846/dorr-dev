@@ -10,8 +10,10 @@ use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Models\FreelanceOfferEvent;
 use Modules\Freelance\Models\FreelanceProject as Project;
+use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
+use Modules\Freelance\Services\FreelancerTeam\TeamOffers;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
@@ -28,6 +30,9 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * → not offered there already → the project not full (`offers.max_per_project`) → the monthly free quota not used up
  * (`offers.free_monthly_quota`, when the `free_offer_quota` switch is on) and no bought extra offers left (FL-L01 phase 2). The price is free, but never under the project budget's
  * minimum of the country / specialty. The commission and the net are worked out from the policy now and kept with the offer.
+ *
+ * FS-205: the same offer can be made in a freelancers' team's name (`team` + `staff`, by its Owner - see `TeamOffers`): it counts against the
+ * team's monthly quota instead of the Owner's own free / bought offers, and it still holds the Owner's one offer per project.
  */
 class FreelancerOffers
 {
@@ -39,8 +44,12 @@ class FreelancerOffers
         private readonly FreelanceNotifier $notifier,
     ) {}
 
-    /** @throws FreelanceException the first reason this freelancer can't offer on this project */
-    public function assertCanSend(Freelancer $freelancer, Project $project): void
+    /**
+     * @param  FreelanceTeam|null  $team  FS-205: an offer in a team's name is counted against the team's quota, not the freelancer's own
+     *
+     * @throws FreelanceException the first reason this freelancer can't offer on this project
+     */
+    public function assertCanSend(Freelancer $freelancer, Project $project, ?FreelanceTeam $team = null): void
     {
         $this->gate->assertCanOffer($freelancer);
         $this->window->assertAccepting($project);
@@ -51,9 +60,18 @@ class FreelancerOffers
         if ($this->mine($freelancer, $project) !== null) {
             throw new FreelanceException('offer_already_sent', 409);
         }
+        // FS-104: someone on the client's team can not bid on the same project (the same phone behind both accounts).
+        if (app(\Modules\Freelance\Services\Team\ClientTeam::class)->sitsOnTeam($project, (string) $freelancer->phone)) {
+            throw new FreelanceException('offer_team_member', 403);
+        }
         $max = (int) $this->policies->for($project->country_id, $project->freelance_specialty_id)->get('offers.max_per_project');
         if ($max > 0 && $this->liveCount($project) >= $max) {
             throw new FreelanceException('project_offers_full', 422, ['max' => $max], ['max' => $max]);
+        }
+        if ($team !== null) {
+            app(TeamOffers::class)->assertQuota($team);
+
+            return;
         }
         $quota = $this->quota($freelancer);
         if ($quota['limit'] !== null && $quota['left'] <= 0 && $quota['credits'] <= 0) {
@@ -62,10 +80,10 @@ class FreelancerOffers
     }
 
     /** @return array{code: string, message: string}|null why the freelancer can't offer (null: they can) — for the app to say before the form */
-    public function blocked(Freelancer $freelancer, Project $project): ?array
+    public function blocked(Freelancer $freelancer, Project $project, ?FreelanceTeam $team = null): ?array
     {
         try {
-            $this->assertCanSend($freelancer, $project);
+            $this->assertCanSend($freelancer, $project, $team);
 
             return null;
         } catch (FreelanceException $e) {
@@ -121,7 +139,7 @@ class FreelancerOffers
     }
 
     /**
-     * @param  array{price_minor: int, duration_days: int, details: string}  $data
+     * @param  array{price_minor: int, duration_days: int, details: string, team?: ?string, staff?: list<array<string, mixed>>}  $data  `team` (a team's uuid) + `staff`: FS-205, an offer in the team's name (the freelancer is its Owner)
      * @param  list<UploadedFile>  $files
      */
     public function send(Freelancer $freelancer, Project $project, array $data, array $files = []): Offer
@@ -133,23 +151,36 @@ class FreelancerOffers
         if ($min !== null && $data['price_minor'] < (int) $min) {
             throw new FreelanceException('offer_below_min', 422, ['min' => number_format($min / 100, 2).' '.$project->currency_code], ['min_minor' => (int) $min]);
         }
+        // FS-205: an offer in a team's name - the team and its people are checked before anything is written.
+        // FS-206c: a PM sends it for the Owner who signs - from here on the offer is the signer's (his limits, his one offer per project).
+        $by = $freelancer;
+        [$team, $staff, $signer] = empty($data['team']) ? [null, [], null] : app(TeamOffers::class)->prepare($freelancer, (string) $data['team'], (array) ($data['staff'] ?? []), $data['signer'] ?? null);
+        $freelancer = $signer ?? $freelancer;
+        $submittedBy = $by->id !== $freelancer->id ? $by : null;
 
-        $offer = DB::transaction(function () use ($freelancer, $project, $data, $files, $answers) {
+        $offer = DB::transaction(function () use ($freelancer, $by, $submittedBy, $project, $data, $files, $answers, $team, $staff) {
             // One at a time per project, so its limit and the one-offer rule hold when two arrive together.
             $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             // And one at a time per freelancer, so the last free or bought offer can't be spent twice by two projects together.
             Freelancer::query()->whereKey($freelancer->id)->lockForUpdate()->first();
-            $this->assertCanSend($freelancer, $locked);
+            // A team's offers are counted one at a time too.
+            if ($team !== null) {
+                FreelanceTeam::query()->whereKey($team->id)->lockForUpdate()->first();
+            }
+            $this->assertCanSend($freelancer, $locked, $team);
 
             // FL-L09: a client who earned a loyalty step with this freelancer gets it off the price asked.
             $deal = app(Loyalty::class)->apply($freelancer, (int) $locked->client_id, (int) $data['price_minor']);
             $preview = $this->preview($locked, $deal['price_minor'], $freelancer);
-            // Once the month's free offers are used up the offer is paid for by the bought batch that ends first.
+            // Once the month's free offers are used up the offer is paid for by the bought batch that ends first. A team's offer uses
+            // the team's quota only - never the Owner's own free offers or bought ones.
             $quota = $this->quota($freelancer);
-            $credit = $quota['enabled'] && $quota['limit'] !== null && $quota['left'] <= 0 ? app(FreelanceOfferCredits::class)->pick($freelancer) : null;
+            $credit = $team === null && $quota['enabled'] && $quota['limit'] !== null && $quota['left'] <= 0 ? app(FreelanceOfferCredits::class)->pick($freelancer) : null;
             $offer = Offer::query()->create([
                 'project_id' => $locked->id,
                 'freelancer_id' => $freelancer->id,
+                'team_id' => $team?->id,
+                'submitted_by_freelancer_id' => $submittedBy?->id,
                 'price_minor' => $preview['price_minor'],
                 'list_price_minor' => $deal['list_price_minor'],
                 'loyalty_bp' => $deal['loyalty_bp'],
@@ -163,13 +194,16 @@ class FreelancerOffers
                 'commission_minor' => $preview['commission_minor'],
                 'net_minor' => $preview['net_minor'],
                 'fees' => $preview['commission'],
-                'free' => $quota['enabled'] && $credit === null,
+                'free' => $team === null && $quota['enabled'] && $credit === null,
                 'credit_id' => $credit?->id,
             ]);
             foreach ($files as $file) {
                 $offer->addAttachment($file);
             }
-            $this->record($offer, 'offer.submitted', 'freelancer', $freelancer->id, null, OfferStatus::Submitted);
+            $this->record($offer, 'offer.submitted', 'freelancer', $freelancer->id, null, OfferStatus::Submitted, $team === null ? [] : ['team' => $team->uuid], $submittedBy?->id);
+            if ($team !== null) {
+                app(TeamOffers::class)->save($offer, $team, $staff, $by);
+            }
             app(\Modules\Freelance\Services\Projects\ProjectInvitations::class)->acceptedByOffer($freelancer, $locked);
 
             // The offer that fills the project closes it to more.
@@ -181,6 +215,9 @@ class FreelancerOffers
             return $offer;
         });
 
+        if ($submittedBy !== null && $team !== null) {
+            app(TeamOffers::class)->toldSigner($offer->setRelation('project', $project), $team, $submittedBy, $freelancer);
+        }
         if ($project->client !== null) {
             $this->notifier->notify($project->client, 'offer.received', ['project' => (string) $project->title, 'name' => (string) $freelancer->name], ['project' => $project->uuid, 'offer' => $offer->uuid]);
         }
@@ -191,7 +228,8 @@ class FreelancerOffers
     /** One of the freelancer's own offers by its uuid (any project they can see), else not found. */
     public function find(Freelancer $freelancer, string $uuid): Offer
     {
-        return Offer::query()->where('freelancer_id', $freelancer->id)->where('uuid', $uuid)->with(['project', 'media'])->firstOrFail();
+        // FS-206c: the PM who sent a team offer follows it too.
+        return Offer::query()->where(fn ($q) => $q->where('freelancer_id', $freelancer->id)->orWhere('submitted_by_freelancer_id', $freelancer->id))->where('uuid', $uuid)->with(['project', 'media'])->firstOrFail();
     }
 
     /**
@@ -205,7 +243,8 @@ class FreelancerOffers
     {
         app(OfferChecks::class)->assertNoContact($data['details'] ?? null);
         $newAnswers = array_key_exists('answers', $data) ? $this->answers($offer->project, $data['answers']) : null;
-        $updated = DB::transaction(function () use ($freelancer, $offer, $data, $newAnswers) {
+        [$freelancer, $by] = [$this->signerOf($offer, $freelancer), $freelancer]; // FS-206c: a PM changes the Owner's offer
+        $updated = DB::transaction(function () use ($freelancer, $by, $offer, $data, $newAnswers) {
             /** @var Offer $locked */
             $locked = Offer::query()->whereKey($offer->id)->lockForUpdate()->firstOrFail();
             $this->assertChangeable($locked);
@@ -223,7 +262,18 @@ class FreelancerOffers
             $answersChanged = $newAnswers !== null && $newAnswers !== $locked->answers;
             // FL-L13: the terms are part of the offer, so they can be changed while it is open (no change when the switch is off).
             $rights = array_key_exists('rights', $data) ? app(Rights::class)->forListing((int) $project->country_id, is_array($data['rights']) ? $data['rights'] : null) : $locked->rights;
-            if ($price === $listed && $days === $locked->duration_days && $details === $locked->details && ! $answersChanged && $rights === $locked->rights) {
+            // FS-205: the people of a team's offer can be changed while it is open (the Owner who sent it, the team still active).
+            $team = null;
+            $rows = [];
+            $staffChanged = false;
+            if (array_key_exists('staff', $data)) {
+                if ($locked->team_id === null) {
+                    throw new FreelanceException('team_offer_staff_invalid', 422);
+                }
+                [$team, $rows] = app(TeamOffers::class)->prepare($by, (string) $locked->team->uuid, (array) $data['staff'], null, $freelancer);
+                $staffChanged = ! app(TeamOffers::class)->same($locked, $rows);
+            }
+            if ($price === $listed && $days === $locked->duration_days && $details === $locked->details && ! $answersChanged && $rights === $locked->rights && ! $staffChanged) {
                 throw new FreelanceException('offer_unchanged', 422);
             }
 
@@ -242,7 +292,10 @@ class FreelancerOffers
             ] + ($newAnswers !== null ? ['answers' => $newAnswers] : []) + [
                 'commission_minor' => $preview['commission_minor'], 'net_minor' => $preview['net_minor'], 'fees' => $preview['commission'],
             ]);
-            $this->record($locked, 'offer.edited', 'freelancer', $freelancer->id, $locked->status, $locked->status);
+            if ($staffChanged) {
+                app(TeamOffers::class)->save($locked, $team, $rows, $by);
+            }
+            $this->record($locked, 'offer.edited', 'freelancer', $freelancer->id, $locked->status, $locked->status, $staffChanged ? ['staff' => true] : [], $by->id !== $freelancer->id ? $by->id : null);
 
             return $locked->refresh();
         });
@@ -258,13 +311,15 @@ class FreelancerOffers
     /** Takes the offer back. Before the client saw it, the free (or bought) offer it used is given back (see `quota()`); a new one on the same project is not possible. */
     public function withdraw(Freelancer $freelancer, Offer $offer): Offer
     {
-        return DB::transaction(function () use ($freelancer, $offer) {
+        [$freelancer, $by] = [$this->signerOf($offer, $freelancer), $freelancer];
+
+        return DB::transaction(function () use ($freelancer, $by, $offer) {
             /** @var Offer $locked */
             $locked = Offer::query()->whereKey($offer->id)->lockForUpdate()->firstOrFail();
             $this->assertChangeable($locked);
             $from = $locked->status;
             $locked->update(['status' => OfferStatus::Withdrawn, 'withdrawn_at' => now()]);
-            $this->record($locked, 'offer.withdrawn', 'freelancer', $freelancer->id, $from, OfferStatus::Withdrawn, ['quota_returned' => $locked->viewed_at === null && ($locked->free || $locked->credit_id !== null)]);
+            $this->record($locked, 'offer.withdrawn', 'freelancer', $freelancer->id, $from, OfferStatus::Withdrawn, ['quota_returned' => $locked->viewed_at === null && ($locked->free || $locked->credit_id !== null || $locked->team_id !== null)], $by->id !== $freelancer->id ? $by->id : null);
 
             app(\Modules\Freelance\Services\Chat\OfferChat::class)->freeze($locked->project, $locked->freelancer_id);
 
@@ -290,21 +345,21 @@ class FreelancerOffers
 
     public function mine(Freelancer $freelancer, Project $project): ?Offer
     {
-        return Offer::query()->where('project_id', $project->id)->where('freelancer_id', $freelancer->id)->with('media')->first();
+        return Offer::query()->where('project_id', $project->id)->where(fn ($q) => $q->where('freelancer_id', $freelancer->id)->orWhere('submitted_by_freelancer_id', $freelancer->id))->with('media')->first();
     }
 
     /** @return LengthAwarePaginator<Offer> the freelancer's offers, newest first */
     public function myOffers(Freelancer $freelancer, int $perPage): LengthAwarePaginator
     {
         // FL-L04: an order's offer is made by the order, not sent — it is listed with the orders.
-        return Offer::query()->where('freelancer_id', $freelancer->id)->whereHas('project', fn ($q) => $q->whereNull('service_id'))->with(['project', 'media'])->latest('id')->paginate($perPage);
+        return Offer::query()->where(fn ($q) => $q->where('freelancer_id', $freelancer->id)->orWhere('submitted_by_freelancer_id', $freelancer->id))->whereHas('project', fn ($q) => $q->whereNull('service_id'))->with(['project', 'media'])->latest('id')->paginate($perPage);
     }
 
     /** @return \Illuminate\Support\Collection<int, Offer> the offers on a project, for its client — newest first, without the ones taken back */
     public function forProject(Project $project)
     {
         return Offer::query()->where('project_id', $project->id)->where('status', '!=', OfferStatus::Withdrawn->value)
-            ->with(['freelancer', 'media'])->latest('id')->get();
+            ->with(['freelancer', 'media', 'team'])->latest('id')->get();
     }
 
     public function liveCount(Project $project): int
@@ -333,6 +388,10 @@ class FreelancerOffers
             'attachments' => $offer->getMedia('attachments')->map(fn (Media $m) => ['id' => $m->id, 'name' => \Modules\Freelance\Services\Projects\MilestoneDeliveries::displayName($m), 'mime' => $m->mime_type, 'size' => $m->size, 'path' => "{$filesPath}/{$m->id}"])->values()->all(),
             'created_at' => $offer->created_at?->toIso8601String(),
             'edited' => $offer->revisions()->exists(),
+            // FS-205: the team the offer is made in the name of and who works on it (null: the freelancer's own offer). The client sees first names only (D10).
+            'team' => $offer->team_id === null ? null : app(TeamOffers::class)->present($offer->team, $offer->staff, $for),
+            // FS-206c: the PM who sent it for the signing Owner (the client reads nothing of it).
+            'submitted_by' => $for === 'client' || $offer->submitted_by_freelancer_id === null ? null : ['uuid' => $offer->submittedBy?->uuid, 'name' => $offer->submittedBy?->name],
         ];
 
         if ($for === 'freelancer') {
@@ -398,9 +457,15 @@ class FreelancerOffers
         return in_array($why, ['another_chosen', 'agreement_cancelled', 'agreement_expired', 'agreement_declined'], true) ? __('freelance.offer_reasons.'.$why) : null;
     }
 
-    /** @param  array<string, mixed>  $payload */
-    private function record(Offer $offer, string $type, string $actorType, ?int $actorId, ?OfferStatus $from, ?OfferStatus $to, array $payload = []): void
+    /** The Owner the offer belongs to: the person himself, or - for a PM who sent it - the Owner who signs (FS-206c). */
+    private function signerOf(Offer $offer, Freelancer $who): Freelancer
     {
-        FreelanceOfferEvent::query()->create(['offer_id' => $offer->id, 'type' => $type, 'from_status' => $from?->value, 'to_status' => $to?->value, 'actor_type' => $actorType, 'actor_id' => $actorId, 'payload' => $payload === [] ? null : $payload]);
+        return (int) $offer->freelancer_id === (int) $who->id ? $who : Freelancer::query()->findOrFail($offer->freelancer_id);
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function record(Offer $offer, string $type, string $actorType, ?int $actorId, ?OfferStatus $from, ?OfferStatus $to, array $payload = [], ?int $actedBy = null): void
+    {
+        FreelanceOfferEvent::query()->create(($actedBy === null ? [] : ['acted_by_freelancer_id' => $actedBy]) + ['offer_id' => $offer->id, 'type' => $type, 'from_status' => $from?->value, 'to_status' => $to?->value, 'actor_type' => $actorType, 'actor_id' => $actorId, 'payload' => $payload === [] ? null : $payload]);
     }
 }

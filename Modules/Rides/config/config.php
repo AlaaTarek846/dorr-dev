@@ -15,8 +15,6 @@ return [
         'key' => env('GOOGLE_MAPS_SERVER_KEY'),
         'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com/directions/v2:computeRoutes'),
         'geocode_url' => env('GOOGLE_GEOCODE_URL', 'https://maps.googleapis.com/maps/api/geocode/json'),
-        // Places (New) «Nearby Search» — the chat's «nearby places» (needs «Places API (New)» on the key).
-        'nearby_url' => env('GOOGLE_PLACES_NEARBY_URL', 'https://places.googleapis.com/v1/places:searchNearby'),
         'timeout' => 10,
         // When Google refuses (the key, billing, a used-up quota) or can't be reached, it is left alone for
         // this many minutes — the straight-line estimate answers meanwhile — and then tried again.

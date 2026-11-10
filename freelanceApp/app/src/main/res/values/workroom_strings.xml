@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-150e: the Workroom (tasks, files, decisions, timeline) -->
+
+    <!-- Workroom: the hub and its tabs -->
+    <string name="wr_title">Workroom</string>
+    <string name="wr_tab_tasks">Tasks</string>
+    <string name="wr_tab_files">Files</string>
+    <string name="wr_tab_decisions">Decisions</string>
+    <string name="wr_tab_timeline">Timeline</string>
+    <string name="wr_entry_body">Tasks, files and decisions with the client, in one place</string>
+    <string name="wr_entry_body_done">The project is over – read the tasks, files and decisions (read only)</string>
+    <string name="wr_read_only">The project is over, so the Workroom is read only.</string>
+    <string name="wr_side_me">Me</string>
+    <string name="wr_side_client">Client</string>
+    <string name="wr_today">Today</string>
+    <string name="wr_yesterday">Yesterday</string>
+
+    <!-- shared words -->
+    <string name="wr_f_all">All</string>
+    <string name="wr_f_mine">Mine</string>
+    <string name="wr_f_client">On the client</string>
+    <string name="wr_f_overdue">Late</string>
+    <string name="wr_f_waiting">Waiting for me</string>
+    <string name="wr_save">Save</string>
+    <string name="wr_send">Send</string>
+    <string name="wr_edit">Edit</string>
+    <string name="wr_delete">Delete</string>
+    <string name="wr_description">Description</string>
+    <string name="wr_status">Status</string>
+    <string name="wr_part">Part</string>
+    <string name="wr_no_part">No part</string>
+    <string name="wr_part_tag">Part %1$d · %2$s</string>
+    <string name="wr_team_only">Team only</string>
+    <string name="wr_preview_only">Preview only</string>
+
+    <!-- tasks -->
+    <string name="wr_task_todo">To do</string>
+    <string name="wr_task_doing">In progress</string>
+    <string name="wr_task_blocked">Blocked</string>
+    <string name="wr_task_done">Done</string>
+    <string name="wr_n_open">Open</string>
+    <string name="wr_tasks_empty_title">No tasks yet</string>
+    <string name="wr_tasks_empty_body">Split the work into small tasks and follow their progress with the client.</string>
+    <string name="wr_tasks_limit">This project reached its limit of %1$d tasks.</string>
+    <string name="wr_task_add">New task</string>
+    <string name="wr_task_new">New task</string>
+    <string name="wr_task_edit">Edit task</string>
+    <string name="wr_task_view">Task</string>
+    <string name="wr_task_title">Task title</string>
+    <string name="wr_task_title_hint">For example: prepare the first draft</string>
+    <string name="wr_task_delete">Delete task</string>
+    <string name="wr_task_delete_ask">The task will be deleted for good.</string>
+    <string name="wr_due">Due %1$s</string>
+    <string name="wr_due_late">Late · %1$s</string>
+    <string name="wr_due_label">Due date</string>
+    <string name="wr_assignee">Who does it</string>
+    <string name="wr_person">Person from my team</string>
+    <string name="wr_nobody">Nobody in particular</string>
+    <string name="wr_team_only_hint">An inside task: the client will not see it.</string>
+
+    <!-- files -->
+    <string name="wr_file">File</string>
+    <string name="wr_files_empty_title">No files yet</string>
+    <string name="wr_files_empty_body">Upload the work files here. Every version is kept and the client can leave notes on it.</string>
+    <string name="wr_files_nomatch_title">No match</string>
+    <string name="wr_files_nomatch_body">Try another word.</string>
+    <string name="wr_files_search">Search the files</string>
+    <string name="wr_n_files">Files</string>
+    <string name="wr_n_versions">Versions</string>
+    <string name="wr_n_storage">Storage</string>
+    <string name="wr_file_upload">Upload file</string>
+    <string name="wr_file_pick">Choose the file</string>
+    <string name="wr_file_rules">Up to %1$d MB</string>
+    <string name="wr_file_too_large">The file is bigger than %1$d MB.</string>
+    <string name="wr_file_wrong_type">This type is not allowed. Allowed: %1$s</string>
+    <string name="wr_file_unreadable">This file could not be read.</string>
+    <string name="wr_file_title">File name</string>
+    <string name="wr_file_open">Open file</string>
+    <string name="wr_file_open_failed">The file could not be opened. Make sure an app on the phone can open it.</string>
+    <string name="wr_file_edit">Edit file</string>
+    <string name="wr_file_delete">Delete file</string>
+    <string name="wr_file_delete_ask">The file with all its versions and notes will be deleted.</string>
+    <string name="wr_team_only_file_hint">An inside file: the client will not see it.</string>
+    <string name="wr_version_add">New version</string>
+    <string name="wr_version_n">Version %1$d</string>
+    <string name="wr_versions">Versions (%1$d)</string>
+    <string name="wr_version_note">Note on this version</string>
+    <string name="wr_version_note_hint">What changed?</string>
+    <string name="wr_notes">Notes</string>
+    <string name="wr_notes_empty">No notes yet. Write the first note on this file.</string>
+    <string name="wr_note_hint">Write a note…</string>
+    <string name="wr_note_send">Send note</string>
+    <string name="wr_note_edit">Edit note</string>
+    <string name="wr_note_delete">Delete note</string>
+    <string name="wr_note_delete_ask">The note will be deleted.</string>
+    <string name="wr_edited">edited</string>
+
+    <!-- decisions -->
+    <string name="wr_dec_proposed">Waiting for an answer</string>
+    <string name="wr_dec_agreed">Agreed</string>
+    <string name="wr_dec_declined">Declined</string>
+    <string name="wr_dec_superseded">Replaced</string>
+    <string name="wr_dec_empty_title">No decisions yet</string>
+    <string name="wr_dec_empty_body">Write down here whatever you and the client agree on, so it stays clear and in writing.</string>
+    <string name="wr_dec_propose">Propose a decision</string>
+    <string name="wr_dec_edit">Edit decision</string>
+    <string name="wr_dec_replace">Replace</string>
+    <string name="wr_dec_title">Decision title</string>
+    <string name="wr_dec_body">The decision</string>
+    <string name="wr_dec_hint">A decision stands once both sides agree to it.</string>
+    <string name="wr_dec_agree">Agree</string>
+    <string name="wr_dec_decline">Decline</string>
+    <string name="wr_dec_withdraw">Withdraw</string>
+    <string name="wr_dec_withdraw_ask">Take back your proposal?</string>
+    <string name="wr_dec_waiting_me">Decisions are waiting for your answer</string>
+    <string name="wr_dec_by">Proposed by %1$s</string>
+    <string name="wr_dec_note">Note with the answer: %1$s</string>
+    <string name="wr_dec_note_label">Note (optional)</string>
+    <string name="wr_dec_note_agree_hint">Anything you want to add…</string>
+    <string name="wr_dec_note_decline_hint">Why do you decline?</string>
+    <string name="wr_dec_replaces">Replaces: %1$s</string>
+    <string name="wr_dec_replaced_by">Replaced by: %1$s</string>
+
+    <!-- timeline -->
+    <string name="wr_tl_empty_title">Nothing has happened yet</string>
+    <string name="wr_tl_empty_body">Every step of the project will show here, in order.</string>
+    <string name="wr_k_task">Tasks</string>
+    <string name="wr_k_file">Files</string>
+    <string name="wr_k_comment">Notes</string>
+    <string name="wr_k_decision">Decisions</string>
+    <string name="wr_k_milestone">Parts</string>
+</resources>

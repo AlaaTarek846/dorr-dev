@@ -38,6 +38,8 @@ private extension NotificationDto {
 /// The icon and colour of a notice from its event: verification, the wallet, the wallet PIN, anything else.
 private func typeStyle(_ event: String?) -> (String, Color) {
     let e = event ?? ""
+    // FS-209: a freelancers' team notice (an invitation, a role, verification, a part given to me).
+    if e.hasPrefix("freelance.team_") { return ("person.3.fill", Color(hex: 0x14B8A6)) }
     if e.hasPrefix("wallet.pin") { return ("lock.fill", Color(hex: 0xDC2626)) }
     if e.hasPrefix("wallet.") { return ("wallet.pass.fill", Color(hex: 0x16A34A)) }
     if e.hasPrefix("freelance.verification") { return ("checkmark.seal.fill", Color(hex: 0x2563EB)) }
