@@ -248,6 +248,8 @@ internal fun FreelancerTeamPage(team: String, onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     // FL-L13: a piece of the team's work being reported as not theirs.
     var reporting by remember { mutableStateOf<String?>(null) }
+    // FS-601: the work opened with its case study.
+    var opened by remember { mutableStateOf<com.dorr.app.network.FreelancePortfolioDto?>(null) }
 
     LaunchedEffect(team, reconnect) {
         try {
@@ -326,21 +328,9 @@ internal fun FreelancerTeamPage(team: String, onBack: () -> Unit) {
                 if (p.languages.isNotEmpty()) Field(stringResource(R.string.fl_languages), p.languages.joinToString("، "))
                 p.since?.takeIf { it.isNotBlank() }?.let { Field(stringResource(R.string.fl_member_since), "‎" + it.take(7)) }
             }
+            // FS-601: verified works come first; a tap opens the work with its case study.
             if (p.portfolio.isNotEmpty()) Card(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio) + " (${p.portfolio.size})") {
-                p.portfolio.forEach { w ->
-                    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val cover = w.images.firstOrNull()?.url
-                        Box(Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.08f))) {
-                            if (cover != null) AsyncImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(w.title.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            w.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                        }
-                        w.uuid?.let { id -> Icon(Icons.Rounded.Flag, stringResource(R.string.rights_report), tint = settingsMut(), modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable { reporting = id }.padding(8.dp)) }
-                    }
-                }
+                p.portfolio.forEach { w -> PortfolioWorkRow(w, onOpen = { opened = w }, onReport = { reporting = it }) }
             }
             // FL-701: what clients said about the team's work.
             if (p.reviews.isNotEmpty() || (s.completedProjects ?: 0) > 0) Card(Icons.Rounded.Star, stringResource(R.string.fl_rv_about)) {
@@ -360,6 +350,7 @@ internal fun FreelancerTeamPage(team: String, onBack: () -> Unit) {
         }
     }
 
+    opened?.let { w -> PortfolioWorkSheet(w, onDismiss = { opened = null }, onReport = { id -> opened = null; reporting = id }) }
     reporting?.let { id -> ReportWorkSheet("portfolio_item", id, onDismiss = { reporting = null }) }
 }
 

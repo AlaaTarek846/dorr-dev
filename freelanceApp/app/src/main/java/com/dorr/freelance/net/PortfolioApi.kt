@@ -88,6 +88,23 @@ data class PortfolioItemDto(
     /** FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back. */
     val agreement: String? = null,
     @SerializedName("withdrawn_by_client") val withdrawnByClient: Boolean = false,
+    /** FS-601: the story of the work (only the parts written), null when none is. */
+    @SerializedName("case_study") val caseStudy: PortfolioCaseStudyDto? = null,
+    /** FS-601: «Verified by Dorr» - linked to a project finished on Dorr whose client allows it; [verifiedOn] is that project's "YYYY-MM". */
+    val verified: Boolean = false,
+    @SerializedName("verified_on") val verifiedOn: String? = null,
+    /** FS-601 (owner only): why staff took the badge back (null while it stands), and whether the work is linked to a Dorr project. */
+    @SerializedName("verified_revoked_reason") val verifiedRevokedReason: String? = null,
+    @SerializedName("can_be_verified") val canBeVerified: Boolean = false,
+)
+
+/** FS-601: a work's case study. Sent back as `problem` · `solution` · `role` · `tools` · `results` (an empty text clears that part). */
+data class PortfolioCaseStudyDto(
+    val problem: String? = null,
+    val solution: String? = null,
+    val role: String? = null,
+    val tools: String? = null,
+    val results: String? = null,
 )
 
 data class PortfolioRefDto(val id: Int = 0, val name: String = "")

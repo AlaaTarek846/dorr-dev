@@ -46,7 +46,7 @@ class AiIntentClassifier
         foreach ($this->keywordsByIntentKey as $intentKey => $keywords) {
             foreach ($keywords as $keyword) {
                 if (Str::contains($lower, mb_strtolower($keyword))) {
-                    $intent = AiIntent::query()->where('key', $intentKey)->where('is_active', true)->first();
+                    $intent = AiIntent::query()->where('key', $intentKey)->where('status', true)->first();
 
                     if ($intent) {
                         return $intent;
@@ -58,6 +58,6 @@ class AiIntentClassifier
         // Falls back to the generic "chat" intent (seeded by default) so
         // routing rules can still target "general conversation" explicitly
         // when nothing more specific matched.
-        return AiIntent::query()->where('key', 'chat')->where('is_active', true)->first();
+        return AiIntent::query()->where('key', 'chat')->where('status', true)->first();
     }
 }

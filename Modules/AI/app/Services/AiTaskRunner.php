@@ -13,9 +13,12 @@ use Modules\AI\Models\AiRequest;
 use Modules\AI\Models\AiResponse;
 use Modules\AI\Models\AiSafetyEvent;
 use Modules\AI\Models\AiSafetyRule;
+use Modules\AI\Models\AiSecurityEvent;
 use Modules\AI\Models\AiTrialControl;
 use Modules\AI\Models\AiUsage;
 use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Services\Monitoring\AiSafetyScanRecorder;
+use Modules\AI\Services\Monitoring\AiSecurityEventRecorder;
 
 /**
  * One AI task for another module (the chat's translate, summary, smart replies, voice to text,
@@ -104,7 +107,7 @@ class AiTaskRunner
      */
     public function entitlement(Authenticatable $owner): array
     {
-        return $this->ownerBlocked($owner) ? ['allowed' => false, 'reason' => AiChatUsageGuard::REASON_BLOCKED] : $this->usageGuard->preview($owner);
+        return $this->ownerBlocked($owner, record: false) ? ['allowed' => false, 'reason' => AiChatUsageGuard::REASON_BLOCKED] : $this->usageGuard->preview($owner);
     }
 
     /** Whether there is anything to answer a text task with. */
@@ -138,10 +141,17 @@ class AiTaskRunner
         $input = $index === null ? '' : $this->textOf($messages[$index]['content']);
 
         $safety = $this->safetyGuard->evaluate($input);
+        app(AiSafetyScanRecorder::class)->record($safety, $owner);
         if ($safety['action'] === AiSafetyRule::ACTION_BLOCK) {
             $this->logSafetyEvent($owner, $safety, $input);
 
             return $this->fail(self::REASON_CONTENT_BLOCKED, __('ai.message_blocked'));
+        }
+        // A one-shot task has nobody to ask, so a "require confirmation" rule holds the text back (fail-safe).
+        if ($safety['action'] === AiSafetyRule::ACTION_REQUIRE_CONFIRMATION) {
+            $this->logSafetyEvent($owner, $safety, $input);
+
+            return $this->fail(self::REASON_CONTENT_BLOCKED, __('ai.safety_confirmation_unavailable'));
         }
         if (in_array($safety['action'], [AiSafetyRule::ACTION_REVIEW, AiSafetyRule::ACTION_SANITIZE], true)) {
             $this->logSafetyEvent($owner, $safety, $input);
@@ -263,10 +273,16 @@ class AiTaskRunner
         }
 
         $safety = $this->safetyGuard->evaluate($prompt);
+        app(AiSafetyScanRecorder::class)->record($safety, $owner);
         if ($safety['action'] === AiSafetyRule::ACTION_BLOCK) {
             $this->logSafetyEvent($owner, $safety, $prompt);
 
             return $this->fail(self::REASON_CONTENT_BLOCKED, __('ai.message_blocked'));
+        }
+        if ($safety['action'] === AiSafetyRule::ACTION_REQUIRE_CONFIRMATION) {
+            $this->logSafetyEvent($owner, $safety, $prompt);
+
+            return $this->fail(self::REASON_CONTENT_BLOCKED, __('ai.safety_confirmation_unavailable'));
         }
         if (in_array($safety['action'], [AiSafetyRule::ACTION_REVIEW, AiSafetyRule::ACTION_SANITIZE], true)) {
             $this->logSafetyEvent($owner, $safety, $prompt);
@@ -432,6 +448,9 @@ class AiTaskRunner
                 break;
             }
             if ($request !== null) {
+                // One more provider tried for this request (saved by closeRequest()).
+                $request->retry_count = (int) $request->retry_count + 1;
+
                 AiFailover::query()->create([
                     'primary_provider_id' => $provider->id,
                     'fallback_provider_id' => $candidates[$index + 1]['provider']->id,
@@ -488,6 +507,7 @@ class AiTaskRunner
             $request->model_key = $model;
             $request->status = $success ? AiRequest::STATUS_COMPLETED : AiRequest::STATUS_FAILED;
             $request->error_message = $success ? null : Str::limit($error, 500);
+            $request->error_code = $success ? null : AiRequest::failureCode($error);
             $request->save();
 
             AiResponse::query()->create([
@@ -512,13 +532,24 @@ class AiTaskRunner
     }
 
     /** Blocked from AI by the admin (abuse control) — the same flag the DORR AI chat checks. */
-    protected function ownerBlocked(?Authenticatable $owner): bool
+    protected function ownerBlocked(?Authenticatable $owner, bool $record = true): bool
     {
-        return $owner !== null && AiTrialControl::query()
+        $blocked = $owner !== null && AiTrialControl::query()
             ->where('owner_type', $owner->getMorphClass())
             ->where('owner_id', $owner->getAuthIdentifier())
             ->where('abuse_status', AiTrialControl::ABUSE_BLOCKED)
             ->exists();
+
+        if ($blocked && $record) {
+            app(AiSecurityEventRecorder::class)->record(
+                AiSecurityEventRecorder::EVENT_BLOCKED_OWNER_ATTEMPT,
+                AiSecurityEvent::SEVERITY_MEDIUM,
+                $owner,
+                'Blocked account (AI trial control) tried to use an AI tool.',
+            );
+        }
+
+        return $blocked;
     }
 
     /** @return array{provider: AiProvider, model_key: string}|null */
@@ -543,7 +574,8 @@ class AiTaskRunner
                 'safety_policy_id' => $safety['rule']->safety_policy_id,
                 'safety_rule_id' => $safety['rule']->id,
                 'action_taken' => $safety['action'],
-                'reason' => Str::limit($content, 500),
+                // Same redaction as ai_requests.prompt - never the raw message.
+                'reason' => Str::limit($this->minimizedForLog($content), 500),
             ]);
         }
 
@@ -560,11 +592,8 @@ class AiTaskRunner
     /** Personal data and secrets out of the logs, unless the admin's data policy turned minimization off. */
     protected function minimizedForLog(string $text): string
     {
-        $policy = AiDataPolicy::query()
-            ->where('data_classification', AiDataPolicy::CLASSIFICATION_PERSONAL)
-            ->where('is_active', true)
-            ->orderByDesc('id')
-            ->first();
+        // Switched off or in the trash = not read (AiDataPolicy::activePersonal).
+        $policy = AiDataPolicy::activePersonal();
 
         return $policy && ! $policy->minimization_enabled ? $text : $this->piiSanitizer->redactBoth($text);
     }

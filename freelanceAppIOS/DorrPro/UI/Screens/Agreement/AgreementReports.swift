@@ -33,6 +33,7 @@ struct AgreementReportsCard: View {
         .formSheet(isPresented: $dialog, icon: "chart.line.uptrend.xyaxis", title: L("rp_send"), text: L("rp_form_intro"), locked: busy) {
             DorrTextField(value: agreementLimit($note, 2000), label: L("rp_note_hint"), icon: "text.alignleft", singleLine: false, minLines: 4)
             DorrTextField(value: agreementLimit($percent, 3, digits: true), label: L("rp_percent_hint"), icon: "percent", keyboard: .numberPad)
+        } footer: {
             if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
             ActionButton(L("rp_send_confirm"), "paperplane.fill", .primary, enabled: note.agreementTrimmed.count >= 3 && !busy, loading: busy) { send() }
         }

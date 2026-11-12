@@ -35,6 +35,18 @@ class PortfolioViewController extends Controller
         return ApiResponse::success($items->map(fn (Item $i) => $this->portfolio->present($i, false))->values(), __('api.retrieved'));
     }
 
+    /** POST freelancers/{uuid}/portfolio/{item}/view (FS-704) — a client opened one work: counted per day, never per person (the same client within minutes counts once). */
+    public function opened(Request $request, string $uuid, string $item): JsonResponse
+    {
+        $freelancer = Freelancer::query()->where('uuid', $uuid)->firstOrFail();
+        $viewer = $request->user('user_api');
+        $work = $this->portfolio->visibleTo($freelancer, true)->firstWhere('uuid', $item);
+        abort_if($work === null, 404);
+        app(FreelanceProfileViews::class)->record((int) $freelancer->getKey(), FreelanceProfileViews::WORK, 'portfolio', $viewer->getKey(), (int) $work->getKey());
+
+        return ApiResponse::success(null, __('api.retrieved'));
+    }
+
     /** GET portfolio-images/{media} — signed and short-lived; still re-checks that the work is visible and not hidden. */
     public function image(Media $media): BinaryFileResponse
     {

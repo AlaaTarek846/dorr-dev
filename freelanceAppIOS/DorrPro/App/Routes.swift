@@ -13,8 +13,13 @@ enum Route: Hashable {
     case availability
     case plans
     case insights
+    // FS-703: my clients (the private CRM) and one client's page (its CRM uuid).
+    case crm
+    case crmClient(String)
     case coach
     case skillTests
+    /// FS-604: my reputation figures.
+    case reputation
     case capacity
     // FS-209: my freelancers' teams and one team's page (its uuid).
     case teams

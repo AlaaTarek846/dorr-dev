@@ -83,6 +83,23 @@ struct PortfolioItemDto: Decodable, Equatable {
     /// FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back.
     var agreement: String?
     var withdrawnByClient: Bool?
+    /// FS-601: the story of the work (only the parts written), nil when none is.
+    var caseStudy: PortfolioCaseStudyDto?
+    /// FS-601: «Verified by Dorr» - linked to a project finished on Dorr whose client allows it; `verifiedOn` is that project's "YYYY-MM".
+    var verified: Bool?
+    var verifiedOn: String?
+    /// FS-601 (owner only): why staff took the badge back (nil while it stands), and whether the work is linked to a Dorr project.
+    var verifiedRevokedReason: String?
+    var canBeVerified: Bool?
+}
+
+/// FS-601: a work's case study. Sent back as `problem` · `solution` · `role` · `tools` · `results` (an empty text clears that part).
+struct PortfolioCaseStudyDto: Decodable, Equatable {
+    var problem: String?
+    var solution: String?
+    var role: String?
+    var tools: String?
+    var results: String?
 }
 
 struct PortfolioRefDto: Decodable, Equatable {

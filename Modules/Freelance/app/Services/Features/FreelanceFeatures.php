@@ -28,6 +28,8 @@ class FreelanceFeatures
         'milestones', 'chat',
         'wallet_payment', 'client_fee', 'commission',
         'ai_assistant', 'disputes', 'ratings', 'subscriptions', 'offer_packs', 'services', 'skill_tests', 'consultations', 'special_offers', 'loyalty', 'rights', 'community', 'client_team', 'workroom', 'teams',
+        // FS-401 / FS-501: DORR AI for the client - the project written from an idea, and the best people for a project (a DORR AI plan pays).
+        'ai_project_builder', 'smart_matching', 'ai_project_manager',
     ];
 
     /** The service first, then the features — what the admin switches page lists. */

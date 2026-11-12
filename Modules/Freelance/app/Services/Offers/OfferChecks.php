@@ -78,8 +78,9 @@ class OfferChecks
     public function saveTemplate(Freelancer $freelancer, array $data, ?Template $template = null): Template
     {
         $this->assertNoContact($data['title'].' '.$data['details']);
-        if ($template === null && Template::query()->where('freelancer_id', $freelancer->id)->count() >= self::MAX_TEMPLATES) {
-            throw new FreelanceException('offer_templates_full', 422, ['max' => self::MAX_TEMPLATES], ['max' => self::MAX_TEMPLATES]);
+        $max = app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($freelancer, 'offer_templates_max');
+        if ($template === null && $max !== null && template::query()->where('freelancer_id', $freelancer->id)->count() >= $max) {
+            throw new freelanceexception('offer_templates_full', 422, ['max' => $max], ['max' => $max]);
         }
         $values = ['title' => trim(strip_tags($data['title'])), 'details' => trim(strip_tags($data['details']))];
 

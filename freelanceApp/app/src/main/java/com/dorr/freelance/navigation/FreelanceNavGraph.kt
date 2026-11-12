@@ -35,6 +35,7 @@ import com.dorr.freelance.ui.screens.AvailabilityScreen
 import com.dorr.freelance.ui.screens.ChatScreen
 import com.dorr.freelance.ui.screens.ProfileCoachScreen
 import com.dorr.freelance.ui.screens.SkillTestsScreen
+import com.dorr.freelance.ui.screens.ReputationScreen
 import com.dorr.freelance.ui.screens.CapacityScreen
 import com.dorr.freelance.ui.screens.ConsultationScreen
 import com.dorr.freelance.ui.screens.ConsultationSessionScreen
@@ -56,6 +57,8 @@ import com.dorr.freelance.ui.screens.PortfolioFormScreen
 import com.dorr.freelance.ui.screens.PortfolioTab
 import com.dorr.freelance.ui.screens.ProjectDetailScreen
 import com.dorr.freelance.ui.screens.InsightsScreen
+import com.dorr.freelance.ui.screens.CrmClientScreen
+import com.dorr.freelance.ui.screens.CrmScreen
 import com.dorr.freelance.ui.screens.MyServicesScreen
 import com.dorr.freelance.ui.screens.ServiceEditorScreen
 import com.dorr.freelance.ui.screens.ServiceOrderScreen
@@ -103,8 +106,13 @@ object Routes {
     const val AVAILABILITY = "availability"
     const val PLANS = "plans"
     const val INSIGHTS = "insights"
+    // FS-703: my clients (the private CRM) and one client's page.
+    const val CRM = "crm"
+    const val CRM_CLIENT = "crm/{uuid}"
     const val COACH = "profile-coach"
     const val SKILL_TESTS = "skill-tests"
+    /** FS-604: my reputation figures. */
+    const val REPUTATION = "reputation"
     const val CAPACITY = "capacity"
     // FS-209: my freelancers' teams and one team's page.
     const val TEAMS = "teams"
@@ -178,6 +186,7 @@ object Routes {
     fun consultationEdit(uuid: String? = null) = if (uuid == null) "consultation-edit" else "consultation-edit?uuid=$uuid"
 
     fun project(uuid: String) = "project/$uuid"
+    fun crmClient(uuid: String) = "crm/$uuid"
     fun team(uuid: String) = "team/$uuid"
     fun teamThread(uuid: String, thread: String) = "team/$uuid/chat/$thread"
     fun teamPortfolio(uuid: String) = "team/$uuid/portfolio"
@@ -364,8 +373,10 @@ fun FreelanceNavGraph() {
                     openServiceOrders = { nav.navigate(Routes.SERVICE_ORDERS) },
                     openServiceOrder = { uuid -> nav.navigate(Routes.serviceOrder(uuid)) },
                     openInsights = { nav.navigate(Routes.INSIGHTS) },
+                    openCrm = { nav.navigate(Routes.CRM) },
                     openCoach = { nav.navigate(Routes.COACH) },
                     openSkillTests = { nav.navigate(Routes.SKILL_TESTS) },
+                    openReputation = { nav.navigate(Routes.REPUTATION) },
                     openCapacity = { nav.navigate(Routes.CAPACITY) },
                     openTeams = { nav.navigate(Routes.TEAMS) },
                     openConsultations = { nav.navigate(Routes.CONSULTATIONS) },
@@ -436,6 +447,24 @@ fun FreelanceNavGraph() {
         composable(Routes.AVAILABILITY) { shell(true) { AvailabilityScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.PLANS) { shell(true) { PlansScreen(onBack = { nav.popBackStack() }, onOpenWallet = { nav.navigate(Routes.WALLET) { launchSingleTop = true } }, onOpenInsights = { nav.navigate(Routes.INSIGHTS) { launchSingleTop = true } }) } }
         composable(Routes.INSIGHTS) { shell(true) { InsightsScreen(onBack = { nav.popBackStack() }, onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } }) } }
+        // FS-703: my clients — the list, and one client (a project of ours opens its agreement, what is still waiting opens the project).
+        composable(Routes.CRM) {
+            shell(true) {
+                CrmScreen(
+                    onBack = { nav.popBackStack() }, onOpenClient = { uuid -> nav.navigate(Routes.crmClient(uuid)) },
+                    onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } },
+                )
+            }
+        }
+        composable(Routes.CRM_CLIENT, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+            shell(true) {
+                CrmClientScreen(
+                    uuid = entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() },
+                    onOpenAgreement = { project -> nav.navigate(Routes.agreement(project)) }, onOpenProject = { project -> nav.navigate(Routes.project(project)) },
+                    onOpenPlans = { nav.navigate(Routes.PLANS) { launchSingleTop = true } },
+                )
+            }
+        }
         composable(Routes.CAPACITY) { shell(true) { CapacityScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.TEAMS) { shell(true) { TeamsScreen(onBack = { nav.popBackStack() }, onOpenTeam = { uuid -> nav.navigate(Routes.team(uuid)) }) } }
         composable(Routes.TEAM, arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
@@ -535,6 +564,7 @@ fun FreelanceNavGraph() {
                 )
             }
         }
+        composable(Routes.REPUTATION) { shell(true) { ReputationScreen(onBack = { nav.popBackStack() }) } }
         composable(Routes.SKILL_TESTS) { shell(true) { SkillTestsScreen(onBack = { nav.popBackStack() }, onOpenSkills = { nav.navigate(Routes.SKILLS) }) } }
         composable(Routes.COACH) {
             shell(true) {

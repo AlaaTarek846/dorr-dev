@@ -90,12 +90,13 @@ class FreelancePlans
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    public function withCommission(array $values, ?Freelancer $freelancer): array
+    public function withCommission(array $values, ?Freelancer $freelancer, ?FreelanceTeam $team = null): array
     {
-        if ($freelancer === null) {
+        if ($freelancer === null && $team === null) {
             return $values;
         }
-        $bp = $this->planFor($freelancer)->commission_bp;
+        // FS-705 (owner): an offer or agreement in a team's name is charged under the TEAM's plan only - never the Owner's personal one.
+        $bp = $team !== null ? app(TeamPlans::class)->plan($team)?->commission_bp : $this->planFor($freelancer)->commission_bp;
         $policyIsPercent = ($values['commission.type'] ?? 'percent') === 'percent';
         if ($bp !== null && $policyIsPercent && $bp < (int) ($values['commission.value'] ?? 0)) {
             $values['commission.value'] = $bp;

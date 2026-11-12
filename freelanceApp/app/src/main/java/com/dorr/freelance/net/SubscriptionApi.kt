@@ -79,6 +79,8 @@ data class PlanBenefitsDto(
     val boost: Int = 0,
     val analytics: Int = 0,
     @SerializedName("services_max") val servicesMax: Int? = null,
+    /** FS-703: my clients (0 none, 1 clients, star and notes, 2 + labels and follow-up reminders). */
+    val crm: Int = 0,
 )
 
 data class MySubscriptionDto(

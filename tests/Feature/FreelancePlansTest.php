@@ -160,10 +160,10 @@ class FreelancePlansTest extends TestCase
         // Free, Plus, Pro and (FS-211) Team Starter, the team plan: two prices each for the three paid ones.
         $this->assertSame(4, $added['plans']);
         $this->assertSame(6, $added['prices']);
-        // The team plan is made but not offered: its limits mean nothing until the admin sets the team policies, so nothing sells before.
+        // FS-705 (owner): the team plan is offered. It still shows to a team only where it opens more than the team has free (`TeamPlans::raises`).
         $starter = FreelancePlan::query()->where('slug', 'team_starter')->firstOrFail();
         $this->assertSame('team', $starter->audience);
-        $this->assertFalse($starter->status);
+        $this->assertTrue($starter->status);
         $this->assertSame([60, 10, 5], [$starter->offers_monthly, $starter->team_members_max, $starter->team_projects_max]);
 
         $plus = FreelancePlan::query()->where('slug', 'plus')->firstOrFail();
@@ -180,7 +180,7 @@ class FreelancePlansTest extends TestCase
         // An admin's price stays; a second run adds nothing.
         FreelancePlanPrice::query()->where(['plan_id' => $plus->id, 'country_id' => $this->saudi->id, 'period' => 'monthly'])->update(['price_minor' => 4900]);
         $again = app(FreelancePlanDefaults::class)->seed();
-        $this->assertSame(['plans' => 0, 'prices' => 0], $again);
+        $this->assertSame(['plans' => 0, 'prices' => 0, 'features' => 0], $again);
         $this->assertSame(4900, $price($this->saudi, 'monthly', $plus));
     }
 

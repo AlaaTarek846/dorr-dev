@@ -213,6 +213,17 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('freelance-skills/{freelance_skill}/reject', [FreelanceSkillController::class, 'reject'])->whereNumber('freelance_skill');
         Route::post('freelance-skills/{freelance_skill}/merge', [FreelanceSkillController::class, 'merge'])->whereNumber('freelance_skill');
         Route::apiResource('freelance-skills', FreelanceSkillController::class)->parameters(['freelance-skills' => 'freelance_skill']);
+        // FS-605: the quality desk - verified works (FS-601), practical challenges (FS-602), reputation corrections (FS-604).
+        $quality = \Modules\Freelance\Http\Controllers\Admin\FreelanceQualityController::class;
+        Route::get('freelance-quality/summary', [$quality, 'summary']);
+        Route::get('freelance-quality/verified-works', [$quality, 'works']);
+        Route::post('freelance-quality/verified-works/{item}/unverify', [$quality, 'unverify'])->whereNumber('item');
+        Route::post('freelance-quality/verified-works/{item}/reverify', [$quality, 'reverify'])->whereNumber('item');
+        Route::get('freelance-quality/challenges', [$quality, 'challenges']);
+        Route::post('freelance-quality/challenges/{uuid}/decide', [$quality, 'decideChallenge'])->whereUuid('uuid');
+        Route::get('freelance-quality/corrections', [$quality, 'corrections']);
+        Route::post('freelance-quality/corrections/{uuid}/decide', [$quality, 'decideCorrection'])->whereUuid('uuid');
+
         // Skill tests (FL-L08): per skill the settings and the question bank, plus the badges earned.
         Route::get('freelance-skill-tests', [FreelanceSkillTestController::class, 'index']);
         Route::get('freelance-skill-tests/{freelance_skill}', [FreelanceSkillTestController::class, 'show'])->whereNumber('freelance_skill');

@@ -29,33 +29,39 @@ struct AgreementPickedFile: Identifiable {
     }
 }
 
+/// What a delivery holds while I fill it. It lives on the agreement page so the send button can stand in the sheet's footer, above
+/// the keyboard (Android keeps these in the sheet itself).
+struct DeliverDraft {
+    var note = ""
+    // FL-L13: an agreement that carries ownership terms asks for my word and the outside material at every delivery.
+    var confirmed = false
+    var materials: [MaterialRow] = []
+    var picks: [AgreementPickedFile] = []
+
+    /// The send button is live: a note of 5+ characters and, when there are ownership terms, my word.
+    func ready(rightsRequired: Bool) -> Bool { note.agreementTrimmed.count >= 5 && (!rightsRequired || confirmed) }
+}
+
 /// FL-601: the note and the files of a delivery. Sent as one new version of the part. The content of its form sheet
-/// (`.formSheet(… fullHeight: true)` on the agreement page).
+/// (`.formSheet(… fullHeight: true)` on the agreement page); the send button is that sheet's footer.
 struct DeliverDialog: View {
     @Environment(\.wa) private var wa
     let busy: Bool
-    let error: String?
     var rightsRequired = false
-    /// The note, the files, and (only when the agreement carries ownership terms) the outside material with a name.
-    let onSend: (String, [AgreementPickedFile], [MaterialRow]?) -> Void
-    @State private var note = ""
-    // FL-L13: an agreement that carries ownership terms asks for my word and the outside material at every delivery.
-    @State private var confirmed = false
-    @State private var materials: [MaterialRow] = []
+    @Binding var draft: DeliverDraft
     @StateObject private var rightsOptions = RightsOptionsState()
-    @State private var picks: [AgreementPickedFile] = []
     @State private var picking = false
 
     private var maxMaterials: Int { (rightsRequired ? rightsOptions.value : nil)?.limits?.maxMaterials ?? 10 }
 
     var body: some View {
-        DorrTextField(value: agreementLimit($note, 3000), label: L("ag_ms_deliver_hint"), icon: "text.alignleft", singleLine: false, minLines: 4)
+        DorrTextField(value: agreementLimit($draft.note, 3000), label: L("ag_ms_deliver_hint"), icon: "text.alignleft", singleLine: false, minLines: 4)
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(picks) { f in
+            ForEach(draft.picks) { f in
                 HStack(spacing: 8) {
                     Image(systemName: "paperclip").font(.system(size: 15, weight: .semibold)).foregroundStyle(wa.red).frame(width: 18, height: 18)
                     Text(verbatim: f.name).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                    Button { picks.removeAll { $0.id == f.id } } label: {
+                    Button { draft.picks.removeAll { $0.id == f.id } } label: {
                         Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
                             .frame(width: 28, height: 28).contentShape(Circle())
                     }
@@ -64,8 +70,8 @@ struct DeliverDialog: View {
                     .accessibilityLabel(L("ag_dl_remove"))
                 }
             }
-            if picks.count < maxDeliveryFiles {
-                ActionButton(L("ag_dl_attach", picks.count, maxDeliveryFiles), "paperclip", .soft, enabled: !busy) { picking = true }
+            if draft.picks.count < maxDeliveryFiles {
+                ActionButton(L("ag_dl_attach", draft.picks.count, maxDeliveryFiles), "paperclip", .soft, enabled: !busy) { picking = true }
             }
             Text(L("ag_dl_kept")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
         }
@@ -73,23 +79,23 @@ struct DeliverDialog: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .settingsSurface(18)
         .fileImporter(isPresented: $picking, allowedContentTypes: [.item]) { result in
-            if case .success(let url) = result, picks.count < maxDeliveryFiles, let f = AgreementPickedFile.read(url) { picks.append(f) }
+            if case .success(let url) = result, draft.picks.count < maxDeliveryFiles, let f = AgreementPickedFile.read(url) { draft.picks.append(f) }
         }
         if rightsRequired {
             VStack(alignment: .leading, spacing: 8) {
                 Text(L("rights_delivery_title")).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
                 HStack(spacing: 10) {
-                    RedToggle(on: confirmed) { if !busy { confirmed.toggle() } }
+                    RedToggle(on: draft.confirmed) { if !busy { draft.confirmed.toggle() } }
                     Text(L("rights_delivery_confirm")).font(.dorr(12.5)).foregroundStyle(wa.settingsInk).lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Text(L("rights_materials_title")).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut)
-                ForEach($materials) { $mt in
+                ForEach($draft.materials) { $mt in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 0) {
                             DorrTextField(value: Binding(get: { mt.name }, set: { mt.name = String($0.prefix(120)) }), label: L("rights_material_name"))
                                 .frame(maxWidth: .infinity)
-                            Button { if !busy { materials.removeAll { $0.id == mt.id } } } label: {
+                            Button { if !busy { draft.materials.removeAll { $0.id == mt.id } } } label: {
                                 Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(wa.settingsMut)
                                     .frame(width: 32, height: 32).contentShape(Circle())
                             }
@@ -103,8 +109,8 @@ struct DeliverDialog: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(wa.settingsMut.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                if materials.count < maxMaterials {
-                    ActionButton(L("rights_material_add"), "plus", .soft, enabled: !busy) { materials.append(MaterialRow()) }
+                if draft.materials.count < maxMaterials {
+                    ActionButton(L("rights_material_add"), "plus", .soft, enabled: !busy) { draft.materials.append(MaterialRow()) }
                 }
             }
             .padding(14)
@@ -112,11 +118,6 @@ struct DeliverDialog: View {
             .settingsSurface(18)
             // `if (rightsRequired) rememberRightsOptions()`: read only for an agreement with terms, again when the connection returns.
             .rememberRightsOptions(rightsOptions)
-        }
-        if let error { Text(verbatim: error).font(.dorr(12, .bold)).foregroundStyle(Color(hex: 0xDC2626)) }
-        ActionButton(L("ag_ms_deliver_send"), "icloud.and.arrow.up.fill", .primary,
-                     enabled: note.agreementTrimmed.count >= 5 && !busy && (!rightsRequired || confirmed), loading: busy) {
-            onSend(note.agreementTrimmed, picks, rightsRequired ? materials.filter { !$0.name.agreementTrimmed.isEmpty } : nil)
         }
     }
 }

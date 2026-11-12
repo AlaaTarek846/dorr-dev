@@ -132,10 +132,10 @@ interface ChatApi {
     suspend fun deleteForEveryone(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
 
     @POST("mobile/v1/chat/conversations/{id}/messages/delete-for-me")
-    suspend fun deleteForMe(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, List<String>>): ApiEnvelope<JsonElement?>
+    suspend fun deleteForMe(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards List<String>>): ApiEnvelope<JsonElement?>
 
     @POST("mobile/v1/chat/messages/forward")
-    suspend fun forward(@Header("Authorization") auth: String, @Body body: Map<String, List<String>>): ApiEnvelope<List<MessageDto>>
+    suspend fun forward(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards List<String>>): ApiEnvelope<List<MessageDto>>
 
     @PUT("mobile/v1/chat/messages/{id}/reaction")
     suspend fun react(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String?>): ApiEnvelope<MessageDto>
@@ -196,7 +196,7 @@ interface ChatApi {
     // ------------------------------------------------------------------ polls, view once, live location, link cards
 
     @PUT("mobile/v1/chat/messages/{id}/vote")
-    suspend fun vote(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, List<Int>>): ApiEnvelope<MessageDto>
+    suspend fun vote(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards List<Int>>): ApiEnvelope<MessageDto>
 
     @GET("mobile/v1/chat/messages/{id}/votes")
     suspend fun votes(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<PollOptionVotersDto>>
@@ -389,7 +389,7 @@ interface ChatApi {
     suspend fun members(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<MemberDto>>
 
     @POST("mobile/v1/chat/groups/{id}/members")
-    suspend fun addMembers(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, List<Int>>): ApiEnvelope<JsonElement?>
+    suspend fun addMembers(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards List<Int>>): ApiEnvelope<JsonElement?>
 
     // Educational / work groups: hand-over, archive, restore (GR-005, GR-006) and spaces (GR-007).
     @POST("mobile/v1/chat/groups/{id}/owner/accept")
@@ -672,7 +672,7 @@ interface ChatApi {
     suspend fun deleteFolder(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<JsonElement?>
 
     @PUT("mobile/v1/chat/folders/{id}/conversations")
-    suspend fun folderConversations(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: Map<String, List<String>>): ApiEnvelope<FolderDto>
+    suspend fun folderConversations(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards List<String>>): ApiEnvelope<FolderDto>
 
     // ------------------------------------------------------------------ stories
 
@@ -689,6 +689,8 @@ interface ChatApi {
         @Header("Authorization") auth: String,
         @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>,
         @Part file: MultipartBody.Part?,
+        /** A video's poster frame (`thumbnail`) — the picture in a reply's quote of it. */
+        @Part poster: MultipartBody.Part? = null,
     ): ApiEnvelope<JsonElement?>
 
     @DELETE("mobile/v1/chat/stories/{id}")
@@ -714,7 +716,7 @@ interface ChatApi {
     suspend fun replyStory(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<MessageDto>
 
     @GET("mobile/v1/chat/stories/{id}/viewers")
-    suspend fun storyViewers(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<StoryViewerDto>>
+    suspend fun storyViewers(@Header("Authorization") auth: String, @Path("id") id: String, @Query("page") page: Int? = null, @Query("per_page") perPage: Int? = null): ApiEnvelope<List<StoryViewerDto>>
 
     @GET("mobile/v1/chat/stories/privacy")
     suspend fun storyPrivacy(@Header("Authorization") auth: String): ApiEnvelope<StoryPrivacyDto>
@@ -1150,6 +1152,8 @@ data class ConversationDto(
     @SerializedName("my_role") val myRole: String,
     @SerializedName("is_member") val isMember: Boolean,
     @SerializedName("can_send") val canSend: Boolean,
+    /** How many messages the chat keeps pinned: a new pin past it replaces the oldest (asked first). */
+    @SerializedName("max_pinned_messages") val maxPinnedMessages: Int? = null,
     @SerializedName("last_message") val lastMessage: LastMessageDto?,
     @SerializedName("last_message_at") val lastMessageAt: String?,
     @SerializedName("unread_count") val unreadCount: Int,

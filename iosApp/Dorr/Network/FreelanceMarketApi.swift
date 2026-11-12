@@ -17,6 +17,8 @@ struct FreelanceSkillBadgeDto: Codable, Equatable {
     var skillId: Int?
     var name: String?
     var scorePercent: Int?
+    /// FS-602: beginner · intermediate · advanced · expert (the list comes highest first).
+    var level: String?
 }
 
 // MARK: - services (FL-L04 / L05 / L10)

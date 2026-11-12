@@ -334,12 +334,16 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
     }
 
     withdrawFor?.let { target ->
-        FormSheet(Icons.Rounded.ExitToApp, stringResource(R.string.ag_ms_withdraw), stringResource(R.string.ag_ms_withdraw_note), onDismiss = { if (!busy) withdrawFor = null }) {
+        FormSheet(
+            Icons.Rounded.ExitToApp, stringResource(R.string.ag_ms_withdraw), stringResource(R.string.ag_ms_withdraw_note), onDismiss = { if (!busy) withdrawFor = null },
+            footer = {
+                ActionButton(stringResource(R.string.ag_ms_withdraw), Icons.Rounded.ExitToApp, Tone.Danger, enabled = !busy && cancelReasonReady(withdrawCode, withdrawNote)) {
+                    milestone(target, "withdraw", withdrawNote.trim().ifEmpty { null }, withdrawCode)
+                    withdrawFor = null
+                }
+            },
+        ) {
             CancelReasonPicker(withdrawCode, withdrawNote, { withdrawCode = it }, { withdrawNote = it })
-            ActionButton(stringResource(R.string.ag_ms_withdraw), Icons.Rounded.ExitToApp, Tone.Danger, enabled = !busy && cancelReasonReady(withdrawCode, withdrawNote)) {
-                milestone(target, "withdraw", withdrawNote.trim().ifEmpty { null }, withdrawCode)
-                withdrawFor = null
-            }
         }
     }
 
@@ -347,10 +351,14 @@ fun AgreementScreen(projectUuid: String, onBack: () -> Unit, onDispute: (milesto
         DeliverDialog(busy = busy, error = error, rightsRequired = agreement?.rights != null, onDismiss = { deliverFor = null }, onSend = { text, files, materials -> deliver(target, text, files, materials) })
     }
 
-    if (declining) FormSheet(Icons.Rounded.Cancel, stringResource(R.string.ag_decline), stringResource(R.string.ag_decline_hint), onDismiss = { if (!busy) declining = false }) {
+    if (declining) FormSheet(
+        Icons.Rounded.Cancel, stringResource(R.string.ag_decline), stringResource(R.string.ag_decline_hint), onDismiss = { if (!busy) declining = false },
+        footer = {
+            ErrorBanner(error, Modifier.fillMaxWidth())
+            ActionButton(stringResource(R.string.ag_decline), Icons.Rounded.Cancel, Tone.Danger, enabled = !busy, loading = busy) { act(false) }
+        },
+    ) {
         DorrTextField(reason, { reason = it.take(500) }, label = stringResource(R.string.ag_reason), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
-        ErrorBanner(error, Modifier.fillMaxWidth())
-        ActionButton(stringResource(R.string.ag_decline), Icons.Rounded.Cancel, Tone.Danger, enabled = !busy, loading = busy) { act(false) }
     }
 }
 

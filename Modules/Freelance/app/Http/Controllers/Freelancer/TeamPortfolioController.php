@@ -120,6 +120,12 @@ class TeamPortfolioController extends Controller
             'rights_confirmed' => ['sometimes', 'boolean'],
             'external_url' => ['nullable', 'url:http,https', 'max:255'],
             'video_url' => ['nullable', 'string', 'max:255'],
+            // FS-601: the case study (each part optional; empty clears it).
+            'problem' => ['sometimes', 'nullable', 'string', 'max:1500'],
+            'solution' => ['sometimes', 'nullable', 'string', 'max:1500'],
+            'role' => ['sometimes', 'nullable', 'string', 'max:300'],
+            'tools' => ['sometimes', 'nullable', 'string', 'max:300'],
+            'results' => ['sometimes', 'nullable', 'string', 'max:1500'],
         ];
     }
 

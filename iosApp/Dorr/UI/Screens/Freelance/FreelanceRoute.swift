@@ -12,6 +12,10 @@ enum FlRoute: Hashable {
     case project(String)
     case preview(String)
     case invitations(String)
+    // FS-503: the best people for a project (DORR AI).
+    case matches(String)
+    // FS-801: the AI Project Manager's summary of a running project.
+    case pmSummary(String)
     case offers(String)
     case compare(String, [String])
     case offer(String, String)
@@ -59,6 +63,8 @@ enum FlRoute: Hashable {
         case .project(let p): return "show:\(p)"
         case .preview(let p): return "preview:\(p)"
         case .invitations(let p): return "invites:\(p)"
+        case .matches(let p): return "matches:\(p)"
+        case .pmSummary(let p): return "pmsum:\(p)"
         case .offers(let p): return "offers:\(p)"
         case .compare(let p, let o): return "compare:\(p):" + o.joined(separator: ",")
         case .offer(let p, let o): return "offer:\(p):\(o)"
@@ -126,6 +132,8 @@ enum FlRoute: Hashable {
         case "show": return a.map { .project($0) } ?? .home
         case "preview": return a.map { .preview($0) } ?? .home
         case "invites": return a.map { .invitations($0) } ?? .home
+        case "matches": return a.map { .matches($0) } ?? .home
+        case "pmsum": return a.map { .pmSummary($0) } ?? .home
         case "offers": return a.map { .offers($0) } ?? .home
         case "agreement": return a.map { .agreement($0) } ?? .home
         case "workroom": return a.map { .workroom($0, b ?? "") } ?? .home

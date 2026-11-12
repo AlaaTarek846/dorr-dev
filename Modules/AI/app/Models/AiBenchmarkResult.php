@@ -38,8 +38,9 @@ class AiBenchmarkResult extends Model
         return $this->belongsTo(AiBenchmarkRun::class, 'run_id');
     }
 
+    /** withTrashed: a past run still names a case that was moved to the trash (the runner only runs live ones). */
     public function case(): BelongsTo
     {
-        return $this->belongsTo(AiBenchmarkCase::class, 'case_id');
+        return $this->belongsTo(AiBenchmarkCase::class, 'case_id')->withTrashed();
     }
 }

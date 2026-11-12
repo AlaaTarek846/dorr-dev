@@ -6,6 +6,9 @@ import SwiftUI
 private let maxWorks = 30
 private let maxImages = 10
 private let maxWorkSkills = 10
+/// FS-601: the longest each part of a case study may be.
+private let caseLong = 1500
+private let caseShort = 300
 
 /// FS-209c: where the works are kept — my own (`profile/portfolio`) or a team's (`teams/{team}/portfolio`, the same fields without the
 /// agreement link). The screens ask this one thing and don't care which.
@@ -124,6 +127,11 @@ struct PortfolioTab: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: item.title ?? "").font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1)
+                // FS-601: «Verified by Dorr · finished {month}», or a line saying staff took it off.
+                if item.verified == true { VerifiedBadge(verifiedOn: item.verifiedOn, compact: true).padding(.vertical, 2) }
+                if item.verifiedRevokedReason != nil {
+                    Text(L("pfv_revoked_short")).font(.dorr(11, .semibold)).foregroundStyle(QualityAmber).lineLimit(1)
+                }
                 if let specialty = item.specialty?.name, !specialty.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(verbatim: specialty).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(1)
                 }
@@ -218,6 +226,12 @@ struct PortfolioFormScreen: View {
     @StateObject private var rightsOptions = RightsOptionsState()
     @State private var externalUrl = ""
     @State private var videoUrl = ""
+    // FS-601: the case study (each part optional; an empty one clears it on the server).
+    @State private var problem = ""
+    @State private var solution = ""
+    @State private var role = ""
+    @State private var tools = ""
+    @State private var results = ""
     @State private var pending: [PendingImage] = []
     @State private var busy = false
     @State private var error: String?
@@ -324,20 +338,49 @@ struct PortfolioFormScreen: View {
                     )
                 }
                 Text(L("rights_pf_pick_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                // FS-601: a work linked to a project finished on Dorr is shown «Verified by Dorr».
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "checkmark.shield.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(QualityGreen)
+                    Text(L("pfv_link_hint")).font(.dorr(11.5, .semibold)).foregroundStyle(QualityGreen).lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
-        if let linked = item, linked.agreement != nil {
-            FormGroup {
-                Text(L("rights_pf_linked")).font(.dorr(12, .semibold)).foregroundStyle(wa.red)
-                if linked.withdrawnByClient == true {
-                    Text(L("rights_pf_withdrawn")).font(.dorr(12)).foregroundStyle(Color(hex: 0xD97706)).lineSpacing(3)
-                }
+        // FS-601: where the work stands with the «Verified by Dorr» badge (taken off by staff, standing, or waiting for the client / the end).
+        if let work = item {
+            if let revoked = work.verifiedRevokedReason {
+                NoteBanner(icon: "exclamationmark.triangle.fill", text: L("pfv_revoked_body", revoked), tint: QualityAmber, title: L("pfv_revoked_title"))
+            } else if work.verified == true {
+                NoteBanner(icon: "checkmark.shield.fill", text: L("pfv_badge_body"), tint: QualityGreen,
+                           title: (work.verifiedOn ?? "").isEmpty ? L("pfv_badge") : L("pfv_badge_on", monthLabel(work.verifiedOn)))
+            } else if (work.canBeVerified == true || work.agreement != nil) && work.withdrawnByClient != true {
+                NoteBanner(icon: "link", text: L("pfv_waiting"), tint: QualitySlate)
+            }
+            if work.agreement != nil && work.withdrawnByClient == true {
+                NoteBanner(icon: "xmark.circle.fill", text: L("rights_pf_withdrawn"), tint: QualityAmber)
             }
         }
         FormGroup {
             DorrTextField(value: $title, label: L("pf_title"), icon: "briefcase.fill")
             DorrTextField(value: $description.profileTake(1000), label: L("pf_description"), icon: "text.alignleft", singleLine: false, minLines: 3)
             DateField(value: $completed, label: L("pf_completed"))
+        }
+
+        // FS-601: the case study - the story of the work, every part optional.
+        FormGroup {
+            HStack(spacing: 10) {
+                PinkIcon(icon: "book.fill")
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L("pfv_case_title")).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk)
+                    Text(L("pfv_case_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            CaseField(value: $problem, label: L("pfv_problem"), placeholder: L("pfv_problem_ph"), icon: "exclamationmark.bubble.fill", max: caseLong)
+            CaseField(value: $solution, label: L("pfv_solution"), placeholder: L("pfv_solution_ph"), icon: "lightbulb.fill", max: caseLong)
+            CaseField(value: $role, label: L("pfv_role"), placeholder: L("pfv_role_ph"), icon: "person.fill", max: caseShort, minLines: 2)
+            CaseField(value: $tools, label: L("pfv_tools"), placeholder: L("pfv_tools_ph"), icon: "hammer.fill", max: caseShort, minLines: 2)
+            CaseField(value: $results, label: L("pfv_results"), placeholder: L("pfv_results_ph"), icon: "chart.line.uptrend.xyaxis", max: caseLong)
         }
 
         if !specialties.isEmpty {
@@ -436,6 +479,11 @@ struct PortfolioFormScreen: View {
         agreementUuid = dto.agreement
         externalUrl = dto.externalUrl ?? ""
         videoUrl = ""
+        problem = dto.caseStudy?.problem ?? ""
+        solution = dto.caseStudy?.solution ?? ""
+        role = dto.caseStudy?.role ?? ""
+        tools = dto.caseStudy?.tools ?? ""
+        results = dto.caseStudy?.results ?? ""
     }
 
     // ---- images ----
@@ -478,6 +526,12 @@ struct PortfolioFormScreen: View {
             "video_url": orNull(videoUrl.trimmingCharacters(in: .whitespacesAndNewlines)),
         ] as JsonBody).filter { $0.value != nil }
         if currentId == 0, let agreementUuid { body["agreement_uuid"] = agreementUuid }
+        // FS-601: always sent - an empty part clears it.
+        body["problem"] = problem.trimmingCharacters(in: .whitespacesAndNewlines)
+        body["solution"] = solution.trimmingCharacters(in: .whitespacesAndNewlines)
+        body["role"] = role.trimmingCharacters(in: .whitespacesAndNewlines)
+        body["tools"] = tools.trimmingCharacters(in: .whitespacesAndNewlines)
+        body["results"] = results.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             let saved = currentId == 0 ? await src.create(body) : await src.update(currentId, body)
             guard let dto = saved.value else {
@@ -511,6 +565,28 @@ struct PortfolioFormScreen: View {
             busy = false
             if let failed { error = failed } else { onBack() }
         }
+    }
+}
+
+/// One part of the case study: a multiline field with its label and a hint, cut at `max`; the count shows once it nears the end.
+private struct CaseField: View {
+    @Environment(\.wa) private var wa
+    @Binding var value: String
+    let label: String
+    let placeholder: String
+    let icon: String
+    let max: Int
+    var minLines = 3
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            DorrTextField(value: $value.profileTake(max), label: label, placeholder: placeholder, icon: icon, singleLine: false, minLines: minLines)
+            if value.count >= max * 8 / 10 {
+                Text(verbatim: "\(value.count)/\(max)").font(.dorr(11)).foregroundStyle(value.count >= max ? QualityAmber : wa.settingsMut)
+                    .environment(\.layoutDirection, .leftToRight)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

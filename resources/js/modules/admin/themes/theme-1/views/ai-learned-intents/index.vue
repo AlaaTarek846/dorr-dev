@@ -2,7 +2,10 @@
     <div>
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div>
-                <p class="fw-semibold fs-18 mb-0">{{ t('ai_learned_intents.title') }}</p>
+                <h1 class="page-title fw-semibold fs-18 mb-0">
+                    {{ t('ai_learned_intents.title') }}
+                    <span v-if="pagination?.total != null" class="badge bg-primary-transparent ms-2 fs-12 align-middle">{{ pagination.total }}</span>
+                </h1>
                 <span class="fs-semibold text-muted">{{ t('ai_learned_intents.subtitle') }}</span>
             </div>
             <div class="ms-md-1 ms-0">
@@ -40,8 +43,8 @@
             </div>
         </div>
 
-        <!-- How it works + phrase tester -->
-        <div class="row">
+        <!-- Phrase tester (POST /test = ai-learned-intents.update) -->
+        <div v-if="canUpdate" class="row">
             <div class="col-xl-12">
                 <div class="card custom-card">
                     <div class="card-header">
@@ -51,14 +54,7 @@
                         <p class="text-muted fs-13 mb-3">{{ t('ai_learned_intents.tester_hint') }}</p>
                         <form class="row g-2 align-items-center" @submit.prevent="runTest">
                             <div class="col-lg">
-                                <input
-                                    v-model="testMessage"
-                                    type="text"
-                                    dir="auto"
-                                    maxlength="600"
-                                    class="form-control"
-                                    :placeholder="t('ai_learned_intents.tester_placeholder')"
-                                >
+                                <input v-model="testMessage" type="text" dir="auto" maxlength="600" class="form-control" :placeholder="t('ai_learned_intents.tester_placeholder')">
                             </div>
                             <div class="col-lg-auto">
                                 <div class="form-check mb-0">
@@ -94,32 +90,72 @@
             </div>
         </div>
 
-        <!-- Table -->
+        <!-- The list (like countries) -->
         <div class="row">
             <div class="col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
-                        <div class="d-flex flex-wrap gap-2 flex-fill">
-                            <div class="input-group input-group-sm w-auto">
-                                <span class="input-group-text"><i class="ri-search-line"></i></span>
-                                <input
-                                    v-model="filters.search"
-                                    type="text"
-                                    dir="auto"
-                                    class="form-control"
-                                    :placeholder="t('ai_learned_intents.search_placeholder')"
-                                    @input="onSearchInput"
-                                >
+                    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                        <div class="d-flex flex-wrap align-items-center gap-1 catalog-toolbar-filters">
+                            <div class="input-group input-group-sm catalog-toolbar-search">
+                                <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                                <input v-model="search" type="search" dir="auto" class="form-control" :placeholder="t('ai_learned_intents.search_placeholder')">
+                                <button v-if="search" type="button" class="btn btn-light border catalog-search-clear" :title="t('ai_learned_intents.clear_search')" @click="search = ''">
+                                    <i class="ri-close-line"></i>
+                                </button>
                             </div>
-                            <select v-model="filters.status" class="form-select form-select-sm w-auto" @change="applyFilters">
+
+                            <button v-if="statusFilter !== 'all'" type="button" class="btn btn-sm catalog-filter-btn catalog-filter-btn--all-idle" @click="setStatusFilter('all')">
+                                {{ t('ai_learned_intents.filter_all') }} ({{ counts.total }})
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'active' ? 'catalog-filter-btn--active' : 'catalog-filter-btn--active-idle'"
+                                @click="setStatusFilter('active')"
+                            >
+                                {{ t('ai_learned_intents.filter_active') }} ({{ counts.active }})
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'inactive' ? 'catalog-filter-btn--inactive' : 'catalog-filter-btn--inactive-idle'"
+                                @click="setStatusFilter('inactive')"
+                            >
+                                {{ t('ai_learned_intents.filter_inactive') }} ({{ counts.inactive }})
+                            </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
+                        </div>
+
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                            <button v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'" type="button" class="btn btn-danger btn-sm btn-wave" @click="confirmDeleteSelected">
+                                <i class="ri-delete-bin-line me-1 align-middle"></i>{{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button v-if="canDelete && selectedCount && statusFilter === 'deleted'" type="button" class="btn btn-danger btn-sm btn-wave" @click="confirmForceDeleteSelected">
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>{{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button v-if="canCreate && statusFilter !== 'deleted'" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                <i class="ri-add-line me-1 align-middle"></i>{{ t('ai_learned_intents.add_short') }}
+                            </button>
+                        </div>
+
+                        <!-- The screen's own filters (sent with the list and its counts) -->
+                        <div class="d-flex flex-wrap gap-2 w-100">
+                            <select v-model="filters.state" class="form-select form-select-sm w-auto" @change="applyFilters">
                                 <option value="">{{ t('ai_learned_intents.filter_all_statuses') }}</option>
-                                <option value="active">{{ t('ai_learned_intents.status_active') }}</option>
                                 <option value="pending">{{ t('ai_learned_intents.status_pending') }}</option>
                                 <option value="conflict">{{ t('ai_learned_intents.status_conflict') }}</option>
                             </select>
                             <select v-model="filters.intent" class="form-select form-select-sm w-auto" @change="applyFilters">
                                 <option value="">{{ t('ai_learned_intents.filter_all_intents') }}</option>
-                                <option v-for="intent in intents" :key="intent" :value="intent">{{ intentLabel(intent) }}</option>
+                                <option v-for="intent in INTENTS" :key="intent" :value="intent">{{ intentLabel(intent) }}</option>
                             </select>
                             <select v-model="filters.mode" class="form-select form-select-sm w-auto" @change="applyFilters">
                                 <option value="">{{ t('ai_learned_intents.filter_all_modes') }}</option>
@@ -132,10 +168,6 @@
                                 <option value="admin">{{ t('ai_learned_intents.source_admin') }}</option>
                             </select>
                         </div>
-                        <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
-                            <i class="ri-add-line me-1 align-middle"></i>
-                            {{ t('ai_learned_intents.add_short') }}
-                        </button>
                     </div>
 
                     <div class="card-body p-0">
@@ -143,150 +175,180 @@
                             <table class="table text-nowrap table-striped table-hover mb-0 align-middle">
                                 <thead>
                                     <tr>
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                :checked="allSelected"
+                                                :disabled="loading || !items.length"
+                                                :aria-label="t('ai_learned_intents.select_all')"
+                                                @change="toggleSelectAll($event.target.checked)"
+                                            >
+                                        </th>
                                         <th scope="col">{{ t('ai_learned_intents.phrase') }}</th>
                                         <th scope="col">{{ t('ai_learned_intents.intent') }}</th>
-                                        <th scope="col">{{ t('ai_learned_intents.status') }}</th>
+                                        <th scope="col">{{ t('ai_learned_intents.state') }}</th>
                                         <th scope="col">{{ t('ai_learned_intents.confidence') }}</th>
                                         <th scope="col">{{ t('ai_learned_intents.hits') }}</th>
                                         <th scope="col">{{ t('ai_learned_intents.source') }}</th>
+                                        <th scope="col">{{ t('ai_learned_intents.status') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('ai_learned_intents.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="7" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="tableColumnCount" />
 
-                                    <tr v-else-if="!records.length">
-                                        <td colspan="7" class="border-0">
+                                    <tr v-else-if="!items.length">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
+                                                <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3"><i class="ri-book-2-line fs-2 text-primary"></i></span>
                                                 <p class="fw-semibold mb-1">{{ t('ai_learned_intents.empty_title') }}</p>
                                                 <p class="text-muted mb-0">{{ t('ai_learned_intents.empty') }}</p>
                                             </div>
                                         </td>
                                     </tr>
 
-                                    <tr v-for="record in records" v-else :key="record.id">
-                                        <td>
-                                            <span class="d-block fw-semibold text-wrap" dir="auto" style="max-width: 320px">{{ record.phrase }}</span>
-                                            <span class="badge bg-light text-muted fs-10 mt-1">{{ t(`ai_learned_intents.mode_${record.match_mode}`) }}</span>
-                                            <span class="badge bg-light text-muted fs-10 mt-1 text-uppercase">{{ record.language }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-primary-transparent">
-                                                <i :class="intentIcon(record.intent)" class="me-1"></i>{{ intentLabel(record.intent) }}
-                                            </span>
-                                            <span v-if="record.file_format" class="badge bg-info-transparent text-uppercase ms-1">{{ record.file_format }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="badge" :class="statusTone(record.status)">{{ t(`ai_learned_intents.status_${record.status}`) }}</span>
-                                            <span v-if="record.status === 'pending'" class="d-block text-muted fs-11 mt-1">
-                                                {{ t('ai_learned_intents.confirmations_progress', { n: record.confirmations, total: minConfirmations }) }}
-                                            </span>
-                                            <span v-if="record.status === 'conflict'" class="d-block text-danger fs-11 mt-1">
-                                                {{ t('ai_learned_intents.conflicts_count', { n: record.conflicts }) }}
-                                            </span>
-                                        </td>
-                                        <td style="min-width: 110px">
-                                            <div class="progress progress-xs" role="progressbar">
-                                                <div class="progress-bar" :class="confidenceTone(record.confidence)" :style="{ width: `${Math.round(record.confidence * 100)}%` }"></div>
-                                            </div>
-                                            <span class="text-muted fs-11">{{ Math.round(record.confidence * 100) }}%</span>
-                                        </td>
-                                        <td>
-                                            <span class="fw-semibold">{{ record.hits }}</span>
-                                            <span v-if="record.last_hit_at" class="d-block text-muted fs-11">{{ formatDate(record.last_hit_at) }}</span>
-                                        </td>
-                                        <td>
-                                            <span class="badge" :class="record.source === 'admin' ? 'bg-secondary-transparent' : 'bg-light text-default'">
-                                                <i :class="record.source === 'admin' ? 'ri-user-settings-line' : 'ri-robot-2-line'" class="me-1"></i>{{ t(`ai_learned_intents.source_${record.source}`) }}
-                                            </span>
-                                            <span v-if="record.learned_with_model" class="d-block text-muted fs-11">{{ record.learned_with_model }}</span>
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            <div class="d-flex align-items-center justify-content-end gap-3">
+                                    <template v-else>
+                                        <tr v-for="record in items" :key="record.id">
+                                            <td v-if="canMultipleDelete" class="ps-4">
+                                                <input class="form-check-input" type="checkbox" :checked="isSelected(record.id)" :aria-label="record.phrase" @change="toggleSelect(record.id, $event.target.checked)">
+                                            </td>
+                                            <td>
+                                                <button v-if="canUpdate && !isTrashedRecord(record)" type="button" class="btn btn-link p-0 text-start fw-semibold text-default text-wrap" dir="auto" style="max-width: 320px" @click="openEdit(record)">
+                                                    {{ record.phrase }}
+                                                </button>
+                                                <span v-else class="d-block fw-semibold text-wrap" dir="auto" style="max-width: 320px">{{ record.phrase }}</span>
+                                                <span class="badge bg-light text-muted fs-10 mt-1">{{ t(`ai_learned_intents.mode_${record.match_mode}`) }}</span>
+                                                <span class="badge bg-light text-muted fs-10 mt-1 text-uppercase">{{ record.language }}</span>
+                                                <span class="d-block text-muted fs-11">#{{ record.id }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-primary-transparent"><i :class="intentIcon(record.intent)" class="me-1"></i>{{ intentLabel(record.intent) }}</span>
+                                                <span v-if="record.file_format" class="badge bg-info-transparent text-uppercase ms-1">{{ record.file_format }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge" :class="stateTone(record.state)">{{ t(`ai_learned_intents.status_${record.state}`) }}</span>
+                                                <span v-if="record.state === 'pending'" class="d-block text-muted fs-11 mt-1">
+                                                    {{ t('ai_learned_intents.confirmations_progress', { n: record.confirmations, total: minConfirmations }) }}
+                                                </span>
+                                                <span v-if="record.state === 'conflict'" class="d-block text-danger fs-11 mt-1">{{ t('ai_learned_intents.conflicts_count', { n: record.conflicts }) }}</span>
+                                            </td>
+                                            <td style="min-width: 110px">
+                                                <div class="progress progress-xs" role="progressbar">
+                                                    <div class="progress-bar" :class="confidenceTone(record.confidence)" :style="{ width: `${Math.round(record.confidence * 100)}%` }"></div>
+                                                </div>
+                                                <span class="text-muted fs-11">{{ Math.round(record.confidence * 100) }}%</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-semibold">{{ record.hits }}</span>
+                                                <span v-if="record.last_hit_at" class="d-block text-muted fs-11">{{ formatCatalogDate(record.last_hit_at, locale) }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge" :class="record.source === 'admin' ? 'bg-secondary-transparent' : 'bg-light text-default'">
+                                                    <i :class="record.source === 'admin' ? 'ri-user-settings-line' : 'ri-robot-2-line'" class="me-1"></i>{{ t(`ai_learned_intents.source_${record.source}`) }}
+                                                </span>
+                                                <span v-if="record.learned_with_model" class="d-block text-muted fs-11">{{ record.learned_with_model }}</span>
+                                            </td>
+                                            <td>
+                                                <span v-if="isTrashedRecord(record)" class="badge bg-danger-transparent">{{ t('catalog.deleted_badge') }}</span>
                                                 <div
-                                                    class="toggle toggle-success mb-0"
-                                                    :class="{ on: record.is_active }"
-                                                    role="button"
+                                                    v-else-if="canChangeStatus"
+                                                    class="toggle toggle-success mb-0 catalog-status-toggle"
+                                                    :class="{ on: record.status, 'catalog-status-toggle--loading': isTogglingStatus(record.id) }"
+                                                    role="switch"
                                                     tabindex="0"
-                                                    :title="record.is_active ? t('ai_learned_intents.disable') : t('ai_learned_intents.enable')"
-                                                    @click="toggleActive(record)"
-                                                    @keydown.enter.space.prevent="toggleActive(record)"
+                                                    :aria-checked="record.status"
+                                                    :aria-busy="isTogglingStatus(record.id)"
+                                                    :title="record.status ? t('ai_learned_intents.disable') : t('ai_learned_intents.enable')"
+                                                    @click="toggleRow(record)"
+                                                    @keydown.enter.space.prevent="toggleRow(record)"
                                                 >
                                                     <span></span>
                                                 </div>
-                                                <div class="btn-list">
-                                                    <button type="button" class="btn btn-sm btn-info-light btn-icon" @click="openEdit(record)">
+                                                <span v-else class="badge" :class="record.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                    {{ record.status ? t('ai_learned_intents.filter_active') : t('ai_learned_intents.filter_inactive') }}
+                                                </span>
+                                                <span v-if="catalogShowDeletedSubtext(record, isDeletedView)" class="d-block text-muted fs-11">{{ t('catalog.deleted_at') }}: {{ formatCatalogDate(record.deleted_at, locale) }}</span>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <div v-if="isTrashedRecord(record)" class="btn-list justify-content-end">
+                                                    <button v-if="canUpdate" type="button" class="btn btn-sm btn-success-light btn-icon" :title="t('catalog.restore_title')" @click="confirmRestore(record.id)">
+                                                        <i class="ri-arrow-go-back-line"></i>
+                                                    </button>
+                                                    <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" :title="t('catalog.force_delete_title')" @click="confirmForceDelete(record.id)">
+                                                        <i class="ri-delete-bin-7-line"></i>
+                                                    </button>
+                                                </div>
+                                                <div v-else class="btn-list justify-content-end">
+                                                    <button v-if="canUpdate" type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('ai_learned_intents.edit_title')" @click="openEdit(record)">
                                                         <i class="ri-pencil-line"></i>
                                                     </button>
-                                                    <button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="askDelete(record)">
+                                                    <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" :title="t('ai_learned_intents.delete_title')" @click="confirmDelete(record.id)">
                                                         <i class="ri-delete-bin-line"></i>
                                                     </button>
                                                 </div>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
                     </div>
+
                     <AdminPaginationFooter
                         :pagination="pagination"
-                        :current-page="page"
+                        :current-page="currentPage"
                         :per-page="perPage"
+                        :per-page-options="[15, 25, 50]"
                         :loading="loading"
-                        @change-page="onChangePage"
-                        @change-per-page="onChangePerPage"
+                        @change-page="changePage"
+                        @change-per-page="perPage = $event"
                     />
                 </div>
             </div>
         </div>
 
-        <ModalCreateAndUpdate
-            :show="modalShow"
-            :type="modalType"
-            :record="selectedRecord"
-            :intents="intents"
-            @close="modalShow = false"
-            @saved="onSaved"
-        />
+        <ModalCreateAndUpdate :show="modalShow" :type="modalType" :record="selectedRecord" :intents="INTENTS" @close="modalShow = false" @saved="onSaved" />
 
         <ConfirmDeleteModal
             :show="deleteConfirm.state.show"
             :title="deleteConfirm.state.title"
             :message="deleteConfirm.state.message"
             :loading="deleteConfirm.state.loading"
-            @close="deleteConfirm.close"
-            @confirm="remove"
+            @close="deleteConfirm.close()"
+            @confirm="onDeleteConfirm"
         />
     </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
-import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
-import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
-import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
+import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useAiLearnedIntents } from '../../../../../../composables/useAiRoutingScreens';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
+import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
-import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
+import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
+import { useAiLearnedIntentsStore } from '../../../../../../stores/aiRoutingScreens';
+import { catalogShowDeletedSubtext, formatCatalogDate, isTrashedRecord } from '../../../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
-const { showSuccess, showError } = useToast();
-const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
-const deleteConfirm = useConfirmDelete();
+const { showError } = useToast();
 
 const BASE = '/api/admin/v1/ai-learned-intents';
 
 // Must mirror Modules\AI\Support\AiChatIntent::ACTIONS.
-const intents = [
+const INTENTS = [
     'image_generation', 'image_edit', 'voice_reply', 'file_output', 'web_search',
     'research', 'study', 'coding', 'structured_output',
 ];
 
-const intentIcons = {
+const INTENT_ICONS = {
     image_generation: 'ri-image-add-line',
     image_edit: 'ri-image-edit-line',
     voice_reply: 'ri-mic-line',
@@ -298,21 +360,38 @@ const intentIcons = {
     structured_output: 'ri-braces-line',
 };
 
-const records = ref([]);
-const loading = ref(true);
+const countsStore = useAiLearnedIntentsStore();
+const { canCreate, canUpdate, canDelete, canChangeStatus, canMultipleDelete } = useCatalogPermissions('ai-learned-intents');
+
+// The screen's own filters, sent with the list and its counts (AiLearnedIntentRepository).
+const filters = reactive({ state: '', intent: '', mode: '', source: '' });
+
+const catalog = useAiLearnedIntents({
+    getFilters: () => Object.fromEntries(Object.entries(filters).filter(([, value]) => value)),
+});
+const { items, loading, pagination, selectedIds, currentPage, perPage, search, statusFilter, isDeletedView } = catalog;
+const { fetchItems, setStatusFilter, toggleStatus, toggleSelectAll, toggleSelect, isTogglingStatus } = catalog;
+
+const tableColumnCount = computed(() => 8 + (canMultipleDelete.value ? 1 : 0));
+
+const counts = computed(() => ({
+    total: countsStore.total ?? pagination.value?.total ?? 0,
+    active: countsStore.activeCount ?? 0,
+    inactive: countsStore.inactiveCount ?? 0,
+    deleted: countsStore.deletedCount ?? 0,
+}));
+
 const stats = ref(null);
 const statsLoading = ref(true);
-
-const filters = reactive({ search: '', status: '', intent: '', mode: '', source: '' });
-
-const modalShow = ref(false);
-const modalType = ref('create');
-const selectedRecord = ref(null);
-
 const testMessage = ref('');
 const testRecentImage = ref(false);
 const testing = ref(false);
 const testResult = ref(null);
+
+const modalShow = ref(false);
+const modalType = ref('create');
+const selectedRecord = ref(null);
+const deleteConfirm = useConfirmDelete();
 
 const minConfirmations = computed(() => stats.value?.min_confirmations ?? 2);
 
@@ -324,16 +403,23 @@ const statCards = computed(() => [
     { key: 'hits', label: t('ai_learned_intents.stat_hits'), value: stats.value?.hits ?? 0, icon: 'ri-flashlight-line', tone: 'bg-info-transparent text-info', hint: t('ai_learned_intents.stat_hits_hint') },
 ]);
 
+const selectedCount = computed(() => selectedIds.value.length);
+const allSelected = computed(() => items.value.length > 0 && items.value.every((row) => selectedIds.value.includes(Number(row.id))));
+
+function isSelected(id) {
+    return selectedIds.value.includes(Number(id));
+}
+
 function intentLabel(intent) {
     return t(`ai_learned_intents.intents.${intent}`);
 }
 
 function intentIcon(intent) {
-    return intentIcons[intent] ?? 'ri-question-line';
+    return INTENT_ICONS[intent] ?? 'ri-question-line';
 }
 
-function statusTone(status) {
-    return { active: 'bg-success-transparent', pending: 'bg-warning-transparent', conflict: 'bg-danger-transparent' }[status] ?? 'bg-light';
+function stateTone(state) {
+    return { active: 'bg-success-transparent', pending: 'bg-warning-transparent', conflict: 'bg-danger-transparent' }[state] ?? 'bg-light';
 }
 
 function stageTone(stage) {
@@ -352,14 +438,6 @@ function confidenceTone(value) {
     return 'bg-danger';
 }
 
-function formatDate(value) {
-    try {
-        return new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-    } catch {
-        return value;
-    }
-}
-
 async function loadStats() {
     statsLoading.value = true;
 
@@ -373,41 +451,33 @@ async function loadStats() {
     }
 }
 
-async function loadRecords() {
-    loading.value = true;
-
-    try {
-        const params = { ...paginationParams.value };
-
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value) params[key] = value;
-        });
-
-        const { data } = await adminAxios.get(BASE, { params });
-        records.value = data.data ?? [];
-        applyPagination(data);
-    } catch (error) {
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    } finally {
-        loading.value = false;
-    }
-}
-
-function refreshAll() {
+function refreshAll(page = currentPage.value) {
     loadStats();
-    loadRecords();
-}
-
-let searchTimer = null;
-
-function onSearchInput() {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(applyFilters, 350);
+    fetchItems(page);
 }
 
 function applyFilters() {
-    page.value = 1;
-    loadRecords();
+    fetchItems(1);
+}
+
+function changePage(page) {
+    if (pagination.value && page >= 1 && page <= pagination.value.last_page) {
+        fetchItems(page);
+    }
+}
+
+// The switch follows the router's rule: off = "do not trust" (conflict), on = active (AiLearnedIntentRepository).
+async function toggleRow(record) {
+    const before = record.status;
+    await toggleStatus(record);
+
+    if (record.status === before) {
+        return; // the request failed and the switch went back
+    }
+
+    record.state = record.status ? 'active' : 'conflict';
+    record.conflicts = record.status ? 0 : Math.max(1, record.conflicts ?? 0);
+    loadStats();
 }
 
 async function runTest() {
@@ -416,10 +486,7 @@ async function runTest() {
     testing.value = true;
 
     try {
-        const { data } = await adminAxios.post(`${BASE}/test`, {
-            message: testMessage.value,
-            recent_image: testRecentImage.value,
-        });
+        const { data } = await adminAxios.post(`${BASE}/test`, { message: testMessage.value, recent_image: testRecentImage.value });
         testResult.value = data.data;
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
@@ -440,41 +507,27 @@ function openEdit(record) {
     modalShow.value = true;
 }
 
-async function toggleActive(record) {
-    try {
-        const response = await adminAxios.put(`${BASE}/${record.id}`, { is_active: ! record.is_active });
-        Object.assign(record, response.data?.data ?? {});
-        showSuccess(extractApiMessage(response, t('toast.status_changed')));
-        loadStats();
-    } catch (error) {
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected: catalog.deleteSelected,
+    deleteItem: catalog.deleteItem,
+    restoreItem: catalog.restoreItem,
+    forceDeleteItem: catalog.forceDeleteItem,
+    forceDeleteSelected: catalog.forceDeleteSelected,
+    i18nPrefix: 'ai_learned_intents',
+});
 
-function askDelete(record) {
-    deleteConfirm.open({
-        title: t('ai_learned_intents.confirm_delete_title'),
-        message: t('ai_learned_intents.confirm_delete', { phrase: record.phrase }),
-        payload: record,
-    });
-}
-
-async function remove() {
-    const record = deleteConfirm.state.payload;
-    if (! record) return;
-
-    deleteConfirm.setLoading(true);
-
-    try {
-        const response = await adminAxios.delete(`${BASE}/${record.id}`);
-        showSuccess(extractApiMessage(response, t('toast.deleted')));
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-        refreshAll();
-    } catch (error) {
-        deleteConfirm.setLoading(false);
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    }
+async function onDeleteConfirm() {
+    await handleDeleteConfirm();
+    loadStats();
 }
 
 function onSaved() {
@@ -482,17 +535,5 @@ function onSaved() {
     refreshAll();
 }
 
-function onChangePage(target) {
-    page.value = target;
-    loadRecords();
-}
-
-function onChangePerPage(value) {
-    perPage.value = value;
-    page.value = 1;
-    loadRecords();
-}
-
-onMounted(refreshAll);
-onBeforeUnmount(() => clearTimeout(searchTimer));
+onMounted(() => refreshAll(1));
 </script>

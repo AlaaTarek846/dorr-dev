@@ -12,6 +12,7 @@ use Modules\Freelance\Console\ReleaseFreelanceEarnings;
 use Modules\Freelance\Console\PublishFreelanceReviews;
 use Modules\Freelance\Console\ReconcileFreelanceMoney;
 use Modules\Freelance\Console\RenewFreelanceSubscriptions;
+use Modules\Freelance\Console\NotifyCrmReminders;
 use Modules\Freelance\Console\TellFreelanceLateWork;
 use Modules\Freelance\Console\RemindFreelanceInterviews;
 use Modules\Freelance\Console\RefreshFreelancerRisk;
@@ -56,6 +57,7 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         PublishFreelanceReviews::class,
         ReconcileFreelanceMoney::class,
         TellFreelanceLateWork::class,
+        NotifyCrmReminders::class,
         RemindFreelanceInterviews::class,
         RemindProgressReports::class,
         RemindChangeRequests::class,
@@ -129,6 +131,7 @@ class FreelanceServiceProvider extends ModuleServiceProvider
         $schedule->command(PublishFreelanceReviews::class)->hourly()->withoutOverlapping();
         $schedule->command(ReconcileFreelanceMoney::class)->dailyAt('03:20')->withoutOverlapping();
         $schedule->command(TellFreelanceLateWork::class)->dailyAt('08:00')->withoutOverlapping();
+        $schedule->command(NotifyCrmReminders::class)->everyFifteenMinutes()->withoutOverlapping();
         $schedule->command(RemindFreelanceInterviews::class)->everyMinute()->withoutOverlapping();
         $schedule->command(RemindProgressReports::class)->hourly()->withoutOverlapping();
         $schedule->command(RemindChangeRequests::class)->hourly()->withoutOverlapping();

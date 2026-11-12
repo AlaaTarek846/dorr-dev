@@ -28,10 +28,14 @@ struct MainActions {
     let openServiceOrder: (String) -> Void
     // FL-L01 phase 4: my performance numbers
     let openInsights: () -> Void
+    // FS-703: my clients (the private CRM)
+    let openCrm: () -> Void
     // FL-L11: improve my profile
     let openCoach: () -> Void
     // FL-L08: skill tests and badges
     let openSkillTests: () -> Void
+    // FS-604: my reputation figures
+    let openReputation: () -> Void
     // FL-L10: my capacity and the line on my services
     let openCapacity: () -> Void
     // FS-209: my freelancers' teams
@@ -70,8 +74,10 @@ struct MainActions {
             openServiceOrders: { nav.push(.serviceOrders) },
             openServiceOrder: { nav.push(.serviceOrder($0)) },
             openInsights: { nav.push(.insights) },
+            openCrm: { nav.push(.crm) },
             openCoach: { nav.push(.coach) },
             openSkillTests: { nav.push(.skillTests) },
+            openReputation: { nav.push(.reputation) },
             openCapacity: { nav.push(.capacity) },
             openTeams: { nav.push(.teams) },
             openConsultations: { nav.push(.consultations) },

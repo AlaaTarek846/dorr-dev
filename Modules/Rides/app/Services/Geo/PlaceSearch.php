@@ -26,6 +26,9 @@ class PlaceSearch
 {
     private const RADIUS_M = 50000;
 
+    /** «Nearby places» (the chat's location page): how far around the point. */
+    private const NEARBY_M = 500;
+
     /** @return list<array{name: string, address: string, lat: float, lng: float}> */
     public function suggest(string $query, ?float $lat, ?float $lng, string $lang = 'ar'): array
     {
@@ -73,6 +76,122 @@ class PlaceSearch
 
             return array_slice([...$rides, ...$known], 0, 10);
         });
+    }
+
+    /**
+     * Places right around a point — the chat's «send a location» (like WhatsApp's «nearby places»). The admin's
+     * provider first: Google's Places «nearby» (nearest first) or Mapbox's points of interest. When that gives
+     * few (no key, a refusal, a quiet street), where people around there go most (rides within 5 km) tops it up.
+     * Nearest first, at most 15, one per name. Kept a day per ~100 m; an empty answer is asked again in 10 minutes.
+     *
+     * @return list<array{name: string, address: string, lat: float, lng: float}>
+     */
+    public function nearby(float $lat, float $lng, string $lang = 'ar'): array
+    {
+        $settings = RideSetting::current();
+        $key = 'rides:places:nearby:'.$settings->mapProvider().'|'.round($lat, 3).','.round($lng, 3).'|'.$lang;
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $found = $settings->mapProvider() === 'mapbox'
+            ? $this->mapboxNearby($settings->mapboxToken(), $lat, $lng, $lang)
+            : $this->googleNearby($settings->googleKey(), $lat, $lng, $lang);
+        if (count($found) < 5) {
+            $close = array_filter($this->popular($lat, $lng, $lang), fn (array $p) => Geo::metres($lat, $lng, $p['lat'], $p['lng']) <= 5000);
+            $found = [...$found, ...$close];
+        }
+        $seen = [];
+        $found = array_values(array_filter($found, function (array $p) use (&$seen) {
+            $name = mb_strtolower(trim($p['name']));
+            if ($name === '' || isset($seen[$name])) {
+                return false;
+            }
+
+            return $seen[$name] = true;
+        }));
+        usort($found, fn (array $a, array $b) => Geo::metres($lat, $lng, $a['lat'], $a['lng']) <=> Geo::metres($lat, $lng, $b['lat'], $b['lng']));
+        $found = array_slice($found, 0, 15);
+        Cache::put($key, $found, $found === [] ? now()->addMinutes(10) : now()->addDay());
+
+        return $found;
+    }
+
+    /**
+     * Google Places (New) «Nearby Search», within 500 m, by distance — only the fields shown (name, short address,
+     * place), so it bills as little as it can.
+     *
+     * @return list<array{name: string, address: string, lat: float, lng: float}>
+     */
+    private function googleNearby(string $key, float $lat, float $lng, string $lang): array
+    {
+        if ($key === '') {
+            return [];
+        }
+        try {
+            $response = Http::timeout(6)->withHeaders([
+                'X-Goog-Api-Key' => $key,
+                'X-Goog-FieldMask' => 'places.displayName,places.shortFormattedAddress,places.formattedAddress,places.location',
+            ])->post((string) config('rides.google.nearby_url'), [
+                'maxResultCount' => 15,
+                'rankPreference' => 'DISTANCE',
+                'languageCode' => $lang,
+                'locationRestriction' => ['circle' => ['center' => ['latitude' => $lat, 'longitude' => $lng], 'radius' => (float) self::NEARBY_M]],
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('[Rides] nearby places (Google) failed: '.$e->getMessage());
+
+            return [];
+        }
+        if (! $response->successful()) {
+            // Usually the key: «Places API (New)» not enabled on it, or billing.
+            Log::warning('[Rides] nearby places (Google) refused: HTTP '.$response->status());
+
+            return [];
+        }
+
+        return collect((array) $response->json('places'))
+            ->map(fn (array $p) => [
+                'name' => (string) ($p['displayName']['text'] ?? ''),
+                'address' => (string) ($p['shortFormattedAddress'] ?? $p['formattedAddress'] ?? ''),
+                'lat' => (float) ($p['location']['latitude'] ?? 0), 'lng' => (float) ($p['location']['longitude'] ?? 0),
+            ])
+            ->filter(fn (array $p) => $p['name'] !== '' && ($p['lat'] != 0 || $p['lng'] != 0))
+            ->values()->all();
+    }
+
+    /**
+     * Mapbox's points of interest around a point (Search Box «reverse»).
+     *
+     * @return list<array{name: string, address: string, lat: float, lng: float}>
+     */
+    private function mapboxNearby(string $token, float $lat, float $lng, string $lang): array
+    {
+        if ($token === '') {
+            return [];
+        }
+        try {
+            $response = Http::timeout(6)->get('https://api.mapbox.com/search/searchbox/v1/reverse', [
+                'access_token' => $token, 'longitude' => $lng, 'latitude' => $lat, 'types' => 'poi', 'limit' => 10, 'language' => $lang,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('[Rides] nearby places (Mapbox) failed: '.$e->getMessage());
+
+            return [];
+        }
+        if (! $response->successful()) {
+            return [];
+        }
+
+        return collect((array) $response->json('features'))
+            ->map(fn (array $f) => [
+                'name' => (string) ($f['properties']['name'] ?? ''),
+                'address' => (string) ($f['properties']['full_address'] ?? $f['properties']['place_formatted'] ?? ''),
+                'lat' => (float) ($f['geometry']['coordinates'][1] ?? 0), 'lng' => (float) ($f['geometry']['coordinates'][0] ?? 0),
+            ])
+            ->filter(fn (array $p) => $p['name'] !== '' && ($p['lat'] != 0 || $p['lng'] != 0))
+            ->values()->all();
     }
 
     /** @return list<array{name: string, address: string, lat: float, lng: float}> */

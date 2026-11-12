@@ -13,17 +13,23 @@ use Modules\AI\Models\AiProviderHealth;
  * every request in that window paying for a doomed network call before
  * falling back.
  *
- * State is a sequence of ai_provider_health rows (check_type=functional)
- * rather than a dedicated table: each call outcome writes one row, and
- * the breaker's current state is always "whatever the latest row for
- * this provider says" - this deliberately reuses the table the v2.0 doc
- * already describes as what routing should be looking at, rather than
- * inventing a second, competing source of provider-health truth.
+ * State lives in ai_provider_health (check_type=functional) rather than a
+ * dedicated table, and the breaker's current state is always "whatever
+ * the latest row for this provider says" (no row = healthy).
  *
- * This is intentionally simple (closed -> open -> half-open probe on the
- * next call after open_seconds), not a full state machine with a
- * separate half-open trial-count - good enough for the current call
- * volume, and easy to extend if that stops being true.
+ * A row is written only when the state CHANGES (2026-11-11 fix: it used
+ * to insert one row per successful call, so the table grew with traffic
+ * and never got purged). While the state stays the same, the latest row
+ * is updated in place (failure count, open_until). The table is also
+ * purged by ai:enforce-retention (the latest row per provider is kept).
+ *
+ * States:
+ *  healthy    -> no recent failures (no row written per success)
+ *  degraded   -> 1..threshold-1 consecutive failures
+ *  unhealthy  -> circuit open until details.open_until; calls skipped
+ *  recovering -> half-open: open_until passed, the next calls are let
+ *                through as probes; one success -> healthy, one failure
+ *                -> unhealthy again (re-opened immediately).
  */
 class AiCircuitBreaker
 {
@@ -47,22 +53,29 @@ class AiCircuitBreaker
             return false;
         }
 
-        // The cooldown has elapsed - this call is let through as a
-        // "half-open" probe. It is not marked recovering here; that only
-        // happens once the probe itself reports success or failure via
-        // recordSuccess()/recordFailure() below.
-        return Carbon::parse($openUntil)->isFuture();
+        if (Carbon::parse($openUntil)->isFuture()) {
+            return true;
+        }
+
+        // The cooldown has elapsed: half-open. Recorded once (state
+        // change), then this call is let through as the probe.
+        $this->write($provider, AiProviderHealth::STATUS_RECOVERING, 0.5, [
+            'consecutive_failures' => (int) ($latest->details['consecutive_failures'] ?? 0),
+        ]);
+
+        return false;
     }
 
     public function recordSuccess(AiProvider $provider): void
     {
-        AiProviderHealth::query()->create([
-            'provider_id' => $provider->id,
-            'check_type' => self::CHECK_TYPE,
-            'health_score' => 1,
-            'status' => AiProviderHealth::STATUS_HEALTHY,
-            'details' => ['consecutive_failures' => 0],
-        ]);
+        $latest = $this->latestState($provider);
+
+        // Already healthy (or never failed): nothing changed, nothing written.
+        if (! $latest || $latest->status === AiProviderHealth::STATUS_HEALTHY) {
+            return;
+        }
+
+        $this->write($provider, AiProviderHealth::STATUS_HEALTHY, 1, ['consecutive_failures' => 0]);
     }
 
     public function recordFailure(AiProvider $provider): void
@@ -77,28 +90,49 @@ class AiCircuitBreaker
 
         $consecutiveFailures = $priorFailures + 1;
 
-        if ($consecutiveFailures >= $threshold) {
-            AiProviderHealth::query()->create([
-                'provider_id' => $provider->id,
-                'check_type' => self::CHECK_TYPE,
-                'health_score' => 0,
-                'status' => AiProviderHealth::STATUS_UNHEALTHY,
-                'details' => [
-                    'consecutive_failures' => $consecutiveFailures,
-                    'open_until' => now()->addSeconds($openSeconds)->toISOString(),
-                ],
-            ]);
+        // A failed half-open probe re-opens the circuit straight away.
+        $open = $consecutiveFailures >= $threshold
+            || $latest?->status === AiProviderHealth::STATUS_RECOVERING;
+
+        if ($open) {
+            $this->write($provider, AiProviderHealth::STATUS_UNHEALTHY, 0, [
+                'consecutive_failures' => $consecutiveFailures,
+                'open_until' => now()->addSeconds($openSeconds)->toISOString(),
+            ], $latest);
 
             return;
         }
 
-        AiProviderHealth::query()->create([
-            'provider_id' => $provider->id,
-            'check_type' => self::CHECK_TYPE,
-            'health_score' => max(0, 1 - ($consecutiveFailures / $threshold)),
-            'status' => AiProviderHealth::STATUS_DEGRADED,
-            'details' => ['consecutive_failures' => $consecutiveFailures],
-        ]);
+        $this->write($provider, AiProviderHealth::STATUS_DEGRADED, max(0, 1 - ($consecutiveFailures / $threshold)), [
+            'consecutive_failures' => $consecutiveFailures,
+        ], $latest);
+    }
+
+    /**
+     * Same status as the latest row -> update that row in place; otherwise
+     * a new row (a state change). Never breaks the caller's chat call.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    protected function write(AiProvider $provider, string $status, float $score, array $details, ?AiProviderHealth $latest = null): void
+    {
+        try {
+            if ($latest && $latest->status === $status) {
+                $latest->forceFill(['health_score' => $score, 'details' => $details])->save();
+
+                return;
+            }
+
+            AiProviderHealth::query()->create([
+                'provider_id' => $provider->id,
+                'check_type' => self::CHECK_TYPE,
+                'health_score' => $score,
+                'status' => $status,
+                'details' => $details,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     protected function latestState(AiProvider $provider): ?AiProviderHealth

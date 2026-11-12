@@ -47,6 +47,7 @@
                                             step="0.01"
                                             min="0"
                                             class="form-control form-control-sm"
+                                            :disabled="!canEdit"
                                             dir="ltr"
                                             :placeholder="String(plan?.price ?? 0)"
                                             @input="onRowPriceInput(row)"
@@ -60,6 +61,7 @@
                                             min="0"
                                             max="99"
                                             class="form-control form-control-sm"
+                                            :disabled="!canEdit"
                                             dir="ltr"
                                             @input="onRowDiscountInput(row)"
                                         >
@@ -71,6 +73,7 @@
                                             step="0.01"
                                             min="0"
                                             class="form-control form-control-sm"
+                                            :disabled="!canEdit"
                                             dir="ltr"
                                             @input="onRowOriginalPriceInput(row)"
                                         >
@@ -84,7 +87,7 @@
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <div class="btn-list justify-content-end">
+                                        <div v-if="canEdit" class="btn-list justify-content-end">
                                             <button
                                                 type="button"
                                                 class="btn btn-sm btn-primary-light"
@@ -128,6 +131,8 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 const props = defineProps({
     show: { type: Boolean, default: false },
     plan: { type: Object, default: null },
+    // false = read-only (the admin has ai-plans.view but not ai-plans.update).
+    canEdit: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['close']);

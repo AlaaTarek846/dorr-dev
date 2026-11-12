@@ -732,6 +732,9 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
     val scope = rememberCoroutineScope()
     // FL-L13: the portfolio work being reported as not theirs.
     var reporting by remember { mutableStateOf<String?>(null) }
+    // FS-601: the work opened with its case study; FS-604: «how is it worked out?».
+    var opened by remember { mutableStateOf<com.dorr.app.network.FreelancePortfolioDto?>(null) }
+    var how by remember { mutableStateOf(false) }
 
     LaunchedEffect(projectUuid, offerUuid, reconnect) {
         try {
@@ -792,6 +795,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                 FlStat(Icons.Rounded.Schedule, stringResource(R.string.fl_st_on_time), p.onTimeRate?.let { "$it%" } ?: "—", Modifier.weight(1f))
                 FlStat(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio), "${p.portfolio.size}", Modifier.weight(1f))
             }
+            // FS-604: the six figures behind the freelancer's name, each with where it comes from.
+            ReputationCard(p.reputation, onHow = { how = true })
             // FL-L09: what returning clients get from this freelancer, and where I stand.
             LoyaltyCard(p.loyalty)
             p.bio?.takeIf { it.isNotBlank() }?.let { Card(Icons.Rounded.Info, stringResource(R.string.fl_about)) { Text(it, color = settingsInk(), fontSize = 13.sp, lineHeight = 20.sp) } }
@@ -825,21 +830,9 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
                     }
                 }
             }
+            // FS-601: verified works come first; a tap opens the work with its case study.
             if (p.portfolio.isNotEmpty()) Card(Icons.Rounded.Collections, stringResource(R.string.fl_portfolio) + " (${p.portfolio.size})") {
-                p.portfolio.forEach { w ->
-                    Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val cover = w.images.firstOrNull()?.url
-                        Box(Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)).background(settingsAccent().copy(alpha = 0.08f))) {
-                            if (cover != null) AsyncImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(w.title.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            w.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                        }
-                        w.uuid?.let { id -> Icon(Icons.Rounded.Flag, stringResource(R.string.rights_report), tint = settingsMut(), modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable { reporting = id }.padding(8.dp)) }
-                    }
-                }
+                p.portfolio.forEach { w -> PortfolioWorkRow(w, onOpen = { opened = w }, onReport = { reporting = it }) }
             }
             // FL-701 / FL-703: what clients said, and their numbers.
             if (p.reviews.isNotEmpty() || (p.completedProjects ?: 0) > 0) Card(Icons.Rounded.Star, stringResource(R.string.fl_rv_about)) {
@@ -859,6 +852,8 @@ internal fun FreelancerProfilePage(projectUuid: String, offerUuid: String, onBac
         }
     }
 
+    if (how) ReputationHowSheet(onDismiss = { how = false })
+    opened?.let { w -> PortfolioWorkSheet(w, freelancerUuid = profile?.uuid, onDismiss = { opened = null }, onReport = { id -> opened = null; reporting = id }) }
     reporting?.let { id -> ReportWorkSheet("portfolio_item", id, onDismiss = { reporting = null }) }
 }
 

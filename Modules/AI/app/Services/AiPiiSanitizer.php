@@ -12,20 +12,64 @@ namespace Modules\AI\Services;
  */
 class AiPiiSanitizer
 {
+    /** The kinds a provider data rule's transformation_rules.mask_fields may name, in the order they are applied. */
+    public const MASK_FIELDS = ['email', 'id_number', 'phone', 'secrets'];
+
     public function redactPii(string $text): string
     {
-        $text = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', '[email]', $text) ?? $text;
-
         // Long digit runs with NO separators (card numbers, national IDs,
-        // IBAN fragments) are checked before the phone pattern below -
+        // IBAN fragments) are checked before the phone pattern -
         // the phone pattern's character class also contains \d, so a
         // separator-free run would otherwise always be consumed by it
-        // first and mislabeled [phone], leaving this branch dead code.
-        $text = preg_replace('/(?<!\d)\d{9,}(?!\d)/', '[id_number]', $text) ?? $text;
+        // first and mislabeled [phone], leaving that branch dead code.
+        return $this->maskPhones($this->maskIdNumbers($this->maskEmails($text)));
+    }
 
-        // Phone numbers: international/local formats, 8-15 digits with
-        // optional +, spaces, dashes or parentheses.
-        $text = preg_replace('/(?<!\d)(\+?\d[\d\s\-\(\)]{7,15}\d)(?!\d)/', '[phone]', $text) ?? $text;
+    public function maskEmails(string $text): string
+    {
+        return preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', '[email]', $text) ?? $text;
+    }
+
+    public function maskIdNumbers(string $text): string
+    {
+        return preg_replace('/(?<!\d)\d{9,}(?!\d)/', '[id_number]', $text) ?? $text;
+    }
+
+    /** International/local formats, 8-15 digits with optional +, spaces, dashes or parentheses. */
+    public function maskPhones(string $text): string
+    {
+        return preg_replace('/(?<!\d)(\+?\d[\d\s\-\(\)]{7,15}\d)(?!\d)/', '[phone]', $text) ?? $text;
+    }
+
+    /**
+     * A provider data rule's transformation_rules (AiGateway::applyDataRules):
+     * - mask_fields: any of MASK_FIELDS - only those kinds are masked (email, id_number, phone; "secrets" = keys,
+     *   tokens, passwords);
+     * - redact_terms: literal words / phrases replaced with [redacted], case-insensitive.
+     * Unknown keys and malformed values are ignored, so a bad rule never breaks the call.
+     *
+     * @param  array<string, mixed>  $rules
+     */
+    public function applyTransformationRules(string $text, array $rules): string
+    {
+        $fields = is_array($rules['mask_fields'] ?? null) ? array_map('strval', $rules['mask_fields']) : [];
+
+        // Secrets first (see redactBoth()), then the PII kinds in redactPii()'s order.
+        if (in_array('secrets', $fields, true) || in_array('secret', $fields, true)) {
+            $text = $this->redactSecrets($text);
+        }
+
+        foreach (['email' => 'maskEmails', 'id_number' => 'maskIdNumbers', 'phone' => 'maskPhones'] as $field => $method) {
+            if (in_array($field, $fields, true)) {
+                $text = $this->{$method}($text);
+            }
+        }
+
+        foreach (is_array($rules['redact_terms'] ?? null) ? $rules['redact_terms'] : [] as $term) {
+            if (is_string($term) && trim($term) !== '') {
+                $text = preg_replace('/'.preg_quote(trim($term), '/').'/iu', '[redacted]', $text) ?? $text;
+            }
+        }
 
         return $text;
     }

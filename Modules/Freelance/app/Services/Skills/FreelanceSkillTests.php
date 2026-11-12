@@ -18,6 +18,10 @@ use Modules\Freelance\Services\Features\FreelanceFeatures;
  * one's options), freezes them in the attempt, and marks the answers when they come back. The right answers never leave the server: what the
  * app gets is the texts, and what it sends is the position of the option shown. A pass earns the verified badge of that skill, which ends
  * after `freelance.skill_tests.badge_valid_days` (0 = never); a fail waits `retake_hours` before the next go.
+ *
+ * FS-602 (owner 2026-11-12): a badge has a level. The test gives beginner (a pass) or intermediate (`intermediate_percent` or more); advanced and
+ * expert come from a practical challenge (`FreelanceSkillChallenges`). From `renew_days` before a badge ends the test may be sat again to renew
+ * it, and a renewal keeps a level a challenge earned.
  */
 class FreelanceSkillTests
 {
@@ -37,7 +41,7 @@ class FreelanceSkillTests
     /**
      * What the admin sets for a skill, with the defaults of the config where it has no row yet.
      *
-     * @return array{status: bool, questions_count: int, minutes: int, pass_percent: int, retake_hours: int}
+     * @return array{status: bool, questions_count: int, minutes: int, pass_percent: int, retake_hours: int, intermediate_percent: int, challenge_enabled: bool, challenge_brief: ?array}
      */
     public static function settings(?Test $t): array
     {
@@ -49,6 +53,9 @@ class FreelanceSkillTests
             'minutes' => (int) ($t->minutes ?? $d['minutes'] ?? 15),
             'pass_percent' => (int) ($t->pass_percent ?? $d['pass_percent'] ?? 70),
             'retake_hours' => (int) ($t->retake_hours ?? $d['retake_hours'] ?? 24),
+            'intermediate_percent' => (int) ($t->intermediate_percent ?? $d['intermediate_percent'] ?? 85),
+            'challenge_enabled' => (bool) ($t?->challenge_enabled ?? false),
+            'challenge_brief' => $t?->challenge_brief,
         ];
     }
 
@@ -75,6 +82,7 @@ class FreelanceSkillTests
             }
             $s = self::settings($test);
             $badge = $this->badges->held($f, $skill->id);
+            $renewing = $badge !== null && $this->renewable($badge);
             $wait = $this->waitUntil($f, $skill->id, $s['retake_hours']);
             $open = Attempt::query()->where('freelancer_id', $f->id)->where('freelance_skill_id', $skill->id)->where('status', Attempt::STARTED)->where('expires_at', '>', now())->exists();
             $rows[] = [
@@ -83,10 +91,17 @@ class FreelanceSkillTests
                 'questions' => min($s['questions_count'], (int) $bank[$skill->id]),
                 'minutes' => $s['minutes'],
                 'pass_percent' => $s['pass_percent'],
-                'badge' => $badge === null ? null : ['score_percent' => $badge->score_percent, 'earned_at' => $badge->earned_at?->toIso8601String(), 'expires_at' => $badge->expires_at?->toIso8601String()],
+                'intermediate_percent' => $s['intermediate_percent'],
+                'badge' => $badge === null ? null : [
+                    'score_percent' => $badge->score_percent, 'level' => $badge->level,
+                    'earned_at' => $badge->earned_at?->toIso8601String(), 'expires_at' => $badge->expires_at?->toIso8601String(),
+                ],
+                // FS-602: the badge may be renewed by sitting the test again (it keeps a level a challenge earned).
+                'renewable' => $renewing,
                 'in_progress' => $open,
                 'retake_at' => $wait?->toIso8601String(),
-                'can_start' => $on && $badge === null && $wait === null,
+                'can_start' => $on && ($badge === null || $renewing) && $wait === null,
+                'challenge' => app(FreelanceSkillChallenges::class)->stateFor($f, $skill->id, $test, $badge),
             ];
         }
 
@@ -115,7 +130,8 @@ class FreelanceSkillTests
                 }
                 $open->update(['status' => Attempt::EXPIRED, 'submitted_at' => $open->expires_at]);
             }
-            if ($this->badges->held($f, $skill->id) !== null) {
+            $held = $this->badges->held($f, $skill->id);
+            if ($held !== null && ! $this->renewable($held)) {
                 throw new FreelanceException('skill_test_held', 422);
             }
             if (($wait = $this->waitUntil($f, $skill->id, $s['retake_hours'])) !== null) {
@@ -180,9 +196,16 @@ class FreelanceSkillTests
 
             if ($passed) {
                 $days = (int) config('freelance.skill_tests.badge_valid_days', 365);
+                $s = self::settings(Test::query()->where('freelance_skill_id', $a->freelance_skill_id)->first());
+                $level = $percent >= $s['intermediate_percent'] ? FreelancerSkillBadge::INTERMEDIATE : FreelancerSkillBadge::BEGINNER;
+                // FS-602: renewing a badge still in force keeps the level a challenge earned (a revoked or ended one starts again from the score).
+                $before = FreelancerSkillBadge::query()->where('freelancer_id', $f->id)->where('freelance_skill_id', $a->freelance_skill_id)->first();
+                if ($before !== null && $before->isValid() && FreelancerSkillBadge::rank($before->level) > FreelancerSkillBadge::rank($level)) {
+                    $level = $before->level;
+                }
                 FreelancerSkillBadge::query()->updateOrCreate(
                     ['freelancer_id' => $f->id, 'freelance_skill_id' => $a->freelance_skill_id],
-                    ['attempt_id' => $a->id, 'score_percent' => $percent, 'earned_at' => now(), 'expires_at' => $days > 0 ? now()->addDays($days) : null, 'revoked_at' => null, 'revoked_reason' => null],
+                    ['attempt_id' => $a->id, 'score_percent' => $percent, 'level' => $level, 'earned_at' => now(), 'expires_at' => $days > 0 ? now()->addDays($days) : null, 'revoked_at' => null, 'revoked_reason' => null],
                 );
             }
 
@@ -233,9 +256,15 @@ class FreelanceSkillTests
             'correct_count' => (int) $a->correct_count,
             'total' => count($a->questions),
             'pass_percent' => $a->pass_percent,
-            'badge' => $badge === null ? null : ['score_percent' => $badge->score_percent, 'expires_at' => $badge->expires_at?->toIso8601String()],
+            'badge' => $badge === null ? null : ['score_percent' => $badge->score_percent, 'level' => $badge->level, 'expires_at' => $badge->expires_at?->toIso8601String()],
             'retake_at' => $a->status === Attempt::PASSED ? null : $a->submitted_at?->copy()->addHours($s['retake_hours'])->toIso8601String(),
         ];
+    }
+
+    /** FS-602: a badge that ends within `renew_days` may be renewed by sitting the test again. */
+    private function renewable(FreelancerSkillBadge $badge): bool
+    {
+        return $badge->expires_at !== null && $badge->expires_at->lte(now()->addDays((int) config('freelance.skill_tests.renew_days', 30)));
     }
 
     /** When the freelancer may try again after a failed or timed-out go, or null if they may now. */

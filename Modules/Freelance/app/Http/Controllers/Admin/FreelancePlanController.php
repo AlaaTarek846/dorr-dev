@@ -80,6 +80,8 @@ class FreelancePlanController extends Controller implements HasMiddleware
             'badge' => ['sometimes', 'boolean'],
             'boost' => ['sometimes', 'integer', 'min:0', 'max:'.(int) config('freelance.plan_boost_max', 3)],
             'analytics' => ['sometimes', 'integer', 'min:0', 'max:2'],
+            // FS-703: the freelancer's CRM (0 none, 1 clients + notes, 2 also labels and follow-up reminders).
+            'crm' => ['sometimes', 'integer', 'min:0', 'max:2'],
             'services_max' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
             // FS-211 (a team plan): the people and the running projects it allows; empty = no cap.
             'team_members_max' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
@@ -87,13 +89,13 @@ class FreelancePlanController extends Controller implements HasMiddleware
         ]);
         if ($model->isTeam()) {
             // A team plan has no commission, badge, boost, analytics or services: those are a freelancer's.
-            unset($data['commission_bp'], $data['badge'], $data['boost'], $data['analytics'], $data['services_max']);
+            unset($data['commission_bp'], $data['badge'], $data['boost'], $data['analytics'], $data['crm'], $data['services_max']);
         } else {
             unset($data['team_members_max'], $data['team_projects_max']);
         }
         if ($model->isFree()) {
             // Free follows the policy and is always on.
-            unset($data['offers_monthly'], $data['offers_unlimited'], $data['commission_bp'], $data['trial_days'], $data['status'], $data['badge'], $data['boost'], $data['analytics'], $data['services_max']);
+            unset($data['offers_monthly'], $data['offers_unlimited'], $data['commission_bp'], $data['trial_days'], $data['status'], $data['badge'], $data['boost'], $data['analytics'], $data['crm'], $data['services_max']);
         }
         $before = $model->only(array_keys($data));
         $model->update($data);
@@ -229,7 +231,7 @@ class FreelancePlanController extends Controller implements HasMiddleware
         return [
             'id' => $p->id, 'slug' => $p->slug, 'audience' => $p->audience, 'rank' => $p->rank, 'free' => $p->isFree(), 'name' => $p->name, 'description' => $p->description,
             'offers_monthly' => $p->offers_monthly, 'offers_unlimited' => $p->offers_unlimited, 'commission_bp' => $p->commission_bp, 'trial_days' => $p->trial_days, 'status' => $p->status,
-            'badge' => (bool) $p->badge, 'boost' => (int) $p->boost, 'analytics' => (int) $p->analytics, 'services_max' => $p->services_max,
+            'badge' => (bool) $p->badge, 'boost' => (int) $p->boost, 'analytics' => (int) $p->analytics, 'crm' => (int) $p->crm, 'services_max' => $p->services_max,
             'team_members_max' => $p->team_members_max, 'team_projects_max' => $p->team_projects_max,
         ];
     }

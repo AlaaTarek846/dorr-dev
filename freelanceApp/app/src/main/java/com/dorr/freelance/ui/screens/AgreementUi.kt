@@ -40,21 +40,42 @@ import com.dorr.freelance.ui.locale.LocaleAwareBottomSheet
 
 /** The pieces the agreement page is built from: a form that opens from the bottom, the action buttons and the tab bar. */
 
-/** A form over the page (instead of a dialog): the same head as the offer form - an icon, a title and a line - then its fields. */
+/**
+ * A form over the page (instead of a dialog): the same head as the offer form - an icon, a title and a line - then its fields.
+ * A [footer] (the save button) stays under the fields, outside their scrolling, so it is above the keyboard while a field is being typed in
+ * instead of waiting under it at the end of the scroll.
+ */
 @Composable
-internal fun FormSheet(icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, fullHeight: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+internal fun FormSheet(
+    icon: ImageVector, title: String, body: String, onDismiss: () -> Unit, fullHeight: Boolean = false,
+    footer: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit,
+) {
     LocaleAwareBottomSheet(
         onDismissRequest = onDismiss,
         fullHeight = fullHeight,
         containerColor = if (settingsNight()) AccountDark.card else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
-        Column(
-            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            FormIntro(icon, title, body)
-            content()
+        if (footer == null) {
+            Column(
+                Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                FormIntro(icon, title, body)
+                content()
+            }
+        } else {
+            // The fields take what is left above the footer (and scroll when the keyboard leaves little); the footer is never pushed off.
+            Column(Modifier.fillMaxWidth().weight(1f, fill = false).imePadding()) {
+                Column(
+                    Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    FormIntro(icon, title, body)
+                    content()
+                }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { footer() }
+            }
         }
     }
 }

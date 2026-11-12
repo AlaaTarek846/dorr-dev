@@ -126,7 +126,7 @@ final class AiPlanGate: ObservableObject {
 
     /// Error codes that mean "this needs (a bigger) DORR AI plan".
     nonisolated private static func isPlanCode(_ code: String) -> Bool {
-        code.hasPrefix("chat_ai_plan_") || code.hasPrefix("rides_ai_plan_") || code == "chat_ai_image_not_in_plan"
+        code.hasPrefix("chat_ai_plan_") || code.hasPrefix("rides_ai_plan_") || code.hasPrefix("freelance_ai_plan_") || code == "chat_ai_image_not_in_plan"
             || code == "chat_ai_image_daily_limit" || code == "ai_plan_required"
     }
 
@@ -134,7 +134,7 @@ final class AiPlanGate: ObservableObject {
     nonisolated static func inspect(_ body: Data) {
         guard let root = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
               let code = root["error_code"] as? String,
-              code != "chat_ai_plan_blocked", code != "rides_ai_plan_blocked", isPlanCode(code),
+              code != "chat_ai_plan_blocked", code != "rides_ai_plan_blocked", code != "freelance_ai_plan_blocked", isPlanCode(code),
               let message = root["message"] as? String else { return }
         Task { @MainActor in shared.prompt = message }
     }

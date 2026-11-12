@@ -22,6 +22,8 @@ class FreelanceNotifier
         // For the freelancer
         'freelancer.invitation.received' => ['project'],
         'freelancer.invitation.team_received' => ['project', 'team'],
+        // FS-703: a follow-up reminder of the freelancer's CRM is due.
+        'freelancer.crm.reminder_due' => ['client', 'title'],
         'freelancer.project.matched' => ['project'],
         'freelancer.offer.viewed' => ['project'],
         'freelancer.offer.shortlisted' => ['project'],
@@ -46,6 +48,12 @@ class FreelanceNotifier
         'freelancer.verification.approved' => [],
         'freelancer.verification.rejected' => ['reason'],
         'freelancer.verification.changes_requested' => ['reason'],
+        // Phase 6: quality and trust
+        'freelancer.portfolio.unverified' => ['title', 'reason'],
+        'freelancer.challenge.accepted' => ['skill', 'level'],
+        'freelancer.challenge.rejected' => ['skill'],
+        'freelancer.reputation.corrected' => [],
+        'freelancer.reputation.kept' => [],
         'freelancer.dispute.opened' => ['project'],
         'freelancer.dispute.resolved' => ['project'],
         'freelancer.dispute.decided' => ['project'],

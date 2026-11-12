@@ -417,6 +417,15 @@
                         <div class="form-text">{{ t('freelance.plans.analytics_hint') }}</div>
                     </div>
                     <div v-if="editing.audience !== 'team'" class="col-md-4">
+                        <label class="form-label">{{ t('freelance.plans.crm') }}</label>
+                        <select v-model.number="form.crm" class="form-select">
+                            <option :value="0">{{ t('freelance.plans.crm_0') }}</option>
+                            <option :value="1">{{ t('freelance.plans.crm_1') }}</option>
+                            <option :value="2">{{ t('freelance.plans.crm_2') }}</option>
+                        </select>
+                        <div class="form-text">{{ t('freelance.plans.crm_hint') }}</div>
+                    </div>
+                    <div v-if="editing.audience !== 'team'" class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.services_max') }}</label>
                         <input v-model="form.services_max" type="number" min="1" max="1000" class="form-control" :placeholder="t('freelance.plans.services_max_policy')">
                         <div class="form-text">{{ t('freelance.plans.services_max_hint') }}</div>
@@ -555,6 +564,7 @@ const perksText = (p) => [
     p.badge ? t('freelance.plans.perk_badge') : null,
     p.boost > 0 ? t('freelance.plans.perk_boost', { n: p.boost }) : null,
     p.analytics > 0 ? t(`freelance.plans.perk_analytics_${p.analytics}`) : null,
+    p.crm > 0 ? t(`freelance.plans.perk_crm_${p.crm}`) : null,
     p.services_max ? t('freelance.plans.perk_services', { n: p.services_max }) : null,
 ].filter(Boolean).join(' · ') || t('freelance.plans.perk_none');
 const revenueText = computed(() => overview.revenue_30d.map((r) => `${fmt(r.total_minor, r.decimals)} ${r.currency}`).join(' · '));
@@ -575,7 +585,7 @@ async function loadOverview() {
 const editing = ref(null);
 const planSaving = ref(false);
 const form = reactive({
-    name: { ar: '', en: '' }, description: { ar: '', en: '' }, offers_monthly: 0, offers_unlimited: false, commission: '', trial_days: 0, badge: false, boost: 0, analytics: 0, services_max: '',
+    name: { ar: '', en: '' }, description: { ar: '', en: '' }, offers_monthly: 0, offers_unlimited: false, commission: '', trial_days: 0, badge: false, boost: 0, analytics: 0, crm: 0, services_max: '',
     team_members_max: '', team_projects_max: '', status: true,
 });
 
@@ -589,6 +599,7 @@ function openEdit(p) {
     form.badge = !!p.badge;
     form.boost = p.boost ?? 0;
     form.analytics = p.analytics ?? 0;
+    form.crm = p.crm ?? 0;
     form.services_max = p.services_max == null ? '' : String(p.services_max);
     form.team_members_max = p.team_members_max == null ? '' : String(p.team_members_max);
     form.team_projects_max = p.team_projects_max == null ? '' : String(p.team_projects_max);
@@ -607,7 +618,7 @@ async function savePlan() {
     }
     planSaving.value = true;
     try {
-        // A team plan has the room it opens and no commission, badge, boost, analytics or services: those are a freelancer's.
+        // A team plan has the room it opens and no commission, badge, boost, analytics, crm or services: those are a freelancer's.
         const body = {
             name: form.name,
             description: form.description,
@@ -623,6 +634,7 @@ async function savePlan() {
                 badge: form.badge,
                 boost: form.boost ?? 0,
                 analytics: form.analytics ?? 0,
+                crm: form.crm ?? 0,
                 services_max: numberOrNull(form.services_max),
             });
         const response = await adminAxios.put(`${base}/${editing.value.id}`, body);

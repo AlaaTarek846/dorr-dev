@@ -181,8 +181,11 @@ fun FreelanceHost(onExit: () -> Unit) {
                     onAgreement = { open(FlRoute.Agreement(route.project)) },
                     onInvitations = { open(FlRoute.Invitations(route.project)) },
                     onTeam = { open(FlRoute.Team(route.project)) },
+                    onMatches = { open(FlRoute.Matches(route.project)) },
                 )
                 is FlRoute.Preview -> PreviewPage(route.project, onBack = ::back, onEdit = { replace(FlRoute.EditProject(route.project)) }, onSent = { listVersion++; back() })
+                is FlRoute.Matches -> MatchesPage(route.project, onBack = ::back, onTeam = { open(FlRoute.FreelancerTeam(it)) })
+                is FlRoute.PmSummary -> ProjectSummaryPage(route.project, onBack = ::back)
                 is FlRoute.Invitations -> InvitationsPage(route.project, onBack = ::back, onOpenOffer = { open(FlRoute.Offer(route.project, it)) }, onMadePublic = { listVersion++; back() })
                 is FlRoute.Offers -> OffersPage(route.project, onBack = ::back, onOpen = { open(FlRoute.Offer(route.project, it)) }, onCompare = { open(FlRoute.Compare(route.project, it)) })
                 is FlRoute.Compare -> ComparePage(
@@ -201,6 +204,7 @@ fun FreelanceHost(onExit: () -> Unit) {
                     route.project, onBack = ::back, onEnded = { listVersion++ },
                     onDispute = { m, d -> open(if (d != null) FlRoute.Dispute(route.project, d) else FlRoute.NewDispute(route.project, m)) },
                     onWorkroom = { open(FlRoute.Workroom(route.project)) },
+                    onSummary = { open(FlRoute.PmSummary(route.project)) },
                     onTeam = { open(FlRoute.FreelancerTeam(it)) },
                 )
                 // FS-150e: the Workroom (tasks, files, decisions, timeline) of the running work, and one of its files.
@@ -489,8 +493,10 @@ private fun budgetText(p: FreelanceProjectDto): String? {
 // ---------------------------------------------------------------- one project
 
 @Composable
-private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onPreview: () -> Unit, onCopied: (String) -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}, onTeam: () -> Unit = {}) {
+private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) -> Unit, onGone: () -> Unit, onPreview: () -> Unit, onCopied: (String) -> Unit, onOffers: () -> Unit, onOpenOffer: (String) -> Unit, onAgreement: () -> Unit, onInvitations: () -> Unit = {}, onTeam: () -> Unit = {}, onMatches: () -> Unit = {}) {
     val generic = stringResource(R.string.fl_error_generic)
+    // FS-503: whether «the best people for your project» is on here.
+    val aiStatus = rememberFlAiStatus()
     val scope = rememberCoroutineScope()
     val reconnect = collectReconnectTick()
     var project by remember(uuid) { mutableStateOf<FreelanceProjectDto?>(null) }
@@ -658,6 +664,10 @@ private fun ProjectDetails(uuid: String, onBack: () -> Unit, onEdit: (String) ->
                                 Text(a.name, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
+                    }
+                    // FS-503: the best people for this project, by DORR AI (owner only, while it is still looking for someone).
+                    aiStatus?.takeIf { it.matching && p.access?.isOwner != false && p.status in setOf("draft", "pending_review", "changes_requested", "published") }?.let { st ->
+                        FlAiEntry(stringResource(R.string.fla_matches_title), stringResource(R.string.fla_matches_entry), stringResource(R.string.fla_matches_open), st, onMatches)
                     }
                     // FL-205: a private project is filled by invitation.
                     p.invitations?.takeIf { p.status == "published" }?.let { inv ->
@@ -1104,6 +1114,11 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
     var pickSpecialty by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
+    // FS-402: DORR AI writes the project from the idea.
+    val aiStatus = rememberFlAiStatus()
+    var building by remember { mutableStateOf(false) }
+    var aiFilled by remember { mutableStateOf<String?>(null) }
+    val filledText = stringResource(R.string.fla_used)
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uuid) {
@@ -1247,6 +1262,11 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             FlIntro(Icons.Rounded.Work, stringResource(R.string.fl_form_intro_title), stringResource(R.string.fl_form_intro))
+            // FS-402: not technical? DORR AI writes the project from the idea; the client checks it here before saving.
+            aiStatus?.takeIf { it.builder }?.let { st ->
+                FlAiEntry(stringResource(R.string.fla_builder_title), stringResource(R.string.fla_builder_entry), stringResource(R.string.fla_write), st) { building = true }
+            }
+            aiFilled?.let { FlNotice(it, Icons.Rounded.CheckCircle, Color(0xFF16A34A)) }
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 DorrTextField(title, { title = it.take(120) }, label = stringResource(R.string.fl_title), placeholder = stringResource(R.string.fl_title_hint), icon = Icons.Rounded.Title, modifier = Modifier.fillMaxWidth())
                 DorrTextField(description, { description = it.take(5000) }, label = stringResource(R.string.fl_description), placeholder = stringResource(R.string.fl_description_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 5, modifier = Modifier.fillMaxWidth())
@@ -1344,6 +1364,20 @@ private fun ProjectForm(uuid: String?, onBack: () -> Unit, onSaved: (String) -> 
         SettingsPrimaryButton(text = stringResource(R.string.fl_save_draft), loading = busy, modifier = Modifier.padding(16.dp), onClick = { save(onSaved) })
     }
 
+    if (building) ProjectBuilderSheet(onDismiss = { building = false }) { built ->
+        val d = built.draft
+        d.title?.let { title = it }
+        d.description?.let { description = it }
+        d.specialty?.let { specialty = it }
+        if (d.skills.isNotEmpty()) { skills.clear(); skills.addAll(d.skills) }
+        budgetType = d.budget.type
+        d.budget.minMinor?.let { budgetMin = money(it) }
+        budgetMax = d.budget.maxMinor?.let { money(it) }.orEmpty()
+        d.durationDays?.let { duration = it.toString() }
+        if (d.questions.isNotEmpty()) { questions.clear(); questions.addAll(d.questions) }
+        aiFilled = filledText
+        building = false
+    }
     if (pickSpecialty) SpecialtyDialog(onDismiss = { pickSpecialty = false }) { picked ->
         specialty = picked
         pickSpecialty = false

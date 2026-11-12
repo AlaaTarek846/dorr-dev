@@ -754,6 +754,9 @@ struct FreelancerProfilePage: View {
     @State private var error: String?
     // FL-L13: the portfolio work being reported as not theirs.
     @State private var reporting: String?
+    // FS-601: the work opened with its case study; FS-604: «how is it worked out?».
+    @State private var opened: FreelancePortfolioDto?
+    @State private var how = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -770,6 +773,17 @@ struct FreelancerProfilePage: View {
         .dorrDialog(isPresented: Binding(get: { reporting != nil }, set: { if !$0 { reporting = nil } }), bottom: true) {
             if let id = reporting { ReportWorkSheet(subjectType: "portfolio_item", subject: id) { reporting = nil } }
         }
+        // FS-601: one work with its case study; «report» closes it first, then opens the report form.
+        .dorrDialog(isPresented: Binding(get: { opened != nil }, set: { if !$0 { opened = nil } }), bottom: true) {
+            if let w = opened {
+                PortfolioWorkSheet(work: w, freelancerUuid: profile?.uuid, onDismiss: { opened = nil }, onReport: { id in
+                    opened = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { reporting = id }
+                })
+            }
+        }
+        // FS-604: «how is it worked out?».
+        .dorrDialog(isPresented: $how, bottom: true) { ReputationHowSheet { how = false } }
     }
 
     private func toggleFavorite(_ p: FreelancerProfileDto) {
@@ -827,6 +841,8 @@ struct FreelancerProfilePage: View {
                 FlStat(icon: "clock", label: L("fl_st_on_time"), value: p.onTimeRate.map { "\($0)%" } ?? "—")
                 FlStat(icon: "photo.on.rectangle", label: L("fl_portfolio"), value: "\(p.portfolio?.count ?? 0)")
             }
+            // FS-604: the six figures behind the freelancer's name, each with where it comes from.
+            ReputationCard(rep: p.reputation) { how = true }
             LoyaltyCard(view: p.loyalty)
             if let bio = p.bio, !bio.isEmpty {
                 FlCard(icon: "info.circle.fill", title: L("fl_about")) {
@@ -872,32 +888,11 @@ struct FreelancerProfilePage: View {
                     }
                 }
             }
+            // FS-601: verified works come first; a tap opens the work with its case study.
             if let works = p.portfolio, !works.isEmpty {
                 FlCard(icon: "photo.on.rectangle", title: L("fl_portfolio") + " (\(works.count))") {
                     ForEach(Array(works.enumerated()), id: \.offset) { _, w in
-                        HStack(spacing: 10) {
-                            ZStack {
-                                wa.accent.opacity(0.08)
-                                if let cover = w.images?.first?.url, let u = URL(string: cover) {
-                                    AsyncImage(url: u) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
-                                }
-                            }
-                            .frame(width: 56, height: 56)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(verbatim: w.title ?? "").font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).lineLimit(1)
-                                if let d = w.description, !d.isEmpty { Text(verbatim: d).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(2) }
-                            }
-                            Spacer(minLength: 0)
-                            if let id = w.uuid {
-                                Button { reporting = id } label: {
-                                    Image(systemName: "flag").font(.system(size: 14)).foregroundStyle(wa.settingsMut).frame(width: 34, height: 34).contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(L("rights_report"))
-                            }
-                        }
-                        .padding(.vertical, 4)
+                        PortfolioWorkRow(work: w, onOpen: { opened = w }, onReport: { reporting = $0 })
                     }
                 }
             }

@@ -10,7 +10,9 @@ struct ChatSettingsPage: View {
     @ObservedObject private var ch = Ch.shared
     @ObservedObject private var wePrefs = WatchEarnPrefs.shared
     @ObservedObject var host: ChatHost
+    @ObservedObject private var ai = ChatAi.shared
     @State private var sheet: String?
+    @State private var memoryOpen = false
 
     var body: some View {
         let section = host.chatSettingsSection
@@ -41,6 +43,9 @@ struct ChatSettingsPage: View {
                             SettingsListRow(icon: "star.fill", title: L("ch_starred_title")) { host.push(.starred) }
                             SettingsListRow(icon: "exclamationmark", title: L("ct_important")) { host.push(.important) }
                             SettingsListRow(icon: "sparkles", title: L("ct_today")) { host.push(.today) }
+                            // Every image made or changed with AI in my chats, and what DORR AI remembers about me.
+                            if ai.aiImages { SettingsListRow(icon: "sparkles", title: L("ch_ai_images_title")) { sheet = "aiImages" } }
+                            if ai.memory { SettingsListRow(icon: "sparkles", title: L("ch_ai_memory")) { memoryOpen = true } }
                             SettingsListRow(icon: "clock.arrow.circlepath", title: L("cp_catch_up"), last: true) { host.push(.catchUp) }
                         }
                     case "org":
@@ -81,8 +86,17 @@ struct ChatSettingsPage: View {
             }
         }
         .dorrDialog(isPresented: Binding(get: { sheet != nil }, set: { if !$0 { sheet = nil } }), bottom: true) {
-            ChatComfortSheet()
+            if sheet == "aiImages" {
+                ChatAiImagesSheet(onDismiss: { sheet = nil }) { c, m in
+                    sheet = nil
+                    host.focusRequest = (c, m)
+                    host.push(.conversation(c))
+                }
+            } else {
+                ChatComfortSheet()
+            }
         }
+        .fullScreenCover(isPresented: $memoryOpen) { AiMemoryScreen(onExit: { memoryOpen = false }, settingsHeader: true) }
     }
 }
 

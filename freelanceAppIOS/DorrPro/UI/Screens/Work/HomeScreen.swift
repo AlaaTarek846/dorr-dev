@@ -207,6 +207,7 @@ private func promoAction(_ p: PromoDto, _ actions: MainActions, openUrl: @escapi
         case "community": return { ShellState.shared.open(Tabs.COMMUNITY) }
         case "plans": return actions.openPlans
         case "insights": return actions.openInsights
+        case "crm": return actions.openCrm
         case "services": return actions.openServices
         case "consultations": return actions.openConsultations
         case "special_offers": return actions.openSpecialOffers
@@ -532,6 +533,8 @@ private struct ToolsGrid: View {
         if h.on("special_offers") { tools.append(Tool(icon: "tag.fill", label: "spo_home_card", tint: Tints.rose, onClick: actions.openSpecialOffers)) }
         if h.on("loyalty") { tools.append(Tool(icon: LOYALTY_ICON, label: "loy_home_card", tint: Tints.amber, onClick: actions.openLoyalty)) }
         tools.append(Tool(icon: "chart.line.uptrend.xyaxis", label: "insights_home_card", tint: Tints.blue, onClick: actions.openInsights))
+        // FS-703: my clients - always there; a plan without the CRM sees what it opens and the plan that opens it.
+        tools.append(Tool(icon: "person.crop.rectangle.stack.fill", label: "crm_home_card", tint: Tints.teal, onClick: actions.openCrm))
         if h.on("subscriptions") { tools.append(Tool(icon: "rosette", label: "plans_title", tint: Tints.amber, onClick: actions.openPlans)) }
         tools.append(Tool(icon: "calendar.badge.checkmark", label: "availability_title", tint: Tints.green, onClick: actions.openAvailability))
         if h.on("skill_tests") { tools.append(Tool(icon: "questionmark.square.fill", label: "skt_home_card", tint: Tints.blue, onClick: actions.openSkillTests)) }

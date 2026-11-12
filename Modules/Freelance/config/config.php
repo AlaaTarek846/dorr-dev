@@ -174,6 +174,9 @@ return [
     // FL-208: the most freelancers told about one new project (the best fits first).
     'matching' => ['max_recipients' => 100],
 
+    // FS-401 / FS-501: a whole project brief is a long answer — a reasoning model needs more than the AI system's default 20s (under the apps' 90s).
+    'ai' => ['request_timeout' => (int) env('FREELANCE_AI_REQUEST_TIMEOUT', 75)],
+
     // FS-104: the people an owner may bring into one project (docs/modules/freelance/PERMISSIONS.md).
     'client_team' => ['max_members' => (int) env('FREELANCE_CLIENT_TEAM_MAX', 10)],
 
@@ -227,26 +230,81 @@ return [
             'rank' => 1, 'name' => ['ar' => 'بلس', 'en' => 'Plus'],
             'description' => ['ar' => 'عروض أكتر وعمولة أقل للمحترف النشيط.', 'en' => 'More offers and a lower commission for an active freelancer.'],
             'offers_monthly' => 40, 'commission_bp' => 800, 'trial_days' => 14, 'usd' => 9,
-            'badge' => true, 'boost' => 1, 'analytics' => 1, 'services_max' => 15,
+            'badge' => true, 'boost' => 1, 'analytics' => 1, 'crm' => 1, 'services_max' => 15,
+            // FS-705: the catalog features (`plan_features`) beyond the columns above; a missing key = what the policy gives.
+            'features' => [
+                'consultations_max' => 10, 'special_offers_daily' => 20, 'loyalty_tiers_max' => 6, 'portfolio_max' => 50,
+                'offer_templates_max' => 20, 'capacity_max' => 30, 'crm_reminders_max' => 30, 'workroom_storage_mb' => 5120,
+            ],
         ],
         'pro' => [
             'rank' => 2, 'name' => ['ar' => 'برو', 'en' => 'Pro'],
             'description' => ['ar' => 'عروض بلا حد وأقل عمولة للمحترف المتفرّغ.', 'en' => 'Unlimited offers and the lowest commission for a full-time freelancer.'],
             'offers_unlimited' => true, 'commission_bp' => 600, 'trial_days' => 14, 'usd' => 24,
-            'badge' => true, 'boost' => 2, 'analytics' => 2, 'services_max' => 30,
+            'badge' => true, 'boost' => 2, 'analytics' => 2, 'crm' => 2, 'services_max' => 30,
+            'features' => [
+                'consultations_max' => 20, 'special_offers_daily' => 50, 'loyalty_tiers_max' => 8, 'portfolio_max' => 100,
+                'offer_templates_max' => 50, 'capacity_max' => 50, 'crm_reminders_max' => 100, 'workroom_storage_mb' => 20480,
+                'priority_support' => 1,
+            ],
         ],
         /*
         | FS-211: Team Starter, a plan a freelancers' team's Owner takes for the team (`audience` team), paid from his own wallet (D7). Priced per
         | team - one price whatever the number of people - and it opens room: the monthly offers, the people and the projects running at once.
-        | These numbers are only where the admin starts (they can all be changed on the plans desk). It is seeded NOT offered (`status` false):
-        | the limits it raises are the policies `teams.members_max`, `teams.projects_max` and `teams.offers_monthly`, which are open (no cap)
-        | until the admin sets them, so the plan would sell nothing before that. The admin turns it on once those are set.
+        | These numbers are only where the admin starts (they can all be changed on the plans desk). FS-705 (owner 2026-11-12): it is offered
+        | (`status` true). It still shows only where it opens more than the team has free (`TeamPlans::raises`), and (owner) it gives the
+        | team's work Pro's perks - the team's offers, profile and agreements - never the members' own accounts.
         */
         'team_starter' => [
             'audience' => 'team', 'rank' => 1, 'name' => ['ar' => 'ستارتر للفرق', 'en' => 'Team Starter'],
             'description' => ['ar' => 'عروض ومشاريع وأعضاء أكتر لفريقك بسعر واحد للفريق كله.', 'en' => 'More offers, projects and people for your team, at one price for the whole team.'],
-            'offers_monthly' => 60, 'team_members_max' => 10, 'team_projects_max' => 5, 'trial_days' => 0, 'usd' => 29, 'status' => false,
+            'offers_monthly' => 60, 'team_members_max' => 10, 'team_projects_max' => 5, 'trial_days' => 0, 'usd' => 29, 'status' => true,
+            // FS-705: Pro's perks on the team's work. Read for a team plan only once each is wired (`plan_features.*.live`).
+            'commission_bp' => 600, 'badge' => true, 'boost' => 2, 'analytics' => 2, 'crm' => 2,
+            'features' => ['team_staff_max' => 30, 'team_portfolio_max' => 60, 'workroom_storage_mb' => 20480, 'priority_support' => 1],
         ],
+    ],
+    /*
+    | FS-705: the catalog of what a plan can give - one list for the admin's matrix, the apps' comparison and the checks. Each feature:
+    |   type     switch (0/1) · level (0..max) · limit (a number, null = no cap) · fee_bp (basis points; a plan only ever lowers it)
+    |   audience who it is sold to: freelancer, team, or both (a team's value counts on the team's work only, never a member's own account)
+    |   column   kept in its own column of `freelance_plans` (the features from before FS-705); else a row of `freelance_plan_features`
+    |   base     what a freelancer or a team has with no plan: a policy key of the country, a config path, or a fixed value
+    |   live     the audiences whose checks read it today. A feature not live yet is shown to the admin as "coming" and is never sold
+    |            or counted as a reason to buy a plan (`TeamPlans::raises`), so nobody pays for what does not work yet.
+    | The name and the hint of each are `freelance.plan_features.<key>` in both languages.
+    */
+    'plan_features' => [
+        // Offers and money.
+        // `offers_unlimited` on = no cap. An empty column follows the base (`null` = base); for the team room an empty column is no cap (`null` = no_cap).
+        'offers_monthly' => [
+            'type' => 'limit', 'group' => 'offers', 'audience' => ['freelancer', 'team'], 'column' => 'offers_monthly', 'null' => 'base', 'live' => ['freelancer', 'team'],
+            'base' => ['freelancer' => ['policy' => 'offers.free_monthly_quota'], 'team' => ['policy' => 'teams.offers_monthly']],
+        ],
+        'commission_bp' => ['type' => 'fee_bp', 'group' => 'money', 'audience' => ['freelancer', 'team'], 'column' => 'commission_bp', 'base' => ['policy' => 'commission.value'], 'live' => ['freelancer', 'team']],
+        'special_offers_daily' => ['type' => 'limit', 'group' => 'offers', 'audience' => ['freelancer'], 'base' => ['policy' => 'special_offers.daily_limit'], 'live' => []],
+        'offer_templates_max' => ['type' => 'limit', 'group' => 'offers', 'audience' => ['freelancer'], 'base' => ['value' => 10], 'live' => []],
+        'loyalty_tiers_max' => ['type' => 'limit', 'group' => 'offers', 'audience' => ['freelancer'], 'base' => ['policy' => 'loyalty.max_tiers'], 'live' => []],
+        // Being seen.
+        'badge' => ['type' => 'switch', 'group' => 'visibility', 'audience' => ['freelancer', 'team'], 'column' => 'badge', 'live' => ['freelancer']],
+        'boost' => ['type' => 'level', 'group' => 'visibility', 'audience' => ['freelancer', 'team'], 'column' => 'boost', 'max' => 3, 'live' => ['freelancer']],
+        'portfolio_max' => ['type' => 'limit', 'group' => 'visibility', 'audience' => ['freelancer'], 'base' => ['config' => 'freelance.profile.max_portfolio'], 'live' => []],
+        'team_portfolio_max' => ['type' => 'limit', 'group' => 'visibility', 'audience' => ['team'], 'base' => ['config' => 'freelance.profile.max_portfolio'], 'live' => []],
+        // Selling.
+        'services_max' => ['type' => 'limit', 'group' => 'selling', 'audience' => ['freelancer'], 'column' => 'services_max', 'null' => 'base', 'base' => ['policy' => 'services.max_active'], 'live' => ['freelancer']],
+        'consultations_max' => ['type' => 'limit', 'group' => 'selling', 'audience' => ['freelancer'], 'base' => ['policy' => 'consultations.max_active'], 'live' => []],
+        'capacity_max' => ['type' => 'limit', 'group' => 'selling', 'audience' => ['freelancer'], 'base' => ['config' => 'freelance.capacity.max_choice'], 'live' => []],
+        // Managing the work and the clients.
+        'analytics' => ['type' => 'level', 'group' => 'tools', 'audience' => ['freelancer', 'team'], 'column' => 'analytics', 'max' => 2, 'live' => ['freelancer']],
+        'crm' => ['type' => 'level', 'group' => 'tools', 'audience' => ['freelancer', 'team'], 'column' => 'crm', 'max' => 2, 'live' => ['freelancer']],
+        'crm_reminders_max' => ['type' => 'limit', 'group' => 'tools', 'audience' => ['freelancer'], 'base' => ['config' => 'freelance.crm.reminders_max'], 'live' => []],
+        'workroom_storage_mb' => ['type' => 'limit', 'group' => 'tools', 'audience' => ['freelancer', 'team'], 'base' => ['policy' => 'workroom.storage_mb'], 'live' => []],
+        // The team.
+        'team_members_max' => ['type' => 'limit', 'group' => 'team', 'audience' => ['team'], 'column' => 'team_members_max', 'null' => 'no_cap', 'base' => ['policy' => 'teams.members_max'], 'live' => ['team']],
+        'team_projects_max' => ['type' => 'limit', 'group' => 'team', 'audience' => ['team'], 'column' => 'team_projects_max', 'null' => 'no_cap', 'base' => ['policy' => 'teams.projects_max'], 'live' => ['team']],
+        'team_staff_max' => ['type' => 'limit', 'group' => 'team', 'audience' => ['team'], 'base' => ['value' => 20], 'live' => []],
+        // Help.
+        'priority_support' => ['type' => 'switch', 'group' => 'support', 'audience' => ['freelancer', 'team'], 'live' => []],
     ],
     /*
     | FL-L01 phase 4: the performance numbers a plan opens (`plans.*.analytics`): the days each level can look back over, and how many
@@ -257,7 +315,12 @@ return [
     // (mobile/v1/freelance/home): how many running projects and ready-made services.
     'home' => ['promos_max' => 6, 'work_max' => 3, 'client_projects_max' => 3, 'client_services_max' => 8],
 
-    'insights' => ['days' => [1 => [30], 2 => [30, 90, 365]], 'top_specialties' => 5],
+    'insights' => ['days' => [1 => [30], 2 => [30, 90, 365]], 'top_specialties' => 5, 'top_clients' => 5, 'top_works' => 8],
+    /*
+    | FS-703: the freelancer's CRM (a plan's `crm`: 1 = clients, past projects, notes; 2 = also labels and follow-up reminders). Limits keep
+    | a list readable: notes per client, reminders waiting at once, and how far ahead a reminder may be set (days).
+    */
+    'crm' => ['labels' => ['vip', 'regular', 'lead', 'paused'], 'notes_max' => 50, 'reminders_max' => 30, 'remind_ahead_days' => 365, 'projects_shown' => 20],
     /*
     | FL-L11: visits to a profile and to a ready-made service are counted per day, never per person; the same client opening the same
     | thing again within `dedupe_minutes` counts once (0 = count every open).
@@ -269,7 +332,13 @@ return [
     // until `grace_days` after; ending it asked `cancel_notice_days` or more before the month ends lands on that month's end, else the next.
     'subscriptions' => ['period_days' => 30, 'renew_window_days' => 3, 'grace_days' => 2, 'cancel_notice_days' => 7],
     // Skill tests (FL-L08): a badge is valid for this many days after the pass (0 = never ends); a test with no setting of its own uses `defaults`.
-    'skill_tests' => ['badge_valid_days' => 365, 'defaults' => ['questions_count' => 10, 'minutes' => 15, 'pass_percent' => 70, 'retake_hours' => 24]],
+    'skill_tests' => [
+        'badge_valid_days' => 365,
+        'defaults' => ['questions_count' => 10, 'minutes' => 15, 'pass_percent' => 70, 'retake_hours' => 24, 'intermediate_percent' => 85],
+        // FS-602: a badge may be renewed (the test sat again) from this many days before it ends; a rejected challenge waits this many days.
+        'renew_days' => 30,
+        'challenge_retry_days' => 14,
+    ],
     'plan_boost_max' => 3,
     'plan_yearly_discount_bp' => 2000, // 20% off the 12 months
     'plan_grace_days' => 3,   // a failed renewal keeps the plan this many days (one retry a day), then it ends

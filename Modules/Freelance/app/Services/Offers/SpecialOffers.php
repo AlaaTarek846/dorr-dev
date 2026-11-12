@@ -67,13 +67,15 @@ class SpecialOffers
     }
 
     /** @return array{daily_limit: int, open_per_client: int, cooldown_days: int, max_valid_days: int, default_valid_days: int, min_discount_bp: int, max_discount_bp: int, remind_hours: int} */
-    public function rules(int $countryId): array
+    public function rules(int $countryId, ?Freelancer $f = null): array
     {
         $p = $this->policies->for($countryId, null);
         $max = max(1, (int) ($p->get('special_offers.max_valid_days') ?? 14));
+        // FS-705: a plan raises the offers a day, never lowers them (null = no cap).
+        $daily = $f === null ? max(1, (int) ($p->get('special_offers.daily_limit') ?? 10)) : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'special_offers_daily');
 
         return [
-            'daily_limit' => max(1, (int) ($p->get('special_offers.daily_limit') ?? 10)),
+            'daily_limit' => $daily === null ? PHP_INT_MAX : max(1, (int) $daily),
             'open_per_client' => max(1, (int) ($p->get('special_offers.open_per_client') ?? 1)),
             'cooldown_days' => max(0, (int) ($p->get('special_offers.cooldown_days') ?? 7)),
             'max_valid_days' => $max,
@@ -93,7 +95,7 @@ class SpecialOffers
      */
     public function pastClients(Freelancer $f, ?string $search = null): array
     {
-        $rules = $this->rules((int) $f->country_id);
+        $rules = $this->rules((int) $f->country_id, $f);
         $history = $this->history($f);
         if ($history->isEmpty()) {
             return [];
@@ -139,7 +141,7 @@ class SpecialOffers
     public function compose(Freelancer $f): array
     {
         $country = Country::query()->with('currency')->find((int) $f->country_id);
-        $rules = $this->rules((int) $f->country_id);
+        $rules = $this->rules((int) $f->country_id, $f);
         $services = Service::query()->where('freelancer_id', $f->id)->where('status', Service::PUBLISHED)->with('tiers')->latest('id')->get()
             ->reject(fn (Service $s) => $s->monthly())
             ->map(fn (Service $s) => [
@@ -200,7 +202,7 @@ class SpecialOffers
         }
         $this->assertCanWork($f);
         $countryId = (int) $f->country_id;
-        $rules = $this->rules($countryId);
+        $rules = $this->rules($countryId, $f);
         $client = $this->clientByKey($f, (string) $data['client']);
         $message = $this->clean($data['message'] ?? null);
         // No way to reach each other outside Dorr (FL-308).

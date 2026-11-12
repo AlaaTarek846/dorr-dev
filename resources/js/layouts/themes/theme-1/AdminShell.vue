@@ -24,11 +24,13 @@
         <div id="responsive-overlay"></div>
 
         <AppToast />
+        <ScreenGuideDrawer />
     </div>
 </template>
 
 <script setup>
 import AppToast from '../../../components/ui/AppToast.vue';
+import ScreenGuideDrawer from '../../../components/admin/guide/ScreenGuideDrawer.vue';
 import Footer from '../../../components/layout/Footer.vue';
 import Header from '../../../components/layout/admin/Header.vue';
 import HeaderModals from '../../../components/layout/HeaderModals.vue';

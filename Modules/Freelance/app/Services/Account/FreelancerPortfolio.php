@@ -21,9 +21,20 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * A freelancer's portfolio (FL-105): works with images, a video link (YouTube / Vimeo only) and an outside link, each with
  * its own visibility. A work shown beyond its owner (`public`, `clients_only`) needs the owner's confirmation that they hold
  * the rights; the admin can hide one that breaks the rules. Only a verified freelancer's portfolio is shown to others.
+ *
+ * FS-601: a work tells its story (problem, solution, role, tools, results), and one made from a project finished on Dorr whose client lets it
+ * be shown (FL-L13) is «Verified by Dorr» — shown first, with the month it was finished and never the client's name. Staff can take the
+ * badge back (`unverify`) with a reason the freelancer reads.
  */
 class FreelancerPortfolio
 {
+    public const UNVERIFIED = 'freelance.portfolio.unverified';
+
+    public const REVERIFIED = 'freelance.portfolio.reverified';
+
+    /** FS-601: the longest text of each part of a case study. */
+    public const CASE_MAX = ['case_problem' => 1500, 'case_solution' => 1500, 'case_role' => 300, 'case_tools' => 300, 'case_results' => 1500];
+
     public function __construct(private readonly AuditLogger $audit, private readonly FreelanceNotifier $notifier) {}
 
     // -------------------------------------------------------------- the owner
@@ -31,7 +42,7 @@ class FreelancerPortfolio
     /** @return Collection<int, Item> */
     public function mine(Freelancer $freelancer): Collection
     {
-        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations', 'agreement:id,uuid,portfolio_allowed'])->orderBy('sort_order')->orderBy('id')->get();
+        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations', 'agreement:id,uuid,status,portfolio_allowed,completed_at'])->orderBy('sort_order')->orderBy('id')->get();
     }
 
     /** @param  array<string, mixed>  $data */
@@ -183,12 +194,14 @@ class FreelancerPortfolio
             return collect();
         }
 
-        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations'])
+        return $freelancer->portfolioItems()->with(['media', 'skills.translations', 'specialty.translations', 'agreement:id,uuid,status,portfolio_allowed,completed_at'])
             ->whereIn('visibility', $client ? [Item::PUBLIC, Item::CLIENTS_ONLY] : [Item::PUBLIC])
             ->whereNull('hidden_by_admin_at')
             // FL-L13: a work made from one done on Dorr is shown only while its client allows it.
             ->where(fn ($q) => $q->whereNull('agreement_id')->orWhereHas('agreement', fn ($a) => $a->where('portfolio_allowed', true)))
-            ->orderBy('sort_order')->orderBy('id')->get();
+            ->orderBy('sort_order')->orderBy('id')->get()
+            // FS-601: the verified works first, each group in the freelancer's own order.
+            ->sortBy(fn (Item $i) => $i->isVerified() ? 0 : 1)->values();
     }
 
     /**
@@ -217,7 +230,14 @@ class FreelancerPortfolio
             'images' => $images,
             'external_url' => $item->external_url,
             'video' => $item->video_provider === null ? null : ['provider' => $item->video_provider, 'embed_url' => $item->videoEmbedUrl()],
+            // FS-601: the story of the work (null parts left out), and the badge with the month the project was finished on Dorr.
+            'case_study' => $this->caseStudy($item),
+            'verified' => $item->isVerified(),
+            'verified_on' => $item->isVerified() ? $item->agreement?->completed_at?->format('Y-m') : null,
         ] + ($owner ? [
+            // FS-601: why staff took the badge back (the freelancer reads it; null while it stands).
+            'verified_revoked_reason' => $item->verified_revoked_at !== null ? $item->verified_revoked_reason : null,
+            'can_be_verified' => $item->agreement_id !== null,
             'visibility' => $item->visibility,
             'rights_confirmed' => $item->rights_confirmed_at !== null,
             'sort_order' => $item->sort_order,
@@ -229,7 +249,46 @@ class FreelancerPortfolio
         ] : []);
     }
 
+    // -------------------------------------------------------------- staff (FS-601 / FS-605)
+
+    /** Staff take the «Verified by Dorr» badge back from a work (the work itself stays as it is), with a reason the freelancer reads. */
+    public function unverify(Item $item, string $reason, int $adminId): Item
+    {
+        if ($item->agreement_id === null) {
+            throw new FreelanceException('portfolio_not_verifiable', 422);
+        }
+        $item->forceFill(['verified_revoked_at' => now(), 'verified_revoked_reason' => mb_substr(trim(strip_tags($reason)), 0, 255), 'verified_revoked_by_admin_id' => $adminId])->save();
+        $this->audit->record(self::UNVERIFIED, $item, null, ['reason' => $item->verified_revoked_reason, 'by_admin_id' => $adminId]);
+        if ($item->freelancer !== null) {
+            $this->notifier->notify($item->freelancer, 'portfolio.unverified', ['title' => (string) $item->title, 'reason' => (string) $item->verified_revoked_reason]);
+        }
+
+        return $item->refresh();
+    }
+
+    public function reverify(Item $item, int $adminId): Item
+    {
+        $item->forceFill(['verified_revoked_at' => null, 'verified_revoked_reason' => null, 'verified_revoked_by_admin_id' => null])->save();
+        $this->audit->record(self::REVERIFIED, $item, null, ['by_admin_id' => $adminId]);
+
+        return $item->refresh();
+    }
+
     // -------------------------------------------------------------- internals
+
+    /** @return array<string, string>|null the parts of the case study that are written, by their short name (problem, solution, …) */
+    private function caseStudy(Item $item): ?array
+    {
+        $out = [];
+        foreach (Item::CASE_FIELDS as $field) {
+            $v = $item->{$field};
+            if (is_string($v) && trim($v) !== '') {
+                $out[substr($field, 5)] = $v;
+            }
+        }
+
+        return $out === [] ? null : $out;
+    }
 
     /**
      * @param  array<string, mixed>  $data
@@ -244,6 +303,14 @@ class FreelancerPortfolio
         }
         if (array_key_exists('title', $out)) {
             $out['title'] = trim(strip_tags((string) $out['title']));
+        }
+        // FS-601: the case study - plain text, line breaks kept; an empty part is cleared.
+        foreach (self::CASE_MAX as $field => $max) {
+            $key = substr($field, 5);
+            if (array_key_exists($key, $data)) {
+                $text = $data[$key] === null ? '' : trim(strip_tags((string) $data[$key]));
+                $out[$field] = $text === '' ? null : mb_substr($text, 0, $max);
+            }
         }
 
         $specialtyId = array_key_exists('specialty_id', $data) ? $data['specialty_id'] : $current?->freelance_specialty_id;

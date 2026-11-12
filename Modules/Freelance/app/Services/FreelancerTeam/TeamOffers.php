@@ -114,7 +114,7 @@ class TeamOffers
      */
     public function staff(FreelanceTeam $team, array $staff): array
     {
-        if (count($staff) > self::STAFF_MAX) {
+        if (count($staff) > (app(ModulesFreelanceServicesPlansPlanFeatures::class)->forTeam($team, 'team_staff_max') ?? PHP_INT_MAX)) {
             throw new FreelanceException('team_offer_staff_invalid', 422);
         }
         $people = Freelancer::query()->whereIn('uuid', array_column($staff, 'freelancer'))

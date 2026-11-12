@@ -177,7 +177,30 @@ internal fun AgreementChangesCard(
         }
         openError?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
         ActionButton(stringResource(R.string.ch_ask), Icons.Rounded.EditNote, Tone.Primary) { asking = true }
-        if (asking) FormSheet(Icons.Rounded.EditNote, stringResource(R.string.ch_ask), stringResource(R.string.ch_form_intro), onDismiss = { asking = false }) {
+        val minor = parseMinor(amount)
+        val ready = when (type) {
+            "extend_days" -> (days.toIntOrNull() ?: 0) > 0
+            "milestone_price" -> part != null && minor != null
+            "scope" -> scope.isNotBlank() || includes.isNotBlank() || excludes.isNotBlank()
+            else -> title.isNotBlank() && minor != null
+        }
+        if (asking) FormSheet(
+            Icons.Rounded.EditNote, stringResource(R.string.ch_ask), stringResource(R.string.ch_form_intro), onDismiss = { asking = false },
+            // The send button stays above the keyboard.
+            footer = {
+                ActionButton(stringResource(R.string.ch_send), Icons.Rounded.Send, Tone.Primary, enabled = ready && !busy) {
+                    if (ready && !busy) {
+                        onAsk(ChangeRequest(
+                            type = type, milestone = part, days = days.toIntOrNull(), amountMinor = minor, title = title.trim().ifBlank { null },
+                            scope = if (type == "scope") scope.trim().ifBlank { null } else null, includes = if (type == "scope") includes.trim().ifBlank { null } else null,
+                            excludes = if (type == "scope") excludes.trim().ifBlank { null } else null, reason = reason.trim().ifBlank { null },
+                        ), picks.toList())
+                        asking = false; days = ""; amount = ""; title = ""; reason = ""; scope = ""; includes = ""; excludes = ""
+                        picks.clear(); pickError = null
+                    }
+                }
+            },
+        ) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("extend_days" to R.string.ch_t_extend, "scope" to R.string.ch_t_scope, "milestone_price" to R.string.ch_t_price, "add_milestone" to R.string.ch_t_add).forEach { (t, label) ->
                     Pick(stringResource(label), type == t) { type = t; part = null }
@@ -222,26 +245,6 @@ internal fun AgreementChangesCard(
                 if (picks.size < MAX_CHANGE_FILES) ActionButton(stringResource(R.string.fs_ch_attach, picks.size, MAX_CHANGE_FILES), Icons.Rounded.AttachFile, Tone.Soft, enabled = !busy) { picker.launch("*/*") }
                 Text(stringResource(R.string.fs_ch_attach_hint), color = settingsMut(), fontSize = 11.sp)
                 pickError?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            }
-            val minor = parseMinor(amount)
-            val ready = when (type) {
-                "extend_days" -> (days.toIntOrNull() ?: 0) > 0
-                "milestone_price" -> part != null && minor != null
-                "scope" -> scope.isNotBlank() || includes.isNotBlank() || excludes.isNotBlank()
-                else -> title.isNotBlank() && minor != null
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton(stringResource(R.string.ch_send), Icons.Rounded.Send, Tone.Primary, enabled = ready && !busy) {
-                    if (ready && !busy) {
-                        onAsk(ChangeRequest(
-                            type = type, milestone = part, days = days.toIntOrNull(), amountMinor = minor, title = title.trim().ifBlank { null },
-                            scope = if (type == "scope") scope.trim().ifBlank { null } else null, includes = if (type == "scope") includes.trim().ifBlank { null } else null,
-                            excludes = if (type == "scope") excludes.trim().ifBlank { null } else null, reason = reason.trim().ifBlank { null },
-                        ), picks.toList())
-                        asking = false; days = ""; amount = ""; title = ""; reason = ""; scope = ""; includes = ""; excludes = ""
-                        picks.clear(); pickError = null
-                    }
-                }
             }
         }
     }

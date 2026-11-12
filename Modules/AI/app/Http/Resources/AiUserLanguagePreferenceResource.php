@@ -18,6 +18,8 @@ class AiUserLanguagePreferenceResource extends JsonResource
                 'type' => $this->owner_type,
                 'id' => $this->owner_id,
                 'name' => $this->owner->name ?? null,
+                // Admin panel only (ownerDisplayName falls back to the phone); never sent to the apps.
+                'phone' => $this->when($request->is('api/admin/*'), fn () => $this->owner->phone ?? null),
             ] : null),
             // Root-cause fix (languages consolidation): "language" is now
             // App\Models\Language, which has no plain "name" column -

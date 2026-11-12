@@ -49,9 +49,9 @@ class Agreements
     {
         $policy = $this->policies->for($project->country_id, $project->freelance_specialty_id)->all();
         // FL-L01: the commission under the freelancer's plan at this moment is the one agreed (a later plan change never moves it).
-        $policy = app(\Modules\Freelance\Services\Plans\FreelancePlans::class)->withCommission($policy, $offer->freelancer);
+        $policy = app(\Modules\Freelance\Services\Plans\FreelancePlans::class)->withCommission($policy, $offer->freelancer, $offer->team);
         $cost = app(ClientOfferViews::class)->cost($project, (int) $offer->price_minor);
-        $net = app(FreelancerOffers::class)->preview($project, (int) $offer->price_minor, $offer->freelancer);
+        $net = app(FreelancerOffers::class)->preview($project, (int) $offer->price_minor, $offer->freelancer, $offer->team);
 
         $agreement = Agreement::query()->create([
             'project_id' => $project->id,

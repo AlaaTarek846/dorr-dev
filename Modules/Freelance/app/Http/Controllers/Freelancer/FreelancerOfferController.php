@@ -42,7 +42,7 @@ class FreelancerOfferController extends Controller
             'quota' => $this->offers->quota($me),
             'team_quota' => $team === null ? null : app(\Modules\Freelance\Services\FreelancerTeam\TeamOffers::class)->quota($team),
             'min_price_minor' => $this->minPrice($project),
-            'breakdown' => $deal === null ? null : $this->offers->preview($project, $deal['price_minor'], $me)
+            'breakdown' => $deal === null ? null : $this->offers->preview($project, $deal['price_minor'], $me, $team)
                 + ['list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'], 'saving_minor' => $deal['saving_minor']],
             'loyalty' => $loyalty->discountFor($me, (int) $project->client_id),
         ], __('api.retrieved'));

@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiFeatureFlagResource;
 use Modules\AI\Repositories\AiFeatureFlagRepository;
 
-class AiFeatureFlagService extends BaseService
+/** AI feature flags catalog: list (+status counts), create/update with translations, status, bulk delete, trash. */
+class AiFeatureFlagService extends CatalogService
 {
     /**
      * @var class-string

@@ -5,6 +5,11 @@ namespace Modules\AI\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * One AI language evaluation. `name` is in the request's language; `evaluation_status` is the result (pending /
+ * running / passed / failed - the column was `status` before it became a catalog); `status` / `is_active` are the
+ * on/off switch. Only the admin panel gets `translations[]`.
+ */
 class AiLanguageEvaluationResource extends JsonResource
 {
     /**
@@ -28,15 +33,27 @@ class AiLanguageEvaluationResource extends JsonResource
                 'id' => $this->variant->id,
                 'code' => $this->variant->code,
                 'name' => $this->variant->name,
+                'status' => (bool) $this->variant->status,
+                'deleted' => $this->variant->trashed(),
             ] : null),
             'variant_id' => $this->variant_id,
             'test_case_count' => $this->test_case_count,
             'pass_rate' => $this->pass_rate !== null ? (float) $this->pass_rate : null,
-            'status' => $this->status,
+            'evaluation_status' => $this->evaluation_status,
             'evaluated_at' => $this->evaluated_at?->toISOString(),
             'notes' => $this->notes,
+            'status' => (bool) $this->status,
+            'is_active' => (bool) $this->status,
+            'translations' => $this->when(
+                $request->is('api/admin/*') && $this->relationLoaded('translations'),
+                fn () => $this->translations->map(fn ($item) => [
+                    'locale' => $item->locale,
+                    'name' => $item->name,
+                ])->values(),
+            ),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

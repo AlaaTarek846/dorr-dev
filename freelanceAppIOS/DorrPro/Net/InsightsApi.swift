@@ -45,6 +45,31 @@ struct InsightsDataDto: Decodable {
     var saved: InsightSavedDto?
     /// The full level only.
     var specialties: [InsightSpecialtyDto]?
+    /// FS-704, the full level only: how clients look at my works.
+    var portfolio: InsightPortfolioDto?
+}
+
+/// FS-704: my portfolio in numbers — how many works there are, how many are shown and verified, the visits to the portfolio and the works opened
+/// against the period before, and the works opened most (`top`). Counted per day, never per person.
+struct InsightPortfolioDto: Decodable {
+    var works: Int?
+    var shown: Int?
+    var verified: Int?
+    var visits: Int?
+    var opened: Int?
+    var openedBefore: Int?
+    /// Whole percent against the period before; nil when there was nothing before.
+    var openedChangePercent: Int?
+    var top: [InsightTopWorkDto]?
+}
+
+/// `visibility` is `public`, `clients_only` or `private`.
+struct InsightTopWorkDto: Decodable {
+    var uuid: String?
+    var title: String?
+    var verified: Bool?
+    var visibility: String?
+    var views: Int?
 }
 
 /// `lists` = the lists I am in in total; `new` = how many of them were added in the period.
@@ -110,6 +135,39 @@ struct InsightEarningsDto: Decodable {
     /// `week` (30 days) or `month`; the full level only, with `series`.
     var bucket: String?
     var series: [InsightPointDto]?
+    /// FS-704, the full level only: against the period before, by source, specialty and client.
+    var analysis: InsightEarningsAnalysisDto?
+}
+
+/// What the earnings of the period are made of. `changePercent` is against the stretch of the same length before (nil = nothing before to
+/// compare with, shown as «new»); `sources` are amounts in minor units; a `share` is a whole percent of the period's earnings.
+struct InsightEarningsAnalysisDto: Decodable {
+    var beforeMinor: Int?
+    var changePercent: Int?
+    var sources: InsightSourcesDto?
+    var bySpecialty: [InsightEarnedSpecialtyDto]?
+    var topClients: [InsightTopClientDto]?
+    var projectsPaid: Int?
+    var averageProjectMinor: Int?
+}
+
+struct InsightSourcesDto: Decodable {
+    var projects: Int?
+    var services: Int?
+    var consultations: Int?
+}
+
+struct InsightEarnedSpecialtyDto: Decodable {
+    var id: Int?
+    var name: String?
+    var earnedMinor: Int?
+    var share: Int?
+}
+
+struct InsightTopClientDto: Decodable {
+    var name: String?
+    var earnedMinor: Int?
+    var share: Int?
 }
 
 /// One bar: `from` is the first day of its week or month (`2026-10-01`).

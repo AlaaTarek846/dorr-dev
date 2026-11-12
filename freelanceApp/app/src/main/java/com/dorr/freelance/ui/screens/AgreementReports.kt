@@ -89,25 +89,30 @@ internal fun AgreementReportsCard(projectUuid: String, summary: ReportSummaryDto
             }
         }
     }
-    if (dialog) FormSheet(Icons.Rounded.Timeline, stringResource(R.string.rp_send), stringResource(R.string.rp_form_intro), onDismiss = { if (!busy) dialog = false }) {
+    if (dialog) FormSheet(
+        Icons.Rounded.Timeline, stringResource(R.string.rp_send), stringResource(R.string.rp_form_intro), onDismiss = { if (!busy) dialog = false },
+        // The send button stays above the keyboard.
+        footer = {
+            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
+            ActionButton(stringResource(R.string.rp_send_confirm), Icons.Rounded.Send, Tone.Primary, enabled = note.trim().length >= 3 && !busy, loading = busy) {
+                busy = true
+                scope.launch {
+                    val result = apiCall { ApiClient.agreements.sendReport(projectUuid, ReportRequest(note.trim(), percent.toIntOrNull()?.coerceIn(0, 100))) }
+                    if (result is ApiResult.Ok) {
+                        result.data?.let { list = it.reports; shown = it.summary }
+                        note = ""
+                        percent = ""
+                        dialog = false
+                    } else error = result.errorText(offlineText) ?: genericError
+                    busy = false
+                }
+            }
+        },
+    ) {
         DorrTextField(note, { note = it.take(2000) }, label = stringResource(R.string.rp_note_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
         DorrTextField(
             percent, { percent = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.rp_percent_hint), icon = Icons.Rounded.Percent,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
         )
-        error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
-        ActionButton(stringResource(R.string.rp_send_confirm), Icons.Rounded.Send, Tone.Primary, enabled = note.trim().length >= 3 && !busy, loading = busy) {
-            busy = true
-            scope.launch {
-                val result = apiCall { ApiClient.agreements.sendReport(projectUuid, ReportRequest(note.trim(), percent.toIntOrNull()?.coerceIn(0, 100))) }
-                if (result is ApiResult.Ok) {
-                    result.data?.let { list = it.reports; shown = it.summary }
-                    note = ""
-                    percent = ""
-                    dialog = false
-                } else error = result.errorText(offlineText) ?: genericError
-                busy = false
-            }
-        }
     }
 }

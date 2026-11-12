@@ -159,7 +159,7 @@ data class ProjectHealthDto(
     @SerializedName("next_step") val nextStep: HealthNextStepDto? = null,
 )
 
-/** `code` = dispute_open · part_unfunded · part_overdue · part_due_soon · part_not_started · review_waiting · report_late · change_waiting; `mine`: I am the one to act. */
+/** `code` = dispute_open · part_unfunded · part_overdue · part_due_soon · part_not_started · review_waiting · report_late · change_waiting · task_overdue (FS-802); `mine`: I am the one to act. */
 data class HealthReasonDto(val code: String = "", val level: String = "at_risk", val mine: Boolean = false, val data: HealthReasonDataDto? = null)
 
 data class HealthReasonDataDto(val part: String? = null, val days: Int? = null, @SerializedName("due_at") val dueAt: String? = null)

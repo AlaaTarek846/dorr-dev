@@ -2,74 +2,44 @@
 
 namespace Modules\AI\Services;
 
+use App\Services\CatalogService;
 use App\Support\Api\ApiResponse;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Modules\AI\Http\Resources\AiLearnedIntentResource;
 use Modules\AI\Models\AiLearnedIntent;
+use Modules\AI\Repositories\AiLearnedIntentRepository;
 use Modules\AI\Support\AiChatIntent;
 use Modules\AI\Support\AiIntentVerdictParser;
 use Modules\AI\Support\ArabicTextNormalizer;
 
 /**
- * Admin-side management of what the intent router has learned (see
- * AiIntentRouterService / AiLearnedIntentStore). Every change that can
- * affect which phrases are active flushes the store's cache so the effect
- * is immediate, not "within five minutes".
+ * Admin side of what the intent router has learned (AiIntentRouterService / AiLearnedIntentStore), as a catalog
+ * like countries (list + status counts, status toggle, bulk delete, trash / restore / force delete), plus the
+ * screen's stats and the side-effect-free "try a phrase" panel.
+ *
+ * Every change empties the store's cache of active phrases (AiLearnedIntent's model events), so it takes effect on
+ * the next message, not "within five minutes".
  */
-class AiLearnedIntentAdminService
+class AiLearnedIntentAdminService extends CatalogService
 {
-    public function __construct(
-        protected AiLearnedIntentStore $store,
-        protected AiIntentRouterService $router,
-    ) {}
-
     /**
-     * @param  array<string, mixed>  $filters
+     * @var class-string
      */
-    public function list(array $filters): JsonResponse
-    {
-        $query = AiLearnedIntent::query();
+    protected ?string $resource = AiLearnedIntentResource::class;
 
-        match ($filters['status'] ?? null) {
-            'active' => $query->where('is_active', true)->where('conflicts', 0),
-            'pending' => $query->where('is_active', false)->where('conflicts', 0),
-            'conflict' => $query->where('conflicts', '>', 0),
-            default => null,
-        };
-
-        if (! empty($filters['intent'])) {
-            $query->where('intent', $filters['intent']);
-        }
-
-        if (! empty($filters['mode'])) {
-            $query->where('match_mode', $filters['mode']);
-        }
-
-        if (! empty($filters['source'])) {
-            $query->where('source', $filters['source']);
-        }
-
-        if (! empty($filters['search'])) {
-            $needle = ArabicTextNormalizer::normalize((string) $filters['search']);
-            $query->where('phrase', 'like', '%'.addcslashes($needle, '%_\\').'%');
-        }
-
-        $perPage = max(5, min(100, (int) ($filters['per_page'] ?? 10)));
-
-        $paginator = $query->orderByDesc('hits')->orderByDesc('id')->paginate($perPage);
-
-        return ApiResponse::fromPaginator(
-            $paginator,
-            AiLearnedIntentResource::collection($paginator->items()),
-            __('api.retrieved'),
-        );
+    public function __construct(
+        AiLearnedIntentRepository $repository,
+        protected AiIntentRouterService $router,
+    ) {
+        parent::__construct($repository);
     }
 
     public function stats(): JsonResponse
     {
         $total = AiLearnedIntent::query()->count();
-        $active = AiLearnedIntent::query()->where('is_active', true)->where('conflicts', 0)->count();
+        $active = AiLearnedIntent::query()->where('status', true)->where('conflicts', 0)->count();
         $conflicts = AiLearnedIntent::query()->where('conflicts', '>', 0)->count();
 
         $byIntent = AiLearnedIntent::query()
@@ -93,13 +63,17 @@ class AiLearnedIntentAdminService
     }
 
     /**
+     * An admin phrase: normalized like the router's, trusted at once (confidence 1, no conflicts), source admin.
+     * `status` false saves it switched off - marked "do not trust" like a phrase switched off from the list.
+     *
      * @param  array<string, mixed>  $data
      */
-    public function create(array $data): JsonResponse
+    public function store(array $data): Model
     {
         $phrase = ArabicTextNormalizer::normalize((string) $data['phrase']);
+        $status = (bool) ($data['status'] ?? true);
 
-        $row = AiLearnedIntent::query()->create([
+        return $this->repository->store([
             'phrase' => $phrase,
             'match_mode' => $data['match_mode'],
             'intent' => $data['intent'],
@@ -107,25 +81,25 @@ class AiLearnedIntentAdminService
             'language' => AiIntentVerdictParser::languageOf($phrase),
             'confidence' => 1,
             'confirmations' => 1,
-            'conflicts' => 0,
-            'is_active' => true,
+            'conflicts' => $status ? 0 : 1,
+            'status' => $status,
             'source' => AiLearnedIntent::SOURCE_ADMIN,
         ]);
-
-        $this->store->flushCache();
-
-        return ApiResponse::created(new AiLearnedIntentResource($row), __('api.created'));
     }
 
     /**
+     * The phrase and match type are what was learned and never change; the intent, the file format and the switch
+     * can. Switching off marks the phrase "do not trust" (the router never turns it back on); switching on clears it.
+     *
      * @param  array<string, mixed>  $data
      */
-    public function update(int $id, array $data): JsonResponse
+    public function update(int|string $id, array $data): Model
     {
-        $row = AiLearnedIntent::query()->findOrFail($id);
+        /** @var AiLearnedIntent $row */
+        $row = $this->repository->query()->findOrFail($id);
 
         if (array_key_exists('intent', $data) && $data['intent'] !== $row->intent) {
-            $clash = AiLearnedIntent::query()
+            $clash = AiLearnedIntent::query()->withTrashed()
                 ->where('phrase', $row->phrase)
                 ->where('match_mode', $row->match_mode)
                 ->where('intent', $data['intent'])
@@ -145,26 +119,14 @@ class AiLearnedIntentAdminService
                 : null;
         }
 
-        if (array_key_exists('is_active', $data)) {
-            $row->is_active = (bool) $data['is_active'];
-
-            // Switching off marks the row as "do not trust": the router
-            // never turns it back on by itself. Switching on clears that.
-            $row->conflicts = $row->is_active ? 0 : max(1, (int) $row->conflicts);
+        if (array_key_exists('status', $data) && $data['status'] !== null && (bool) $data['status'] !== (bool) $row->status) {
+            $row->status = (bool) $data['status'];
+            $row->conflicts = $row->status ? 0 : max(1, (int) $row->conflicts);
         }
 
         $row->save();
-        $this->store->flushCache();
 
-        return ApiResponse::success(new AiLearnedIntentResource($row), __('api.updated'));
-    }
-
-    public function delete(int $id): JsonResponse
-    {
-        AiLearnedIntent::query()->findOrFail($id)->delete();
-        $this->store->flushCache();
-
-        return ApiResponse::noContent(__('api.deleted'));
+        return $row->refresh();
     }
 
     /**

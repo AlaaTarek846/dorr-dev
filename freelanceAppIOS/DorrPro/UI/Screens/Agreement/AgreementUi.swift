@@ -5,13 +5,16 @@ import SwiftUI
 
 /// A form over the page (instead of a dialog): the same head as the offer form - an icon, a title and a line - then its fields.
 /// Shown with `.formSheet(isPresented:…)` (Android `LocaleAwareBottomSheet`).
-struct FormSheet<Content: View>: View {
+/// A `footer` (the save button) stands under the fields, outside their scrolling, so it is above the keyboard while a field is typed in
+/// (Android `FormSheet(footer = …)`).
+struct FormSheet<Content: View, Footer: View>: View {
     @Environment(\.wa) private var wa
     let icon: String
     let title: String
     let text: String
     var fullHeight = false
     @ViewBuilder let content: () -> Content
+    @ViewBuilder let footer: () -> Footer
 
     var body: some View {
         ScrollView {
@@ -25,10 +28,27 @@ struct FormSheet<Content: View>: View {
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if Footer.self != EmptyView.self {
+                VStack(spacing: 10) { footer() }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity)
+                    .background((wa.night ? wa.darkCard : Color.white).ignoresSafeArea())
+            }
+        }
         .background((wa.night ? wa.darkCard : Color.white).ignoresSafeArea())
         // AppLanguage.kt: every bottom sheet opens fully (skipPartiallyExpanded).
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+extension FormSheet where Footer == EmptyView {
+    /// A sheet whose button is among its fields (every form but the CRM's).
+    init(icon: String, title: String, text: String, fullHeight: Bool = false, @ViewBuilder content: @escaping () -> Content) {
+        self.init(icon: icon, title: title, text: text, fullHeight: fullHeight, content: content, footer: { EmptyView() })
     }
 }
 
@@ -62,6 +82,14 @@ extension View {
                             @ViewBuilder content: @escaping () -> C) -> some View {
         modifier(FormSheetPresenter(isPresented: isPresented, locked: locked) {
             FormSheet(icon: icon, title: title, text: text, fullHeight: fullHeight, content: content)
+        })
+    }
+
+    /// The same with a `footer`: the save button stays above the keyboard, outside the fields' scrolling.
+    func formSheet<C: View, F: View>(isPresented: Binding<Bool>, icon: String, title: String, text: String, fullHeight: Bool = false, locked: Bool = false,
+                                     @ViewBuilder content: @escaping () -> C, @ViewBuilder footer: @escaping () -> F) -> some View {
+        modifier(FormSheetPresenter(isPresented: isPresented, locked: locked) {
+            FormSheet(icon: icon, title: title, text: text, fullHeight: fullHeight, content: content, footer: footer)
         })
     }
 }

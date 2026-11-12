@@ -30,16 +30,17 @@
                                         <th scope="col">{{ t('ai_code_executions.driver') }}</th>
                                         <th scope="col">{{ t('ai_code_executions.attempt_number') }}</th>
                                         <th scope="col">{{ t('ai_code_executions.duration') }}</th>
+                                        <th scope="col">{{ t('ai_code_executions.exit_code') }}</th>
                                         <th scope="col">{{ t('ai_code_executions.status') }}</th>
                                         <th scope="col">{{ t('ai_code_executions.created_at') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('ai_code_executions.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="6" :columns="8" />
+                                    <TableSkeleton v-if="loading" :rows="6" :columns="9" />
 
                                     <tr v-else-if="!executions.length">
-                                        <td colspan="8" class="border-0">
+                                        <td colspan="9" class="border-0">
                                             <div class="text-center py-5 text-muted">{{ t('ai_code_executions.empty') }}</div>
                                         </td>
                                     </tr>
@@ -50,6 +51,7 @@
                                         <td>{{ execution.driver }}</td>
                                         <td>{{ execution.attempt_number }}</td>
                                         <td>{{ execution.duration_ms !== null ? execution.duration_ms + ' ms' : '-' }}</td>
+                                        <td><code :class="execution.exit_code === 0 ? 'text-success' : 'text-danger'">{{ execution.exit_code ?? '-' }}</code></td>
                                         <td>
                                             <span class="badge" :class="statusBadgeClass(execution.status)">
                                                 {{ t('ai_code_executions.status_' + execution.status) }}
@@ -88,6 +90,11 @@
                         </div>
                     </div>
                     <div class="modal-body px-4">
+                        <div class="mb-3 d-flex flex-wrap gap-3">
+                            <span><span class="fw-semibold">{{ t('ai_code_executions.status') }}:</span> {{ t('ai_code_executions.status_' + selected.status) }}</span>
+                            <span><span class="fw-semibold">{{ t('ai_code_executions.exit_code') }}:</span> <code>{{ selected.exit_code ?? '-' }}</code></span>
+                            <span><span class="fw-semibold">{{ t('ai_code_executions.duration') }}:</span> {{ selected.duration_ms !== null ? selected.duration_ms + ' ms' : '-' }}</span>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">{{ t('ai_code_executions.code') }}</label>
                             <pre class="bg-light p-2 rounded fs-12" style="max-height: 220px; overflow:auto; white-space: pre-wrap;">{{ selected.code }}</pre>

@@ -327,7 +327,7 @@ class AiSiteProjectService
 
     protected function purchase(Authenticatable $owner, int $offerId, string $kind = AiSiteOffer::KIND_SITE, ?int $projectId = null): AiSitePurchase
     {
-        $offer = AiSiteOffer::query()->where('is_active', true)->where('kind', $kind)->find($offerId);
+        $offer = AiSiteOffer::query()->where('status', true)->where('kind', $kind)->find($offerId);
 
         if ($offer === null) {
             throw new AiSiteException('offer_unavailable', 404);

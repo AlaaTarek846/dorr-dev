@@ -45,6 +45,7 @@ struct AgreementScreen: View {
     @State private var reason = ""
     // FL-403: the part being delivered.
     @State private var deliverFor: String?
+    @State private var deliverDraft = DeliverDraft()
     // FL-506: stepping back from a part.
     @State private var withdrawFor: String?
     // FL-607: why I step back (a picked reason and a few words).
@@ -71,6 +72,7 @@ struct AgreementScreen: View {
         .formSheet(isPresented: agreementPresence($withdrawFor), icon: "rectangle.portrait.and.arrow.right", title: L("ag_ms_withdraw"),
                    text: L("ag_ms_withdraw_note"), locked: busy) {
             CancelReasonPicker(code: withdrawCode, note: $withdrawNote, onCode: { withdrawCode = $0 })
+        } footer: {
             ActionButton(L("ag_ms_withdraw"), "rectangle.portrait.and.arrow.right", .danger, enabled: !busy && cancelReasonReady(withdrawCode, withdrawNote)) {
                 if let target = withdrawFor {
                     milestone(target, "withdraw", withdrawNote.agreementTrimmedOrNil, withdrawCode)
@@ -80,12 +82,22 @@ struct AgreementScreen: View {
         }
         .formSheet(isPresented: agreementPresence($deliverFor), icon: "icloud.and.arrow.up.fill", title: L("ag_ms_deliver"),
                    text: L("ag_form_deliver_intro"), fullHeight: true, locked: busy) {
-            DeliverDialog(busy: busy, error: error, rightsRequired: agreement?.rights != nil) { text, files, materials in
-                if let target = deliverFor { deliver(target, text, files, materials) }
+            DeliverDialog(busy: busy, rightsRequired: agreement?.rights != nil, draft: $deliverDraft)
+        } footer: {
+            let rights = agreement?.rights != nil
+            if let error { Text(verbatim: error).font(.dorr(12, .bold)).foregroundStyle(Color(hex: 0xDC2626)) }
+            ActionButton(L("ag_ms_deliver_send"), "icloud.and.arrow.up.fill", .primary, enabled: deliverDraft.ready(rightsRequired: rights) && !busy, loading: busy) {
+                if let target = deliverFor {
+                    deliver(target, deliverDraft.note.agreementTrimmed, deliverDraft.picks,
+                            rights ? deliverDraft.materials.filter { !$0.name.agreementTrimmed.isEmpty } : nil)
+                }
             }
         }
+        // A delivery starts empty each time the sheet opens, and again once it closes.
+        .onChange(of: deliverFor) { _ in deliverDraft = DeliverDraft() }
         .formSheet(isPresented: $declining, icon: "xmark.circle.fill", title: L("ag_decline"), text: L("ag_decline_hint"), locked: busy) {
             DorrTextField(value: agreementLimit($reason, 500), label: L("ag_reason"), icon: "text.alignleft", singleLine: false, minLines: 3)
+        } footer: {
             if let error { Text(verbatim: error).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
             ActionButton(L("ag_decline"), "xmark.circle.fill", .danger, enabled: !busy, loading: busy) { act(false) }
         }

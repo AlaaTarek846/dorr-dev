@@ -43,6 +43,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
@@ -118,39 +119,75 @@ fun MoneyRequestCard(m: UiMessage, mine: Boolean, onPay: () -> Unit, onDecline: 
     val p = m.dto.payment ?: return
     val shown = remember { Animatable(0f) }
     LaunchedEffect(p.amountMinor) { shown.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
-    Column(Modifier.width(262.dp).padding(4.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(MoneyGreen)).padding(14.dp)) {
+    val code = p.currency?.takeIf { it.isNotBlank() }
+    Column(Modifier.width(220.dp).padding(3.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(MoneyGreen)).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.RequestQuote, null, tint = Color.White, modifier = Modifier.size(19.dp))
+            Box(Modifier.size(26.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.RequestQuote, null, tint = Color.White, modifier = Modifier.size(15.dp))
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
-                stringResource(if (p.isRequester) R.string.ch_money_you_requested else R.string.ch_money_requested_from_you),
-                color = Color.White.copy(alpha = 0.9f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                stringResource(R.string.ch_money_request_card),
+                color = Color.White.copy(alpha = 0.9f), fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            StatusChip(p.status)
         }
         androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(
-                p.money((p.amountMinor * shown.value).toLong()), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 10.dp),
-            )
+            Row(
+                Modifier.fillMaxWidth().padding(top = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    formatMinor((p.amountMinor * shown.value).toLong(), null),
+                    color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+                )
+                if (code != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(code, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 1.dp))
+                }
+            }
         }
-        m.dto.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = Color.White.copy(alpha = 0.92f), fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp)) }
+        m.dto.body?.takeIf { it.isNotBlank() }?.let { note ->
+            Row(
+                Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.22f))
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                    .align(Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.EditNote, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(note, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
 
         AnimatedVisibility(p.canPay) {
-            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MoneyButton(stringResource(R.string.ch_money_pay), Icons.Rounded.Lock, filled = true, modifier = Modifier.weight(1f), onClick = onPay)
-                MoneyButton(stringResource(R.string.ch_money_decline), Icons.Rounded.Close, filled = false, modifier = Modifier.weight(0.8f), onClick = onDecline)
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MoneyButton(stringResource(R.string.ch_money_pay), Icons.Rounded.Lock, filled = true, compact = true, modifier = Modifier.weight(1f), onClick = onPay)
+                MoneyButton(stringResource(R.string.ch_money_decline), Icons.Rounded.Close, filled = false, compact = true, modifier = Modifier.weight(0.8f), onClick = onDecline)
             }
         }
         AnimatedVisibility(p.canCancel) {
-            Text(
-                stringResource(R.string.ch_money_cancel), color = Color.White.copy(alpha = 0.85f), fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onCancel).padding(horizontal = 6.dp, vertical = 4.dp),
-            )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+                MoneyButton(
+                    stringResource(R.string.ch_money_cancel),
+                    Icons.Rounded.Cancel,
+                    filled = false,
+                    compact = true,
+                    modifier = Modifier.fillMaxWidth(0.55f),
+                    onClick = onCancel,
+                )
+            }
         }
-        Box(Modifier.fillMaxWidth().padding(top = 6.dp)) { Box(Modifier.align(Alignment.CenterEnd)) { footer() } }
+        Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(1.dp).background(Color.White.copy(alpha = 0.28f)))
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            footer()
+            Spacer(Modifier.weight(1f))
+            StatusChip(p.status)
+        }
     }
 }
 
@@ -272,18 +309,18 @@ private fun StatusChip(status: String) {
 }
 
 @Composable
-private fun MoneyButton(text: String, icon: ImageVector, filled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun MoneyButton(text: String, icon: ImageVector, filled: Boolean, modifier: Modifier, compact: Boolean = false, onClick: () -> Unit) {
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val scale by com.dorr.app.ui.screens.wallet.rememberPressScale(press, 0.93f)
     Row(
-        modifier.scale(scale).clip(RoundedCornerShape(14.dp))
-            .then(if (filled) Modifier.background(Color.White) else Modifier.border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp)))
-            .clickable(interactionSource = press, indication = null, onClick = onClick).padding(vertical = 10.dp),
+        modifier.scale(scale).clip(RoundedCornerShape(if (compact) 12.dp else 14.dp))
+            .then(if (filled) Modifier.background(Color.White) else Modifier.border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(if (compact) 12.dp else 14.dp)))
+            .clickable(interactionSource = press, indication = null, onClick = onClick).padding(vertical = if (compact) 7.dp else 10.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = if (filled) MoneyGreen.last() else Color.White, modifier = Modifier.size(16.dp))
+        Icon(icon, null, tint = if (filled) MoneyGreen.last() else Color.White, modifier = Modifier.size(if (compact) 14.dp else 16.dp))
         Spacer(Modifier.width(5.dp))
-        Text(text, color = if (filled) MoneyGreen.last() else Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp)
+        Text(text, color = if (filled) MoneyGreen.last() else Color.White, fontWeight = FontWeight.ExtraBold, fontSize = if (compact) 12.sp else 13.5.sp)
     }
 }
 

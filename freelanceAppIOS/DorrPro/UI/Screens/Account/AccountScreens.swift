@@ -489,6 +489,8 @@ struct AccountScreen: View {
                     on("loyalty") ? MenuEntry(icon: "heart.circle.fill", label: L("loy_home_card"), subtitle: L("me_loyalty_sub"), action: actions.openLoyalty) : nil,
                     on("subscriptions") ? MenuEntry(icon: "rosette", label: L("plans_title"), subtitle: L("plans_sub"), action: actions.openPlans) : nil,
                     MenuEntry(icon: "chart.line.uptrend.xyaxis", label: L("insights_home_card"), subtitle: L("me_insights_sub"), action: actions.openInsights),
+                    MenuEntry(icon: "person.crop.rectangle.stack.fill", label: L("crm_home_card"), subtitle: L("crm_me_sub"), action: actions.openCrm),
+                    MenuEntry(icon: "checkmark.shield.fill", label: L("rep_title"), subtitle: L("me_reputation_sub"), action: actions.openReputation),
                     MenuEntry(icon: "calendar.badge.checkmark", label: L("availability_title"), subtitle: L("availability_sub"), action: actions.openAvailability),
                     MenuEntry(icon: "speedometer", label: L("cap_home_card"), subtitle: L("me_capacity_sub"), action: actions.openCapacity),
                     on("teams") ? MenuEntry(icon: "person.3.fill", label: L("team_home_card"), subtitle: L("team_me_sub"), action: actions.openTeams) : nil,

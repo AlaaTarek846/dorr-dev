@@ -27,9 +27,10 @@ class FreelanceCapacity
 {
     public function __construct(private readonly FreelanceNotifier $notifier) {}
 
-    public static function maxChoice(): int
+    public static function maxChoice(?Freelancer $f = null): int
     {
-        return (int) config('freelance.capacity.max_choice', 20);
+        // FS-705: a plan can raise the highest capacity a freelancer may choose (never lower it).
+        return $f === null ? (int) config('freelance.capacity.max_choice', 20) : (int) (app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'capacity_max') ?? PHP_INT_MAX);
     }
 
     /** FL-L05: an active monthly subscription is one running project (between its months too); its months are not counted again. */
@@ -68,7 +69,7 @@ class FreelanceCapacity
 
         return [
             'max' => $max,
-            'max_choice' => self::maxChoice(),
+            'max_choice' => self::maxChoice($f),
             'running' => $running,
             'holds' => $holds,
             'waiting' => Entry::query()->where('freelancer_id', $f->id)->where('status', Entry::WAITING)->count(),
@@ -78,8 +79,8 @@ class FreelanceCapacity
 
     public function setMax(Freelancer $f, ?int $max): array
     {
-        if ($max !== null && $max > self::maxChoice()) {
-            throw new FreelanceException('capacity_too_high', 422, ['max' => self::maxChoice()]);
+        if ($max !== null && $max > self::maxChoice($f)) {
+            throw new FreelanceException('capacity_too_high', 422, ['max' => self::maxChoice($f)]);
         }
         $f->forceFill(['capacity_max' => $max])->save();
         // A higher cap (or none) may free places for those in line.

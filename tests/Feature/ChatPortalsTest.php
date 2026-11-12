@@ -148,6 +148,13 @@ class ChatPortalsTest extends TestCase
 
         $this->assertSame(2, ChatSubscription::query()->count());
         $this->assertEquals(Carbon::parse($firstEnd)->addMonth()->toDateString(), ChatPortal::query()->where('uuid', $portal)->first()->listed_until->toDateString());
+
+        // The owner's history: newest first — the early renewal is «upcoming», the first «running», with the currency.
+        $history = $this->getJson("/api/mobile/v1/chat/portals/{$portal}", $this->headers())->assertOk()->json('data.history');
+        $this->assertCount(2, $history);
+        $this->assertSame('upcoming', $history[0]['state']);
+        $this->assertSame('running', $history[1]['state']);
+        $this->assertNotNull($history[0]['currency_code']);
     }
 
     public function test_paying_through_a_gateway_settles_the_moment_the_gateway_confirms(): void
@@ -318,6 +325,70 @@ class ChatPortalsTest extends TestCase
         $package->prices()->create(['country_id' => $this->saudi->id, 'amount_minor' => $amountMinor]);
 
         return $package;
+    }
+
+    public function test_a_portal_can_go_without_a_logo_and_its_logo_can_be_removed(): void
+    {
+        $this->as($this->merchant);
+        $headers = $this->headers() + ['Accept' => 'application/json'];
+        // No logo: fine (the page shows the shop icon).
+        $id = $this->post('/api/mobile/v1/chat/portals', [
+            'website_url' => 'https://plain.example.com',
+            'translations' => [['locale' => 'en', 'name' => 'Plain shop']],
+        ], $headers)->assertCreated()->assertJsonPath('data.logo', null)->json('data.id');
+
+        $this->post("/api/mobile/v1/chat/portals/{$id}", ['logo' => UploadedFile::fake()->image('logo.png', 200, 200)], $headers)->assertOk();
+        $this->assertNotNull($this->getJson("/api/mobile/v1/chat/portals/{$id}", $headers)->json('data.logo'));
+
+        // Taken off again.
+        $this->post("/api/mobile/v1/chat/portals/{$id}", ['remove_logo' => 1], $headers)->assertOk()->assertJsonPath('data.logo', null);
+    }
+
+    public function test_the_portals_page_comes_15_at_a_time_most_viewed_first_filtered_by_categories_and_search(): void
+    {
+        $tech = ChatCategory::query()->create(['sort_order' => 2, 'status' => true]);
+        $tech->translations()->create(['locale' => 'en', 'name' => 'Tech']);
+        $make = function (string $name, ChatCategory $category, int $views, ?string $description = null, bool $listed = true) {
+            $portal = ChatPortal::query()->create([
+                'uuid' => (string) \Illuminate\Support\Str::uuid(), 'owner_type' => \Modules\Chat\Support\ParticipantType::aliasFor($this->merchant),
+                'owner_id' => $this->merchant->id, 'category_id' => $category->id, 'website_url' => 'https://shop.example.com',
+                'status' => true, 'views_count' => $views, 'listed_until' => $listed ? now()->addWeek() : now()->subDay(),
+            ]);
+            $portal->translations()->create(['locale' => 'en', 'name' => $name, 'description' => $description]);
+
+            return $portal;
+        };
+        foreach (range(1, 16) as $i) {
+            $make("Sport {$i}", $this->sport, $i);
+        }
+        $make('Gadgets', $tech, 100, 'Phones and laptops');
+        $make('Old shop', $tech, 999, 'Phones', listed: false);
+
+        $this->as($this->visitor);
+        $first = $this->getJson('/api/mobile/v1/chat/portals?page=1', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('data.0.name', 'Gadgets')
+            ->assertJsonPath('data.1.name', 'Sport 16')
+            ->assertJsonPath('pagination.total', 17)
+            ->assertJsonPath('pagination.has_more_pages', true);
+        $this->assertArrayNotHasKey('portals', $first->json('data.0'));
+
+        $this->getJson('/api/mobile/v1/chat/portals?page=2', $this->headers())->assertOk()
+            ->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', false);
+
+        // Several categories at once.
+        $this->getJson('/api/mobile/v1/chat/portals?page=1&category_ids[]='.$tech->id, $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Gadgets');
+        $this->getJson('/api/mobile/v1/chat/portals?page=1&category_ids[]='.$tech->id.'&category_ids[]='.$this->sport->id, $this->headers())
+            ->assertOk()->assertJsonPath('pagination.total', 17);
+
+        // A search matches the description too, and never brings back a portal that isn't listed.
+        $this->getJson('/api/mobile/v1/chat/portals?page=1&search=phones', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Gadgets');
+
+        // Without `page`: the old grouped list (older apps).
+        $this->getJson('/api/mobile/v1/chat/portals', $this->headers())->assertOk()
+            ->assertJsonPath('data.0.category.name', 'Sport')->assertJsonCount(16, 'data.0.portals');
     }
 
     private function addPortal(string $name, ?string $description): string

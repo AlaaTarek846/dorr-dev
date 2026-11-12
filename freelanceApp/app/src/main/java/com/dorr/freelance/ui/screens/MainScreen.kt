@@ -66,10 +66,14 @@ class MainActions(
     val openServiceOrder: (String) -> Unit,
     // FL-L01 phase 4: my performance numbers
     val openInsights: () -> Unit,
+    // FS-703: my clients (the private CRM)
+    val openCrm: () -> Unit,
     // FL-L11: improve my profile
     val openCoach: () -> Unit,
     // FL-L08: skill tests and badges
     val openSkillTests: () -> Unit,
+    // FS-604: my reputation figures
+    val openReputation: () -> Unit,
     // FL-L10: my capacity and the line on my services
     val openCapacity: () -> Unit,
     // FS-209: my freelancers' teams

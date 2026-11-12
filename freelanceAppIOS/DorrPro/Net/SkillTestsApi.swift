@@ -14,6 +14,15 @@ enum SkillTestsApi {
     static func submit(_ attemptId: Int, _ body: SkillSubmitRequest) async -> ApiResult<SkillResultDto> {
         await Api.call("POST", base + "skill-test-attempts/\(attemptId)/submit", body: ["answers": body.answers])
     }
+
+    /// FS-602: a practical challenge for the next level (advanced / expert) of a skill. 409 `freelance_skill_challenge_open`, 422 `_wait` / `_level`.
+    static func challenge(_ skillId: Int, _ body: SkillChallengeRequest) async -> ApiResult<SkillChallengeWrapDto> {
+        await Api.call("POST", base + "skill-tests/\(skillId)/challenge", body: ["target_level": body.targetLevel, "link": body.link, "note": body.note])
+    }
+
+    static func withdrawChallenge(_ uuid: String) async -> ApiResult<SkillChallengeWrapDto> {
+        await Api.call("POST", base + "skill-challenges/\(uuid)/withdraw")
+    }
 }
 
 struct SkillTestsDto: Decodable {
@@ -30,7 +39,13 @@ struct SkillTestDto: Decodable {
     var questions: Int?
     var minutes: Int?
     var passPercent: Int?
+    /// FS-602: the mark that gives the intermediate level (a pass below it gives beginner).
+    var intermediatePercent: Int?
     var badge: SkillBadgeDto?
+    /// FS-602: the badge ends soon and the test may be sat again to renew it (`canStart` is then true).
+    var renewable: Bool?
+    /// FS-602: where I stand for the next level by a practical challenge.
+    var challenge: SkillChallengeStateDto?
     var inProgress: Bool?
     /// When I may try again after a miss; nil when I may now.
     var retakeAt: String?
@@ -40,6 +55,8 @@ struct SkillTestDto: Decodable {
 struct SkillBadgeDto: Decodable {
     var skillId: Int?
     var name: String?
+    /// FS-602: beginner · intermediate · advanced · expert
+    var level: String?
     var scorePercent: Int?
     var earnedAt: String?
     var expiresAt: String?
@@ -77,4 +94,40 @@ struct SkillResultDto: Decodable {
     var passPercent: Int?
     var badge: SkillBadgeDto?
     var retakeAt: String?
+}
+
+/// FS-602: the practical challenge of one skill: the level it is for now, the brief, my open or last challenge and when I may send one.
+struct SkillChallengeStateDto: Decodable {
+    var enabled: Bool?
+    /// advanced · expert · nil (none now)
+    var nextLevel: String?
+    var brief: String?
+    var current: SkillChallengeDto?
+    var retryAt: String?
+    var canSend: Bool?
+}
+
+struct SkillChallengeDto: Decodable {
+    var uuid: String?
+    var targetLevel: String?
+    var link: String?
+    var note: String?
+    /// submitted · accepted · rejected · withdrawn
+    var status: String?
+    var grantedLevel: String?
+    var decisionNote: String?
+    var sentAt: String?
+    var decidedAt: String?
+    var canWithdraw: Bool?
+}
+
+struct SkillChallengeWrapDto: Decodable {
+    var challenge: SkillChallengeDto?
+}
+
+/// `note` is 20..2000 characters; `link` an http(s) address.
+struct SkillChallengeRequest {
+    let targetLevel: String
+    let link: String
+    let note: String
 }

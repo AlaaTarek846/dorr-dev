@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-604: the reputation card on a freelancer's profile -->
+    <string name="fl_rep_title">Reputation</string>
+    <string name="fl_rep_hint">From their own work on Dorr only</string>
+    <string name="fl_rep_overall">Overall</string>
+    <string name="fl_rep_overall_new">New</string>
+    <string name="fl_rep_overall_new_line">Not enough figures yet for an overall score</string>
+    <string name="fl_rep_how">How is it worked out?</string>
+    <string name="fl_rep_quality">Quality</string>
+    <string name="fl_rep_delivery">On-time delivery</string>
+    <string name="fl_rep_communication">Communication</string>
+    <string name="fl_rep_completion">Projects completed</string>
+    <string name="fl_rep_repeat_clients">Returning clients</string>
+    <string name="fl_rep_technical">Technical quality</string>
+    <string name="fl_rep_level_excellent">Excellent</string>
+    <string name="fl_rep_level_good">Good</string>
+    <string name="fl_rep_level_fair">Fair</string>
+    <string name="fl_rep_level_low">Needs work</string>
+    <string name="fl_rep_level_new">New</string>
+    <string name="fl_rep_new_line">New, not enough data yet</string>
+    <string name="fl_rep_src_ratings">From %1$d ratings</string>
+    <string name="fl_rep_src_parts">%1$d parts, %2$d on time</string>
+    <string name="fl_rep_src_projects">%1$d projects, %2$d finished</string>
+    <string name="fl_rep_src_clients">%1$d clients, %2$d came back</string>
+    <string name="fl_rep_src_certs">%1$d certified skills</string>
+    <string name="fl_rep_src_works">%1$d verified works</string>
+    <string name="fl_rep_src_excluded">%1$d not counted</string>
+    <string name="fl_rep_row_desc">%1$s: %2$s</string>
+    <string name="fl_rep_how_title">How we work out the reputation</string>
+    <string name="fl_rep_how_body">Each figure comes only from the freelancer\'s own work on Dorr, and none shows before there are at least 3 pieces of data behind it.</string>
+    <string name="fl_rep_how_quality">The clients\' score for quality, out of 5, turned into a figure out of 100. It needs at least 3 published ratings.</string>
+    <string name="fl_rep_how_delivery">The share of approved parts delivered within their days. Days added by a change the client accepted count, and a part only starts once the client funds it, so late funding never counts against the freelancer.</string>
+    <string name="fl_rep_how_communication">The clients\' score for communication, out of 5, turned into a figure out of 100.</string>
+    <string name="fl_rep_how_completion">Of the projects that ended, the share that were finished. An end that was the client\'s fault, or nobody\'s, is left out; only an end that was the freelancer\'s responsibility counts against them. A project still running, or a dispute not yet decided, never counts.</string>
+    <string name="fl_rep_how_repeat">Of the clients they finished a project for, the share who came back for another one.</string>
+    <string name="fl_rep_how_technical">From the levels of their best 3 certified skills (beginner 40, intermediate 60, advanced 80, expert 100), with their verified works shown beside it.</string>
+    <string name="fl_rep_how_overall">The overall score is the average of the known figures, and shows once at least 3 of them are known.</string>
+    <string name="fl_rep_how_levels">Excellent 85+ · Good 70+ · Fair 50+ · below that, needs work.</string>
+    <string name="fl_rep_how_fix">If one project makes a figure wrong, the freelancer can ask the Dorr team to review it; an accepted request takes that project out.</string>
+    <string name="fl_rep_how_ok">Got it</string>
+
+    <!-- FS-602: the level of a skill badge -->
+    <string name="fl_skill_level_beginner">Beginner</string>
+    <string name="fl_skill_level_intermediate">Intermediate</string>
+    <string name="fl_skill_level_advanced">Advanced</string>
+    <string name="fl_skill_level_expert">Expert</string>
+    <string name="fl_skill_badge_level_desc">Verified in %1$s, %2$s level</string>
+
+    <!-- FS-601: verified works and the case study -->
+    <string name="fl_work_verified">Verified by Dorr</string>
+    <string name="fl_work_verified_on">Done on Dorr · %1$s</string>
+    <string name="fl_work_verified_line">Done on Dorr</string>
+    <string name="fl_work_verified_note">This work was done for a client on Dorr, and the client allowed it to be shown.</string>
+    <string name="fl_work_case_study">Case study</string>
+    <string name="fl_work_about">About the work</string>
+    <string name="fl_work_open">Open the work</string>
+    <string name="fl_cs_problem">The problem</string>
+    <string name="fl_cs_solution">The solution</string>
+    <string name="fl_cs_role">My role</string>
+    <string name="fl_cs_tools">Tools</string>
+    <string name="fl_cs_results">Results</string>
+</resources>

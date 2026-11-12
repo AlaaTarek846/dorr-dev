@@ -55,7 +55,12 @@ struct AgreementChangesCard: View {
             if let openError { Text(verbatim: openError).font(.dorr(12)).foregroundStyle(Color(hex: 0xDC2626)) }
             ActionButton(L("ch_ask"), "square.and.pencil", .primary) { asking = true }
         }
-        .formSheet(isPresented: $asking, icon: "square.and.pencil", title: L("ch_ask"), text: L("ch_form_intro")) { form }
+        .formSheet(isPresented: $asking, icon: "square.and.pencil", title: L("ch_ask"), text: L("ch_form_intro")) {
+            form
+        } footer: {
+            // The send button stays above the keyboard.
+            ActionButton(L("ch_send"), "paperplane.fill", .primary, enabled: ready && !busy) { send() }
+        }
     }
 
     private func changeRow(_ c: ChangeDto) -> some View {
@@ -202,7 +207,6 @@ struct AgreementChangesCard: View {
             guard case .success(let url) = result, picks.count < maxChangeFiles, let f = AgreementPickedFile.read(url) else { return }
             if f.bytes.count > maxChangeFileBytes { pickError = L("fs_ch_file_too_big") } else { pickError = nil; picks.append(f) }
         }
-        ActionButton(L("ch_send"), "paperplane.fill", .primary, enabled: ready && !busy) { send() }
     }
 
     private var ready: Bool {

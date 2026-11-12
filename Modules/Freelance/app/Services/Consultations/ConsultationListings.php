@@ -202,7 +202,7 @@ class ConsultationListings
             'feature_on' => app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->allows((int) $f->country_id, 'consultations'),
             'lengths' => ConsultationOffers::LENGTHS,
             'max_options' => ConsultationOffers::MAX_OPTIONS,
-            'max_active' => $this->maxActive((int) $f->country_id),
+            'max_active' => $this->maxActive((int) $f->country_id, $f),
             'review' => (bool) ($policy->get('consultations.require_review') ?? true),
             'currency' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(),
             'decimals' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->decimals(),
@@ -313,9 +313,13 @@ class ConsultationListings
         return (bool) ($this->policies->for((int) $o->country_id, null)->get('consultations.require_review') ?? true);
     }
 
-    private function maxActive(int $countryId): int
+    private function maxActive(int $countryId, ?Freelancer $f = null): int
     {
-        return max(1, (int) ($this->policies->for($countryId, null)->get('consultations.max_active') ?? 5));
+        $policy = max(1, (int) ($this->policies->for($countryId, null)->get('consultations.max_active') ?? 5));
+        // FS-705: a plan raises the listings at once, never lowers them (null = no cap).
+        $plan = $f === null ? $policy : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'consultations_max');
+
+        return $plan === null ? PHP_INT_MAX : max(1, (int) $plan);
     }
 
     /** Verified, not limited by the staff, and room for one more published or waiting listing. */
@@ -325,7 +329,7 @@ class ConsultationListings
             throw new FreelanceException('service_unverified', 403);
         }
         app(Sanctions::class)->assertAllowed($f, 'work');
-        $max = $this->maxActive((int) $o->country_id);
+        $max = $this->maxActive((int) $o->country_id, $f);
         $live = Offer::query()->where('freelancer_id', $f->id)->whereKeyNot($o->id)->whereIn('status', [Offer::PENDING, Offer::PUBLISHED])->count();
         if ($live >= $max) {
             throw new FreelanceException('consultation_listing_limit', 422, ['max' => $max], ['max' => $max]);

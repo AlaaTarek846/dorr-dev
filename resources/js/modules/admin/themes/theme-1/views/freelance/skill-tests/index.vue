@@ -140,8 +140,30 @@
                         <input v-model.number="settings.pass_percent" type="number" min="1" max="100" class="form-control" :disabled="!canUpdate">
                     </div>
                     <div class="col-6 col-md-3">
+                        <label class="form-label">{{ t('freelance.skill_tests.intermediate') }}</label>
+                        <input v-model.number="settings.intermediate_percent" type="number" :min="settings.pass_percent || 1" max="100" class="form-control" :class="{ 'is-invalid': !!fieldError('intermediate_percent') }" :disabled="!canUpdate">
+                        <div v-if="fieldError('intermediate_percent')" class="invalid-feedback d-block">{{ fieldError('intermediate_percent') }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
                         <label class="form-label">{{ t('freelance.skill_tests.retake') }}</label>
                         <input v-model.number="settings.retake_hours" type="number" min="0" class="form-control" :disabled="!canUpdate">
+                    </div>
+                    <!-- FS-602: advanced / expert come from a practical challenge staff decide on the quality desk; the brief says what to build. -->
+                    <div class="col-12">
+                        <div class="border rounded p-3">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="toggle toggle-success mb-0" :class="{ on: settings.challenge_enabled }" role="button" tabindex="0" @click="canUpdate && (settings.challenge_enabled = !settings.challenge_enabled)"><span></span></div>
+                                <span class="fw-semibold">{{ t('freelance.skill_tests.challenge_enabled') }}</span>
+                            </div>
+                            <p class="text-muted fs-12 mb-2">{{ t('freelance.skill_tests.challenge_hint') }}</p>
+                            <CatalogTranslationTabs :languages="briefLanguages" :active-locale="briefLocale" :translation-tab-class="briefTabClass" :translation-tab-feedback="briefTabFeedback" @update:active-locale="briefLocale = $event" />
+                            <label class="form-label">{{ t('freelance.skill_tests.challenge_brief') }} <span v-if="settings.challenge_enabled" class="text-danger">*</span></label>
+                            <textarea v-model="settings.challenge_brief[briefLocale]" rows="4" maxlength="3000" class="form-control" :class="{ 'is-invalid': !!fieldError('challenge_brief') }" :dir="briefLocale === 'ar' ? 'rtl' : 'ltr'" :disabled="!canUpdate" :placeholder="t('freelance.skill_tests.challenge_brief_hint')"></textarea>
+                            <div class="d-flex justify-content-between fs-11 mt-1">
+                                <span class="text-danger">{{ fieldError('challenge_brief') }}</span>
+                                <span class="text-muted" dir="ltr">{{ (settings.challenge_brief[briefLocale] || '').length }}/3000</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-12 d-flex align-items-center gap-3">
                         <div class="toggle toggle-success mb-0" :class="{ on: settings.status }" role="button" tabindex="0" @click="canUpdate && (settings.status = !settings.status)"><span></span></div>
@@ -224,10 +246,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Select from 'primevue/select';
 import adminAxios from '../../../../../../../api/adminAxios';
+import CatalogTranslationTabs from '../../../../../../../components/catalog/CatalogTranslationTabs.vue';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
+import { useAvailableLanguagesStore } from '../../../../../../../stores/availableLanguages';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();
@@ -274,7 +298,21 @@ watch(page, load);
 
 // ---- one skill: settings and the bank
 const skill = ref(null);
-const settings = reactive({ status: false, questions_count: 10, minutes: 15, pass_percent: 70, retake_hours: 24 });
+const settings = reactive({ status: false, questions_count: 10, minutes: 15, pass_percent: 70, retake_hours: 24, intermediate_percent: 85, challenge_enabled: false, challenge_brief: { ar: '', en: '' } });
+const settingsErrors = ref({});
+const fieldError = (key) => settingsErrors.value[key]?.[0] ?? '';
+
+// FS-602: the challenge brief is stored as {ar, en}; its language tabs show the panel's languages that the brief keeps.
+const BRIEF_LOCALES = ['ar', 'en'];
+const languagesStore = useAvailableLanguagesStore();
+const briefLanguages = computed(() => {
+    const fromStore = (languagesStore.items ?? []).filter((lang) => BRIEF_LOCALES.includes(lang.code));
+    return fromStore.length ? fromStore : BRIEF_LOCALES.map((code) => ({ code, name: code.toUpperCase() }));
+});
+const briefLocale = ref('ar');
+const briefFilled = (code) => !!(settings.challenge_brief?.[code] || '').trim();
+const briefTabClass = (code) => ({ active: briefLocale.value === code, 'catalog-lang-tab--error': !!fieldError('challenge_brief'), 'catalog-lang-tab--valid': briefFilled(code) });
+const briefTabFeedback = (code) => ({ show: briefFilled(code) || !!fieldError('challenge_brief'), valid: briefFilled(code) });
 const draft = ref(null);
 const formError = ref('');
 const activeCount = computed(() => (skill.value?.questions ?? []).filter((q) => q.status).length);
@@ -290,7 +328,9 @@ async function openSkill(row) {
 
 function applySkill(data) {
     skill.value = data;
-    Object.assign(settings, data.test);
+    const brief = data.test?.challenge_brief && !Array.isArray(data.test.challenge_brief) ? data.test.challenge_brief : {};
+    Object.assign(settings, data.test, { challenge_brief: { ar: brief.ar ?? '', en: brief.en ?? '' } });
+    settingsErrors.value = {};
 }
 
 function closeSkill() {
@@ -301,11 +341,13 @@ function closeSkill() {
 
 async function saveSettings() {
     saving.value = true;
+    settingsErrors.value = {};
     try {
-        const { data } = await adminAxios.put(`/api/admin/v1/freelance-skill-tests/${skill.value.id}`, { ...settings });
+        const { data } = await adminAxios.put(`/api/admin/v1/freelance-skill-tests/${skill.value.id}`, { ...settings, challenge_brief: { ...settings.challenge_brief } });
         applySkill(data.data);
         showSuccess(t('freelance.skill_tests.saved'));
     } catch (error) {
+        settingsErrors.value = error?.response?.data?.errors ?? {};
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         saving.value = false;
@@ -399,5 +441,8 @@ async function revoke() {
 
 watch(badgeState, loadBadges);
 watch(tab, (v) => { if (v === 'badges') loadBadges(); });
-onMounted(load);
+onMounted(() => {
+    load();
+    languagesStore.fetch();
+});
 </script>

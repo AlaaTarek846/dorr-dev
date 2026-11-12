@@ -113,7 +113,7 @@ class FreelancerOffers
     }
 
     /** @return array{price_minor: int, commission_minor: int, net_minor: int, currency: string, commission: array<string, mixed>} what an offer at this price leaves the freelancer */
-    public function preview(Project $project, int $priceMinor, ?Freelancer $freelancer = null): array
+    public function preview(Project $project, int $priceMinor, ?Freelancer $freelancer = null, ?FreelanceTeam $team = null): array
     {
         $values = $this->policies->for($project->country_id, $project->freelance_specialty_id)->all();
         // Where the commission switch is off, the platform keeps nothing.
@@ -123,7 +123,7 @@ class FreelancerOffers
             $values['commission.min_minor'] = null;
         }
         // FL-L01: the freelancer's plan can lower the commission (never raise it).
-        $values = app(FreelancePlans::class)->withCommission($values, $freelancer);
+        $values = app(FreelancePlans::class)->withCommission($values, $freelancer, $team);
         $breakdown = FreelanceFees::breakdown($priceMinor, $values);
         $commission = array_intersect_key($values, array_flip(['commission.type', 'commission.value', 'commission.min_minor', 'commission.max_minor']));
 
@@ -171,7 +171,7 @@ class FreelancerOffers
 
             // FL-L09: a client who earned a loyalty step with this freelancer gets it off the price asked.
             $deal = app(Loyalty::class)->apply($freelancer, (int) $locked->client_id, (int) $data['price_minor']);
-            $preview = $this->preview($locked, $deal['price_minor'], $freelancer);
+            $preview = $this->preview($locked, $deal['price_minor'], $freelancer, $team);
             // Once the month's free offers are used up the offer is paid for by the bought batch that ends first. A team's offer uses
             // the team's quota only - never the Owner's own free offers or bought ones.
             $quota = $this->quota($freelancer);
@@ -285,7 +285,7 @@ class FreelancerOffers
             ]);
 
             $deal = app(Loyalty::class)->apply($freelancer, (int) $project->client_id, $price);
-            $preview = $this->preview($project, $deal['price_minor'], $freelancer);
+            $preview = $this->preview($project, $deal['price_minor'], $freelancer, $locked->team);
             $locked->update([
                 'price_minor' => $preview['price_minor'], 'list_price_minor' => $deal['list_price_minor'], 'loyalty_bp' => $deal['loyalty_bp'],
                 'duration_days' => $days, 'details' => $details, 'rights' => $rights,

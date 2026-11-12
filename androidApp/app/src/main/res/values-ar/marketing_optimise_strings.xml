@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- مدير التسويق الذكي، المرحلة د: التحسين. -->
+    <string name="mktg_optimise">التحسين</string>
+    <string name="mktg_optimise_sub">اقتراحات وتنبيهات واختبارات A/B</string>
+    <string name="mktg_suggestions">الاقتراحات</string>
+    <string name="mktg_alert_rules">التنبيهات</string>
+    <string name="mktg_no_alert_rules">لا يوجد تنبيه بعد.</string>
+    <string name="mktg_alert_new">تنبيه جديد</string>
+    <string name="mktg_above">أعلى من</string>
+    <string name="mktg_below">أقل من</string>
+    <string name="mktg_threshold">الحد</string>
+    <string name="mktg_now_value">الآن %1$s</string>
+    <string name="mktg_experiments">اختبارات A/B</string>
+    <string name="mktg_no_experiments">لا يوجد اختبار بعد.</string>
+    <string name="mktg_experiment_new">اختبار A/B جديد</string>
+    <string name="mktg_hypothesis">ماذا تتوقع؟</string>
+    <string name="mktg_hypothesis_hint">مثلًا: عنوان يذكر موعد التوصيل يجلب نقرات أكثر</string>
+    <string name="mktg_conversion_rate">نسبة التحويل</string>
+    <string name="mktg_conclude">إنهاء الاختبار</string>
+    <string name="mktg_concluded">انتهى</string>
+    <string name="mktg_running">جارٍ</string>
+    <string name="mktg_experiment_min">لا تُعلن نسخة فائزة إلا بـ 100 محاولة على الأقل لكل نسخة وفرق واضح.</string>
+    <string name="mktg_simulation">ما الذي يحرّك ربحك أكثر</string>
+    <string name="mktg_simulation_note">يُحرَّك كل رقم صعودًا وهبوطًا مع بقاء الباقي كما هو. تقديرات من مدخلاتك، وليست توقعًا.</string>
+    <string name="mktg_simulate">احسب</string>
+    <string name="mktg_base_profit">الربح الشهري التقديري: %1$s</string>
+</resources>

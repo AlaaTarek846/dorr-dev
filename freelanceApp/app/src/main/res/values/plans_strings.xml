@@ -70,6 +70,8 @@
     <string name="plans_perk_boost">Shown first in the «Recommended» order</string>
     <string name="plans_perk_analytics_1">Your performance numbers (last 30 days)</string>
     <string name="plans_perk_analytics_2">Your full performance numbers with charts</string>
+    <string name="plans_perk_crm_1">Your clients and private notes</string>
+    <string name="plans_perk_crm_2">Your clients, notes and follow-up reminders</string>
     <string name="plans_perk_services">Up to %1$d ready-made services</string>
     <string name="plans_open_insights">My performance</string>
 </resources>

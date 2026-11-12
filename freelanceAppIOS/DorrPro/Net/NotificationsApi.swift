@@ -67,13 +67,22 @@ enum NoticeRoute {
         if event?.hasPrefix("freelance.community") == true || field("type")?.hasPrefix("freelance_community_") == true {
             return field("community_post").map(Route.communityPost) ?? field("community_member").map(Route.communityMember) ?? .community
         }
+        // FS-703: a follow-up reminder that fell due (`type` = crm_reminder, `client` = the client's CRM uuid) opens that client's page, where it waits.
+        if field("type") == "crm_reminder" || event?.hasPrefix("freelance.crm") == true {
+            return field("client").map(Route.crmClient) ?? .crm
+        }
         guard let e = event else { return nil }
         let project = field("project")
         if e == "freelance.message" || e.hasPrefix("freelance.interview") { return field("conversation_uuid").map(Route.chat) }
         if e.hasPrefix("wallet.") || e == "freelance.payment.available" { return .wallet }
         if e.hasPrefix("freelance.verification") { return .verification }
         if e.hasPrefix("freelance.skill") { return .skills }
-        if e == "freelance.portfolio.hidden" { return .portfolio }
+        // FS-601: staff took the «Verified by Dorr» badge off one of my works - my works, where its card says why.
+        if e == "freelance.portfolio.hidden" || e == "freelance.portfolio.unverified" { return .portfolio }
+        // FS-602: the reviewer's answer on my practical challenge opens the skill tests, where its card shows the decision.
+        if e.hasPrefix("freelance.challenge") { return .skillTests }
+        // FS-604: staff answered my request to correct a reputation figure.
+        if e.hasPrefix("freelance.reputation") { return .reputation }
         if e == "freelance.quota.low" { return .myOffers }
         if e.hasPrefix("freelance.subscription") { return .plans }
         // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.

@@ -162,6 +162,12 @@ struct RootView: View {
             case .plans:
                 PlansScreen(onBack: back, onOpenWallet: { nav.pushSingleTop(.wallet) }, onOpenInsights: { nav.pushSingleTop(.insights) })
             case .insights: InsightsScreen(onBack: back, onOpenPlans: { nav.pushSingleTop(.plans) })
+            // FS-703: my clients - the list, and one client (a project of ours opens its agreement, what is still waiting opens the project).
+            case .crm:
+                CrmScreen(onBack: back, onOpenClient: { nav.push(.crmClient($0)) }, onOpenPlans: { nav.pushSingleTop(.plans) })
+            case let .crmClient(uuid):
+                CrmClientScreen(uuid: uuid, onBack: back, onOpenAgreement: { nav.push(.agreement($0)) }, onOpenProject: { nav.push(.project($0)) },
+                                onOpenPlans: { nav.pushSingleTop(.plans) })
             case .coach:
                 ProfileCoachScreen(onBack: back, onOpen: { action in
                     switch action {
@@ -174,6 +180,7 @@ struct RootView: View {
                     }
                 })
             case .skillTests: SkillTestsScreen(onBack: back, onOpenSkills: { nav.push(.skills) })
+            case .reputation: ReputationScreen(onBack: back)
             case .capacity: CapacityScreen(onBack: back)
             case .teams: TeamsScreen(onBack: back, onOpenTeam: { nav.push(.team($0)) })
             case let .team(uuid):

@@ -70,6 +70,10 @@ object ChatRealtime {
         "account.verification.changed",
         // Watch & Earn: one of my ads changed (status, views, spend) — its pages reload once.
         "watch_earn.ad.changed",
+        // AI marketing director: a research run or a plan job of one of my projects moved — its page reloads once.
+        "marketing.job.changed", "marketing.budget.alert", "marketing.integration.changed", "marketing.campaign.changed",
+        // A website request built with a person got a new message (or moved / was paid / refunded) — its page reloads once.
+        "ai_site_request.changed",
     )
 
     /** A ride's private channel while its screen is open (`private-rides.{uuid}`): status, the car's place, its chat. */

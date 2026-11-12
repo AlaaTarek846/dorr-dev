@@ -4,6 +4,14 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.ReportProblem
+import androidx.compose.material.icons.rounded.VerifiedUser
 import com.dorr.freelance.ui.components.SkeletonDetail
 import com.dorr.freelance.ui.components.SkeletonList
 import android.Manifest
@@ -107,6 +115,9 @@ import java.io.File
 private const val MAX_WORKS = 30
 private const val MAX_IMAGES = 10
 private const val MAX_WORK_SKILLS = 10
+/** FS-601: the longest each part of a case study may be. */
+private const val CASE_LONG = 1500
+private const val CASE_SHORT = 300
 
 /**
  * FS-209c: where the works are kept — my own (`profile/portfolio`) or a team's (`teams/{team}/portfolio`, the same fields without the
@@ -191,6 +202,9 @@ fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit, team: String? = 
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(item.title, color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                        // FS-601: «Verified by Dorr · finished {month}», or a line saying staff took it off.
+                        if (item.verified) VerifiedBadge(item.verifiedOn, Modifier.padding(vertical = 2.dp), compact = true)
+                        if (item.verifiedRevokedReason != null) Text(stringResource(R.string.pfv_revoked_short), color = QualityAmber, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                         item.specialty?.name?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1) }
                         Text(visibilityLabel(item.visibility), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         if (item.hidden) Text(stringResource(R.string.portfolio_hidden) + (item.hiddenReason?.let { ": $it" } ?: ""), color = settingsMut(), fontSize = 11.sp)
@@ -249,6 +263,12 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
     val rightsOptions = rememberRightsOptions()
     var externalUrl by rememberSaveable { mutableStateOf("") }
     var videoUrl by rememberSaveable { mutableStateOf("") }
+    // FS-601: the case study (each part optional; an empty one clears it on the server).
+    var problem by rememberSaveable { mutableStateOf("") }
+    var solution by rememberSaveable { mutableStateOf("") }
+    var role by rememberSaveable { mutableStateOf("") }
+    var tools by rememberSaveable { mutableStateOf("") }
+    var results by rememberSaveable { mutableStateOf("") }
     val pending = rememberSaveable(saver = stringListSaver()) { mutableStateListOf<String>() }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -267,6 +287,11 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
         agreementUuid = dto.agreement
         externalUrl = dto.externalUrl.orEmpty()
         videoUrl = ""
+        problem = dto.caseStudy?.problem.orEmpty()
+        solution = dto.caseStudy?.solution.orEmpty()
+        role = dto.caseStudy?.role.orEmpty()
+        tools = dto.caseStudy?.tools.orEmpty()
+        results = dto.caseStudy?.results.orEmpty()
     }
 
     // One read of each list when the page opens. A team's work is filed under what the team covers (the union of its people's).
@@ -351,6 +376,12 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
             "rights_confirmed" to (rights && visibility != "private"),
             "external_url" to externalUrl.trim().ifEmpty { null },
             "video_url" to videoUrl.trim().ifEmpty { null },
+            // FS-601: always sent - an empty part clears it.
+            "problem" to problem.trim(),
+            "solution" to solution.trim(),
+            "role" to role.trim(),
+            "tools" to tools.trim(),
+            "results" to results.trim(),
         )
         if (currentId == 0 && agreementUuid != null) body["agreement_uuid"] = agreementUuid
         scope.launch {
@@ -413,17 +444,48 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
                     },
                 )
                 Text(stringResource(R.string.rights_pf_pick_hint), color = settingsMut(), fontSize = 11.sp)
-            }
-            item?.takeIf { it.agreement != null }?.let { linked ->
-                com.dorr.freelance.ui.components.FormGroup {
-                    Text(stringResource(R.string.rights_pf_linked), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    if (linked.withdrawnByClient) Text(stringResource(R.string.rights_pf_withdrawn), color = Color(0xFFD97706), fontSize = 12.sp, lineHeight = 17.sp)
+                // FS-601: a work linked to a project finished on Dorr is shown «Verified by Dorr».
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.VerifiedUser, null, tint = QualityGreen, modifier = Modifier.size(15.dp))
+                    Text(stringResource(R.string.pfv_link_hint), color = QualityGreen, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp)
                 }
+            }
+            // FS-601: where the work stands with the «Verified by Dorr» badge (taken off by staff, standing, or waiting for the client / the end).
+            item?.let { work ->
+                val revoked = work.verifiedRevokedReason
+                when {
+                    revoked != null -> NoteBanner(
+                        Icons.Rounded.ReportProblem, stringResource(R.string.pfv_revoked_body, revoked), QualityAmber,
+                        title = stringResource(R.string.pfv_revoked_title),
+                    )
+                    work.verified -> NoteBanner(
+                        Icons.Rounded.VerifiedUser, stringResource(R.string.pfv_badge_body), QualityGreen,
+                        title = if (work.verifiedOn.isNullOrBlank()) stringResource(R.string.pfv_badge) else stringResource(R.string.pfv_badge_on, monthLabel(work.verifiedOn)),
+                    )
+                    (work.canBeVerified || work.agreement != null) && !work.withdrawnByClient -> NoteBanner(Icons.Rounded.Link, stringResource(R.string.pfv_waiting), QualitySlate)
+                }
+                if (work.agreement != null && work.withdrawnByClient) NoteBanner(Icons.Rounded.LinkOff, stringResource(R.string.rights_pf_withdrawn), QualityAmber)
             }
             com.dorr.freelance.ui.components.FormGroup {
                 DorrTextField(title, { title = it }, label = stringResource(R.string.pf_title), icon = Icons.Rounded.Work, modifier = Modifier.fillMaxWidth())
                 DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.pf_description), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
                 DateField(completed, { completed = it }, label = stringResource(R.string.pf_completed), modifier = Modifier.fillMaxWidth())
+            }
+
+            // FS-601: the case study - the story of the work, every part optional.
+            com.dorr.freelance.ui.components.FormGroup {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    com.dorr.freelance.ui.kit.PinkIcon(Icons.Rounded.AutoStories)
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.pfv_case_title), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(stringResource(R.string.pfv_case_sub), color = settingsMut(), fontSize = 12.sp, lineHeight = 17.sp)
+                    }
+                }
+                CaseField(problem, { problem = it }, R.string.pfv_problem, R.string.pfv_problem_ph, Icons.Rounded.ReportProblem, CASE_LONG)
+                CaseField(solution, { solution = it }, R.string.pfv_solution, R.string.pfv_solution_ph, Icons.Rounded.Lightbulb, CASE_LONG)
+                CaseField(role, { role = it }, R.string.pfv_role, R.string.pfv_role_ph, Icons.Rounded.Person, CASE_SHORT, minLines = 2)
+                CaseField(tools, { tools = it }, R.string.pfv_tools, R.string.pfv_tools_ph, Icons.Rounded.Build, CASE_SHORT, minLines = 2)
+                CaseField(results, { results = it }, R.string.pfv_results, R.string.pfv_results_ph, Icons.Rounded.Insights, CASE_LONG)
             }
 
             if (specialties.isNotEmpty()) {
@@ -513,6 +575,21 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
             text = { Text(stringResource(R.string.common_delete_confirm)) },
             confirmButton = { DialogButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete)) } },
             dismissButton = { DialogButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
+        )
+    }
+}
+
+/** One part of the case study: a multiline field with its label and a hint, cut at [max]; the count shows once it nears the end. */
+@Composable
+private fun CaseField(value: String, onChange: (String) -> Unit, label: Int, placeholder: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, max: Int, minLines: Int = 3) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        DorrTextField(
+            value, { onChange(it.take(max)) }, label = stringResource(label), placeholder = stringResource(placeholder), icon = icon,
+            singleLine = false, minLines = minLines, modifier = Modifier.fillMaxWidth(),
+        )
+        if (value.length >= max * 8 / 10) Text(
+            "${value.length}/$max", color = if (value.length >= max) QualityAmber else settingsMut(), fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.End),
         )
     }
 }

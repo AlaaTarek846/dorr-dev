@@ -187,4 +187,8 @@
     <string name="fs_tm_ch_price_hidden">New price for %1$s</string>
     <string name="fs_tm_ch_add_hidden">New part: %1$s</string>
     <string name="fs_tm_shared_tool">Shared with me</string>
+    <!-- FS-802: an overdue Workroom task -->
+    <string name="fs_hl_r_task_overdue">The task “%1$s” is past its date by %2$s (%3$d late in all).</string>
+    <string name="fs_hl_n_task_overdue">Finish the task “%1$s” or move its date.</string>
+    <string name="fs_hl_w_task_overdue">Waiting for the freelancer to finish “%1$s”.</string>
 </resources>

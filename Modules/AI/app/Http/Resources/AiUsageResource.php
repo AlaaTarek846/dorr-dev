@@ -19,6 +19,8 @@ class AiUsageResource extends JsonResource
                 'type' => $this->request->owner_type,
                 'id' => $this->request->owner_id,
                 'name' => $this->request->owner->name ?? null,
+                // Admin panel only (ownerDisplayName falls back to the phone); never sent to the apps.
+                'phone' => $this->when($request->is('api/admin/*'), fn () => $this->request->owner->phone ?? null),
             ] : null),
             'input_tokens' => $this->input_tokens,
             'output_tokens' => $this->output_tokens,

@@ -7,6 +7,8 @@ private enum Stage {
     case listing
     case running(attempt: SkillAttemptDto, endsAt: Date)
     case done(result: SkillResultDto, name: String?)
+    /// FS-602: the form that sends a practical challenge for the next level of this skill.
+    case challenge(test: SkillTestDto)
 
     var isListing: Bool { if case .listing = self { return true } else { return false } }
 }
@@ -37,6 +39,9 @@ struct SkillTestsScreen: View {
     @State private var stage: Stage = .listing
     @State private var busySkill = 0
     @State private var notice: String?
+    // FS-602: the challenge asked to be withdrawn (the question is open) and the one being withdrawn.
+    @State private var askWithdraw: SkillChallengeDto?
+    @State private var withdrawing: String?
 
     private var offlineText: String { L("login_error_offline") }
     private var genericError: String { L("login_error_generic") }
@@ -67,6 +72,22 @@ struct SkillTestsScreen: View {
         }
     }
 
+    private func withdraw(_ c: SkillChallengeDto) {
+        withdrawing = c.uuid
+        notice = nil
+        Task {
+            let r = await SkillTestsApi.withdrawChallenge(c.uuid ?? "")
+            if r.value != nil {
+                await load()
+            } else {
+                notice = r.errorText(offlineText) ?? genericError
+            }
+            withdrawing = nil
+        }
+    }
+
+    private var isChallenge: Bool { if case .challenge = stage { return true } else { return false } }
+
     /// Leaving a running test keeps it on the server: opening it again resumes the same questions until the time is up.
     private func back() {
         if stage.isListing {
@@ -78,7 +99,7 @@ struct SkillTestsScreen: View {
     }
 
     var body: some View {
-        Page(title: L("skt_title"), onBack: back) {
+        Page(title: L(isChallenge ? "skl_ch_title" : "skt_title"), onBack: back) {
             switch stage {
             case .running(let attempt, let endsAt):
                 TestRunner(
@@ -93,9 +114,23 @@ struct SkillTestsScreen: View {
                 .id(attempt.attemptId ?? 0)
             case .done(let result, let name):
                 TestResult(result: result, name: name, onDone: { stage = .listing })
+            case .challenge(let test):
+                SkillChallengeForm(test: test, onSent: { text in
+                    notice = text
+                    stage = .listing
+                    Task { await load() }
+                })
+                .id(test.skillId ?? 0)
             case .listing:
                 if let data = overview {
-                    TestList(data: data, busySkill: busySkill, onStart: start, onOpenSkills: onOpenSkills)
+                    TestList(
+                        data: data, busySkill: busySkill, withdrawing: withdrawing, onStart: start, onOpenSkills: onOpenSkills,
+                        onChallenge: { test in
+                            notice = nil
+                            stage = .challenge(test: test)
+                        },
+                        onWithdraw: { askWithdraw = $0 }
+                    )
                 } else if let failure {
                     EmptyState(icon: "questionmark.bubble.fill", title: L("skt_title"), body: failure).padding(.top, 70)
                 } else {
@@ -106,6 +141,20 @@ struct SkillTestsScreen: View {
         .task(id: network.reconnectTick) { await load() }
         .onReceive(Realtime.shared.changed) { if stage.isListing { Task { await load() } } }
         .messageToast(stage.isListing ? (notice ?? (overview != nil ? failure : nil)) : nil)
+        .dorrDialog(isPresented: Binding(get: { askWithdraw != nil }, set: { if !$0 { askWithdraw = nil } })) {
+            AlertDialog(
+                onDismissRequest: { askWithdraw = nil },
+                text: { Text(L("skl_ch_withdraw_q")) },
+                confirmButton: {
+                    DialogButton(onClick: {
+                        let c = askWithdraw
+                        askWithdraw = nil
+                        if let c { withdraw(c) }
+                    }) { Text(L("skl_ch_withdraw")) }
+                },
+                dismissButton: { DialogButton(onClick: { askWithdraw = nil }) { Text(L("common_cancel")) } }
+            )
+        }
     }
 }
 
@@ -113,8 +162,11 @@ private struct TestList: View {
     @Environment(\.wa) private var wa
     let data: SkillTestsDto
     let busySkill: Int
+    let withdrawing: String?
     let onStart: (SkillTestDto) -> Void
     let onOpenSkills: () -> Void
+    let onChallenge: (SkillTestDto) -> Void
+    let onWithdraw: (SkillChallengeDto) -> Void
 
     var body: some View {
         let tests = data.tests ?? []
@@ -129,7 +181,11 @@ private struct TestList: View {
             .buttonStyle(.plain)
         } else {
             ForEach(Array(tests.enumerated()), id: \.offset) { _, test in
-                TestRow(test: test, loading: busySkill != 0 && busySkill == test.skillId, onStart: { onStart(test) })
+                TestRow(
+                    test: test, loading: busySkill != 0 && busySkill == test.skillId,
+                    withdrawing: withdrawing != nil && withdrawing == test.challenge?.current?.uuid,
+                    onStart: { onStart(test) }, onChallenge: { onChallenge(test) }, onWithdraw: onWithdraw
+                )
             }
         }
     }
@@ -158,7 +214,7 @@ private struct Hero: View {
                     ForEach(Array(badges.prefix(3).enumerated()), id: \.offset) { _, b in
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.seal.fill").font(.system(size: 12)).foregroundStyle(.white)
-                            Text(verbatim: b.name ?? "").font(.dorr(12, .bold)).foregroundStyle(.white).lineLimit(1)
+                            Text(verbatim: (b.name ?? "") + (b.level.map { " · " + skillLevelLabel($0) } ?? "")).font(.dorr(12, .bold)).foregroundStyle(.white).lineLimit(1)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(.white.opacity(0.2), in: Capsule())
@@ -175,33 +231,60 @@ private struct Hero: View {
     }
 }
 
+/// One skill: its test, the badge I hold as a level pill and a four-step meter, renewing a badge that ends soon (FS-602), and the practical
+/// challenge for the next level.
 private struct TestRow: View {
     @Environment(\.wa) private var wa
     let test: SkillTestDto
     let loading: Bool
+    let withdrawing: Bool
     let onStart: () -> Void
+    let onChallenge: () -> Void
+    let onWithdraw: (SkillChallengeDto) -> Void
 
     var body: some View {
         let inProgress = test.inProgress ?? false
-        VStack(alignment: .leading, spacing: 10) {
+        let renewable = test.renewable ?? false
+        let tint = test.badge != nil ? skillLevelColor(test.badge?.level) : wa.red
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: test.badge != nil ? "checkmark.seal.fill" : "questionmark.bubble.fill")
-                    .font(.system(size: 18, weight: .semibold)).foregroundStyle(wa.red)
-                    .frame(width: 42, height: 42).background(wa.red.opacity(0.12), in: Circle())
+                    .font(.system(size: 18, weight: .semibold)).foregroundStyle(tint)
+                    .frame(width: 42, height: 42).background(tint.opacity(0.12), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(verbatim: test.name ?? "").font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk)
                     Text(L("skt_meta", test.questions ?? 0, test.minutes ?? 0, test.passPercent ?? 0)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if let badge = test.badge {
-                    SvcPill(text: L("skt_badge_held", badge.scorePercent ?? 0), tone: serviceTone("active", night: wa.night))
+                    SkillLevelPill(level: badge.level)
                 } else if inProgress {
                     SvcPill(text: L("skt_in_progress"), tone: serviceTone("awaiting", night: wa.night))
                 }
             }
             if let badge = test.badge {
-                Text(verbatim: badge.expiresAt != nil ? L("skt_badge_until", day(badge.expiresAt)) : L("skt_badge_forever"))
-                    .font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                SkillLevelMeter(level: badge.level)
+                HStack(spacing: 8) {
+                    SvcPill(text: L("skt_badge_held", badge.scorePercent ?? 0), tone: serviceTone("active", night: wa.night))
+                    Text(verbatim: badge.expiresAt != nil ? L("skt_badge_until", day(badge.expiresAt)) : L("skt_badge_forever"))
+                        .font(.dorr(12)).foregroundStyle(renewable ? QualityAmber : wa.settingsMut)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else if let intermediate = test.intermediatePercent, intermediate > 0 {
+                Text(L("skl_intermediate_hint", intermediate)).font(.dorr(11.5)).foregroundStyle(wa.settingsMut)
+            }
+            if test.badge != nil && renewable {
+                NoteBanner(icon: "arrow.triangle.2.circlepath", text: L("skl_renew_body"), tint: QualityAmber, title: L("skl_renew_title"))
+                if let retakeAt = test.retakeAt, !inProgress {
+                    Text(L("skt_retake_at", dayTime(retakeAt))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                } else {
+                    SettingsPrimaryButton(
+                        text: L(inProgress ? "skt_resume" : "skl_renew"),
+                        enabled: (test.canStart ?? false) || inProgress, loading: loading, action: onStart
+                    )
+                }
+            } else if test.badge != nil {
+                EmptyView()
             } else if let retakeAt = test.retakeAt {
                 Text(L("skt_retake_at", dayTime(retakeAt))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
             } else {
@@ -209,6 +292,9 @@ private struct TestRow: View {
                     text: L(inProgress ? "skt_resume" : "skt_start"),
                     enabled: (test.canStart ?? false) || inProgress, loading: loading, action: onStart
                 )
+            }
+            if let challenge = test.challenge, challenge.shown {
+                SkillChallengeCard(state: challenge, withdrawing: withdrawing, onSend: onChallenge, onWithdraw: onWithdraw)
             }
         }
         .padding(16)
@@ -355,6 +441,11 @@ private struct TestResult: View {
             Text(L(result.status == "passed" ? "skt_passed" : (result.status == "expired" ? "skt_expired" : "skt_failed")))
                 .font(.dorr(20, .heavy)).foregroundStyle(wa.settingsInk)
             Text(L("skt_score_line", result.correctCount ?? 0, result.total ?? 0, result.passPercent ?? 0)).font(.dorr(13)).foregroundStyle(wa.settingsMut)
+            // FS-602: the level the mark gave, on the four-step meter.
+            if ok, let level = result.badge?.level {
+                SkillLevelPill(level: level)
+                SkillLevelMeter(level: level).padding(.horizontal, 12)
+            }
             if ok {
                 Text(L("skt_passed_body", name ?? "")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4).multilineTextAlignment(.center)
             } else if let retakeAt = result.retakeAt {

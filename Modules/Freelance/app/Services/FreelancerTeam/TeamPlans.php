@@ -8,6 +8,7 @@ use Modules\Freelance\Models\FreelancePlan;
 use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\FreelanceTeamMember as Member;
 use Modules\Freelance\Models\FreelanceTeamSubscription;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 
 /**
@@ -57,23 +58,20 @@ class TeamPlans
      */
     public function limitsFor(FreelanceTeam $team, ?FreelancePlan $plan): array
     {
-        $policy = $this->policies->for((int) $team->country_id);
-        $base = fn (string $key): ?int => ($v = $policy->get($key)) === null ? null : (int) $v;
+        // FS-705: the same rule as every plan feature (`PlanFeatures`): a plan raises the policy and never lowers it.
+        $features = app(PlanFeatures::class);
+        $value = fn (string $key): ?int => $features->value($plan, $key, FreelancePlan::TEAM, (int) $team->country_id);
 
-        return [
-            'members' => $plan === null ? $base('teams.members_max') : $this->raised($base('teams.members_max'), $plan->team_members_max),
-            'projects' => $plan === null ? $base('teams.projects_max') : $this->raised($base('teams.projects_max'), $plan->team_projects_max),
-            'offers' => $plan === null ? $base('teams.offers_monthly') : ($plan->offers_unlimited ? null : $this->raised($base('teams.offers_monthly'), $plan->offers_monthly, nullMeansPolicy: true)),
-        ];
+        return ['members' => $value('team_members_max'), 'projects' => $value('team_projects_max'), 'offers' => $value('offers_monthly')];
     }
 
     /**
-     * Whether a plan opens more room than the free baseline does for this team. A plan that opens nothing (every policy still empty, so
-     * there is no cap to lift) is not sold: nobody should pay for room they already have.
+     * Whether a plan gives the team more than the free baseline on something that works today. A plan that opens nothing (every policy
+     * still empty, so there is no cap to lift, and its other perks not wired yet) is not sold: nobody should pay for what they already have.
      */
     public function raises(FreelanceTeam $team, FreelancePlan $plan): bool
     {
-        return $this->limitsFor($team, $plan) !== $this->limitsFor($team, null);
+        return app(PlanFeatures::class)->sellable($plan, FreelancePlan::TEAM, (int) $team->country_id);
     }
 
     /** The most active people the team holds (null = no cap). */
@@ -129,18 +127,5 @@ class TeamPlans
             'projects' => ['used' => $this->running($team), 'max' => $limits['projects']],
             'offers' => ['used' => $offers['used'], 'limit' => $limits['offers'], 'left' => $offers['left']],
         ];
-    }
-
-    /** A plan raises the policy's number and never lowers it (see the class comment). */
-    private function raised(?int $policy, ?int $plan, bool $nullMeansPolicy = false): ?int
-    {
-        if ($policy === null) {
-            return null;
-        }
-        if ($plan === null) {
-            return $nullMeansPolicy ? $policy : null;
-        }
-
-        return max($policy, $plan);
     }
 }

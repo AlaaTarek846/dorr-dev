@@ -21,6 +21,11 @@ class ChatSubscription extends Model
         return ['amount_minor' => 'integer', 'starts_at' => 'datetime', 'ends_at' => 'datetime'];
     }
 
+    public function currency(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Currency::class);
+    }
+
     public function package(): BelongsTo
     {
         return $this->belongsTo(ChatPackage::class, 'chat_package_id');

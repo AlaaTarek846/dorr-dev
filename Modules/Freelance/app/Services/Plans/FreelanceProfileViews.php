@@ -17,6 +17,9 @@ class FreelanceProfileViews
 
     public const SERVICE = 'service';
 
+    /** FS-704: one portfolio work opened (`service_id` holds the work's id); the totals of the profile and the services leave it out. */
+    public const WORK = 'work';
+
     /** Where the visit came from: an offer on the client's project, the portfolio, or the ready-made services market. */
     public const SOURCES = ['offer', 'portfolio', 'market'];
 
@@ -48,7 +51,7 @@ class FreelanceProfileViews
     public function totals(int $freelancerId, Carbon $since, int $days): array
     {
         $before = $since->copy()->subDays($days);
-        $rows = DB::table('freelance_profile_views')->where('freelancer_id', $freelancerId)->where('day', '>=', $before->toDateString())
+        $rows = DB::table('freelance_profile_views')->where('freelancer_id', $freelancerId)->whereIn('kind', [self::PROFILE, self::SERVICE])->where('day', '>=', $before->toDateString())
             ->selectRaw('kind, source, day >= ? as current_period, sum(views) as n', [$since->toDateString()])->groupBy('kind', 'source', 'current_period')->get();
 
         $out = ['profile' => 0, 'service' => 0, 'profile_before' => 0, 'service_before' => 0, 'by_source' => array_fill_keys(self::SOURCES, 0)];
@@ -80,7 +83,7 @@ class FreelanceProfileViews
         $first = Carbon::parse($starts[0])->startOfDay();
         $today = now()->startOfDay();
 
-        DB::table('freelance_profile_views')->where('freelancer_id', $freelancerId)->where('day', '>=', $first->toDateString())->get(['kind', 'day', 'views'])
+        DB::table('freelance_profile_views')->where('freelancer_id', $freelancerId)->whereIn('kind', [self::PROFILE, self::SERVICE])->where('day', '>=', $first->toDateString())->get(['kind', 'day', 'views'])
             ->each(function ($r) use (&$points, $weekly, $today) {
                 $day = Carbon::parse($r->day)->startOfDay();
                 $key = $weekly
@@ -110,5 +113,30 @@ class FreelanceProfileViews
         $orders = DB::table('freelance_service_orders')->whereIn('service_id', $views->keys())->where('created_at', '>=', $since)->selectRaw('service_id, count(*) as n')->groupBy('service_id')->pluck('n', 'service_id');
 
         return $views->map(fn ($n, $id) => ['id' => (int) $id, 'title' => (string) ($titles[$id] ?? ''), 'views' => (int) $n, 'orders' => (int) ($orders[$id] ?? 0)])->values()->all();
+    }
+
+    /**
+     * FS-704: how often the works were opened in the period and in the stretch before it, and per work (the ones looked at, most first).
+     *
+     * @return array{total: int, before: int, by_work: array<int, int>, by_work_before: array<int, int>}
+     */
+    public function workTotals(int $freelancerId, Carbon $since, int $days): array
+    {
+        $before = $since->copy()->subDays($days);
+        $rows = DB::table('freelance_profile_views')->where('freelancer_id', $freelancerId)->where('kind', self::WORK)->where('day', '>=', $before->toDateString())
+            ->selectRaw('service_id, day >= ? as current_period, sum(views) as n', [$since->toDateString()])->groupBy('service_id', 'current_period')->get();
+        $out = ['total' => 0, 'before' => 0, 'by_work' => [], 'by_work_before' => []];
+        foreach ($rows as $r) {
+            if ((int) $r->current_period === 1) {
+                $out['total'] += (int) $r->n;
+                $out['by_work'][(int) $r->service_id] = (int) $r->n;
+            } else {
+                $out['before'] += (int) $r->n;
+                $out['by_work_before'][(int) $r->service_id] = (int) $r->n;
+            }
+        }
+        arsort($out['by_work']);
+
+        return $out;
     }
 }

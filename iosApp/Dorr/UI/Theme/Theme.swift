@@ -59,8 +59,9 @@ final class AppearanceState: ObservableObject {
     static let shared = AppearanceState()
 
     @Published private(set) var snapshot: AppearanceDto? = AppearanceStore.loadUser()
-    @Published private(set) var platformLight: [String: String]? = AppearanceStore.loadPlatformLight()
-    @Published private(set) var platformDark: [String: String]? = AppearanceStore.loadPlatformDark()
+    // Nothing saved yet (the first launch): the copy bundled in the app, until the server's answer replaces it.
+    @Published private(set) var platformLight: [String: String]? = AppearanceStore.loadPlatformLight().flatMap { $0.isEmpty ? nil : $0 } ?? BundledAppearance.light
+    @Published private(set) var platformDark: [String: String]? = AppearanceStore.loadPlatformDark().flatMap { $0.isEmpty ? nil : $0 } ?? BundledAppearance.dark
     /// Bumped when the app font (Cairo or a downloaded one) changes, so every screen redraws with it.
     @Published private(set) var fontRevision = 0
 

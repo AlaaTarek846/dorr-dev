@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- صفحات الترحيب: العنوان الصغير، والعنوان، وسطره المميّز، والوصف. -->
+    <string name="onb_chat_eyebrow">الدردشة والذكاء الاصطناعي</string>
+    <string name="onb_chat_title">احكِ، شارك، واسأل</string>
+    <string name="onb_chat_highlight">Dorr AI</string>
+    <string name="onb_chat_body">تحدّث مع أصدقائك، شارك حالاتك، واسأل Dorr AI عن أي شيء تحتاجه.</string>
+
+    <string name="onb_rides_eyebrow">مشاويرك وخدماتك</string>
+    <string name="onb_rides_title">تاكسي، سائق، وفعاليات</string>
+    <string name="onb_rides_highlight">بلمسة واحدة</string>
+    <string name="onb_rides_body">اطلب تاكسي أو سائقًا لسيارتك، احجز دروس القيادة وتذاكر الفعاليات، وشاهد واكسب.</string>
+
+    <string name="onb_wallet_eyebrow">محفظة دُرر</string>
+    <string name="onb_wallet_title">ادفع واشحن</string>
+    <string name="onb_wallet_highlight">بأمان وسهولة</string>
+    <string name="onb_wallet_body">اشحن محفظتك، ادفع لكل خدماتك، وتابع رصيدك ومكافآتك من مكان واحد.</string>
+
+    <!-- زر آخر صفحة. -->
+    <string name="onb_start">ابدأ تجربتك</string>
+    <string name="onb_safe">تجربة آمنة ومحمية</string>
+</resources>

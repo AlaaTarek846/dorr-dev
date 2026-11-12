@@ -47,6 +47,33 @@ data class InsightsDataDto(
     val saved: InsightSavedDto? = null,
     /** The full level only. */
     val specialties: List<InsightSpecialtyDto>? = null,
+    /** FS-704, the full level only: how clients look at my works. */
+    val portfolio: InsightPortfolioDto? = null,
+)
+
+/**
+ * FS-704: my portfolio in numbers — how many works there are, how many are shown and verified, the visits to the portfolio and the works opened
+ * against the period before, and the works opened most ([top]). Counted per day, never per person.
+ */
+data class InsightPortfolioDto(
+    val works: Int = 0,
+    val shown: Int = 0,
+    val verified: Int = 0,
+    val visits: Int = 0,
+    val opened: Int = 0,
+    @SerializedName("opened_before") val openedBefore: Int = 0,
+    /** Whole percent against the period before; null when there was nothing before. */
+    @SerializedName("opened_change_percent") val openedChangePercent: Int? = null,
+    val top: List<InsightTopWorkDto> = emptyList(),
+)
+
+/** [visibility] is `public`, `clients_only` or `private`. */
+data class InsightTopWorkDto(
+    val uuid: String = "",
+    val title: String = "",
+    val verified: Boolean = false,
+    val visibility: String = "public",
+    val views: Int = 0,
 )
 
 /** [lists] = the lists I am in in total; [new] = how many of them were added in the period. */
@@ -102,6 +129,37 @@ data class InsightEarningsDto(
     /** `week` (30 days) or `month`; the full level only, with [series]. */
     val bucket: String? = null,
     val series: List<InsightPointDto>? = null,
+    /** FS-704, the full level only: against the period before, by source, specialty and client. */
+    val analysis: InsightEarningsAnalysisDto? = null,
+)
+
+/**
+ * What the earnings of the period are made of. [changePercent] is against the stretch of the same length before (null = nothing before to
+ * compare with, shown as «new»); [sources] are amounts in minor units; a `share` is a whole percent of the period's earnings.
+ */
+data class InsightEarningsAnalysisDto(
+    @SerializedName("before_minor") val beforeMinor: Long = 0,
+    @SerializedName("change_percent") val changePercent: Int? = null,
+    val sources: InsightSourcesDto = InsightSourcesDto(),
+    @SerializedName("by_specialty") val bySpecialty: List<InsightEarnedSpecialtyDto> = emptyList(),
+    @SerializedName("top_clients") val topClients: List<InsightTopClientDto> = emptyList(),
+    @SerializedName("projects_paid") val projectsPaid: Int = 0,
+    @SerializedName("average_project_minor") val averageProjectMinor: Long? = null,
+)
+
+data class InsightSourcesDto(val projects: Long = 0, val services: Long = 0, val consultations: Long = 0)
+
+data class InsightEarnedSpecialtyDto(
+    val id: Int = 0,
+    val name: String? = null,
+    @SerializedName("earned_minor") val earnedMinor: Long = 0,
+    val share: Int? = null,
+)
+
+data class InsightTopClientDto(
+    val name: String? = null,
+    @SerializedName("earned_minor") val earnedMinor: Long = 0,
+    val share: Int? = null,
 )
 
 /** One bar: [from] is the first day of its week or month (`2026-10-01`). */

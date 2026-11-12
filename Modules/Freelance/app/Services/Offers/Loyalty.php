@@ -65,14 +65,16 @@ class Loyalty
     }
 
     /** @return array{min_discount_bp: int, max_discount_bp: int, max_tiers: int, max_after: int} */
-    public function rules(int $countryId): array
+    public function rules(int $countryId, ?Freelancer $f = null): array
     {
         $p = $this->policies->for($countryId, null);
+        // FS-705: a plan raises the steps of the program, never lowers them (null = no cap, but a program stays readable: 10 is the most).
+        $tiers = $f === null ? max(1, (int) ($p->get('loyalty.max_tiers') ?? 4)) : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'loyalty_tiers_max');
 
         return [
             'min_discount_bp' => self::MIN_BP,
             'max_discount_bp' => max(self::MIN_BP, (int) ($p->get('loyalty.max_discount_bp') ?? 3000)),
-            'max_tiers' => max(1, (int) ($p->get('loyalty.max_tiers') ?? 4)),
+            'max_tiers' => $tiers === null ? 10 : max(1, min(10, (int) $tiers)),
             'max_after' => self::MAX_AFTER,
         ];
     }
@@ -96,7 +98,7 @@ class Loyalty
      */
     public function save(Freelancer $f, bool $enabled, array $tiers): FreelanceLoyaltyProgram
     {
-        $clean = $this->clean($tiers, $this->rules((int) $f->country_id));
+        $clean = $this->clean($tiers, $this->rules((int) $f->country_id, $f));
 
         return DB::transaction(function () use ($f, $enabled, $clean) {
             // One saving at a time per freelancer: two taps make one program.
@@ -220,7 +222,7 @@ class Loyalty
     {
         $countryId = (int) $f->country_id;
         $country = Country::query()->with('currency')->find($countryId);
-        $rules = $this->rules($countryId);
+        $rules = $this->rules($countryId, $f);
         $program = $this->program($f);
         $tiers = $program === null ? [] : $this->tiersOf($program);
         $works = $this->freelancerWorks($f);

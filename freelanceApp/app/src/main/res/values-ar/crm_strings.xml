@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-703: عملائي (إدارة العملاء الخاصة بالمحترف) وFS-704: الأرقام المتقدمة في «أدائي». -->
+    <string name="crm_title">عملائي</string>
+    <string name="crm_home_card">عملائي</string>
+    <string name="crm_me_sub">العملاء والملاحظات والمتابعات</string>
+    <string name="crm_hero_body">كل اللي بتشتغل معاهم أو اشتغلت معاهم، واللي لسه بتحاول تكسبهم. خاص بيك، والعميل مبيشوفوش أبدًا.</string>
+    <string name="crm_hero_total">الكل</string>
+    <string name="crm_hero_active">شغّالين</string>
+    <string name="crm_hero_past">سابقين</string>
+    <string name="crm_hero_leads">محتملين</string>
+
+    <!-- القائمة -->
+    <string name="crm_tab_all">الكل</string>
+    <string name="crm_tab_active">شغّالين</string>
+    <string name="crm_tab_past">سابقين</string>
+    <string name="crm_tab_leads">محتملين</string>
+    <string name="crm_tab_starred">بنجمة</string>
+    <string name="crm_tab_count">%1$s · %2$d</string>
+    <string name="crm_search_hint">دوّر على عميل بالاسم</string>
+    <string name="crm_search_clear">امسح البحث</string>
+    <string name="crm_stage_active">شغّال معاك دلوقتي</string>
+    <string name="crm_stage_past">عميل سابق</string>
+    <string name="crm_stage_lead">عميل محتمل</string>
+    <string name="crm_label_vip">مميّز</string>
+    <string name="crm_label_regular">دايم</string>
+    <string name="crm_label_lead">محتمل</string>
+    <string name="crm_label_paused">متوقّف</string>
+    <string name="crm_label_none">من غير تصنيف</string>
+    <plurals name="crm_n_projects">
+        <item quantity="zero">مفيش مشاريع</item>
+        <item quantity="one">مشروع واحد</item>
+        <item quantity="two">مشروعين</item>
+        <item quantity="few">%1$d مشاريع</item>
+        <item quantity="many">%1$d مشروع</item>
+        <item quantity="other">%1$d مشروع</item>
+    </plurals>
+    <plurals name="crm_n_notes">
+        <item quantity="zero">مفيش ملاحظات</item>
+        <item quantity="one">ملاحظة واحدة</item>
+        <item quantity="two">ملاحظتين</item>
+        <item quantity="few">%1$d ملاحظات</item>
+        <item quantity="many">%1$d ملاحظة</item>
+        <item quantity="other">%1$d ملاحظة</item>
+    </plurals>
+    <plurals name="crm_n_reminders">
+        <item quantity="zero">مفيش متابعات</item>
+        <item quantity="one">متابعة واحدة</item>
+        <item quantity="two">متابعتين</item>
+        <item quantity="few">%1$d متابعات</item>
+        <item quantity="many">%1$d متابعة</item>
+        <item quantity="other">%1$d متابعة</item>
+    </plurals>
+    <string name="crm_fact_earned">ربحت %1$s</string>
+    <string name="crm_fact_rating">%1$s</string>
+    <string name="crm_next_due">المتابعة الجاية: %1$s</string>
+    <string name="crm_overdue">فاتت</string>
+    <string name="crm_waiting_offer">عرضك لسه مستني</string>
+    <string name="crm_invited_you">دعاك</string>
+    <string name="crm_last_activity">آخر نشاط %1$s</string>
+    <string name="crm_star_on">شيل النجمة</string>
+    <string name="crm_star_off">حط نجمة</string>
+    <string name="crm_open_client">افتح %1$s</string>
+
+    <string name="crm_due_title">المتابعات المستحقة</string>
+    <string name="crm_due_sub">التذكيرات اللي حطيتها لعملائك</string>
+    <string name="crm_due_more">اعرض %1$d كمان</string>
+    <string name="crm_due_less">اعرض أقل</string>
+
+    <string name="crm_empty_all_title">مفيش عملاء لسه</string>
+    <string name="crm_empty_all_body">العميل بيظهر هنا أول ما تبدأ معاه مشروع أو تبعتله عرض.</string>
+    <string name="crm_empty_active_title">مفيش حد شغّال معاك دلوقتي</string>
+    <string name="crm_empty_active_body">العملاء اللي عندهم مشروع شغّال بيظهروا هنا.</string>
+    <string name="crm_empty_past_title">مفيش عملاء سابقين لسه</string>
+    <string name="crm_empty_past_body">العملاء اللي خلّصت مشاريعهم بيظهروا هنا، عشان تقدر ترجعلهم تاني.</string>
+    <string name="crm_empty_leads_title">مفيش عملاء محتملين</string>
+    <string name="crm_empty_leads_body">العملاء اللي لسه مردّوش على عرضك، أو اللي دعوك، بيظهروا هنا.</string>
+    <string name="crm_empty_starred_title">مفيش حد بنجمة</string>
+    <string name="crm_empty_starred_body">دوس على النجمة عند أي عميل عشان تفضل قريب منه.</string>
+    <string name="crm_empty_search_title">مفيش عميل بالاسم ده</string>
+    <string name="crm_empty_search_body">جرّب اسم تاني، أو امسح البحث.</string>
+
+    <!-- باقة من غير العملاء، وتلميح المستوى الأساسي -->
+    <string name="crm_locked_title">خلّي عملاءك قريبين منك</string>
+    <string name="crm_locked_body">عملاؤك، والمشاريع اللي عملتوها مع بعض، وملاحظات خاصة وتذكيرات متابعة. كله في مكان واحد إنت بس اللي بتشوفه.</string>
+    <string name="crm_locked_b1">كل اللي بتشتغل معاهم في قائمة واحدة</string>
+    <string name="crm_locked_b2">ملاحظات خاصة على كل عميل</string>
+    <string name="crm_locked_b3">المشاريع اللي عملتوها مع كل عميل</string>
+    <string name="crm_locked_b4">تصنيفات (مميّز، دايم…) وتذكيرات متابعة</string>
+    <string name="crm_unlock">ترقّى لباقة %1$s</string>
+    <string name="crm_no_plans">الباقات مش متاحة في بلدك لسه.</string>
+    <string name="crm_more_title">عايز تصنيفات وتذكيرات؟</string>
+    <string name="crm_more_body">باقة %1$s بتضيف تصنيفات للعملاء وتذكيرات متابعة تنبّهك لما يحين وقتها.</string>
+
+    <!-- صفحة العميل -->
+    <string name="crm_client_title">العميل</string>
+    <string name="crm_private_note">الصفحة دي إنت بس اللي بتشوفها، والعميل مبيشوفهاش أبدًا.</string>
+    <string name="crm_stat_projects">المشاريع</string>
+    <string name="crm_stat_earned">اللي كسبته منه</string>
+    <string name="crm_stat_rating">تقييمه ليك</string>
+    <string name="crm_label_title">التصنيف</string>
+    <string name="crm_label_sub">رتّب عملاءك بطريقتك</string>
+    <string name="crm_label_locked">التصنيفات جزء من باقة %1$s</string>
+    <string name="crm_label_locked_plain">التصنيفات جزء من باقة أعلى</string>
+
+    <string name="crm_leads_title">لسه مستني</string>
+    <string name="crm_leads_sub">عروض ودعوات لسه ما اتحوّلتش لشغل</string>
+    <string name="crm_lead_offer">عرضك</string>
+    <string name="crm_lead_invitation">دعوة</string>
+    <string name="crm_lead_submitted">اتبعت</string>
+    <string name="crm_lead_viewed">اتشاف</string>
+    <string name="crm_lead_shortlisted">في القائمة المختصرة</string>
+    <string name="crm_lead_pending">مستني ردّك</string>
+
+    <string name="crm_rem_title">المتابعات</string>
+    <string name="crm_rem_sub">هنبّهك لما يحين وقتها</string>
+    <string name="crm_rem_add">أضف متابعة</string>
+    <string name="crm_rem_empty">مفيش متابعات. حط واحدة عشان متنساش تطمّن عليه.</string>
+    <string name="crm_rem_done">تمت</string>
+    <string name="crm_rem_mark_done">علّمها تمت</string>
+    <string name="crm_rem_reopen">افتحها تاني</string>
+    <string name="crm_rem_delete">احذف المتابعة</string>
+    <string name="crm_rem_delete_confirm">تحذف المتابعة دي؟</string>
+    <string name="crm_rem_done_on">تمت %1$s</string>
+    <string name="crm_rem_locked_title">تذكيرات المتابعة</string>
+    <string name="crm_rem_locked_body">متنساش تطمّن على عميل. التذكيرات جزء من باقة %1$s.</string>
+    <string name="crm_rem_locked_plain">متنساش تطمّن على عميل. التذكيرات جزء من باقة أعلى.</string>
+    <string name="crm_rem_sheet_title">متابعة جديدة</string>
+    <string name="crm_rem_sheet_body">هنفكّرك في الوقت اللي تختاره.</string>
+    <string name="crm_rem_field_title">هتتابع إيه</string>
+    <string name="crm_rem_field_title_ph">مثلًا: اسأله عن المرحلة التانية</string>
+    <string name="crm_rem_field_date">التاريخ</string>
+    <string name="crm_rem_field_time">الساعة</string>
+    <string name="crm_rem_pick_time">اختار الساعة</string>
+    <string name="crm_rem_quick">اختيار سريع</string>
+    <string name="crm_quick_tomorrow">بكرة</string>
+    <string name="crm_quick_week">بعد أسبوع</string>
+    <string name="crm_quick_month">بعد شهر</string>
+    <string name="crm_rem_past">اختار وقت في المستقبل.</string>
+    <string name="crm_rem_save">احفظ المتابعة</string>
+
+    <string name="crm_notes_title">ملاحظات خاصة</string>
+    <string name="crm_notes_sub">إنت بس اللي بتشوفها</string>
+    <string name="crm_notes_count">%1$d / %2$d</string>
+    <string name="crm_note_add">أضف ملاحظة</string>
+    <string name="crm_note_edit">عدّل الملاحظة</string>
+    <string name="crm_note_delete">احذف الملاحظة</string>
+    <string name="crm_note_delete_confirm">تحذف الملاحظة دي؟</string>
+    <string name="crm_notes_empty">مفيش ملاحظات لسه. اكتب اللي عايز تفتكره عن العميل ده.</string>
+    <string name="crm_notes_full_hint">وصلت للحد الأقصى %1$d ملاحظة. احذف ملاحظة قديمة عشان تضيف غيرها.</string>
+    <string name="crm_note_sheet_new">ملاحظة جديدة</string>
+    <string name="crm_note_sheet_edit">تعديل الملاحظة</string>
+    <string name="crm_note_sheet_body">إنت بس اللي بتشوفها.</string>
+    <string name="crm_note_field">الملاحظة</string>
+    <string name="crm_note_hint">إيه اللي عايز تفتكره؟</string>
+    <string name="crm_note_save">احفظ الملاحظة</string>
+    <string name="crm_note_edited">اتعدّلت %1$s</string>
+
+    <string name="crm_hist_title">شغلنا مع بعض</string>
+    <string name="crm_hist_sub">الأحدث الأول</string>
+    <string name="crm_hist_empty">لسه ما اشتغلتوش مع بعض.</string>
+    <string name="crm_hist_active">شغّال</string>
+    <string name="crm_hist_completed">اكتمل</string>
+    <string name="crm_hist_service">خدمة جاهزة</string>
+    <string name="crm_hist_price">السعر %1$s</string>
+    <string name="crm_hist_earned">ربحت %1$s</string>
+    <string name="crm_hist_started">بدأ %1$s</string>
+    <string name="crm_hist_finished">خلص %1$s</string>
+    <string name="crm_untitled">مشروع من غير عنوان</string>
+    <string name="crm_saved_ok">اتحفظ</string>
+
+    <!-- «أدائي»، المستوى الكامل: أرباحك بالتفصيل (FS-704) -->
+    <string name="insights_detail_title">أرباحك بالتفصيل</string>
+    <string name="insights_detail_sub">مقارنة بنفس المدة اللي قبل الفترة دي</string>
+    <string name="insights_detail_before">قبل كده: %1$s</string>
+    <string name="insights_detail_up">%1$d%% أكتر من قبل</string>
+    <string name="insights_detail_down">%1$d%% أقل من قبل</string>
+    <string name="insights_detail_same">زي قبل كده بالظبط</string>
+    <string name="insights_detail_first">مفيش حاجة نقارن بيها لسه</string>
+    <string name="insights_detail_none">مفيش أرباح اتحرّرت في الفترة دي لسه.</string>
+    <string name="insights_detail_sources">جاية منين</string>
+    <string name="insights_src_projects">المشاريع</string>
+    <string name="insights_src_services">الخدمات الجاهزة</string>
+    <string name="insights_src_consultations">الاستشارات</string>
+    <string name="insights_detail_specialty">حسب التخصص</string>
+    <string name="insights_detail_clients">أكتر العملاء</string>
+    <string name="insights_detail_client_unknown">عميل</string>
+    <string name="insights_detail_paid">المشاريع المدفوعة</string>
+    <string name="insights_detail_avg">متوسط المشروع</string>
+    <string name="insights_detail_share">%1$d%%</string>
+
+    <!-- «أدائي»، المستوى الكامل: معرض أعمالك (FS-704) -->
+    <string name="insights_pf_title">معرض أعمالك</string>
+    <string name="insights_pf_sub">العملاء بيبصّوا على أعمالك إزاي</string>
+    <string name="insights_pf_works">الأعمال</string>
+    <string name="insights_pf_shown">ظاهرة</string>
+    <string name="insights_pf_verified">موثّقة</string>
+    <string name="insights_pf_visits">زيارات المعرض</string>
+    <string name="insights_pf_opened">أعمال اتفتحت</string>
+    <string name="insights_pf_top">أكتر الأعمال فتحًا</string>
+    <string name="insights_pf_views">%1$d</string>
+    <string name="insights_pf_none">محدّش فتح أعمالك في الفترة دي لسه. خلّيها ظاهرة وموثّقة عشان تتشاف.</string>
+    <string name="insights_pf_no_works">مفيش أعمال عندك لسه. ضيف شوية في معرضك.</string>
+    <string name="insights_pf_verified_work">موثّق من دُرر</string>
+
+    <!-- تلميح المستوى الأساسي عن الأرقام الجديدة -->
+    <string name="insights_more_new">وكمان: أرباحك جاية منين، ومعرض أعمالك ماشي إزاي.</string>
+</resources>

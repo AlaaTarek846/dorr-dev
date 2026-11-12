@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-703: my clients (the freelancer's private CRM) and FS-704: the advanced numbers of «My performance». -->
+    <string name="crm_title">My clients</string>
+    <string name="crm_home_card">My clients</string>
+    <string name="crm_me_sub">Clients, notes and follow-ups</string>
+    <string name="crm_hero_body">Everyone you work or worked with, and who you are still courting. Private to you, clients never see it.</string>
+    <string name="crm_hero_total">All</string>
+    <string name="crm_hero_active">Working</string>
+    <string name="crm_hero_past">Past</string>
+    <string name="crm_hero_leads">Potential</string>
+
+    <!-- The list -->
+    <string name="crm_tab_all">All</string>
+    <string name="crm_tab_active">Working</string>
+    <string name="crm_tab_past">Past</string>
+    <string name="crm_tab_leads">Potential</string>
+    <string name="crm_tab_starred">Starred</string>
+    <string name="crm_tab_count">%1$s · %2$d</string>
+    <string name="crm_search_hint">Search a client by name</string>
+    <string name="crm_search_clear">Clear the search</string>
+    <string name="crm_stage_active">Working now</string>
+    <string name="crm_stage_past">Past client</string>
+    <string name="crm_stage_lead">Potential</string>
+    <string name="crm_label_vip">VIP</string>
+    <string name="crm_label_regular">Regular</string>
+    <string name="crm_label_lead">Prospect</string>
+    <string name="crm_label_paused">On hold</string>
+    <string name="crm_label_none">No label</string>
+    <plurals name="crm_n_projects">
+        <item quantity="one">%1$d project</item>
+        <item quantity="other">%1$d projects</item>
+    </plurals>
+    <plurals name="crm_n_notes">
+        <item quantity="one">%1$d note</item>
+        <item quantity="other">%1$d notes</item>
+    </plurals>
+    <plurals name="crm_n_reminders">
+        <item quantity="one">%1$d follow-up</item>
+        <item quantity="other">%1$d follow-ups</item>
+    </plurals>
+    <string name="crm_fact_earned">Earned %1$s</string>
+    <string name="crm_fact_rating">%1$s</string>
+    <string name="crm_next_due">Next follow-up: %1$s</string>
+    <string name="crm_overdue">Overdue</string>
+    <string name="crm_waiting_offer">Your offer is waiting</string>
+    <string name="crm_invited_you">Invited you</string>
+    <string name="crm_last_activity">Last activity %1$s</string>
+    <string name="crm_star_on">Remove the star</string>
+    <string name="crm_star_off">Add a star</string>
+    <string name="crm_open_client">Open %1$s</string>
+
+    <string name="crm_due_title">Follow-ups due</string>
+    <string name="crm_due_sub">The reminders you set for your clients</string>
+    <string name="crm_due_more">Show %1$d more</string>
+    <string name="crm_due_less">Show less</string>
+
+    <string name="crm_empty_all_title">No clients yet</string>
+    <string name="crm_empty_all_body">A client shows up here once you start a project with them, or send them an offer.</string>
+    <string name="crm_empty_active_title">Nobody is working with you right now</string>
+    <string name="crm_empty_active_body">Clients with a running project show here.</string>
+    <string name="crm_empty_past_title">No past clients yet</string>
+    <string name="crm_empty_past_body">Clients whose projects you finished show here, so you can reach out to them again.</string>
+    <string name="crm_empty_leads_title">No potential clients</string>
+    <string name="crm_empty_leads_body">Clients who have not answered your offer yet, or who invited you, show here.</string>
+    <string name="crm_empty_starred_title">Nothing starred</string>
+    <string name="crm_empty_starred_body">Tap the star on a client to keep them close.</string>
+    <string name="crm_empty_search_title">No client with this name</string>
+    <string name="crm_empty_search_body">Try another name, or clear the search.</string>
+
+    <!-- A plan without the CRM, and the basic level's hint at the rest -->
+    <string name="crm_locked_title">Keep your clients close</string>
+    <string name="crm_locked_body">Your clients, the projects you did together, private notes and follow-up reminders. All in one place only you can see.</string>
+    <string name="crm_locked_b1">Everyone you work with, in one list</string>
+    <string name="crm_locked_b2">Private notes on every client</string>
+    <string name="crm_locked_b3">The projects you did with each client</string>
+    <string name="crm_locked_b4">Labels (VIP, regular…) and follow-up reminders</string>
+    <string name="crm_unlock">Upgrade to %1$s</string>
+    <string name="crm_no_plans">Plans are not offered in your country yet.</string>
+    <string name="crm_more_title">Want labels and reminders?</string>
+    <string name="crm_more_body">%1$s adds client labels and follow-up reminders that alert you when it is time.</string>
+
+    <!-- One client -->
+    <string name="crm_client_title">Client</string>
+    <string name="crm_private_note">Only you see this page. The client never does.</string>
+    <string name="crm_stat_projects">Projects</string>
+    <string name="crm_stat_earned">Earned from them</string>
+    <string name="crm_stat_rating">Their rating of you</string>
+    <string name="crm_label_title">Label</string>
+    <string name="crm_label_sub">Group your clients your way</string>
+    <string name="crm_label_locked">Labels are part of %1$s</string>
+    <string name="crm_label_locked_plain">Labels are part of a higher plan</string>
+
+    <string name="crm_leads_title">Still waiting</string>
+    <string name="crm_leads_sub">Offers and invitations that have not turned into work yet</string>
+    <string name="crm_lead_offer">Your offer</string>
+    <string name="crm_lead_invitation">Invitation</string>
+    <string name="crm_lead_submitted">Sent</string>
+    <string name="crm_lead_viewed">Seen</string>
+    <string name="crm_lead_shortlisted">Shortlisted</string>
+    <string name="crm_lead_pending">Waiting for your answer</string>
+
+    <string name="crm_rem_title">Follow-ups</string>
+    <string name="crm_rem_sub">You get an alert when it is time</string>
+    <string name="crm_rem_add">Add a follow-up</string>
+    <string name="crm_rem_empty">No follow-ups. Set one so you do not forget to check in.</string>
+    <string name="crm_rem_done">Done</string>
+    <string name="crm_rem_mark_done">Mark as done</string>
+    <string name="crm_rem_reopen">Reopen</string>
+    <string name="crm_rem_delete">Delete the follow-up</string>
+    <string name="crm_rem_delete_confirm">Delete this follow-up?</string>
+    <string name="crm_rem_done_on">Done %1$s</string>
+    <string name="crm_rem_locked_title">Follow-up reminders</string>
+    <string name="crm_rem_locked_body">Never forget to check in on a client. Reminders are part of %1$s.</string>
+    <string name="crm_rem_locked_plain">Never forget to check in on a client. Reminders are part of a higher plan.</string>
+    <string name="crm_rem_sheet_title">New follow-up</string>
+    <string name="crm_rem_sheet_body">We remind you at the time you pick.</string>
+    <string name="crm_rem_field_title">What to follow up on</string>
+    <string name="crm_rem_field_title_ph">For example: ask about the second phase</string>
+    <string name="crm_rem_field_date">Date</string>
+    <string name="crm_rem_field_time">Time</string>
+    <string name="crm_rem_pick_time">Pick the time</string>
+    <string name="crm_rem_quick">Quick pick</string>
+    <string name="crm_quick_tomorrow">Tomorrow</string>
+    <string name="crm_quick_week">In a week</string>
+    <string name="crm_quick_month">In a month</string>
+    <string name="crm_rem_past">Pick a time in the future.</string>
+    <string name="crm_rem_save">Save the follow-up</string>
+
+    <string name="crm_notes_title">Private notes</string>
+    <string name="crm_notes_sub">Only you can see them</string>
+    <string name="crm_notes_count">%1$d / %2$d</string>
+    <string name="crm_note_add">Add a note</string>
+    <string name="crm_note_edit">Edit the note</string>
+    <string name="crm_note_delete">Delete the note</string>
+    <string name="crm_note_delete_confirm">Delete this note?</string>
+    <string name="crm_notes_empty">No notes yet. Write what you want to remember about this client.</string>
+    <string name="crm_notes_full_hint">You reached the limit of %1$d notes. Delete an old one to add another.</string>
+    <string name="crm_note_sheet_new">New note</string>
+    <string name="crm_note_sheet_edit">Edit the note</string>
+    <string name="crm_note_sheet_body">Only you can see this.</string>
+    <string name="crm_note_field">Note</string>
+    <string name="crm_note_hint">What do you want to remember?</string>
+    <string name="crm_note_save">Save the note</string>
+    <string name="crm_note_edited">Edited %1$s</string>
+
+    <string name="crm_hist_title">Work we did together</string>
+    <string name="crm_hist_sub">The newest first</string>
+    <string name="crm_hist_empty">You have not worked together yet.</string>
+    <string name="crm_hist_active">In progress</string>
+    <string name="crm_hist_completed">Completed</string>
+    <string name="crm_hist_service">Ready-made service</string>
+    <string name="crm_hist_price">Price %1$s</string>
+    <string name="crm_hist_earned">Earned %1$s</string>
+    <string name="crm_hist_started">Started %1$s</string>
+    <string name="crm_hist_finished">Finished %1$s</string>
+    <string name="crm_untitled">Untitled project</string>
+    <string name="crm_saved_ok">Saved</string>
+
+    <!-- «My performance», the full level: earnings in detail (FS-704) -->
+    <string name="insights_detail_title">Your earnings in detail</string>
+    <string name="insights_detail_sub">Compared with the same stretch before this period</string>
+    <string name="insights_detail_before">Before: %1$s</string>
+    <string name="insights_detail_up">%1$d%% more than before</string>
+    <string name="insights_detail_down">%1$d%% less than before</string>
+    <string name="insights_detail_same">The same as before</string>
+    <string name="insights_detail_first">Nothing to compare with yet</string>
+    <string name="insights_detail_none">No released earnings in this period yet.</string>
+    <string name="insights_detail_sources">Where it came from</string>
+    <string name="insights_src_projects">Projects</string>
+    <string name="insights_src_services">Ready-made services</string>
+    <string name="insights_src_consultations">Consultations</string>
+    <string name="insights_detail_specialty">By specialty</string>
+    <string name="insights_detail_clients">Top clients</string>
+    <string name="insights_detail_client_unknown">A client</string>
+    <string name="insights_detail_paid">Paid projects</string>
+    <string name="insights_detail_avg">Average per project</string>
+    <string name="insights_detail_share">%1$d%%</string>
+
+    <!-- «My performance», the full level: the portfolio (FS-704) -->
+    <string name="insights_pf_title">Your portfolio</string>
+    <string name="insights_pf_sub">How clients look at your works</string>
+    <string name="insights_pf_works">Works</string>
+    <string name="insights_pf_shown">Shown</string>
+    <string name="insights_pf_verified">Verified</string>
+    <string name="insights_pf_visits">Portfolio visits</string>
+    <string name="insights_pf_opened">Works opened</string>
+    <string name="insights_pf_top">Most opened works</string>
+    <string name="insights_pf_views">%1$d</string>
+    <string name="insights_pf_none">Nobody opened your works in this period yet. Keep them shown and verified to be seen.</string>
+    <string name="insights_pf_no_works">You have no works yet. Add some to your portfolio.</string>
+    <string name="insights_pf_verified_work">Verified by Dorr</string>
+
+    <!-- The basic level's hint about the new numbers -->
+    <string name="insights_more_new">Also: where your earnings come from, and how your portfolio does.</string>
+</resources>

@@ -3,7 +3,7 @@
     <!-- FL-L04: الخدمات الجاهزة، جهة العميل -->
     <string name="mk_title">الخدمات الجاهزة</string>
     <string name="mk_my_orders">طلباتي</string>
-    <string name="mk_search">دوّر على خدمة</string>
+    <string name="mk_search">ابحث عن خدمة</string>
     <string name="mk_all">الكل</string>
     <string name="mk_sort_newest">الأحدث</string>
     <string name="mk_sort_price_low">الأرخص</string>

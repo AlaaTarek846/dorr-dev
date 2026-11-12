@@ -74,6 +74,9 @@ class FreelanceInsights
             [$starts, $weekly] = $this->bucketStarts($days);
             $data['views'] += ['bucket' => $weekly ? 'week' : 'month', 'series' => $this->views->series($f->id, $starts, $weekly), 'top_services' => $this->views->topServices($f->id, $since, (int) config('freelance.insights.top_specialties', 5))];
             $data['specialties'] = $this->specialties($f, $since);
+            // FS-704: where the earnings came from, and how the portfolio does.
+            $data['earnings'] += ['analysis' => $this->analysis($f, $since, $days, (int) $data['earnings']['earned_minor'])];
+            $data['portfolio'] = $this->portfolio($f, $since, $days, (int) ($data['views']['by_source']['portfolio'] ?? 0));
         }
 
         return ['days' => $days, 'data' => $data] + $out;
@@ -182,6 +185,80 @@ class FreelanceInsights
             'id' => (int) $r->sid, 'name' => $names->get($r->sid)?->translatedName(), 'sent' => (int) $r->sent, 'accepted' => (int) $r->accepted,
             'accept_rate' => $this->rate((int) $r->accepted, (int) $r->sent),
         ])->values()->all();
+    }
+
+    /**
+     * FS-704: what the earnings of the period are made of — against the stretch before it, by where they came from (projects, ready-made
+     * services, consultations), by specialty and by client — and what a project brings on average. Only released money counts, as everywhere else.
+     *
+     * @return array<string, mixed>
+     */
+    private function analysis(Freelancer $f, Carbon $since, int $days, int $earned): array
+    {
+        $released = fn () => DB::table('freelance_earnings as e')->leftJoin('freelance_projects as p', 'p.id', '=', 'e.project_id')
+            ->where('e.freelancer_id', $f->id)->where('e.status', Earning::RELEASED);
+        $before = (int) $released()->where('e.released_at', '>=', $since->copy()->subDays($days))->where('e.released_at', '<', $since)->sum('e.amount_minor');
+        $rows = $released()->where('e.released_at', '>=', $since)
+            ->selectRaw('e.project_id, e.consultation_id, p.service_id, p.freelance_specialty_id as sid, p.client_id as cid, sum(e.amount_minor) as n')
+            ->groupBy('e.project_id', 'e.consultation_id', 'p.service_id', 'p.freelance_specialty_id', 'p.client_id')->get();
+
+        $sources = ['projects' => 0, 'services' => 0, 'consultations' => 0];
+        $bySpecialty = [];
+        $byClient = [];
+        foreach ($rows as $r) {
+            $n = (int) $r->n;
+            $sources[$r->consultation_id !== null ? 'consultations' : ($r->service_id !== null ? 'services' : 'projects')] += $n;
+            if ($r->sid !== null) {
+                $bySpecialty[(int) $r->sid] = ($bySpecialty[(int) $r->sid] ?? 0) + $n;
+            }
+            if ($r->cid !== null) {
+                $byClient[(int) $r->cid] = ($byClient[(int) $r->cid] ?? 0) + $n;
+            }
+        }
+        arsort($bySpecialty);
+        arsort($byClient);
+        $limit = (int) config('freelance.insights.top_clients', 5);
+        $names = FreelanceSpecialty::query()->with('translations')->whereIn('id', array_slice(array_keys($bySpecialty), 0, $limit))->get()->keyBy('id');
+        $clients = \Modules\User\Models\User::query()->whereIn('id', array_slice(array_keys($byClient), 0, $limit))->pluck('name', 'id');
+        $paid = $rows->whereNotNull('project_id');
+        $projects = $paid->pluck('project_id')->unique()->count();
+
+        return [
+            'before_minor' => $before,
+            // null when there was nothing before to compare with (a first period is not «up infinity percent»).
+            'change_percent' => $before > 0 ? (int) round(($earned - $before) * 100 / $before) : null,
+            'sources' => $sources,
+            'by_specialty' => collect($bySpecialty)->take($limit)->map(fn (int $n, int $id) => ['id' => $id, 'name' => $names->get($id)?->translatedName(), 'earned_minor' => $n, 'share' => $this->rate($n, $earned)])->values()->all(),
+            'top_clients' => collect($byClient)->take($limit)->map(fn (int $n, int $id) => ['name' => $clients[$id] ?? null, 'earned_minor' => $n, 'share' => $this->rate($n, $earned)])->values()->all(),
+            'projects_paid' => $projects,
+            'average_project_minor' => $projects > 0 ? (int) round($paid->sum(fn ($r) => (int) $r->n) / $projects) : null,
+        ];
+    }
+
+    /**
+     * FS-704, portfolio analytics: how many works there are and how many are verified (FS-601), how often the portfolio and each work were
+     * opened (against the stretch before), and the works looked at the most. Counted per day, never per person (FL-L11).
+     *
+     * @return array<string, mixed>
+     */
+    private function portfolio(Freelancer $f, Carbon $since, int $days, int $portfolioVisits): array
+    {
+        $works = $f->portfolioItems()->whereNull('team_id')->whereNull('hidden_by_admin_at')->with('agreement:id,status,portfolio_allowed')->get();
+        $views = $this->views->workTotals($f->id, $since, $days);
+        // Only the works the freelancer has now are counted (opens of a work since deleted, hidden or moved to a team are not).
+        $mine = array_flip($works->pluck('id')->all());
+        $opened = array_sum(array_intersect_key($views['by_work'], $mine));
+        $before = array_sum(array_intersect_key($views['by_work_before'], $mine));
+        $shown = $works->where('visibility', '!=', \Modules\Freelance\Models\FreelancerPortfolioItem::PRIVATE);
+        $top = $shown->map(fn ($w) => ['uuid' => $w->uuid, 'title' => $w->title, 'verified' => $w->isVerified(), 'visibility' => $w->visibility, 'views' => (int) ($views['by_work'][$w->id] ?? 0)])
+            ->sortByDesc('views')->take((int) config('freelance.insights.top_works', 8))->values()->all();
+
+        return [
+            'works' => $works->count(), 'shown' => $shown->count(), 'verified' => $works->filter(fn ($w) => $w->isVerified())->count(),
+            'visits' => $portfolioVisits, 'opened' => $opened, 'opened_before' => $before,
+            'opened_change_percent' => $before > 0 ? (int) round(($opened - $before) * 100 / $before) : null,
+            'top' => $top,
+        ];
     }
 
     private function rate(int $part, int $whole): ?int

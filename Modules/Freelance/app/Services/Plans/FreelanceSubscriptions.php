@@ -85,6 +85,7 @@ class FreelanceSubscriptions
                     'badge' => (bool) $plan->badge,
                     'boost' => (int) $plan->boost,
                     'analytics' => (int) $plan->analytics,
+                    'crm' => (int) $plan->crm,
                     'services_max' => $plan->services_max === null ? $policyServices : max($policyServices, (int) $plan->services_max),
                 ],
                 'trial_days' => ! $plan->isFree() && ! $trialUsed ? (int) $plan->trial_days : 0,

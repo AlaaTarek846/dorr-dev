@@ -1589,3 +1589,94 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 **المسمى الوظيفي** — `PUT freelance/v1/teams/{team}/members/{freelancer}/title {job_title?: ≤60}`:
 - Owner بيكتب لأي حد (`manage_members`)، والشخص بيكتب لنفسه؛ غير كده 403. مش عضو نشط = 404، فريق موقوف/مؤرشف = 409. فاضي أو مش مبعوت = يمسحه. HTML بيتشال. بيتسجّل في الـ audit (`freelance.team.job_title_changed`).
 - `job_title` في `GET teams/{team}/members`، وفي ملف الفريق (`members[]` و`me`)، وفي ملف الفريق للعميل جنب الاسم الأول **للي وافق على الظهور بس** (D10 زي ما هو).
+
+## دُرر AI للعميل: يكتب المشروع ويرشّح الناس (FS-401 / FS-501، نسخة خفيفة) — 2026-11-09
+
+أداتين من أدوات دُرر AI للعميل في تطبيق المستخدم، **على باقة دُرر AI بتاعة العميل** زي أي أداة ذكاء اصطناعي (ADR-013). من غير باقة الرد
+`402 freelance_ai_plan_{reason}` و`data.reason` (`no_plan`, `trial_ended`, `cooldown`, `limit_reached`, `subscription_suspended`)، والتطبيقات بتفتح
+«محتاج باقة دُرر AI» لوحدها. كل أداة ليها مفتاح دولة: `ai_project_builder` و`smart_matching` (مفيش قاعدة = مقفول). الـ AI بيقترح بس: مفيش حاجة بتتحفظ
+أو تتبعت لوحدها. الكود: `Services/Ai/FreelanceAi.php` (الربط بالباقة)، `ProjectBuilder.php`، `SmartMatching.php`، `Client/ClientAiController.php`.
+
+- `GET mobile/v1/freelance/projects/ai/status` → `{builder, matching, allowed, reason}`: الأداتين شغالين في دولة العميل ولا لأ، والباقة تسمح دلوقتي ولا لأ (عشان الزرار يتقفل قبل ما يتداس).
+- `POST mobile/v1/freelance/projects/ai/build` `{idea (10..2000), answers?: [{question, answer}] (≤5)}` — مفتاح `ai_project_builder`، 10 في الدقيقة.
+  - الرد: `draft {title, description, specialty{id,name}|null, skills[{id,name}], budget{type, min_minor, max_minor, currency}, duration_days, visibility: public, questions[]}`
+    + `brief {summary, goal, audience, features[], deliverables[], acceptance[], out_of_scope[], assumptions[]}` + `questions[]` (≤3، اللي لسه مش واضح للعميل).
+  - التخصص من الكتالوج بس (النشط)، والمهارات بتتطابق مع الكتالوج بالاسم (اللي مش موجود بيتشال، مش بيتعمل). الميزانية والمدة **تقدير** جوه حدود الدولة
+    (`project.min_budget_minor` / `max_budget_minor`) و`max_duration_days`. الوصف = الـ brief كنص بعناوين بلغة العميل.
+  - أرقام التليفون والإيميلات بتتشال من الكلام قبل ما يروح للنموذج (FS-405). **مفيش حفظ:** التطبيق بيملا نموذج المشروع، والعميل بيحفظ المسودة بالطريق العادي.
+- `GET mobile/v1/freelance/projects/{uuid}/matches?refresh=1` — مفتاح `smart_matching`، 20 في الدقيقة، مشروعي أنا بس (غيره 404).
+  - `candidates[]`: `{uuid, name, headline, avatar_url, specialties[], skills_matched[], score (0..100), rating, reviews_count, completed_projects, similar_projects,
+    on_time_rate, available_now, years_of_experience, rate{type,min_minor,max_minor}|null, is_new, reasons[] (جمل جاهزة بلغة العميل), why (سطر دُرر AI), invited, offered}`.
+  - `lists {best, quality, value, fastest}` (uuids بالترتيب، 10 لكل قايمة)، `teams[]` (لو `teams` شغالة: `{uuid, name, logo_url, members_count, verified, score, rating,
+    reviews_count, completed_projects, reasons[], why}`)، `summary` (توصية دُرر AI)، `needs: "specialty"` لو المشروع مالوش تخصص ولا مهارات، `can_invite`.
+  - **الدرجة قواعد واضحة مش صندوق أسود:** المهارات 30، التخصص 15 (الأب 8)، التقييم 20 (الجديد بياخد النص — FS-504)، مشاريع شبيهة 10، الالتزام بالمواعيد 10،
+    التوفر 10، الميزانية 5، وشارات اختبار مهارات المشروع لحد 5. **الباقة المدفوعة للمحترف مش بتأثر على الترتيب.** المرشحين: موثّقين من الدول المفتوحة، في
+    التخصص (أو الأب) أو عندهم مهارة من مهاراته، أول 30.
+  - دُرر AI بيقرا أحسن 6 + أحسن 3 فرق **من غير أسماء** ويكتب سطر لكل واحد وخلاصة. الرد بيتحفظ 30 دقيقة لكل نسخة من المشروع (`updated_at`) ولغة،
+    فالفتح تاني مش بيعمل طلب AI جديد؛ `refresh=1` بيعيد. `invited` / `offered` / `can_invite` بيتحسبوا كل مرة.
+  - الدعوة من القايمة بالـ endpoint العادي `POST projects/{uuid}/invitations` (المشروع الخاص المنشور بس).
+- **الاختبار:** `FreelanceAiClientTest` (3).
+
+## Phase 8 — مدير المشروع الذكي (FS-801 / FS-802 / FS-806، نسخة خفيفة) — 2026-11-11
+
+- `GET mobile/v1/freelance/projects/{uuid}/workroom/ai/summary?days=1|7|30&refresh=1` — **العميل صاحب المشروع بس** (عضو فريق العميل مش واصل له،
+  والمحترف مالوش route)، على **باقة دُرر AI بتاعته** (`402 freelance_ai_plan_*`)، مفاتيح `workroom` + `ai_project_manager`، 20 في الدقيقة.
+  - الرد: `{days, facts {tasks_open, tasks_overdue, tasks_done, tasks_new, decisions, files, reports, percent, changes, messages, parts, parts_done},
+    health (نفس شكل FS-106 من جهة العميل), quiet, summary {headline, progress[], decisions[], changes[], risks[], next_client[], next_freelancer[]}|null, generated_at}`.
+  - **الأرقام بيعدّها دُرر مش النموذج.** الفترة الهادية (مفيش نشاط) = `quiet: true` من غير أي طلب AI. نفس النشاط = نفس الملخص من الكاش 6 ساعات
+    (المفتاح = بصمة اللي اتبعت للنموذج)؛ `refresh=1` بيعيد.
+  - النموذج بيقرا اللي الطرفين شايفينه بس: المهام والملفات المشتركة (`scope=shared`، حاجات الفريق الداخلية لأ)، القرارات، تقارير التقدم، طلبات التعديل،
+    المراحل وحالتها، وآخر 40 رسالة نصية في شات المشروع. **من غير أسماء** (الأطراف «client» / «freelancer»)، والتليفونات والإيميلات بتتشال، ومن غير مبالغ.
+  - طلب من بره الاتفاق في الشات بيظهر في `changes` كـ «ممكن يبقى طلب تعديل» (FS-803 خفيف) — العميل هو اللي يقرر.
+  - الكود: `Services/Ai/ProjectSummary.php`، `ClientAiController@summary`؛ `ai/status` فيه `manager`.
+- **FS-802 — المهام المتأخرة في صحة المشروع:** سبب جديد `task_overdue` (`at_risk`، مش `delayed` لأن ميعاد المهمة خطة الطرفين مش الاتفاق) لكل طرف عليه
+  مهمة مشتركة مش خلصانة وميعادها عدّى: `data {part: أقدم مهمة, days, count}`، `who` = اللي المهمة عليه. التنبيه كل ساعة (`alertWorse`) بيشتغل عليه زي باقي الأسباب.
+  التطبيقات الأربعة بتعرض الجملة (الكود المجهول في نسخة قديمة بيتشال أو «فيه حاجة محتاجة نظرة»).
+- **FS-806 — حدود الأمان:** كل routes دُرر AI في الفريلانس `GET` (إلا `ai/build` اللي مش بيحفظ حاجة)، وخدمات `Services/Ai` ما بتستخدمش الفلوس ولا
+  الاتفاق ولا النزاعات ولا بتكتب في أي موديل — اختبار بيثبت ده.
+- **الاختبار:** `FreelanceAiProjectManagerTest` (4).
+
+
+## Phase 6 — الجودة والثقة (FS-601 / FS-602 / FS-604 / FS-605) — 2026-11-12
+
+قرارات المالك 2026-11-12: FS-603 (مراجعة الخبير) اتشالت؛ موافقة FL-L13 كفاية للتوثيق؛ المستويات من الدرجة + تحدي للعالي يراجعه الأدمن؛ مؤشرات السمعة للعميل والمحترف.
+
+**FS-601 الأعمال الموثّقة** — عمل المعرض المربوط بمشروع **خلص على دُرر** والعميل **سامح بعرضه** (FL-L13 `portfolio_allowed`) بيبقى «موثّق من دُرر» تلقائيًا (`FreelancerPortfolioItem::isVerified`)؛ رفع صورة لوحده عمره ما بيوثّق. الموثّق بيظهر الأول، ومن غير اسم العميل.
+- كل عمل (للمحترف والعميل والفريق): `case_study {problem?, solution?, role?, tools?, results?}|null` (الأجزاء المكتوبة بس)، `verified`، `verified_on` (`YYYY-MM` = شهر خلاص المشروع). للمالك: `verified_revoked_reason`، `can_be_verified`.
+- الإنشاء/التعديل (`profile/portfolio` و`teams/{uuid}/portfolio`): `problem` ≤1500، `solution` ≤1500، `role` ≤300، `tools` ≤300، `results` ≤1500 — نص بس، الفاضي بيمسح.
+- الأدمن يقدر يسحب الشارة بسبب (`unverify`) أو يرجّعها؛ المحترف بيتبلّغ (`freelance.portfolio.unverified`) وبيشوف السبب. Audit: `freelance.portfolio.unverified` / `reverified`.
+
+**FS-602 المستويات والتحدي العملي** — الشارة ليها `level`: `beginner` (نجاح) · `intermediate` (`intermediate_percent` أو أكتر، افتراضي 85) من الاختبار؛ `advanced` · `expert` بتحدي عملي. الشارات القديمة اتحسب مستواها من درجتها (85+ = متوسط).
+- `GET skill-tests`: لكل مهارة `badge.level`، `intermediate_percent`، `renewable` (فاضل ≤`renew_days`=30 يوم على انتهاء الشارة → يقدر يعيد الاختبار، والتجديد بيحتفظ بمستوى التحدي)، و`challenge {enabled, next_level, brief, current, retry_at, can_send}`. `badges[].level` (الأعلى مستوى الأول) وفي بروفايل العميل `skill_badges[].level`.
+- `POST skill-tests/{skill}/challenge {target_level: advanced|expert, link (url), note 20..2000}` → 201؛ المتقدم محتاج شارة متوسط سارية، والخبير محتاج متقدم. واحد مفتوح لكل مهارة (409 `freelance_skill_challenge_open`)، وبعد الرفض استنى `challenge_retry_days`=14 (422 `freelance_skill_challenge_wait`)، مستوى غلط = 422 `freelance_skill_challenge_level`. `POST skill-challenges/{uuid}/withdraw`.
+- الأدمن: يقبل بمستوى ≤ المطلوب (بيرفع الشارة ويبدأ صلاحيتها من جديد) أو يرفض بملاحظة إجبارية. إشعارات `freelance.challenge.accepted|rejected`.
+- إعدادات الاختبار (`PUT admin/v1/freelance-skill-tests/{skill}`): `intermediate_percent` (≥ `pass_percent`)، `challenge_enabled`، `challenge_brief {ar, en}` (لازم لو التحدي شغال).
+
+**FS-604 السمعة** — `FreelancerReputation::of()`: ست مؤشرات من شغل المحترف الشخصي بس (شغل الفريق للفريق، D3)، كل واحد `{key, value 0..100|null, level excellent|good|fair|low|new, source}`، و`overall` (متوسط المعروف لو 3 أو أكتر). أقل من 3 بيانات = `new`.
+- `quality` و`communication`: متوسط معيار التقييم ×20 (3 تقييمات منشورة على الأقل). `delivery`: المراحل المعتمدة اللي اتسلّمت في أيامها (الأيام المضافة بتغيير مقبول بتتحسب، والمرحلة بتبدأ بعد التمويل فتأخير العميل في التمويل مش بيتحسب). `completion`: من المشاريع اللي خلصت أو اتلغت، الإلغاء اللي مسؤوليته على العميل أو مش على حد بيتشال، وبس اللي مسؤوليته على المحترف (FL-607) بيتحسب ضده؛ الشغّال والنزاع اللي ما اتحسمش مش بيدخلوا. `repeat_clients`: من العملاء اللي خلّص لهم مشروع، نسبة اللي رجعوا. `technical`: مستويات أعلى 3 شهادات (40/60/80/100) ومعاها عدد الأعمال الموثّقة كمصدر.
+- العميل: `reputation` في بروفايل المحترف من العرض (من غير قايمة المشاريع). المحترف: `GET reputation` (ومعاه `projects` لـ delivery وcompletion، و`corrections`، و`reasons`، و`open_max`=5).
+- `POST reputation/corrections {agreement, indicator: delivery|completion, reason: client_delay|client_ended|scope_changed|wrong_data|other, note 10..1000}` → 201؛ مشروع مش محسوب = 422 `freelance_reputation_not_yours`، طلب مفتوح لنفس المشروع = 409، أكتر من 5 مفتوحين = 422 `freelance_reputation_limit`. القبول بيشيل المشروع من المؤشر. التقييمات نفسها بتتصحّح بالاعتراض الموجود (FL-706). إشعارات `freelance.reputation.corrected|kept`.
+
+**FS-605 مكتب الجودة** — `admin/v1/freelance-quality/…` بصلاحية `freelance-quality` (view, update): `summary`، `verified-works` (+`unverify` {reason} / `reverify`)، `challenges` (+`decide` {decision, level?, note?})، `corrections` (+`decide` {decision, note?}). قوالب الـ Checklist والبلاغات ليهم شاشاتهم. شاشة الأدمن: `admin.freelance.quality` («الجودة والثقة»، `views/freelance/quality/index.vue`، دليلها `guide/screens/freelance/freelance.quality.js`)؛ وإعدادات `intermediate_percent` / `challenge_enabled` / `challenge_brief` في شاشة اختبارات المهارات.
+
+جداول: migration `2026_12_11_100000` (حقول دراسة الحالة وسحب التوثيق في `freelancer_portfolio_items`، `intermediate_percent`/`challenge_*` في `freelance_skill_tests`، `level` في `freelancer_skill_badges`، و`freelance_skill_challenges` و`freelance_reputation_corrections`)، و`2026_12_11_100100` (الصلاحية). الاختبارات: `tests/Feature/FreelanceQualityTrustTest.php`.
+
+## Phase 7 — النمو (FS-703 CRM للمحترف · FS-704 إحصائيات متقدمة) — 2026-11-12
+
+**الباقة:** عمود جديد `freelance_plans.crm` (`0` مفيش · `1` عملاء + مشاريع سابقة + ملاحظات + نجمة · `2` كمان تصنيفات وتذكيرات متابعة). الافتراضي: Plus = 1، Pro = 2، Free = 0 (من `config('freelance.plans')` ومن migration `2026_12_12_100000`). الأدمن يغيّره من شاشة الباقات (`crm` في `PUT admin/v1/freelance-plans/{id}`، 0..2، مش بيتطبّق على باقة الفريق ولا المجانية). بيتعرض في `plans.benefits.crm` وفي `FreelancePerks::crmLevel()`. **تقسيم المستويات قرار مبدئي (NEEDS-DECISION لو المالك عايز غيره) وبيتغيّر من الأدمن من غير كود.**
+
+**FS-703 — CRM للمحترف** (`FreelancerCrm`، تحت `api/freelance/v1/crm`، مفتاح `projects`، حارس `freelance_api`). **القايمة مش متخزّنة، بتتقرا:** كل عميل ليه اتفاق شغّال أو خلصان مع المحترف، + «العملاء المحتملين» (عرض مستني `submitted|viewed|shortlisted` على مشروع عادي، أو دعوة `sent` لم يرد عليها). المخزّن اللي المحترف بيضيفه بس: `freelance_crm_contacts` (نجمة + تصنيف)، `freelance_crm_notes`، `freelance_crm_reminders`. **العميل مبيشوفش حاجة منهم**، والتطبيق بيسمّي العميل بـ`uuid` صف الـCRM — **مفيش id مستخدم بيتبعت**.
+- `GET crm/clients?tab=all|active|past|leads|starred&search=&page=&per_page≤50` → `{level, locked, subscriptions_enabled, upgrade{slug,name}|null, labels[], limits{notes_max,reminders_max}, currency, decimals, tab, counts{all,active,past,leads,starred}, clients[], meta{total,page,per_page,last_page}, due[]}`. باقة من غير CRM: `locked:true` + `upgrade` (200 مش خطأ، عشان الشاشة تبيع الباقة) ومفيش `clients`. كارت العميل: `{uuid, name, stage: active|past|lead, label|null, starred, projects, active, completed, earned_minor (المُفرَج عنه بس), rating|null (متوسط معايير تقييمه ليك المنشورة), notes_count, reminders_count, next_due_at|null, waiting_offer, invited_you, last_activity_at}`. الترتيب: المنجّمين الأول ثم آخر نشاط. `due[]` (مستوى 2) = التذكيرات المستنية.
+- `GET crm/clients/{uuid}` → نفس الإطار + `client{…الكارت، notes[{uuid,body,created_at,updated_at}], reminders[{uuid,title,due_at,done_at,overdue}] (مستوى 2)، history[{project(uuid),title,status,price_minor,earned_minor,service,started_at,completed_at}] (آخر 20)، leads[{kind: offer|invitation, project, title, status, at}]}`. **كل تعديل (PUT/POST/DELETE) بيرجّع الشكل ده** عشان التطبيق يرسم من كائن واحد.
+- `PUT crm/clients/{uuid}` `{starred?: bool, label?: vip|regular|lead|paused|null}` — النجمة مستوى 1، التصنيف مستوى 2.
+- `POST crm/clients/{uuid}/notes {body 1..1000}` (201) · `PUT …/notes/{note}` · `DELETE …/notes/{note}` — حد `crm.notes_max`=50 للعميل (422 `freelance_crm_notes_full`).
+- `POST crm/clients/{uuid}/reminders {title 1..120, due_at}` (مستوى 2؛ لازم في المستقبل وفي خلال `remind_ahead_days`=365 → 422 `freelance_crm_bad_due`؛ حد `reminders_max`=30 مستنيين → 422 `freelance_crm_reminders_full`) · `PUT …/reminders/{reminder} {done: bool}` · `DELETE …` · `GET crm/reminders` → `{reminders[{…، client{uuid,name}}]}`.
+- مستوى أقل من المطلوب: 403 `freelance_crm_locked` ومعاه `data{level, needed, upgrade}`. عميل مش بتاعي (uuid بتاع محترف تاني): 404. نزول الباقة بيقفل الشاشة والمكتوب بيفضل محفوظ لحد ما يرجع.
+- **التذكير:** الأمر `freelance:crm-reminders` (كل 15 دقيقة) بيبعت للمحترف **مرة واحدة** لما ميعاد التذكير يجي، حدث `freelancer.crm.reminder_due` (`client`, `title`)، و`data{type: 'crm_reminder', client: <uuid>}` عشان الإشعار يفتح صفحة العميل. محترف نزلت باقته عن مستوى 2 مبيتبلّغش (والتذكير بيتعلّم متبلّغ فمش بيصحى بعدين). التطبيق بيتحدّث بالحدث اللحظي/الإشعار من غير polling.
+
+**FS-704 — إحصائيات متقدمة** (`GET insights`، `FreelanceInsights`). **المستوى 1 (Plus) زي ما كان:** ملخص 30 يوم. **المستوى 2 (Pro) بقى فيه إضافة:**
+- `data.earnings.analysis`: `before_minor` (نفس طول الفترة اللي قبلها) و`change_percent` (`null` لو مفيش قبلها)، `sources{projects,services,consultations}` (المُفرَج عنه بس)، `by_specialty[{id,name,earned_minor,share}]` و`top_clients[{name,earned_minor,share}]` (أول `insights.top_clients`=5)، `projects_paid` و`average_project_minor` (`null` لو صفر).
+- `data.portfolio` (**Portfolio Analytics**): `{works, shown (غير الخاص), verified, visits (زيارات المعرض من `by_source.portfolio`), opened (مرات فتح الأعمال), opened_before, opened_change_percent, top[{uuid,title,verified,visibility,views}]}`. الأعمال المخفية من الأدمن وأعمال الفريق مش داخلة.
+- **تسجيل فتح عمل:** `POST mobile/v1/freelance/freelancers/{uuid}/portfolio/{item}/view` (حارس `user_api`، `item` = `uuid` العمل، 404 لو العمل خاص أو مخفي) — بيتسجّل في `freelance_profile_views` بنوع `work` و`service_id` = id العمل، **عدّاد يومي بدون هوية** ونفس العميل خلال `dedupe_minutes` بيتعد مرة. تطبيق العميل بيناديه لما يفتح عمل من المعرض. إجماليات الملف والخدمات (`views.profile/service`) مش بتعدّ الأعمال.
+
+جداول: migration `2026_12_12_100000_create_freelance_crm` (الجداول التلاتة + `crm` في الباقات). الاختبارات: `tests/Feature/FreelanceCrmAnalyticsTest.php`.

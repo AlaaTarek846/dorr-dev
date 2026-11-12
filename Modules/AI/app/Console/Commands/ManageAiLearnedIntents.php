@@ -52,11 +52,11 @@ class ManageAiLearnedIntents extends Command
         $query = AiLearnedIntent::query()->orderByDesc('hits')->orderByDesc('id');
 
         if ($this->option('active')) {
-            $query->where('is_active', true);
+            $query->where('status', true);
         }
 
         if ($this->option('pending')) {
-            $query->where('is_active', false)->where('conflicts', 0);
+            $query->where('status', false)->where('conflicts', 0);
         }
 
         if ($this->option('conflicts')) {
@@ -79,7 +79,7 @@ class ManageAiLearnedIntents extends Command
     protected function stats(): int
     {
         $total = AiLearnedIntent::query()->count();
-        $active = AiLearnedIntent::query()->where('is_active', true)->count();
+        $active = AiLearnedIntent::query()->where('status', true)->count();
         $conflicts = AiLearnedIntent::query()->where('conflicts', '>', 0)->count();
         $hits = (int) AiLearnedIntent::query()->sum('hits');
 
@@ -101,8 +101,8 @@ class ManageAiLearnedIntents extends Command
         }
 
         match ($this->argument('action')) {
-            'enable' => $row->forceFill(['is_active' => true, 'conflicts' => 0])->save(),
-            'disable' => $row->forceFill(['is_active' => false, 'conflicts' => max(1, $row->conflicts)])->save(),
+            'enable' => $row->forceFill(['status' => true, 'conflicts' => 0])->save(),
+            'disable' => $row->forceFill(['status' => false, 'conflicts' => max(1, $row->conflicts)])->save(),
             'delete' => $row->delete(),
         };
 

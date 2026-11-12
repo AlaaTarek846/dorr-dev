@@ -106,6 +106,7 @@ class ServiceAvailabilityService
         // request already read (FreelanceFeatures keeps it in the request's memo too).
         foreach ([\Illuminate\Support\Facades\Cache::store(), \Illuminate\Support\Facades\Cache::memo()] as $cache) {
             $cache->forget('freelance:service-closed');
+            $cache->forget('marketing:service-closed');
         }
 
         // A region row that no longer sets anything is the same as no row.

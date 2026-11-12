@@ -32,7 +32,11 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     protected $fillable = [
         'uuid', 'freelancer_id', 'team_id', 'agreement_id', 'title', 'description', 'completed_on', 'freelance_specialty_id', 'visibility', 'rights_confirmed_at',
         'external_url', 'video_provider', 'video_id', 'sort_order', 'hidden_by_admin_at', 'hidden_reason', 'hidden_by_admin_id',
+        'case_problem', 'case_solution', 'case_role', 'case_tools', 'case_results', 'verified_revoked_at', 'verified_revoked_reason', 'verified_revoked_by_admin_id',
     ];
+
+    /** FS-601: the parts of a work's case study, in the order they are told. */
+    public const CASE_FIELDS = ['case_problem', 'case_solution', 'case_role', 'case_tools', 'case_results'];
 
     protected static function booted(): void
     {
@@ -41,7 +45,7 @@ class FreelancerPortfolioItem extends Model implements HasMedia
 
     protected function casts(): array
     {
-        return ['completed_on' => 'date', 'rights_confirmed_at' => 'datetime', 'hidden_by_admin_at' => 'datetime', 'sort_order' => 'integer'];
+        return ['completed_on' => 'date', 'rights_confirmed_at' => 'datetime', 'hidden_by_admin_at' => 'datetime', 'sort_order' => 'integer', 'verified_revoked_at' => 'datetime'];
     }
 
     protected function webpSkipCollections(): array
@@ -88,6 +92,16 @@ class FreelancerPortfolioItem extends Model implements HasMedia
     public function withdrawnByClient(): bool
     {
         return $this->agreement_id !== null && ! (bool) $this->agreement?->portfolio_allowed;
+    }
+
+    /**
+     * FS-601: «Verified by Dorr» — the work is made from a project finished on Dorr whose client lets it be shown (FL-L13), and staff have not
+     * taken the badge back. Uploading a picture alone never makes a work verified. Needs `agreement` loaded (one query otherwise).
+     */
+    public function isVerified(): bool
+    {
+        return $this->agreement_id !== null && $this->verified_revoked_at === null
+            && $this->agreement?->status === FreelanceAgreement::COMPLETED && (bool) $this->agreement?->portfolio_allowed;
     }
 
     public function addImage(UploadedFile $file): Media

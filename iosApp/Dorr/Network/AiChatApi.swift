@@ -63,9 +63,26 @@ struct AiMessageDto: Codable, Equatable, Identifiable {
     var confidenceScore: Double?
     var verificationWarnings: [String]?
     var citations: [AiFileCitationDto]?
+    /// DORR's own services offered with this answer (Modules/AI AiServiceActions) — e.g. a ride to book.
+    var actions: [AiServiceActionDto]?
     var createdAt: String?
 
     var isUser: Bool { role == "user" }
+}
+
+/// androidApp `AiServiceActionDto` — a DORR service card under an answer. `ride_booking`: the person wants to go
+/// somewhere — the place from the admin's map and what else was understood, in the same shape as
+/// «دُرر يفهم مقصدك» (rides `ai/understand`).
+struct AiServiceActionDto: Codable, Equatable {
+    var type: String
+    var service: String?
+    var title: String?
+    var subtitle: String?
+    var text: String?
+    var destination: RideAiPlaceDto?
+    var places: [RideAiPlaceDto]?
+    var understood: RideAiUnderstoodDto?
+    var clarify: String?
 }
 
 struct AiFileCitationDto: Codable, Equatable, Identifiable {

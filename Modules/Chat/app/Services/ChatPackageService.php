@@ -109,13 +109,21 @@ class ChatPackageService
     public function history(string $subjectType, int $subjectId): Collection
     {
         return ChatSubscription::query()->where('subject_type', $subjectType)->where('subject_id', $subjectId)
-            ->with('package.translations')->latest('id')->limit(50)->get()
+            ->with(['package.translations', 'currency'])->latest('id')->limit(50)->get()
             ->map(fn (ChatSubscription $s) => [
                 'package' => $s->package?->translatedName(),
                 'amount_minor' => $s->amount_minor,
+                'currency_code' => $s->currency?->code,
+                'paid_at' => $s->created_at?->toIso8601String(),
                 'starts_at' => $s->starts_at?->toIso8601String(),
                 'ends_at' => $s->ends_at?->toIso8601String(),
                 'is_running' => $s->starts_at?->isPast() && $s->ends_at?->isFuture(),
+                // running · upcoming (renewed early, starts when the current one ends) · ended
+                'state' => match (true) {
+                    $s->starts_at?->isFuture() => 'upcoming',
+                    (bool) $s->ends_at?->isFuture() => 'running',
+                    default => 'ended',
+                },
             ]);
     }
 

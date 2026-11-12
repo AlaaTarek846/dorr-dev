@@ -6,6 +6,7 @@ use App\Models\ServiceCategory;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Support\AiAdminScreens;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -299,6 +300,19 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view'],
             ],
+            // DORR AI Marketing Director (docs/marketing_tasks.md): switches per country, packages, operations.
+            'marketing-feature-rules' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'marketing-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'marketing-operations' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
                 'module_name' => 'general_services',
@@ -333,6 +347,8 @@ class AdminPermissionSeeder extends Seeder
             'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-checklist-templates' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
+            // FS-605: the quality desk (verified works, practical challenges, reputation corrections).
+            'freelance-quality' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -506,6 +522,11 @@ class AdminPermissionSeeder extends Seeder
                     'send',
                 ],
             ],
+            // AI assistant screens: one group per screen (Modules\AI\Support\AiAdminScreens, docs/screens/README.md).
+            ...array_map(
+                fn (array $actions) => ['module_name' => 'ai_assistant', 'actions' => $actions],
+                AiAdminScreens::GROUPS,
+            ),
         ];
     }
 

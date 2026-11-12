@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Quiz
@@ -50,6 +51,9 @@ import com.dorr.freelance.R
 import com.dorr.freelance.net.ApiClient
 import com.dorr.freelance.net.Realtime
 import com.dorr.freelance.net.SkillAttemptDto
+import com.dorr.freelance.net.SkillChallengeDto
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import com.dorr.freelance.net.SkillResultDto
 import com.dorr.freelance.net.SkillSubmitRequest
 import com.dorr.freelance.net.SkillTestDto
@@ -76,6 +80,8 @@ private sealed interface Stage {
     data object Listing : Stage
     data class Running(val attempt: SkillAttemptDto, val endsAtMs: Long) : Stage
     data class Done(val result: SkillResultDto, val name: String?) : Stage
+    /** FS-602: the form that sends a practical challenge for the next level of this skill. */
+    data class Challenge(val test: SkillTestDto) : Stage
 }
 
 private fun day(iso: String?): String = runCatching {
@@ -102,6 +108,9 @@ fun SkillTestsScreen(onBack: () -> Unit, onOpenSkills: () -> Unit) {
     var stage by remember { mutableStateOf<Stage>(Stage.Listing) }
     var busySkill by remember { mutableIntStateOf(0) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // FS-602: the challenge asked to be withdrawn (the question is open) and the one being withdrawn.
+    var askWithdraw by remember { mutableStateOf<SkillChallengeDto?>(null) }
+    var withdrawing by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
         when (val r = apiCall { ApiClient.skillTests.overview() }) {
@@ -124,29 +133,57 @@ fun SkillTestsScreen(onBack: () -> Unit, onOpenSkills: () -> Unit) {
         }
     }
 
+    fun withdraw(c: SkillChallengeDto) {
+        withdrawing = c.uuid
+        notice = null
+        scope.launch {
+            when (val r = apiCall { ApiClient.skillTests.withdrawChallenge(c.uuid) }) {
+                is ApiResult.Ok -> load()
+                else -> notice = r.errorText(offlineText) ?: genericError
+            }
+            withdrawing = null
+        }
+    }
+
     val current = stage
     // Leaving a running test keeps it on the server: opening it again resumes the same questions until the time is up.
     BackHandler(enabled = current !is Stage.Listing) { stage = Stage.Listing; scope.launch { load() } }
 
-    Page(title = stringResource(R.string.skt_title), onBack = { if (current is Stage.Listing) onBack() else { stage = Stage.Listing; scope.launch { load() } } }) {
+    Page(title = stringResource(if (current is Stage.Challenge) R.string.skl_ch_title else R.string.skt_title), onBack = { if (current is Stage.Listing) onBack() else { stage = Stage.Listing; scope.launch { load() } } }) {
         when (current) {
             is Stage.Running -> TestRunner(current, onResult = { result, name -> stage = Stage.Done(result, name); scope.launch { load() } }, offlineText = offlineText, genericError = genericError, name = overview?.tests?.firstOrNull { it.skillId == current.attempt.skillId }?.name)
             is Stage.Done -> TestResult(current.result, current.name, onDone = { stage = Stage.Listing })
+            is Stage.Challenge -> SkillChallengeForm(current.test, onSent = { text -> notice = text; stage = Stage.Listing; scope.launch { load() } })
             Stage.Listing -> {
                 val data = overview
                 when {
                     data == null && failure != null -> EmptyState(Icons.Rounded.Quiz, stringResource(R.string.skt_title), failure.orEmpty(), Modifier.padding(top = 70.dp))
                     data == null -> SkeletonDetail()
-                    else -> TestList(data, busySkill, onStart = ::start, onOpenSkills = onOpenSkills)
+                    else -> TestList(
+                        data, busySkill, withdrawing, onStart = ::start, onOpenSkills = onOpenSkills,
+                        onChallenge = { test -> notice = null; stage = Stage.Challenge(test) }, onWithdraw = { askWithdraw = it },
+                    )
                 }
                 ErrorBanner(notice ?: if (data != null) failure else null, Modifier.fillMaxWidth())
             }
         }
     }
+
+    askWithdraw?.let { c ->
+        AlertDialog(
+            onDismissRequest = { askWithdraw = null },
+            text = { Text(stringResource(R.string.skl_ch_withdraw_q)) },
+            confirmButton = { DialogButton(onClick = { askWithdraw = null; withdraw(c) }) { Text(stringResource(R.string.skl_ch_withdraw)) } },
+            dismissButton = { DialogButton(onClick = { askWithdraw = null }) { Text(stringResource(R.string.common_cancel)) } },
+        )
+    }
 }
 
 @Composable
-private fun TestList(data: SkillTestsDto, busySkill: Int, onStart: (SkillTestDto) -> Unit, onOpenSkills: () -> Unit) {
+private fun TestList(
+    data: SkillTestsDto, busySkill: Int, withdrawing: String?, onStart: (SkillTestDto) -> Unit, onOpenSkills: () -> Unit,
+    onChallenge: (SkillTestDto) -> Unit, onWithdraw: (SkillChallengeDto) -> Unit,
+) {
     Hero(data)
     if (!data.enabled) {
         EmptyState(Icons.Rounded.Quiz, stringResource(R.string.skt_off_title), stringResource(R.string.skt_off_body), Modifier.padding(top = 8.dp))
@@ -160,7 +197,12 @@ private fun TestList(data: SkillTestsDto, busySkill: Int, onStart: (SkillTestDto
         )
         return
     }
-    data.tests.forEach { test -> TestRow(test, loading = busySkill == test.skillId, onStart = { onStart(test) }) }
+    data.tests.forEach { test ->
+        TestRow(
+            test, loading = busySkill == test.skillId, withdrawing = withdrawing != null && withdrawing == test.challenge?.current?.uuid,
+            onStart = { onStart(test) }, onChallenge = { onChallenge(test) }, onWithdraw = onWithdraw,
+        )
+    }
 }
 
 /** What I hold: a trophy, how many badges, and a chip for each. */
@@ -192,7 +234,7 @@ private fun Hero(data: SkillTestsDto) {
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Icon(Icons.Rounded.Verified, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        Text(b.name.orEmpty(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(b.name.orEmpty() + (b.level?.let { " · " + skillLevelLabel(it) } ?: ""), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
@@ -200,36 +242,60 @@ private fun Hero(data: SkillTestsDto) {
     }
 }
 
+/**
+ * One skill: its test, the badge I hold as a level pill and a four-step meter, renewing a badge that ends soon (FS-602), and the practical
+ * challenge for the next level.
+ */
 @Composable
-private fun TestRow(test: SkillTestDto, loading: Boolean, onStart: () -> Unit) {
+private fun TestRow(test: SkillTestDto, loading: Boolean, withdrawing: Boolean, onStart: () -> Unit, onChallenge: () -> Unit, onWithdraw: (SkillChallengeDto) -> Unit) {
+    val badge = test.badge
     Column(
         Modifier.fillMaxWidth().widthIn(max = 520.dp).clip(RoundedCornerShape(20.dp)).settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(42.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(if (test.badge != null) Icons.Rounded.Verified else Icons.Rounded.Quiz, null, tint = settingsAccent(), modifier = Modifier.size(22.dp))
+            val tint = if (badge != null) skillLevelColor(badge.level) else settingsAccent()
+            Box(Modifier.size(42.dp).clip(CircleShape).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(if (badge != null) Icons.Rounded.Verified else Icons.Rounded.Quiz, null, tint = tint, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(test.name.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                 Text(stringResource(R.string.skt_meta, test.questions, test.minutes, test.passPercent), color = settingsMut(), fontSize = 12.sp)
             }
             when {
-                test.badge != null -> SvcPill(stringResource(R.string.skt_badge_held, test.badge.scorePercent), serviceTone("active"))
+                badge != null -> SkillLevelPill(badge.level)
                 test.inProgress -> SvcPill(stringResource(R.string.skt_in_progress), serviceTone("awaiting"))
             }
         }
+        if (badge != null) {
+            SkillLevelMeter(badge.level)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SvcPill(stringResource(R.string.skt_badge_held, badge.scorePercent), serviceTone("active"))
+                Text(
+                    if (badge.expiresAt != null) stringResource(R.string.skt_badge_until, day(badge.expiresAt)) else stringResource(R.string.skt_badge_forever),
+                    color = if (test.renewable) QualityAmber else settingsMut(), fontSize = 12.sp, modifier = Modifier.weight(1f),
+                )
+            }
+        } else if (test.intermediatePercent > 0) {
+            Text(stringResource(R.string.skl_intermediate_hint, test.intermediatePercent), color = settingsMut(), fontSize = 11.5.sp)
+        }
         when {
-            test.badge != null -> Text(
-                if (test.badge.expiresAt != null) stringResource(R.string.skt_badge_until, day(test.badge.expiresAt)) else stringResource(R.string.skt_badge_forever),
-                color = settingsMut(), fontSize = 12.sp,
-            )
+            badge != null && test.renewable -> {
+                NoteBanner(Icons.Rounded.Autorenew, stringResource(R.string.skl_renew_body), QualityAmber, title = stringResource(R.string.skl_renew_title))
+                if (test.retakeAt != null && !test.inProgress) Text(stringResource(R.string.skt_retake_at, dayTime(test.retakeAt)), color = settingsMut(), fontSize = 12.sp)
+                else SettingsPrimaryButton(
+                    text = stringResource(if (test.inProgress) R.string.skt_resume else R.string.skl_renew),
+                    loading = loading, enabled = test.canStart || test.inProgress, onClick = onStart,
+                )
+            }
+            badge != null -> Unit
             test.retakeAt != null -> Text(stringResource(R.string.skt_retake_at, dayTime(test.retakeAt)), color = settingsMut(), fontSize = 12.sp)
             else -> SettingsPrimaryButton(
                 text = stringResource(if (test.inProgress) R.string.skt_resume else R.string.skt_start),
                 loading = loading, enabled = test.canStart || test.inProgress, onClick = onStart,
             )
         }
+        test.challenge?.takeIf { it.shown() }?.let { SkillChallengeCard(it, withdrawing, onSend = onChallenge, onWithdraw = onWithdraw) }
     }
 }
 
@@ -332,6 +398,11 @@ private fun TestResult(result: SkillResultDto, name: String?, onDone: () -> Unit
             color = settingsInk(), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
         )
         Text(stringResource(R.string.skt_score_line, result.correctCount, result.total, result.passPercent), color = settingsMut(), fontSize = 13.sp)
+        // FS-602: the level the mark gave, on the four-step meter.
+        if (ok && result.badge?.level != null) {
+            SkillLevelPill(result.badge.level)
+            SkillLevelMeter(result.badge.level, Modifier.padding(horizontal = 12.dp))
+        }
         when {
             ok -> Text(stringResource(R.string.skt_passed_body, name.orEmpty()), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
             result.retakeAt != null -> Text(stringResource(R.string.skt_retake_at, dayTime(result.retakeAt)), color = settingsMut(), fontSize = 13.sp)

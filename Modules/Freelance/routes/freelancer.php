@@ -317,6 +317,21 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
 
         // FL-L01 phase 4: my performance (what shows depends on my plan; a plan with none gets `locked`, not an error).
         Route::get('insights', [FreelancerInsightController::class, 'show'])->middleware('freelance.feature:projects');
+
+        // FS-703: my private CRM - clients, past projects, notes, labels and follow-up reminders (what the plan's `crm` opens).
+        $crm = \Modules\Freelance\Http\Controllers\Freelancer\FreelancerCrmController::class;
+        Route::prefix('crm')->middleware('freelance.feature:projects')->group(function () use ($crm) {
+            Route::get('clients', [$crm, 'index']);
+            Route::get('reminders', [$crm, 'reminders']);
+            Route::get('clients/{uuid}', [$crm, 'show'])->whereUuid('uuid');
+            Route::put('clients/{uuid}', [$crm, 'update'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-crm-write');
+            Route::post('clients/{uuid}/notes', [$crm, 'storeNote'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-crm-write');
+            Route::put('clients/{uuid}/notes/{note}', [$crm, 'updateNote'])->whereUuid(['uuid', 'note'])->middleware('throttle:60,1,freelance-crm-write');
+            Route::delete('clients/{uuid}/notes/{note}', [$crm, 'destroyNote'])->whereUuid(['uuid', 'note']);
+            Route::post('clients/{uuid}/reminders', [$crm, 'storeReminder'])->whereUuid('uuid')->middleware('throttle:60,1,freelance-crm-write');
+            Route::put('clients/{uuid}/reminders/{reminder}', [$crm, 'updateReminder'])->whereUuid(['uuid', 'reminder'])->middleware('throttle:60,1,freelance-crm-write');
+            Route::delete('clients/{uuid}/reminders/{reminder}', [$crm, 'destroyReminder'])->whereUuid(['uuid', 'reminder']);
+        });
         Route::get('profile-coach', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCoachController::class, 'show'])->middleware('freelance.feature:freelance');
         // Capacity and the waiting list on my services (FL-L10).
         Route::get('capacity', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerCapacityController::class, 'show'])->middleware('freelance.feature:freelance');
@@ -324,6 +339,13 @@ Route::middleware('locale')->prefix('freelance/v1')->group(function () {
         // Skill tests and badges (FL-L08).
         Route::get('skill-tests', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'index'])->middleware('freelance.feature:freelance');
         Route::post('skill-tests/{skill}/start', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'start'])->whereNumber('skill')->middleware(['freelance.feature:freelance', 'throttle:20,1,freelance-skill-test-start']);
+        // FS-604: my reputation figures with their sources, and asking staff to correct the data of one project.
+        Route::get('reputation', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerReputationController::class, 'show'])->middleware('freelance.feature:freelance');
+        Route::get('reputation/corrections', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerReputationController::class, 'corrections']);
+        Route::post('reputation/corrections', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerReputationController::class, 'store'])->middleware('throttle:10,1,freelance-reputation-correction');
+        // FS-602: the practical challenge for the advanced / expert level of a skill.
+        Route::post('skill-tests/{skill}/challenge', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'challenge'])->whereNumber('skill')->middleware(['freelance.feature:skill_tests', 'throttle:10,1,freelance-skill-challenge']);
+        Route::post('skill-challenges/{uuid}/withdraw', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'withdrawChallenge'])->whereUuid('uuid');
         Route::post('skill-test-attempts/{attempt}/submit', [\Modules\Freelance\Http\Controllers\Freelancer\FreelancerSkillTestController::class, 'submit'])->whereNumber('attempt')->middleware('freelance.feature:freelance');
 
         // FL-304: my offer texts to start from.

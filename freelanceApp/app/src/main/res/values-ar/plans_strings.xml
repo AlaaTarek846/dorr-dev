@@ -70,6 +70,8 @@
     <string name="plans_perk_boost">بتظهر الأول في ترتيب «الموصى بهم»</string>
     <string name="plans_perk_analytics_1">إحصائيات أدائك (آخر 30 يوم)</string>
     <string name="plans_perk_analytics_2">إحصائيات أدائك الكاملة بالرسم</string>
+    <string name="plans_perk_crm_1">عملاء وملاحظات</string>
+    <string name="plans_perk_crm_2">عملاء وملاحظات وتذكيرات</string>
     <string name="plans_perk_services">لحد %1$d خدمة جاهزة</string>
     <string name="plans_open_insights">إحصائيات أدائي</string>
 </resources>

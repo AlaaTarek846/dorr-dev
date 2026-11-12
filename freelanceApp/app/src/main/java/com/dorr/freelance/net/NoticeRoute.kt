@@ -13,6 +13,10 @@ object NoticeRoute {
         if (event?.startsWith("freelance.community") == true || field("type")?.startsWith("freelance_community_") == true) {
             return field("community_post")?.let(Routes::communityPost) ?: field("community_member")?.let(Routes::communityMember) ?: Routes.COMMUNITY
         }
+        // FS-703: a follow-up reminder that fell due (`type` = crm_reminder, `client` = the client's CRM uuid) opens that client's page, where it waits.
+        if (field("type") == "crm_reminder" || event?.startsWith("freelance.crm") == true) {
+            return field("client")?.let(Routes::crmClient) ?: Routes.CRM
+        }
         val e = event ?: return null
         val project = field("project")
         return when {
@@ -20,7 +24,12 @@ object NoticeRoute {
             e.startsWith("wallet.") || e == "freelance.payment.available" -> Routes.WALLET
             e.startsWith("freelance.verification") -> Routes.VERIFICATION
             e.startsWith("freelance.skill") -> Routes.SKILLS
-            e == "freelance.portfolio.hidden" -> Routes.PORTFOLIO
+            // FS-601: staff took the «Verified by Dorr» badge off one of my works - my works, where its card says why.
+            e == "freelance.portfolio.hidden" || e == "freelance.portfolio.unverified" -> Routes.PORTFOLIO
+            // FS-602: the reviewer's answer on my practical challenge opens the skill tests, where its card shows the decision.
+            e.startsWith("freelance.challenge") -> Routes.SKILL_TESTS
+            // FS-604: staff answered my request to correct a reputation figure.
+            e.startsWith("freelance.reputation") -> Routes.REPUTATION
             e == "freelance.quota.low" -> Routes.MY_OFFERS
             e.startsWith("freelance.subscription") -> Routes.PLANS
             // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.

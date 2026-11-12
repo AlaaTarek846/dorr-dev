@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- مدير التسويق الذكي (docs/marketing_tasks.md). كل مفتاح موجود باللغتين. -->
+    <string name="mktg_title">مدير التسويق الذكي</string>
+    <string name="mktg_menu_sub">أبحاث وخطط عمل وتسويق لمشروعك</string>
+    <string name="mktg_unavailable_title">غير متاح في دولتك حاليًا</string>
+    <string name="mktg_unavailable_text">سيتوفر مدير التسويق الذكي هنا قريبًا.</string>
+    <string name="mktg_error_generic">حدث خطأ. حاول مرة أخرى.</string>
+    <string name="mktg_retry">إعادة المحاولة</string>
+    <string name="mktg_cancel">إلغاء</string>
+    <string name="mktg_save">حفظ</string>
+    <string name="mktg_close">إغلاق</string>
+    <string name="mktg_load_more">عرض المزيد</string>
+
+    <!-- الباقة -->
+    <string name="mktg_package">باقة التسويق</string>
+    <string name="mktg_packages">الباقات</string>
+    <string name="mktg_no_package_title">اشترك لتبدأ</string>
+    <string name="mktg_no_package_text">الباقة تشمل الأبحاث بمصادرها والخطط والحسابات المالية والتصدير لك ولفريقك.</string>
+    <string name="mktg_see_packages">عرض الباقات</string>
+    <string name="mktg_active_until">سارية حتى %1$s</string>
+    <string name="mktg_renew">إضافة فترة</string>
+    <string name="mktg_buy">اشترك</string>
+    <string name="mktg_per_days">كل %1$d يومًا</string>
+    <string name="mktg_limit_projects">المشاريع: %1$s</string>
+    <string name="mktg_limit_research_runs">الأبحاث: %1$s</string>
+    <string name="mktg_limit_plan_generations">كتابة الخطط: %1$s</string>
+    <string name="mktg_limit_members">أعضاء الفريق: %1$s</string>
+    <string name="mktg_unlimited">بلا حد</string>
+    <string name="mktg_used_of">%1$d من %2$s</string>
+    <string name="mktg_paid">تم الاشتراك. يمكنك البدء الآن.</string>
+    <string name="mktg_no_packages">لا توجد باقة متاحة في دولتك حاليًا.</string>
+
+    <!-- المشاريع -->
+    <string name="mktg_projects">مشاريعي</string>
+    <string name="mktg_new_project">مشروع جديد</string>
+    <string name="mktg_search_projects">ابحث في المشاريع</string>
+    <string name="mktg_no_projects_title">لا توجد مشاريع بعد</string>
+    <string name="mktg_no_projects_text">أضف مشروعك وسيبدأ المدير بالأسئلة المهمة.</string>
+    <string name="mktg_project_name">اسم المشروع</string>
+    <string name="mktg_industry">المجال</string>
+    <string name="mktg_industry_hint">مثال: مخبز، توصيل، صالون تجميل</string>
+    <string name="mktg_city">المدينة الرئيسية</string>
+    <string name="mktg_stage">المرحلة</string>
+    <string name="mktg_stage_idea">فكرة</string>
+    <string name="mktg_stage_launch">إطلاق</string>
+    <string name="mktg_stage_growth">نمو</string>
+    <string name="mktg_create">إنشاء</string>
+    <string name="mktg_created">تم إنشاء المشروع.</string>
+    <string name="mktg_archived_badge">مؤرشف</string>
+    <string name="mktg_archive">أرشفة</string>
+    <string name="mktg_unarchive">استعادة</string>
+    <string name="mktg_delete">حذف المشروع</string>
+    <string name="mktg_delete_confirm_title">حذف هذا المشروع؟</string>
+    <string name="mktg_delete_confirm_text">ستُحذف أبحاثه وخططه معه، ولا يمكن التراجع.</string>
+    <string name="mktg_deleted">تم حذف المشروع.</string>
+    <string name="mktg_role_owner">المالك</string>
+    <string name="mktg_role_manager">مدير</string>
+    <string name="mktg_role_analyst">محلل</string>
+    <string name="mktg_role_viewer">مشاهد</string>
+
+    <!-- الاكتشاف -->
+    <string name="mktg_discovery">الاكتشاف</string>
+    <string name="mktg_discovery_sub">تمت الإجابة عن %1$d من %2$d</string>
+    <string name="mktg_discovery_missing">أجب عن الأسئلة المطلوبة لتُبنى الخطط على حقائق لا على تخمين.</string>
+    <string name="mktg_discovery_done">تمت الإجابة عن الأساسيات.</string>
+    <string name="mktg_required">مطلوب</string>
+    <string name="mktg_from_ai">من الذكاء الاصطناعي</string>
+    <string name="mktg_one_per_line">عنصر في كل سطر</string>
+    <string name="mktg_dont_know">لا أعرف بعد</string>
+    <string name="mktg_suggest">اقترح أسئلة أخرى</string>
+    <string name="mktg_saved">تم الحفظ.</string>
+    <string name="mktg_answer_invalid">راجع هذه الإجابة.</string>
+
+    <!-- الأبحاث -->
+    <string name="mktg_research">الأبحاث</string>
+    <string name="mktg_research_market">السوق</string>
+    <string name="mktg_research_competitor">المنافسون</string>
+    <string name="mktg_research_audience">الجمهور</string>
+    <string name="mktg_research_start">ابدأ بحث %1$s</string>
+    <string name="mktg_research_started">بدأ البحث. ستجده هنا عند انتهائه.</string>
+    <string name="mktg_no_research">لا توجد أبحاث بعد. كل رقم سيظهر مع مصدره.</string>
+    <string name="mktg_research_not_ready">البحث في الويب غير مُعد بعد، لذلك سيقول البحث \"لا توجد مصادر\" بدل التخمين.</string>
+    <string name="mktg_sources">المصادر</string>
+    <string name="mktg_findings">النتائج</string>
+    <string name="mktg_gaps">ما لا تغطيه المصادر</string>
+    <string name="mktg_quality">جودة الأدلة</string>
+    <string name="mktg_assumption">افتراض</string>
+    <string name="mktg_sources_count">%1$d مصدر · %2$d نتيجة</string>
+    <string name="mktg_no_findings">لم يمكن ربط أي نتيجة بمصدر.</string>
+    <string name="mktg_published">نُشر %1$s</string>
+    <string name="mktg_retrieved">استُرجع %1$s</string>
+    <string name="mktg_open_source">فتح</string>
+    <string name="mktg_confidence_high">ثقة عالية</string>
+    <string name="mktg_confidence_medium">ثقة متوسطة</string>
+    <string name="mktg_confidence_low">ثقة منخفضة</string>
+
+    <!-- الحالة -->
+    <string name="mktg_status_QUEUED">في الانتظار</string>
+    <string name="mktg_status_RUNNING">جارٍ العمل…</string>
+    <string name="mktg_status_EVIDENCE_CHECK">مراجعة المصادر…</string>
+    <string name="mktg_status_COMPLETED">اكتمل</string>
+    <string name="mktg_status_PARTIAL">جزئي</string>
+    <string name="mktg_status_FAILED">فشل</string>
+    <string name="mktg_status_CANCELLED">أُلغي</string>
+    <string name="mktg_status_DRAFT">مسودة</string>
+    <string name="mktg_status_READY_FOR_REVIEW">جاهزة للمراجعة</string>
+    <string name="mktg_status_APPROVED">معتمدة</string>
+    <string name="mktg_status_SUPERSEDED">مستبدلة</string>
+    <string name="mktg_status_ARCHIVED">مؤرشفة</string>
+    <string name="mktg_job_failed">توقف: %1$s</string>
+
+    <!-- الخطط -->
+    <string name="mktg_plans">الخطط</string>
+    <string name="mktg_plan_business">خطة العمل</string>
+    <string name="mktg_plan_marketing">خطة التسويق</string>
+    <string name="mktg_plan_gtm">خطة دخول السوق</string>
+    <string name="mktg_plan_write">اكتبها</string>
+    <string name="mktg_plan_rewrite">إعادة الكتابة بالذكاء الاصطناعي</string>
+    <string name="mktg_plan_writing">جارٍ كتابة الخطة…</string>
+    <string name="mktg_plan_started">جارٍ كتابة الخطة.</string>
+    <string name="mktg_version">النسخة %1$d</string>
+    <string name="mktg_versions">النسخ</string>
+    <string name="mktg_origin_ai">بالذكاء الاصطناعي</string>
+    <string name="mktg_origin_edit">تعديل</string>
+    <string name="mktg_submit">إرسال للمراجعة</string>
+    <string name="mktg_approve">اعتماد النسخة %1$d</string>
+    <string name="mktg_return">إرجاع إلى المسودة</string>
+    <string name="mktg_approved_on">النسخة %1$d معتمدة · %2$s</string>
+    <string name="mktg_approve_confirm_title">اعتماد هذه النسخة؟</string>
+    <string name="mktg_approve_confirm_text">الاعتماد لهذه النسخة بالذات. أي تعديل لاحق ينشئ نسخة جديدة تحتاج اعتمادًا من جديد.</string>
+    <string name="mktg_edit">تعديل</string>
+    <string name="mktg_edit_plan">تعديل الخطة</string>
+    <string name="mktg_edit_note">الحفظ ينشئ نسخة جديدة، والخطة المعتمدة تعود إلى مسودة.</string>
+    <string name="mktg_title_field">العنوان</string>
+    <string name="mktg_summary">الملخص</string>
+    <string name="mktg_assumptions">الافتراضات</string>
+    <string name="mktg_risks">المخاطر</string>
+    <string name="mktg_confidence_notes">ملاحظات الثقة</string>
+    <string name="mktg_issues">أمور للمراجعة</string>
+    <string name="mktg_issue_blocking">يجب إصلاحه قبل المراجعة</string>
+    <string name="mktg_positioning">التموضع</string>
+    <string name="mktg_segments">الشرائح</string>
+    <string name="mktg_channels">القنوات</string>
+    <string name="mktg_messages">الرسائل الرئيسية</string>
+    <string name="mktg_kpis">مؤشرات الأداء</string>
+    <string name="mktg_horizon">%1$d يومًا</string>
+    <string name="mktg_phase_days">الأيام %1$d–%2$d</string>
+    <string name="mktg_tasks">المهام</string>
+    <string name="mktg_go_no_go">الاستمرار / التوقف</string>
+    <string name="mktg_cited_sources">المصادر المذكورة: %1$s</string>
+    <string name="mktg_export_pdf">PDF</string>
+    <string name="mktg_export_docx">Word</string>
+    <string name="mktg_export_failed">تعذر تجهيز الملف.</string>
+    <string name="mktg_archive_plan">أرشفة الخطة</string>
+    <string name="mktg_instructions">هل تريد التركيز على شيء؟ (اختياري)</string>
+    <string name="mktg_issue_budget_missing">الميزانية الشهرية غير معروفة، لذلك لا يُفترض أي رقم مالي.</string>
+    <string name="mktg_issue_invented_budget_removed">حُذفت ميزانية اقترحها الذكاء الاصطناعي: ميزانيتك أنت فقط هي المعتمدة.</string>
+    <string name="mktg_issue_unknown_sources_removed">حُذفت مصادر ليست ضمن هذا المشروع.</string>
+    <string name="mktg_issue_numbers_without_sources">بعض الأرقام بلا مصدر: اعتبرها افتراضات.</string>
+    <string name="mktg_issue_budget_share_over_100">مجموع حصص القنوات من الميزانية أكثر من 100 بالمئة.</string>
+    <string name="mktg_issue_invalid_phase_range">أيام إحدى المراحل غير صحيحة.</string>
+    <string name="mktg_issue_overlapping_phases">هناك مرحلتان متداخلتان.</string>
+    <string name="mktg_issue_phase_without_go_no_go">إحدى المراحل بلا معايير استمرار أو توقف.</string>
+
+    <!-- المالية -->
+    <string name="mktg_finance">المالية</string>
+    <string name="mktg_finance_sub">سيناريوهات محسوبة من أرقامك</string>
+    <string name="mktg_finance_note">تقديرات من الأرقام التي تدخلها، وليست وعدًا بالنتائج. الحفظ ينشئ نسخة جديدة.</string>
+    <string name="mktg_in_price">سعر الوحدة</string>
+    <string name="mktg_in_variable_cost">التكلفة المتغيرة للوحدة</string>
+    <string name="mktg_in_fixed_costs">التكاليف الثابتة شهريًا</string>
+    <string name="mktg_in_marketing_spend">الإنفاق التسويقي شهريًا</string>
+    <string name="mktg_in_new_customers">العملاء الجدد شهريًا</string>
+    <string name="mktg_in_conversions">التحويلات شهريًا</string>
+    <string name="mktg_in_revenue">الإيراد من الإعلانات شهريًا</string>
+    <string name="mktg_in_churn">نسبة فقد العملاء شهريًا (بالمئة)</string>
+    <string name="mktg_scenario_conservative">متحفظ</string>
+    <string name="mktg_scenario_base">أساسي</string>
+    <string name="mktg_scenario_optimistic">متفائل</string>
+    <string name="mktg_m_contribution_margin_per_unit_minor">هامش الوحدة</string>
+    <string name="mktg_m_break_even_units">وحدات التعادل</string>
+    <string name="mktg_m_cac_minor">تكلفة اكتساب العميل</string>
+    <string name="mktg_m_cpa_minor">تكلفة الإجراء</string>
+    <string name="mktg_m_roas">العائد على الإعلان</string>
+    <string name="mktg_m_ltv_minor">قيمة العميل</string>
+    <string name="mktg_m_monthly_profit_minor">الربح الشهري</string>
+    <string name="mktg_unavailable">غير متاح</string>
+    <string name="mktg_estimated">تقديري</string>
+    <string name="mktg_no_finance">أدخل أرقامك لترى السيناريوهات الثلاثة.</string>
+
+    <!-- الفريق -->
+    <string name="mktg_team">الفريق</string>
+    <string name="mktg_team_sub">%1$d أشخاص</string>
+    <string name="mktg_add_member">إضافة عضو</string>
+    <string name="mktg_phone">رقم الجوال</string>
+    <string name="mktg_role">الدور</string>
+    <string name="mktg_member_added">تمت الإضافة إلى الفريق.</string>
+    <string name="mktg_member_removed">تمت الإزالة من الفريق.</string>
+    <string name="mktg_role_changed">تم تغيير الدور.</string>
+    <string name="mktg_remove">إزالة</string>
+    <string name="mktg_leave">مغادرة المشروع</string>
+    <string name="mktg_you">أنت</string>
+    <string name="mktg_role_manager_sub">يعدّل الملف والخطط ويوافق عليها</string>
+    <string name="mktg_role_analyst_sub">يقرأ ويُجري الأبحاث</string>
+    <string name="mktg_role_viewer_sub">قراءة فقط</string>
+</resources>

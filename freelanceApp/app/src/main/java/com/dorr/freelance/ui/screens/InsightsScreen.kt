@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Verified
@@ -51,6 +52,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,8 +65,10 @@ import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
 import com.dorr.freelance.R
 import com.dorr.freelance.net.ApiClient
+import com.dorr.freelance.net.InsightEarningsAnalysisDto
 import com.dorr.freelance.net.InsightEarningsDto
 import com.dorr.freelance.net.InsightOffersDto
+import com.dorr.freelance.net.InsightPortfolioDto
 import com.dorr.freelance.net.InsightReputationDto
 import com.dorr.freelance.net.InsightSavedDto
 import com.dorr.freelance.net.InsightServicesDto
@@ -186,14 +191,18 @@ private fun InsightsBody(dto: InsightsDto, data: InsightsDataDto, chosen: Int?, 
     OffersCard(data.offers)
     ServicesCard(data.services)
     EarningsCard(data.earnings, dto)
+    // FS-704: only the full level carries these; at the basic level the fields are absent and nothing shows.
+    data.earnings.analysis?.let { EarningsDetailCard(it, data.earnings.earnedMinor, dto) }
     ReputationCard(data.reputation)
     data.specialties?.takeIf { it.isNotEmpty() }?.let { SpecialtiesCard(it) }
+    data.portfolio?.let { PortfolioCard(it) }
 
     // The basic level sees where the rest is.
     val next = dto.upgrade
     if (dto.level < 2 && next != null) {
         InfoCard(title = stringResource(R.string.insights_more_title), icon = Icons.Rounded.Insights) {
             Text(stringResource(R.string.insights_more_body, next.name ?: next.slug), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+            Text(stringResource(R.string.insights_more_new), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
             SettingsPrimaryButton(text = stringResource(R.string.insights_unlock, next.name ?: next.slug), onClick = onOpenPlans)
         }
     }
@@ -558,3 +567,194 @@ private fun SpecialtiesCard(rows: List<InsightSpecialtyDto>) {
         }
     }
 }
+
+// ---------------------------------------------------------------- earnings in detail (FS-704)
+
+/**
+ * FS-704, the full level: what the period's earnings are made of — how they moved against the stretch before (the server's own percent; nothing
+ * before = «new»), where they came from (projects, ready-made services, consultations), the specialties and clients that brought the most (each with
+ * its share), how many projects paid and what one brings on average.
+ */
+@Composable
+private fun EarningsDetailCard(a: InsightEarningsAnalysisDto, earned: Long, dto: InsightsDto) {
+    InfoCard(title = stringResource(R.string.insights_detail_title), icon = Icons.Rounded.Payments) {
+        Text(stringResource(R.string.insights_detail_sub), color = settingsMut(), fontSize = 12.sp)
+        if (earned <= 0L && a.beforeMinor <= 0L) {
+            Text(stringResource(R.string.insights_detail_none), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+            return@InfoCard
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ChangeChip(a.changePercent)
+            Text(stringResource(R.string.insights_detail_before, svcMoney(a.beforeMinor, dto.decimals, dto.currency)), color = settingsMut(), fontSize = 12.sp)
+        }
+        val s = a.sources
+        val total = s.projects + s.services + s.consultations
+        if (total > 0L) {
+            Text(stringResource(R.string.insights_detail_sources), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            SegmentBar(
+                listOf(
+                    Triple(R.string.insights_src_projects, s.projects, settingsAccent()),
+                    Triple(R.string.insights_src_services, s.services, Color(0xFFF59E0B)),
+                    Triple(R.string.insights_src_consultations, s.consultations, Color(0xFF0EA5E9)),
+                ).filter { it.second > 0L },
+                total, dto,
+            )
+        }
+        if (a.bySpecialty.isNotEmpty()) {
+            Text(stringResource(R.string.insights_detail_specialty), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            a.bySpecialty.forEach { ShareRow(it.name?.takeIf { n -> n.isNotBlank() } ?: "—", svcMoney(it.earnedMinor, dto.decimals, dto.currency), it.share) }
+        }
+        if (a.topClients.isNotEmpty()) {
+            Text(stringResource(R.string.insights_detail_clients), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            val unknown = stringResource(R.string.insights_detail_client_unknown)
+            a.topClients.forEach { ShareRow(it.name?.takeIf { n -> n.isNotBlank() } ?: unknown, svcMoney(it.earnedMinor, dto.decimals, dto.currency), it.share) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DetailFigure(a.projectsPaid.toString(), stringResource(R.string.insights_detail_paid), Modifier.weight(1f))
+            DetailFigure(a.averageProjectMinor?.let { svcMoney(it, dto.decimals, dto.currency) } ?: "—", stringResource(R.string.insights_detail_avg), Modifier.weight(1f))
+        }
+    }
+}
+
+/** How a number moved against the period before: an arrow and the server's percent; null (nothing before) is «new». Read out in words for TalkBack. */
+@Composable
+private fun ChangeChip(percent: Int?) {
+    val up = Color(0xFF16A34A)
+    val down = Color(0xFFDC2626)
+    val description = when {
+        percent == null -> stringResource(R.string.insights_detail_first)
+        percent > 0 -> stringResource(R.string.insights_detail_up, percent)
+        percent < 0 -> stringResource(R.string.insights_detail_down, -percent)
+        else -> stringResource(R.string.insights_detail_same)
+    }
+    if (percent == null) {
+        SvcPill(stringResource(R.string.insights_views_new), SvcTone(up, up.copy(alpha = 0.12f)), Modifier.clearAndSetSemantics { contentDescription = description })
+        return
+    }
+    val tone = when { percent > 0 -> up; percent < 0 -> down; else -> settingsMut() }
+    Row(
+        Modifier.clearAndSetSemantics { contentDescription = description }.clip(RoundedCornerShape(999.dp)).background(tone.copy(alpha = 0.12f)).padding(horizontal = 9.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        if (percent != 0) Icon(if (percent > 0) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, tint = tone, modifier = Modifier.size(13.dp))
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Text("${kotlin.math.abs(percent)}%", color = tone, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+/** One bar cut in the parts of [total] (animated), then a row for each part: its colour, name, amount and share. */
+@Composable
+private fun SegmentBar(parts: List<Triple<Int, Long, Color>>, total: Long, dto: InsightsDto) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(999.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                parts.forEach { (_, n, color) ->
+                    val w by animateFloatAsState(if (shown) n.toFloat() / total else 0f, tween(700), label = "seg")
+                    if (w > 0f) Box(Modifier.weight(w).fillMaxHeight().background(color))
+                }
+            }
+        }
+        parts.forEach { (label, n, color) ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                Text(stringResource(label), color = settingsInk(), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(svcMoney(n, dto.decimals, dto.currency), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.insights_detail_share, (n * 100f / total).toInt()), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.widthIn(min = 34.dp), textAlign = TextAlign.End)
+                }
+            }
+        }
+    }
+}
+
+/** A name with what it earned and its share of the period, and a bar as long as the share. */
+@Composable
+private fun ShareRow(label: String, money: String, share: Int?) {
+    val fraction by animateFloatAsState(((share ?: 0) / 100f).coerceIn(0f, 1f), tween(600), label = "share")
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(label, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Text(money, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                if (share != null) Text(stringResource(R.string.insights_detail_share, share), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.widthIn(min = 34.dp), textAlign = TextAlign.End)
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.12f))) {
+            Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent()))
+        }
+    }
+}
+
+/** A small tinted figure: a label over a value, and an optional line under them. */
+@Composable
+private fun DetailFigure(value: String, label: String, modifier: Modifier = Modifier, below: (@Composable () -> Unit)? = null) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.07f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = settingsMut(), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2)
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Text(value, color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        below?.invoke()
+    }
+}
+
+// ---------------------------------------------------------------- the portfolio (FS-704)
+
+/**
+ * FS-704, the full level: how clients look at my works — how many there are, how many are shown and verified, the visits to the portfolio, the
+ * works opened (against the period before) and the ones opened most. Counted per day, never per person.
+ */
+@Composable
+private fun PortfolioCard(p: InsightPortfolioDto) {
+    InfoCard(title = stringResource(R.string.insights_pf_title), icon = Icons.Rounded.PhotoLibrary) {
+        Text(stringResource(R.string.insights_pf_sub), color = settingsMut(), fontSize = 12.sp)
+        if (p.works == 0) {
+            Text(stringResource(R.string.insights_pf_no_works), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+            return@InfoCard
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DetailFigure(p.works.toString(), stringResource(R.string.insights_pf_works), Modifier.weight(1f))
+            DetailFigure(p.shown.toString(), stringResource(R.string.insights_pf_shown), Modifier.weight(1f))
+            DetailFigure(p.verified.toString(), stringResource(R.string.insights_pf_verified), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DetailFigure(p.visits.toString(), stringResource(R.string.insights_pf_visits), Modifier.weight(1f))
+            DetailFigure(p.opened.toString(), stringResource(R.string.insights_pf_opened), Modifier.weight(1f), below = { ChangeChip(p.openedChangePercent) })
+        }
+        if (p.opened == 0) {
+            Text(stringResource(R.string.insights_pf_none), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+            return@InfoCard
+        }
+        if (p.top.isNotEmpty()) {
+            Text(stringResource(R.string.insights_pf_top), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            val most = p.top.maxOf { it.views }.coerceAtLeast(1)
+            p.top.forEach { w ->
+                val fraction by animateFloatAsState((w.views.toFloat() / most).coerceIn(0f, 1f), tween(600), label = "work")
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (w.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.insights_pf_verified_work), tint = settingsAccent(), modifier = Modifier.size(16.dp))
+                        Text(w.title, color = settingsInk(), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        SvcPill(workVisibilityLabel(w.visibility), if (w.visibility == "public") SvcTone(settingsAccent(), settingsAccent().copy(alpha = 0.12f)) else SvcTone(Color(0xFFD97706), Color(0xFFD97706).copy(alpha = 0.12f)))
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            Text(stringResource(R.string.insights_pf_views, w.views), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.widthIn(min = 26.dp), textAlign = TextAlign.End)
+                        }
+                    }
+                    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.12f))) {
+                        Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent()))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun workVisibilityLabel(visibility: String): String = stringResource(
+    when (visibility) {
+        "clients_only" -> R.string.vis_clients
+        "private" -> R.string.vis_private
+        else -> R.string.vis_public
+    },
+)

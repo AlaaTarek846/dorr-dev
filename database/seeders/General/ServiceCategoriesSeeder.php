@@ -60,6 +60,7 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'الملاعب', 'en' => 'Sports Venues'], 'module_name' => 'sports_venues', 'requires_provider' => true],
             ['name' => ['ar' => 'الفعاليات', 'en' => 'Events'], 'module_name' => 'events', 'requires_provider' => true],
             ['name' => ['ar' => 'العمل الحر', 'en' => 'Freelance'], 'module_name' => 'freelance', 'requires_provider' => false],
+            ['name' => ['ar' => 'مدير التسويق الذكي', 'en' => 'AI Marketing Director'], 'module_name' => 'marketing', 'requires_provider' => false],
         ];
 
         foreach ($rows as $index => $row) {

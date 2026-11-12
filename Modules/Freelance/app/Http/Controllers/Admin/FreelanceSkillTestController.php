@@ -79,9 +79,22 @@ class FreelanceSkillTestController extends Controller implements HasMiddleware
             'minutes' => ['sometimes', 'integer', 'min:1', 'max:180'],
             'pass_percent' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'retake_hours' => ['sometimes', 'integer', 'min:0', 'max:8760'],
+            // FS-602: the score that makes an intermediate, and the practical challenge for advanced / expert.
+            'intermediate_percent' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'challenge_enabled' => ['sometimes', 'boolean'],
+            'challenge_brief' => ['sometimes', 'nullable', 'array'],
+            'challenge_brief.ar' => ['nullable', 'string', 'max:3000'],
+            'challenge_brief.en' => ['nullable', 'string', 'max:3000'],
         ]);
         $current = FreelanceSkillTests::settings(FreelanceSkillTest::query()->where('freelance_skill_id', $freelanceSkill->id)->first());
         $next = array_merge($current, $d);
+        if ($next['intermediate_percent'] < $next['pass_percent']) {
+            throw ValidationException::withMessages(['intermediate_percent' => [__('validation.gte.numeric', ['attribute' => 'intermediate_percent', 'value' => $next['pass_percent']])]]);
+        }
+        $brief = (array) ($next['challenge_brief'] ?? []);
+        if ($next['challenge_enabled'] && trim((string) ($brief['ar'] ?? '')) === '' && trim((string) ($brief['en'] ?? '')) === '') {
+            throw ValidationException::withMessages(['challenge_brief' => [__('validation.required', ['attribute' => 'challenge_brief'])]]);
+        }
         $active = FreelanceSkillQuestion::query()->where('freelance_skill_id', $freelanceSkill->id)->where('status', true)->count();
         if ($next['status'] && $active < FreelanceSkillTests::MIN_QUESTIONS) {
             throw ValidationException::withMessages(['status' => [__('freelance.errors.skill_test_few')]]);

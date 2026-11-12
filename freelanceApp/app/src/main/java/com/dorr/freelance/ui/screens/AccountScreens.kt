@@ -65,7 +65,9 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Loyalty
 import androidx.compose.material.icons.rounded.Quiz
@@ -516,6 +518,8 @@ fun AccountScreen(actions: MainActions, onBack: (() -> Unit)? = null) {
                 if (on("loyalty")) MenuEntry(Icons.Rounded.Loyalty, R.string.loy_home_card, R.string.me_loyalty_sub, onClick = actions.openLoyalty) else null,
                 if (on("subscriptions")) MenuEntry(Icons.Rounded.WorkspacePremium, R.string.plans_title, R.string.plans_sub, onClick = actions.openPlans) else null,
                 MenuEntry(Icons.Rounded.Insights, R.string.insights_home_card, R.string.me_insights_sub, onClick = actions.openInsights),
+                MenuEntry(Icons.Rounded.Contacts, R.string.crm_home_card, R.string.crm_me_sub, onClick = actions.openCrm),
+                MenuEntry(Icons.Rounded.VerifiedUser, R.string.rep_title, R.string.me_reputation_sub, onClick = actions.openReputation),
                 MenuEntry(Icons.Rounded.EventAvailable, R.string.availability_title, R.string.availability_sub, onClick = actions.openAvailability),
                 MenuEntry(Icons.Rounded.Speed, R.string.cap_home_card, R.string.me_capacity_sub, onClick = actions.openCapacity),
             ) + listOfNotNull(

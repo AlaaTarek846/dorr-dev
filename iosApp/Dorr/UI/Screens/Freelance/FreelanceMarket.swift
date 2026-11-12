@@ -169,15 +169,18 @@ struct SkillBadges: View {
             FlowLayout(spacing: 5, lineSpacing: 4) {
                 ForEach(Array(badges.prefix(max).enumerated()), id: \.offset) { _, b in
                     let label = b.name ?? ""
+                    // FS-602: the level it was certified at (the list comes highest first), shown as its name and four dots.
+                    let level = skillLevelName(b.level)
                     HStack(spacing: 3) {
                         Image(systemName: "checkmark.seal.fill").font(.system(size: compact ? 9 : 12))
-                        Text(verbatim: compact ? label : "\(label) · \(b.scorePercent ?? 0)%").font(.dorr(compact ? 10 : 12, .heavy)).lineLimit(1)
+                        Text(verbatim: compact ? label : (level.map { "\(label) · \($0)" } ?? "\(label) · \(b.scorePercent ?? 0)%")).font(.dorr(compact ? 10 : 12, .heavy)).lineLimit(1)
+                        if level != nil { SkillLevelDots(level: b.level, tint: tone, dot: compact ? 4 : 5).padding(.leading, 2) }
                     }
                     .foregroundStyle(tone)
                     .padding(.horizontal, compact ? 7 : 10).padding(.vertical, compact ? 2 : 4)
                     .background(tone.opacity(0.12), in: Capsule())
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(L("fl_skill_badge_desc", label))
+                    .accessibilityLabel(level.map { L("fl_skill_badge_level_desc", label, $0) } ?? L("fl_skill_badge_desc", label))
                 }
                 if badges.count > max {
                     Text(verbatim: "+\(badges.count - max)").font(.dorr(compact ? 10 : 12, .heavy)).foregroundStyle(tone).padding(.vertical, 2)

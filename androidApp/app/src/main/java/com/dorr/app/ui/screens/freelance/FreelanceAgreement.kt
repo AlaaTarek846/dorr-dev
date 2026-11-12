@@ -90,6 +90,7 @@ internal fun AgreementPage(
     projectUuid: String, onBack: () -> Unit, onEnded: () -> Unit, onDispute: (milestone: String, dispute: String?) -> Unit = { _, _ -> },
     /** FS-150e: opens the Workroom of this work (null: the page has none to open). */
     onWorkroom: (() -> Unit)? = null,
+    onSummary: (() -> Unit)? = null,
     /** FS-210: opens the profile of the team that does the work (null: the page has none to open). */
     onTeam: ((String) -> Unit)? = null,
 ) {
@@ -221,6 +222,8 @@ internal fun AgreementPage(
             a.access?.takeIf { !it.isOwner }?.let { TeamAccessBanner(it, a.currency) }
             // FS-150e: once the work runs (and after it ends, to read) its Workroom is one tap away — tasks, files, decisions, timeline.
             if (activity && onWorkroom != null) com.dorr.app.ui.screens.freelance.workroom.WorkroomEntryCard(projectUuid, onWorkroom)
+            // FS-801: DORR AI's summary of the work, for the owner (on his DORR AI plan).
+            if (activity && onSummary != null && a.access?.isOwner != false) FlPmEntry(onSummary)
             FlTabs(
                 listOf(
                     FlTab(Icons.Rounded.Description, stringResource(R.string.fl_tab_overview)),

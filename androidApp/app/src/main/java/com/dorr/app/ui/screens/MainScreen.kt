@@ -133,7 +133,16 @@ fun MainScreen(
         when (service.moduleName) {
             "passenger_ride" -> ridesOpen = true
             "freelance" -> { com.dorr.app.ui.screens.freelance.FreelanceLink.stack = "home"; freelanceOpen = true }
+            "marketing" -> com.dorr.app.ui.screens.marketing.MarketingLink.show()
             else -> serviceDetail = service to color
+        }
+    }
+
+    // DORR AI's chat: "Book with DORR" opens rides over it, the trip filled in (back returns to the chat).
+    LaunchedEffect(com.dorr.app.ui.screens.rides.RidesLink.openRequested) {
+        if (com.dorr.app.ui.screens.rides.RidesLink.openRequested) {
+            com.dorr.app.ui.screens.rides.RidesLink.openRequested = false
+            ridesOpen = true
         }
     }
 
@@ -504,6 +513,17 @@ fun MainScreen(
     ) {
         com.dorr.app.ui.theme.ProvideAppFont {
             com.dorr.app.ui.screens.watchearn.WatchEarnHost(onExit = { com.dorr.app.ui.screens.watchearn.WatchEarnLink.close() })
+        }
+    }
+
+    // AI marketing director: projects, sourced research, plans (docs/marketing_tasks.md) — from Account and the Services tab.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.marketing.MarketingLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.theme.ProvideAppFont {
+            com.dorr.app.ui.screens.marketing.MarketingHost(onExit = { com.dorr.app.ui.screens.marketing.MarketingLink.close() })
         }
     }
 

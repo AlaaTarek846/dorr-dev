@@ -94,3 +94,29 @@ build (fast, no DerivedData).
   anybody else from his own row in `JobTitleSheet`, a `.cmSheet` that closes itself), and a client's invitation to my team on the invitations
   card and in the notice router. `TeamTitleRequest` sends `job_title: null` to clear it (the server's rule is `present|nullable`). **Not
   compiled**: there was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.
+- Quality & trust (FS-601 / FS-602 / FS-604 — `Net/PortfolioApi.swift`, `Net/SkillTestsApi.swift`, `Net/ReputationApi.swift`, `Net/NotificationsApi.swift`,
+  `UI/Screens/Growth/{QualityKit,SkillChallengeParts,ReputationScreen}.swift`, and the edits of `SkillTestsScreen`, `PortfolioScreens`, `AccountScreens`,
+  `Routes`, `RootView`, `MainActions`): ported from the same Kotlin files. The correction sheet is a `.formSheet` whose fields and busy flag live on the
+  page (`locked:`), where Android keeps them inside `CorrectionSheet`; the withdraw question is a `.dorrDialog`; a challenge's link opens with
+  `openURL`. Arabic plurals of `rep_src_excluded` read only zero / one / two / other through `Lp` (Android also has few / many). **Not compiled**:
+  there was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.
+- My clients, the freelancer's private CRM (FS-703 — `Net/CrmApi.swift`, `UI/Screens/Growth/CrmScreens.swift`, and the edits of `Routes`, `RootView`,
+  `MainActions`, `HomeScreen`, `AccountScreens`, `PlansScreen`, `SubscriptionApi`, `NotificationsApi`): ported from `CrmApi.kt` / `CrmScreens.kt`. The
+  list's read lives in a small `CrmListState` (the `PagedRows` + the frame with the counts, level and the plan to upgrade to, like `TasksState`),
+  because Compose's `remember(tab, query)` has no twin: a new tab or search calls `feed.reset`, and `.task(id:)` reads it. The 400 ms search wait is
+  `.task(id: typed)` + `Task.sleep` (a new key cancels the wait). A client card is a button (name and pills) plus a separate star button, with the
+  facts under them opening the client on tap (nested buttons do not tap reliably in SwiftUI). The note and the follow-up forms are `.formSheet`
+  views whose fields are `CrmNoteFields` / `CrmReminderFields`; what they hold (`noteDraft`, `CrmReminderDraft`) lives on the page so each save
+  button can be the sheet's `footer:` — `FormSheet` has a `Footer` generic (`EmptyView` for every other form) that stands under the fields in a
+  bottom `safeAreaInset`, above the keyboard (Android `FormSheet(footer = …)`). The same footer now carries the send button of the change request, the progress report, the delivery (its fields live in `DeliverDraft` on the agreement page), the decline / withdraw sheets and the reputation correction. The label chip fills at the tap (`pending`) and not when the
+  server answers. Android's reminder title also puts the keyboard away on its Done key (`ImeAction.Done`); on iOS a vertical-axis `TextField`
+  takes Return as a new line, so the footer button and `scrollDismissesKeyboard` do that job. The delete questions are `.dorrDialog`; the follow-up's hour is a wheel
+  `DatePicker` in a `DialogCard` (Android's `TimePicker`), forced to 24-hour with Latin digits. The star's tick is `UISelectionFeedbackGenerator`.
+  `PUT crm/clients/{uuid}` clears a label with the `JsonBody` literal `["label": nil]` (a real `null`; Android builds the JSON by hand because
+  Gson drops nulls). Arabic plurals of `crm_n_*` read only zero / one / two / other through `Lp` (Android also has few / many). **Not compiled**: there
+  was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.
+- Advanced analytics (FS-704 — `Net/InsightsApi.swift` `portfolio` / `analysis` and their DTOs, `UI/Screens/Growth/InsightsScreen.swift`
+  `EarningsDetailCard`, `PortfolioCard`, `ChangeChip`, `SegmentBar`, `ShareRow`, `DetailFigure`, `TopWorkRow`): ported from the same Kotlin file. The
+  animated bars are `GeometryReader` capsules (the segmented one cut by amounts, left-to-right in either language); `DetailFigure` is generic over
+  the line under its number so the «opened» figure can carry a `ChangeChip`. **Not compiled**: there was no Swift toolchain when this was written —
+  run `typecheck.sh` / the build check before shipping.

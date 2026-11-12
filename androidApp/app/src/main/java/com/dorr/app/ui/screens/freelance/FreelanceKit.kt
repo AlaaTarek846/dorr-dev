@@ -279,7 +279,7 @@ internal fun PlanBadge(badge: FreelancePlanBadgeDto?, modifier: Modifier = Modif
 
 /**
  * FL-L08: the skills a freelancer passed the test of, as small verified chips (at most [max], then «+n»). Nothing is drawn without any. The
- * full one is for a profile, where the score shows too.
+ * full one is for a profile, where the level's name shows too (the score when no level was sent); both show the level as four dots (FS-602).
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -289,7 +289,9 @@ internal fun SkillBadges(badges: List<FreelanceSkillBadgeDto>, modifier: Modifie
     androidx.compose.foundation.layout.FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         badges.take(max).forEach { b ->
             val label = b.name.orEmpty()
-            val description = stringResource(R.string.fl_skill_badge_desc, label)
+            // FS-602: the level it was certified at (the list comes highest first), shown as its name and four dots.
+            val level = skillLevelName(b.level)
+            val description = if (level != null) stringResource(R.string.fl_skill_badge_level_desc, label, level) else stringResource(R.string.fl_skill_badge_desc, label)
             Row(
                 Modifier.semantics(mergeDescendants = true) { contentDescription = description }
                     .clip(RoundedCornerShape(999.dp)).background(tone.copy(alpha = 0.12f))
@@ -297,7 +299,15 @@ internal fun SkillBadges(badges: List<FreelanceSkillBadgeDto>, modifier: Modifie
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Icon(Icons.Rounded.Verified, null, tint = tone, modifier = Modifier.size(if (compact) 11.dp else 14.dp))
-                Text(if (compact) label else "$label · ${b.scorePercent}%", color = tone, fontSize = if (compact) 10.sp else 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text(
+                    when {
+                        compact -> label
+                        level != null -> "$label · $level"
+                        else -> "$label · ${b.scorePercent}%"
+                    },
+                    color = tone, fontSize = if (compact) 10.sp else 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                )
+                if (level != null) Box(Modifier.padding(start = 2.dp)) { SkillLevelDots(b.level, tone, dot = if (compact) 4 else 5) }
             }
         }
         if (badges.size > max) {

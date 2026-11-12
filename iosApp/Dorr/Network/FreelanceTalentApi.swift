@@ -135,6 +135,8 @@ struct FreelanceHealthDataDto: Codable, Equatable {
     var part: String?
     var days: Int?
     var dueAt: String?
+    /// FS-802: how many tasks are late on that side.
+    var count: Int?
 }
 
 struct FreelanceHealthStepDto: Codable, Equatable {

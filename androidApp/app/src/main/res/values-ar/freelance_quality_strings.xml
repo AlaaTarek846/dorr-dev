@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-604: the reputation card on a freelancer's profile -->
+    <string name="fl_rep_title">السمعة</string>
+    <string name="fl_rep_hint">من شغله الشخصي على دُرر بس</string>
+    <string name="fl_rep_overall">النتيجة العامة</string>
+    <string name="fl_rep_overall_new">جديد</string>
+    <string name="fl_rep_overall_new_line">لسه مفيش أرقام كفاية لنتيجة عامة</string>
+    <string name="fl_rep_how">إزاي بنحسبها؟</string>
+    <string name="fl_rep_quality">الجودة</string>
+    <string name="fl_rep_delivery">الالتزام بالمواعيد</string>
+    <string name="fl_rep_communication">التواصل</string>
+    <string name="fl_rep_completion">إكمال المشاريع</string>
+    <string name="fl_rep_repeat_clients">العملاء اللي رجعوا</string>
+    <string name="fl_rep_technical">الجودة التقنية</string>
+    <string name="fl_rep_level_excellent">ممتاز</string>
+    <string name="fl_rep_level_good">كويس</string>
+    <string name="fl_rep_level_fair">مقبول</string>
+    <string name="fl_rep_level_low">محتاج يتحسّن</string>
+    <string name="fl_rep_level_new">جديد</string>
+    <string name="fl_rep_new_line">جديد، لسه مفيش بيانات كفاية</string>
+    <string name="fl_rep_src_ratings">من %1$d تقييم</string>
+    <string name="fl_rep_src_parts">%1$d مراحل، %2$d في الميعاد</string>
+    <string name="fl_rep_src_projects">%1$d مشاريع، %2$d خلصت</string>
+    <string name="fl_rep_src_clients">%1$d عملاء، %2$d رجعوا تاني</string>
+    <string name="fl_rep_src_certs">%1$d مهارات معتمدة</string>
+    <string name="fl_rep_src_works">%1$d أعمال موثّقة</string>
+    <string name="fl_rep_src_excluded">%1$d مش محسوبين</string>
+    <string name="fl_rep_row_desc">%1$s: %2$s</string>
+    <string name="fl_rep_how_title">إزاي بنحسب السمعة</string>
+    <string name="fl_rep_how_body">كل رقم جاي من شغل المحترف الشخصي على دُرر بس، ومفيش رقم بيظهر قبل ما يبقى وراه 3 بيانات على الأقل.</string>
+    <string name="fl_rep_how_quality">تقييم العملاء للجودة من 5، متحوّل لرقم من 100. لازم 3 تقييمات منشورة على الأقل.</string>
+    <string name="fl_rep_how_delivery">نسبة المراحل المعتمدة اللي اتسلّمت في أيامها. الأيام اللي اتزوّدت بتغيير العميل وافق عليه بتتحسب، والمرحلة مش بتبدأ غير لما العميل يموّلها، فتأخير التمويل عمره ما بيتحسب على المحترف.</string>
+    <string name="fl_rep_how_communication">تقييم العملاء للتواصل من 5، متحوّل لرقم من 100.</string>
+    <string name="fl_rep_how_completion">من المشاريع اللي انتهت، نسبة اللي خلصت. الإنهاء اللي كان غلط العميل أو مش غلط حد بيتشال من الحساب، وبس الإنهاء اللي كان مسؤولية المحترف بيتحسب عليه. المشروع اللي لسه شغّال والنزاع اللي لسه ما اتحسمش عمرهم ما بيتحسبوا.</string>
+    <string name="fl_rep_how_repeat">من العملاء اللي خلّص لهم مشروع، نسبة اللي رجعوا له في مشروع تاني.</string>
+    <string name="fl_rep_how_technical">من مستوى أعلى 3 مهارات معتمدة عنده (مبتدئ 40، متوسط 60، متقدّم 80، خبير 100)، وجنبها عدد أعماله الموثّقة.</string>
+    <string name="fl_rep_how_overall">النتيجة العامة هي متوسط الأرقام المعروفة، وبتظهر لما يبقى فيه 3 أرقام معروفة على الأقل.</string>
+    <string name="fl_rep_how_levels">ممتاز 85+ · كويس 70+ · مقبول 50+ · وأقل من كده محتاج يتحسّن.</string>
+    <string name="fl_rep_how_fix">لو مشروع معيّن مخلّي رقم غلط، المحترف يقدر يطلب من فريق دُرر يراجعه، ولو الطلب اتقبل المشروع بيتشال من الحساب.</string>
+    <string name="fl_rep_how_ok">تمام</string>
+
+    <!-- FS-602: the level of a skill badge -->
+    <string name="fl_skill_level_beginner">مبتدئ</string>
+    <string name="fl_skill_level_intermediate">متوسط</string>
+    <string name="fl_skill_level_advanced">متقدّم</string>
+    <string name="fl_skill_level_expert">خبير</string>
+    <string name="fl_skill_badge_level_desc">موثّق في %1$s، مستوى %2$s</string>
+
+    <!-- FS-601: verified works and the case study -->
+    <string name="fl_work_verified">موثّق من دُرر</string>
+    <string name="fl_work_verified_on">اتنفّذ على دُرر · %1$s</string>
+    <string name="fl_work_verified_line">اتنفّذ على دُرر</string>
+    <string name="fl_work_verified_note">الشغل ده اتعمل لعميل على دُرر، والعميل وافق إنه يتعرض.</string>
+    <string name="fl_work_case_study">دراسة الحالة</string>
+    <string name="fl_work_about">عن الشغل</string>
+    <string name="fl_work_open">افتح الشغل</string>
+    <string name="fl_cs_problem">المشكلة</string>
+    <string name="fl_cs_solution">الحل</string>
+    <string name="fl_cs_role">دوري</string>
+    <string name="fl_cs_tools">الأدوات</string>
+    <string name="fl_cs_results">النتايج</string>
+</resources>

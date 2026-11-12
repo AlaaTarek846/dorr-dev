@@ -24,7 +24,7 @@ use Modules\Freelance\Services\Skills\FreelanceSkillBadges;
  */
 class FreelancePerks
 {
-    public const NONE = ['plan' => null, 'name' => null, 'rank' => 0, 'badge' => false, 'boost' => 0, 'analytics' => 0, 'services_max' => null];
+    public const NONE = ['plan' => null, 'name' => null, 'rank' => 0, 'badge' => false, 'boost' => 0, 'analytics' => 0, 'crm' => 0, 'services_max' => null];
 
     /** How long what was read is kept: a plan that changes is seen within seconds even where this object lives on (a worker, a cached controller). */
     private const KEEP_SECONDS = 10;
@@ -49,7 +49,7 @@ class FreelancePerks
         }
     }
 
-    /** @return array{plan: ?string, name: ?string, rank: int, badge: bool, boost: int, analytics: int, services_max: ?int} */
+    /** @return array{plan: ?string, name: ?string, rank: int, badge: bool, boost: int, analytics: int, crm: int, services_max: ?int} */
     public function of(Freelancer $f): array
     {
         $this->fresh();
@@ -79,7 +79,7 @@ class FreelancePerks
             $this->memo[$f->id] = $plan === null || ! $plan->status ? self::NONE : [
                 'plan' => $plan->slug, 'name' => $plan->text('name'), 'rank' => (int) $plan->rank, 'badge' => (bool) $plan->badge,
                 'boost' => $limited->has($f->id) ? 0 : max(0, (int) $plan->boost),
-                'analytics' => max(0, (int) $plan->analytics), 'services_max' => $plan->services_max === null ? null : (int) $plan->services_max,
+                'analytics' => max(0, (int) $plan->analytics), 'crm' => max(0, (int) $plan->crm), 'services_max' => $plan->services_max === null ? null : (int) $plan->services_max,
             ];
         }
     }
@@ -103,6 +103,33 @@ class FreelancePerks
     public function analyticsLevel(Freelancer $f): int
     {
         return (int) $this->of($f)['analytics'];
+    }
+
+    /** FS-703: the freelancer's CRM — 0 none, 1 clients + past projects + notes, 2 also labels and follow-up reminders. */
+    public function crmLevel(Freelancer $f): int
+    {
+        return (int) $this->of($f)['crm'];
+    }
+
+    /** @return array{slug: string, name: ?string}|null the lowest plan that opens more of the CRM than `$level` and is for sale in the freelancer's country */
+    public function planForCrm(Freelancer $f, int $level): ?array
+    {
+        return $this->planBeyond($f, 'crm', $level);
+    }
+
+    /**
+     * FS-705: the lowest freelancer plan on sale that gives more of a feature - never a team's plan (Team Starter carries a CRM and the
+     * numbers too, for the team's work only).
+     *
+     * @return array{slug: string, name: ?string}|null
+     */
+    private function planBeyond(Freelancer $f, string $key, int $level): ?array
+    {
+        if ($f->country_id === null || ! $this->plans->enabled((int) $f->country_id)) {
+            return null;
+        }
+
+        return app(PlanFeatures::class)->lowestPlanBeyond(FreelancePlan::FREELANCER, $key, $level, (int) $f->country_id);
     }
 
     /** Ready-made services at once: the larger of the policy's number and the plan's, so a plan never lowers it. */
@@ -149,12 +176,6 @@ class FreelancePerks
     /** @return array{slug: string, name: ?string}|null the lowest plan that opens more than `$level` of the numbers and is for sale in the freelancer's country */
     public function planForAnalytics(Freelancer $f, int $level): ?array
     {
-        if ($f->country_id === null || ! $this->plans->enabled((int) $f->country_id)) {
-            return null;
-        }
-        $plan = FreelancePlan::query()->where('status', true)->where('analytics', '>', $level)
-            ->whereHas('prices', fn ($p) => $p->where('country_id', app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->countryId())->where('status', true))->orderBy('rank')->first();
-
-        return $plan === null ? null : ['slug' => $plan->slug, 'name' => $plan->text('name')];
+        return $this->planBeyond($f, 'analytics', $level);
     }
 }

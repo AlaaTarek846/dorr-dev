@@ -15,7 +15,8 @@ class AiSiteOfferPrice extends Model
 
     public function offer(): BelongsTo
     {
-        return $this->belongsTo(AiSiteOffer::class, 'offer_id');
+        // withTrashed: an offer in the trash keeps its prices (restore brings it back as it was).
+        return $this->belongsTo(AiSiteOffer::class, 'offer_id')->withTrashed();
     }
 
     public function country(): BelongsTo

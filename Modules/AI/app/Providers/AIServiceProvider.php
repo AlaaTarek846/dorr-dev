@@ -6,8 +6,10 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Modules\AI\Console\Commands\AggregateAiReliabilityMetrics;
 use Modules\AI\Console\Commands\EnforceAiDataRetention;
 use Modules\AI\Console\Commands\FailStaleAiSiteVersions;
 use Modules\AI\Console\Commands\PurgeAiArData;
@@ -20,6 +22,8 @@ use Modules\AI\Console\Commands\ProcessAiSubscriptionRenewals;
 use Modules\AI\Console\Commands\RunAiBenchmark;
 use Modules\AI\Console\Commands\SyncAiModels;
 use Modules\AI\Http\Middleware\ServeHostedSiteMiddleware;
+use Modules\AI\Models\AiSecurityEvent;
+use Modules\AI\Services\Monitoring\AiSecurityEventRecorder;
 use Modules\AI\Services\Chunking\AiHeuristicTokenCounter;
 use Modules\AI\Services\Chunking\AiTokenCounterInterface;
 use Modules\AI\Services\Indexing\AiIndexStoreInterface;
@@ -53,6 +57,7 @@ class AIServiceProvider extends ModuleServiceProvider
      */
     protected array $commands = [
         EnforceAiDataRetention::class,
+        AggregateAiReliabilityMetrics::class,
         RunAiBenchmark::class,
         SyncAiModels::class,
         NormalizeAiModels::class,
@@ -89,6 +94,8 @@ class AIServiceProvider extends ModuleServiceProvider
         parent::register();
 
         $this->app->bind(AiTokenCounterInterface::class, AiHeuristicTokenCounter::class);
+        // DORR services offered inside DORR AI's answers (rides…): one registry, filled by each module.
+        $this->app->singleton(\Modules\AI\Services\AiServiceActions::class);
         $this->app->bind(AiIndexStoreInterface::class, DatabaseIndexStore::class);
         // DORR AI WORLD: the maps provider is swappable by rebinding this interface.
         $this->app->bind(LocationProviderInterface::class, GooglePlacesProvider::class);
@@ -160,11 +167,11 @@ class AIServiceProvider extends ModuleServiceProvider
     protected function registerRateLimiters(): void
     {
         RateLimiter::for('ai-chat-general', function (Request $request) {
-            return Limit::perMinute(60)->by($this->rateLimitKey($request));
+            return $this->recordingRefusals(Limit::perMinute(60)->by($this->rateLimitKey($request)), 'ai-chat-general');
         });
 
         RateLimiter::for('ai-chat-send', function (Request $request) {
-            return Limit::perMinute(15)->by($this->rateLimitKey($request));
+            return $this->recordingRefusals(Limit::perMinute(15)->by($this->rateLimitKey($request)), 'ai-chat-send');
         });
 
         // Admin CRUD/config endpoints are trusted-staff traffic, not the
@@ -172,6 +179,29 @@ class AIServiceProvider extends ModuleServiceProvider
         // runaway script/loop rather than a tight business limit.
         RateLimiter::for('ai-admin-general', function (Request $request) {
             return Limit::perMinute(180)->by($this->rateLimitKey($request));
+        });
+    }
+
+    /**
+     * A refused request is written to ai_security_events (rate_limit_exceeded,
+     * at most one row per owner a minute), then answered exactly as before:
+     * the same ThrottleRequestsException (429 + Retry-After headers) the
+     * limiter throws without a response callback.
+     */
+    protected function recordingRefusals(Limit $limit, string $name): Limit
+    {
+        return $limit->response(function (Request $request, array $headers) use ($name) {
+            $owner = $request->user('user_api') ?? $request->user('provider_api') ?? $request->user();
+
+            app(AiSecurityEventRecorder::class)->record(
+                AiSecurityEventRecorder::EVENT_RATE_LIMIT_EXCEEDED,
+                AiSecurityEvent::SEVERITY_LOW,
+                $owner,
+                "Limiter {$name}: too many requests ({$request->method()} /{$request->path()}).",
+                dedupeKey: $this->rateLimitKey($request),
+            );
+
+            throw new ThrottleRequestsException('Too Many Attempts.', null, $headers);
         });
     }
 
@@ -190,6 +220,10 @@ class AIServiceProvider extends ModuleServiceProvider
         // v2.0 requirements doc 17.3 (data retention): purge AI audit
         // rows older than the configured policy once a day.
         $schedule->command('ai:enforce-retention')->daily();
+
+        // ai_reliability_metrics: success/error rate + latency percentiles
+        // per provider (and per intent) for the hour that just ended.
+        $schedule->command('ai:aggregate-reliability')->hourlyAt(5)->withoutOverlapping();
 
         // Dynamic Model Registry (section 17): keep every provider's
         // model list in sync with what it actually offers, without ever

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Loyalty
@@ -286,6 +287,7 @@ private fun promoAction(p: PromoDto, actions: MainActions, openUrl: (String) -> 
         "community" -> { { ShellState.open(Tabs.COMMUNITY) } }
         "plans" -> actions.openPlans
         "insights" -> actions.openInsights
+        "crm" -> actions.openCrm
         "services" -> actions.openServices
         "consultations" -> actions.openConsultations
         "special_offers" -> actions.openSpecialOffers
@@ -512,6 +514,8 @@ private fun ToolsGrid(h: HomeDto, actions: MainActions) {
         if (h.on("special_offers")) add(Tool(Icons.Rounded.LocalOffer, R.string.spo_home_card, Tints.rose, onClick = actions.openSpecialOffers))
         if (h.on("loyalty")) add(Tool(Icons.Rounded.Loyalty, R.string.loy_home_card, Tints.amber, onClick = actions.openLoyalty))
         add(Tool(Icons.Rounded.Insights, R.string.insights_home_card, Tints.blue, onClick = actions.openInsights))
+        // FS-703: my clients — always there; a plan without the CRM sees what it opens and the plan that opens it.
+        add(Tool(Icons.Rounded.Contacts, R.string.crm_home_card, Tints.teal, onClick = actions.openCrm))
         if (h.on("subscriptions")) add(Tool(Icons.Rounded.WorkspacePremium, R.string.plans_title, Tints.amber, onClick = actions.openPlans))
         add(Tool(Icons.Rounded.EventAvailable, R.string.availability_title, Tints.green, onClick = actions.openAvailability))
         if (h.on("skill_tests")) add(Tool(Icons.Rounded.Quiz, R.string.skt_home_card, Tints.blue, onClick = actions.openSkillTests))

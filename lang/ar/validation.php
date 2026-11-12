@@ -141,6 +141,7 @@ return [
     ],
 
     'attributes' => [
+        'features' => 'المميزات',
         'title' => 'العنوان',
         'company' => 'الشركة',
         'issuer' => 'الجهة المانحة',

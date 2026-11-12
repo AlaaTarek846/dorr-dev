@@ -27,7 +27,7 @@ class FreelancePlan extends Model
     public const AUDIENCES = [self::FREELANCER, self::TEAM];
 
     protected $fillable = [
-        'slug', 'audience', 'rank', 'name', 'description', 'offers_monthly', 'offers_unlimited', 'commission_bp', 'trial_days', 'badge', 'boost', 'analytics', 'services_max',
+        'slug', 'audience', 'rank', 'name', 'description', 'offers_monthly', 'offers_unlimited', 'commission_bp', 'trial_days', 'badge', 'boost', 'analytics', 'crm', 'services_max',
         'team_members_max', 'team_projects_max', 'status',
     ];
 
@@ -35,7 +35,7 @@ class FreelancePlan extends Model
     {
         return [
             'name' => 'array', 'description' => 'array', 'rank' => 'integer', 'offers_monthly' => 'integer', 'offers_unlimited' => 'boolean',
-            'commission_bp' => 'integer', 'trial_days' => 'integer', 'badge' => 'boolean', 'boost' => 'integer', 'analytics' => 'integer',
+            'commission_bp' => 'integer', 'trial_days' => 'integer', 'badge' => 'boolean', 'boost' => 'integer', 'analytics' => 'integer', 'crm' => 'integer',
             'services_max' => 'integer', 'team_members_max' => 'integer', 'team_projects_max' => 'integer', 'status' => 'boolean',
         ];
     }
@@ -60,6 +60,12 @@ class FreelancePlan extends Model
     public function prices(): HasMany
     {
         return $this->hasMany(FreelancePlanPrice::class, 'plan_id');
+    }
+
+    /** FS-705: the catalog features this plan gives beyond its own columns (see `PlanFeatures`). */
+    public function features(): HasMany
+    {
+        return $this->hasMany(FreelancePlanFeature::class, 'plan_id');
     }
 
     public function isFree(): bool

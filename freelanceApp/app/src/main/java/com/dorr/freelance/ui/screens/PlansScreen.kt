@@ -491,6 +491,11 @@ private fun PlanCard(plan: PlanDto, plans: PlansDto, period: String, live: Subsc
                 1 -> Benefit(stringResource(R.string.plans_perk_analytics_1))
                 2 -> Benefit(stringResource(R.string.plans_perk_analytics_2))
             }
+            // FS-703: my clients — 0 shows nothing, 1 the clients and notes, 2 + the follow-up reminders.
+            when (b.crm) {
+                1 -> Benefit(stringResource(R.string.plans_perk_crm_1))
+                2 -> Benefit(stringResource(R.string.plans_perk_crm_2))
+            }
             b.servicesMax?.let { Benefit(stringResource(R.string.plans_perk_services, it)) }
             if (plan.trialDays > 0) Benefit(stringResource(R.string.plans_trial, plan.trialDays))
         }

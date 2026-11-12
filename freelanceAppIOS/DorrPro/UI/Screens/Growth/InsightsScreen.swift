@@ -126,13 +126,17 @@ private struct InsightsBody: View {
         OffersCard(o: offers)
         ServicesCard(s: services)
         EarningsCard(e: data.earnings ?? InsightEarningsDto(), dto: dto)
+        // FS-704: only the full level carries these; at the basic level the fields are absent and nothing shows.
+        if let analysis = data.earnings?.analysis { EarningsDetailCard(a: analysis, earned: data.earnings?.earnedMinor ?? 0, dto: dto) }
         ReputationCard(r: reputation)
         if let specialties = data.specialties, !specialties.isEmpty { SpecialtiesCard(rows: specialties) }
+        if let portfolio = data.portfolio { PortfolioCard(p: portfolio) }
 
         // The basic level sees where the rest is.
         if (dto.level ?? 0) < 2, let next = dto.upgrade {
             InfoCard(title: L("insights_more_title"), icon: "chart.line.uptrend.xyaxis") {
                 Text(L("insights_more_body", next.name ?? next.slug ?? "")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+                Text(L("insights_more_new")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
                 SettingsPrimaryButton(text: L("insights_unlock", next.name ?? next.slug ?? ""), action: onOpenPlans)
             }
         }
@@ -643,6 +647,282 @@ private struct SpecialtiesCard: View {
                     SvcPill(text: percent(s.acceptRate), tone: SvcTone(ink: wa.red, fill: wa.red.opacity(0.12)))
                 }
             }
+        }
+    }
+}
+
+// MARK: - earnings in detail (FS-704)
+
+/// FS-704, the full level: what the period's earnings are made of — how they moved against the stretch before (the server's own percent; nothing
+/// before = «new»), where they came from (projects, ready-made services, consultations), the specialties and clients that brought the most (each with
+/// its share), how many projects paid and what one brings on average.
+private struct EarningsDetailCard: View {
+    @Environment(\.wa) private var wa
+    let a: InsightEarningsAnalysisDto
+    let earned: Int
+    let dto: InsightsDto
+
+    var body: some View {
+        let decimals = dto.decimals ?? 2
+        let s = a.sources ?? InsightSourcesDto()
+        let total = (s.projects ?? 0) + (s.services ?? 0) + (s.consultations ?? 0)
+        InfoCard(title: L("insights_detail_title"), icon: "banknote.fill") {
+            Text(L("insights_detail_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            if earned <= 0 && (a.beforeMinor ?? 0) <= 0 {
+                Text(L("insights_detail_none")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+            } else {
+                HStack(spacing: 10) {
+                    ChangeChip(percent: a.changePercent)
+                    Text(L("insights_detail_before", svcMoney(a.beforeMinor ?? 0, decimals, dto.currency))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                }
+                if total > 0 {
+                    Text(L("insights_detail_sources")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).padding(.top, 4)
+                    SegmentBar(
+                        parts: [
+                            (label: L("insights_src_projects"), n: s.projects ?? 0, color: wa.red),
+                            (label: L("insights_src_services"), n: s.services ?? 0, color: Color(hex: 0xF59E0B)),
+                            (label: L("insights_src_consultations"), n: s.consultations ?? 0, color: Color(hex: 0x0EA5E9)),
+                        ].filter { $0.n > 0 },
+                        total: total, decimals: decimals, currency: dto.currency
+                    )
+                }
+                if let rows = a.bySpecialty, !rows.isEmpty {
+                    Text(L("insights_detail_specialty")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).padding(.top, 4)
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+                        ShareRow(label: (r.name ?? "").isEmpty ? "—" : (r.name ?? ""), money: svcMoney(r.earnedMinor ?? 0, decimals, dto.currency), share: r.share)
+                    }
+                }
+                if let rows = a.topClients, !rows.isEmpty {
+                    Text(L("insights_detail_clients")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).padding(.top, 4)
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+                        ShareRow(label: (r.name ?? "").isEmpty ? L("insights_detail_client_unknown") : (r.name ?? ""),
+                                 money: svcMoney(r.earnedMinor ?? 0, decimals, dto.currency), share: r.share)
+                    }
+                }
+                HStack(spacing: 10) {
+                    DetailFigure(value: String(a.projectsPaid ?? 0), label: L("insights_detail_paid"))
+                    DetailFigure(value: a.averageProjectMinor.map { svcMoney($0, decimals, dto.currency) } ?? "—", label: L("insights_detail_avg"))
+                }
+            }
+        }
+    }
+}
+
+/// How a number moved against the period before: an arrow and the server's percent; nil (nothing before) is «new». Read out in words for VoiceOver.
+private struct ChangeChip: View {
+    @Environment(\.wa) private var wa
+    let percent: Int?
+
+    private var spoken: String {
+        guard let percent else { return L("insights_detail_first") }
+        if percent > 0 { return L("insights_detail_up", percent) }
+        if percent < 0 { return L("insights_detail_down", -percent) }
+        return L("insights_detail_same")
+    }
+
+    var body: some View {
+        let up = Color(hex: 0x16A34A)
+        let down = Color(hex: 0xDC2626)
+        Group {
+            if let percent {
+                let tone = percent > 0 ? up : (percent < 0 ? down : wa.settingsMut)
+                HStack(spacing: 3) {
+                    if percent != 0 {
+                        Image(systemName: percent > 0 ? "arrow.up" : "arrow.down").font(.system(size: 11, weight: .bold)).foregroundStyle(tone)
+                    }
+                    Text(verbatim: "\(abs(percent))%").font(.dorr(12, .heavy)).foregroundStyle(tone).environment(\.layoutDirection, .leftToRight)
+                }
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(tone.opacity(0.12), in: Capsule())
+            } else {
+                SvcPill(text: L("insights_views_new"), tone: SvcTone(ink: up, fill: up.opacity(0.12)))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
+    }
+}
+
+/// One bar cut in the parts of `total` (animated), then a row for each part: its colour, name, amount and share.
+private struct SegmentBar: View {
+    @Environment(\.wa) private var wa
+    let parts: [(label: String, n: Int, color: Color)]
+    let total: Int
+    let decimals: Int
+    let currency: String?
+    @State private var shown = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                let gaps = CGFloat(max(parts.count - 1, 0)) * 2
+                let width = max(geo.size.width - gaps, 0)
+                HStack(spacing: 2) {
+                    ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                        Rectangle().fill(part.color).frame(width: shown ? width * CGFloat(part.n) / CGFloat(max(total, 1)) : 0)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(height: 10)
+            .clipShape(Capsule())
+            .environment(\.layoutDirection, .leftToRight)
+            ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                HStack(spacing: 8) {
+                    Circle().fill(part.color).frame(width: 8, height: 8)
+                    Text(verbatim: part.label).font(.dorr(13)).foregroundStyle(wa.settingsInk).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(verbatim: svcMoney(part.n, decimals, currency)).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk)
+                        .environment(\.layoutDirection, .leftToRight)
+                    Text(L("insights_detail_share", part.n * 100 / max(total, 1))).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        .frame(minWidth: 34, alignment: .trailing).environment(\.layoutDirection, .leftToRight)
+                }
+            }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.7)) { shown = true } }
+    }
+}
+
+/// A name with what it earned and its share of the period, and a bar as long as the share.
+private struct ShareRow: View {
+    @Environment(\.wa) private var wa
+    let label: String
+    let money: String
+    let share: Int?
+    @State private var shown = false
+
+    var body: some View {
+        let fraction = min(max(CGFloat(share ?? 0) / 100, 0), 1)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                Text(verbatim: label).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(verbatim: money).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).environment(\.layoutDirection, .leftToRight)
+                if let share {
+                    Text(L("insights_detail_share", share)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+                        .frame(minWidth: 34, alignment: .trailing).environment(\.layoutDirection, .leftToRight)
+                }
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(wa.red.opacity(0.12))
+                    Capsule().fill(wa.red).frame(width: geo.size.width * (shown ? fraction : 0))
+                }
+            }
+            .frame(height: 6)
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.6)) { shown = true } }
+    }
+}
+
+/// A small tinted figure: a label over a value, and an optional line under them.
+private struct DetailFigure<Below: View>: View {
+    @Environment(\.wa) private var wa
+    let value: String
+    let label: String
+    let below: () -> Below
+
+    init(value: String, label: String, @ViewBuilder below: @escaping () -> Below) {
+        self.value = value
+        self.label = label
+        self.below = below
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(verbatim: label).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).lineLimit(2)
+            Text(verbatim: value).font(.dorr(18, .heavy)).foregroundStyle(wa.settingsInk).lineLimit(1).minimumScaleFactor(0.7)
+                .environment(\.layoutDirection, .leftToRight)
+            below()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(wa.red.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+extension DetailFigure where Below == EmptyView {
+    init(value: String, label: String) {
+        self.init(value: value, label: label, below: { EmptyView() })
+    }
+}
+
+// MARK: - the portfolio (FS-704)
+
+/// FS-704, the full level: how clients look at my works — how many there are, how many are shown and verified, the visits to the portfolio, the
+/// works opened (against the period before) and the ones opened most. Counted per day, never per person.
+private struct PortfolioCard: View {
+    @Environment(\.wa) private var wa
+    let p: InsightPortfolioDto
+
+    var body: some View {
+        InfoCard(title: L("insights_pf_title"), icon: "photo.on.rectangle.angled") {
+            Text(L("insights_pf_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            if (p.works ?? 0) == 0 {
+                Text(L("insights_pf_no_works")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+            } else {
+                HStack(spacing: 8) {
+                    DetailFigure(value: String(p.works ?? 0), label: L("insights_pf_works"))
+                    DetailFigure(value: String(p.shown ?? 0), label: L("insights_pf_shown"))
+                    DetailFigure(value: String(p.verified ?? 0), label: L("insights_pf_verified"))
+                }
+                HStack(spacing: 10) {
+                    DetailFigure(value: String(p.visits ?? 0), label: L("insights_pf_visits"))
+                    DetailFigure(value: String(p.opened ?? 0), label: L("insights_pf_opened")) { ChangeChip(percent: p.openedChangePercent) }
+                }
+                if (p.opened ?? 0) == 0 {
+                    Text(L("insights_pf_none")).font(.dorr(13)).foregroundStyle(wa.settingsMut).lineSpacing(4)
+                } else if let top = p.top, !top.isEmpty {
+                    Text(L("insights_pf_top")).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).padding(.top, 4)
+                    let most = max(top.map { $0.views ?? 0 }.max() ?? 1, 1)
+                    ForEach(Array(top.enumerated()), id: \.offset) { _, w in
+                        TopWorkRow(w: w, most: most)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One of the works opened most: the verified mark, the title, where it shows, the views and a bar as long as its share of the most opened.
+private struct TopWorkRow: View {
+    @Environment(\.wa) private var wa
+    let w: InsightTopWorkDto
+    let most: Int
+    @State private var shown = false
+
+    var body: some View {
+        let fraction = min(max(CGFloat(w.views ?? 0) / CGFloat(most), 0), 1)
+        let isPublic = (w.visibility ?? "public") == "public"
+        let amber = Color(hex: 0xD97706)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                if w.verified ?? false {
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 14)).foregroundStyle(wa.red).frame(width: 16, height: 16)
+                        .accessibilityLabel(L("insights_pf_verified_work"))
+                }
+                Text(verbatim: w.title ?? "").font(.dorr(13)).foregroundStyle(wa.settingsInk).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                SvcPill(text: visibilityText(w.visibility),
+                        tone: isPublic ? SvcTone(ink: wa.red, fill: wa.red.opacity(0.12)) : SvcTone(ink: amber, fill: amber.opacity(0.12)))
+                Text(L("insights_pf_views", w.views ?? 0)).font(.dorr(13, .heavy)).foregroundStyle(wa.settingsInk)
+                    .frame(minWidth: 26, alignment: .trailing).environment(\.layoutDirection, .leftToRight)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(wa.red.opacity(0.12))
+                    Capsule().fill(wa.red).frame(width: geo.size.width * (shown ? fraction : 0))
+                }
+            }
+            .frame(height: 6)
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.6)) { shown = true } }
+    }
+
+    private func visibilityText(_ v: String?) -> String {
+        switch v {
+        case "clients_only": return L("vis_clients")
+        case "private": return L("vis_private")
+        default: return L("vis_public")
         }
     }
 }

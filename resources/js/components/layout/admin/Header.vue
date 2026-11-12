@@ -390,6 +390,21 @@
                     </div>
                     <!-- End::header-element -->
 
+                    <!-- Start::header-element|screen-guide -->
+                    <div v-if="screenGuideAvailable" class="header-element">
+                        <a
+                            href="javascript:void(0);"
+                            class="header-link position-relative"
+                            :title="t('guide.button')"
+                            :aria-label="t('guide.button')"
+                            @click.prevent="adminGuideStore.open(route.name)"
+                        >
+                            <i class="ri-question-line header-link-icon"></i>
+                            <span v-if="screenGuideWritten" class="badge bg-success rounded-pill header-icon-badge pulse pulse-success p-1"><span class="visually-hidden">{{ t('guide.available') }}</span></span>
+                        </a>
+                    </div>
+                    <!-- End::header-element|screen-guide -->
+
                     <!-- Start::header-element -->
                     <div class="header-element">
                         <!-- Start::header-link|switcher-icon -->
@@ -416,8 +431,18 @@ import HeaderLanguageSelect from '../HeaderLanguageSelect.vue';
 import NotificationDropdown from './NotificationDropdown.vue';
 import PlatformLogo from '../PlatformLogo.vue';
 import { useHeader } from '../../../composables/useHeader';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { useAdminGuideStore } from '../../../stores/adminGuide';
+import { findScreenPlace, hasScreenGuide } from '../../../modules/admin/guide';
 
 const { t } = useI18n();
+const route = useRoute();
+const adminGuideStore = useAdminGuideStore();
+
+// "?" shows on every screen that belongs to a guide map; the green dot means its guide is written.
+const screenGuideWritten = computed(() => hasScreenGuide(route.name));
+const screenGuideAvailable = computed(() => screenGuideWritten.value || findScreenPlace(route.name) !== null);
 
 const {
     adminName,

@@ -182,6 +182,8 @@ class ClientOfferViews
             // FL-701: what clients said, once out; and the average by criterion.
             'reviews' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->latestAbout($f),
             'rating_criteria' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f)['criteria'],
+            // FS-604: the six reputation figures with where each comes from.
+            'reputation' => app(\Modules\Freelance\Services\Reputation\FreelancerReputation::class)->of($f),
             'is_favorite' => app(ClientFavorites::class)->has($project->client, $f->id),
             // FL-L07: the paid consultations listed and open now (empty: none).
             'consultations' => app(\Modules\Freelance\Services\Consultations\ConsultationOffers::class)->teaser($f),

@@ -191,8 +191,8 @@ class AiArOrderTest extends TestCase
         $this->artisan('ai:release-ar-orders')->expectsOutput('released=0')->assertSuccessful();
         $this->assertSame(0, $this->providerWithdrawable());
 
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
-        $this->getJson('/api/admin/v1/ai-ar/orders?status=disputed')->assertJsonCount(1, 'data');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
+        $this->getJson('/api/admin/v1/ai-ar/orders?status=disputed')->assertJsonCount(1, 'data')->assertJsonPath('currency_decimals.EGP', 2);
         $this->postJson("/api/admin/v1/ai-ar/orders/{$order->id}/resolve", ['resolution' => 'refund'])->assertStatus(422); // a reason is required
         $this->postJson("/api/admin/v1/ai-ar/orders/{$order->id}/resolve", ['resolution' => 'refund', 'note' => 'Customer is right'])->assertOk()->assertJsonPath('data.status', 'refunded');
         $this->postJson("/api/admin/v1/ai-ar/orders/{$order->id}/resolve", ['resolution' => 'release', 'note' => 'again'])->assertStatus(409);
@@ -210,7 +210,7 @@ class AiArOrderTest extends TestCase
         $this->asCustomer();
         $this->postJson("/api/user/v1/ai-ar/orders/{$order->id}/dispute", ['reason' => 'Not what I wanted'])->assertOk();
 
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
         $this->postJson("/api/admin/v1/ai-ar/orders/{$order->id}/resolve", ['resolution' => 'release', 'note' => 'As approved'])->assertOk()->assertJsonPath('data.status', 'released');
 
         $this->assertSame(18000, $this->providerWithdrawable());

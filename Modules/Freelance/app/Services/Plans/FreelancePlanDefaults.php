@@ -15,14 +15,17 @@ use Modules\Freelance\Models\FreelancePlanPrice;
  */
 class FreelancePlanDefaults
 {
-    /** @return array{plans: int, prices: int} what was added */
+    /** @return array{plans: int, prices: int, features: int} what was added */
     public function seed(): array
     {
         $plans = 0;
         $prices = 0;
+        $features = 0;
 
         // FS-211: the team columns arrive with their own migration, which is after the one that first calls this on an old database.
         $teamReady = Schema::hasColumn('freelance_plans', 'audience');
+        // FS-705: the same for the catalog features' table.
+        $featuresReady = $teamReady && Schema::hasTable('freelance_plan_features');
 
         foreach ((array) config('freelance.plans') as $slug => $def) {
             if (! $teamReady && ($def['audience'] ?? FreelancePlan::FREELANCER) === FreelancePlan::TEAM) {
@@ -32,13 +35,16 @@ class FreelancePlanDefaults
                 'rank' => $def['rank'], 'name' => $def['name'], 'description' => $def['description'] ?? null,
                 'offers_monthly' => $def['offers_monthly'] ?? null, 'offers_unlimited' => $def['offers_unlimited'] ?? false,
                 'commission_bp' => $def['commission_bp'] ?? null, 'trial_days' => $def['trial_days'] ?? 0, 'status' => $def['status'] ?? true,
-                'badge' => $def['badge'] ?? false, 'boost' => $def['boost'] ?? 0, 'analytics' => $def['analytics'] ?? 0, 'services_max' => $def['services_max'] ?? null,
+                'badge' => $def['badge'] ?? false, 'boost' => $def['boost'] ?? 0, 'analytics' => $def['analytics'] ?? 0, 'crm' => $def['crm'] ?? 0, 'services_max' => $def['services_max'] ?? null,
             ] + (! $teamReady ? [] : [
                 // FS-211: who the plan is sold to, and a team plan's room (null = no cap).
                 'audience' => $def['audience'] ?? FreelancePlan::FREELANCER,
                 'team_members_max' => $def['team_members_max'] ?? null, 'team_projects_max' => $def['team_projects_max'] ?? null,
             ]));
             $plans += $plan->wasRecentlyCreated ? 1 : 0;
+            if ($featuresReady) {
+                $features += app(PlanFeatures::class)->seedDefaults($plan, (array) ($def['features'] ?? []));
+            }
 
             if (! isset($def['usd'])) {
                 continue;
@@ -60,7 +66,7 @@ class FreelancePlanDefaults
             }
         }
 
-        return ['plans' => $plans, 'prices' => $prices];
+        return ['plans' => $plans, 'prices' => $prices, 'features' => $features];
     }
 
     /** The monthly price in the minor unit of the currency, or null when the currency has no usable rate. */

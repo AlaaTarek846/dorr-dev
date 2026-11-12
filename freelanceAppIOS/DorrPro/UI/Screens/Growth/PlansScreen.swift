@@ -467,6 +467,9 @@ private struct PlanCard: View {
                 if (b.boost ?? 0) > 0 { Benefit(text: L("plans_perk_boost")) }
                 if b.analytics == 1 { Benefit(text: L("plans_perk_analytics_1")) }
                 if b.analytics == 2 { Benefit(text: L("plans_perk_analytics_2")) }
+                // FS-703: my clients - 0 shows nothing, 1 the clients and notes, 2 + the follow-up reminders.
+                if b.crm == 1 { Benefit(text: L("plans_perk_crm_1")) }
+                if b.crm == 2 { Benefit(text: L("plans_perk_crm_2")) }
                 if let max = b.servicesMax { Benefit(text: L("plans_perk_services", max)) }
                 if trialDays > 0 { Benefit(text: L("plans_trial", trialDays)) }
             }

@@ -73,6 +73,8 @@ struct PlanBenefitsDto: Decodable, Equatable {
     var boost: Int?
     var analytics: Int?
     var servicesMax: Int?
+    /// FS-703: my clients (0 none, 1 clients, star and notes, 2 + labels and follow-up reminders).
+    var crm: Int?
 }
 
 struct MySubscriptionDto: Decodable {

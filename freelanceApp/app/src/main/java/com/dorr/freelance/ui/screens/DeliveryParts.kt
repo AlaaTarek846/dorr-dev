@@ -101,7 +101,16 @@ internal fun DeliverDialog(busy: Boolean, error: String?, rightsRequired: Boolea
         }
     }
     val dismiss = { File(context.cacheDir, "delivery-picks").deleteRecursively(); onDismiss() }
-    FormSheet(Icons.Rounded.CloudUpload, stringResource(R.string.ag_ms_deliver), stringResource(R.string.ag_form_deliver_intro), onDismiss = { if (!busy) dismiss() }, fullHeight = true) {
+    FormSheet(
+        Icons.Rounded.CloudUpload, stringResource(R.string.ag_ms_deliver), stringResource(R.string.ag_form_deliver_intro), onDismiss = { if (!busy) dismiss() }, fullHeight = true,
+        // The send button stays above the keyboard.
+        footer = {
+            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            ActionButton(stringResource(R.string.ag_ms_deliver_send), Icons.Rounded.CloudUpload, Tone.Primary, enabled = note.trim().length >= 5 && !busy && (!rightsRequired || confirmed), loading = busy) {
+                onSend(note.trim(), picks.map { PickedFile(it.name, it.type, File(it.path).readBytes()) }, if (rightsRequired) materials.filter { it.name.isNotBlank() } else null)
+            }
+        },
+    ) {
         DorrTextField(note, { note = it.take(3000) }, label = stringResource(R.string.ag_ms_deliver_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 4, modifier = Modifier.fillMaxWidth())
         Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             picks.forEachIndexed { i, f ->
@@ -133,10 +142,6 @@ internal fun DeliverDialog(busy: Boolean, error: String?, rightsRequired: Boolea
                 }
             }
             if (materials.size < maxMaterials) ActionButton(stringResource(R.string.rights_material_add), Icons.Rounded.Add, Tone.Soft, enabled = !busy) { materials.add(MaterialRow()) }
-        }
-        error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-        ActionButton(stringResource(R.string.ag_ms_deliver_send), Icons.Rounded.CloudUpload, Tone.Primary, enabled = note.trim().length >= 5 && !busy && (!rightsRequired || confirmed), loading = busy) {
-            onSend(note.trim(), picks.map { PickedFile(it.name, it.type, File(it.path).readBytes()) }, if (rightsRequired) materials.filter { it.name.isNotBlank() } else null)
         }
     }
 }

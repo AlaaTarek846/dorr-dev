@@ -18,16 +18,18 @@ class FreelanceSkillBadges
     /** The most badges a card carries — the best scores first. */
     public const SHOWN = 6;
 
-    /** @return list<array{skill_id: int, name: ?string, score_percent: int, earned_at: string, expires_at: ?string}> */
+    /** @return list<array{skill_id: int, name: ?string, score_percent: int, level: string, earned_at: string, expires_at: ?string}> the highest level first (FS-602), then the best score */
     public function of(Freelancer $f, int $limit = self::SHOWN): array
     {
-        $all = $this->query()->where('b.freelancer_id', $f->id)->select(['b.freelance_skill_id as skill_id', 'b.score_percent', 'b.earned_at', 'b.expires_at'])
+        $all = $this->query()->where('b.freelancer_id', $f->id)->select(['b.freelance_skill_id as skill_id', 'b.score_percent', 'b.level', 'b.earned_at', 'b.expires_at'])
+            ->orderByRaw("case b.level when 'expert' then 0 when 'advanced' then 1 when 'intermediate' then 2 else 3 end")
             ->orderByDesc('b.score_percent')->orderBy('b.freelance_skill_id')->get()
             ->pipe(fn ($rows) => FreelanceSkill::query()->with('translations')->whereIn('id', $rows->pluck('skill_id'))->get()->keyBy('id')
                 ->pipe(fn ($skills) => $rows->map(fn ($r) => [
                     'skill_id' => (int) $r->skill_id,
                     'name' => $skills->get($r->skill_id)?->translatedName(),
                     'score_percent' => (int) $r->score_percent,
+                    'level' => (string) $r->level,
                     'earned_at' => (string) $r->earned_at,
                     'expires_at' => $r->expires_at,
                 ])->all()));

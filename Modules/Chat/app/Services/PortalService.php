@@ -3,6 +3,8 @@
 namespace Modules\Chat\Services;
 
 use App\Repositories\General\LanguageRepository;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
@@ -35,16 +37,7 @@ class PortalService
      */
     public function directory(?string $search, ?int $categoryId): array
     {
-        $search = trim((string) $search);
-        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
-
-        $portals = ChatPortal::query()->listed()
-            ->when($categoryId, fn ($q, $id) => $q->where('category_id', $id))
-            ->when($search !== '', fn ($q) => $q->whereHas('translations', fn ($t) => $t->where('name', 'like', $like)->orWhere('description', 'like', $like)))
-            ->with(['translations', 'media', 'category.translations', 'category.media'])
-            ->orderByDesc('views_count')->orderBy('id')
-            ->limit(500)
-            ->get();
+        $portals = $this->listedQuery($search, $categoryId ? [$categoryId] : [])->limit(500)->get();
 
         $categories = ChatCategory::query()->active()->with(['translations', 'media'])->orderBy('sort_order')->orderBy('id')->get();
 
@@ -62,6 +55,38 @@ class PortalService
         }
 
         return $groups;
+    }
+
+    /**
+     * The portals page a page at a time: one list (no category groups, so it stays light however many categories
+     * there are), the most viewed first; the app loads the next page as it scrolls. No categories = every category.
+     *
+     * @param  list<int>  $categoryIds
+     */
+    public function page(?string $search, array $categoryIds, int $page, int $perPage = 15): LengthAwarePaginator
+    {
+        $paginator = $this->listedQuery($search, $categoryIds)->paginate($perPage, ['*'], 'page', $page);
+
+        return $paginator->setCollection($paginator->getCollection()->map(fn (ChatPortal $p) => $this->present($p))->values());
+    }
+
+    /**
+     * Listed portals in the page's order (most viewed first), searched by name / description in every language.
+     *
+     * @param  list<int>  $categoryIds
+     * @return Builder<ChatPortal>
+     */
+    private function listedQuery(?string $search, array $categoryIds): Builder
+    {
+        $search = trim((string) $search);
+        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
+
+        return ChatPortal::query()->listed()
+            ->when($categoryIds !== [], fn ($q) => $q->whereIn('category_id', $categoryIds))
+            // Grouped, so the "or" can't escape the translation → portal link.
+            ->when($search !== '', fn ($q) => $q->whereHas('translations', fn ($t) => $t->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('description', 'like', $like))))
+            ->with(['translations', 'media', 'category.translations', 'category.media'])
+            ->orderByDesc('views_count')->orderBy('id');
     }
 
     /**
@@ -127,6 +152,8 @@ class PortalService
 
             if ($logo !== null) {
                 $portal->setSingleMedia(ChatPortal::LOGO, $logo);
+            } elseif (! empty($data['remove_logo'])) {
+                $portal->clearMediaCollection(ChatPortal::LOGO);
             }
 
             return $portal->refresh()->load(['translations', 'media', 'category.translations', 'category.media']);

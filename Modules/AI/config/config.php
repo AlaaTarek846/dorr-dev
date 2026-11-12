@@ -107,6 +107,9 @@ return [
         // Keeps token usage and per-request latency bounded on long chats.
         'history_limit' => (int) env('AI_CHAT_HISTORY_LIMIT', 30),
 
+        // A "require confirmation" safety rule: sending the same message again within this many minutes confirms it.
+        'safety_confirmation_minutes' => (int) env('AI_SAFETY_CONFIRMATION_MINUTES', 30),
+
         // Max original image size this will inline as base64 to a
         // vision-capable model. Bigger than this, the image is described
         // as a plain text note instead (still uploaded/stored either way).
@@ -697,6 +700,22 @@ return [
             'open_seconds' => (int) env('AI_CIRCUIT_BREAKER_OPEN_SECONDS', 60),
         ],
 
+        /*
+    |--------------------------------------------------------------------------
+    | Retention windows (ai:enforce-retention)
+    |--------------------------------------------------------------------------
+    |
+    | Every log table is purged after the active personal-data policy's
+    | retention_days. These two can have their own window (days); empty =
+    | follow the policy. ai_code_executions holds the code the model ran and
+    | its output; ai_audit_events the sensitive-action ledger (owner, IP).
+    |
+    */
+        'retention' => [
+            'code_executions_days' => env('AI_RETENTION_CODE_EXECUTIONS_DAYS') ? (int) env('AI_RETENTION_CODE_EXECUTIONS_DAYS') : null,
+            'audit_events_days' => env('AI_RETENTION_AUDIT_EVENTS_DAYS') ? (int) env('AI_RETENTION_AUDIT_EVENTS_DAYS') : null,
+        ],
+
         'groq' => [
             'name' => 'Groq',
             'base_url' => env('AI_GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
@@ -749,6 +768,15 @@ return [
     | of message is understood for free afterwards. See AiIntentRouterService.
     |
     */
+    // Built-in routing defaults (AiRoutingEngine): used when no admin routing policy is usable - none matches, or
+    // the gateway's default policy was switched off or trashed. A policy's empty selection_strategy uses this one.
+    'routing' => [
+        'defaults' => [
+            'selection_strategy' => env('AI_ROUTING_DEFAULT_STRATEGY', 'priority'),
+            'fallback_enabled' => (bool) env('AI_ROUTING_DEFAULT_FALLBACK', true),
+        ],
+    ],
+
     'intent_router' => [
         'enabled' => (bool) env('AI_INTENT_ROUTER_ENABLED', true),
 

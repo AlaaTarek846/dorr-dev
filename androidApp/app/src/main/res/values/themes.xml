@@ -2,13 +2,15 @@
 <resources>
     <!-- Base app theme. Compose owns all real styling (see ui/theme) — this
          only sets the system window chrome for the brief moment before
-         Compose takes over. -->
+         Compose takes over. The window follows light / dark (splash_bg in
+         values-night), so a dark app never shows a white frame. -->
     <style name="Theme.Dorr" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowBackground">@color/splash_bg</item>
     </style>
 
-    <!-- Splash-only theme: login pink wash so the first frame matches Sign In. -->
+    <!-- Splash-only theme: the plain background with the Dorr logo in the middle — the same first frame
+         as the app's own splash. Android 12+ draws its own splash from values-v31. -->
     <style name="Theme.Dorr.Splash" parent="Theme.Dorr">
         <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
