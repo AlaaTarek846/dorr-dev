@@ -63,9 +63,9 @@
                                 <td>{{ formatDate(item.ends_at) }}</td>
                                 <td class="text-end pe-4">
                                     <div class="btn-list justify-content-end">
-                                        <button v-if="item.is_live" type="button" class="btn btn-sm btn-warning-light" @click="act(item, 'suspend')">{{ t('ai_sites.disable') }}</button>
-                                        <button v-else-if="item.admin_suspended" type="button" class="btn btn-sm btn-success-light" @click="act(item, 'resume')">{{ t('ai_sites.enable') }}</button>
-                                        <button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(item)"><i class="ri-delete-bin-line"></i></button>
+                                        <button v-if="canUpdate && item.is_live" type="button" class="btn btn-sm btn-warning-light" @click="act(item, 'suspend')">{{ t('ai_sites.disable') }}</button>
+                                        <button v-else-if="canUpdate && item.admin_suspended" type="button" class="btn btn-sm btn-success-light" @click="act(item, 'resume')">{{ t('ai_sites.enable') }}</button>
+                                        <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(item)"><i class="ri-delete-bin-line"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -89,12 +89,14 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const { t } = useI18n();
+const { canUpdate, canDelete } = useCatalogPermissions('ai-site-hostings');
 const { showSuccess, showError } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 

@@ -28,9 +28,11 @@ struct PortalDto: Codable, Equatable, Identifiable {
     var isListed: Bool?
     var listedUntil: String?
     var translations: [PortalTranslationDto]?
+    /// `portals/{id}` only: every period paid for it, newest first.
+    var history: [PortalSubscriptionDto]?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, logo, category, status, translations
+        case id, name, description, logo, category, status, translations, history
         case websiteUrl = "website_url", viewsCount = "views_count", isListed = "is_listed", listedUntil = "listed_until"
     }
 
@@ -48,17 +50,35 @@ struct PortalDto: Codable, Equatable, Identifiable {
         isListed = c.value(.isListed, nil)
         listedUntil = c.value(.listedUntil, nil)
         translations = c.value(.translations, nil)
+        history = c.value(.history, nil)
     }
 }
 
-struct PortalGroupDto: Codable, Equatable {
-    var category: CategoryDto?
-    var portals: [PortalDto]
+/// One paid period of a portal: its package, what was paid, from when to when, and running · upcoming · ended.
+struct PortalSubscriptionDto: Codable, Equatable {
+    var `package`: String?
+    var amountMinor: Int
+    var currencyCode: String?
+    var paidAt: String?
+    var startsAt: String?
+    var endsAt: String?
+    /// running · upcoming · ended
+    var state: String?
+
+    enum CodingKeys: String, CodingKey {
+        case `package`, state
+        case amountMinor = "amount_minor", currencyCode = "currency_code", paidAt = "paid_at", startsAt = "starts_at", endsAt = "ends_at"
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        category = c.value(.category, nil)
-        portals = c.value(.portals, [])
+        `package` = c.value(.package, nil)
+        amountMinor = c.value(.amountMinor, 0)
+        currencyCode = c.value(.currencyCode, nil)
+        paidAt = c.value(.paidAt, nil)
+        startsAt = c.value(.startsAt, nil)
+        endsAt = c.value(.endsAt, nil)
+        state = c.value(.state, nil)
     }
 }
 
@@ -127,8 +147,12 @@ enum DiscoverApi {
         try await ApiClient.get("mobile/v1/chat/categories", auth: true)
     }
 
-    static func portals(search: String? = nil, categoryId: Int? = nil) async throws -> ApiEnvelope<[PortalGroupDto]> {
-        try await ApiClient.get("mobile/v1/chat/portals", query: ["search": search, "category_id": categoryId.map(String.init)], auth: true)
+    /// The portals page, one list a page at a time (most viewed first): 15, the next 15 as it scrolls. No categories = all.
+    static func portals(page: Int, search: String? = nil, categoryIds: [Int] = [], perPage: Int = 15) async throws -> ApiEnvelope<[PortalDto]> {
+        var query: [String: String?] = ["page": String(page), "per_page": String(perPage), "search": search]
+        // `category_ids[0]=…&category_ids[1]=…` — Laravel reads it as the same array as Android's `category_ids[]`.
+        for (i, id) in categoryIds.enumerated() { query["category_ids[\(i)]"] = String(id) }
+        return try await ApiClient.get("mobile/v1/chat/portals", query: query, auth: true)
     }
 
     static func myPortals() async throws -> ApiEnvelope<[PortalDto]> {
@@ -149,6 +173,11 @@ enum DiscoverApi {
 
     static func updatePortal(_ id: String, fields: [String: String], logo: Data?) async throws -> ApiEnvelope<PortalDto> {
         try await ApiClient.upload("mobile/v1/chat/portals/\(id)", fields: fields, files: logoPart(logo))
+    }
+
+    /// One of mine, with its subscription history (newest first).
+    static func portal(_ id: String) async throws -> ApiEnvelope<PortalDto> {
+        try await ApiClient.get("mobile/v1/chat/portals/\(id)", auth: true)
     }
 
     static func deletePortal(_ id: String) async throws -> ApiEnvelope<Ignored> {

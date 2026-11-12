@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Bolt
@@ -517,6 +518,8 @@ fun AccountScreen(actions: MainActions, onBack: (() -> Unit)? = null) {
                 MenuEntry(Icons.Rounded.Insights, R.string.insights_home_card, R.string.me_insights_sub, onClick = actions.openInsights),
                 MenuEntry(Icons.Rounded.EventAvailable, R.string.availability_title, R.string.availability_sub, onClick = actions.openAvailability),
                 MenuEntry(Icons.Rounded.Speed, R.string.cap_home_card, R.string.me_capacity_sub, onClick = actions.openCapacity),
+            ) + listOfNotNull(
+                if (on("teams")) MenuEntry(Icons.Rounded.Groups, R.string.team_home_card, R.string.team_me_sub, onClick = actions.openTeams) else null,
             ))
             MeSection(R.string.me_section_app, 2, listOf(
                 MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = { settingsOpen = true }),

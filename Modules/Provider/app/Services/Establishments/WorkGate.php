@@ -5,6 +5,7 @@ namespace Modules\Provider\Services\Establishments;
 use Modules\Provider\Enums\DocumentSubject;
 use Modules\Provider\Enums\MembershipStatus;
 use Modules\Provider\Enums\VehicleStatus;
+use Modules\Provider\Models\Branch;
 use Modules\Provider\Models\Membership;
 use Modules\Provider\Models\Vehicle;
 use Modules\Provider\Services\Documents\DocumentRequirements;
@@ -22,7 +23,11 @@ class WorkGate
         private readonly DocumentRequirements $requirements,
     ) {}
 
-    public function offerProblem(Membership $actor, Vehicle $vehicle, int $serviceCategoryId): ?string
+    /**
+     * Why this member can't offer with this vehicle now, or null. `$branch` is the branch the request reached: sending
+     * from it may use any vehicle of the establishment (the trucks move between branches); without it, the vehicle's own.
+     */
+    public function offerProblem(Membership $actor, Vehicle $vehicle, int $serviceCategoryId, ?Branch $branch = null): ?string
     {
         $establishment = $actor->establishment;
 
@@ -32,7 +37,7 @@ class WorkGate
         if (! $establishment->offersService($serviceCategoryId)) {
             return 'service_off';
         }
-        if (! $this->access->can($actor, 'offers.send', $vehicle->branch)) {
+        if (! $this->access->can($actor, 'offers.send', $branch ?? $vehicle->branch)) {
             return 'forbidden';
         }
         if ($vehicle->establishment_id !== $establishment->id) {

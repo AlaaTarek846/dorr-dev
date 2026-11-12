@@ -26,6 +26,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DorrProvider"
         android:usesCleartextTraffic="true">
+        <!-- Google Maps (the branch's place on the map): the key comes from local.properties (dorr.mapsKey), never from git. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
         <!-- Cleartext (plain HTTP) is for a developer's LAN backend (a bare IP has no TLS), like androidApp.
              Remove it, or scope it to the dev host, once every build talks HTTPS. -->
 

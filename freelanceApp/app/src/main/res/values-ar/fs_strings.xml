@@ -49,4 +49,9 @@
     <string name="fs_health_n_wait_review_waiting">مستنيين العميل يراجع %1$s.</string>
     <string name="fs_health_n_wait_report_late">مستنيين تقرير التقدم.</string>
     <string name="fs_health_n_wait_change_waiting">مستنيين العميل يرد على طلب التعديل.</string>
+    <!-- FS-802: an overdue Workroom task -->
+    <string name="fs_health_r_task_overdue">المهمة %1$s عدّت ميعادها بـ %2$s.</string>
+    <string name="fs_health_r_task_overdue_nodays">المهمة %1$s عدّت ميعادها.</string>
+    <string name="fs_health_n_mine_task_overdue">خلّص المهمة %1$s أو اتفق على ميعاد جديد في غرفة الشغل.</string>
+    <string name="fs_health_n_wait_task_overdue">مستنيين العميل يخلّص المهمة %1$s.</string>
 </resources>

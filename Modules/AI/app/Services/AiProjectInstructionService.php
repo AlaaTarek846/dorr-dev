@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiProjectInstructionResource;
 use Modules\AI\Repositories\AiProjectInstructionRepository;
 
-class AiProjectInstructionService extends BaseService
+/** AI project instructions catalog, no translations: list (+status counts), create/update, status, bulk delete, trash. */
+class AiProjectInstructionService extends CatalogService
 {
     /**
      * @var class-string

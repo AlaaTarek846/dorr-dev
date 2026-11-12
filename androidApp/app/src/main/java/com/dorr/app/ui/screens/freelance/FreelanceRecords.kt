@@ -136,7 +136,9 @@ internal fun TrailCard(projectUuid: String, refreshKey: String) {
             Column(Modifier.padding(vertical = 4.dp)) {
                 Text(s.label, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Text(listOfNotNull(
-                    stringResource(if (s.mine) R.string.fl_trail_by_you else when (s.actor) { "freelancer" -> R.string.fl_trail_by_freelancer; "admin" -> R.string.fl_trail_by_admin; "system" -> R.string.fl_trail_by_system; else -> R.string.fl_trail_by_client }),
+                    // FS-104: a step a member of the team took for the owner names him.
+                    s.by?.let { stringResource(R.string.fs_tm_by, it.name) }
+                        ?: stringResource(if (s.mine) R.string.fl_trail_by_you else when (s.actor) { "freelancer" -> R.string.fl_trail_by_freelancer; "admin" -> R.string.fl_trail_by_admin; "system" -> R.string.fl_trail_by_system; else -> R.string.fl_trail_by_client }),
                     "‎" + s.at?.take(16)?.replace('T', ' ').orEmpty(),
                 ).joinToString(" · "), color = settingsMut(), fontSize = 11.sp)
             }

@@ -85,17 +85,17 @@
                                             <i class="ri-external-link-line me-1 align-middle"></i>{{ t('ai_sites.open') }}
                                         </a>
                                         <button
-                                            v-if="site.is_disabled"
+                                            v-if="canUpdate && site.is_disabled"
                                             type="button"
                                             class="btn btn-sm btn-success-light"
                                             @click="act(site, 'enable')"
                                         >
                                             {{ t('ai_sites.enable') }}
                                         </button>
-                                        <button v-else type="button" class="btn btn-sm btn-warning-light" @click="act(site, 'disable')">
+                                        <button v-else-if="canUpdate" type="button" class="btn btn-sm btn-warning-light" @click="act(site, 'disable')">
                                             {{ t('ai_sites.disable') }}
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(site)">
+                                        <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(site)">
                                             <i class="ri-delete-bin-line"></i>
                                         </button>
                                     </div>
@@ -121,12 +121,14 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const { t } = useI18n();
+const { canUpdate, canDelete } = useCatalogPermissions('ai-sites');
 const { showSuccess, showError } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 

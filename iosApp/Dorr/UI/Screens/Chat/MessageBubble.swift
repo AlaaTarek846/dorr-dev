@@ -480,6 +480,7 @@ private struct BubbleContent: View {
 /// The story a reply answers: «Status» + a small copy of it (its gradient and text, or its photo).
 private struct StoryQuote: View {
     @ObservedObject private var ch = Ch.shared
+    @EnvironmentObject private var host: ChatHost
     let meta: JSONAny?
     let mine: Bool
 
@@ -510,6 +511,12 @@ private struct StoryQuote: View {
         }
         .background(mine ? ch.outText.opacity(0.16) : ch.surfaceMuted)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+        // A tap opens the status while it's still up (as in WhatsApp); after that, it says it's gone.
+        .onTapGesture {
+            let expired = parseRideTime(meta?.str("expires_at")).map { $0 < Date() } ?? false
+            if let id = meta?.str("story_id"), !expired { host.openStoryById(id) } else { host.showToast(L("st_story_unavailable")) }
+        }
         .padding(.horizontal, 6).padding(.top, 6)
     }
 }

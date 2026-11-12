@@ -121,12 +121,18 @@ struct ApprovalTrailCard: View {
                 ForEach(Array(list.enumerated()), id: \.offset) { _, s in
                     VStack(alignment: .leading, spacing: 0) {
                         Text(verbatim: s.label ?? "").font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
-                        Text(verbatim: [L(actorKey(s)), "\u{200E}" + agreementStamp(s.at)].joined(separator: " · ")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
+                        Text(verbatim: [actorText(s), "\u{200E}" + agreementStamp(s.at)].joined(separator: " · ")).font(.dorr(11)).foregroundStyle(wa.settingsMut)
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
+    }
+
+    /// FS-104: a step a person of the client's team took for the client names him.
+    private func actorText(_ s: TrailStepDto) -> String {
+        if let name = s.by?.name { return L("trail_by_client_team", name) }
+        return L(actorKey(s))
     }
 
     private func actorKey(_ s: TrailStepDto) -> String {

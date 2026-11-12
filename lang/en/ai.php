@@ -115,6 +115,7 @@ return [
     'subscription_country_not_resolved' => 'Could not determine the country needed to renew this subscription.',
     'learned_intent_phrase_too_short' => 'The phrase is too short.',
     'learned_intent_exists' => 'This phrase is already saved with the same intent and match mode.',
+    'learned_intent_in_trash' => 'This phrase is already saved with the same intent and match mode, in the trash. Restore it instead.',
 
     // Website builder
     'site_pack_bought' => 'Edit pack purchased. You can keep editing your site.',
@@ -169,6 +170,7 @@ return [
     'site_hosting_not_live' => 'Hosting is not active, so the site cannot be published. Renew it first.',
     'site_hosting_not_found' => 'This website has no hosting yet.',
     'site_hosting_active' => 'This website is currently hosted. Cancel the hosting and wait for it to end before deleting.',
+    'site_admin_hosting_active' => 'This website has paid hosting that is still running. Suspend or cancel the hosting from Site hosting and let it end before deleting the site.',
     'site_hosting_suspended' => 'Hosting of this website was suspended by the administrators.',
     'site_hosting_started' => 'Hosting started. Your website is live.',
     'site_published' => 'Published. Visitors now see this version.',
@@ -200,6 +202,7 @@ return [
     'site_unpaid_installments' => 'Handover is not possible before every instalment is paid.',
     'site_status_unknown' => 'The status does not exist or is switched off.',
     'site_status_in_use' => 'This status is built in or used by requests, so it cannot be deleted.',
+    'site_refund_failed' => 'The payment could not be refunded because the customer account was not found.',
     'site_request_sent' => 'Your request was sent. The team will review it and reply with a price and timeline.',
     'site_request_cancelled' => 'Request cancelled.',
     'site_request_declined' => 'Quote declined.',
@@ -214,6 +217,7 @@ return [
     'site_req_sys_installment_paid' => 'Paid: :title',
     'site_req_sys_milestone_delivered' => 'Delivered: :title',
     'site_req_sys_deadline_changed' => 'The delivery date was changed to :date',
+    'site_req_sys_refunded' => 'Everything you paid (:amount) was refunded to your wallet.',
     'world_scene_count_invalid' => 'The number of scenes is not allowed.',
     'world_duration_invalid' => 'This scene length is not available.',
     'world_price_missing' => 'This service has no price for your country yet.',
@@ -286,4 +290,8 @@ return [
     'citation_math' => 'The calculation ":written" is wrong; the right result is :correct.',
     'citation_date' => '":date" is not a valid date.',
     'citation_jurisdiction' => 'This legal answer does not name a country. Laws differ between countries, so check your own country\'s law.',
+    'provider_data_rule_exists' => 'This provider already has a data rule (it may be in the trash - restore it instead).',
+    'language_variant_code_taken' => 'This code is already used for this language (it may be in the trash - restore it instead).',
+    'safety_confirmation_required' => 'This message needs your confirmation before I continue. If you want to go ahead, send the same message again.',
+    'safety_confirmation_unavailable' => 'This request needs a confirmation that cannot be given here, so it was not sent.',
 ];

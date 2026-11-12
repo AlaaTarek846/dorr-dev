@@ -13,7 +13,7 @@ legal and notifications pages) is copied from [`freelanceAppIOS/`](../freelanceA
 
 ```bash
 cd providerAppIOS
-cp Config/Local.xcconfig.example Config/Local.xcconfig   # your backend: DORR_API_HOST / DORR_API_SCHEME
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # your backend: DORR_API_HOST / DORR_API_SCHEME (+ DORR_GOOGLE_MAPS_KEY)
 xcodegen
 xcodebuild -project DorrPartners.xcodeproj -scheme DorrPartners -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
@@ -22,7 +22,21 @@ xcodebuild -project DorrPartners.xcodeproj -scheme DorrPartners -destination 'ge
 `scripts/typecheck.sh <paths>` compiles the shared core (Net, Kit, Components, Theme, Wallet, Routes, MainActions) plus the
 given files against the simulator SDK without an Xcode build (fast, no DerivedData). The screens lean on each other, so check them
 together: `scripts/typecheck.sh DorrPartners/Duty DorrPartners/UI/Screens/Home DorrPartners/UI/Screens/Workspace
-DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`.
+DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`. `Map/DorrMap.swift` needs the GoogleMaps / MapboxMaps packages, so the
+script uses `scripts/shims/MapShim.swift` (its SDK-free part and a stand-in view — keep it in step, as driverAppIos does).
+
+## The map engine
+
+The same as providerApp's: the admin's choice from `GET provider/v1/map-config`. `DorrPartners/Map/DorrMap.swift` is driverAppIos's
+`Map/DorrMap.swift` ported with the same names (`MapEngine`, `DorrCamera`, `DorrMap`, `MapZone`…): the engine is `ios_provider`
+— **Google, Mapbox or Apple Maps** (MapKit) when the admin chose Apple for iPhone. The saved choice is read at start
+(`DorrPartnersApp.init` → `MapEngine.shared.load()`), the server's latest once per sign-in / signed-in start (`RootView`), saved
+for the next start; no polling. SPM packages in `project.yml` as driverAppIos: GoogleMaps (from 9.4.0), MapboxMaps 11.8.0. The
+Google key is `DORR_GOOGLE_MAPS_KEY` in `Config/Local.xcconfig` (never committed) → Info.plist `DorrGoogleMapsKey`; without it a
+Google choice draws with Apple Maps instead of a blank map. Night: Mapbox's dark style / `Resources/map_night.json` for Google.
+Additions over the captain's copy (keep both in mind when syncing): `MapZone.stroke` / `strokeWidth`, `fixedNorth`, and on Apple
+Maps the target placed exactly in the visible part (`setVisibleMapRect` with the sheets' insets, re-placed when they change) and
+read back from the visible part's middle (the captain's copy reads it mirrored: `h / 2 - offset`).
 
 ## Layout (Android twin in brackets)
 
@@ -32,6 +46,7 @@ DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`.
 | `DorrPartners/Net/` — `Api.swift` (`ApiResult`, envelope, errors, the `X-Establishment` header), `Session.swift` (session, establishment, seat, device id, locale, network monitor, paged rows, keychain), `Workspace.swift`, `Realtime.swift`, one `*Api.swift` per Kotlin API | `net/*` + `driverApp/core` |
 | `DorrPartners/UI/Kit`, `UI/Components`, `UI/Theme`, `UI/Wallet`, `UI/L10n.swift`, `UI/AppLanguage.swift`, `UI/DownloadedTranslations.swift` | `ui/kit`, `ui/components`, `ui/theme`, `ui/wallet`, `ui/locale` |
 | `DorrPartners/Duty/MoveTrackingService.swift` (`MoveTracking`, `MoveTrackingService`) | `duty/MoveTrackingService.kt` |
+| `DorrPartners/Map/DorrMap.swift` (`MapEngine`, `DorrCamera`, `DorrMap`; Google / Mapbox / Apple) | `map/DorrMap.kt` (Google / Mapbox) |
 | `DorrPartners/UI/Screens/{Auth,Home,Workspace,Manage,Moving,Account,Wallet}` + `MainScreen.swift` | `ui/screens/*.kt` (same file names) |
 
 | Screen | Swift | Kotlin | API |
@@ -41,15 +56,17 @@ DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`.
 | OTP | `Auth/OtpScreen.swift` (copied) | `OtpScreen.kt` | `auth/verify`, `auth/resend` |
 | No internet | `Auth/NoInternetScreen.swift` (copied) | `NoInternetScreen.kt` | — |
 | Workspace gate, invitations (exclusivity box) | `Workspace/WorkspaceScreens.swift` | `WorkspaceScreens.kt` | `workspace`, `invitations/{uuid}/accept|decline` |
-| Onboarding (3 steps, location via CoreLocation) | `Workspace/OnboardingScreen.swift` | `OnboardingScreen.kt` | `workspace/options`, `POST establishments` |
+| Onboarding (3 steps, a 4th = the first vehicle when moving is chosen; the branch on the map) | `Workspace/OnboardingScreen.swift` | `OnboardingScreen.kt` | `workspace/options`, `POST establishments` |
+| Service tile (registration + home) | `Workspace/ServiceTile.swift` | `ServiceTile.kt` | — |
+| Branch place on the map (pin, my location, address from the map, range + its circle, location window) | `Workspace/BranchMap.swift`, `Map/DorrMap.swift` | `BranchMap.kt`, `map/DorrMap.kt` | `map-config` |
 | Tabs Home · Wallet · Account | `MainScreen.swift` | `MainScreen.kt` | `me`, `workspace`, `establishment` |
 | Home, with a tile per non-null number | `Home/HomeScreen.swift` | `HomeScreen.kt` | `establishment`, `documents`, `establishment/submit`, `moving/dashboard` |
 | Papers | `Home/DocumentsScreen.swift`, `Home/ImageUtil.swift` | `DocumentsScreen.kt`, `ImageUtil.kt` | `documents` (GET / multipart POST) |
-| Wallet | `Wallet/WalletGate.swift`, `WalletScreens.swift`, `WalletSecurity.swift`, `WalletKit.swift`, `WalletFormat.swift` (copied, no freelance earnings card) | `WalletGate.kt`, `WalletScreens.kt`, `WalletSecurity.kt`, `WalletKit.kt`, `ui/wallet/WalletFormat.kt` | `wallet/*` |
+| Wallet | `Wallet/WalletGate.swift`, `WalletScreens.swift`, `WalletSecurity.swift`, `WalletKit.swift`, `WalletFormat.swift` (copied, no freelance earnings card); PIN pages `UI/Wallet/WaPinFlows.swift` (the DORR app's, same names) | `WalletGate.kt`, `WalletScreens.kt`, `WalletSecurity.kt`, `WalletKit.kt`, `ui/wallet/WalletFormat.kt`, `ui/wallet/WaPinFlows.kt` | `wallet/*` |
 | Account (switcher, leave, settings, sign out) | `Account/AccountScreens.swift` | `AccountScreens.kt` | `workspace`, `memberships/{uuid}/leave`, `auth/logout` |
 | Branches (`branches.manage`) | `Manage/BranchesScreen.swift` | `BranchesScreen.kt` | `branches` |
 | Team (`members.manage`): invite, templates, permissions, branches, exclusivity, limit, log | `Manage/TeamScreens.swift` | `TeamScreens.kt` | `members`, `members/events`, `workspace/options` |
-| Vehicles (`fleet.vehicles`): photos first, then papers | `Manage/VehicleScreens.swift` | `VehicleScreens.kt` | `vehicles`, `documents` (subject=vehicle) |
+| Vehicles (`fleet.vehicles`): plate drawn live (letters + numbers required), photo slots first, then papers; `FirstVehicleScreen(onDone:)` for the onboarding | `Manage/VehicleScreens.swift` | `VehicleScreens.kt` | `vehicles`, `documents` (subject=vehicle) |
 | Driver licence | `Home/DocumentsScreen.swift` (`driverUuid`) | `DocumentsScreen.kt` | `documents?driver_uuid=`, subject=driver |
 | Requests feed, request page, send / edit an offer | `Moving/RequestScreens.swift` | `RequestScreens.kt` | `moving/requests`, `moving/requests/{uuid}/offers` |
 | Offers: edit, withdraw, approve | `Moving/OffersScreen.swift` | `OffersScreen.kt` | `moving/offers` |
@@ -93,10 +110,16 @@ DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`.
 
 - No system back key: each page's own back button does what Android's `BackHandler` does. The onboarding / invitations opened
   straight from the gate have nothing under them: Android's back then leaves the app; on iOS the back button does nothing.
-- Location: CoreLocation's when-in-use permission (asked only when "use my current location" is tapped), one fix at best
-  accuracy, 15 s at most (`CurrentPosition` in `OnboardingScreen.swift`; Android: fused provider `getCurrentLocation`).
-- Papers come from the camera (`UIImagePickerController`) or the Files picker (`.fileImporter`: JPG / PNG / PDF); the inventory's
-  photos from the camera or `PhotosPicker`.
+- Location: CoreLocation's when-in-use permission, asked by the location window (`LocationGate` in `BranchMap.swift`, like
+  iosApp's rides) when the branch map opens with no place yet; one fix at best accuracy, 12–15 s at most (`CurrentPosition` in
+  `OnboardingScreen.swift`; Android: fused provider `getCurrentLocation`). iOS can't switch location services on from the app, so
+  the window's button opens Settings for that.
+- The branch map is `DorrMap` with CLGeocoder for the address (Android: the phone's `Geocoder`); the iPhone can also draw with
+  Apple Maps when the admin chose it (`ios_provider`), Android only Google or Mapbox.
+- Papers come from the camera (`UIImagePickerController`), the photo library (`.photosPicker`, drawn again as JPEG) or the Files
+  picker (`.fileImporter`: JPG / PNG / PDF) — Android has one "gallery or file" picker; the source is chosen in a
+  `confirmationDialog` (Android: a bottom sheet). An upload's progress comes from a `URLSessionTaskDelegate` (`Api.upload(progress:)`);
+  Android counts the bytes in its request body. The inventory's photos from the camera or `PhotosPicker`.
 - The customer's QR is read with AVFoundation (`AVCaptureMetadataOutput`, `QrCameraView` in `DriverDay.swift`), not zxing.
 - Tracking: no notification (and no notification permission asked for it): iOS shows its own location indicator. A driver who force-quits
   the app stops the positions until they open it again, as when Android's system kills the service. After a "no" iOS never asks again, so
@@ -109,5 +132,5 @@ DorrPartners/UI/Screens/Manage DorrPartners/UI/Screens/Moving`.
 
 ## NEEDS-DECISION
 
-The same as providerApp's README: the app name («شركاء دُرر» / "Dorr Partners" is a placeholder), the map for branches and the truck's
+The same as providerApp's README: the app name («شركاء دُرر» / "Dorr Partners" is a placeholder), the map for the truck's
 position (coordinates as text for now), appearance / dark mode / font per person, the providers' own legal pages, profile editing.

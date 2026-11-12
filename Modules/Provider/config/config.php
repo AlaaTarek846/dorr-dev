@@ -3,6 +3,9 @@
 return [
     'name' => 'Provider',
 
+    // A branch saved without an area served reaches requests this far (km) — without one it would reach none.
+    'default_radius_km' => 100,
+
     /*
     | What a member of an establishment may see and do (docs/moving_business.md §17). The owner holds every key and
     | nobody can take one from them; a member can only hand out keys they hold. The server checks each key.

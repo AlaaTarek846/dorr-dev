@@ -56,12 +56,33 @@ enum WalletApi {
     /// "I forgot my PIN": proves the recovery secret and sets a new PIN in one call.
     static func recoverPin(_ body: RecoverPinRequest) async -> ApiResult<PinStatusDto> { await Api.call("POST", base + "/pin/recover", body: body.json) }
 
-    /// A new device unlocked with the right PIN: a code goes to the phone on file before it is trusted.
-    static func sendDeviceCode(_ pin: String) async -> ApiResult<Ignored> {
+    /// The photo methods (ID / passport): the picture goes as multipart, as in the DORR app.
+    static func setRecoveryDocument(method: String, document: Data, pin: String? = nil) async -> ApiResult<PinStatusDto> {
+        await Api.upload(base + "/pin/recovery", fields: ["method": method],
+                         files: [FilePart(field: "document", filename: "document.jpg", mimeType: "image/jpeg", data: document)],
+                         headers: pin.map { ["X-Wallet-Pin": $0] } ?? [:])
+    }
+
+    /// Photo methods: uploads the new photo for a person to compare with the one from setup (201).
+    static func recoverPinWithDocument(_ document: Data) async -> ApiResult<PinStatusDto> {
+        await Api.upload(base + "/pin/recover", files: [FilePart(field: "document", filename: "document.jpg", mimeType: "image/jpeg", data: document)])
+    }
+
+    /// The only way out of a permanent freeze: a selfie + an ID/passport photo, reviewed by a person.
+    static func unfreezePin(idDocument: Data, selfie: Data) async -> ApiResult<PinStatusDto> {
+        await Api.upload(base + "/pin/unfreeze", files: [
+            FilePart(field: "id_document", filename: "id_document.jpg", mimeType: "image/jpeg", data: idDocument),
+            FilePart(field: "selfie", filename: "selfie.jpg", mimeType: "image/jpeg", data: selfie),
+        ])
+    }
+
+    /// A new device unlocked with the right PIN: a code goes to the phone on file before it is trusted. The phone that
+    /// created the PIN is trusted by `POST wallet/pin` itself (`X-Device-Id`, sent on every request).
+    static func sendDeviceTrustCode(pin: String) async -> ApiResult<Ignored> {
         await Api.call("POST", base + "/device/verify-code", headers: ["X-Wallet-Pin": pin])
     }
 
-    static func confirmDevice(_ pin: String, _ body: CodeBody) async -> ApiResult<Ignored> {
+    static func confirmDeviceTrust(pin: String, _ body: CodeBody) async -> ApiResult<Ignored> {
         await Api.call("POST", base + "/device/confirm", body: body.json, headers: ["X-Wallet-Pin": pin])
     }
 
@@ -155,6 +176,17 @@ struct PinStatusDto: Decodable, Equatable {
     /// A temporary lock still running (ISO-8601).
     var lockedUntil: String?
     var recovery: RecoveryInfoDto?
+    /// The latest photo recovery / unfreeze request, while one matters (pending, or a rejection to show).
+    var request: RecoveryRequestDto?
+}
+
+/// `status`: pending, approved or rejected. `reason`: recovery_document | security_freeze.
+struct RecoveryRequestDto: Decodable, Equatable {
+    var id: Int?
+    var method: String?
+    var reason: String?
+    var status: String?
+    var rejectionReason: String?
 }
 
 /// `method`: password, birth_date, id_photo, passport_photo, email. `ready`: an e-mail method is only ready once confirmed.

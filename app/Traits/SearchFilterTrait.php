@@ -46,6 +46,12 @@ trait SearchFilterTrait
 
                     if ($search?->searchInRelations ?? false) {
                         foreach ($search->searchInRelations ?? [] as $relation) {
+                            // Nothing to search in this relation (no columns, no translations): skip it. Left in,
+                            // an empty whereHas would match every row that has the relation.
+                            if (empty($relation->columns) && ! ($relation->searchInRelationTranslations ?? false)) {
+                                continue;
+                            }
+
                             $q->orWhereHas($relation->relation, function (Builder $q) use ($searchKey, $relation) {
                                 $this->applyColumnSearch($q, $relation->columns ?? [], $searchKey);
 

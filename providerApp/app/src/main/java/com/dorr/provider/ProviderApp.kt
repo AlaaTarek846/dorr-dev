@@ -3,7 +3,10 @@ package com.dorr.provider
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import com.dorr.core.network.ApiResult
+import com.dorr.core.network.apiCall
 import com.dorr.provider.duty.MoveTracking
+import com.dorr.provider.map.MapEngine
 import com.dorr.provider.net.ApiClient
 import com.dorr.provider.net.Realtime
 import kotlinx.coroutines.CoroutineScope
@@ -29,11 +32,20 @@ class ProviderApp : Application(), ImageLoaderFactory {
         Session.attach(this)
         AppearanceStore.attach(this)
         Realtime.attach(this)
+        // The admin's map engine (Google or Mapbox, as the captain app): the phone's saved choice at once, before any screen.
+        MapEngine.init(this)
         // The live connection and the push id follow the session: on while signed in, off the moment it ends (sign-out, or a 401).
         appScope.launch {
             Session.signedIn.collect { signedIn ->
                 if (signedIn) {
                     Realtime.start()
+                    // The server's latest map choice, once per sign-in (and per app start signed in), saved for the next start.
+                    launch {
+                        MapEngine.refresh(this@ProviderApp) {
+                            (apiCall { ApiClient.appearance.mapConfig() } as? ApiResult.Ok)?.data
+                                ?.let { Triple(it.provider, it.mapboxToken, it.mapboxStyle) }
+                        }
+                    }
                 } else {
                     Realtime.stop()
                     // No position is sent for a session that ended.

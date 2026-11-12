@@ -110,6 +110,8 @@ private fun NotificationDto.toItem(): NotificationItem {
 
 /** The icon and colour of a notice from its event: verification, the wallet, the wallet PIN, anything else. */
 private fun typeStyle(event: String?): Pair<ImageVector, Color> = when {
+    // FS-209: a freelancers' team notice (an invitation, a role, verification, a part given to me).
+    event?.startsWith("freelance.team_") == true -> Icons.Rounded.Groups to Color(0xFF14B8A6)
     event?.startsWith("wallet.pin") == true -> Icons.Rounded.Lock to Color(0xFFDC2626)
     event?.startsWith("wallet.") == true -> Icons.Rounded.AccountBalanceWallet to Color(0xFF16A34A)
     event?.startsWith("freelance.verification") == true -> Icons.Rounded.Verified to Color(0xFF2563EB)

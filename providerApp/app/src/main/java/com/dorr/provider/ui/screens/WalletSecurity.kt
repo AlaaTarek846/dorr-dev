@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +60,8 @@ import com.dorr.provider.ui.wallet.Tone
 import com.dorr.provider.ui.wallet.Wa
 import com.dorr.provider.ui.wallet.WaButton
 import com.dorr.provider.ui.wallet.WaButtonStyle
+import com.dorr.provider.ui.wallet.WaChangeRecoveryPage
+import com.dorr.provider.ui.wallet.WaForgotPinPage
 import com.dorr.provider.ui.wallet.WaCard
 import com.dorr.provider.ui.wallet.WaIconWell
 import com.dorr.provider.ui.wallet.WaNote
@@ -84,22 +87,29 @@ fun WalletSecurity(onBack: () -> Unit) {
     var sub by rememberSaveable { mutableStateOf(SecuritySub.Menu.name) }
     var forgot by rememberSaveable { mutableStateOf(false) }
     var status by remember { mutableStateOf<PinStatusDto?>(null) }
-    LaunchedEffect(Unit) { (apiCall { ApiClient.wallet.pinStatus() } as? ApiResult.Ok)?.data?.let { status = it } }
+    // Read once when this opens, and again after the recovery method changed.
+    var refresh by remember { mutableIntStateOf(0) }
+    LaunchedEffect(refresh) { (apiCall { ApiClient.wallet.pinStatus() } as? ApiResult.Ok)?.data?.let { status = it } }
 
     BackHandler(enabled = sub != SecuritySub.Menu.name && !forgot) { sub = SecuritySub.Menu.name }
 
     val current = status
-    if (forgot && current != null) {
-        // A recovered PIN is a new one: the wallet locks and asks for it again (the stale one is dropped).
-        WalletRecover(current, onBack = { forgot = false }) {
+    if (forgot) {
+        // The DORR app's "forgot your PIN?" page. A recovered PIN is a new one: the wallet locks and asks for it again
+        // (the stale one is dropped).
+        WaForgotPinPage(current, onExit = { forgot = false }, onDone = {
             forgot = false
             WalletSession.lock()
-        }
+        })
         return
     }
     when (SecuritySub.valueOf(sub)) {
         SecuritySub.ChangePin -> ChangePinPage(onBack = { sub = SecuritySub.Menu.name }, onForgot = { forgot = true })
-        SecuritySub.Recovery -> ChangeRecoveryPage(status = current, onExit = { sub = SecuritySub.Menu.name })
+        // The DORR app's page: the current PIN, then the same method wizard as at setup (ends after the method).
+        SecuritySub.Recovery -> WaChangeRecoveryPage(onExit = { sub = SecuritySub.Menu.name }, onDone = {
+            sub = SecuritySub.Menu.name
+            refresh++
+        })
         SecuritySub.Biometric -> BiometricPage(onBack = { sub = SecuritySub.Menu.name })
         SecuritySub.Menu -> SecurityMenu(onBack = onBack, onOpen = { sub = it.name })
     }
@@ -258,40 +268,7 @@ private fun ChangePinPage(onBack: () -> Unit, onForgot: () -> Unit) {
 }
 
 // ------------------------------------------------------------------------------- 2. the recovery method
-
-/**
- * Switch how a forgotten PIN is recovered. Proves the current PIN first (the server asks for it too), then the same method
- * pages as at setup — which end after the method, since the PIN itself stays.
- */
-@Composable
-private fun ChangeRecoveryPage(status: PinStatusDto?, onExit: () -> Unit) {
-    val offlineText = stringResource(R.string.wa_error_network)
-    val genericError = stringResource(R.string.wa_error_generic)
-    var pin by remember { mutableStateOf<String?>(null) }
-    val proven = pin
-
-    if (proven != null && status != null) {
-        WalletSetup(status, onBack = onExit, onUnlocked = { _, _ -> }, onStatus = {}, existingPin = proven, onChanged = onExit)
-        return
-    }
-    WaPage(title = stringResource(R.string.wa_rec_change_title), onBack = onExit, scroll = false) {
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp)) {
-            WaPinPad(
-                title = stringResource(R.string.wa_pin_enter_title),
-                sub = stringResource(R.string.wa_rec_change_pin_sub),
-                icon = Icons.Rounded.Shield,
-                modifier = Modifier.fillMaxSize().waRise(0),
-                onComplete = { entered ->
-                    val result = apiCall { ApiClient.wallet.verifyPin(entered) }
-                    if (result is ApiResult.Ok) {
-                        pin = entered
-                        PadResult.Ok
-                    } else padFailure(result, offlineText, genericError)
-                },
-            )
-        }
-    }
-}
+// WaChangeRecoveryPage (ui/wallet/WaPinFlows.kt), the DORR app's own page.
 
 // ------------------------------------------------------------------------------- 3. fingerprint / face
 

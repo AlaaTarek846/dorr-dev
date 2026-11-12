@@ -163,7 +163,7 @@
                                         :options="gatewayOptions"
                                         option-label="label"
                                         option-value="value"
-                                        append-to="self"
+                                        append-to="body"
                                         class="w-100"
                                         @change="onGatewayChange"
                                     />
@@ -180,7 +180,7 @@
                                         :options="typeOptions"
                                         option-label="label"
                                         option-value="value"
-                                        append-to="self"
+                                        append-to="body"
                                         class="w-100"
                                     />
                                 </div>

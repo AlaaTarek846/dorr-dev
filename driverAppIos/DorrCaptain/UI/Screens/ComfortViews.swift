@@ -31,6 +31,36 @@ struct NextTripBadge: View {
     }
 }
 
+/// A quiet ride, on its own and on top (request card and trip): the rider prefers no small talk — the
+/// captain still says what the trip needs (the way, the pickup, safety).
+struct QuietRideBadge: View {
+    @Environment(\.pal) private var pal
+    let comfort: ComfortDto?
+
+    init(_ comfort: ComfortDto?) { self.comfort = comfort }
+
+    var body: some View {
+        if comfort?.quiet == true {
+            HStack(spacing: 0) {
+                DorrIcon("speaker.slash.fill", size: 22, tint: pal.navy)
+                HSpace(10)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L("cf_quiet_title")).font(.dorr(15, .heavy)).foregroundStyle(pal.navy)
+                    Text(L("cf_quiet_body")).font(.dorr(12)).foregroundStyle(pal.ink.opacity(0.75))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 14).fill(pal.navy.opacity(0.1)))
+            .padding(.top, 10)
+        }
+    }
+}
+
+/// The rest of «راحتي» (the quiet ride has its own badge).
+private func chipItems(_ c: ComfortDto) -> [ComfortItemDto] { (c.items ?? []).filter { $0.item != "quiet" } }
+
 /// The rider's «راحتي», read-only (the request card) — or, with `onItem`, each item tappable (the trip).
 struct ComfortChips: View {
     @Environment(\.pal) private var pal
@@ -45,7 +75,7 @@ struct ComfortChips: View {
     }
 
     var body: some View {
-        if let c = comfort, let items = c.items, !items.isEmpty {
+        if let c = comfort, case let items = chipItems(c), !items.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
                     DorrIcon("leaf.fill", size: 16, tint: pal.success)
@@ -110,8 +140,9 @@ struct TripComfortCard: View {
             let open = ["accepted", "arrived", "in_progress"].contains(trip.status ?? "")
             let unable = c.unable ?? []
             VStack(alignment: .leading, spacing: 0) {
+                QuietRideBadge(c)
                 ComfortChips(c, unable: Set(unable.compactMap { $0.item }), onItem: open ? { asking = $0 } : nil)
-                if open && unable.count < (c.items ?? []).count {
+                if open && unable.filter({ $0.item != "quiet" }).count < chipItems(c).count {
                     Text(L("cf_tap_hint")).font(.dorr(11)).foregroundStyle(pal.ink.opacity(0.55)).padding(.top, 4)
                 }
                 ForEach(Array(unable.enumerated()), id: \.offset) { _, u in

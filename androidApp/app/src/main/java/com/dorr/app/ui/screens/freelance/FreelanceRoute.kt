@@ -15,20 +15,33 @@ internal sealed interface FlRoute {
     data class Project(val project: String) : FlRoute { override val key get() = "show:$project" }
     data class Preview(val project: String) : FlRoute { override val key get() = "preview:$project" }
     data class Invitations(val project: String) : FlRoute { override val key get() = "invites:$project" }
+    // FS-503: the best people for a project (DORR AI).
+    data class Matches(val project: String) : FlRoute { override val key get() = "matches:$project" }
+    // FS-801: the AI Project Manager's summary of a running project.
+    data class PmSummary(val project: String) : FlRoute { override val key get() = "pmsum:$project" }
     data class Offers(val project: String) : FlRoute { override val key get() = "offers:$project" }
     data class Compare(val project: String, val offers: List<String>) : FlRoute { override val key get() = "compare:$project:" + offers.joinToString(",") }
     data class Offer(val project: String, val offer: String) : FlRoute { override val key get() = "offer:$project:$offer" }
     data class Freelancer(val project: String, val offer: String) : FlRoute { override val key get() = "freelancer:$project:$offer" }
+    // FS-210: a freelancers' team's profile (the team an offer or an agreement is made in the name of; not my own project team, `Team`).
+    data class FreelancerTeam(val team: String) : FlRoute { override val key get() = "ftprofile:$team" }
     data class Chat(val project: String, val offer: String, val room: String) : FlRoute { override val key get() = "chat:$project:$offer:$room" }
     data class Agreement(val project: String) : FlRoute { override val key get() = "agreement:$project" }
     data class Dispute(val project: String, val dispute: String) : FlRoute { override val key get() = "dispute:$project:$dispute" }
     data class NewDispute(val project: String, val milestone: String) : FlRoute { override val key get() = "dispute-new:$project:$milestone" }
+    // FS-150e: the Workroom of a running work (a tab named by a notice: tasks · files · decisions · timeline), and one of its files.
+    data class Workroom(val project: String, val tab: String = "") : FlRoute { override val key get() = if (tab.isBlank()) "workroom:$project" else "workroom:$project:$tab" }
+    data class WorkroomFile(val project: String, val file: String) : FlRoute { override val key get() = "wrfile:$project:$file" }
     data object Favorites : FlRoute { override val key = "favorites" }
     data object Receipts : FlRoute { override val key = "receipts" }
 
     // FS-103: my lists of freelancers.
     data object TalentLists : FlRoute { override val key = "talents" }
     data class TalentList(val list: String) : FlRoute { override val key get() = "talent:$list" }
+
+    // FS-104: my project's team, and the projects others brought me into.
+    data class Team(val project: String) : FlRoute { override val key get() = "team:$project" }
+    data object Shared : FlRoute { override val key = "shared" }
 
     // FL-L04: ready-made services and my orders.
     data object Services : FlRoute { override val key = "market" }
@@ -64,6 +77,8 @@ internal sealed interface FlRoute {
                 "receipts" -> Receipts
                 "talents" -> TalentLists
                 "talent" -> a?.let(::TalentList)
+                "team" -> a?.let(::Team)
+                "shared" -> Shared
                 "market" -> Services
                 "orders" -> Orders
                 "cmarket" -> ConsultMarket
@@ -74,8 +89,12 @@ internal sealed interface FlRoute {
                 "show" -> a?.let(::Project)
                 "preview" -> a?.let(::Preview)
                 "invites" -> a?.let(::Invitations)
+                "matches" -> a?.let(::Matches)
+                "pmsum" -> a?.let(::PmSummary)
                 "offers" -> a?.let(::Offers)
                 "agreement" -> a?.let(::Agreement)
+                "workroom" -> a?.let { Workroom(it, b.orEmpty()) }
+                "wrfile" -> if (a != null && b != null) WorkroomFile(a, b) else null
                 "svc" -> a?.let(::Service)
                 "order" -> a?.let(::Order)
                 "consult" -> a?.let(::Consultation)
@@ -84,6 +103,7 @@ internal sealed interface FlRoute {
                 "compare" -> if (a != null && b != null) Compare(a, b.split(',').filter { it.isNotBlank() }) else null
                 "offer" -> if (a != null && b != null) Offer(a, b) else null
                 "freelancer" -> if (a != null && b != null) Freelancer(a, b) else null
+                "ftprofile" -> a?.let(::FreelancerTeam)
                 "dispute" -> if (a != null && b != null) Dispute(a, b) else null
                 "dispute-new" -> if (a != null && b != null) NewDispute(a, b) else null
                 "spbook" -> if (a != null && b != null) SpecialBook(a, b) else null

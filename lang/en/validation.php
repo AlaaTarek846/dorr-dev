@@ -95,6 +95,7 @@ return [
     ],
 
     'attributes' => [
+        'features' => 'features',
         'credential_url' => 'verification link',
         'issuer' => 'issuer',
         'issued_on' => 'issue date',

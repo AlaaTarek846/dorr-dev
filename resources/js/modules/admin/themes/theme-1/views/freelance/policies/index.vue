@@ -105,7 +105,7 @@
                                                             min="0"
                                                             :step="step(key)"
                                                             class="form-control"
-                                                            :placeholder="meta(key).kind === 'money' ? t('freelance.policies.no_limit') : ''"
+                                                            :placeholder="['money', 'limit'].includes(meta(key).kind) ? t('freelance.policies.no_limit') : ''"
                                                             :disabled="!canUpdate"
                                                             dir="ltr"
                                                             @input="own[key] = fromForm(key, $event.target.value)"
@@ -256,7 +256,7 @@ const toForm = (key, v) => {
     return v;
 };
 const fromForm = (key, text) => {
-    if (text === '' && meta(key).kind === 'money') return null;
+    if (text === '' && ['money', 'limit'].includes(meta(key).kind)) return null;
     const n = Number(text);
     if (text === '' || Number.isNaN(n)) return text;
     if (isPercent(key)) return Math.round(n * 100);
@@ -272,7 +272,7 @@ const display = (key, v, values) => {
     if (isMoney(key, values)) return money(v);
     return isDays(key) ? `${v} ${t('freelance.policies.days')}` : String(v);
 };
-const groupIcon = (name) => ({ commission: 'ri-percent-line', client_fee: 'ri-user-received-2-line', offers: 'ri-auction-line', review: 'ri-checkbox-circle-line', milestones: 'ri-flag-2-line', project: 'ri-briefcase-4-line', earnings: 'ri-wallet-3-line', cancellation: 'ri-close-circle-line', disputes: 'ri-scales-3-line', changes: 'ri-edit-2-line', ratings: 'ri-star-line', invitations: 'ri-user-add-line', services: 'ri-store-2-line' }[name] ?? 'ri-settings-3-line');
+const groupIcon = (name) => ({ commission: 'ri-percent-line', client_fee: 'ri-user-received-2-line', offers: 'ri-auction-line', review: 'ri-checkbox-circle-line', milestones: 'ri-flag-2-line', project: 'ri-briefcase-4-line', earnings: 'ri-wallet-3-line', cancellation: 'ri-close-circle-line', disputes: 'ri-scales-3-line', changes: 'ri-edit-2-line', ratings: 'ri-star-line', invitations: 'ri-user-add-line', services: 'ri-store-2-line', workroom: 'ri-task-line' }[name] ?? 'ri-settings-3-line');
 
 function toggleOwn(key) {
     const next = { ...own.value };

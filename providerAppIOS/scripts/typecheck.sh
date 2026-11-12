@@ -33,6 +33,7 @@ SWIFT
 CORE=$(find DorrPartners/Net DorrPartners/UI/Kit DorrPartners/UI/Components DorrPartners/UI/Theme DorrPartners/UI/Wallet DorrPartners/UI/Screens/Wallet/WalletFormat.swift DorrPartners/UI/Screens/Wallet/WalletKit.swift \
   DorrPartners/UI/L10n.swift DorrPartners/UI/DownloadedTranslations.swift DorrPartners/UI/AppLanguage.swift DorrPartners/App/Routes.swift DorrPartners/App/MainActions.swift \
   -name '*.swift' ! -name Realtime.swift)
-EXTRA=$(for p in "$@"; do find "$p" -name '*.swift'; done)
-xcrun swiftc -typecheck -sdk "$SDK" -target "$ARCH-apple-ios16.0-simulator" -swift-version 5 $CORE $EXTRA "$SHIM" 2>&1 | grep -E "error:" | sort -u | head -80
+# The map (Map/DorrMap.swift) needs GoogleMaps / MapboxMaps: its SDK-free part and a stand-in view come from scripts/shims/MapShim.swift.
+EXTRA=$(for p in "$@"; do find "$p" -name '*.swift' ! -path '*DorrPartners/Map/*'; done)
+xcrun swiftc -typecheck -sdk "$SDK" -target "$ARCH-apple-ios16.0-simulator" -swift-version 5 $CORE $EXTRA "$SHIM" scripts/shims/MapShim.swift 2>&1 | grep -E "error:" | sort -u | head -80
 echo "typecheck done"

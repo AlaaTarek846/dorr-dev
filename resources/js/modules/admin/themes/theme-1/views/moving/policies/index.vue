@@ -6,35 +6,44 @@
 
         <div class="card custom-card">
             <div class="card-header d-flex flex-wrap gap-2 align-items-center py-3">
-                <select v-model="countryId" class="form-select form-select-sm" style="max-width: 260px">
-                    <option :value="null">{{ t('moving.policies.default_all') }}</option>
-                    <option v-for="c in countries" :key="c.id" :value="c.id">{{ c.name }} ({{ c.code }})</option>
-                </select>
+                <Select
+                    v-model="countryId"
+                    :options="countryOptions"
+                    option-label="label"
+                    option-value="value"
+                    :placeholder="t('moving.policies.default_all')"
+                    filter
+                    :filter-placeholder="t('search_placeholder')"
+                    class="wallet-filter-select"
+                />
                 <span v-if="current?.version" class="badge bg-light text-dark">{{ t('moving.policies.version') }} {{ current.version }}</span>
-                <button v-if="can('moving-policies.update')" type="button" class="btn btn-primary btn-sm ms-auto" :disabled="busy" @click="save">
-                    <i class="ri-save-line me-1"></i>{{ t('save') }}
+                <button v-if="canUpdate" type="button" class="btn btn-primary btn-sm btn-wave ms-auto" :disabled="busy || loading" @click="save">
+                    <span v-if="busy" class="spinner-border spinner-border-sm me-1"></span><i v-else class="ri-save-line me-1"></i>{{ t('save') }}
                 </button>
             </div>
-            <div class="card-body">
+            <div v-if="loading" class="card-body text-center py-5"><span class="spinner-border spinner-border-sm"></span></div>
+            <fieldset v-else class="card-body" :disabled="!canUpdate">
                 <div v-for="group in groups" :key="group.key" class="mb-4">
                     <h6 class="fw-semibold mb-3"><i :class="group.icon" class="me-1 text-primary"></i>{{ t(`moving.policies.groups.${group.key}`) }}</h6>
                     <div class="row g-3">
                         <div v-for="key in group.keys" :key="key" class="col-md-6 col-xl-4">
-                            <label class="form-label fs-13">{{ t(`moving.policies.keys.${key.replaceAll('.', '__')}`) }}</label>
+                            <label class="form-label fs-13" :for="`mp-${key}`">{{ t(`moving.policies.keys.${key.replaceAll('.', '__')}`) }}</label>
                             <div class="input-group input-group-sm">
-                                <input v-model="values[key]" type="number" min="0" class="form-control" :placeholder="inherited(key)" :disabled="!can('moving-policies.update')">
-                                <span class="input-group-text fs-12">{{ t(`moving.policies.units.${unitOf(key)}`) }}</span>
+                                <input :id="`mp-${key}`" v-model="values[key]" type="number" min="0" step="1" class="form-control" :class="{ 'is-invalid': errorOf(key) }" :placeholder="inherited(key)" @input="clearError(key)">
+                                <span v-if="unitOf(key) !== 'number'" class="input-group-text fs-12">{{ t(`moving.policies.units.${unitOf(key)}`) }}</span>
                             </div>
+                            <div v-if="errorOf(key)" class="invalid-feedback d-block">{{ errorOf(key) }}</div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </fieldset>
             <div class="card-footer fs-12 text-muted">{{ t('moving.policies.footer') }}</div>
         </div>
     </div>
 </template>
 
 <script setup>
+import Select from 'primevue/select';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
@@ -61,6 +70,17 @@ const rows = ref([]);
 const countryId = ref(null);
 const values = reactive({});
 const busy = ref(false);
+const loading = ref(true);
+const canUpdate = computed(() => can('moving-policies.update'));
+const countryOptions = computed(() => [
+    { value: null, label: t('moving.policies.default_all') },
+    ...countries.value.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` })),
+]);
+// 422 messages come back as "values.offers.window_minutes"; shown under the matching field.
+const errors = reactive({});
+const errorOf = (key) => errors[key] ?? null;
+const clearError = (key) => delete errors[key];
+const clearErrors = () => Object.keys(errors).forEach((key) => delete errors[key]);
 const current = computed(() => rows.value.find((r) => r.country_id === countryId.value) ?? null);
 const defaults = computed(() => rows.value.find((r) => r.country_id === null)?.values ?? {});
 
@@ -82,6 +102,7 @@ const inherited = (key) => {
 };
 
 function fill() {
+    clearErrors();
     const source = current.value?.values ?? {};
     groups.flatMap((g) => g.keys).forEach((key) => { values[key] = source[key] ?? ''; });
 }
@@ -94,11 +115,14 @@ async function load() {
         fill();
     } catch (e) {
         showError(extractApiErrorMessage(e));
+    } finally {
+        loading.value = false;
     }
 }
 
 async function save() {
     busy.value = true;
+    clearErrors();
     try {
         const payload = {};
         Object.entries(values).forEach(([key, value]) => { payload[key] = value === '' || value === null ? null : Number(value); });
@@ -106,6 +130,9 @@ async function save() {
         showSuccess(t('moving.common.saved'));
         await load();
     } catch (e) {
+        Object.entries(e?.response?.data?.errors ?? {}).forEach(([key, messages]) => {
+            errors[key.replace(/\\/g, '').replace(/^values\./, '')] = messages[0];
+        });
         showError(extractApiErrorMessage(e));
     } finally {
         busy.value = false;

@@ -5,6 +5,11 @@ namespace Modules\AI\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * One AI routing rule - the same keys as before; `is_active` is kept next to the catalog's `status`. The policy and
+ * intent names are in the request's language and also say whether that row is switched on / in the trash (then the
+ * engine never applies the rule).
+ */
 class AiRoutingRuleResource extends JsonResource
 {
     /**
@@ -18,12 +23,16 @@ class AiRoutingRuleResource extends JsonResource
             'policy' => $this->whenLoaded('policy', fn () => $this->policy ? [
                 'id' => $this->policy->id,
                 'name' => $this->policy->name,
+                'status' => (bool) $this->policy->status,
+                'deleted' => $this->policy->trashed(),
             ] : null),
             'intent_id' => $this->intent_id,
             'intent' => $this->whenLoaded('intent', fn () => $this->intent ? [
                 'id' => $this->intent->id,
                 'key' => $this->intent->key,
                 'name' => $this->intent->name,
+                'status' => (bool) $this->intent->status,
+                'deleted' => $this->intent->trashed(),
             ] : null),
             'provider_id' => $this->provider_id,
             'provider' => $this->whenLoaded('provider', fn () => $this->provider ? [
@@ -34,9 +43,11 @@ class AiRoutingRuleResource extends JsonResource
             'model_key' => $this->model_key,
             'priority' => $this->priority,
             'selection_config' => $this->selection_config,
-            'is_active' => (bool) $this->is_active,
+            'status' => (bool) $this->status,
+            'is_active' => (bool) $this->status,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

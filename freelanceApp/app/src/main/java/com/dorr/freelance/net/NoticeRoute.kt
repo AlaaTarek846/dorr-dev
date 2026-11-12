@@ -25,7 +25,27 @@ object NoticeRoute {
             e.startsWith("freelance.subscription") -> Routes.PLANS
             // FL-L13: a client's leave to show a finished work (or taking it back) opens that agreement.
             e.startsWith("freelance.rights") -> project?.let(Routes::agreement)
-            e == "freelance.invitation.received" -> Routes.INVITATIONS
+            // FS-213: a client invited my team (I am its Owner) - the same list, the card says which team.
+            e == "freelance.invitation.received" || e == "freelance.invitation.team_received" -> Routes.INVITATIONS
+            // FS-150e: the other side's step in the Workroom opens that project's Workroom, on the part it is about
+            // (task_assigned → tasks, file_shared / comment_added → files, decision_* → decisions).
+            e.startsWith("freelance.workroom") -> project?.let {
+                Routes.workroom(it, when {
+                    e.contains("decision") -> "decisions"
+                    e.contains("file") || e.contains("comment") -> "files"
+                    else -> "tasks"
+                })
+            }
+            // FS-209: an invitation into a team opens my teams (where it waits for my answer); the other team notices open the team.
+            e == "freelance.team_invited" -> Routes.TEAMS
+            // FS-209b: being put on a part opens that project (the agreement page, where the part and its people are).
+            e == "freelance.team_assigned" -> project?.let(Routes::agreement) ?: field("team")?.let(Routes::team) ?: Routes.TEAMS
+            // FS-209c: a message in the team's inside chat opens that thread (the team's page when the notice has no thread).
+            e == "freelance.internal_message" -> field("team")?.let { team -> field("thread")?.let { Routes.teamThread(team, it) } ?: Routes.team(team) } ?: Routes.TEAMS
+            // FS-209c: the staff's answer on the team's papers (told to the Owners only) opens the verification page.
+            e == "freelance.team_verified" || e == "freelance.team_verification_rejected" || e == "freelance.team_verification_revoked" ->
+                field("team")?.let(Routes::teamVerification) ?: Routes.TEAMS
+            e.startsWith("freelance.team_") -> field("team")?.let(Routes::team) ?: Routes.TEAMS
             // FL-L09: an answer to my special offer opens it.
             e.startsWith("freelance.special_offer") -> field("special_offer")?.let(Routes::specialOffer) ?: Routes.SPECIAL_OFFERS
             // FL-L04: a new order opens it; a decision on a service, my services.

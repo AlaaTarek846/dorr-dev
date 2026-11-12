@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiConversationInstructionRequest;
 use Modules\AI\Services\AiConversationInstructionService;
 
-class AiConversationInstructionController extends Controller
+/**
+ * Admin AI conversation instructions - the catalog CRUD (like CountryController, no translations): index/show, store, update, status, bulk
+ * delete, trash/restore/force delete.
+ */
+class AiConversationInstructionController extends CatalogController
 {
-    public function __construct(protected AiConversationInstructionService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-conversation-instructions';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-conversation-instructions')) - so no controller
+     * permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiConversationInstructionService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiConversationInstructionRequest $request)
@@ -20,18 +38,18 @@ class AiConversationInstructionController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $instruction)
-    {
-        return $this->service->find($instruction);
-    }
-
-    public function update(AiConversationInstructionRequest $request, int $instruction)
+    public function update(AiConversationInstructionRequest $request, int|string $instruction)
     {
         return $this->service->updateRecord($instruction, $request->validated());
     }
 
-    public function destroy(int $instruction)
+    public function deleteMultiple(AiConversationInstructionRequest $request)
     {
-        return $this->service->delete($instruction);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiConversationInstructionRequest $request, int|string $instruction)
+    {
+        return $this->service->changeStatus($instruction, (bool) $request->validated('status'));
     }
 }

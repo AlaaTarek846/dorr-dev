@@ -39,14 +39,14 @@
                                     <td><input v-model.number="row.sort_order" type="number" min="0" class="form-control form-control-sm"></td>
                                     <td><input v-model="row.is_active" type="checkbox" class="form-check-input" :disabled="row.is_system"></td>
                                     <td class="text-end text-nowrap">
-                                        <button type="button" class="btn btn-sm btn-primary" :disabled="busy === (row.id ?? row.code)" @click="save(row)">{{ t('ai_site_offers.save') }}</button>
-                                        <button v-if="! row.is_system" type="button" class="btn btn-sm btn-danger-light btn-icon ms-1" @click="remove(row)"><i class="ri-delete-bin-line"></i></button>
+                                        <button v-if="canUpdate" type="button" class="btn btn-sm btn-primary" :disabled="busy === (row.id ?? row.code)" @click="save(row)">{{ t('ai_site_offers.save') }}</button>
+                                        <button v-if="canUpdate && ! row.is_system" type="button" class="btn btn-sm btn-danger-light btn-icon ms-1" @click="remove(row)"><i class="ri-delete-bin-line"></i></button>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <button type="button" class="btn btn-light btn-sm mt-3" @click="addRow"><i class="ri-add-line me-1"></i>{{ t('ai_site_requests.add_status') }}</button>
+                    <button v-if="canUpdate" type="button" class="btn btn-light btn-sm mt-3" @click="addRow"><i class="ri-add-line me-1"></i>{{ t('ai_site_requests.add_status') }}</button>
                 </div>
             </div>
         </div>
@@ -57,12 +57,14 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const props = defineProps({ show: { type: Boolean, default: false } });
 const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-site-requests');
 const { showSuccess, showError } = useToast();
 const colors = ['primary', 'secondary', 'success', 'info', 'warning', 'danger'];
 const modalElement = ref(null);

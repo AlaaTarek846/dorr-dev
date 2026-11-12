@@ -10,6 +10,7 @@ use Modules\AI\Database\Seeders\AiSiteSeeder;
 use Modules\AI\Models\AiPlan;
 use Modules\AI\Models\AiSiteHostingPlan;
 use Modules\AI\Models\AiSiteOffer;
+use Modules\AI\Models\AiSiteOfferTranslation;
 use Tests\TestCase;
 
 class AiSiteSeederTest extends TestCase
@@ -27,7 +28,7 @@ class AiSiteSeederTest extends TestCase
         AiPlan::query()->create(['code' => 'pro', 'name' => 'Pro', 'usage_minutes' => 10, 'cooldown_minutes' => 1, 'duration_days' => 30, 'price' => 1, 'is_active' => true]);
 
         $this->seed(AiSiteSeeder::class);
-        AiSiteOffer::query()->update(['name' => 'edited']);
+        AiSiteOfferTranslation::query()->where('locale', 'en')->update(['name' => 'edited']);
         $this->seed(AiSiteSeeder::class);
 
         $this->assertSame(1, AiSiteOffer::query()->where('kind', 'site')->count());
@@ -42,5 +43,12 @@ class AiSiteSeederTest extends TestCase
         $offer = AiSiteOffer::query()->where('kind', 'site')->first();
         $this->assertSame(1, $offer->prices()->where('country_id', $country->id)->count());
         $this->assertSame(3, AiPlan::query()->where('code', 'pro')->value('site_projects_limit'));
+
+        // Real Arabic and English text per language; what the admin edited is kept on a re-run.
+        $this->assertSame('إنشاء موقع بالذكاء الاصطناعي', $offer->translations->firstWhere('locale', 'ar')->name);
+        $this->assertSame('edited', $offer->translations->firstWhere('locale', 'en')->name);
+        $monthly = AiSiteHostingPlan::query()->where('code', 'hosting_monthly')->first();
+        $this->assertSame('Monthly hosting', $monthly->translations->firstWhere('locale', 'en')->name);
+        $this->assertSame('استضافة شهرية', $monthly->translations->firstWhere('locale', 'ar')->name);
     }
 }

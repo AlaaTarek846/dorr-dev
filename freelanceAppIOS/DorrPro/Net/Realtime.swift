@@ -25,6 +25,10 @@ final class Realtime: NSObject, ObservableObject {
     let changed = PassthroughSubject<Void, Never>()
     /// Support's live events with their payload: an open ticket list or conversation updates itself.
     let events = PassthroughSubject<LiveEvent, Never>()
+    /// FS-209c: what happens in a team's inside chat while a screen of it listens (`freelance.internal`: message · deleted · read) — see `listenTeam`.
+    let teamEvents = PassthroughSubject<LiveEvent, Never>()
+    /// FS-150e: what changes in the project whose Workroom is open (`freelance.workroom`: kind · action · uuid · by, never the text) — see `listenWorkroom`.
+    let workroomEvents = PassthroughSubject<LiveEvent, Never>()
     @Published private(set) var connected = false
     /// The number of unread notices (the dot on the bell).
     @Published private(set) var unread = 0
@@ -38,6 +42,10 @@ final class Realtime: NSObject, ObservableObject {
     private var registeredId: String?
     private var registering: String?
     private var starting = false
+    /// The private channel events that are bound (`channel|event`: a team's chat, a project's Workroom, a team's Workroom), with how many screens
+    /// listen to each, and the id of the callback each one is bound with (to unbind it alone).
+    private var channelListeners: [String: Int] = [:]
+    private var boundCallbacks: [String: String] = [:]
 
     func consumeOpened() {
         opened = nil
@@ -88,6 +96,61 @@ final class Realtime: NSObject, ObservableObject {
                 await self.refreshUnread()
             }
         }
+    }
+
+    /// FS-209c: a team's chat screen listens to the team's private channel while it is open (and `stopListeningTeam` when it closes); the
+    /// events come on `teamEvents`. Nothing is subscribed while no chat is open. Without a live connection this does nothing and the screen
+    /// keeps to its reads on open, on a notice and on reconnect.
+    func listenTeam(_ teamUuid: String) { listen(teamChannel(teamUuid), "freelance.internal", teamEvents) }
+
+    func stopListeningTeam(_ teamUuid: String) { stopListening(teamChannel(teamUuid), "freelance.internal") }
+
+    /// FS-150e: the Workroom of a project listens to the project's private channel while it is open (and `stopListeningWorkroom` when it
+    /// closes): `freelance.workroom` with `{kind: task|file|comment|decision, action, uuid, by}` and no text — each tab reloads once for the
+    /// kinds it shows. Without a live connection this does nothing and the screen keeps to its reads on open, on a notice and on reconnect.
+    func listenWorkroom(_ projectUuid: String) { listen("private-freelance-workroom.\(projectUuid)", "freelance.workroom", workroomEvents) }
+
+    func stopListeningWorkroom(_ projectUuid: String) { stopListening("private-freelance-workroom.\(projectUuid)", "freelance.workroom") }
+
+    /// FS-209: a team project's Workroom also listens to its team's channel. The inside tasks, files and notes of a team travel only there (the
+    /// project's channel is shared with the client): the same `freelance.workroom` event, with the `project` it belongs to added to the payload —
+    /// the screen ignores the events of other projects. It comes on `workroomEvents` like the project's own.
+    func listenTeamWorkroom(_ teamUuid: String) { listen(teamChannel(teamUuid), "freelance.workroom", workroomEvents) }
+
+    func stopListeningTeamWorkroom(_ teamUuid: String) { stopListening(teamChannel(teamUuid), "freelance.workroom") }
+
+    private func teamChannel(_ teamUuid: String) -> String { "private-freelance-team.\(teamUuid)" }
+
+    /// Binds one event of a private channel the first time a screen asks for it (every later screen only counts). The channel is opened for the
+    /// first event; a second event of a channel that is already open (the team's chat and its Workroom) is only bound to the open channel.
+    private func listen(_ channel: String, _ event: String, _ sink: PassthroughSubject<LiveEvent, Never>) {
+        guard let client = pusher else { return }
+        let key = channel + "|" + event
+        let n = channelListeners[key] ?? 0
+        channelListeners[key] = n + 1
+        guard n == 0 else { return }
+        let open = client.connection.channels.find(name: channel) ?? client.subscribe(channel)
+        boundCallbacks[key] = open.bind(eventName: event) { (e: PusherEvent) in
+            let eventName = e.eventName
+            guard let raw = e.data, let data = try? JSONDecoder().decode(JSONAny.self, from: Data(raw.utf8)) else { return }
+            Task { @MainActor in sink.send(LiveEvent(name: eventName, data: data)) }
+        }
+    }
+
+    /// The last screen to leave unbinds the event, and the channel is closed once none of its events is wanted.
+    private func stopListening(_ channel: String, _ event: String) {
+        let key = channel + "|" + event
+        let n = (channelListeners[key] ?? 0) - 1
+        if n > 0 {
+            channelListeners[key] = n
+            return
+        }
+        channelListeners[key] = nil
+        let callback = boundCallbacks.removeValue(forKey: key)
+        guard let client = pusher else { return }
+        if let callback, let open = client.connection.channels.find(name: channel) { open.unbind(eventName: event, callbackId: callback) }
+        let prefix = channel + "|"
+        if !channelListeners.keys.contains(where: { $0.hasPrefix(prefix) }) { client.unsubscribe(channel) }
     }
 
     /// Reads the unread count (one request) — also after the screen marked something as read.
@@ -149,6 +212,8 @@ final class Realtime: NSObject, ObservableObject {
     func stop() {
         pusher?.disconnect()
         pusher = nil
+        channelListeners.removeAll()
+        boundCallbacks.removeAll()
         connected = false
         unread = 0
         registeredId = nil

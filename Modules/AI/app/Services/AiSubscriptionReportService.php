@@ -26,15 +26,31 @@ class AiSubscriptionReportService
             ->whereNotNull('ends_at')
             ->where('current_plan_price', '>', 0);
 
-        $mrr = (clone $activeBillable)
+        // Prices are per country, so subscriptions are paid in different currencies: money is summed per currency,
+        // never across currencies. A subscription's currency is the one its last successful payment was made in
+        // (the plan's own currency when it has none).
+        $renewing = (clone $activeBillable)
             ->where('auto_renew', true)
-            ->get(['current_plan_price', 'current_plan_duration_days'])
-            ->sum(fn (AiSubscription $s) => (float) $s->current_plan_price / max(1, (int) $s->current_plan_duration_days) * 30);
+            ->with('plan.currencyRef')
+            ->get(['id', 'plan_id', 'current_plan_price', 'current_plan_duration_days']);
 
-        $revenueThisMonth = (float) AiSubscriptionPayment::query()
+        $paidCurrencies = AiSubscriptionPayment::query()
+            ->whereIn('subscription_id', $renewing->pluck('id'))
+            ->where('status', AiSubscriptionPayment::STATUS_SUCCEEDED)
+            ->whereNotNull('currency')
+            ->orderBy('id')
+            ->pluck('currency', 'subscription_id'); // the last payment wins (ordered by id)
+
+        $mrrByCurrency = $renewing
+            ->groupBy(fn (AiSubscription $s) => $this->currencyCode($paidCurrencies->get($s->id) ?? $s->plan?->currency))
+            ->map(fn ($group) => $group->sum(fn (AiSubscription $s) => (float) $s->current_plan_price / max(1, (int) $s->current_plan_duration_days) * 30));
+
+        $revenueByCurrency = AiSubscriptionPayment::query()
             ->where('status', AiSubscriptionPayment::STATUS_SUCCEEDED)
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
-            ->sum('amount');
+            ->get(['currency', 'amount'])
+            ->groupBy(fn (AiSubscriptionPayment $p) => $this->currencyCode($p->currency))
+            ->map(fn ($group) => $group->sum(fn (AiSubscriptionPayment $p) => (float) $p->amount));
 
         $cancelledOrExpired30d = AiSubscription::query()
             ->whereIn('status', [AiSubscription::STATUS_CANCELLED, AiSubscription::STATUS_EXPIRED])
@@ -62,10 +78,45 @@ class AiSubscriptionReportService
             'churn_rate_30d_percent' => $activeNow + $cancelledOrExpired30d > 0
                 ? round($cancelledOrExpired30d / ($activeNow + $cancelledOrExpired30d) * 100, 1)
                 : 0.0,
-            'mrr' => round($mrr, 2),
-            'revenue_this_month' => round($revenueThisMonth, 2),
+            // One figure per currency ([{currency, amount}], largest first). The single numbers stay for old
+            // callers but only when everything is in one currency - null when currencies are mixed.
+            'mrr_by_currency' => $this->perCurrency($mrrByCurrency),
+            'revenue_this_month_by_currency' => $this->perCurrency($revenueByCurrency),
+            'mrr' => $this->singleCurrencyTotal($mrrByCurrency),
+            'revenue_this_month' => $this->singleCurrencyTotal($revenueByCurrency),
             'plan_distribution' => $this->planDistribution(),
         ];
+    }
+
+    /** Upper-case code; '' when unknown (an old payment or plan with no currency). */
+    protected function currencyCode(?string $currency): string
+    {
+        return strtoupper(trim((string) $currency));
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, float>  $totals
+     * @return list<array{currency: ?string, amount: float}>
+     */
+    protected function perCurrency($totals): array
+    {
+        return $totals
+            ->map(fn (float $amount, string $currency) => ['currency' => $currency === '' ? null : $currency, 'amount' => round($amount, 2)])
+            ->sortByDesc('amount')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<string, float>  $totals
+     */
+    protected function singleCurrencyTotal($totals): ?float
+    {
+        return match ($totals->count()) {
+            0 => 0.0,
+            1 => round((float) $totals->first(), 2),
+            default => null,
+        };
     }
 
     /**

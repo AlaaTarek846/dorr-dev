@@ -9,7 +9,7 @@
     <string name="notif_time_hours_ago">منذ %1$d ساعة</string>
     <string name="notif_time_yesterday">منذ يوم</string>
     <string name="notif_time_days_ago">منذ %1$d يوم</string>
-    <string name="notif_time_weeks_ago">منذ %1$d أسابيع</string>
+    <string name="notif_time_weeks_ago">منذ %1$d أسبوع</string>
     <string name="support_ticket_more">عرض المزيد</string>
     <string name="notif_open_project">فتح المشروع</string>
 </resources>

@@ -243,29 +243,12 @@ private fun PapersCard(missing: List<String>, hasRequired: Boolean, busy: Boolea
     }
 }
 
-/** The services the establishment registered in, with their images. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The services the establishment works in: the same tiles as the registration (a service switched off shows faded). */
 @Composable
 private fun ServicesRow(services: List<EstablishmentServiceDto>) {
-    val night = settingsNight()
     Text(stringResource(R.string.home_services_title), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        services.forEach { service ->
-            val shape = RoundedCornerShape(999.dp)
-            Row(
-                Modifier.clip(shape).background(settingsCard())
-                    .border(1.dp, if (night) AccountDark.line else Color(0xFFE5E7EB), shape)
-                    .padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val image = ApiClient.mediaUrl(service.image)
-                if (image != null) {
-                    AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(6.dp))
-                }
-                Text(service.name.orEmpty(), color = settingsInk(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
+    ServiceTileGrid(services) { service, tileModifier ->
+        ServiceTile(service.name, service.image, selected = false, modifier = tileModifier, dimmed = !service.on)
     }
 }
 

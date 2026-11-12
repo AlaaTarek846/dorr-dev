@@ -1,13 +1,11 @@
 import SwiftUI
 
 // freelanceApp `navigation/FreelanceNavGraph.kt` — the routes: splash → welcome (once, on the first launch after
-// install) → sign-in (phone → code) → home. A signed-in freelancer who has not agreed to the terms is sent to `.terms`
-// before the home.
+// install) → sign-in (phone → code) → home.
 
 /// A page pushed over the home (the Android routes after `home`).
 enum Route: Hashable {
     case otp(dial: String, phone: String, cooldown: Int)
-    case terms
     case profile
     case specialties
     case skills
@@ -18,6 +16,16 @@ enum Route: Hashable {
     case coach
     case skillTests
     case capacity
+    // FS-209: my freelancers' teams and one team's page (its uuid).
+    case teams
+    case team(String)
+    // FS-209c: a team's inside chat thread, its works (the list and one work: id 0 = a new one) and its verification.
+    case teamThread(team: String, thread: String)
+    case teamPortfolio(String)
+    case teamPortfolioItem(team: String, id: Int)
+    case teamVerification(String)
+    // FS-211: a team's plan (its Owners read it and subscribe).
+    case teamPlan(String)
     case portfolio
     case project(String)
     case offerForm(String)
@@ -27,6 +35,9 @@ enum Route: Hashable {
     case invitations
     case chat(String)
     case agreement(String)
+    // FS-150e: a project's Workroom (opens on `tab` = tasks · files · decisions · timeline) and one file of it.
+    case workroom(project: String, tab: String)
+    case workroomFile(project: String, file: String)
     case dispute(project: String, dispute: String)
     case disputeNew(project: String, milestone: String)
     case certificates
@@ -66,7 +77,7 @@ enum Route: Hashable {
     /// Pages drawn without the bottom bar (`shell(false)` on Android is the same frame; the chat is full screen there).
     var wantsBar: Bool {
         switch self {
-        case .otp, .terms, .consultationSession: return false
+        case .otp, .consultationSession: return false
         default: return true
         }
     }

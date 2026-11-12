@@ -199,6 +199,10 @@
                     </div>
                 </div>
 
+                <!-- FS-150f: the shared Workroom (read only, audited) and, while the dispute is being decided, the team's internal chat (own permission). -->
+                <DisputeWorkroom :dispute="current.uuid" />
+                <DisputeInternalChat v-if="canReadInternal && needsDecision(current.status)" :dispute="current.uuid" />
+
                 <!-- The decision: what it does to the money is shown before it is taken. -->
                 <div v-if="canDecide" class="border rounded p-3 mt-3">
                     <h6 class="fs-13 fw-semibold">{{ current.status === 'appealed' ? t('freelance.disputes.decide_appeal') : t('freelance.disputes.decide') }}</h6>
@@ -240,6 +244,8 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatCatalogDate } from '../../../../../../../utils/catalog';
 import UserName from '../../../../../../../components/ui/UserName.vue';
+import DisputeWorkroom from './DisputeWorkroom.vue';
+import DisputeInternalChat from './DisputeInternalChat.vue';
 
 // The disputes desk (FL-705): appealed and open cases first. A case shows everything both sides said and showed, the part with its
 // delivery and history, the agreement and the chat. The decision moves the held money — back to the client, to the freelancer, or a
@@ -302,7 +308,8 @@ const kindBadge = (k) => ({ agreement: 'bg-primary-transparent', approval: 'bg-i
 const actorClass = (a) => (a === 'client' ? 'text-primary' : a === 'freelancer' ? 'text-success' : 'text-muted');
 const actorText = (a) => (['client', 'freelancer'].includes(a) ? t(`freelance.disputes.side.${a}`) : t('freelance.disputes.timeline_staff'));
 const form = reactive({ decision: null, percent: 50, note: '' });
-const canClassify = computed(() => can('freelance-disputes.update'));
+const canReadInternal = computed(() => can('freelance-internal-chat.view'));
+const canClassify =computed(() => can('freelance-disputes.update'));
 const canDecide = computed(() => !!current.value?.can?.decide && can('freelance-disputes.update'));
 const ready = computed(() => !!form.decision && form.note.trim().length >= 10 && (form.decision !== 'split' || (form.percent > 0 && form.percent < 100)));
 // What the decision does to the part's amount (the fee and the commission follow the same share).

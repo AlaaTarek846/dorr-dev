@@ -1,0 +1,11 @@
+{
+    "name": "Marketing",
+    "alias": "marketing",
+    "description": "DORR AI Marketing Director: projects, sourced market research, business/marketing/GTM plans with versions and approvals (docs/marketing_tasks.md).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Marketing\\Providers\\MarketingServiceProvider"
+    ],
+    "files": []
+}

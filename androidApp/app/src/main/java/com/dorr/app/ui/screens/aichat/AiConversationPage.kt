@@ -1126,6 +1126,11 @@ private fun AiMessageBubble(
             if (!isUser && message.citations.isNotEmpty()) {
                 AiCitationsSection(citations = message.citations, mut = mut)
             }
+
+            // DORR's own services offered with this answer — e.g. «احجز مشوارك مع دُرر», the trip filled in.
+            if (!isUser && message.actions.isNotEmpty()) {
+                AiServiceActionCards(message.actions, night, ink, mut)
+            }
         }
     }
 }

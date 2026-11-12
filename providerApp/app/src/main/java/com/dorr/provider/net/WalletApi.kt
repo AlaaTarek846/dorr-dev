@@ -3,15 +3,19 @@ package com.dorr.provider.net
 import com.dorr.core.network.ApiEnvelope
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
@@ -52,6 +56,15 @@ interface WalletApi {
     @POST("${ApiClient.PROVIDER}wallet/pin/recovery")
     suspend fun setRecovery(@Body body: RecoverySetupRequest, @Header("X-Wallet-Pin") pin: String? = null): Response<ApiEnvelope<PinStatusDto>>
 
+    /** The photo methods (ID / passport): the picture goes as multipart, as in the DORR app. */
+    @Multipart
+    @POST("${ApiClient.PROVIDER}wallet/pin/recovery")
+    suspend fun setRecoveryDocument(
+        @Part("method") method: RequestBody,
+        @Part document: MultipartBody.Part,
+        @Header("X-Wallet-Pin") pin: String? = null,
+    ): Response<ApiEnvelope<PinStatusDto>>
+
     @POST("${ApiClient.PROVIDER}wallet/pin/recovery/email-code")
     suspend fun sendRecoveryEmailCode(@Query("pending") pending: Boolean? = null): Response<ApiEnvelope<Any>>
 
@@ -62,12 +75,25 @@ interface WalletApi {
     @POST("${ApiClient.PROVIDER}wallet/pin/recover")
     suspend fun recoverPin(@Body body: RecoverPinRequest): Response<ApiEnvelope<PinStatusDto>>
 
-    /** A new device unlocked with the right PIN: a code goes to the phone on file before it is trusted. */
+    /** Photo methods: uploads the new photo for a person to compare with the one from setup (201). */
+    @Multipart
+    @POST("${ApiClient.PROVIDER}wallet/pin/recover")
+    suspend fun recoverPinWithDocument(@Part document: MultipartBody.Part): Response<ApiEnvelope<PinStatusDto>>
+
+    /** The only way out of a permanent freeze: a selfie + an ID/passport photo, reviewed by a person. */
+    @Multipart
+    @POST("${ApiClient.PROVIDER}wallet/pin/unfreeze")
+    suspend fun unfreezePin(@Part idDocument: MultipartBody.Part, @Part selfie: MultipartBody.Part): Response<ApiEnvelope<PinStatusDto>>
+
+    /**
+     * A new device unlocked with the right PIN: a code goes to the phone on file before it is trusted. The phone that
+     * created the PIN is trusted by `POST wallet/pin` itself (`X-Device-Id`, added to every request by :core's client).
+     */
     @POST("${ApiClient.PROVIDER}wallet/device/verify-code")
-    suspend fun sendDeviceCode(@Header("X-Wallet-Pin") pin: String): Response<ApiEnvelope<Any>>
+    suspend fun sendDeviceTrustCode(@Header("X-Wallet-Pin") pin: String): Response<ApiEnvelope<Any>>
 
     @POST("${ApiClient.PROVIDER}wallet/device/confirm")
-    suspend fun confirmDevice(@Header("X-Wallet-Pin") pin: String, @Body body: CodeBody): Response<ApiEnvelope<Any>>
+    suspend fun confirmDeviceTrust(@Header("X-Wallet-Pin") pin: String, @Body body: CodeBody): Response<ApiEnvelope<Any>>
 
     // ---------------------------------------------------------------- topping up
     @GET("${ApiClient.PROVIDER}wallet/payment-methods")
@@ -167,6 +193,17 @@ data class PinStatusDto(
     /** A temporary lock still running (ISO-8601). */
     @SerializedName("locked_until") val lockedUntil: String? = null,
     val recovery: RecoveryInfoDto? = null,
+    /** The latest photo recovery / unfreeze request, while one matters (pending, or a rejection to show). */
+    val request: RecoveryRequestDto? = null,
+)
+
+/** `status`: pending, approved or rejected. `reason`: recovery_document | security_freeze. */
+data class RecoveryRequestDto(
+    val id: Long = 0,
+    val method: String = "",
+    val reason: String = "recovery_document",
+    val status: String = "",
+    @SerializedName("rejection_reason") val rejectionReason: String? = null,
 )
 
 /** `method`: password, birth_date, id_photo, passport_photo, email. `ready`: an e-mail method is only ready once confirmed. */

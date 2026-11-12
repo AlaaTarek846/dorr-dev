@@ -29,8 +29,15 @@ class AiProviderModelSyncEndpointTest extends TestCase
             'password' => 'password',
             'status' => true,
         ]);
+        // Screen permissions (AdminPermissionSeeder 'ai-settings').
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (['view', 'update'] as $action) {
+            \Spatie\Permission\Models\Permission::findOrCreate("ai-settings.{$action}", 'admin_api');
+            $admin->givePermissionTo("ai-settings.{$action}");
+        }
 
-        Sanctum::actingAs($admin, ['*'], 'admin_api');
+
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
 
         return $admin;
     }

@@ -35,7 +35,7 @@ class AiSiteProjectController extends Controller
         $plan = $this->entitlements->activePlanFor($owner);
         $refusal = $this->entitlements->planCreateRefusal($owner, $plan);
 
-        $offers = AiSiteOffer::query()->where('is_active', true)->where('kind', AiSiteOffer::KIND_SITE)->orderBy('sort_order')->orderBy('id')->get();
+        $offers = AiSiteOffer::query()->where('status', true)->where('kind', AiSiteOffer::KIND_SITE)->orderBy('sort_order')->orderBy('id')->get();
 
         return ApiResponse::success([
             'enabled' => (bool) config('ai.sites.enabled', true),
@@ -127,7 +127,7 @@ class AiSiteProjectController extends Controller
     /** @return array<string, mixed> */
     protected function packsPayload(AiSiteProject $project, Authenticatable $owner): array
     {
-        $packs = AiSiteOffer::query()->where('is_active', true)->where('kind', AiSiteOffer::KIND_EDIT_PACK)
+        $packs = AiSiteOffer::query()->where('status', true)->where('kind', AiSiteOffer::KIND_EDIT_PACK)
             ->orderBy('sort_order')->orderBy('id')->get()
             ->filter(fn ($o) => $o->priceFor(currentCountry()) !== null)->values();
 

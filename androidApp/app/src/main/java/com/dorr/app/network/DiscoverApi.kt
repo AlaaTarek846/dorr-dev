@@ -26,12 +26,15 @@ interface DiscoverApi {
 
     // ------------------------------------------------------------------ portals
 
+    /** The portals page, one list a page at a time (most viewed first): 15, the next 15 as it scrolls. No categories = all. */
     @GET("mobile/v1/chat/portals")
     suspend fun portals(
         @Header("Authorization") auth: String,
+        @Query("page") page: Int,
         @Query("search") search: String? = null,
-        @Query("category_id") categoryId: Int? = null,
-    ): ApiEnvelope<List<PortalGroupDto>>
+        @Query("category_ids[]") categoryIds: List<Int>? = null,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<PortalDto>>
 
     @GET("mobile/v1/chat/portals/mine")
     suspend fun myPortals(@Header("Authorization") auth: String): ApiEnvelope<List<PortalDto>>
@@ -58,6 +61,10 @@ interface DiscoverApi {
         @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>,
         @Part logo: MultipartBody.Part?,
     ): ApiEnvelope<PortalDto>
+
+    /** One of mine, with its subscription history (newest first). */
+    @GET("mobile/v1/chat/portals/{id}")
+    suspend fun portal(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<PortalDto>
 
     @DELETE("mobile/v1/chat/portals/{id}")
     suspend fun deletePortal(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
@@ -105,11 +112,23 @@ data class PortalDto(
     @SerializedName("is_listed") val isListed: Boolean? = null,
     @SerializedName("listed_until") val listedUntil: String? = null,
     val translations: List<PortalTranslationDto>? = null,
+    /** `portals/{id}` only: every period paid for it, newest first. */
+    val history: List<PortalSubscriptionDto>? = null,
+)
+
+/** One paid period of a portal: its package, what was paid, from when to when, and running · upcoming · ended. */
+data class PortalSubscriptionDto(
+    val `package`: String?,
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("paid_at") val paidAt: String? = null,
+    @SerializedName("starts_at") val startsAt: String? = null,
+    @SerializedName("ends_at") val endsAt: String? = null,
+    val state: String? = null,
 )
 
 data class PortalTranslationDto(val locale: String, val name: String?, val description: String?)
 
-data class PortalGroupDto(val category: CategoryDto?, val portals: List<PortalDto>)
 
 data class PortalLanguageDto(val code: String, val name: String, val direction: String?)
 

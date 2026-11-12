@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Country;
 use App\Models\Faq;
 use App\Models\Flag;
 use App\Models\Language;
@@ -66,9 +67,12 @@ class CatalogTranslationsTest extends TestCase
 
     public function test_a_name_only_entity_still_resolves_name_as_its_only_translatable_field(): void
     {
-        $category = new ServiceCategory;
+        $this->assertSame(['name'], (new Country)->translatableFields());
+    }
 
-        $this->assertSame(['name'], $category->translatableFields());
+    public function test_a_service_category_translates_its_name_and_description(): void
+    {
+        $this->assertSame(['name', 'description'], (new ServiceCategory)->translatableFields());
     }
 
     public function test_a_multi_field_entity_resolves_every_translatable_field(): void
@@ -84,9 +88,10 @@ class CatalogTranslationsTest extends TestCase
         $this->postJson('/api/admin/v1/service-categories', [
             'sort_order' => 0,
             'status' => true,
+            'audiences' => ['user'],
             'translations' => [
-                ['locale' => 'en', 'name' => 'Wallet'],
-                ['locale' => 'ar', 'name' => 'المحفظة'],
+                ['locale' => 'en', 'name' => 'Wallet', 'description' => 'Pay and top up'],
+                ['locale' => 'ar', 'name' => 'المحفظة', 'description' => 'الدفع والشحن'],
             ],
         ])->assertCreated()->assertJsonPath('data.name', 'Wallet');
 
@@ -94,6 +99,7 @@ class CatalogTranslationsTest extends TestCase
             'service_category_id' => ServiceCategory::query()->firstOrFail()->id,
             'locale' => 'ar',
             'name' => 'المحفظة',
+            'description' => 'الدفع والشحن',
         ]);
     }
 
@@ -104,18 +110,20 @@ class CatalogTranslationsTest extends TestCase
         $id = $this->postJson('/api/admin/v1/service-categories', [
             'sort_order' => 0,
             'status' => true,
+            'audiences' => ['user'],
             'translations' => [
-                ['locale' => 'en', 'name' => 'Wallet'],
-                ['locale' => 'ar', 'name' => 'المحفظة'],
+                ['locale' => 'en', 'name' => 'Wallet', 'description' => 'Pay and top up'],
+                ['locale' => 'ar', 'name' => 'المحفظة', 'description' => 'الدفع والشحن'],
             ],
         ])->assertCreated()->json('data.id');
 
         $this->putJson("/api/admin/v1/service-categories/{$id}", [
             'sort_order' => 0,
             'status' => true,
+            'audiences' => ['user'],
             'translations' => [
-                ['locale' => 'en', 'name' => 'Wallet renamed'],
-                ['locale' => 'ar', 'name' => 'المحفظة'],
+                ['locale' => 'en', 'name' => 'Wallet renamed', 'description' => 'Pay and top up'],
+                ['locale' => 'ar', 'name' => 'المحفظة', 'description' => 'الدفع والشحن'],
             ],
         ])->assertOk()->assertJsonPath('data.name', 'Wallet renamed');
 

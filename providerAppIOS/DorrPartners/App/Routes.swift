@@ -43,9 +43,10 @@ enum Route: Hashable {
 }
 
 /// Where the app stands before the pages: the splash, sign-in, the workspace gate (one read of `workspace`), the onboarding
-/// or the invitations when they are the first page after the gate, or the signed-in tabs.
+/// or the invitations when they are the first page after the gate, the first vehicle (registration's 4th step when moving is
+/// chosen — Android `Routes.FIRST_VEHICLE`), or the signed-in tabs.
 enum RootStage: Equatable {
-    case splash, login, workspace, onboarding, invitations, home
+    case splash, login, workspace, onboarding, firstVehicle, invitations, home
 }
 
 /// The navigation (`NavController`): the stage at the root and the pages pushed over it.

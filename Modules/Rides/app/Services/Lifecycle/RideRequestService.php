@@ -62,8 +62,9 @@ class RideRequestService
      * @param  Carbon|null  $scheduledAt  booked ahead (R-12)
      * @param  array{name: string, phone: string}|null  $beneficiary  booked for someone else (R-13), the rider having confirmed their consent
      * @param  list<int>|null  $circle  DORR Circle (R-INN-07): offered to these favourite captains first — empty = all of them; null = the usual search
+     * @param  callable(Ride): void|null  $beforeSearch  run once the ride exists, before the first search goes out
      */
-    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null, ?array $circle = null, bool $useWallet = false, string $shareWith = 'any'): Ride
+    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null, ?array $circle = null, bool $useWallet = false, string $shareWith = 'any', ?callable $beforeSearch = null): Ride
     {
         if ($idempotencyKey !== null && ($existing = Ride::query()->where('user_id', $rider->id)->where('idempotency_key', $idempotencyKey)->first()) !== null) {
             if ($existing->quote()->value('uuid') !== $quoteUuid) {
@@ -305,6 +306,10 @@ class RideRequestService
         // R-233: Wait & Save — the search starts after the wait the rider took for the lower price.
         if (! $scheduled && $bid === null && ($delay = (int) ($ride->confirmed_snapshot['extras']['wait_save']['delay_s'] ?? 0)) > 0 && ! $card) {
             $ride->forceFill(['next_dispatch_at' => now()->addSeconds($delay)])->save();
+        }
+        // What goes with the ride before any captain sees it (the rider's «راحتي», a quiet ride).
+        if ($beforeSearch !== null) {
+            $beforeSearch($ride);
         }
         $this->notifier->changed($ride, 'created');
         if ($scheduled && ! $card) {

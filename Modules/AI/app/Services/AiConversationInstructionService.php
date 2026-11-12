@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiConversationInstructionResource;
 use Modules\AI\Repositories\AiConversationInstructionRepository;
 
-class AiConversationInstructionService extends BaseService
+/** AI conversation instructions catalog, no translations: list (+status counts), create/update, status, bulk delete, trash. */
+class AiConversationInstructionService extends CatalogService
 {
     /**
      * @var class-string

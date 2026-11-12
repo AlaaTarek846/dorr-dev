@@ -202,7 +202,7 @@ enum Fixtures {
         case path.hasSuffix("/chat/moments"): return envelope(momentsCenter)
         case path.hasSuffix("/chat/moments/catalog"): return envelope("[{\"id\":1,\"key\":\"eid\",\"name\":\"عيد الفطر\",\"kind\":\"religious\",\"emoji\":\"🌙\",\"next\":\"2027-03-10\",\"on\":true},{\"id\":2,\"key\":\"national\",\"name\":\"اليوم الوطني\",\"kind\":\"national\",\"emoji\":\"🇸🇦\",\"next\":\"2027-09-23\",\"on\":false}]")
         case path.hasSuffix("/chat/categories"): return envelope("[{\"id\":1,\"name\":\"مطاعم\",\"icon\":null},{\"id\":2,\"name\":\"أزياء\",\"icon\":null}]")
-        case path.hasSuffix("/chat/portals"): return envelope(portalGroups)
+        case path.hasSuffix("/chat/portals"): return envelope(portalsPage, pagination: "{\"current_page\":1,\"has_more_pages\":false}")
         case path.hasSuffix("/mobile/v1/notifications"): return envelope(notifications, pagination: "{\"current_page\":1,\"has_more_pages\":false}")
         case path.hasSuffix("/notifications/unread-count"): return envelope("{\"count\":3}")
         case path.hasSuffix("/chat/conversations"): return envelope("[{},{},{},{},{}]")
@@ -333,9 +333,10 @@ enum Fixtures {
      "personal":[{"id":"a1","kind":"birthday","title":"عيد ميلاد سارة","month":11,"day":2,"next":"2026-11-02","days_left":5,"turns":7,"remind_days_before":1,"look":{"primary_color":"#EC4899","secondary_color":"#8B5CF6","emoji":"🎂"}}]}
     """
 
-    static let portalGroups = """
-    [{"category":{"id":1,"name":"مطاعم","icon":null},"portals":[{"id":"p1","name":"مطعم البيت","description":"أكلات بيتية طازجة كل يوم","logo":null,"website_url":"https://example.com","category":{"id":1,"name":"مطاعم"},"views_count":12500},{"id":"p2","name":"برجر هاوس","description":null,"logo":null,"website_url":"https://example.com","category":{"id":1,"name":"مطاعم"},"views_count":840}]},
-     {"category":{"id":2,"name":"أزياء","icon":null},"portals":[{"id":"p3","name":"متجر الأناقة","description":"ملابس وإكسسوارات","logo":null,"website_url":"https://example.com","category":{"id":2,"name":"أزياء"},"views_count":3100}]}]
+    static let portalsPage = """
+    [{"id":"p1","name":"مطعم البيت","description":"أكلات بيتية طازجة كل يوم","logo":null,"website_url":"https://example.com","category":{"id":1,"name":"مطاعم"},"views_count":12500},
+     {"id":"p3","name":"متجر الأناقة","description":"ملابس وإكسسوارات","logo":null,"website_url":"https://example.com","category":{"id":2,"name":"أزياء"},"views_count":3100},
+     {"id":"p2","name":"برجر هاوس","description":null,"logo":null,"website_url":"https://example.com","category":{"id":1,"name":"مطاعم"},"views_count":840}]
     """
 
     static let notifications = """

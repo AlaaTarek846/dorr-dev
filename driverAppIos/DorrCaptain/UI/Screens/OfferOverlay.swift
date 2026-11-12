@@ -224,6 +224,8 @@ private struct OfferCard: View {
                          pickupPoint: offer.pickupPoint, dropoffPoint: offer.dropoffPoint, fromCircle: offer.fromCircle ?? false,
                          options: offer.options ?? [])
             // «راحتي»: how the rider likes the trip — before accepting.
+            // A quiet ride first and clear, then the rest of «راحتي» — before accepting.
+            QuietRideBadge(offer.comfort)
             ComfortChips(offer.comfort)
             if let error {
                 Text(error).font(.dorr(13)).foregroundStyle(pal.danger)

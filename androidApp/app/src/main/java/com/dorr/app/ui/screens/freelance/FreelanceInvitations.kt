@@ -161,15 +161,19 @@ internal fun InvitationsPage(projectUuid: String, onBack: () -> Unit, onOpenOffe
                 val c = inviteStatusColor(i.status)
                 Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(c.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        val team = i.team
+                        if (team != null) TeamLogo(team.logoUrl, 42)
+                        else Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(c.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                             Icon(Icons.Rounded.Person, null, tint = c, modifier = Modifier.size(22.dp))
                         }
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f, fill = false))
-                                PlanBadge(i.freelancer?.badge, Modifier.padding(start = 6.dp))
+                                Text(team?.name ?: i.freelancer?.name ?: "—", color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f, fill = false))
+                                if (team != null) FreelancerTeamPill(Modifier.padding(start = 6.dp)) else PlanBadge(i.freelancer?.badge, Modifier.padding(start = 6.dp))
                             }
-                            i.freelancer?.let { Text(inviteeLine(it), color = settingsMut(), fontSize = 11.5.sp) }
+                            // FS-213: a team's invitation is its Owner's — he answers and offers in the team's name.
+                            if (team != null) Text(stringResource(R.string.fteam_inv_via, i.freelancer?.name.orEmpty()), color = settingsMut(), fontSize = 11.5.sp)
+                            else i.freelancer?.let { Text(inviteeLine(it), color = settingsMut(), fontSize = 11.5.sp) }
                         }
                         Text(
                             inviteStatusLabel(i.status), color = c, fontSize = 11.sp, fontWeight = FontWeight.Bold,

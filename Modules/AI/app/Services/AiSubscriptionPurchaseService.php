@@ -35,7 +35,7 @@ class AiSubscriptionPurchaseService
      */
     public function subscribe(Authenticatable $owner, AiPlan $plan, bool $autoRenew = true): AiSubscription
     {
-        if (! $plan->is_active) {
+        if (! $plan->isAvailable()) {
             throw new AiSubscriptionException('subscription_plan_inactive');
         }
 
@@ -107,7 +107,7 @@ class AiSubscriptionPurchaseService
     {
         $this->assertOwnership($owner, $subscription);
 
-        if (! $newPlan->is_active) {
+        if (! $newPlan->isAvailable()) {
             throw new AiSubscriptionException('subscription_plan_inactive');
         }
 
@@ -188,7 +188,7 @@ class AiSubscriptionPurchaseService
         $owner = $subscription->owner;
         $plan = $subscription->plan;
 
-        if ($owner === null || $plan === null || ! $plan->is_active) {
+        if ($owner === null || $plan === null || ! $plan->isAvailable()) {
             // Nothing sane to renew into (owner/plan gone, or the plan was
             // deactivated from under a live subscription) - let it lapse
             // rather than charge for something no longer offered.

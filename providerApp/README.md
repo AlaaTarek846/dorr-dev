@@ -15,7 +15,8 @@ phase C: C-01 to C-06 are written; the rest of C-07 comes next.
 
 ## Run
 
-`local.properties` (not in git): `sdk.dir=...`, and like the other apps `dorr.apiHost=...`, `dorr.apiScheme=https`.
+`local.properties` (not in git): `sdk.dir=...`, and like the other apps `dorr.apiHost=...`, `dorr.apiScheme=https`,
+`dorr.mapsKey=...` (the Google Maps key, same as driverApp's; used when the admin's map engine is Google).
 
 ```bash
 cd providerApp
@@ -64,6 +65,19 @@ establishment mid-job doesn't stop the positions.
 
 Money is always `*_minor` from the server, shown with the wallet's own formatter (`formatMinor`, currency code next to it).
 
+## The map engine
+
+The map comes from the admin's setting, exactly like the rider and captain apps: admin → Rides → Settings → map provider,
+**Google or Mapbox** (`GET provider/v1/map-config`, the same `MapConfigController` payload as the captain's `driver/v1/map-config`:
+`provider`, `ios_provider`, `mapbox_token`, `mapbox_style`). `map/DorrMap.kt` is driverApp's `map/DorrMap.kt` ported with the same
+names: `MapEngine` (the saved choice read in `ProviderApp.onCreate` via `MapEngine.init`, the server's latest read **once per
+sign-in** — and once per app start while signed in — and saved for the next start; no polling), `DorrCamera` /
+`rememberDorrCamera`, `DorrMap(...)` drawing with `GoogleEngineMap` or `MapboxEngineMap` (the other engine is never started).
+Additions over the captain's copy: `MapZone.stroke` / `strokePx` (an edge around a zone) and `fixedNorth` (no rotate / tilt);
+the Mapbox engine also counts a pinch as the person's gesture. Google needs `dorr.mapsKey`; Mapbox needs only the admin's token
+(SDK `com.mapbox.maps:android:11.8.0` from the public Mapbox Maven repo in `settings.gradle.kts`, no download token). Night: Mapbox's
+dark style / `res/raw/map_night.json` for Google (copied from driverApp).
+
 ## Screens
 
 | Screen | File | API |
@@ -72,16 +86,17 @@ Money is always `*_minor` from the server, shown with the wallet's own formatter
 | Sign-in (phone + country) | `LoginScreen.kt` (copied) | `auth/otp` |
 | OTP | `OtpScreen.kt` (copied) | `auth/verify`, `auth/resend` |
 | Workspace gate | `WorkspaceScreens.kt` → `WorkspaceGateScreen` | `workspace` → home / invitations / onboarding |
-| Onboarding (C-02): type + name, services grid (image + admin order), main branch place | `OnboardingScreen.kt` | `workspace/options`, `POST establishments` |
+| Onboarding (C-02): type + name, services as tiles (image + name, admin order), main branch on a real map + range (100 km to start) | `OnboardingScreen.kt`, `ServiceTile.kt`, `BranchMap.kt` | `workspace/options`, `POST establishments` |
+| Onboarding step 4 when moving is chosen: the first vehicle (`Routes.FIRST_VEHICLE`), then home + papers | `VehicleScreens.kt` → `FirstVehicleScreen` | `vehicles` |
 | Invitations (exclusivity shown before accepting) | `WorkspaceScreens.kt` → `InvitationsScreen` | `invitations/{uuid}/accept|decline` |
 | Home: status, missing papers, send for review, «الطلبات» placeholder | `HomeScreen.kt` | `establishment`, `documents`, `establishment/submit` |
-| Papers (upload front/back, number, expiry) | `DocumentsScreen.kt` | `documents` (GET / multipart POST) |
-| Wallet (same pages) | `WalletGate.kt`, `WalletScreens.kt`, `WalletSecurity.kt`, `WalletKit.kt` (copied) | `wallet/*` |
+| Papers: status card, "3 of 5 ready" ring + state badges (missing / under review / approved / expires soon / rejected with reason / expired), a card per paper; the upload page shows each side's picture (tap to change, X to remove; camera or gallery), number, expiry (only after today: the picker starts tomorrow), fixed button with the upload's progress. The kit (`PaperScaffold`, `PaperCard`, `PaperProgressCard`, `DocumentForm`, `uploadPaper`…) is shared with the vehicle pages; strings in `papers_strings.xml` | `DocumentsScreen.kt` | `documents` (GET / multipart POST) |
+| Wallet (same pages) | `WalletGate.kt`, `WalletScreens.kt`, `WalletSecurity.kt`, `WalletKit.kt` (copied); the PIN pages (setup with the 5 recovery methods, forgot PIN, change recovery, forced PIN change, new device, frozen) are the DORR app's `WaPinFlows.kt` ported to `ui/wallet/WaPinFlows.kt` — after creating the PIN the wallet opens directly (the server trusts the creating phone's `X-Device-Id`) | `wallet/*` |
 | Account: profile, establishment switcher, invitations, leave, language, policies, about, sign out | `AccountScreens.kt` | `workspace`, `memberships/{uuid}/leave`, `auth/logout` |
 | Notifications | `NotificationsScreen.kt` (copied) | `notifications/*` |
-| **C-03** Branches (`branches.manage`): list, add / edit (current location, address, range, on/off), delete | `BranchesScreen.kt` | `branches` |
+| **C-03** Branches (`branches.manage`): list, add / edit (place on the map, address from the map, range, on/off), delete | `BranchesScreen.kt` | `branches` |
 | **C-03** Team (`members.manage`): list, invite by phone with templates + permission ticks (only keys I hold), branches, exclusivity, offer limit; edit, remove, change log | `TeamScreens.kt` | `members`, `members/events`, `workspace/options` |
-| **C-03** Vehicles (`fleet.vehicles`): list with status, add / edit (type images, plate, make, model, colour, year, branch), page with photos first (plate photo) then papers, deactivate | `VehicleScreens.kt` | `vehicles`, `documents` (subject=vehicle) |
+| **C-03** Vehicles (`fleet.vehicles`): list with plate + status, add / edit in numbered cards (type images; the plate drawn live like the captain app's, letters **and** numbers required; make, model, colour, year; branch), page with a grid of photo slots first (plate photo leading, uploads in place with progress) then papers, deactivate. `FirstVehicleScreen(onDone)`: the onboarding's vehicle step (data → photos and papers; `onDone` only when `missing` is empty) | `VehicleScreens.kt` | `vehicles`, `documents` (subject=vehicle) |
 | **C-03** Driver licence (a member with `driving.work`, or myself from Account) | `DocumentsScreen.kt` (`driverUuid`) | `documents?driver_uuid=`, subject=driver |
 | **C-04** Home numbers (a tile per non-null number) | `HomeScreen.kt` → `MovingDashboard` | `moving/dashboard` |
 | **C-04** Requests feed (neighbourhoods only) + request page + send offer | `RequestScreens.kt` | `moving/requests`, `moving/requests/{uuid}/offers` |
@@ -102,7 +117,10 @@ Bottom bar (copied `BottomBar`): Home · Wallet · Account.
 ## NEEDS-DECISION
 
 - **App name**: «شركاء دُرر» / "Dorr Partners" is a placeholder until the owner names it.
-- **Map picker** for the main branch: the onboarding uses the phone's current location + an address line + a radius for now.
+- **Map** (onboarding step 3 and the branches page, `BranchMap.kt`): `DorrMap` (see «The map engine»: Google or Mapbox as the
+  admin chose), a light circle for the branch's range around the pin. Google's key `dorr.mapsKey` in `local.properties` (never in
+  git; without it a Google map stays blank). The address comes from the phone's `Geocoder` (either engine); no location → the rider
+  app's location window (`LocationGate`).
 - **Appearance / dark mode / font per person**: the server's `provider/v1/appearance` is read-only (the admin's payload), so
   the freelancer app's appearance pages were not copied.
 - **Legal pages**: read from the client app's public `mobile/v1/legal-pages` until providers get their own.
@@ -111,4 +129,4 @@ Bottom bar (copied `BottomBar`): Home · Wallet · Account.
   them, and a change's amount is shown to the driver. Decide if the server should hide them.
 - **Assigning** doesn't pass `branch_id` to `moving/drivers`: the move resource has no branch id, so every driver of the establishment
   is listed and the server refuses one outside the job's branch.
-- **Map** for branches and the truck's position: coordinates and the last position are shown as text until a map is added.
+- **Map** for the truck's position: the last position is shown as text until a map is added.

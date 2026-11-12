@@ -313,6 +313,24 @@ final class ChatHost: ObservableObject {
         storyViewer = StoryViewerSession(groups: groups, start: min(max(start, 0), groups.count - 1))
     }
 
+    /// One status by its id (a reply's quote in the chat): that person's statuses from it on. From the feed I have —
+    /// read again once when it isn't there; gone (expired / deleted / not mine to see) → a toast.
+    func openStoryById(_ id: String) {
+        Task {
+            func find(_ feed: StoryFeedDto?) -> (StoryGroupDto, Int)? {
+                let groups = [feed?.mine].compactMap { $0 } + (feed?.recent ?? []) + (feed?.muted ?? [])
+                for g in groups { if let i = g.stories.firstIndex(where: { $0.id == id }) { return (g, i) } }
+                return nil
+            }
+            var hit = find(stories)
+            if hit == nil { await refreshStories(); hit = find(stories) }
+            guard let found = hit else { showToast(L("st_story_unavailable")); return }
+            var from = found.0
+            from.stories = Array(found.0.stories.dropFirst(found.1))
+            storyViewer = StoryViewerSession(groups: [from], start: 0)
+        }
+    }
+
     // MARK: List
 
     func refreshFolders() async {

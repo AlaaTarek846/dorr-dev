@@ -13,5 +13,8 @@ object AppLocale {
     var current: String = "ar"
 
     /** Java locale for dates and weekday names — the app language, not the phone's. */
-    fun java(): java.util.Locale = java.util.Locale.forLanguageTag(current.ifBlank { "ar" })
+    fun java(): java.util.Locale = latin(current.ifBlank { "ar" })
+
+    /** [code] (ar, en...) as a locale that writes its numbers with Latin digits (0-9) - one kind of digit on every screen. */
+    fun latin(code: String): java.util.Locale = java.util.Locale.forLanguageTag("$code-u-nu-latn")
 }

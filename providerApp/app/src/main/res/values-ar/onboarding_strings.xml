@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- التسجيل (C-02): مكان الفرع على الخريطة، ونطاق استقبال الطلبات، ونافذة الموقع، وخطوة المركبة. -->
+<resources>
+    <!-- مكان الفرع على الخريطة (الخطوة الثالثة من التسجيل وصفحة الفروع). -->
+    <string name="onb_map_hint">حرّك الخريطة ليقع الدبوس على مكان فرعك</string>
+    <string name="onb_map_pin_here">فرعك هنا</string>
+    <string name="onb_map_finding_address">جارٍ تحديد العنوان…</string>
+    <string name="onb_map_my_location">موقعي</string>
+    <string name="onb_map_locate_failed">تعذّر تحديد موقعك الآن. حرّك الخريطة حتى يقع الدبوس على مكان فرعك.</string>
+    <string name="onb_map_address_label">عنوان الفرع</string>
+    <string name="onb_map_address_placeholder">يُكتب تلقائيًا من الخريطة</string>
+    <string name="onb_map_address_note">يُكتب العنوان تلقائيًا من موضع الدبوس على الخريطة، ويمكنك تعديله.</string>
+
+    <!-- نطاق استقبال الطلبات. -->
+    <string name="onb_radius_title">نطاق استقبال الطلبات</string>
+    <string name="onb_radius_sub">المسافة حول فرعك التي تصلك منها الطلبات</string>
+    <string name="onb_radius_value">%1$s كم</string>
+    <string name="onb_radius_explain">يُعرض عليك كل طلب يقع على بُعد %1$s كم أو أقل من فرعك. وكلما اتّسع النطاق وصلتك طلبات أكثر.</string>
+
+    <!-- الخطوة الرابعة عند اختيار خدمة النقل: المركبة الأولى. -->
+    <string name="onb_step4_title">مركبتك الأولى</string>
+    <string name="onb_step4_body">تتطلب خدمة النقل مركبة واحدة على الأقل. أضفها مع صورها وبياناتها لتتابع.</string>
+
+    <!-- نافذة الموقع (LocationGate في تطبيق الراكب). -->
+    <string name="lg_title_permission">نحتاج إلى معرفة موقعك</string>
+    <string name="lg_body_permission">لنفتح الخريطة على مكانك ونحدّد موقع فرعك بدقة، اسمح للتطبيق بمعرفة موقعك.</string>
+    <string name="lg_title_off">فعّل الموقع</string>
+    <string name="lg_body_off">خدمة الموقع متوقفة في هاتفك. فعّلها لتُفتح الخريطة على مكانك مباشرة.</string>
+    <string name="lg_allow">اسمح بالموقع</string>
+    <string name="lg_open_settings">افتح الإعدادات واسمح بالموقع</string>
+    <string name="lg_turn_on">تفعيل الموقع</string>
+    <string name="lg_leave">رجوع</string>
+</resources>

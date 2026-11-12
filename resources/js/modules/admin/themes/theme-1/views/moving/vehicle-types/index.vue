@@ -24,8 +24,10 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading"><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                            <tr v-else-if="!rows.length"><td colspan="6" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
+                            <TableSkeleton v-if="loading" :rows="5" :layout="['avatar-text', 'badge', 'badge', 'text', 'badge', 'actions']" />
+                            <tr v-else-if="!rows.length">
+                                <td colspan="6" class="text-center text-muted py-5"><i class="ri-truck-line fs-24 d-block mb-1"></i>{{ t('wallet.common.empty') }}</td>
+                            </tr>
                             <tr v-for="row in rows" v-else :key="row.id">
                                 <td class="ps-4">
                                     <div class="d-flex align-items-center gap-2">
@@ -63,23 +65,27 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <RideLangFields v-slot="{ locale, dir }" :required="[form.name]">
-                            <label class="form-label">{{ t('rides.lang.name') }} *</label>
-                            <input v-model="form.name[locale]" type="text" class="form-control mb-3" :dir="dir">
+                            <label class="form-label">{{ t('rides.lang.name') }} <span class="text-danger">*</span></label>
+                            <input v-model="form.name[locale]" type="text" maxlength="120" class="form-control" :class="{ 'is-invalid': errorOf(`name.${locale}`) }" :dir="dir">
+                            <div class="invalid-feedback d-block mb-3">{{ errorOf(`name.${locale}`) }}</div>
                             <label class="form-label">{{ t('moving.vehicle_types.description') }}</label>
                             <textarea v-model="form.description[locale]" rows="2" class="form-control" :dir="dir"></textarea>
                         </RideLangFields>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ t('moving.document_types.code') }} *</label>
-                        <input v-model="form.code" type="text" maxlength="48" dir="ltr" class="form-control" placeholder="half_truck">
+                        <label class="form-label">{{ t('moving.document_types.code') }} <span class="text-danger">*</span></label>
+                        <input v-model="form.code" type="text" maxlength="48" dir="ltr" class="form-control" :class="{ 'is-invalid': errorOf('code') }" placeholder="half_truck">
+                        <div v-if="errorOf('code')" class="invalid-feedback d-block">{{ errorOf('code') }}</div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">{{ t('moving.common.sort') }}</label>
-                        <input v-model.number="form.sort_order" type="number" min="0" class="form-control">
+                        <input v-model.number="form.sort_order" type="number" min="0" class="form-control" :class="{ 'is-invalid': errorOf('sort_order') }">
+                        <div v-if="errorOf('sort_order')" class="invalid-feedback d-block">{{ errorOf('sort_order') }}</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">{{ t('moving.vehicle_types.image') }}</label>
-                        <input type="file" accept="image/*" class="form-control" @change="form.image = $event.target.files[0] ?? null">
+                        <input type="file" accept="image/*" class="form-control" :class="{ 'is-invalid': errorOf('image') }" @change="form.image = $event.target.files[0] ?? null">
+                        <div v-if="errorOf('image')" class="invalid-feedback d-block">{{ errorOf('image') }}</div>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <div class="form-check form-switch">
@@ -110,9 +116,20 @@
             </form>
             <template #footer>
                 <button type="button" class="btn btn-light" @click="showForm = false">{{ t('cancel') }}</button>
-                <button type="submit" form="provider-vehicle-type-form" class="btn btn-primary" :disabled="saving">{{ t('save') }}</button>
+                <button type="submit" form="provider-vehicle-type-form" class="btn btn-primary" :disabled="saving">
+                    <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>{{ t('save') }}
+                </button>
             </template>
         </WalletModal>
+
+        <ConfirmDeleteModal
+            :show="deleteConfirm.state.show"
+            :title="t('confirm.delete_title')"
+            :message="deleteConfirm.state.message"
+            :loading="deleteConfirm.state.loading"
+            @close="deleteConfirm.close()"
+            @confirm="handleDelete"
+        />
     </div>
 </template>
 
@@ -121,8 +138,11 @@ import RideLangFields from '../../rides/RideLangFields.vue';
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import ConfirmDeleteModal from '../../../../../../../components/ui/ConfirmDeleteModal.vue';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
+import { useConfirmDelete } from '../../../../../../../composables/useConfirmDelete';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 
@@ -137,6 +157,10 @@ const options = reactive({ countries: [], services: [] });
 const showForm = ref(false);
 const saving = ref(false);
 const error = ref('');
+const errors = reactive({});
+const errorOf = (key) => errors[key]?.[0] ?? null;
+const clearErrors = () => Object.keys(errors).forEach((key) => delete errors[key]);
+const deleteConfirm = useConfirmDelete();
 const blank = () => ({ id: null, code: '', status: true, sort_order: 0, name: { ar: '', en: '' }, description: { ar: '', en: '' }, country_ids: [], service_ids: [], image: null });
 const form = reactive(blank());
 
@@ -144,6 +168,7 @@ const nameOf = (list, id) => list.find((x) => x.id === id)?.name ?? `#${id}`;
 
 function openForm(row) {
     error.value = '';
+    clearErrors();
     Object.assign(form, blank(), row ? {
         id: row.id, code: row.code, status: row.status, sort_order: row.sort_order,
         name: { ar: row.names?.ar ?? '', en: row.names?.en ?? '' },
@@ -173,6 +198,7 @@ function body() {
 
 async function save() {
     error.value = '';
+    clearErrors();
     saving.value = true;
     try {
         const url = form.id ? `/api/admin/v1/provider-vehicle-types/${form.id}` : '/api/admin/v1/provider-vehicle-types';
@@ -182,21 +208,31 @@ async function save() {
         load();
     } catch (e) {
         const bag = e?.response?.data?.errors ?? {};
-        error.value = Object.keys(bag).length ? Object.values(bag)[0][0] : extractApiErrorMessage(e);
+        Object.assign(errors, bag);
+        // A message no field shows (a requirement row, the image…) still appears under the form.
+        const shown = ['code', 'name.ar', 'name.en', 'subject', 'kind', 'sort_order', 'expiry_alert_days', 'image'];
+        const rest = Object.entries(bag).find(([key]) => !shown.includes(key));
+        error.value = Object.keys(bag).length ? (rest?.[1]?.[0] ?? '') : extractApiErrorMessage(e);
     } finally {
         saving.value = false;
     }
 }
 
-async function remove(row) {
-    if (!window.confirm(t('moving.common.confirm_delete'))) {
-        return;
-    }
+function remove(row) {
+    deleteConfirm.open({ title: t('confirm.delete_title'), message: t('moving.common.confirm_delete_named', { name: row.name || row.code }), payload: row });
+}
+
+async function handleDelete() {
+    deleteConfirm.setLoading(true);
     try {
-        await adminAxios.delete(`/api/admin/v1/provider-vehicle-types/${row.id}`);
+        await adminAxios.delete(`/api/admin/v1/provider-vehicle-types/${deleteConfirm.state.payload.id}`);
+        showSuccess(t('moving.common.deleted'));
         load();
     } catch (e) {
         showError(extractApiErrorMessage(e));
+    } finally {
+        deleteConfirm.setLoading(false);
+        deleteConfirm.close();
     }
 }
 

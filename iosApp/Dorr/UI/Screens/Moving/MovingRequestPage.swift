@@ -30,6 +30,8 @@ struct MovingRequestPage: View {
     let uuid: String
     @ObservedObject var nav: MovingNav
     @StateObject private var camera = DorrCamera(start: riyadh, zoom: 13)
+    /// The road between the two ends: asked once per pair (a reload of the page doesn't ask again).
+    @StateObject private var route = MovingRouteState()
     @State private var show: MovingShowDto?
     @State private var changes: [MovingChangeDto] = []
     @State private var loadError: String?
@@ -58,6 +60,7 @@ struct MovingRequestPage: View {
                 truck = CLLocationCoordinate2D(latitude: lat, longitude: lng)
                 if let h { heading = h }
             })
+            .movingRoute(route, from: latLng(show?.request.pickup), to: latLng(show?.request.dropoff))
             // A draft continues in the steps.
             .onChange(of: show?.request.status) { status in if status == "draft" { nav.replace(.wizard(uuid: uuid, atReview: false)) } }
             .sheet(isPresented: $cancelOpen) {
@@ -88,7 +91,7 @@ struct MovingRequestPage: View {
             if mapStatuses.contains(current.request.status) {
                 ZStack {
                     wa.settingsBackground.ignoresSafeArea()
-                    JobMap(request: current.request, truck: truck, heading: heading, camera: camera)
+                    JobMap(request: current.request, truck: truck, heading: heading, camera: camera, polyline: route.route?.polyline)
                     VStack {
                         HStack {
                             RideRoundButton(icon: "arrow.backward", label: L("common_back")) { nav.pop() }
@@ -132,6 +135,10 @@ struct MovingRequestPage: View {
         let unpaid = changes.first { $0.status == "awaiting_payment" }
         Group {
             StatusHeader(r: r)
+            // On the live map the road is drawn already: its distance and time stay one glance away.
+            if mapStatuses.contains(status) {
+                MovingRouteChips(state: route, bothEnds: latLng(r.pickup) != nil && latLng(r.dropoff) != nil, fallbackKm: r.distanceKm)
+            }
             switch status {
             case "open": OpenCard(show: show, nav: nav) { await reload() }
             case "expired": MvNote(text: L("mv_expired_note"), color: AppColors.warning)
@@ -158,20 +165,23 @@ struct MovingRequestPage: View {
         Group {
             if status == "delivered" { DeliveredCard(show: show, nav: nav) { await reload() } }
             CasesCard(show: show)
-            if canRate.contains(status) && !show.rated { RatingCard(r: r) { await reload() } }
+            if canRate.contains(status) && !show.rated { RatingCard(r: r, criteria: show.ratingCriteria) { await reload() } }
             if r.money != nil { MoneyCard(r: r) }
-            if !mapStatuses.contains(status) { RequestSummary(r: r) }
+            if !mapStatuses.contains(status) { RequestSummary(r: r, route: route) }
             Actions(show: show, nav: nav, onCancel: { cancelOpen = true }, onWithdraw: { withdrawOpen = true })
         }
     }
 }
 
-/// The rides map: the two ends joined, and the truck sliding as its place arrives.
+/// The rides map: the two ends joined by the road (a straight line until it is known), and the truck sliding as its
+/// place arrives.
 private struct JobMap: View {
+    @Environment(\.wa) private var wa
     let request: MovingRequestDto
     let truck: CLLocationCoordinate2D?
     let heading: Double
     @ObservedObject var camera: DorrCamera
+    let polyline: String?
 
     var body: some View { map }
 
@@ -182,12 +192,13 @@ private struct JobMap: View {
         if let pickup { pins.append(MapPin(at: pickup, kind: .pickup)) }
         if let dropoff { pins.append(MapPin(at: dropoff, kind: .dropoff)) }
         if let truck { pins.append(MapPin(at: truck, kind: .car, rotation: heading, id: "moving-truck")) }
-        let route = [pickup, dropoff].compactMap { $0 }
+        let road = decodePolyline(polyline)
+        let route = road.count > 1 ? road : [pickup, dropoff].compactMap { $0 }
         return DorrMap(camera: camera, pins: pins, lines: route.count > 1 ? [MapLine(points: route, color: MapColors.route, width: 5)] : [],
-                       padding: EdgeInsets(top: 0, leading: 0, bottom: 300, trailing: 0))
+                       padding: EdgeInsets(top: 0, leading: 0, bottom: 300, trailing: 0), night: wa.night)
             .ignoresSafeArea()
             .task(id: "\(route.count)|\(truck != nil)") {
-                camera.fit([pickup, dropoff, truck].compactMap { $0 }, padding: 48)
+                camera.fit(route + [truck].compactMap { $0 }, padding: 48)
             }
     }
 }
@@ -435,8 +446,11 @@ private struct CasesCard: View {
 private struct RatingCard: View {
     @Environment(\.wa) private var wa
     let r: MovingRequestDto
+    let criteria: [MovingCriterionDto]
     let onReload: () async -> Void
     @State private var establishment = 0
+    /// What was moved on each criterion; an untouched one counts as the overall stars.
+    @State private var scores: [String: Int] = [:]
     @State private var driver = 0
     @State private var comment = ""
     @State private var busy = false
@@ -447,6 +461,11 @@ private struct RatingCard: View {
             MvCardTitle(text: L("mv_rate_title")).padding(.bottom, 8)
             Text(verbatim: r.establishment?.name ?? L("mv_rate_establishment")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
             MvStars(value: establishment) { establishment = $0 }
+            // As rides: a row of stars per criterion, starting at the overall stars.
+            if establishment > 0 && !criteria.isEmpty {
+                Text(L("mv_rate_by_criteria")).font(.dorr(12)).foregroundStyle(wa.settingsMut).padding(.top, 6)
+                MvCriteriaStars(criteria: criteria, overall: establishment, scores: $scores).padding(.top, 4)
+            }
             if let d = r.driver {
                 Text(verbatim: d.name ?? L("mv_rate_driver")).font(.dorr(13)).foregroundStyle(wa.settingsMut).padding(.top, 6)
                 MvStars(value: driver) { driver = $0 }
@@ -466,6 +485,11 @@ private struct RatingCard: View {
         error = nil
         Task {
             var body: [String: JSONValue] = ["establishment_stars": .int(establishment)]
+            if !criteria.isEmpty {
+                var scored: [String: JSONValue] = [:]
+                criteria.forEach { scored[$0.key] = .int(scores[$0.key] ?? establishment) }
+                body["scores"] = .object(scored)
+            }
             if driver > 0 { body["driver_stars"] = .int(driver) }
             let text = comment.trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty { body["comment"] = .string(text) }
@@ -505,13 +529,23 @@ private struct RequestSummary: View {
     @Environment(\.wa) private var wa
     @Environment(\.mvOnPanel) private var onPanel
     let r: MovingRequestDto
+    @ObservedObject var route: MovingRouteState
 
     var body: some View {
+        let from = latLng(r.pickup)
+        let to = latLng(r.dropoff)
         MvCard {
-            MvCardTitle(text: L("mv_summary")).padding(.bottom, 6)
+            MvCardTitle(text: L("mv_summary")).padding(.bottom, 10)
+            if from != nil || to != nil {
+                MovingRouteMap(pickup: from, dropoff: to, route: route.route)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 170)
+                MovingRouteChips(state: route, bothEnds: from != nil && to != nil, fallbackKm: r.distanceKm, top: 10, bottom: 8)
+            }
             if let d = r.description, !d.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text(verbatim: d).font(.dorr(14)).foregroundStyle(wa.settingsInk).padding(.bottom, 6)
             }
+            if let voice = r.voice { MvVoicePlayer(media: voice).padding(.bottom, 8) }
             if !r.photos.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -527,10 +561,10 @@ private struct RequestSummary: View {
             SummaryEnd(dot: AppColors.brandNavy, end: r.pickup)
             SummaryEnd(dot: AppColors.brandOrange, end: r.dropoff)
             Group {
-                if let km = r.distanceKm { MvLine(label: L("mv_distance"), value: L("mv_km", String(format: "%.1f", km))) }
                 if let n = r.piecesCount { MvLine(label: L("mv_pieces"), value: String(n)) }
                 if let d = r.dimensions, !d.trimmingCharacters(in: .whitespaces).isEmpty { MvLine(label: L("mv_dimensions"), value: d) }
-                if let name = r.vehicleType?.name { MvLine(label: L("mv_vehicle_title"), value: name) }
+                let typeNames = r.vehicleTypes.isEmpty ? [r.vehicleType?.name].compactMap { $0 } : r.vehicleTypes.compactMap { $0.name }
+                if !typeNames.isEmpty { MvLine(label: L("mv_vehicle_title"), value: typeNames.joined(separator: " / ")) }
                 if let w = r.workersCount { MvLine(label: L("mv_workers"), value: String(w)) }
             }
             let e = r.extras

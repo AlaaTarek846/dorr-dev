@@ -123,7 +123,14 @@ class ProviderPlatformTest extends TestCase
             'subject' => 'establishment', 'document_type_id' => $id, 'number' => '29001011234567',
             'front' => UploadedFile::fake()->image('front.jpg'), 'back' => UploadedFile::fake()->image('back.jpg'),
         ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.status', 'pending');
+        // Moving needs a vehicle before the review; its plate letters are as required as its numbers.
+        $this->postJson('/api/provider/v1/establishment/submit')->assertStatus(422)->assertJsonPath('error_code', 'provider_vehicle_required');
+        $truck = VehicleType::query()->where('code', 'half_truck')->value('id');
+        $this->postJson('/api/provider/v1/vehicles', ['vehicle_type_id' => $truck, 'plate_number' => '1234'])->assertStatus(422)->assertJsonValidationErrors('plate_letters');
+        $this->postJson('/api/provider/v1/vehicles', ['vehicle_type_id' => $truck, 'plate_letters' => 'ن ق ل', 'plate_number' => '1234'])->assertCreated();
         $this->postJson('/api/provider/v1/establishment/submit')->assertOk()->assertJsonPath('data.status', 'under_review');
+        // A branch saved without an area served gets the default 100 km (without one it would reach no request).
+        $this->postJson('/api/provider/v1/branches', ['name' => 'فرع المعادي', 'lat' => 29.96, 'lng' => 31.25])->assertCreated()->assertJsonPath('data.radius_km', 100);
     }
 
     public function test_nobody_hands_out_a_permission_or_branch_they_do_not_hold_and_members_leave_whenever_they_like(): void
@@ -231,13 +238,17 @@ class ProviderPlatformTest extends TestCase
     public function test_the_admin_reviews_the_queue_and_the_plate_photo_cannot_be_removed(): void
     {
         $seat = $this->establishmentOf($this->owner(), 'company');
+        $admin = $this->admin(['provider-establishments.view', 'provider-establishments.update', 'provider-document-types.view', 'provider-document-types.delete']);
         $seat->establishment->update(['status' => 'under_review', 'submitted_at' => now()]);
-        $this->admin(['provider-establishments.view', 'provider-establishments.update', 'provider-document-types.view', 'provider-document-types.delete']);
+        // The dashboard is told an establishment waits, with a link to its page.
+        $this->assertSame('/admin/moving/establishments/'.$seat->establishment->uuid, $admin->notifications()->first()?->data['data']['url'] ?? null);
 
         $this->getJson('/api/admin/v1/provider-establishments?needs_review=1')->assertOk()->assertJsonPath('data.0.uuid', $seat->establishment->uuid);
         $this->getJson("/api/admin/v1/provider-establishments/{$seat->establishment->uuid}")->assertOk()->assertJsonPath('data.members.0.is_owner', true);
         $this->patchJson("/api/admin/v1/provider-establishments/{$seat->establishment->uuid}/status", ['status' => 'rejected'])->assertUnprocessable();
         $this->patchJson("/api/admin/v1/provider-establishments/{$seat->establishment->uuid}/status", ['status' => 'approved'])->assertOk()->assertJsonPath('data.status', 'approved');
+        // The owner is told (in the app's list, live, and by push).
+        $this->assertSame(1, $seat->provider->notifications()->count());
 
         $plate = DocumentType::query()->where('code', DocumentType::PLATE_PHOTO)->value('id');
         $this->deleteJson("/api/admin/v1/provider-document-types/{$plate}")->assertStatus(409);

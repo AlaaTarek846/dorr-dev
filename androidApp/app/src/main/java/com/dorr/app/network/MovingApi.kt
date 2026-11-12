@@ -28,6 +28,19 @@ interface MovingApi {
     @GET("mobile/v1/moving/options")
     suspend fun options(@Header("Authorization") auth: String): ApiEnvelope<MovingOptionsDto>
 
+    /**
+     * The road between the two ends (the admin's map engine, cached on the server per pair). Asked once when both ends
+     * are set or one of them changes, never on a timer. `estimated`: no road was found, the numbers are a straight line.
+     */
+    @GET("mobile/v1/moving/route")
+    suspend fun route(
+        @Header("Authorization") auth: String,
+        @Query("from_lat") fromLat: Double,
+        @Query("from_lng") fromLng: Double,
+        @Query("to_lat") toLat: Double,
+        @Query("to_lng") toLng: Double,
+    ): ApiEnvelope<MovingRouteDto>
+
     /** `status=active`: only what is not over yet. Paged (`pagination.has_more_pages`). */
     @GET("mobile/v1/moving/requests")
     suspend fun requests(@Header("Authorization") auth: String, @Query("status") status: String?, @Query("page") page: Int): ApiEnvelope<List<MovingRequestDto>>
@@ -44,6 +57,16 @@ interface MovingApi {
     @Multipart
     @POST("mobile/v1/moving/requests/{uuid}/media")
     suspend fun addMedia(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Part file: MultipartBody.Part): ApiEnvelope<MovingMediaDto>
+
+    /** The customer's voice note about the load: `kind=voice`, `duration_ms`, `waveform` (a JSON list); it replaces the last one. */
+    @Multipart
+    @POST("mobile/v1/moving/requests/{uuid}/media")
+    suspend fun addVoice(
+        @Header("Authorization") auth: String,
+        @Path("uuid") uuid: String,
+        @PartMap fields: Map<String, @JvmSuppressWildcards okhttp3.RequestBody>,
+        @Part file: MultipartBody.Part,
+    ): ApiEnvelope<MovingMediaDto>
 
     /** Answers 204 with no body, so no envelope to read. */
     @DELETE("mobile/v1/moving/requests/{uuid}/media/{media}")
@@ -151,7 +174,22 @@ data class MovingOptionsDto(
     @SerializedName("media_max_mb") val mediaMaxMb: Double? = null,
 )
 
-data class MovingMediaDto(val id: Int = 0, val url: String? = null, val collection: String? = null)
+/** `GET moving/route`: the road distance and time, and the line to draw (null when [estimated]). */
+data class MovingRouteDto(
+    @SerializedName("distance_m") val distanceM: Int? = null,
+    @SerializedName("duration_s") val durationS: Int? = null,
+    val polyline: String? = null,
+    val estimated: Boolean = true,
+)
+
+data class MovingMediaDto(
+    val id: Int = 0,
+    val url: String? = null,
+    val collection: String? = null,
+    /** A voice note: its length and bars (0–100). */
+    @SerializedName("duration_ms") val durationMs: Long? = null,
+    val waveform: List<Int> = emptyList(),
+)
 
 data class MovingExtrasDto(
     val packing: Boolean = false,
@@ -200,6 +238,9 @@ data class MovingRequestDto(
     val dimensions: String? = null,
     @SerializedName("vehicle_type") val vehicleType: MovingVehicleTypeDto? = null,
     @SerializedName("vehicle_type_id") val vehicleTypeId: Int? = null,
+    /** Every vehicle type the customer accepts, the first choice first. */
+    @SerializedName("vehicle_type_ids") val vehicleTypeIds: List<Int> = emptyList(),
+    @SerializedName("vehicle_types") val vehicleTypes: List<MovingVehicleTypeDto> = emptyList(),
     @SerializedName("workers_count") val workersCount: Int? = null,
     val extras: MovingExtrasDto? = null,
     val pickup: MovingEndDto? = null,
@@ -209,6 +250,8 @@ data class MovingRequestDto(
     val notes: String? = null,
     val photos: List<MovingMediaDto> = emptyList(),
     val videos: List<MovingMediaDto> = emptyList(),
+    /** The customer's voice note about the load, heard by the companies too. */
+    val voice: MovingMediaDto? = null,
     @SerializedName("offers_deadline_at") val offersDeadlineAt: String? = null,
     @SerializedName("published_at") val publishedAt: String? = null,
     @SerializedName("currency_code") val currencyCode: String? = null,
@@ -250,6 +293,8 @@ data class MovingShowDto(
     @SerializedName("offers_count") val offersCount: Int = 0,
     /** The customer has rated this move: no rating form. */
     val rated: Boolean = false,
+    /** What the rating card asks the customer to score the establishment on (as rides ask about the captain). */
+    @SerializedName("rating_criteria") val ratingCriteria: List<MovingCriterionDto> = emptyList(),
     val missing: List<String> = emptyList(),
     @SerializedName("delivery_code") val deliveryCode: String? = null,
     @SerializedName("delivery_qr") val deliveryQr: String? = null,
@@ -268,6 +313,22 @@ data class MovingOfferEstablishmentDto(
     val average: Double? = null,
     val count: Int = 0,
     val jobs: Int = 0,
+    /** Its average on each criterion customers score (null = nobody scored it yet). */
+    val criteria: List<MovingCriterionDto> = emptyList(),
+)
+
+/** A rating criterion: its key and label, and — with an establishment — its average and how many scored it. */
+data class MovingCriterionDto(val key: String = "", val label: String? = null, val average: Double? = null, val count: Int = 0)
+
+/** One of the company's branches on an offer: the one that answered first, then the nearest to the pickup point. */
+data class MovingOfferBranchDto(
+    val name: String? = null,
+    val address: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    @SerializedName("is_main") val isMain: Boolean = false,
+    val answering: Boolean = false,
+    @SerializedName("distance_km") val distanceKm: Double? = null,
 )
 
 data class MovingOfferVehicleDto(val type: MovingVehicleTypeDto? = null, val photos: List<String> = emptyList())
@@ -289,6 +350,8 @@ data class MovingOfferDto(
     @SerializedName("valid_until") val validUntil: String? = null,
     val establishment: MovingOfferEstablishmentDto? = null,
     val branch: String? = null,
+    /** Where the company is: its branches with their address and distance from the pickup point. */
+    val branches: List<MovingOfferBranchDto> = emptyList(),
     val vehicle: MovingOfferVehicleDto? = null,
     /** Why it sits where it does: cheapest, earliest, vehicle_fit. */
     val reasons: List<String> = emptyList(),

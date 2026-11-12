@@ -111,6 +111,16 @@ import java.util.Locale
 
 private val AiGradient = listOf(Color(0xFF6D5BFF), Color(0xFFB54BFF), Color(0xFFFF7A59))
 
+/** What DORR AI understood besides the place fills the booking sheet (the rider still sees and changes it all). */
+internal fun RidesState.applyAiBooking(understood: com.dorr.app.network.RideAiUnderstoodDto?) {
+    val u = understood ?: return
+    u.passengers?.let { passengers = it }
+    u.payment?.takeIf { feature(it) }?.let { payment = it }
+    u.note?.let { pickupNote = it }
+    u.category?.let { preferCategory = it }
+    u.`when`?.takeIf { feature("scheduled") }?.let { iso -> runCatching { ZonedDateTime.parse(iso) }.getOrNull()?.let { scheduledAt = it } }
+}
+
 /** The entry under "Where to?": a glowing pill that opens the assistant — locked with the plan when needed. */
 @Composable
 internal fun SmartDestinationEntry(state: RidesState, onOpen: () -> Unit) {
@@ -184,6 +194,15 @@ internal fun SmartDestinationSheet(state: RidesState, camera: DorrCamera, onClos
         }
     }
 
+    // Words from DORR AI's chat: understood at once.
+    LaunchedEffect(Unit) {
+        state.smartText?.let { words ->
+            state.smartText = null
+            text = words
+            ask(words)
+        }
+    }
+
     // Voice: the phone's own speech recogniser turns it into text (nothing recorded here), then the same ask.
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -203,15 +222,8 @@ internal fun SmartDestinationSheet(state: RidesState, camera: DorrCamera, onClos
     }
 
     fun pick(place: RideAiPlaceDto) {
-        val understood = answer?.understood
         // What else was said fills the booking sheet; the rider still sees and changes all of it.
-        understood?.passengers?.let { state.passengers = it }
-        understood?.payment?.takeIf { state.feature(it) }?.let { state.payment = it }
-        understood?.note?.let { state.pickupNote = it }
-        understood?.category?.let { state.preferCategory = it }
-        understood?.`when`?.takeIf { state.feature("scheduled") }?.let { iso ->
-            runCatching { ZonedDateTime.parse(iso) }.getOrNull()?.let { state.scheduledAt = it }
-        }
+        state.applyAiBooking(answer?.understood)
         state.editing = "destination"
         state.set(RidePoint(place.lat, place.lng, place.address.ifBlank { place.name.orEmpty() }, place.name))
         // Confirm (or move) it on the map before anything is priced or booked.
@@ -345,14 +357,15 @@ internal fun SuggestedTag() {
     }
 }
 
-/** «راحتي» on the booking sheet: what I like, in one line — tap to change. */
+/** On the booking sheet: a quiet ride for this trip (one switch), then «راحتي» — what I like, in one line, tap to change. */
 @Composable
 internal fun ComfortRow(state: RidesState) {
-    if (!state.feature("comfort")) return
+    if (!state.feature("comfort") && !state.feature("quiet_ride")) return
     var open by remember { mutableStateOf(false) }
     var screen by remember { mutableStateOf<RideComfortScreenDto?>(null) }
     LaunchedEffect(Unit) { screen = runCatching { ApiClient.rides.comfort(ridesAuth(), state.pickup?.lat, state.pickup?.lng).data }.getOrNull() }
     val s = screen ?: return
+    if (s.quietEnabled) QuietRideRow(state, s.prefs.quiet)
     if (!s.enabled) return
     val summary = comfortSummary(s.prefs, s)
     Row(
@@ -370,6 +383,26 @@ internal fun ComfortRow(state: RidesState) {
         Text(stringResource(R.string.rd_change), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
     if (open) ComfortSheet(s, onClose = { open = false }) { screen = it; open = false }
+}
+
+/** A quiet ride, like the big ride apps: the captain is told the rider prefers no small talk. */
+@Composable
+private fun QuietRideRow(state: RidesState, saved: Boolean) {
+    val on = state.quietRide ?: saved
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(12.dp)).pressable { state.quietRide = !on }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(30.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.VolumeOff, null, tint = settingsAccent(), modifier = Modifier.size(17.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.rd_quiet_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.rd_quiet_sub), color = settingsMut(), fontSize = 12.sp)
+        }
+        Switch(checked = on, onCheckedChange = { state.quietRide = it }, colors = SwitchDefaults.colors(checkedTrackColor = settingsAccent()))
+    }
 }
 
 private fun comfortSummary(p: RideComfortPrefsDto, s: RideComfortScreenDto): String = listOfNotNull(

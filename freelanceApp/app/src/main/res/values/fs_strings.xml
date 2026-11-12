@@ -49,4 +49,9 @@
     <string name="fs_health_n_wait_review_waiting">Waiting for the client to review %1$s.</string>
     <string name="fs_health_n_wait_report_late">Waiting for the progress report.</string>
     <string name="fs_health_n_wait_change_waiting">Waiting for the client to answer the change request.</string>
+    <!-- FS-802: an overdue Workroom task -->
+    <string name="fs_health_r_task_overdue">The task %1$s is past its date by %2$s.</string>
+    <string name="fs_health_r_task_overdue_nodays">The task %1$s is past its date.</string>
+    <string name="fs_health_n_mine_task_overdue">Finish the task %1$s or agree a new date in the Workroom.</string>
+    <string name="fs_health_n_wait_task_overdue">Waiting for the client to finish the task %1$s.</string>
 </resources>

@@ -69,8 +69,18 @@ enum DeviceId {
 enum AppLocale {
     private static let key = "dorr_locale"
 
+    /// The saved choice. The very first launch has none: the phone's language when the app ships it (Arabic or
+    /// English), English for any other — saved at once, so it stays put until the user picks another in the app
+    /// (androidApp `AppLanguagePreferences.get`).
     static var current: String {
-        get { UserDefaults.standard.string(forKey: key) ?? "ar" }
+        get {
+            if let saved = UserDefaults.standard.string(forKey: key) { return saved }
+            let phone = (Locale.preferredLanguages.first ?? "").lowercased()
+            let first = phone.hasPrefix("ar") ? "ar" : "en"
+            UserDefaults.standard.set(first, forKey: key)
+            LocalIntelligence.language = first  // the extensions' copy, as the setter keeps it
+            return first
+        }
         set {
             UserDefaults.standard.set(newValue, forKey: key)
             LocalIntelligence.language = newValue
@@ -80,7 +90,8 @@ enum AppLocale {
     static var isArabic: Bool { current == "ar" }
 
     /// Locale for dates and weekday names — the app language, not the phone's.
-    static var locale: Locale { Locale(identifier: current) }
+    /// Always Latin digits (0-9): an Arabic screen mixed ٣٠ with 1500.00 before.
+    static var locale: Locale { Locale(identifier: current.hasPrefix("ar") ? "ar@numbers=latn" : current) }
 }
 
 /// androidApp `OnboardingStore.kt` — kept apart from AuthSession so logout keeps it.

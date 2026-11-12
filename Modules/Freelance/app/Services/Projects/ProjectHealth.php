@@ -6,6 +6,7 @@ use Modules\Freelance\Enums\FreelanceMilestoneStatus as MStatus;
 use Modules\Freelance\Models\FreelanceAgreement as Agreement;
 use Modules\Freelance\Models\FreelanceChangeRequest as Change;
 use Modules\Freelance\Models\FreelanceMilestone as Milestone;
+use Modules\Freelance\Models\FreelanceWorkroomTask as Task;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 
 /**
@@ -103,6 +104,17 @@ class ProjectHealth
         $change = Change::query()->where('agreement_id', $a->id)->where('status', Change::PENDING)->oldest('id')->first();
         if ($change !== null && $change->open() && $change->created_at !== null && $change->created_at->copy()->addHours(self::CHANGE_WAITING_HOURS)->isPast()) {
             $add('change_waiting', self::AT_RISK, $change->requested_by === 'client' ? 'freelancer' : 'client', []);
+        }
+
+        // FS-802: a Workroom task the two share, past its date and not done - for whoever it is on. A task's date is the two's own plan,
+        // not the agreement's, so it is only an early warning (at risk), never "delayed". One reason per side: the oldest, and how many.
+        $late = Task::query()->where('agreement_id', $a->id)->where('scope', Task::SHARED)->whereIn('status', [Task::TODO, Task::DOING, Task::BLOCKED])
+            ->whereNotNull('due_on')->whereDate('due_on', '<', today())->orderBy('due_on')->get(['title', 'due_on', 'assignee_side']);
+        foreach ($late->groupBy('assignee_side') as $side => $tasks) {
+            $oldest = $tasks->first();
+            $add('task_overdue', self::AT_RISK, in_array($side, Task::SIDES, true) ? (string) $side : 'both', [
+                'part' => (string) $oldest->title, 'days' => max(1, (int) $oldest->due_on->diffInDays(today())), 'count' => $tasks->count(),
+            ]);
         }
 
         usort($reasons, fn (array $x, array $y) => self::RANK[$y['level']] <=> self::RANK[$x['level']]);

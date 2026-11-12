@@ -203,7 +203,7 @@ class FreelanceProjectReviewController extends Controller implements HasMiddlewa
             'client' => $p->client === null ? null : ['id' => $p->client->id, 'name' => $p->client->name, 'is_verified' => \App\Support\AccountBadge::verified($p->client), 'phone' => $p->client->phone, 'country_id' => $p->client->country_id],
             'can_decide' => $p->status === Status::PendingReview,
             'offers' => $this->window->present($p, false) + ['reopen_count' => $p->reopen_count, 'count' => \Modules\Freelance\Models\FreelanceOffer::query()->where('project_id', $p->id)->where('status', '!=', 'withdrawn')->count()],
-            'timeline' => $p->events->sortBy('id')->map(fn ($e) => ['type' => $e->type, 'from' => $e->from_status, 'to' => $e->to_status, 'actor' => $e->actor_type, 'reason' => $e->payload['reason'] ?? null, 'at' => $e->created_at?->toIso8601String()])->values()->all(),
+            'timeline' => $p->events->reject(fn ($e) => $e->isWorkroom())->sortBy('id')->map(fn ($e) => ['type' => $e->type, 'from' => $e->from_status, 'to' => $e->to_status, 'actor' => $e->actor_type, 'reason' => $e->payload['reason'] ?? null, 'at' => $e->created_at?->toIso8601String()])->values()->all(),
         ];
     }
 }

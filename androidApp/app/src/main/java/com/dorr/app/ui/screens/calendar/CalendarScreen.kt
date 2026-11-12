@@ -142,7 +142,7 @@ internal fun localTime(iso: String?): ZonedDateTime? = runCatching { OffsetDateT
  * `Locale.getDefault()` is still the device's — and the calendar would name days, months and times in one language
  * under texts in another, with Latin digits next to Arabic ones.
  */
-internal fun calLocale(): Locale = Locale.forLanguageTag(AppLocale.current)
+internal fun calLocale(): Locale = AppLocale.latin(AppLocale.current)
 
 private fun DateTimeFormatter.inLocale(locale: Locale): DateTimeFormatter = withLocale(locale).withDecimalStyle(DecimalStyle.of(locale))
 

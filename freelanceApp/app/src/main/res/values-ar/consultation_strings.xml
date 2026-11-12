@@ -119,7 +119,7 @@
     <string name="cns_edit_review_note">لو عدّلتها هترجع لفريق دُرر قبل ما العملاء يشوفوا التعديل.</string>
     <string name="cns_delete_title">تمسح الاستشارة دي؟</string>
     <string name="cns_delete_body">«%1$s» هتتشال. الحجوزات اللي اتعملت قبل كده بتفضل بفلوسها وميعادها.</string>
-    <string name="cns_err_no_title">اكتب عنوان للاستشارة (٣ حروف على الأقل).</string>
+    <string name="cns_err_no_title">اكتب عنوان للاستشارة (3 حروف على الأقل).</string>
     <string name="cns_save_send">احفظ وابعت للمراجعة</string>
     <string name="cns_save_publish">احفظ وانشر</string>
     <string name="cns_save_draft">احفظ كمسودة</string>

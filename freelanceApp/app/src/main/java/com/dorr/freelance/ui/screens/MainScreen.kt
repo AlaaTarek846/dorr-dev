@@ -50,6 +50,8 @@ class MainActions(
     val openPlans: () -> Unit,
     val openPortfolio: () -> Unit,
     val openProject: (String) -> Unit,
+    /** FS-209b: a team's project opens its agreement page (the project page is the signer's own offer view). */
+    val openAgreement: (String) -> Unit,
     val openMyOffers: () -> Unit,
     val openOffer: (String) -> Unit,
     val openInvitations: () -> Unit,
@@ -70,6 +72,8 @@ class MainActions(
     val openSkillTests: () -> Unit,
     // FL-L10: my capacity and the line on my services
     val openCapacity: () -> Unit,
+    // FS-209: my freelancers' teams
+    val openTeams: () -> Unit,
     // FL-L07: paid consultations
     val openConsultations: () -> Unit,
     val openConsultation: (String) -> Unit,
@@ -199,7 +203,7 @@ private fun WorkTab(actions: MainActions) {
             "offers" -> MyOffersScreen(onBack = null, onOpenProject = actions.openOffer, embedded = true)
             "orders" -> ServiceOrdersScreen(onBack = {}, onOpenOrder = actions.openServiceOrder, embedded = true)
             "consultations" -> ConsultationsScreen(onBack = {}, onOpenEditor = actions.openConsultationEditor, onOpenConsultation = actions.openConsultation, embedded = true)
-            else -> MyWorkTab(onBack = {}, onOpenProject = actions.openProject, embedded = true)
+            else -> MyWorkTab(onBack = {}, onOpenProject = actions.openProject, onOpenAgreement = actions.openAgreement, embedded = true)
         }
     }
 }

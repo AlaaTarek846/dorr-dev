@@ -1,0 +1,7 @@
+<?php
+
+// One file per audience — same convention as Modules/Chat and Modules/WatchEarn.
+require __DIR__.'/admin.php';
+require __DIR__.'/user.php';
+require __DIR__.'/provider.php';
+require __DIR__.'/public.php';

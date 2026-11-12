@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- صفحات المستندات (مستندات المنشأة، ورفع مستند، ونموذج المركبة وصورها ومستنداتها، والمركبة الأولى). -->
+<resources>
+    <!-- الحالات والتقدم -->
+    <string name="pp_state_expiring">تنتهي قريبًا</string>
+    <string name="pp_required">مطلوب</string>
+    <string name="pp_progress_title">%1$d من %2$d جاهزة</string>
+    <string name="pp_progress_all">اكتملت جميع المستندات</string>
+    <string name="pp_progress_hint">يُعدّ المستند جاهزًا بعد رفعه ما لم يُرفض.</string>
+    <string name="pp_progress_done_hint">رُفعت جميع المستندات المطلوبة.</string>
+    <string name="pp_count_approved">معتمد: %1$d</string>
+    <string name="pp_count_pending">قيد المراجعة: %1$d</string>
+    <string name="pp_count_action">يحتاج إجراءً: %1$d</string>
+    <string name="pp_until">سارٍ حتى %1$s</string>
+    <string name="pp_upload_now">ارفعه الآن</string>
+    <string name="pp_reupload">أعد الرفع</string>
+
+    <!-- مستندات المنشأة -->
+    <string name="pp_status_approved_hint">منشأتك معتمدة. يمكنك استبدال أي مستند عند تجديده.</string>
+    <string name="pp_status_rejected_hint">صحّح المستندات المشار إليها أدناه، ثم أعد إرسال منشأتك.</string>
+    <string name="pp_submit_need">ارفع المستندات الناقصة لتتمكن من إرسال منشأتك للمراجعة.</string>
+
+    <!-- رفع مستند -->
+    <string name="pp_form_intro">التقط صورة واضحة للمستند، أو اختر ملفًا.</string>
+    <string name="pp_form_photos">صور المستند</string>
+    <string name="pp_form_details">بيانات المستند</string>
+    <string name="pp_current_state">الرفع الحالي</string>
+    <string name="pp_replace_note">يحل الرفع الجديد محل الحالي ويُرسل للمراجعة.</string>
+    <string name="pp_tap_add">أضف صورة</string>
+    <string name="pp_tap_change">اضغط للتغيير</string>
+    <string name="pp_remove">إزالة</string>
+    <string name="pp_pdf_chosen">ملف PDF</string>
+    <string name="pp_camera_hint_doc">ضع المستند على سطح مستوٍ في إضاءة جيدة، مع ظهور زواياه الأربع ووضوح كتابته.</string>
+    <string name="pp_expiry_hint">يجب أن يكون تاريخ الانتهاء بعد اليوم.</string>
+    <string name="pp_complete_first">أكمل الحقول المحددة أولًا.</string>
+    <string name="pp_uploading">جارٍ الرفع…</string>
+    <string name="pp_send_photo">رفع الصورة</string>
+    <string name="pp_source_gallery">معرض الصور</string>
+    <string name="pp_source_files">الملفات</string>
+    <string name="pp_source_camera_hint">التقط صورة جديدة الآن</string>
+    <string name="pp_source_gallery_hint">اختر صورة من هاتفك</string>
+    <string name="pp_source_files_hint">اختر صورة أو ملف PDF</string>
+
+    <!-- المركبة -->
+    <string name="pp_vh_section_plate">لوحة المركبة</string>
+    <string name="pp_vh_section_details">بيانات المركبة</string>
+    <string name="pp_vh_plate_hint">اكتب الحروف والأرقام كما تظهر على اللوحة تمامًا.</string>
+    <string name="pp_vh_save_next">الحفظ والمتابعة</string>
+    <string name="pp_err_type">اختر نوع المركبة.</string>
+    <string name="pp_err_letters">أدخل حروف اللوحة.</string>
+    <string name="pp_err_number">أدخل رقم اللوحة.</string>
+    <string name="pp_err_year">أدخل سنة بين 1950 و%1$d.</string>
+
+    <!-- المركبة الأولى -->
+    <string name="pp_vh_first_title">أضف مركبتك الأولى</string>
+    <string name="pp_vh_first_heading">مركبة واحدة تكفي للبدء</string>
+    <string name="pp_vh_first_body">يتطلب العمل في النقل مركبة واحدة على الأقل. أدخل بياناتها، ثم ارفع صورها ومستنداتها للمراجعة.</string>
+    <string name="pp_vh_step_details">البيانات</string>
+    <string name="pp_vh_step_photos">الصور والمستندات</string>
+    <string name="pp_vh_done">تم، متابعة</string>
+    <string name="pp_vh_done_need">ارفع جميع الصور والمستندات المطلوبة للمتابعة.</string>
+    <string name="pp_vh_all_sent">اكتمل الرفع، وسيراجع فريق دُرر المركبة.</string>
+</resources>

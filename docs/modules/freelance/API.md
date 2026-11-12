@@ -419,6 +419,7 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - القائمة المختصرة: `shortlist` / `unshortlist` وفلتر `status=shortlisted` (FL-303/305).
 - المحترفين المفضّلين للعميل: `GET mobile/v1/freelance/favorites` (`page`/`per_page`)، `POST|DELETE favorites/{uuid}` — بس لمحترف قدّم للعميل عرض قبل كده (غير كده 404). العروض والبروفايل فيهم `is_favorite`. القائمة مفيهاش تليفون ولا إيميل.
 - **قوايم المحترفين للعميل (FS-103):** تحت `mobile/v1/freelance/talent-lists` (ميزة `projects`): `GET /[?specialty_id=]` → `{lists[{uuid,name,specialty,count}], max_lists:20}` · `POST /` `{name≤80, specialty_id?}` · `GET|PUT|DELETE {uuid}` · `POST {uuid}/members` `{freelancer:uuid, note≤200?}` · `PUT {uuid}/members/{freelancer}` `{note?, remind_in_days?: 30|60|90|180|null}` · `DELETE {uuid}/members/{freelancer}` (كلهم بيرجّعوا شكل `show`: القايمة + `members[{uuid,name,headline,avatar_url,verified,completeness,note,remind_at,worked_together,added_at}]` + `remind_options`) · `GET containing/{freelancer}` → `{lists:[uuid]}` (للقلب في البروفايل) · `POST {uuid}/invite` `{project, freelancers[]?}` → `{invited, skipped[{uuid,reason}]}` بنفس قواعد `ProjectInvitations` (مشروع **خاص ومنشور** بتاعي بس). المحترف المحفوظ لازم يكون موثّق. حد أقصى 20 قايمة و100 محترف في القايمة (`freelance_talent_lists_limit` / `freelance_talent_list_full`). **التذكير بيتبعت للعميل بس وبموافقته** (لما يحدد `remind_in_days`): مرة واحدة، حدث `talent.reminder` (`freelance:talent-reminders` كل ساعة). المحترف مبيشوفش غير **عدد** القوايم اللي هو فيها: `data.saved{lists,new}` في إحصائياته (`GET insights`) — مفيش اسم قايمة ولا عميل.
+- **فريق المشروع (FS-104) — المصفوفة في [PERMISSIONS.md](PERMISSIONS.md):** ميزة `client_team` (حسب دولة صاحب المشروع). **صاحب المشروع:** `GET projects/{uuid}/team` → `{members[{uuid,name,phone(مخفي جزئيًا),role,status: invited|active|expired,max_amount_minor,ends_at,delegation_over,invited_at}], max:10, roles, max_delegate_days:90, currency}` · `POST projects/{uuid}/team` `{phone, role: manager|reviewer|collaborator|finance|delegate, max_amount_minor?, days?}` (الاتنين لازمين للمفوَّض، المدة 1–90) · `PUT projects/{uuid}/team/{member}` `{role, max_amount_minor?, days?}` · `DELETE projects/{uuid}/team/{member}` (كلهم بيرجّعوا نفس شكل `GET`). أخطاء: `freelance_team_user_not_found` · `_self` · `_conflict` (صاحب الرقم قدّم عرض على المشروع كمحترف) · `_already` · `_full` · `_project_ended` · `_delegate_limits`. **المدعو:** `GET team/invitations` → `{invitations[{uuid,role,project{uuid,title},owner{name},max_amount_minor,currency,ends_at,expires_at}]}` (الدعوة بتخلص بعد 7 أيام) · `POST team/invitations/{uuid}/accept|decline` → `{status, project}` (`freelance_team_invitation_closed`) · `GET team/projects` (مقسّم صفحات) → شكل مشروع العميل + `access` · `POST team/projects/{uuid}/leave`. **العضو بيستخدم مسارات المشروع العادية** (`projects/{uuid}/...`): Middleware `freelance.project-access` بيسمح بالمسار لو دوره يسمح (`freelance_team_forbidden` 403)، والمفوَّض في حدود الحد في المرة (`freelance_team_over_limit` 403) وقبل `ends_at` (`freelance_team_delegation_over` 403)، والطلب بيتنفّذ **باسم صاحب المشروع ومن محفظته**. الرد: من غير `money` كل `*_minor` = null و`money.lines` = [] و`payload.from/to` لتعديل سعر = null؛ `wallet_available_minor` = null دايمًا للعضو؛ أزرار `can` اللي الدور مالوش صلاحيتها = false؛ للمفوَّض `milestones[].over_limit` و`changes[].over_limit` (والزرار مقفول). صفحة المشروع والاتفاق فيهم `access{role: owner|..., abilities[], money, owner{name}, max_amount_minor, ends_at, delegation_over}`، ولصاحب المشروع `team{members, invited, max}`. سجل الموافقات: `by{name, team:true}` لما عضو اتصرف (الطرفين بيشوفوا الاسم بس)، والأدمن بيشوف `acted_by_user_id`. الإشعارات: `client.team.invited|joined|declined|left|removed|role_changed` و`client.team.acted_fund|acted_release|acted_change_accept|acted_change_reject` (لصاحب المشروع بعد كل خطوة مفوَّضة)، والأعضاء بيوصلهم نسخة من أحداث المشروع حسب دورهم (`ClientTeam::FAN_OUT`، أحداث فيها مبالغ لأصحاب `money` بس). `GET home` فيه `team{shared, invitations}`.
 
 ## الاتفاق الإلكتروني (FL-401)
 
@@ -1121,3 +1122,517 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 - **الدولة في الردود:** `country: {code, name}` (`FreelanceCountry::card`) في كارت المشروع للمحترف، وكارت الخدمة، وكارت الاستشارة، والمنشور. التطبيقات بتعرض علم الدولة واسمها.
 - **فضل لكل دولة:** المفاتيح، وتوثيق المحترف ومستنداته (حسب دولته)، والنص القياسي للحقوق، وترقيم الإيصالات، وتقارير الأدمن.
 - **الاختبار:** `FreelancerBrowseProjectsTest` · `FreelanceProjectMatchingTest` · `FreelanceCommunityTest` · `FreelanceServicesTest::test_a_client_of_another_open_country_finds_the_service_with_its_country` · `FreelanceInvitationsTest` (دولة مقفولة مش بتظهر).
+
+## غرفة العمل: المهام (FS-150a) — 2026-11-05
+
+مساحة العميل والمحترف على المشروع الشغال. دلوقتي **المهام بس** (الملفات والقرارات والخط الزمني في FS-150b/c، والشاشات في FS-150e). مفتاح الخاصية `workroom` (لكل دولة، **مقفول افتراضيًا**، وبيتقرا من دولة المشروع عشان الطرفين يشوفوا نفس الحالة).
+
+**المسارات** (نفس الشكل للطرفين؛ العميل `/api/mobile/v1/freelance/projects/{uuid}/…`، المحترف `/api/freelance/v1/projects/{uuid}/…`):
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `workroom/tasks[?status=todo\|doing\|done\|blocked&milestone=uuid&assignee=client\|freelancer&mine=1&overdue=1&per_page=1..100&page=]` | `data: {tasks[], summary{total,todo,doing,done,blocked,overdue}, limit{max}, read_only, can{task_create}}` + `pagination`. الترتيب: شغّال، مستني، متوقف، خلصان؛ وجوّا كل حالة أقرب يوم الأول |
+| POST | `workroom/tasks` `{title (3..160), description? (≤2000), milestone? uuid, due_on? Y-m-d, assignee_side? client\|freelancer}` | 201 `data: {task, summary}`؛ الافتراضي المهمة على الطرف اللي كتبها |
+| PUT | `workroom/tasks/{task}` أي من `title, description, milestone, due_on, assignee_side` | للطرف اللي كتب المهمة بس |
+| POST | `workroom/tasks/{task}/status` `{status}` | للطرف اللي المهمة عليه، أو اللي كتبها |
+| DELETE | `workroom/tasks/{task}` | للطرف اللي كتبها بس (soft delete) |
+
+**شكل المهمة:** `uuid, title, description, status, due_on, overdue, milestone{uuid,title,position}|null, assignee_side, created_by_side, mine, completed_at, created_at, updated_at, can{task_edit, task_delete, task_status}`.
+
+**القواعد:**
+- المهام بتتكتب وتتعدّل **والاتفاق `active` بس**. بعد ما يخلص (`completed`) بتتقرا بس (`read_only: true` وكل `can` مقفول، والكتابة ترد 409 `workroom_not_active`). مفيش اتفاق شغال/مخلص = 404.
+- المرحلة لازم تبقى من مراحل نفس الاتفاق (422 `workroom_milestone_invalid`). اليوم مش في الماضي (422 `workroom_due_past`)؛ يوم قديم على مهمة موجودة بيفضل. العنوان 3 حروف على الأقل بعد شيل الوسوم (422 `workroom_title_required`).
+- أقصى عدد مهام للمشروع من سياسة الأدمن `workroom.tasks_max` (**فاضية = من غير حد**، وهي الافتراضي). الوصول للحد بيمنع **الإضافة الجديدة بس** (422 `workroom_tasks_limit` و`data.max`)؛ القديم بيفضل ويتعدّل ويتمسح.
+- مهمة اتعطت للطرف التاني (عند الإضافة أو تغيير `assignee_side`) بتبعت له إشعار `workroom.task_assigned` مرة واحدة؛ الطرف اللي بيكتب لنفسه مفيش إشعار. فريق العميل: صاحب المشروع + مَن عنده صلاحية `workroom`.
+- **فريق العميل (FS-104):** القراءة لكل الأدوار (`view`)، والكتابة للمدير (`manager`) وصاحب المشروع (`workroom`)؛ باقي الأدوار 403 `team_forbidden` وزراير `can.task_*` مقفولة. المهمة بتتكتب باسم صاحب المشروع، والعضو الفعلي في `freelance_project_events.acted_by_user_id`.
+- كل خطوة بتتسجل في **سجل المشروع** (`freelance_project_events`): `workroom.task.created|updated|status|completed|deleted` (الـ payload فيه uuid المهمة وعنوانها).
+
+**الحدث اللحظي (من غير Polling):** قناة خاصة `freelance-workroom.{project uuid}`، الحدث `freelance.workroom` ومعاه `{kind: "task", action: created|updated|status|deleted, uuid, by: client|freelancer}` (من غير نص). التطبيق بيعمل **طلب إعادة تحميل واحد** لما يوصله. بتسمع: العميل وأعضاء فريقه والمحترف صاحب الاتفاق (شغال أو مخلص) (`WorkroomAccess::listens`).
+
+**الجداول:** `freelance_workroom_tasks` (migration `2026_11_26_100000`): `uuid, project_id, agreement_id, milestone_id?, title, description?, status, due_on?, scope(shared), assignee_side, created_by_side, created_by_id, completed_at?, soft delete`. **الكود:** `Services/Workroom/{WorkroomTasks, WorkroomAccess, WorkroomContext}`، `Http/Controllers/WorkroomTaskController`، `Events/FreelanceWorkroomChanged`. **الاختبار:** `FreelanceWorkroomTasksTest`.
+
+## غرفة العمل: الملفات والملاحظات (FS-150b) — 2026-11-06
+
+**File Hub**: ملفات بإصدارات (versions) وملاحظات على الملف أو على تسليم. نفس مفتاح `workroom` ونفس الوصول والقواعد العامة بتاعة المهام (الاتفاق `active` للكتابة، `completed` للقراءة بس، 404 من غير اتفاق، 403 `feature_off` لو المفتاح مقفول). المسارات بنفس الشكل للطرفين (`/api/mobile/v1/freelance/projects/{uuid}/…` للعميل، `/api/freelance/v1/projects/{uuid}/…` للمحترف).
+
+**الملفات:**
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `workroom/files[?milestone=uuid&mine=1&search=&per_page=1..100&page=]` | `data: {files[], summary{files,versions,storage_bytes}, limit{max_files,max_storage_mb}, upload{max_kb,mimes[],max_versions}, read_only, can{file_upload}}` + `pagination`. الأحدث تغييرًا الأول |
+| POST | `workroom/files` (multipart) `{file, title? (≤160، الافتراضي اسم الملف), description? (≤1000), milestone? uuid, note? (≤500)}` | 201 `data: {file, summary}` — الإصدار 1. الطرف اللي أضاف الملف هو صاحبه |
+| GET | `workroom/files/{file}` | `data: {file}` ومعاه `versions[]` (الأحدث الأول) |
+| PUT | `workroom/files/{file}` أي من `title, description, milestone` | صاحب الملف بس |
+| POST | `workroom/files/{file}/versions` (multipart) `{file, note?}` | 201 `data: {file, summary}` — الإصدار التالي، صاحب الملف بس |
+| DELETE | `workroom/files/{file}` | صاحب الملف بس. بيخفيه هو وإصداراته وملاحظاته (soft delete) والبايتات بتفضل على القرص الخاص للسجل |
+| GET | `workroom/files/{file}/versions/{number}/download` | الملف نفسه (صورة تتعرض في مكانها، أي حاجة تانية تحميل؛ `nosniff` و`private, no-store`) |
+
+**شكل الملف:** `uuid, title, description, milestone{uuid,title,position}|null, versions_count, comments_count, current{…الإصدار الأحدث}, created_by_side, mine, created_at, updated_at, can{file_edit, file_delete, version_add, comment_add}`. **شكل الإصدار:** `number, note, name, mime_type, size_bytes, is_image, preview_only, by_side, created_at, path` (المسار نسبي: التطبيق بيحط قبله الـ base بتاعه زي مسارات التسليمات).
+
+**الملاحظات (على ملف أو إصدار منه أو تسليم):**
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `workroom/comments?file={uuid}[&version=N]` أو `?delivery={uuid}` `[&per_page=1..100&page=]` | `data: {comments[], read_only, can{comment_add}}` + `pagination`. الأقدم الأول. لازم واحد من `file` / `delivery` (مش الاتنين) |
+| POST | `workroom/comments` `{file \| delivery, version?, body (≤2000)}` | 201 `data: {comment}`. `version` مع `file` بس (إصدار مش موجود = 422 `workroom_version_invalid`؛ مع `delivery` بيتجاهل). الطرفين يكتبوا |
+| PUT | `workroom/comments/{comment}` `{body}` | الطرف اللي كتبها بس (`edited_at` بيتملّى) |
+| DELETE | `workroom/comments/{comment}` | الطرف اللي كتبها بس (soft delete) |
+
+**شكل الملاحظة:** `uuid, body, subject{type: file\|delivery, uuid}, version|null, author_side, mine, edited_at, created_at, can{comment_edit, comment_delete}`. التسليم لازم يبقى من مراحل نفس الاتفاق (غير كده 404).
+
+**قواعد الرفع (نفس التسليم بالظبط):** `file|max:upload_max_kb|mimes:` نفس قايمة أنواع التسليم (`MilestoneDeliveries::MIMES`) و`new CleanUpload` (فحص البايتات الحقيقية + ClamAV الاختياري). أي ملف مرفوض = 422 ومفيش ملف ولا إصدار ولا بايتات بتتحفظ. الاسم بيتنضّف (من غير فولدرات أو وسوم). الإصدار **ما بيتعدّلش ولا بيتمسح** — الجديد إصدار جديد. الحد الأقصى للإصدارات في الملف الواحد **50** (حماية من لوب رفع مش قاعدة تجارية؛ 422 `workroom_versions_limit`).
+
+**الحدود (سياسات الأدمن، فاضية = من غير حد، وهي الافتراضي):** `workroom.files_max` (أقصى عدد ملفات للمشروع) و`workroom.storage_mb` (مجموع حجم كل إصدارات الملفات اللي ما اتمسحتش، بالميجا). الوصول للحد بيمنع **الإضافة الجديدة بس**: ملف جديد (422 `workroom_files_limit` و`data.max`) أو رفع هيعدّي المساحة (422 `workroom_storage_limit` و`data.max_mb`). إصدار جديد لملف موجود بيتقبل لحد المساحة؛ التعديل والمسح والملاحظات شغالين. مسح ملف بيرجّع مساحته.
+
+**حماية الشغل قبل الدفع (FL-L13):** ملف **المحترف** المربوط بمرحلة **لسه ما اتعتمدتش** والاتفاق له شروط حقوق (`rights`) = للعميل **معاينة بس** (`preview_only: true`): الصورة بتنزل نسخة صغيرة JPEG، وأي نوع تاني 403 `rights_preview_only`، لحد ما المرحلة تتعتمد. ملف من غير مرحلة، وملف العميل نفسه، ورؤية المحترف لشغله = عادي. يعني **ربط الملف بمرحلة هو اللي بيفعّل الحماية** (قرار تصميم، شوف TEAMS-ERD §9).
+
+- **الإشعارات:** ملف أو إصدار جديد → `workroom.file_shared`، وملاحظة جديدة → `workroom.comment_added` للطرف التاني (مرة لكل خطوة؛ للعميل: صاحب المشروع + مَن عنده `workroom`).
+- **فريق العميل (FS-104):** القراءة وفتح الملفات لكل الأدوار (`view`)، والإضافة والتعديل والمسح والملاحظات للمدير وصاحب المشروع (`workroom`)؛ باقي الأدوار 403 `team_forbidden` وزراير `can.file_*` / `version_add` / `comment_*` مقفولة. الخطوة بتتكتب باسم صاحب المشروع، والعضو الفعلي في `acted_by_user_id`.
+- **سجل المشروع:** `workroom.file.uploaded|version|updated|deleted` و`workroom.comment.created|updated|deleted` (الـ payload فيه uuid الملف/الملاحظة والإصدار، **من غير نص الملاحظة**). مش بتظهر في `timeline` بتاع العميل أو الأدمن.
+- **الحدث اللحظي (من غير Polling):** نفس القناة `freelance-workroom.{project uuid}` والحدث `freelance.workroom` ومعاه `kind: "file"` (`action: created|version|updated|deleted`، `uuid` = الملف) أو `kind: "comment"` (`action: created|updated|deleted`، `uuid` = **الملف أو التسليم اللي الملاحظة عليه**، عشان الشاشة المفتوحة تعرف تعيد تحميل إيه). طلب إعادة تحميل واحد، ومفيش نص في الحدث.
+
+**الجداول** (migration `2026_11_27_100000`): `freelance_workroom_files` (`uuid, project_id, agreement_id, milestone_id?, title, description?, versions_count, created_by_side, created_by_id, soft delete`)، `freelance_workroom_file_versions` (`uuid, file_id, number (unique مع الملف), note?, original_name, mime_type, size_bytes, created_by_side, created_by_id, created_at` — الملف نفسه media على القرص الخاص `local`، collection `file`)، `freelance_workroom_comments` (`uuid, project_id, agreement_id, file_id?, version_number?, delivery_id?, body, author_side, author_id, edited_at?, soft delete`). **الكود:** `Services/Workroom/{WorkroomFiles, WorkroomComments, WorkroomSupport}`، `Http/Controllers/{WorkroomFileController, WorkroomCommentController}`، `Models/FreelanceWorkroom{File, FileVersion, Comment}`. **الاختبار:** `FreelanceWorkroomFilesTest` (20 اختبار) + مصفوفة الفريق في `FreelanceClientTeamHardTest`.
+
+## غرفة العمل: سجل القرارات والخط الزمني (FS-150c) — 2026-11-06
+
+**سجل القرارات**: تفصيلة بيتفق عليها الطرفين ("اللوجو أزرق")، فبدل ما تضيع في الشات بتتسجل. طرف **يقترح** والطرف التاني **يوافق أو يرفض**. نفس مفتاح `workroom` ونفس الوصول والقواعد العامة (الاتفاق `active` للكتابة، `completed` للقراءة بس، 404 من غير اتفاق، 403 `feature_off` لو المفتاح مقفول). القرار **لا يغيّر الفلوس ولا المراحل** (ده طلب تغيير FL-405). المسارات بنفس الشكل للطرفين (`/api/mobile/v1/freelance/projects/{uuid}/…` للعميل، `/api/freelance/v1/projects/{uuid}/…` للمحترف).
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `workroom/decisions[?status=proposed\|agreed\|declined\|superseded&milestone=uuid&mine=1&waiting=1&per_page=1..100&page=]` | `data: {decisions[], summary{total,proposed,agreed,declined,superseded,waiting_for_me}, read_only, can{decision_create}}` + `pagination`. **اللي مستني الرد الأول** (الأحدث الأول)، وبعده اللي اتردّ عليه (الأحدث الأول). `waiting=1` = اللي مستني **ردّي أنا** (اقترحه الطرف التاني) |
+| POST | `workroom/decisions` `{title (3..160), body (≤2000), milestone? uuid, supersedes? uuid}` | 201 `data: {decision, summary}`. اللي اقترح **موافق بمجرد الاقتراح** (`<side>_agreed: true`)، والطرف التاني بيتبلّغ ويرد |
+| GET | `workroom/decisions/{decision}` | `data: {decision}` |
+| PUT | `workroom/decisions/{decision}` أي من `title, body, milestone` | للي اقترح **وهو لسه مستني** بس |
+| POST | `workroom/decisions/{decision}/agree` `{note? ≤300}` | للطرف **التاني** (اللي ما اقترحش) بس. القرار بيبقى `agreed` وده السجل |
+| POST | `workroom/decisions/{decision}/decline` `{note? ≤300}` | للطرف التاني بس. القرار بيبقى `declined` |
+| DELETE | `workroom/decisions/{decision}` | للي اقترح وهو لسه مستني (سحب الاقتراح، soft delete) → `data: {summary}` |
+
+**شكل القرار:** `uuid, title, body, status (proposed|agreed|declined|superseded), milestone{uuid,title,position}|null, proposed_by_side, mine, client_agreed, freelancer_agreed, answer_note|null, supersedes{uuid,title}|null, superseded_by{uuid,title}|null, answered_at, created_at, updated_at, can{decision_edit, decision_withdraw, decision_agree, decision_decline, decision_supersede}`.
+
+**القواعد:**
+- **القرار اللي اتردّ عليه هو السجل ومش بيتعدّل ولا بيتسحب ولا بيتردّ عليه تاني** (409 `workroom_decision_locked`). عايز تغيّره؟ اقترح قرار **جديد** بـ `supersedes` = uuid القرار المتفق عليه؛ لما الجديد يتوافق عليه القديم بيبقى `superseded` (وبيتسجل `workroom.decision.superseded`) و`superseded_by` بيشاور على الجديد. القرار المرفوض (`declined`) أو المستني ما ينفعش يتبدّل (422 `workroom_decision_supersede_invalid` وكمان لو القرار من مشروع تاني أو uuid مش موجود). `can.decision_supersede` = قرار `agreed` لسه ما اتبدّلش.
+- اللي اقترح هو اللي يعدّل ويسحب؛ والطرف التاني هو اللي يرد. غير كده 403 `workroom_decision_forbidden` (اللي اقترح ما يوافقش على اقتراحه).
+- النص بيتنضّف من الوسوم؛ العنوان 3 حروف على الأقل (422 `workroom_title_required`) والنص مش فاضي (422 `workroom_decision_body_required`)؛ المرحلة من مراحل نفس الاتفاق (422 `workroom_milestone_invalid`).
+- بعد ما الاتفاق يخلص (`completed`) كل حاجة بتتقرا بس: `read_only: true` وكل `can` مقفول والكتابة 409 `workroom_not_active`.
+- الحدود: `throttle` لكل مشروع على الإضافة (30/دقيقة) والباقي (60/دقيقة) بالمفتاح `freelance-workroom-decision`.
+- **الإشعارات:** اقتراح جديد → `workroom.decision_proposed` للطرف التاني، والرد → `workroom.decision_agreed` / `workroom.decision_declined` **للي اقترح** (مرة لكل خطوة؛ تعديل اقتراح مستني أو سحبه من غير إشعار). للعميل: صاحب المشروع + مَن عنده صلاحية `workroom`.
+- **فريق العميل (FS-104):** القراءة لكل الأدوار (`view`)، والاقتراح والتعديل والرد والسحب للمدير وصاحب المشروع (`workroom`)؛ باقي الأدوار 403 `team_forbidden` وزراير `can.decision_*` مقفولة. الخطوة بتتكتب باسم صاحب المشروع، والعضو الفعلي في `acted_by_user_id`.
+- **سجل المشروع:** `workroom.decision.proposed|updated|agreed|declined|superseded|withdrawn` (الـ payload فيه uuid القرار وعنوانه و`supersedes` أو `by` أو `changed` — **من غير نص القرار ولا ملاحظة الرد**). مش بتظهر في `timeline` بتاع العميل أو الأدمن.
+- **الحدث اللحظي (من غير Polling):** نفس القناة `freelance-workroom.{project uuid}` والحدث `freelance.workroom` ومعاه `kind: "decision"` (`action: created|updated|agreed|declined|withdrawn`، `uuid` = القرار). طلب إعادة تحميل واحد، ومفيش نص في الحدث.
+
+**الخط الزمني (Timeline):** قراءة بس، قائمة واحدة **الأحدث الأول** بتجمع خطوات الـ Workroom (مهام، ملفات، ملاحظات، قرارات) **وسجل موافقات الاتفاق** (مراحل اتمولت/اتسلمت/اتعتمدت، طلبات تغيير، نزاعات… FL-406).
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `workroom/timeline[?kind=task\|file\|comment\|decision\|agreement\|milestone\|dispute\|change\|review\|rights&mine=1&per_page=1..100&page=]` | `data: {events[]}` + `pagination` (الافتراضي 30). `mine=1` = اللي أنا (طرفي) عملته. كل الأدوار في فريق العميل بتقرا (`view`) |
+
+**شكل الحدث:** `key, source (workroom|approval), kind, action, label, actor (client|freelancer|…), mine, by{name,team}|null, subject{type,uuid,title[,on{type,uuid}]}|null, details{…}, at`. `label` جاهز بلغة المستخدم (`:title` جواه عنوان القرار/الملف/المهمة). `details` فيه المفاتيح الآمنة بس (`from, to, version, assignee_side, changed, supersedes, by`). **مفيش في الخط الزمني أي نص كتبه الطرفين (ملاحظة، نص قرار، ملاحظة رد) ولا مبالغ.**
+
+**`audience` (جمهور الحدث):** عمود جديد في `freelance_project_events` (`both` افتراضي · `client` · `freelancer` · `team`). كل طرف بيشوف `both` + اللي لطرفه بس: حدث `client` ما بيوصلش للمحترف، و`team` (الفريق الداخلي للمحترف، FS-207) ما بيوصلش للعميل. نفس القاعدة اتطبقت على `timeline` بتاع صفحة المشروع عند العميل. **لسه مفيش كود بيكتب حاجة غير `both`** — الحقل جاهز لـ FS-150d / FS-207 (الشات الداخلي والملفات الداخلية).
+
+**الجداول** (migrations `2026_11_28_100000` و`2026_11_28_110000`): عمود `audience` + فهرس `(project_id, audience, id)` على `freelance_project_events`، و`freelance_workroom_decisions` (`uuid, project_id, agreement_id, milestone_id?, title, body, status, proposed_by_side, proposed_by_id, client_ack_at?, freelancer_ack_at?, answered_at?, answer_note?, supersedes_id?, soft delete`). **الكود:** `Services/Workroom/{WorkroomDecisions, WorkroomTimeline}`، `Http/Controllers/{WorkroomDecisionController, WorkroomTimelineController}`، `Models/FreelanceWorkroomDecision`. **الاختبار:** `FreelanceWorkroomDecisionsTest` (16 اختبار) + مصفوفة الفريق في `FreelanceClientTeamHardTest`.
+
+## دعوات الفريق والعضوية (FS-203) — 2026-11-06
+
+ورا مفتاح `teams`. سيرفر بس؛ الشاشات في FS-209. **المسار الخاص بالمدعو `team-invitations`** (مش `invitations`، دي بتاعة دعوات المشاريع الخاصة FL-205).
+
+**جهة الفريق** (`teams/{team}/...`، اللي مش في الفريق = 404):
+- `POST teams/{team}/invitations` `{phone?, role: pm|member}` → 201 `data.invitation`. بـ `phone` = دعوة لمحترف معيّن **من أي دولة** (مش لازم نفس دولة الفريق)؛ من غير `phone` = **دعوة برابط** وبيرجع `token` (واحد، يُستخدم مرة واحدة). اللي يدعو: الـ Owner، أو PM الـ Owner فتحله `invite_members` (FS-204)؛ **PM يدعو أعضاء بس، دعوة PM للـ Owner بس**. تنتهي بعد **7 أيام** (بتتقفل لما حد يلمسها، من غير Job).
+- `GET teams/{team}/invitations` المفتوحة (مع `token` للروابط)، لمن يملك `invite_members`، و`days`. `DELETE teams/{team}/invitations/{uuid}` سحب دعوة: الـ Owner أو اللي بعتها.
+- `POST teams/{team}/leave {reason?}` الخروج **فورًا** (D5، حتى لو الفريق موقوف؛ آخر Owner 409). `DELETE teams/{team}/members/{freelancer uuid} {reason?}` الإزالة للـ Owner بس.
+
+**جهة المدعو:**
+- `GET team-invitations` دعواتي المفتوحة. `POST team-invitations/{uuid}/accept` و`/decline`.
+- `GET team-invitations/by-link/{token}` يوريك الفريق والدور قبل القبول. `POST team-invitations/by-link/{token}/accept` بيقبل **أول واحد** بس، ومش بيقبلها اللي بعتها.
+- **القبول بيمرّ بـ `FreelancerTeams::join`:** متوثّق (403 `freelance_verification_required`)، حد الفرق اللي ينضم لها، حد أعضاء الفريق، فريق نشط. لو واحدة منهم رفضت، **الدعوة بتفضل مفتوحة**.
+
+**الأخطاء:** 422 `freelance_freelancer_team_invite_not_found` (مفيش محترف بالرقم ده، أو موقوف/محظور) و`_invite_self`، 409 `_invite_open` (دعوة مفتوحة أصلًا) و`_already_member` و`_inactive`، 409 `freelance_freelancer_team_invitation_closed` (اتردّ عليها / اتسحبت / عدّت 7 أيام)، 403 `_ability` / `_forbidden`.
+
+**الإشعارات والسجل:** المدعو بيتبلّغ (push + داخل التطبيق)، واللي دعا بيتبلّغ بالقبول أو الرفض، والـ Owners بالخروج، والمُزال بالإزالة. كل دعوة وقبول ورفض وسحب وخروج وإزالة في `AuditLog`: `freelance.team.invited` / `invitation_accepted` / `invitation_declined` / `invitation_cancelled` / `member_left` / `member_removed`.
+
+**الكود:** `Services/FreelancerTeam/TeamInvitations`، `Http/Controllers/Freelancer/TeamInvitationController` و`TeamMemberController` (leave/remove). **الاختبارات:** `tests/Feature/FreelanceTeamInvitationsTest.php`.
+
+## أدوار الفريق وصلاحياته (FS-204) — 2026-11-06
+
+ورا مفتاح `teams`، لأعضاء الفريق النشطين بس (اللي مش في الفريق = 404 زي الشات الداخلي). سيرفر بس؛ الشاشات في FS-209.
+
+- `GET /api/freelance/v1/teams/{team}/members` → `data: {members[{freelancer{uuid,name}, role, joined_at, abilities{…}, custom}], me{role, abilities}, switches[]}`. الـ Owners الأول ثم الـ PM ثم الأعضاء. `custom` = اللي الـ Owner ضبطه بإيده (null للـ Owner).
+- `PUT /api/freelance/v1/teams/{team}/members/{freelancer uuid}/permissions` `{permissions: {view_price?, client_chat?, internal_files?, invite_members?: bool}}` — **الـ Owner بس**. اللي مش متسمّي بيفضل زي ما هو، والقيمة اللي بترجع للافتراضي ما بتتخزنش. كل تغيير فعلي في `AuditLog` (`freelance.team.permissions_changed`، قبل/بعد + `by_freelancer_id`). Throttle `freelance-team-permissions` 60/دقيقة.
+- `PUT /api/freelance/v1/teams/{team}/members/{freelancer uuid}/role` `{role: owner|pm|member}` (FS-209) — **الـ Owner بس**، وده طريق نقل الملكية (ترقية عضو لـ Owner، ولنفسك تنزل لو فيه Owner تاني). صلاحيات الشخص الخاصة بتتصفّر مع الدور (FS-204). نفس أخطاء `FreelancerTeams::changeRole`: 403 `freelancer_team_forbidden`، 404 `freelancer_team_not_member`، 409 `freelancer_team_last_owner` (آخر Owner مينفعش ينزل)، 422 `freelancer_team_role_invalid`، 422 `freelancer_team_limit_owned`/`_joined` (حدود الشخص نفسه)، 403 `freelance_verification_required` (الـ Owner الجديد موثّق). بيرجع `data.member`. كل تغيير فعلي في `AuditLog` (`freelance.team.role_changed`، قبل/بعد `role` + `team` + `by_freelancer_id`). نفس الـ Throttle بتاع الصلاحيات.
+- **الصلاحيات** (`TeamAbilities`):
+  - **للـ Owner بس دايمًا:** `deliver` (التسليم للعميل، **D11** — مش إعداد ومش قابل للتفويض؛ أي محاولة تضبطه = 422)، `manage_members`، `edit_team`، `sign_agreement`.
+  - **لكل النشطين:** `internal_chat`، `take_tasks`.
+  - **مفاتيح الـ Owner لكل PM/عضو:** `view_price`، `client_chat`، `internal_files`، `invite_members`. الافتراضي: الـ PM الـ 3 الأولى مفتوحة و`invite_members` مقفولة؛ العضو كلها مقفولة. بتتصفّر لما الدور يتغيّر أو الشخص يرجع للفريق.
+  - فريق موقوف/مؤرشف = محدش ليه أي صلاحية، ومفيش تعديل (409).
+- **الأخطاء:** 403 `freelance_freelancer_team_forbidden` (مش Owner)، 404 `freelance_freelancer_team_not_member`، 409 `freelance_freelancer_team_inactive`، 422 `freelance_freelancer_team_permissions_owner` (الـ Owner عنده كل حاجة)، 422 `freelance_freelancer_team_permission_invalid` (مش مفتاح، ومنها `deliver`). و`TeamAbilities::assert` بترجع 403 `freelance_freelancer_team_ability` — دي اللي مسار التسليم هيناديها لما الأعضاء يدخلوا المشروع (FS-206). مسار التسليم الفعلي اتختبر في FS-205: غير الـ Owner الموقّع = 404 من غير ما يتغيّر حاجة.
+- **الكود:** `Services/FreelancerTeam/TeamAbilities`، `Http/Controllers/Freelancer/TeamMemberController`. **الاختبارات:** `tests/Feature/FreelanceTeamRolesTest.php`.
+
+## وصول الفريق لمشروع الفريق (FS-206a) — 2026-11-06
+
+سيرفر بس؛ الشاشات في FS-209. نفس نمط فريق العميل (`ProjectTeamAccess`): middleware **`freelance.team-project-access`** على كل `projects/{uuid}/...` في تطبيق المحترف.
+
+**الفكرة:** المشروع بيفضل بتاع الـ Owner الموقّع (D2). أي حد تاني من الفريق بيستخدم **نفس routes المشروع العادية**، ولو دوره يسمح بالـ route ده الطلب **بيشتغل كأنه الموقّع** (اتفاقه، محفظته، فحوصاته)، و`FreelancerTeamContext` بيسجّل مين اللي عمل فعلًا في `acted_by_freelancer_id` على `freelance_project_events` و`freelance_milestone_events` و`freelance_project_approvals` و`freelance_offer_events`. السجل والـ timeline بيعرضوا `by: {name, team: true}`، والعميل بيشوف **الاسم الأول بس** (D10).
+
+**مين يدخل وعلى إيه** (`TeamProjects::ROLES`):
+
+| | Owner (أي Owner نشط) | PM | عضو |
+|---|---|---|---|
+| يوصل للمشروع | كل مشاريع الفريق | كل مشاريع الفريق | **اللي هو من ناسه بس** (D9؛ الإسناد في FS-206b) |
+| قراءة (`view`) | ✅ | ✅ | ✅ |
+| المبالغ (`money`) | ✅ | بمفتاح `view_price` (افتراضي ✅) | بمفتاح `view_price` (افتراضي ❌) |
+| العمولة والصافي (`net`) | ✅ | ❌ | ❌ |
+| Workroom كتابة | ✅ | ✅ | ✅ |
+| بدء مرحلة (`start`) | ✅ | ✅ | ❌ (مع الإسناد FS-206b) |
+| تقرير تقدّم (`report`) | ✅ | ✅ | ❌ |
+| التسليم (`deliver`، D11) | ✅ | ❌ | ❌ |
+| سحب مرحلة، رد على إلغاء/تغيير، نزاع، طلب المعرض (`manage`) | ✅ | ❌ | ❌ |
+| موافقة/رفض الاتفاق، التقييم والاعتراض والاستبيان | **الموقّع بس** | ❌ | ❌ |
+
+- **route مش في الخريطة = للموقّع بس** (403). اختبار بيلفّ على كل routes `projects/{uuid}/...` ويتأكد إنها في الخريطة أو في قائمة «الموقّع بس»، وإن الـ middleware عليها.
+- **routes شخصية** (المفضلة، عرضي، فحص/معاينة/إرسال عرض) بتعدّي **باسم صاحبها** من غير تبديل.
+- **الإجابة بتتخبّى:** من غير `money` كل `*_minor` = null و`lines` = []؛ من غير `net` (أي حد غير Owner) `net_minor`/`commission_minor`/`commission`/`fees` = null و`lines` = []؛ وكل زرار `can` مش من حقه = false (`TeamProjects::CAN`).
+- **`team_access`** على صفحة المشروع والاتفاق وأفعال المراحل: `{team: {uuid, name}, role: owner|pm|member, signer: bool, abilities: [...]}` (للموقّع كمان).
+- **الرفض:** 403 `freelance_team_project_forbidden` (`data.ability`). اللي مالوش وصول (مش في الفريق، عضو مش من ناس المشروع، فريق موقوف/مؤرشف، مفتاح `teams` مقفول) = 404 زي الأول. الكتابة بتمرّ على `Sanctions` (`restricted_work`).
+- **`GET teams/{team}/projects`**: مشاريع الفريق اللي أنا أوصلها (`project`، `agreement` بالسعر لو `money`، `signed_by`، `team_access`). مش في الفريق = 404.
+- **القناة اللحظية** `freelance-workroom.{uuid}`: الموقّع + اللي ليه وصول من الفريق بنفس القاعدة.
+- **الشات الداخلي (D9):** خيط المشروع للـ Owners والـ PMs، والعضو لو من ناس المشروع بس (القائمة بتخفيه والقراءة/الكتابة = 404). الإشارة اللحظية لرسالة خيط مشروع **من غير النص** (التطبيق بيعيد التحميل مرة)، والـ push لمين يقدر يقرأ بس. فتح خيط مشروع بيقبل اتفاق `team_id` الفريق كمان.
+
+**معروف:** الحاجة اللي الشخص بيعملها في الـ Workroom بتتسجّل باسم الموقّع (`created_by`)، فأي حد من الفريق يقدر يعدّل/يمسح ملاحظة أو ملف كتبه الموقّع (زي فريق العميل بالظبط)؛ `acted_by_freelancer_id` بيقول مين. شات العميل (`client_chat`) لسه للموقّع بس — بيتظبط مع FS-206b/FS-207.
+
+**الكود:** `Http/Middleware/FreelancerProjectTeamAccess`، `Services/FreelancerTeam/TeamProjects` (الخريطة والأدوار و`access/allows/people/of`)، `FreelancerTeamContext` (scoped)، `FreelancerTeamView` (الإخفاء)، `Http/Controllers/Freelancer/TeamProjectController`. migration `2026_12_02_100000_add_acted_by_freelancer_to_freelance_records` (up/down/up على MySQL). **الاختبارات:** `tests/Feature/FreelanceTeamProjectAccessTest.php` (7)، وتعديل `FreelanceTeamOffersTest` (D11 بقى 403 بدل 404 لأن الـ PM/العضو بقوا يوصلوا) و`FreelanceTeamChatTest` (D9).
+
+## الإسناد داخل الفريق (FS-206b) — 2026-11-06
+
+سيرفر بس؛ الشاشات في FS-209. الـ Owner أو الـ PM بيحط ناس من الفريق على **مرحلة** وبيدّي ناس **مهام** في الـ Workroom. كله داخلي للفريق: العميل ما بيشوفش إسناد المراحل، وبيشوف **الاسم الأول** لصاحب المهمة بس (D10).
+
+| | |
+|---|---|
+| `GET projects/{uuid}/milestones/{milestone}/assignees` | اللي على المرحلة `{milestone: {uuid, title}, assignees: [{uuid, name}]}` — أي حد يوصل للمشروع. |
+| `PUT projects/{uuid}/milestones/{milestone}/assignees` `{freelancers: [uuid...]}` | بالظبط الناس دول (`[]` بيشيل الكل). **Owner أو PM** (قدرة `assign`). 422 `team_assignee_invalid` (حد مش عضو نشط في الفريق)، 422 `team_assign_closed` (الاتفاق مش فعّال)، 422 `team_project_required` (مش مشروع فريق). بيتسجّل في سجل المشروع `team.milestone.assignees` بـ `audience=team`، ومين اتحط بيوصله إشعار `freelance.team_assigned`. |
+| `GET projects/{uuid}/agreement` (FS-209b) | في اتفاقية فريق، جهة المحترف بس: كل مرحلة فيها `assignees: [{uuid, name}]` (مين من الفريق عليها، من غير طلب لكل مرحلة) — المفتاح بيتبعت للمحترف بس وصفحة العميل ما فيهاش (`FreelanceTeamAssignmentsTest`). لو مفيش حد عليها بترجع `[]`. |
+| مهام الـ Workroom: `assignee` | على `POST/PUT .../workroom/tasks` — uuid لعضو نشط في الفريق (أو `null` يشيله). بيخلّي `assignee_side=freelancer`. الرد فيه `assignee: {uuid, name}`. **العضو العادي** ياخد المهمة لنفسه بس (403 `team_assign_forbidden`)؛ الإسناد لغيره للـ Owner والـ PM. من جهة العميل = 422 `workroom_assignee_invalid`. تغيير `assignee_side` لـ `client` بيفك الشخص. |
+
+**الأثر:**
+- **D9 اتوسّع:** اللي اتحط على مرحلة أو مهمة بيوصل للمشروع (`TeamProjects::people` = ناس العرض/الاتفاق + المُسند لهم).
+- **العضو بيبدأ المرحلة اللي عليها** (`start` من غير ما يكون عنده قدرة البدء)، والـ `can.start` على المرحلة دي = true له؛ التسليم يفضل للـ Owner (D11).
+- **الخروج أو الشيل (D5):** أول ما العضو يخرج أو يتشال، كل مراحله ومهامه بتتفك فورًا (`TeamAssignments::release`)، ويتبلّغ **الـ Owners** بإشعار `freelance.team_assignments_released` (كام حاجة بقت من غير حد). مفيش قفل مراحل.
+
+**الكود:** `Services/FreelancerTeam/TeamAssignments`، `Http/Controllers/Freelancer/MilestoneAssigneeController`، `Models/FreelanceMilestoneAssignee`؛ `WorkroomTasks` (`assignee`)؛ `FreelancerTeamView::maskFor` (زرار بدء المرحلة)؛ migration `2026_12_03_100000_create_freelance_milestone_assignees` (جدول + `assignee_freelancer_id` على المهام). **الاختبارات:** `tests/Feature/FreelanceTeamAssignmentsTest.php` (6).
+
+## ملف الفريق (FS-202a) — 2026-11-06
+
+**مين يكتب:** الـ Owner بس (`edit_team`، مش مفتاح ⚙️). PM أو عضو = 403 `freelancer_team_ability`، حد بره الفريق = 404، فريق موقوف/متأرشف = 409 `freelancer_team_inactive`. كل تعديل في `AuditLog` (`freelance.team.profile_updated`، `freelance.team.logo_changed`).
+
+**مين يقرا:**
+- ناس الفريق النشطين: دايمًا (حتى لو موقوف)، ومعاهم `status` و`visibility` و`me {role, show_in_profile, can_edit}` وكل الأعضاء بأسمائهم الكاملة.
+- بره الفريق: فريق **نشط** بس.
+  - **عام:** لأي عميل أو محترف مسجّل.
+  - **خاص** (الافتراضي): للعميل اللي الفريق بعتله عرض، **ولعضو فريق مشروعه (FS-104) اللي دوره بيقرا العروض** (`offers`: manager / finance / delegate) على نفس المشروع. العرض المسحوب قبل ما العميل يشوفه ما بيتحسبش.
+- أي حد غير كده = 404 كأن الفريق مش موجود.
+
+**الأعضاء (D10):** بره الفريق مش بيظهر غير العضو اللي وافق بنفسه (`show_in_profile`، مقفول افتراضيًا)، وبيظهر بـ: الاسم الأول + الدور + `headline` + الصورة. الباقيين بيتعدّوا بس (`members_count`). مفيش حد يوافق مكان حد.
+
+**التخصصات والمهارات واللغات:** مش بتتكتب. دي اتحاد اللي عند الأعضاء النشطين (D10)، الأكتر تكرارًا الأول (10 تخصصات و20 مهارة)، فبتتغيّر مع الناس.
+
+**الأرقام:** بتاعة الفريق (D3):
+- `stats`: من `FreelanceReviews::teamStats` (التقييم من 3 تقييمات، المعايير، المشاريع المنتهية، نسبة الإنجاز، الالتزام بالمواعيد).
+- `reviews`: آخر 5 تقييمات من `latestAboutTeam`.
+- `running_projects`: اتفاقات الفريق الشغّالة.
+
+**الأعمال (Portfolio):** أعمال **ملك الفريق** في نفس جدول `freelancer_portfolio_items` بـ `team_id`، و`freelancer_id` هو الـ Owner اللي ضافها.
+- بنفس قواعد FL-105: إقرار الحقوق قبل الظهور، YouTube/Vimeo بس، نفس الحدود، وإخفاء الأدمن.
+- من غير ربط باتفاق (FL-L13 شخصي).
+- **ما بتظهرش أبدًا** في بورتفوليو الـ Owner الشخصي: `Freelancer::portfolioItems()` بقت `whereNull('team_id')`.
+- بره الفريق: العميل بيشوف `public` + `clients_only`، والمحترف `public` بس، والمخفي من الأدمن ولا حد.
+- رابط الصورة الموقّع بيتأكد إن الفريق لسه نشط.
+
+| | |
+|---|---|
+| `POST freelance/v1/teams {name}` | إنشاء فريق وانت الـ Owner (موثّق D4، `teams.owned_max` D1). 201 `data.team` (نسخة الأعضاء). |
+| `GET freelance/v1/teams/{uuid}/profile` | الملف (ناس الفريق، أو أي محترف لفريق عام). |
+| `PUT freelance/v1/teams/{uuid}/profile {name?, bio?, visibility: public\|private, accepting_projects?: bool}` | الـ Owner. النبذة نص عادي (≤ 2000)، والاسم بنفس قاعدة FS-201. |
+| `POST .../profile/logo` (multipart `logo`، صورة ≤ 5MB) · `DELETE .../profile/logo` | الـ Owner. `data.logo_url`. |
+| `PUT .../profile/me {show_in_profile: bool}` | العضو نفسه (D10)، حتى في فريق موقوف. |
+| `GET/POST teams/{uuid}/portfolio` · `PUT .../portfolio/order {ids[]}` · `PUT/DELETE .../portfolio/{id}` · `POST .../portfolio/{id}/images` · `GET/DELETE .../portfolio/{id}/images/{media}` | القراءة والصور لناس الفريق، والكتابة للـ Owner. نفس حقول `profile/portfolio` من غير `agreement_uuid`. |
+| `GET mobile/v1/freelance/freelancer-teams/{uuid}` | العميل (مش `team` اللي هو فريق مشروع العميل FS-104). |
+
+**في العروض:** `team.profile` = `{logo_url, verified, accepting_projects, rating, reviews_count, completed_projects}` جنب اسم الفريق (للطرفين)، ومحسوب مرة واحدة لكل فريق في الطلب.
+
+**`accepting_projects` معلومة بس:** بتظهر للعميل ومش بتمنع الفريق إنه يبعت عروض.
+
+**`verified`:** `verified_at` بعد موافقة الأدمن على توثيق الفريق (FS-202b)، وناس الفريق بيشوفوا `verification_status` كمان.
+
+**الكود:**
+- الخدمة: `Services/FreelancerTeam/TeamProfile`.
+- الـ Controllers: `Freelancer/TeamProfileController`، `Freelancer/TeamPortfolioController`، `Client/ClientTeamProfileController`.
+- اتعدّل: `FreelancerPortfolio` (أعمال الفريق)، `FreelanceReviews::latestAboutTeam`، `FreelancerTeams::cleanName`، `TeamOffers::present`.
+- migration: `2026_12_07_100000_add_profile_to_freelance_teams`.
+
+**الاختبارات:** `tests/Feature/FreelanceTeamProfileTest.php` (6).
+
+## توثيق الفريق (FS-202b) — 2026-11-06
+
+التوثيق **اختياري** (D4) ومش بيمنع الفريق من الشغل. الـ Owners بيجهّزوا مستندات ويبعتوها كطلب واحد، والأدمن بيوافق أو يرفض بسبب. كل محترف بيتوثّق لوحده، فتوثيق الفريق مش بيغيّر توثيق الأعضاء.
+
+**الـ Owners** (`freelance/v1/teams/{uuid}/verification`، أي Owner نشط؛ غيره 404، فريق موقوف 409 `freelancer_team_inactive`):
+
+| | |
+|---|---|
+| `GET .../verification` | `status` (`none` / `submitted` / `rejected` / `verified`)، `documents` (المجهّزة ولسه ما اتبعتتش)، `can_edit` و`can_submit`، و`last_request` (بسببه لو اترفض ومستنداته). |
+| `POST .../verification/documents` (multipart `title` ≤ 120 + `file`: jpg/png/pdf ≤ 8MB، بفحص الرفع) | مستند. 422 `team_verification_docs_limit` (10 في الطلب). |
+| `DELETE .../verification/documents/{uuid}` | سحب مستند ما اتبعتش. |
+| `GET .../verification/documents/{uuid}` | الملف (للـ Owners بس، `no-store`). |
+| `POST .../verification/submit` | يبعت المستندات كطلب. 422 `team_verification_empty`. |
+
+المستندات **على القرص الخاص** ومفيش رابط عام. 409 `team_verification_locked` أثناء المراجعة (مفيش رفع ولا إرسال تاني)، و409 `team_already_verified` لو الفريق موثّق.
+
+**الأدمن** (صلاحية `freelance-teams`: `view` للقراءة، `update` للقرار):
+- `GET admin/v1/freelance-teams[?verification=pending|verified]`: كل صف فيه `verified` و`verification_pending`، و`pagination.verification_pending` عدد المنتظرين.
+- تفاصيل الفريق فيها `verification {verified_at, requests[]}`: آخر 10 طلبات بمستنداتها.
+- `GET freelance-teams/{uuid}/verification/documents/{doc}`: فتح مستند، **وفتحه نفسه في AuditLog** (`freelance.team.verification_file_opened`).
+- `POST .../verification/decide {decision: approve|reject, reason?}`: على الطلب المفتوح. الرفض **بسبب إلزامي** (422 `team_verification_reason_required`). الموافقة بتحط `verified_at`. 409 `team_verification_decided` لو مفيش طلب مفتوح.
+- `POST .../verification/revoke {reason}`: سحب الشارة بسبب. 409 `team_not_verified`.
+
+**الأثر:**
+- `verified` على ملف الفريق وملخصه في العروض (FS-202a) بقى حقيقي.
+- ناس الفريق بيشوفوا `verification_status` في ملفهم.
+- الـ Owners بيوصلهم إشعار على الموافقة والرفض والسحب (`freelance.team_verified` / `team_verification_rejected` / `team_verification_revoked`).
+- كل خطوة في AuditLog (`freelance.team.verification_submitted` / `_decided` / `_revoked`).
+
+**الفرق عن الخطة:**
+- المستند بعنوان حر (مش من كتالوج `FreelanceDocumentType` بتاع هوية الأفراد) وملف واحد، من غير رقم أو تاريخ انتهاء.
+- مفيش مصفوفة متطلبات لكل دولة ولا فحص انتهاء تلقائي: الأدمن يسحب الشارة لو لزم.
+
+**الكود:**
+- `Services/FreelancerTeam/TeamVerification`.
+- `Freelancer/TeamVerificationController`، وإضافات في `Admin/FreelanceTeamAdminController`.
+- الموديلات `FreelanceTeamVerificationRequest` و`FreelanceTeamVerificationDocument`.
+- migration `2026_12_08_100000_create_freelance_team_verification`.
+- شاشة الأدمن `freelance/teams/index.vue`: كتلة «توثيق الفريق» وفلتر «مستني مراجعة».
+
+**الاختبارات:** `tests/Feature/FreelanceTeamVerificationTest.php` (5).
+
+## لوحة الأدمن للفرق (FS-208) — 2026-11-06
+
+أدمن → Freelance → **الفرق** (`/admin/freelance/teams`). صلاحية مستقلة **`freelance-teams`** (`view` للقراءة، `update` للإيقاف والشيل) — مش بتتدي مع شاشات تانية. مفتاح `teams` لكل دولة وحدود الفرق/الأعضاء (`teams.*`) من شاشتي المفاتيح والسياسات العاديتين.
+
+| | |
+|---|---|
+| `GET admin/v1/freelance-teams/options` | الدول والحالات. |
+| `GET admin/v1/freelance-teams[?search=&status=&country_id=&per_page=]` | الفرق: `uuid, name, status, status_reason, country, created_by, members_count, projects_running`، و`pagination.counts` لكل حالة. |
+| `GET admin/v1/freelance-teams/{uuid}` | الفريق كله: `members` (الكل بدورهم وحالتهم وسبب الخروج وهل شالتهم الإدارة)، `workload` (عبء كل عضو نشط، FS-207)، `projects` و`offers` و`stats`، `members_max` و`teams_enabled`، و`audit` (آخر ٣٠ إجراء على الفريق). |
+| `POST .../{uuid}/status` `{status: active\|suspended, reason}` | إيقاف (السبب **إلزامي**، 422 `team_suspend_reason_required`) أو إعادة تفعيل. 409 `team_status_unchanged`، 409 `team_archived`. الـ Owners بيوصلهم إشعار (`freelance.team_suspended` / `team_reactivated`)، و`AuditLog`: `freelance.team.status_changed`. الفريق الموقوف زي ما اتعمل في FS-201/205: مفيش عروض ولا أعضاء جداد، والخروج لسه فوري (D5)، والشغل الشغّال ما بيتلمسش. |
+| `POST .../{uuid}/members/{freelancer}/remove` `{reason?}` | الإدارة تشيل عضو (حتى Owner لو في Owner تاني — D6: 409 `freelancer_team_last_owner` للأخير). اللي كان ماسكه من مراحل ومهام بيتفك فورًا (D5)، والشخص بيتبلّغ (`freelance.team_member_removed_by_staff`)، و`AuditLog`: `freelance.team.member_removed_by_staff`. 404 لو مش عضو. |
+
+✅ **مراجعة توثيق الفريق اتعملت في FS-202b** (القسم تحت). **مؤجّل:** أرشفة الفريق من الأدمن (محتاجة قاعدة «مفيش اتفاق شغّال»). الباقات والمقاعد FS-211.
+
+**الكود:** `Admin/FreelanceTeamAdminController`، `Services/FreelancerTeam/TeamModeration` و`FreelancerTeams::removeByStaff`، migration `2026_12_06_100000_add_status_reason_to_freelance_teams` (`status_reason` و`status_changed_at`)، الصلاحية في `AdminPermissionSeeder`، والشاشة `views/freelance/teams/index.vue` (route `admin.freelance.teams` + الـ Sidebar + `freelance.teams.*` عربي/إنجليزي). **الاختبارات:** `tests/Feature/FreelanceTeamAdminTest.php` (5).
+
+## مساحة الفريق (FS-207) — 2026-11-06
+
+سيرفر بس؛ الشاشات في FS-209. اتنين حاجات: **عناصر داخلية للفريق في الـ Workroom** و**عبء العمل لكل عضو**. (الشات الداخلي اتعمل في FS-150d، ووصول الفريق للـ Workroom في FS-206a.)
+
+**1) عناصر الفريق الداخلية (`scope = team`):**
+- `scope` اختياري (`shared` افتراضي | `team`) على `POST .../workroom/tasks` و`POST .../workroom/files`. الملاحظة (comment) على ملف فريق بتاخد `scope` الملف تلقائيًا. الرد فيه `scope` على المهمة والملف والملاحظة.
+- **`team` بس لمشروع فريق ومن جهة المحترف** (422 `workroom_scope_invalid` غير كده، ومنها طلب العميل). مش بيتغيّر بعد الإنشاء، والمهمة الداخلية بتفضل لجهة المحترف (`assignee_side=freelancer`) حتى لو اتطلب غير كده.
+- **العميل ما بيشوفش حاجة منها:** مش في القوائم ولا الـ `summary` ولا التفاصيل/التنزيل/إصدارات الملف/ملاحظاته (404)، وأحداثها في سجل المشروع بـ `audience=team` (مش في الـ timeline بتاعه)، **ومفيش حدث لحظي ولا إشعار** بيتبعت للعميل عنها: القناة اللحظية بتاعة المشروع `freelance-workroom.{uuid}` مشتركة معاه فمنبعتش عليها حاجة لعنصر داخلي. (FS-209) بدل كده الحدث بيروح **لقناة الفريق** `freelance-team.{team uuid}` (أعضاؤه النشطين بس، نفس تصريح قناة الشات الداخلي) بنفس الاسم `freelance.workroom` وفيه `project`: `{project, kind: task|file|comment, action, uuid, by}` من غير نص (`FreelanceTeamWorkroomChanged`)، فالـ Workroom المفتوحة عند باقي الفريق بتقرا مرة واحدة. الاختبار: `FreelanceTeamWorkspaceTest` (+1).
+- **مش دليل نزاع:** `DisputeWorkroom` (اللي الأدمن بيشوفه) بيقرأ المشترك بس.
+- الحدود (`workroom.tasks_max` و`files_max` و`storage_mb`) بتعدّ كل عناصر المشروع، الداخلية كمان.
+
+**2) عبء العمل: `GET teams/{team}/workload`:**
+`{members: [{freelancer: {uuid, name}, role, projects, parts_open, tasks_open, tasks_overdue, tasks_blocked, tasks_done}]}` على مشاريع الفريق الشغّالة (اتفاق `active`): المراحل المُسندة اللي لسه ما خلصتش (مش `approved`/`cancelled`)، ومهامه (المفتوحة، المتأخرة بتاريخ استحقاق عدّى، المحجوبة، المنتهية). كل الأعضاء النشطين ظاهرين حتى لو صفر. **Owner وPM بيشوفوا الكل، والعضو العادي صفّه بس**، ومن برا الفريق 404.
+
+**الكود:** `WorkroomSupport::scope/visible` و`record/changed` بـ `scope`، `WorkroomTasks/Files/Comments`، `DisputeWorkroom`، `TeamAssignments::workload`، `TeamProjectController::workload`. migration `2026_12_05_100000_add_scope_to_freelance_workroom_files_and_comments` (`scope` على الملفات والملاحظات؛ المهام كان عندها). **الاختبارات:** `tests/Feature/FreelanceTeamWorkspaceTest.php` (3).
+
+## إرسال الـ PM لعرض الفريق (FS-206c) — 2026-11-06
+
+نفس `POST projects/{uuid}/offers` بتاع FS-205، بس دلوقتي **الـ PM كمان يبعت** (مش الـ Owner بس). العضو العادي لسه 403 `team_offer_forbidden`.
+
+- **`signer`** (uuid، جديد): الـ Owner اللي هيوقّع الاتفاق ويستلم الفلوس (D2). الـ PM **لازم** يحدده (422 `team_offer_signer_required`)، والـ Owner لو سكت يبقى هو الموقّع، وممكن يختار Owner تاني. لو مش Owner نشط في الفريق = 422 `team_offer_signer_invalid`.
+- **العرض بيفضل بتاع الموقّع:** `freelancer_id` = الموقّع، فحدوده وقاعدة «عرض واحد للمشروع» وكوتا الفريق كلها بتتحسب عليه/عليها. العمود الجديد `submitted_by_freelancer_id` بيحفظ الـ PM اللي بعت (null لو الـ Owner بعت بنفسه)، وسجل العرض `offer.submitted` فيه `acted_by_freelancer_id`.
+- **الـ PM بيتابع عرضه:** `my-offer` و`GET offers` و`PUT offers/{offer}` (السعر والأيام والتفاصيل والناس) و`POST offers/{offer}/withdraw` و`history` بتشتغل لصاحب العرض (الموقّع) وللـ PM اللي بعته. الرد فيه `submitted_by: {uuid, name}` لجهة المحترف، و`null` للعميل (العميل ما بيعرفش مين بعت داخليًا).
+- **إشعار:** الموقّع بيوصله `freelance.team_offer_submitted` («فلان بعت عرض الفريق وانت اللي هتوقّع وتستلم»).
+- **`GET offer-preview`** بياخد `signer` كمان؛ الفحوصات والصافي بتتحسب للموقّع.
+- بعد الاعتماد: الـ PM بيوصل للمشروع بقواعد FS-206a (مفيش جديد).
+
+**الكود:** `TeamOffers::prepare` (بترجّع `[team, staff, signer]`)، `FreelancerOffers` (`send/edit/withdraw/find/mine/myOffers`)، `FreelanceOffer::submittedBy`. migration `2026_12_04_100000_add_submitted_by_to_freelance_offers`. **الاختبارات:** `FreelanceTeamOffersTest` (+1 للـ PM، وتعديل «الـ Owner بس يبعت» لأن الـ PM بقى يبعت).
+
+## أرقام الفريق مقابل أرقام الـ Owner (FS-205 / D3) — 2026-11-06
+
+`FreelanceReviews::stats($freelancer)` (اللي بيغذّي بروفايل المحترف في العروض والمقارنة والخدمات والـ Insights و`QualityScore`) **بيستثني شغل الفريق** كله: التقييمات (`reviews.team_id`)، والاتفاقات (`agreements.team_id`) في `completed_projects` و`completion_rate` و`similar_projects`، ومراحل الاتفاقات دي في `on_time_rate`. نفس الأرقام للفريق من `FreelanceReviews::teamStats($team)` (جاهزة لملف الفريق FS-202). أثر جانبي مقصود: الـ Owner اللي شغله كله باسم الفريق أرقامه الشخصية صفر لحد ما يشتغل باسمه.
+
+## عرض باسم الفريق (FS-205) — 2026-11-06
+
+> **FS-213 (2026-11-08):** `staff` اتشال من الإرسال والتعديل — العرض باسم الفريق كله وما بيسمّيش حد. السيرفر **مش بيرفض** `staff` من تطبيق قديم، بس مش بيقراه (مفيش ناس على العرض ولا إشعار `team_offer_staffed`، وتعديل `staff` لوحده = `freelance_offer_unchanged`). العروض القديمة محتفظة بناسها، والاتفاقيات الجديدة ما بتتجمّدش عليها ناس من العرض؛ الأعضاء بيوصلوا للمشروع بالإسناد على المراحل والمهام (FS-206b). اللي تحت عن `staff` تاريخي.
+
+سيرفر بس؛ الشاشات في FS-209. ورا مفتاح `teams` (لدولة الـ Owner) فوق مفاتيح العروض العادية.
+
+**الإرسال** `POST projects/{uuid}/offers` (نفس عرض FL-301) + حقلين اختياريين:
+- `team` (uuid فريق أنا **Owner** فيه) و`staff[]`: `{freelancer: uuid, role: pm|executor, responsibility?: ≤200}` — اللي هيشتغلوا على العرض. بحد أقصى 20، **PM واحد على الأكتر**، كل واحد مرة، ولازم **أعضاء نشطين** في الفريق (اللي خرج مش بيتختار). `staff` من غير `team` = 422، و`staff: []` مقبول (العرض باسم الفريق وبس). بيوصل كمان كـ form fields (`staff[0][freelancer]`) مع الملفات.
+- **الـ Owner بس** (دلوقتي): PM/عضو → 403 `freelance_team_offer_forbidden`، مش في الفريق → 404، فريق موقوف/مؤرشف → 409 `freelance_freelancer_team_inactive`، مفتاح `teams` مقفول → 403 `freelance_feature_off`، ناس غلط → 422 `freelance_team_offer_staff_invalid`. إرسال PM للعرض بيستنى وصوله للمشروع (FS-206).
+- العرض والاتفاق `freelancer_id` = الـ Owner اللي بعت (يوقّع ويتدفعله، D2) + `team_id`. **عرض واحد للمحترف على المشروع** لسه: الـ Owner لو بعت عرض شخصي ما يبعتش باسم الفريق على نفس المشروع (والعكس) → 409 `freelance_offer_already_sent`.
+- **الحصة:** سياسة `teams.offers_monthly` (عدد صحيح 1–100000، فاضي = بلا حد وهو الافتراضي). بتتحسب على **الفريق** في الشهر الميلادي، وعرض الفريق **مش بيستهلك** عروض الـ Owner المجانية ولا المشتراة (`free=false` ومن غير `credit_id`). اللي اتسحب قبل ما العميل يشوفه بيرجّع مكانه (`quota_returned` في سجل العرض). عدّى الحد → 422 `freelance_team_offer_quota_exhausted` (بيتعدّ والفريق مقفول، فعرضين مع بعض مش بيصرفوا آخر مكان مرتين). مفيش باقات عروض للفرق لحد FS-211.
+- `GET projects/{uuid}/offer-preview?team={uuid}` بيزود `team_quota {limit, used, left}` و`blocked` بيتحسب من حصة الفريق؛ من غير `team` بيرجع `team_quota: null`.
+
+**التعديل** `PUT offers/{offer}`: `staff` (القائمة كاملة كل مرة) تتغير والعرض مفتوح؛ `team` ممنوع في التعديل (422)؛ نفس الناس بدون تغيير تاني = 422 `freelance_offer_unchanged`؛ `staff` على عرض شخصي = 422 `team_offer_staff_invalid`. اللي اتضاف جديد بيتبلّغ، والعميل بيتبلّغ إن العرض اتعدّل. الناس مش بتدخل في `revisions` (سعر/أيام/تفاصيل بس).
+
+**الشكل** (`team` في العرض وفي الاتفاق، و`null` للعرض العادي): `{uuid, name, members: [{name, role, responsibility, freelancer?}]}`. **جهة المحترف:** الاسم كامل + `freelancer` (uuid). **جهة العميل:** الاسم الأول + الدور + المسؤولية بس (D10) — مفيش موبايل ولا uuid ولا إيميل ولا صورة. `ClientOfferViews` والاتفاق بيرجعوه نفس الشكل.
+
+**الاتفاق:** `agreements.team_id` من العرض (`Agreements::draft`). الناس بتتنسخ لـ `freelance_agreement_team_members` وقت التفعيل (`approve`) **مرة واحدة وبتفضل ثابتة** حتى لو الفريق اتغيّر؛ قبل التفعيل العميل بيقرا ناس العرض.
+
+**الإشعارات:** كل واحد اتحط على عرض (أو اتضاف بعد تعديل) بيتبلّغ `freelance.team_offer_staffed` (بيعرف إن العميل هيشوف اسمه الأول ودوره، من غير موافقة منفصلة)؛ الـ Owner اللي بعت مش بيتبلّغ. سجل العرض: `offer.submitted` فيه `team`، و`offer.edited` فيه `staff: true`.
+
+**التقييم (D3):** `freelance_reviews.team_id` = فريق الاتفاق لتقييم العميل (جهة المحترف للعميل من غير فريق). `FreelanceReviews::stats` و`latestAbout` بيستثنوا الصفوف اللي فيها `team_id` — تقييم شغل الفريق مش بيدخل في تقييم الـ Owner الفردي. `QualityScore` مش متأثر (بيحسب تقييم المحترفين للعميل). **لسه:** عرض تقييم الفريق نفسه (FS-202).
+
+**D11 على المسار الفعلي:** `POST projects/{uuid}/milestones/{m}/deliver` للـ Owner الموقّع بس. اتختبر: PM أو عضو بكل المفاتيح (حتى `deliver` متحطة يدويًا في الداتا) = 404 والمرحلة بتفضل `in_progress` ومفيش حدث تسليم؛ الأعضاء مالهمش وصول للمشروع أصلًا لحد FS-206.
+
+**الكود:** `Services/FreelancerTeam/TeamOffers` (`prepare / staff / same / quota / assertQuota / save / copyToAgreement / present`)، وبيتنده من `FreelancerOffers::send/edit/withdraw/present`، `Agreements::draft/approve/present`، `FreelanceReviews::rate/stats/latestAbout`. migration `2026_12_01_100000_add_team_to_freelance_offers_and_agreements` (`team_id` على `freelance_offers` و`freelance_agreements` و`freelance_reviews`، و`freelance_offer_team_members` و`freelance_agreement_team_members`؛ جرّبناها up/down/up على MySQL). **الاختبارات:** `tests/Feature/FreelanceTeamOffersTest.php`.
+
+## المحادثة الداخلية للفريق (FS-150d) — 2026-11-06
+
+محادثة فريق المحترفين (FS-201) **منفصلة عن شات العميل**: العميل ما بيشوفهاش وما بيتبلّغش بيها. للمحترف بس (`/api/freelance/v1/…`، حارس `freelance_api`) ورا مفتاح `teams` (403 `feature_off`). فريق مش بتاعك (أو خرجت منه) = 404.
+
+| طريقة | مسار | |
+|---|---|---|
+| GET | `teams` | `data.teams[]: {uuid, name, status, role, joined_at, logo_url, verified, members_count, accepting_projects, visibility}` — الفرق اللي أنا فيها دلوقتي (الحقول بعد `joined_at` من FS-209 لكروت التطبيق، من غير سؤال لكل فريق) |
+| GET | `teams/{team}/chat/threads` | `data: {threads[], can_write, can_open_project, notice}`. الخيط العام الأول (بيتعمل أول مرة)، وبعده خيوط المشاريع الأحدث رسالة الأول |
+| POST | `teams/{team}/chat/threads` `{project: uuid}` | Owner بس (403 `freelancer_team_forbidden`): خيط المشروع (أو الموجود). لازم اتفاق المشروع `active`/`completed` وموقّع من Owner في الفريق (422 `internal_chat_project_invalid`) |
+| GET | `teams/{team}/chat/threads/{thread}/messages[?before=id&limit=1..100]` | `data: {thread, messages[], next_before, notice}` — الأحدث الأول |
+| POST | `teams/{team}/chat/threads/{thread}/messages` `{body (≤2000), client_msg_id? (≤64)}` | 201 `data.message`. نص بس. نفس `client_msg_id` من نفس الشخص = نفس الرسالة. فاضي = 422 `chat_empty`. فريق موقوف/مؤرشف أو المفتاح مقفول في دولة الفريق = 409 `freelancer_team_inactive`. عقوبة `chat` بتمنع الإرسال |
+| POST | `teams/{team}/chat/threads/{thread}/read` | `data.read` = اللي اتقرا دلوقتي |
+| DELETE | `teams/{team}/chat/messages/{id}` | المرسل بس خلال 5 دقايق (غير كده 422 `message_not_deletable`؛ رسالة حد تاني = 404). بتفضل «اتمسحت» |
+
+**شكل الخيط:** `uuid, general, project{uuid,title}|null, unread, last_message_preview, last_message_at, can_write, under_review` (`under_review` = فيه نزاع على المشروع بيتحسم والإدارة ممكن تقراه). **شكل الرسالة:** `id, from{id,name}, mine, kind (text|deleted), body, client_msg_id, created_at`.
+
+**الحدث اللحظي (من غير Polling):** قناة خاصة `freelance-team.{team uuid}` لأعضاء الفريق النشطين بس، الحدث `freelance.internal` ومعاه `{thread, action: message|deleted|read, message?, reader?, up_to?}`. **الإشعار:** `freelance.internal_message` لباقي الأعضاء (مش للمرسل).
+
+**الإدارة (قراءة بس):** `GET /api/admin/v1/freelance-disputes/{uuid}/internal-chat` بصلاحية مستقلة **`freelance-internal-chat.view`** → `data: {dispute, project, threads[{uuid, team{uuid,name}, messages_count, messages[{id, from{id,name,role}, kind, body, deleted, deleted_at, at}]}]}` — خيوط **المشروع ده بس** (مش العام ولا مشاريع تانية)، الأقدم الأول (500 للخيط). مفتوحة والنزاع `open` أو `appealed` بس (غير كده 403 `internal_chat_not_open`). كل فتح بيتسجّل في `AuditLog` (`freelance.internal_chat.viewed`، الأدمن + النزاع + عدد الخيوط والرسائل)، وأول مرة لكل نزاع الـ Owners بيتبلّغوا `freelance.internal_chat_reviewed`. الرسالة اللي اتسحبت وقت النزاع ده بيفضل نصها للإدارة بس (`deleted: true`).
+
+**الإدارة: الـ Workroom المشترك في النزاع (FS-150f، قراءة بس):** `GET /api/admin/v1/freelance-disputes/{uuid}/workroom` بصلاحية `freelance-disputes.view` (من غير صلاحية جديدة) وفي أي حالة للنزاع، وبغض النظر عن مفتاح `workroom` في الدولة → `data: {dispute, tasks[], files[{…, versions[{number, note, name, mime_type, size_bytes, by_side, created_at, path}]}], comments[{body, subject{type: file|delivery, uuid}, version, author_side}], decisions[]}` لمشروع النزاع بس، وللمهام `scope=shared` بس. حقائق من غير `mine` ولا `can`. `GET .../workroom/files/{file}/versions/{number}/download` بيرجّع **الملف الأصلي** (مش المعاينة)، وملف مشروع تاني = 404. كل فتح بيتسجّل `freelance.dispute.workroom_viewed` وكل تحميل `freelance.dispute.workroom_file_downloaded` في `AuditLog`، ومفيش إشعار للطرفين (المشترك أصلًا بيشوفوه). **FS-150g:** `GET .../workroom/timeline` → `data: {dispute, entries[]}` (نفس شكل خط الـ Workroom الزمني، الأحدث الأول، الخطوات `audience=both` بس + سجل الموافقات، `mine` دايمًا false) وكل فتح `freelance.dispute.workroom_timeline_viewed` في AuditLog. **الكود:** `Services/Workroom/DisputeWorkroom`، `Http/Controllers/Admin/FreelanceDisputeWorkroomController`. **الشاشة:** مودال النزاع في لوحة الأدمن (`DisputeWorkroom.vue` + `DisputeInternalChat.vue`، الشات الداخلي بزرار ويظهر لصاحب `freelance-internal-chat.view` وقت `open/appealed` بس).
+
+**الجداول** (migration `2026_11_30_100000`): `freelance_internal_threads`، `freelance_internal_messages`، `freelance_internal_reads` (تفاصيل في TEAMS-ERD §4). **الكود:** `Services/FreelancerTeam/TeamChat`، `Http/Controllers/Freelancer/TeamChatController`، `Http/Controllers/Admin/FreelanceInternalChatController`، `Events/FreelanceTeamChatChanged`. **الاختبار:** `FreelanceTeamChatTest` (12 اختبار).
+
+## باقة الفريق (FS-211) — 2026-11-07
+
+ورا مفتاحَي `teams` و`subscriptions`. للـ **Owners** بس (باقة بتتخصم من محفظة Owner، D7): PM أو عضو = 403 `freelance_team_plan_forbidden`، ومن برّه الفريق = 404.
+
+**الفكرة:** الباقة بتتسعّر **على الفريق** (مش على كل عضو) وبتزوّد اللي بتديه سياسة الفرق، ومش بتنزّلها أبدًا:
+
+| الحد | السياسة (الفريق من غير باقة) | عمود الباقة | القاعدة |
+|---|---|---|---|
+| الأشخاص النشطين | `teams.members_max` | `team_members_max` | السياسة فاضية = بلا حد (الباقة ما بتغيّرش)؛ الباقة فاضية = بلا حد؛ غير كده الأكبر |
+| المشاريع الشغّالة مع بعض (اتفاقيات `active` بـ `team_id`) | `teams.projects_max` (**جديدة**، فاضي = بلا حد) | `team_projects_max` | نفس القاعدة |
+| عروض الشهر | `teams.offers_monthly` | `offers_monthly` / `offers_unlimited` | `offers_unlimited` = بلا حد؛ باقة من غير رقم = رقم السياسة |
+
+- الحد بيمنع **الجديد بس**: ضم شخص (`freelancer_team_limit_members`) أو إرسال عرض باسم الفريق (`team_projects_limit` لو الشغّال وصل الحد، `team_offer_quota_exhausted` لحصة الشهر). محدش بيتشال ومفيش مشروع شغّال بيتقطع لو الباقة خلصت.
+- **باقة ما بتفتحش أكتر من السياسة مش بتتباع** (`TeamPlans::raises`)، فالسياسات لازم تتضبط الأول.
+- الاشتراك بيدّي مزاياه طول ما هو `trialing|active|past_due` ومدفوع، حتى لو الأدمن قفل الباقة؛ بينتهي عند التجديد.
+
+**Routes** (`throttle freelance-team-subscription` 10/دقيقة على الكتابة):
+- `GET teams/{team}/subscription` → `data: {catalog, subscription, invoices, usage}`:
+  - `catalog = {currency, currency_symbol, decimals, plans[{slug, name, description, rank, free, current, prices{monthly,yearly}, yearly_saving_minor, benefits{members_max, projects_max, offers_monthly}, trial_days}]}` — **أول عنصر دايمًا الأساس المجاني** (`free:true`)، وبعده الباقات اللي بتفتح أكتر بس. سعر واحد للعالم بعملة `freelance.money`.
+  - `subscription` = الحي، وإلا آخر واحد، أو `null`: `{uuid, plan, period, status, active, auto_renew, price_minor, currency, period_end, trial_ends_at, grace_until, canceled_at, pending{plan, period}, paid_by{name}, paid_by_me}`.
+  - `usage = {plan{slug, name, free}, members{used, max}, projects{used, max}, offers{used, limit, left}}` (`null` = بلا حد).
+- `POST teams/{team}/subscription {plan, period: monthly|yearly}` — يبدأ باقة (تجربة مرة واحدة للفريق لو الباقة ليها `trial_days`، من غير خصم)، ولو في اشتراك حي بيغيّره: **باقة أعلى (أو شهري ← سنوي) فورًا** بخصم الوقت غير المستخدم، **أقل (أو سنوي ← شهري) آخر الفترة** (`pending`). اختيار الباقة الحالية بتاعت `pending` بيرجّعها.
+- `POST …/cancel` (أي Owner) إيقاف التجديد. `POST …/resume` و`POST …/renew` (محاولة دفع دلوقتي بعد فشل) و**التغيير** = **للـ Owner الدافع بس** (403 `freelance_team_plan_payer_only`) لأنها بتصرف من محفظته.
+- كل رد = نفس جسم `GET`.
+
+**الأخطاء** (بالـ prefix `freelance_`): `plan_unavailable` 422 (باقة فرد على فريق أو العكس، أو مش بتفتح حاجة، أو من غير سعر)، `subscription_insufficient` 422 (+ `needed_minor`/`available_minor`/`shortfall_minor`)، `team_subscription_exists` 409، `team_subscription_unchanged` 409، `team_subscription_past_due` 409 (مفيش تغيير وهو متأخر)، `team_subscription_none` 404، `team_subscription_not_resumable` 409، `freelancer_team_inactive` 409، `team_plan_forbidden` 403، `team_plan_payer_only` 403، `team_projects_limit` 422.
+
+**الدورة** (`freelance:renew-subscriptions` كل ساعة، مع اشتراكات المحترفين): تجديد من محفظة الدافع بسعر اليوم؛ الرصيد ناقص ← `past_due` + أيام سماح `freelance.plan_grace_days` (محاولة كل يوم) ثم `expired` والفريق يرجع لحدود السياسة؛ لو الدافع **مش Owner** وقت التجديد ← بتنتهي (`payer_left`) ومحدش بيتخصم منه. تذكير قبل التجديد (`plan_remind_days`). كل خصم = فاتورة (`freelance_team_subscription_invoices`، الفاشلة كمان) وقيد دخل لـ `freelance_subscriptions` وسطر `AuditLog` (`freelance.team.plan_taken|plan_changed|plan_canceled`).
+
+**الإشعارات** (`freelance.team_subscription_{started|renewing|renewed|renewal_failed}` للدافع، و`…_expired|payer_left` لكل الـ Owners).
+
+**الأدمن** (نفس شاشة الباقات `freelance-plans`):
+- `GET freelance-plans` → `plans[]` فيها `audience` و`team_members_max` و`team_projects_max`، مرتّبة فرد ثم فريق، و`subscribers` (المحترفين) و`team_subscribers` (الفرق)، و`revenue_30d` بيجمع فواتير النوعين.
+- `PUT freelance-plans/{id}`: باقة الفريق بتقبل `team_members_max` (1..1000) و`team_projects_max` (1..100000) (`null` = بلا حد) وبتتجاهل العمولة والشارة والـ boost والتحليلات والخدمات؛ وباقة الفرد بتتجاهل أرقام الفريق.
+- `GET freelance-plans/subscriptions?audience=team` → الفرق: `team{uuid,name}` و`freelancer` (الـ Owner الدافع) والباقة والحالة، و`pagination.counts` بالحالات؛ `search` باسم الفريق أو الدافع.
+- `GET freelance-teams/{uuid}` فيه `plan = {usage, subscription}`.
+- الأسعار بنفس `GET|PUT freelance-plans/{id}/prices…` والـ seeder بيزرع `team_starter` (مقفولة، `status=false`).
+
+**الكود:** `Services/FreelancerTeam/TeamPlans` و`TeamSubscriptions`، `Http/Controllers/Freelancer/TeamSubscriptionController`، `Models/FreelanceTeamSubscription(Invoice)`، migration `2026_12_09_100000_create_freelance_team_plans`. **الاختبارات:** `tests/Feature/FreelanceTeamPlansTest.php`.
+
+## سجل المراجعة لإجراءات الفريق (FS-212) — 2026-11-07
+
+كل خطوة بتغيّر فريق بتتكتب في `audit_logs` باسم `freelance.team.*` والشخص اللي عملها جوه `after` (`by_freelancer_id` أو `by` أو `freelancer`)، وسجل المشروع (`freelance_project_events`) بيقول مين عدّل الإسناد (`acted_by_freelancer_id`):
+
+| الإجراء | الـ action |
+|---|---|
+| إنشاء فريق ✅ جديد | `freelance.team.created` (`name`, `by_freelancer_id`) |
+| تعديل الملف / الشعار | `freelance.team.profile_updated` / `logo_changed` |
+| موافقة العضو على ظهور اسمه ✅ جديد | `freelance.team.consent_changed` (قبل/بعد، بس لما القيمة تتغيّر) |
+| دعوة / إلغاء / قبول / رفض | `freelance.team.invited` / `invitation_cancelled` / `invitation_accepted` / `invitation_declined` |
+| خروج / شيل (Owner) / شيل (موظف) | `freelance.team.member_left` / `member_removed` / `member_removed_by_staff` |
+| دور / مفاتيح | `freelance.team.role_changed` / `permissions_changed` |
+| إيقاف / تفعيل | `freelance.team.status_changed` |
+| التوثيق | `freelance.team.verification_submitted` / `verification_decided` / `verification_revoked` / `verification_file_opened` |
+| الباقة | `freelance.team.plan_taken` / `plan_changed` / `plan_canceled` |
+| إسناد مرحلة وفكّه (سجل المشروع) | `team.milestone.assignees` / `team.assignments.released` |
+
+**اللي بتقوله الاستجابات** (موثّق بالاختبار `FreelanceTeamHardTest`): مش عضو أو فريق تاني = **404** دايمًا (الفريق «مش موجود»)؛ عضو من غير الحق = **403**؛ أوراق التوثيق لغير الـ Owners = **404** والباقة = **403** (`freelance_team_plan_forbidden`)؛ آخر Owner = **409**.
+
+**الموقّع (D12، FS-212):** Owner وقّع على اتفاقية باسم الفريق لسه ما خلصتش (`draft` أو `pending_approval` أو `active`)، **أو** عنده عرض باسم الفريق لسه مفتوح (`submitted` أو `viewed` أو `shortlisted`)، لا يخرج (`POST teams/{team}/leave`) ولا يتنازل عن الـ Owner (`PUT …/members/{f}/role`) ولا Owner تاني يشيله (`DELETE …/members/{f}`) — **409 `freelance_freelancer_team_signer_active`** (`data.agreements` و`data.offers` = العددين) لحد ما الاتفاقيات تخلص (`completed`/`declined`/`cancelled`/`expired`) ويسحب عروضه (`POST /offers/{offer}/withdraw`، بإيده — مفيش سحب تلقائي). ترتيب الفحص: آخر Owner (`freelancer_team_last_owner`) الأول. **الموظف مش متقيّد** (`TeamModeration::removeMember`). `GET teams/{team}/members` بيرجّع `signed_agreements` و`open_offers` لكل عضو (غير الـ Owner = 0) وفي `me`، عشان الشاشة تقفل الأزرار قبل ما حد يجرّب.
+
+## الفريق في المفضلة، دعوته لمشروع، والمسمى الوظيفي (FS-213) — 2026-11-08
+
+**مفضلة الفرق (العميل)** — `mobile/v1/freelance/favorites/teams` ورا مفتاح `projects`:
+- `GET favorites/teams` (`page`/`per_page`) — الأحدث أول: `uuid`، `name`، `worked_with` (بينا اتفاق شغّال أو خلص)، + ملخص الملف (`logo_url`، `verified`، `accepting_projects`، `rating`، `reviews_count`، `completed_projects`). الفريق اللي بطّل مقروء للعميل (اتوقف/اتأرشف/بقى خاص من غير عرض ليه) **بيختفي من القائمة بس بيفضل محفوظ**.
+- `POST favorites/teams/{uuid}` — فريق أقدر أقرا ملفه (`TeamProfile::viewer` = عام، أو خاص بعتلي عرض)؛ غير كده 404. مرتين = مرة.
+- `DELETE favorites/teams/{uuid}` — فريق محفوظ عندي (حتى لو مش مقروء دلوقتي)؛ مش محفوظ = 404.
+- `GET freelancer-teams/{uuid}` بيزود `team.is_favorite`.
+
+**دعوة فريق لمشروع خاص** — `POST mobile/v1/freelance/projects/{uuid}/invitations {freelancers?: [uuid], teams?: [uuid]}` (واحد منهم على الأقل، `teams` لحد 10):
+- الدعوة بتتسجّل على **أول Owner نشط موثّق** في الفريق ومعاها `team_id`؛ هو اللي بيرد ويبعت العرض باسم الفريق. الأعضاء التانيين ما بيوصلهمش حاجة، والمشروع الخاص مقفول عليهم.
+- بيتخطّى (في `result.skipped[].reason`): `not_found` (فريق مش مقروء للعميل أو مفيش Owner صالح)، `team_not_accepting` (`accepting_projects=false`)، و`already_invited`/`declined`/`already_offered` زي الأفراد. نفس حد `invitations.max_per_project`.
+- إشعار للـ Owner: `freelance.invitation.team_received` (`{project, team}`). قوائم الدعوات (العميل `GET …/invitations` والمحترف `GET freelance/v1/invitations`) و`invitation` في صفحة المشروع للمحترف بيزودوا `team {uuid, name, logo_url}` (null للدعوة الفردية).
+
+**المسمى الوظيفي** — `PUT freelance/v1/teams/{team}/members/{freelancer}/title {job_title?: ≤60}`:
+- Owner بيكتب لأي حد (`manage_members`)، والشخص بيكتب لنفسه؛ غير كده 403. مش عضو نشط = 404، فريق موقوف/مؤرشف = 409. فاضي أو مش مبعوت = يمسحه. HTML بيتشال. بيتسجّل في الـ audit (`freelance.team.job_title_changed`).
+- `job_title` في `GET teams/{team}/members`، وفي ملف الفريق (`members[]` و`me`)، وفي ملف الفريق للعميل جنب الاسم الأول **للي وافق على الظهور بس** (D10 زي ما هو).
+
+## دُرر AI للعميل: يكتب المشروع ويرشّح الناس (FS-401 / FS-501، نسخة خفيفة) — 2026-11-09
+
+أداتين من أدوات دُرر AI للعميل في تطبيق المستخدم، **على باقة دُرر AI بتاعة العميل** زي أي أداة ذكاء اصطناعي (ADR-013). من غير باقة الرد
+`402 freelance_ai_plan_{reason}` و`data.reason` (`no_plan`, `trial_ended`, `cooldown`, `limit_reached`, `subscription_suspended`)، والتطبيقات بتفتح
+«محتاج باقة دُرر AI» لوحدها. كل أداة ليها مفتاح دولة: `ai_project_builder` و`smart_matching` (مفيش قاعدة = مقفول). الـ AI بيقترح بس: مفيش حاجة بتتحفظ
+أو تتبعت لوحدها. الكود: `Services/Ai/FreelanceAi.php` (الربط بالباقة)، `ProjectBuilder.php`، `SmartMatching.php`، `Client/ClientAiController.php`.
+
+- `GET mobile/v1/freelance/projects/ai/status` → `{builder, matching, allowed, reason}`: الأداتين شغالين في دولة العميل ولا لأ، والباقة تسمح دلوقتي ولا لأ (عشان الزرار يتقفل قبل ما يتداس).
+- `POST mobile/v1/freelance/projects/ai/build` `{idea (10..2000), answers?: [{question, answer}] (≤5)}` — مفتاح `ai_project_builder`، 10 في الدقيقة.
+  - الرد: `draft {title, description, specialty{id,name}|null, skills[{id,name}], budget{type, min_minor, max_minor, currency}, duration_days, visibility: public, questions[]}`
+    + `brief {summary, goal, audience, features[], deliverables[], acceptance[], out_of_scope[], assumptions[]}` + `questions[]` (≤3، اللي لسه مش واضح للعميل).
+  - التخصص من الكتالوج بس (النشط)، والمهارات بتتطابق مع الكتالوج بالاسم (اللي مش موجود بيتشال، مش بيتعمل). الميزانية والمدة **تقدير** جوه حدود الدولة
+    (`project.min_budget_minor` / `max_budget_minor`) و`max_duration_days`. الوصف = الـ brief كنص بعناوين بلغة العميل.
+  - أرقام التليفون والإيميلات بتتشال من الكلام قبل ما يروح للنموذج (FS-405). **مفيش حفظ:** التطبيق بيملا نموذج المشروع، والعميل بيحفظ المسودة بالطريق العادي.
+- `GET mobile/v1/freelance/projects/{uuid}/matches?refresh=1` — مفتاح `smart_matching`، 20 في الدقيقة، مشروعي أنا بس (غيره 404).
+  - `candidates[]`: `{uuid, name, headline, avatar_url, specialties[], skills_matched[], score (0..100), rating, reviews_count, completed_projects, similar_projects,
+    on_time_rate, available_now, years_of_experience, rate{type,min_minor,max_minor}|null, is_new, reasons[] (جمل جاهزة بلغة العميل), why (سطر دُرر AI), invited, offered}`.
+  - `lists {best, quality, value, fastest}` (uuids بالترتيب، 10 لكل قايمة)، `teams[]` (لو `teams` شغالة: `{uuid, name, logo_url, members_count, verified, score, rating,
+    reviews_count, completed_projects, reasons[], why}`)، `summary` (توصية دُرر AI)، `needs: "specialty"` لو المشروع مالوش تخصص ولا مهارات، `can_invite`.
+  - **الدرجة قواعد واضحة مش صندوق أسود:** المهارات 30، التخصص 15 (الأب 8)، التقييم 20 (الجديد بياخد النص — FS-504)، مشاريع شبيهة 10، الالتزام بالمواعيد 10،
+    التوفر 10، الميزانية 5، وشارات اختبار مهارات المشروع لحد 5. **الباقة المدفوعة للمحترف مش بتأثر على الترتيب.** المرشحين: موثّقين من الدول المفتوحة، في
+    التخصص (أو الأب) أو عندهم مهارة من مهاراته، أول 30.
+  - دُرر AI بيقرا أحسن 6 + أحسن 3 فرق **من غير أسماء** ويكتب سطر لكل واحد وخلاصة. الرد بيتحفظ 30 دقيقة لكل نسخة من المشروع (`updated_at`) ولغة،
+    فالفتح تاني مش بيعمل طلب AI جديد؛ `refresh=1` بيعيد. `invited` / `offered` / `can_invite` بيتحسبوا كل مرة.
+  - الدعوة من القايمة بالـ endpoint العادي `POST projects/{uuid}/invitations` (المشروع الخاص المنشور بس).
+- **الاختبار:** `FreelanceAiClientTest` (3).
+
+## Phase 8 — مدير المشروع الذكي (FS-801 / FS-802 / FS-806، نسخة خفيفة) — 2026-11-11
+
+- `GET mobile/v1/freelance/projects/{uuid}/workroom/ai/summary?days=1|7|30&refresh=1` — **العميل صاحب المشروع بس** (عضو فريق العميل مش واصل له،
+  والمحترف مالوش route)، على **باقة دُرر AI بتاعته** (`402 freelance_ai_plan_*`)، مفاتيح `workroom` + `ai_project_manager`، 20 في الدقيقة.
+  - الرد: `{days, facts {tasks_open, tasks_overdue, tasks_done, tasks_new, decisions, files, reports, percent, changes, messages, parts, parts_done},
+    health (نفس شكل FS-106 من جهة العميل), quiet, summary {headline, progress[], decisions[], changes[], risks[], next_client[], next_freelancer[]}|null, generated_at}`.
+  - **الأرقام بيعدّها دُرر مش النموذج.** الفترة الهادية (مفيش نشاط) = `quiet: true` من غير أي طلب AI. نفس النشاط = نفس الملخص من الكاش 6 ساعات
+    (المفتاح = بصمة اللي اتبعت للنموذج)؛ `refresh=1` بيعيد.
+  - النموذج بيقرا اللي الطرفين شايفينه بس: المهام والملفات المشتركة (`scope=shared`، حاجات الفريق الداخلية لأ)، القرارات، تقارير التقدم، طلبات التعديل،
+    المراحل وحالتها، وآخر 40 رسالة نصية في شات المشروع. **من غير أسماء** (الأطراف «client» / «freelancer»)، والتليفونات والإيميلات بتتشال، ومن غير مبالغ.
+  - طلب من بره الاتفاق في الشات بيظهر في `changes` كـ «ممكن يبقى طلب تعديل» (FS-803 خفيف) — العميل هو اللي يقرر.
+  - الكود: `Services/Ai/ProjectSummary.php`، `ClientAiController@summary`؛ `ai/status` فيه `manager`.
+- **FS-802 — المهام المتأخرة في صحة المشروع:** سبب جديد `task_overdue` (`at_risk`، مش `delayed` لأن ميعاد المهمة خطة الطرفين مش الاتفاق) لكل طرف عليه
+  مهمة مشتركة مش خلصانة وميعادها عدّى: `data {part: أقدم مهمة, days, count}`، `who` = اللي المهمة عليه. التنبيه كل ساعة (`alertWorse`) بيشتغل عليه زي باقي الأسباب.
+  التطبيقات الأربعة بتعرض الجملة (الكود المجهول في نسخة قديمة بيتشال أو «فيه حاجة محتاجة نظرة»).
+- **FS-806 — حدود الأمان:** كل routes دُرر AI في الفريلانس `GET` (إلا `ai/build` اللي مش بيحفظ حاجة)، وخدمات `Services/Ai` ما بتستخدمش الفلوس ولا
+  الاتفاق ولا النزاعات ولا بتكتب في أي موديل — اختبار بيثبت ده.
+- **الاختبار:** `FreelanceAiProjectManagerTest` (4).
+

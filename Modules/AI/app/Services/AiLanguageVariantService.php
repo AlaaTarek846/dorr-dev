@@ -2,13 +2,17 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Modules\AI\Http\Resources\AiLanguageVariantResource;
 use Modules\AI\Repositories\AiLanguageVariantRepository;
 
-class AiLanguageVariantService extends BaseService
+/**
+ * AI language variants catalog: list (+status counts), create/update with translations, status, bulk delete, trash,
+ * dropdown - and one default variant per language.
+ */
+class AiLanguageVariantService extends CatalogService
 {
     /**
      * @var class-string
@@ -28,7 +32,8 @@ class AiLanguageVariantService extends BaseService
      * winner wherever "the language's default variant" gets looked up.
      * Enforced the same way AiProviderModelService already does for a
      * provider's default model: making a variant the default unsets
-     * is_default on every other variant of the same language, inside a
+     * is_default on every other variant of the same language (the trash
+     * included, so a restore never brings back a second default), inside a
      * transaction so a request never leaves two defaults set even if it
      * fails partway through.
      *
@@ -38,7 +43,7 @@ class AiLanguageVariantService extends BaseService
     {
         if (($data['is_default'] ?? false) && ! empty($data['language_id'])) {
             return DB::transaction(function () use ($data) {
-                $this->repository->query()
+                $this->repository->query()->withTrashed()
                     ->where('language_id', $data['language_id'])
                     ->update(['is_default' => false]);
 
@@ -58,7 +63,7 @@ class AiLanguageVariantService extends BaseService
             return DB::transaction(function () use ($id, $data) {
                 $variant = $this->repository->show($id);
 
-                $this->repository->query()
+                $this->repository->query()->withTrashed()
                     ->where('language_id', $data['language_id'] ?? $variant->language_id)
                     ->where('id', '!=', $variant->id)
                     ->update(['is_default' => false]);

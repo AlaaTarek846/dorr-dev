@@ -24,8 +24,10 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading"><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                            <tr v-else-if="!rows.length"><td colspan="6" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
+                            <TableSkeleton v-if="loading" :rows="5" :layout="['two-lines', 'badge', 'badge', 'badge', 'badge', 'actions']" />
+                            <tr v-else-if="!rows.length">
+                                <td colspan="6" class="text-center text-muted py-5"><i class="ri-file-list-3-line fs-24 d-block mb-1"></i>{{ t('wallet.common.empty') }}</td>
+                            </tr>
                             <tr v-for="row in rows" v-else :key="row.id">
                                 <td class="ps-4">
                                     <div class="fw-semibold">
@@ -71,27 +73,31 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <RideLangFields v-slot="{ locale, dir }" :required="[form.name]">
-                            <label class="form-label">{{ t('rides.lang.name') }} *</label>
-                            <input v-model="form.name[locale]" type="text" class="form-control mb-3" :dir="dir">
+                            <label class="form-label">{{ t('rides.lang.name') }} <span class="text-danger">*</span></label>
+                            <input v-model="form.name[locale]" type="text" maxlength="191" class="form-control" :class="{ 'is-invalid': errorOf(`name.${locale}`) }" :dir="dir">
+                            <div class="invalid-feedback d-block mb-3">{{ errorOf(`name.${locale}`) }}</div>
                             <label class="form-label">{{ t('rides.lang.instructions') }}</label>
                             <textarea v-model="form.instructions[locale]" rows="2" class="form-control" :dir="dir"></textarea>
                         </RideLangFields>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ t('moving.document_types.code') }} *</label>
-                        <input v-model="form.code" type="text" maxlength="48" dir="ltr" class="form-control" :disabled="form.locked" placeholder="vehicle_side_photo">
+                        <label class="form-label">{{ t('moving.document_types.code') }} <span class="text-danger">*</span></label>
+                        <input v-model="form.code" type="text" maxlength="48" dir="ltr" class="form-control" :class="{ 'is-invalid': errorOf('code') }" :disabled="form.locked" placeholder="vehicle_side_photo">
+                        <div v-if="errorOf('code')" class="invalid-feedback d-block">{{ errorOf('code') }}</div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ t('moving.document_types.subject_label') }} *</label>
-                        <select v-model="form.subject" class="form-select" :disabled="form.locked">
+                        <label class="form-label">{{ t('moving.document_types.subject_label') }} <span class="text-danger">*</span></label>
+                        <select v-model="form.subject" class="form-select" :class="{ 'is-invalid': errorOf('subject') }" :disabled="form.locked">
                             <option v-for="s in options.subjects" :key="s" :value="s">{{ t(`moving.document_types.subject.${s}`) }}</option>
                         </select>
+                        <div v-if="errorOf('subject')" class="invalid-feedback d-block">{{ errorOf('subject') }}</div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ t('moving.document_types.kind_label') }} *</label>
-                        <select v-model="form.kind" class="form-select" :disabled="form.locked">
+                        <label class="form-label">{{ t('moving.document_types.kind_label') }} <span class="text-danger">*</span></label>
+                        <select v-model="form.kind" class="form-select" :class="{ 'is-invalid': errorOf('kind') }" :disabled="form.locked">
                             <option v-for="k in options.kinds" :key="k" :value="k">{{ t(`moving.document_types.kind.${k}`) }}</option>
                         </select>
+                        <div v-if="errorOf('kind')" class="invalid-feedback d-block">{{ errorOf('kind') }}</div>
                     </div>
                     <div class="col-md-8 d-flex flex-wrap gap-3 align-items-end">
                         <div v-for="flag in ['has_number', 'has_expiry', 'needs_back_side', 'status']" :key="flag" class="form-check form-switch">
@@ -101,7 +107,8 @@
                     </div>
                     <div v-if="form.has_expiry" class="col-md-4">
                         <label class="form-label">{{ t('moving.document_types.expiry_alert_days') }}</label>
-                        <input v-model.number="form.expiry_alert_days" type="number" min="0" max="365" class="form-control">
+                        <input v-model.number="form.expiry_alert_days" type="number" min="0" max="365" class="form-control" :class="{ 'is-invalid': errorOf('expiry_alert_days') }">
+                        <div v-if="errorOf('expiry_alert_days')" class="invalid-feedback d-block">{{ errorOf('expiry_alert_days') }}</div>
                     </div>
                 </div>
 
@@ -113,7 +120,7 @@
                 <div v-if="!form.requirements.length" class="text-muted fs-12 mb-2">{{ t('moving.document_types.optional_everywhere') }}</div>
                 <div v-for="(r, i) in form.requirements" :key="i" class="row g-2 align-items-center mb-2">
                     <div class="col-md-3">
-                        <select v-model="r.country_id" class="form-select form-select-sm">
+                        <select v-model="r.country_id" class="form-select form-select-sm" :class="{ 'is-invalid': errorOf(`requirements.${i}.country_id`) }">
                             <option v-for="c in options.countries" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
                     </div>
@@ -143,9 +150,20 @@
             </form>
             <template #footer>
                 <button type="button" class="btn btn-light" @click="showForm = false">{{ t('cancel') }}</button>
-                <button type="submit" form="provider-doc-type-form" class="btn btn-primary" :disabled="saving">{{ t('save') }}</button>
+                <button type="submit" form="provider-doc-type-form" class="btn btn-primary" :disabled="saving">
+                    <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>{{ t('save') }}
+                </button>
             </template>
         </WalletModal>
+
+        <ConfirmDeleteModal
+            :show="deleteConfirm.state.show"
+            :title="t('confirm.delete_title')"
+            :message="deleteConfirm.state.message"
+            :loading="deleteConfirm.state.loading"
+            @close="deleteConfirm.close()"
+            @confirm="handleDelete"
+        />
     </div>
 </template>
 
@@ -154,8 +172,11 @@ import RideLangFields from '../../rides/RideLangFields.vue';
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import ConfirmDeleteModal from '../../../../../../../components/ui/ConfirmDeleteModal.vue';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
+import { useConfirmDelete } from '../../../../../../../composables/useConfirmDelete';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 
@@ -171,6 +192,10 @@ const options = reactive({ countries: [], services: [], vehicle_types: [], subje
 const showForm = ref(false);
 const saving = ref(false);
 const error = ref('');
+const errors = reactive({});
+const errorOf = (key) => errors[key]?.[0] ?? null;
+const clearErrors = () => Object.keys(errors).forEach((key) => delete errors[key]);
+const deleteConfirm = useConfirmDelete();
 const blank = () => ({
     id: null, locked: false, code: '', subject: 'vehicle', kind: 'photo', has_number: false, has_expiry: false, needs_back_side: false,
     expiry_alert_days: null, status: true, name: { ar: '', en: '' }, instructions: { ar: '', en: '' }, requirements: [],
@@ -182,6 +207,7 @@ const subjectIcon = (s) => ({ vehicle: 'ri-truck-line', driver: 'ri-steering-2-l
 
 function openForm(row) {
     error.value = '';
+    clearErrors();
     Object.assign(form, blank(), row ? {
         id: row.id, locked: row.locked, code: row.code, subject: row.subject, kind: row.kind, has_number: row.has_number, has_expiry: row.has_expiry,
         needs_back_side: row.needs_back_side, expiry_alert_days: row.expiry_alert_days, status: row.status,
@@ -198,6 +224,7 @@ function addRequirement() {
 
 async function save() {
     error.value = '';
+    clearErrors();
     saving.value = true;
     try {
         if (form.id) {
@@ -210,21 +237,31 @@ async function save() {
         load();
     } catch (e) {
         const bag = e?.response?.data?.errors ?? {};
-        error.value = Object.keys(bag).length ? Object.values(bag)[0][0] : extractApiErrorMessage(e);
+        Object.assign(errors, bag);
+        // A message no field shows (a requirement row, the image…) still appears under the form.
+        const shown = ['code', 'name.ar', 'name.en', 'subject', 'kind', 'sort_order', 'expiry_alert_days', 'image'];
+        const rest = Object.entries(bag).find(([key]) => !shown.includes(key));
+        error.value = Object.keys(bag).length ? (rest?.[1]?.[0] ?? '') : extractApiErrorMessage(e);
     } finally {
         saving.value = false;
     }
 }
 
-async function remove(row) {
-    if (!window.confirm(t('moving.common.confirm_delete'))) {
-        return;
-    }
+function remove(row) {
+    deleteConfirm.open({ title: t('confirm.delete_title'), message: t('moving.common.confirm_delete_named', { name: row.name || row.code }), payload: row });
+}
+
+async function handleDelete() {
+    deleteConfirm.setLoading(true);
     try {
-        await adminAxios.delete(`/api/admin/v1/provider-document-types/${row.id}`);
+        await adminAxios.delete(`/api/admin/v1/provider-document-types/${deleteConfirm.state.payload.id}`);
+        showSuccess(t('moving.common.deleted'));
         load();
     } catch (e) {
         showError(extractApiErrorMessage(e));
+    } finally {
+        deleteConfirm.setLoading(false);
+        deleteConfirm.close();
     }
 }
 

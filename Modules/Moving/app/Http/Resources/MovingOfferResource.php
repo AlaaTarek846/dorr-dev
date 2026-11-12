@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Moving\Models\MovingOffer;
 use Modules\Moving\Services\Requests\MovingAfterService;
+use Modules\Moving\Services\Requests\MovingRequestService;
 use Modules\Provider\Enums\DocumentKind;
 use Modules\Provider\Enums\DocumentSubject;
 use Modules\Provider\Http\Resources\App\VehicleTypeResource;
+use Modules\Provider\Models\Branch;
 use Modules\Provider\Services\Documents\DocumentRequirements;
 
 /**
@@ -22,6 +24,28 @@ class MovingOfferResource extends JsonResource
 {
     /** @var list<string> */
     public array $reasons = [];
+
+    /** @return list<array<string, mixed>> */
+    private function branchesNear(): array
+    {
+        $move = $this->request;
+        $rows = Branch::query()->where('establishment_id', $this->establishment_id)->where('status', true)->get();
+
+        return $rows->map(function (Branch $b) use ($move) {
+            $km = $move && $move->pickup_lat !== null && $b->lat !== null
+                ? round(MovingRequestService::km((float) $b->lat, (float) $b->lng, $move->pickup_lat, $move->pickup_lng), 1) : null;
+
+            return [
+                'name' => $b->name,
+                'address' => $b->address,
+                'lat' => $b->lat !== null ? (float) $b->lat : null,
+                'lng' => $b->lng !== null ? (float) $b->lng : null,
+                'is_main' => (bool) $b->is_main,
+                'answering' => $b->id === $this->branch_id,
+                'distance_km' => $km,
+            ];
+        })->sortBy(fn (array $b) => [! $b['answering'], $b['distance_km'] ?? PHP_FLOAT_MAX])->values()->all();
+    }
 
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
@@ -53,6 +77,9 @@ class MovingOfferResource extends JsonResource
                 ...($this->establishment ? MovingAfterService::reputation($this->establishment->id) : []),
             ],
             'branch' => $this->branch?->name,
+            // Where the company is (owner, 2026-11-12): its branches, the one that answered first, then the nearest to the
+            // pickup point — the name, address, neighbourhood point and how far it is.
+            'branches' => $this->branchesNear(),
             'vehicle' => $vehicle ? [
                 'type' => $vehicle->type ? new VehicleTypeResource($vehicle->type) : null,
                 'photos' => $photos,

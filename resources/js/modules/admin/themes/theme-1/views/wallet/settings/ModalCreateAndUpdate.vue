@@ -21,7 +21,7 @@
                     </div>
                 </div>
 
-                <form @submit.prevent="submit">
+                <form class="wallet-scroll-form" @submit.prevent="submit">
                     <div class="modal-body px-4 pb-2">
                         <h6 class="fw-semibold mb-3">{{ t('wallet.settings.section_withdrawal') }}</h6>
                         <div class="row g-3 mb-4">
@@ -130,7 +130,7 @@
                                     option-label="label"
                                     option-value="value"
                                     :invalid="invalidOf('transfer_fee_payer')"
-                                    append-to="self"
+                                    append-to="body"
                                     class="w-100"
                                     @change="onInput('transfer_fee_payer')"
                                 />

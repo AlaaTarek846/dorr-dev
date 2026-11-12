@@ -481,12 +481,20 @@ private val CardsWithLists = setOf("moment_card", "match_card", "live_card", "ev
 @Composable
 private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
     val context = LocalContext.current
+    val host = LocalChat.current
     val style = meta?.get("style")?.takeIf { it.isJsonObject }?.asJsonObject // JSON null (an image story has no style) is not an object
     val text = meta?.str("text")
     val thumb = meta?.str("thumbnail")
+    val storyId = meta?.str("story_id")
+    val gone = stringResource(R.string.st_story_unavailable)
     Row(
         Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min),
+            .clip(RoundedCornerShape(10.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min)
+            // A tap opens the status while it's still up (as in WhatsApp); after that, it says it's gone.
+            .clickable {
+                val expired = parseInstant(meta?.str("expires_at"))?.isBefore(java.time.Instant.now()) == true
+                if (storyId == null || expired) host.showToast(gone) else host.openStoryById(storyId, gone)
+            },
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(if (mine) Color.White else Ch.Red))
         Column(Modifier.weight(1f).padding(horizontal = 9.dp, vertical = 7.dp)) {

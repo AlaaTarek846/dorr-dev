@@ -33,6 +33,9 @@ class MovingRequestRequest extends FormRequest
             'pieces_count' => ['nullable', 'integer', 'between:1,10000'],
             'dimensions' => ['nullable', 'string', 'max:255'],
             'vehicle_type_id' => ['nullable', 'integer', Rule::exists('provider_vehicle_types', 'id')->where('status', true)],
+            // Every vehicle type the customer accepts (a quarter or a half truck…), the first choice first.
+            'vehicle_type_ids' => ['sometimes', 'nullable', 'array', 'max:10'],
+            'vehicle_type_ids.*' => ['integer', 'distinct', Rule::exists('provider_vehicle_types', 'id')->where('status', true)],
             'workers_count' => ['sometimes', 'integer', 'between:0,50'],
             'packing' => ['sometimes', 'boolean'],
             'disassembly' => ['sometimes', 'boolean'],

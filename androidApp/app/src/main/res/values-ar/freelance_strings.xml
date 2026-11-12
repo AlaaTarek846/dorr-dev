@@ -25,7 +25,7 @@
     <string name="fl_specialty">التخصص</string>
     <string name="fl_pick_specialty">اختار التخصص</string>
     <string name="fl_skills">المهارات</string>
-    <string name="fl_search_skills">دوّر على مهارة (حرفين أو أكتر)</string>
+    <string name="fl_search_skills">ابحث عن مهارة (حرفان على الأقل)</string>
     <string name="fl_budget">الميزانية</string>
     <string name="fl_budget_fixed">مبلغ ثابت</string>
     <string name="fl_budget_range">من – إلى</string>
@@ -283,7 +283,7 @@
     <string name="fl_ch_title">تعديلات على الاتفاق</string>
     <string name="fl_ch_none">مفيش تعديلات مطلوبة.</string>
     <string name="fl_ch_extend">زيادة %1$d يوم</string>
-    <string name="fl_ch_price">سعر جديد لـ %1$s: %2$s ← %3$s</string>
+    <string name="fl_ch_price">سعر جديد لـ %1$s: %3$s بدل %2$s</string>
     <string name="fl_ch_add">مرحلة جديدة: %1$s بـ %2$s</string>
     <string name="fl_ch_scope">تعديل في الشغل بيشمل إيه</string>
     <string name="fl_ch_by_me">انت اللي طلبت</string>
@@ -367,7 +367,7 @@
     <string name="fl_inv_withdraw">اسحب الدعوة</string>
     <string name="fl_inv_add">ادعُ محترفين</string>
     <string name="fl_inv_pick">اختار مين تدعو</string>
-    <string name="fl_inv_search">دوّر بالاسم</string>
+    <string name="fl_inv_search">ابحث بالاسم</string>
     <string name="fl_inv_same_specialty">نفس تخصص المشروع</string>
     <string name="fl_inv_all">كل المحترفين</string>
     <string name="fl_inv_none_found">مفيش حد.</string>
@@ -409,7 +409,7 @@
     <string name="fl_copied">اتعملت نسخة كمسودة. عدّل اللي محتاجه وابعتها.</string>
     <string name="fl_cost_cap">الحد الأقصى للتكلفة</string>
     <string name="fl_cost_cap_field">أقصى مبلغ هدفعه (%1$s)</string>
-    <string name="fl_cost_cap_hint">اختياري. أكتر مبلغ هتدفعه إجمالي، شامل رسوم دُرّ. أي عرض أغلى منه مش هتقدر تختاره.</string>
+    <string name="fl_cost_cap_hint">اختياري. أكتر مبلغ هتدفعه إجمالي، شامل رسوم دُرر. أي عرض أغلى منه مش هتقدر تختاره.</string>
     <string name="fl_cost_cap_value">لحد %1$s %2$s</string>
     <string name="fl_cost_cap_none">من غير حد</string>
     <string name="fl_cost_cap_set">حدد حد أقصى للتكلفة</string>

@@ -115,6 +115,6 @@ data class FreelanceHealthDto(
 /** `mine`: this side is the one who has to act. */
 data class FreelanceHealthReasonDto(val code: String = "", val level: String = "", val mine: Boolean = false, val data: FreelanceHealthDataDto? = null)
 
-data class FreelanceHealthDataDto(val part: String? = null, val days: Int? = null, @SerializedName("due_at") val dueAt: String? = null)
+data class FreelanceHealthDataDto(val part: String? = null, val days: Int? = null, @SerializedName("due_at") val dueAt: String? = null, val count: Int? = null)
 
 data class FreelanceHealthStepDto(val code: String = "", val mine: Boolean = false)

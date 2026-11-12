@@ -17,6 +17,7 @@ use Modules\Moving\Services\Offers\MovingOfferService;
 use Modules\Moving\Services\Payment\MovingPayments;
 use Modules\Moving\Services\Payment\MovingSettlement;
 use Modules\Moving\Services\Policy\MovingPolicies;
+use Modules\Moving\Services\Requests\MovingAfterService;
 use Modules\Moving\Services\Requests\MovingRequestService;
 use Modules\Provider\Models\DocumentRequirement;
 use Modules\Provider\Models\DocumentType;
@@ -28,6 +29,8 @@ use Modules\Provider\Models\VehicleType;
 use Modules\Provider\Services\Documents\DocumentService;
 use Modules\Provider\Services\Establishments\EstablishmentService;
 use Modules\Provider\Services\Establishments\MembershipService;
+use Modules\Rides\Services\Geo\GeoProvider;
+use Modules\Rides\Services\Geo\RouteResult;
 use Modules\User\Models\User;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -360,6 +363,197 @@ class MovingFlowTest extends TestCase
         $this->getJson('/api/mobile/v1/moving/options')->assertOk()->assertJsonPath('data.available', false);
     }
 
+    public function test_the_route_between_the_two_ends_gives_the_road_distance_and_is_asked_once_per_pair(): void
+    {
+        $this->asCustomer();
+        $geo = \Mockery::mock(GeoProvider::class);
+        $geo->shouldReceive('route')->once()->andReturn(new RouteResult(18400, 1500, 'abc_poly'));
+        $this->app->instance(GeoProvider::class, $geo);
+
+        $query = '/api/mobile/v1/moving/route?from_lat=30.0444&from_lng=31.2357&to_lat=30.1&to_lng=31.3';
+        $this->getJson($query)->assertOk()
+            ->assertJsonPath('data.distance_m', 18400)->assertJsonPath('data.duration_s', 1500)
+            ->assertJsonPath('data.polyline', 'abc_poly')->assertJsonPath('data.estimated', false);
+        $this->getJson($query)->assertOk()->assertJsonPath('data.distance_m', 18400);
+        $this->getJson('/api/mobile/v1/moving/route?from_lat=300&from_lng=31&to_lat=30&to_lng=31')->assertStatus(422);
+    }
+
+    /**
+     * The owner's scenario (2026-11-11): a request reaches only the companies with an approved vehicle of a type the
+     * customer accepts; the customer may accept several types; every company sends its offer and the customer hears
+     * of each one, then compares them three at a time, cheapest first.
+     */
+    public function test_a_request_reaches_only_the_vehicle_types_asked_and_the_customer_hears_of_every_offer(): void
+    {
+        $type = fn (string $code) => VehicleType::query()->where('code', $code)->value('id');
+        [$quarterOwner, $quarterSeat, $quarter] = $this->readyIndividual('1031111111', 30.0444, 31.2357, 20, 'quarter_truck');
+        [$halfOwner, $halfSeat, $half] = $this->readyIndividual('1032222222', 30.0500, 31.2300, 20, 'half_truck');
+        [$jumboOwner, $jumboSeat] = $this->readyIndividual('1033333333', 30.0600, 31.2200, 20, 'jumbo_truck');
+        // A half truck still waiting for the admin: its company can't answer, so it isn't sent the request.
+        [, $pendingSeat, $pending] = $this->readyIndividual('1034444444', 30.0500, 31.2400, 20, 'half_truck');
+        $pending->update(['status' => 'pending']);
+
+        // A half truck only: the quarter-truck company never sees it.
+        $this->asCustomer();
+        $uuid = $this->postJson('/api/mobile/v1/moving/requests', [
+            'load_type' => 'home', 'description' => 'غرفة نوم', 'vehicle_type_ids' => [$type('half_truck')],
+            'scheduled_at' => now()->addDays(2)->toIso8601String(),
+            'pickup_lat' => 30.0500, 'pickup_lng' => 31.2400, 'pickup_area' => 'مدينة نصر',
+            'dropoff_lat' => 30.0200, 'dropoff_lng' => 31.4900, 'dropoff_area' => 'التجمع',
+        ])->assertCreated()->assertJsonPath('data.vehicle_type_id', $type('half_truck'))->json('data.uuid');
+        $this->postJson("/api/mobile/v1/moving/requests/{$uuid}/publish")->assertOk();
+        $move = MovingRequest::query()->where('uuid', $uuid)->firstOrFail();
+        $this->assertSame([$halfSeat->establishment_id], DB::table('moving_request_branches')->where('request_id', $move->id)->pluck('establishment_id')->all());
+
+        // A quarter or a half truck: both companies get it, the jumbo one and the one waiting for approval don't.
+        $uuid = $this->postJson('/api/mobile/v1/moving/requests', [
+            'load_type' => 'home', 'description' => 'ثلاجة وغسالة وسرير', 'vehicle_type_ids' => [$type('half_truck'), $type('quarter_truck')],
+            'scheduled_at' => now()->addDays(2)->toIso8601String(),
+            'pickup_lat' => 30.0500, 'pickup_lng' => 31.2400, 'pickup_area' => 'مدينة نصر',
+            'dropoff_lat' => 30.0200, 'dropoff_lng' => 31.4900, 'dropoff_area' => 'التجمع',
+        ])->assertCreated()
+            ->assertJsonPath('data.vehicle_type_ids', [$type('half_truck'), $type('quarter_truck')])
+            ->assertJsonCount(2, 'data.vehicle_types')
+            ->json('data.uuid');
+        $this->postJson("/api/mobile/v1/moving/requests/{$uuid}/publish")->assertOk();
+        $move = MovingRequest::query()->where('uuid', $uuid)->firstOrFail();
+        $this->assertEqualsCanonicalizing(
+            [$halfSeat->establishment_id, $quarterSeat->establishment_id],
+            DB::table('moving_request_branches')->where('request_id', $move->id)->pluck('establishment_id')->all(),
+        );
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($jumboOwner);
+        $this->getJson('/api/provider/v1/moving/requests')->assertOk()->assertJsonCount(0, 'data');
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($pendingSeat->provider);
+        $this->getJson('/api/provider/v1/moving/requests')->assertOk()->assertJsonCount(0, 'data');
+
+        // Each company opens it: its vehicles that can answer come first, and it offers.
+        $offer = fn (Vehicle $vehicle, int $price, int $hours) => [
+            'vehicle_uuid' => $vehicle->uuid, 'price_minor' => $price, 'workers_count' => 3, 'includes' => ['disassembly' => true],
+            'arrival_at' => now()->addDays(2)->addHours($hours)->toIso8601String(), 'valid_until' => now()->addDay()->toIso8601String(),
+        ];
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($halfOwner);
+        $this->getJson("/api/provider/v1/moving/requests/{$uuid}")->assertOk()
+            ->assertJsonPath('data.my_offer', null)
+            ->assertJsonPath('data.my_vehicles.0.uuid', $half->uuid)
+            ->assertJsonPath('data.my_vehicles.0.fits', true)
+            ->assertJsonPath('data.my_vehicles.0.problem', null)
+            ->assertJsonPath('data.pricing.tax_bp', 0);
+        $this->postJson("/api/provider/v1/moving/requests/{$uuid}/offers", $offer($half, 250000, 1))->assertCreated();
+        $this->getJson("/api/provider/v1/moving/requests/{$uuid}")->assertOk()->assertJsonPath('data.my_offer.price_minor', 250000);
+
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($quarterOwner);
+        // A vehicle of a type the customer didn't ask for is refused (here: the quarter company's extra jumbo).
+        $jumbo = $quarterSeat->establishment->vehicles()->create([
+            'vehicle_type_id' => $type('jumbo_truck'), 'country_id' => $this->egypt->id, 'plate_number' => '9999', 'status' => 'approved',
+        ]);
+        $this->getJson("/api/provider/v1/moving/requests/{$uuid}")->assertOk()
+            ->assertJsonPath('data.my_vehicles.0.uuid', $quarter->uuid)
+            ->assertJsonPath('data.my_vehicles.1.fits', false)
+            ->assertJsonPath('data.my_vehicles.1.problem', 'vehicle_type_not_asked');
+        $this->postJson("/api/provider/v1/moving/requests/{$uuid}/offers", $offer($jumbo, 150000, 0))
+            ->assertStatus(422)->assertJsonPath('error_code', 'moving_vehicle_type_not_asked');
+        $this->postJson("/api/provider/v1/moving/requests/{$uuid}/offers", $offer($quarter, 180000, 0))->assertCreated();
+
+        // The customer was told of both offers, and compares them: the cheapest first, their first choice marked.
+        $events = $this->customer->notifications()->get()->pluck('data.event')->all();
+        $this->assertSame(2, collect($events)->filter(fn ($e) => $e === 'moving.offer_received')->count());
+        $this->app['auth']->forgetGuards();
+        $this->asCustomer();
+        $offers = $this->getJson("/api/mobile/v1/moving/requests/{$uuid}/offers")->assertOk()->assertJsonPath('data.total', 2)->json('data.offers');
+        $this->assertSame([180000, 250000], array_column($offers, 'price_minor'));
+        $this->assertContains('cheapest', $offers[0]['reasons']);
+        $this->assertContains('vehicle_fit', $offers[1]['reasons']);
+        $this->assertNotContains('vehicle_fit', $offers[0]['reasons']);
+    }
+
+    /**
+     * The owner's rules (2026-11-12): a request reaches only the branch whose area holds it, and that branch offers with
+     * any vehicle of the company (this week's half truck is written on Alexandria); the customer sees the company's
+     * branches with the offer, then rates it by criteria as in rides, and the averages show with its next offers.
+     */
+    public function test_a_branch_offers_with_any_company_vehicle_the_customer_sees_its_branches_and_rates_by_criteria(): void
+    {
+        [$owner, $seat] = $this->readyIndividual('1051111111', 30.0444, 31.2357, 20, 'quarter_truck');
+        $alexandria = $seat->establishment->branches()->create([
+            'name' => 'فرع الإسكندرية', 'lat' => 31.2001, 'lng' => 29.9187, 'radius_km' => 20, 'address' => 'سموحة', 'status' => true,
+        ]);
+        $half = $seat->establishment->vehicles()->create([
+            'vehicle_type_id' => VehicleType::query()->where('code', 'half_truck')->value('id'), 'country_id' => $this->egypt->id,
+            'branch_id' => $alexandria->id, 'plate_number' => '5555', 'status' => 'approved',
+        ]);
+        foreach (DocumentType::query()->where('subject', 'vehicle')->pluck('code') as $code) {
+            $this->approve('vehicle', $half->id, $code, $seat->establishment_id);
+        }
+
+        // A half truck in Cairo: the Cairo branch gets it (the truck is the company's), Alexandria doesn't.
+        $move = $this->publishedRequest();
+        $this->assertSame([$seat->establishment->branches()->where('is_main', true)->value('id')], DB::table('moving_request_branches')->where('request_id', $move->id)->pluck('branch_id')->all());
+
+        $this->asProvider($owner);
+        $this->getJson("/api/provider/v1/moving/requests/{$move->uuid}")->assertOk()
+            ->assertJsonPath('data.my_vehicles.0.uuid', $half->uuid)->assertJsonPath('data.my_vehicles.0.problem', null);
+        $this->postJson("/api/provider/v1/moving/requests/{$move->uuid}/offers", [
+            'vehicle_uuid' => $half->uuid, 'price_minor' => 200000, 'includes' => ['packing' => true],
+            'arrival_at' => now()->addDays(2)->toIso8601String(), 'valid_until' => now()->addDay()->toIso8601String(),
+        ])->assertCreated();
+
+        // The customer sees where the company is: the answering branch first, then the others with their distance.
+        $this->app['auth']->forgetGuards();
+        $this->asCustomer();
+        $offer = $this->getJson("/api/mobile/v1/moving/requests/{$move->uuid}/offers")->assertOk()->json('data.offers.0');
+        $this->assertCount(2, $offer['branches']);
+        $this->assertTrue($offer['branches'][0]['answering']);
+        $this->assertSame('سموحة', $offer['branches'][1]['address']);
+        $this->assertGreaterThan(150, $offer['branches'][1]['distance_km']);
+        $this->assertNull($offer['establishment']['criteria'][0]['average']);
+
+        // Paid, delivered, then rated by criteria: the overall stars are their average.
+        $checkouts = app(CheckoutService::class);
+        $checkouts->payWithWallet($this->customer, $checkouts->create($this->customer, $this->egypt, 'moving', ['request_uuid' => $move->uuid, 'offer_uuid' => $offer['uuid']]));
+        $move->refresh()->update(['status' => MovingStatus::Delivered]);
+        $show = $this->getJson("/api/mobile/v1/moving/requests/{$move->uuid}")->assertOk()->json('data');
+        $this->assertSame(['punctuality', 'care', 'team', 'assembly', 'price'], array_column($show['rating_criteria'], 'key'));
+        $this->postJson("/api/mobile/v1/moving/requests/{$move->uuid}/rating", ['scores' => ['punctuality' => 5, 'care' => 4, 'team' => 5, 'assembly' => 4, 'price' => 2]])
+            ->assertCreated();
+        $this->assertSame(4, (int) DB::table('moving_ratings')->where('request_id', $move->id)->value('establishment_stars'));
+        $this->postJson("/api/mobile/v1/moving/requests/{$move->uuid}/rating", ['establishment_stars' => 5])->assertStatus(409);
+
+        // The next customer sees the averages per criterion with the company's offer.
+        $reputation = MovingAfterService::reputation($seat->establishment_id);
+        $this->assertSame(4.0, $reputation['average']);
+        $this->assertSame(['key' => 'care', 'label' => __('moving.rating_criteria.care'), 'average' => 4.0, 'count' => 1], $reputation['criteria'][1]);
+    }
+
+    /** The customer may tell the load in a voice note on the description page; it counts as the description and the companies hear it. */
+    public function test_a_voice_note_describes_the_load_and_the_companies_hear_it(): void
+    {
+        [$owner] = $this->readyIndividual('1061111111', 30.0444, 31.2357, 20);
+        $this->asCustomer();
+        $uuid = $this->postJson('/api/mobile/v1/moving/requests', [
+            'load_type' => 'home', 'vehicle_type_ids' => [VehicleType::query()->where('code', 'half_truck')->value('id')],
+            'scheduled_at' => now()->addDays(2)->toIso8601String(),
+            'pickup_lat' => 30.05, 'pickup_lng' => 31.24, 'pickup_area' => 'مدينة نصر', 'dropoff_lat' => 30.02, 'dropoff_lng' => 31.49, 'dropoff_area' => 'التجمع',
+        ])->assertCreated()->json('data.uuid');
+        $this->postJson("/api/mobile/v1/moving/requests/{$uuid}/publish")->assertStatus(422)->assertJsonPath('data.missing', ['description_or_photo']);
+
+        $note = fn () => UploadedFile::fake()->create('note.m4a', 40, 'audio/mp4');
+        $this->post("/api/mobile/v1/moving/requests/{$uuid}/media", ['file' => $note(), 'kind' => 'voice', 'duration_ms' => 9000, 'waveform' => json_encode([10, 80, 140, -5])], ['Accept' => 'application/json'])
+            ->assertCreated()->assertJsonPath('data.collection', 'voice')->assertJsonPath('data.waveform', [10, 80, 100, 0]);
+        // A new recording replaces the last one.
+        $this->post("/api/mobile/v1/moving/requests/{$uuid}/media", ['file' => $note(), 'kind' => 'voice', 'duration_ms' => 12000], ['Accept' => 'application/json'])->assertCreated();
+        $this->getJson("/api/mobile/v1/moving/requests/{$uuid}")->assertOk()->assertJsonPath('data.request.voice.duration_ms', 12000);
+        $this->postJson("/api/mobile/v1/moving/requests/{$uuid}/publish")->assertOk();
+        $this->assertSame(1, MovingRequest::query()->where('uuid', $uuid)->firstOrFail()->getMedia('voice')->count());
+
+        $this->app['auth']->forgetGuards();
+        $this->asProvider($owner);
+        $this->getJson("/api/provider/v1/moving/requests/{$uuid}")->assertOk()->assertJsonPath('data.voice.duration_ms', 12000);
+    }
+
     public function test_a_driver_only_seat_works_the_job_without_seeing_its_money(): void
     {
         [, $seat, , $move] = $this->confirmedJob(300000);
@@ -397,7 +591,7 @@ class MovingFlowTest extends TestCase
     }
 
     /** @return array{0: Provider, 1: Membership, 2: Vehicle} an approved individual mover with an approved half truck */
-    private function readyIndividual(string $phone, float $lat, float $lng, float $radius): array
+    private function readyIndividual(string $phone, float $lat, float $lng, float $radius, string $vehicleType = 'half_truck'): array
     {
         $owner = Provider::query()->create(['phone' => '+20'.$phone, 'name' => 'Mover '.$phone, 'country_id' => $this->egypt->id, 'status' => 'active', 'phone_verified_at' => now()]);
         $seat = app(EstablishmentService::class)->create($owner, [
@@ -406,7 +600,7 @@ class MovingFlowTest extends TestCase
         ]);
         $seat->establishment->update(['status' => 'approved']);
         $vehicle = $seat->establishment->vehicles()->create([
-            'vehicle_type_id' => VehicleType::query()->where('code', 'half_truck')->value('id'), 'country_id' => $this->egypt->id,
+            'vehicle_type_id' => VehicleType::query()->where('code', $vehicleType)->value('id'), 'country_id' => $this->egypt->id,
             'plate_number' => $phone, 'status' => 'approved',
         ]);
         foreach (DocumentType::query()->where('subject', 'vehicle')->pluck('code') as $code) {

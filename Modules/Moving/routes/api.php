@@ -14,6 +14,7 @@ use Modules\Moving\Http\Controllers\Provider\MovingProviderController;
 Route::middleware('locale')->prefix('mobile/v1/moving')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:120,1', 'country', 'remember-locale'])->group(function () {
         Route::get('options', [MovingRequestController::class, 'options']);
+        Route::get('route', [MovingRequestController::class, 'route']);
         Route::get('requests', [MovingRequestController::class, 'index']);
         Route::post('requests', [MovingRequestController::class, 'store']);
         Route::get('requests/{move}', [MovingRequestController::class, 'show']);

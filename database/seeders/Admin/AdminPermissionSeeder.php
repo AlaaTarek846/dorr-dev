@@ -6,6 +6,7 @@ use App\Models\ServiceCategory;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Support\AiAdminScreens;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -21,7 +22,7 @@ class AdminPermissionSeeder extends Seeder
      *
      * @return array<string, array{module_name: string, actions: list<string>}>
      */
-    private function permissionGroups(): array
+    public static function permissionGroups(): array
     {
         return [
             'admins' => [
@@ -286,16 +287,34 @@ class AdminPermissionSeeder extends Seeder
                 'actions' => ['view'],
             ],
             // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
-            // management, and the money report.
+            // management, and the money report — its own service in the dashboard's header, apart from the others.
             'watch-earn-settings' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-ads' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-finance' => [
+                'module_name' => 'watch_earn',
+                'actions' => ['view'],
+            ],
+            // The old providers list (Modules/Provider ProviderController) — the dashboard's "Providers" page.
+            'providers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
+            ],
+            // DORR AI Marketing Director (docs/marketing_tasks.md): switches per country, packages, operations.
+            'marketing-feature-rules' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'marketing-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'marketing-operations' => [
                 'module_name' => 'general_services',
                 'actions' => ['view'],
             ],
@@ -340,6 +359,10 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            // FS-150d: reading a team's internal chat about a disputed project - its own permission, not given with the disputes desk.
+            'freelance-internal-chat' => ['module_name' => 'freelance', 'actions' => ['view']],
+            // FS-208: the freelancers' teams desk.
+            'freelance-teams' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
             'freelance-reviews' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-message-reports' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -510,6 +533,11 @@ class AdminPermissionSeeder extends Seeder
                     'send',
                 ],
             ],
+            // AI assistant screens: one group per screen (Modules\AI\Support\AiAdminScreens, docs/screens/README.md).
+            ...array_map(
+                fn (array $actions) => ['module_name' => 'ai_assistant', 'actions' => $actions],
+                AiAdminScreens::GROUPS,
+            ),
         ];
     }
 
@@ -520,7 +548,7 @@ class AdminPermissionSeeder extends Seeder
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        foreach ($this->permissionGroups() as $groupName => $group) {
+        foreach (self::permissionGroups() as $groupName => $group) {
             $serviceCategoryId = $this->resolveServiceCategoryId($group['module_name']);
 
             foreach ($group['actions'] as $action) {

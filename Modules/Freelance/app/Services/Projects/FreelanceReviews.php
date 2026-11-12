@@ -11,6 +11,7 @@ use Modules\Freelance\Enums\FreelanceMilestoneStatus as Status;
 use Modules\Freelance\Exceptions\FreelanceException;
 use Modules\Freelance\Models\FreelanceAgreement as Agreement;
 use Modules\Freelance\Models\FreelanceMilestone as Milestone;
+use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 
@@ -71,6 +72,8 @@ class FreelanceReviews
             DB::table('freelance_reviews')->insert([
                 'rating_id' => $rating->id, 'agreement_id' => $agreement->id, 'project_id' => $agreement->project_id, 'side' => $side,
                 'freelancer_id' => $agreement->freelancer_id, 'client_id' => $agreement->client_id, 'created_at' => now(), 'updated_at' => now(),
+                // FS-205 / D3: what a client says about a team's work belongs to the team - it never goes into the Owner's own rating.
+                'team_id' => $side === 'client' ? $agreement->team_id : null,
             ]);
             FreelanceProjectApproval::forAgreement($agreement, 'review.rated', $side, $author->getKey());
             // Both rated: both show now.
@@ -137,8 +140,37 @@ class FreelanceReviews
      */
     public function stats(Freelancer $f, ?int $specialtyId = null): array
     {
-        $published = DB::table('freelance_reviews')->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
-            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at');
+        // FS-205 / D3: the work done in a team's name - its ratings, its projects, its on-time record - is the team's, not the person's.
+        return $this->figures(
+            DB::table('freelance_reviews')->where('freelance_reviews.freelancer_id', $f->id)->whereNull('freelance_reviews.team_id'),
+            fn ($q) => $q->where('freelancer_id', $f->id)->whereNull('team_id'),
+            $specialtyId,
+        );
+    }
+
+    /**
+     * FS-205 / D3: the same figures for a team - what its Owners signed in its name (shown on its profile, FS-202).
+     *
+     * @return array<string, mixed>
+     */
+    public function teamStats(FreelanceTeam $team): array
+    {
+        return $this->figures(
+            DB::table('freelance_reviews')->where('freelance_reviews.team_id', $team->id),
+            fn ($q) => $q->where('team_id', $team->id),
+            null,
+        );
+    }
+
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $reviews  the reviews the figures come from (the owner's scope is already on it)
+     * @param  \Closure  $agreements  narrows an agreements query to the same owner (a person without team work, or one team)
+     * @return array<string, mixed>
+     */
+    private function figures($reviews, \Closure $agreements, ?int $specialtyId): array
+    {
+        $published = $reviews->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
+            ->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at');
         $count = (clone $published)->count();
         $average = $count >= self::MIN_FOR_AVERAGE ? round((float) (clone $published)->avg('ratings.stars'), 2) : null;
         $criteria = $count >= self::MIN_FOR_AVERAGE
@@ -146,13 +178,13 @@ class FreelanceReviews
                 ->selectRaw('criterion, avg(stars) as avg')->pluck('avg', 'criterion')->map(fn ($v) => round((float) $v, 2))->all()
             : [];
 
-        $started = Agreement::query()->where('freelancer_id', $f->id)->whereNotNull('activated_at');
+        $started = $agreements(Agreement::query())->whereNotNull('activated_at');
         $startedCount = (clone $started)->count();
         $completed = (clone $started)->where('status', Agreement::COMPLETED)->count();
 
         // On time: an approved part delivered within its days (more days accepted on it count — FL-404).
         $timed = Milestone::query()->where('status', Status::Approved->value)->whereNotNull('duration_days')->whereNotNull('started_at')->whereNotNull('delivered_at')
-            ->whereHas('agreement', fn ($q) => $q->where('freelancer_id', $f->id))->get(['started_at', 'delivered_at', 'duration_days']);
+            ->whereHas('agreement', fn ($q) => $agreements($q))->get(['started_at', 'delivered_at', 'duration_days']);
         $onTime = $timed->filter(fn (Milestone $m) => $m->delivered_at->lte($m->started_at->copy()->addDays($m->duration_days)))->count();
 
         return [
@@ -162,7 +194,7 @@ class FreelanceReviews
             'completed_projects' => $completed,
             'completion_rate' => $startedCount === 0 ? null : (int) round($completed * 100 / $startedCount),
             'on_time_rate' => $timed->isEmpty() ? null : (int) round($onTime * 100 / $timed->count()),
-            'similar_projects' => $specialtyId === null ? null : Agreement::query()->where('freelancer_id', $f->id)->where('status', Agreement::COMPLETED)
+            'similar_projects' => $specialtyId === null ? null : $agreements(Agreement::query())->where('status', Agreement::COMPLETED)
                 ->whereHas('project', fn ($q) => $q->where('freelance_specialty_id', $specialtyId))->count(),
         ];
     }
@@ -175,11 +207,27 @@ class FreelanceReviews
      */
     public function latestAbout(Freelancer $f, int $limit = 10): array
     {
+        return $this->latest(fn ($q) => $q->where('freelance_reviews.freelancer_id', $f->id)->whereNull('freelance_reviews.team_id'), $limit);
+    }
+
+    /**
+     * FS-202a / D3: the latest ratings clients gave a team's work (shown on its profile).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function latestAboutTeam(FreelanceTeam $team, int $limit = 10): array
+    {
+        return $this->latest(fn ($q) => $q->where('freelance_reviews.team_id', $team->id), $limit);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function latest(\Closure $whose, int $limit): array
+    {
         return DB::table('freelance_reviews')->join('ratings', 'ratings.id', '=', 'freelance_reviews.rating_id')
             ->leftJoin('freelance_projects', 'freelance_projects.id', '=', 'freelance_reviews.project_id')
             ->leftJoin('freelance_consultations', 'freelance_consultations.id', '=', 'freelance_reviews.consultation_id')
             ->leftJoin('freelance_consultation_offers', 'freelance_consultation_offers.id', '=', 'freelance_consultations.offer_id')
-            ->where('freelance_reviews.freelancer_id', $f->id)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at')
+            ->where($whose)->where('freelance_reviews.side', 'client')->whereNotNull('freelance_reviews.published_at')->whereNull('freelance_reviews.excluded_at')
             ->orderByDesc('freelance_reviews.published_at')->orderByDesc('freelance_reviews.id')->limit($limit)
             ->get([
                 'ratings.stars', 'ratings.comment', 'freelance_projects.title', 'freelance_reviews.published_at', 'freelance_reviews.comment_hidden_at',

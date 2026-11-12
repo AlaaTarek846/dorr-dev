@@ -149,6 +149,9 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
     var dimensions: String?
     var vehicleType: VehicleTypeDto?
     var vehicleTypeId: Int?
+    /// Every vehicle type the customer accepts (a quarter or a half truck…), the first choice first.
+    var vehicleTypeIds: [Int]?
+    var vehicleTypes: [VehicleTypeDto]?
     var workersCount: Int?
     var extras: MovingExtrasDto?
     var pickup: MovingEndDto?
@@ -158,18 +161,81 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
     var notes: String?
     var photos: [MediaDto]?
     var videos: [MediaDto]?
+    /// The customer's voice note about the load.
+    var voice: MovingVoiceDto?
     var offersDeadlineAt: String?
     var publishedAt: String?
     var currencyCode: String?
+    var currencyDecimals: Int?
     /// The job's branch: who may be given it (`moving/drivers?branch_id=`).
     var branchId: Int?
     var money: MovingMoneyDto?
     var vehicle: JobVehicleDto?
     var driverAccepted: Bool?
     var driver: JobDriverDto?
-    var myOffer: MyOfferDto?
+    /// The establishment's own offer: uuid, status and price in the list; the whole offer on the request's page.
+    var myOffer: MovingOfferDto?
+    /// On the request's page: the establishment's vehicles, the ones that can answer it first.
+    var myVehicles: [MyVehicleDto]?
+    /// On the request's page: the country's values kept with it, for the offer's price breakdown.
+    var pricing: OfferPricingDto?
 
     var id: String { uuid }
+
+    /// The accepted vehicle types, the first choice first (an older request: its one type).
+    func askedTypes() -> [VehicleTypeDto] {
+        if let types = vehicleTypes, !types.isEmpty { return types }
+        return vehicleType.map { [$0] } ?? []
+    }
+}
+
+/// One of my vehicles on a request's page: `fits` = a type the customer asked for; `problem` = why it can't be offered now.
+struct MyVehicleDto: Decodable, Equatable, Identifiable {
+    var uuid: String
+    var branchId: Int?
+    var vehicleType: VehicleTypeDto?
+    var vehicleTypeId: Int?
+    var plateLetters: String?
+    var plateNumber: String?
+    var make: String?
+    var model: String?
+    var color: String?
+    var year: Int?
+    var status: String?
+    var fits: Bool?
+    var problem: String?
+    var problemText: String?
+
+    var id: String { uuid }
+    var usable: Bool { problem == nil }
+
+    func plate() -> String { [notBlank(plateLetters), plateNumber].compactMap { $0 }.joined(separator: " ") }
+}
+
+/// The country's values kept with the request (MovingPricing::forPrice): tax on top of the price, Dorr's commission out of it.
+struct OfferPricingDto: Decodable, Equatable {
+    var taxBp: Int?
+    var commissionBp: Int?
+    var commissionMinMinor: Int?
+    var commissionMaxMinor: Int?
+
+    /// The same numbers the server keeps: tax, what the customer pays, Dorr's commission and what the establishment gets.
+    func breakdown(_ price: Int) -> OfferBreakdown {
+        let tax = price * (taxBp ?? 0) / 10000
+        var commission = price * (commissionBp ?? 0) / 10000
+        if let min = commissionMinMinor { commission = max(commission, min) }
+        if let max = commissionMaxMinor { commission = Swift.min(commission, max) }
+        commission = Swift.min(commission, price)
+        return OfferBreakdown(price: price, tax: tax, total: price + tax, commission: commission, net: price - commission)
+    }
+}
+
+struct OfferBreakdown: Equatable {
+    let price: Int
+    let tax: Int
+    let total: Int
+    let commission: Int
+    let net: Int
 }
 
 struct MovingExtrasDto: Decodable, Equatable {
@@ -193,6 +259,14 @@ struct MovingEndDto: Decodable, Equatable {
 struct MediaDto: Decodable, Equatable, Identifiable {
     var id: Int
     var url: String?
+}
+
+/// The customer's voice note: its address, length and bars (0–100).
+struct MovingVoiceDto: Decodable, Equatable {
+    var id: Int
+    var url: String?
+    var durationMs: Int?
+    var waveform: [Int]?
 }
 
 struct MovingMoneyDto: Decodable, Equatable {

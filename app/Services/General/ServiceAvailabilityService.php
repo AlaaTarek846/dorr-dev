@@ -102,8 +102,12 @@ class ServiceAvailabilityService
             'region_id' => $region?->id,
         ]);
         $row->fill($changes)->save();
-        // The Freelance service reads the country's service switch (FL-804); let it see the change now.
-        \Illuminate\Support\Facades\Cache::forget('freelance:service-closed');
+        // The Freelance service reads the country's service switch (FL-804); let it see the change now - the shared copy and the one this
+        // request already read (FreelanceFeatures keeps it in the request's memo too).
+        foreach ([\Illuminate\Support\Facades\Cache::store(), \Illuminate\Support\Facades\Cache::memo()] as $cache) {
+            $cache->forget('freelance:service-closed');
+            $cache->forget('marketing:service-closed');
+        }
 
         // A region row that no longer sets anything is the same as no row.
         if ($region !== null && collect(ServiceAvailability::SWITCHES)->every(fn ($switch) => $row->{$switch} === null)) {

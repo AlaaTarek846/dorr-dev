@@ -65,9 +65,11 @@ class StoryController extends Controller
                     default => 'mimes:jpeg,jpg,png,webp,gif,heic,heif',
                 },
             ],
+            // A video's poster frame, picked by the app — the picture in a reply's quote of it.
+            'thumbnail' => ['nullable', 'file', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
         ]);
 
-        $story = $this->stories->create($request->user(), $data, $request->file('file'));
+        $story = $this->stories->create($request->user(), $data, $request->file('file'), poster: $request->file('thumbnail'));
 
         return ApiResponse::created(['id' => $story->uuid, 'expires_at' => $story->expires_at?->toIso8601String()], __('api.created'));
     }
@@ -133,6 +135,17 @@ class StoryController extends Controller
 
     public function viewers(Request $request, ChatStory $story)
     {
+        $f = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        // With `page`: 15 at a time (the app loads more as it scrolls); without it, the whole list (older apps).
+        if (isset($f['page'])) {
+            $page = $this->stories->viewersPage($request->user(), $story, (int) $f['page'], (int) ($f['per_page'] ?? 15));
+
+            return ApiResponse::success($page->getCollection()->values(), __('api.retrieved'), 200, \App\Support\Api\ApiPaginator::meta($page));
+        }
+
         return ApiResponse::success($this->stories->viewers($request->user(), $story), __('api.retrieved'));
     }
 

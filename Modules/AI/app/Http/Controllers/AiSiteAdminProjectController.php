@@ -5,6 +5,7 @@ namespace Modules\AI\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Http\Resources\AiSiteProjectResource;
 use Modules\AI\Models\AiSiteProject;
 use Modules\AI\Services\Sites\AiSiteProjectService;
@@ -44,8 +45,13 @@ class AiSiteAdminProjectController extends Controller
         return ApiResponse::success(new AiSiteProjectResource($project->load('owner')), __('ai.site_enabled_done'));
     }
 
+    /** Refused while the customer still has paid hosting time on the site; an ended / unpaid hosting goes with it. */
     public function destroy(AiSiteProject $project)
     {
+        if ($project->hosting()->first()?->hasPaidTimeLeft()) {
+            throw new AiSiteException('admin_hosting_active', 422);
+        }
+
         $this->sites->delete($project, force: true);
 
         return ApiResponse::success(null, __('ai.site_deleted'));

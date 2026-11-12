@@ -170,6 +170,9 @@ data class MovingRequestDto(
     val dimensions: String? = null,
     @SerializedName("vehicle_type") val vehicleType: VehicleTypeDto? = null,
     @SerializedName("vehicle_type_id") val vehicleTypeId: Int? = null,
+    /** Every vehicle type the customer accepts (a quarter or a half truck…), the first choice first. */
+    @SerializedName("vehicle_type_ids") val vehicleTypeIds: List<Int> = emptyList(),
+    @SerializedName("vehicle_types") val vehicleTypes: List<VehicleTypeDto> = emptyList(),
     @SerializedName("workers_count") val workersCount: Int? = null,
     val extras: MovingExtrasDto? = null,
     val pickup: MovingEndDto? = null,
@@ -179,15 +182,67 @@ data class MovingRequestDto(
     val notes: String? = null,
     val photos: List<MediaDto> = emptyList(),
     val videos: List<MediaDto> = emptyList(),
+    /** The customer's voice note about the load. */
+    val voice: MovingVoiceDto? = null,
     @SerializedName("offers_deadline_at") val offersDeadlineAt: String? = null,
     @SerializedName("published_at") val publishedAt: String? = null,
     @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("currency_decimals") val currencyDecimals: Int = 2,
     val money: MovingMoneyDto? = null,
     val vehicle: JobVehicleDto? = null,
     @SerializedName("driver_accepted") val driverAccepted: Boolean = false,
     val driver: JobDriverDto? = null,
-    @SerializedName("my_offer") val myOffer: MyOfferDto? = null,
-)
+    /** The establishment's own offer: uuid, status and price in the list; the whole offer on the request's page. */
+    @SerializedName("my_offer") val myOffer: MovingOfferDto? = null,
+    /** On the request's page: the establishment's vehicles, the ones that can answer it first. */
+    @SerializedName("my_vehicles") val myVehicles: List<MyVehicleDto> = emptyList(),
+    /** On the request's page: the country's values kept with it, for the offer's price breakdown. */
+    val pricing: OfferPricingDto? = null,
+) {
+    /** The accepted vehicle types, the first choice first (an older request: its one type). */
+    fun askedTypes(): List<VehicleTypeDto> = vehicleTypes.ifEmpty { listOfNotNull(vehicleType) }
+}
+
+/** One of my vehicles on a request's page: [fits] = a type the customer asked for; [problem] = why it can't be offered now. */
+data class MyVehicleDto(
+    val uuid: String = "",
+    @SerializedName("branch_id") val branchId: Long? = null,
+    @SerializedName("vehicle_type") val vehicleType: VehicleTypeDto? = null,
+    @SerializedName("vehicle_type_id") val vehicleTypeId: Int? = null,
+    @SerializedName("plate_letters") val plateLetters: String? = null,
+    @SerializedName("plate_number") val plateNumber: String? = null,
+    val make: String? = null,
+    val model: String? = null,
+    val color: String? = null,
+    val year: Int? = null,
+    val status: String? = null,
+    val fits: Boolean = true,
+    val problem: String? = null,
+    @SerializedName("problem_text") val problemText: String? = null,
+) {
+    fun plate(): String = listOfNotNull(plateLetters?.takeIf { it.isNotBlank() }, plateNumber).joinToString(" ")
+    val usable: Boolean get() = problem == null
+}
+
+/** The country's values kept with the request (MovingPricing::forPrice): tax on top of the price, Dorr's commission out of it. */
+data class OfferPricingDto(
+    @SerializedName("tax_bp") val taxBp: Int = 0,
+    @SerializedName("commission_bp") val commissionBp: Int = 0,
+    @SerializedName("commission_min_minor") val commissionMinMinor: Long? = null,
+    @SerializedName("commission_max_minor") val commissionMaxMinor: Long? = null,
+) {
+    /** The same numbers the server keeps: tax, what the customer pays, Dorr's commission and what the establishment gets. */
+    fun breakdown(price: Long): OfferBreakdown {
+        val tax = price * taxBp / 10000
+        var commission = price * commissionBp / 10000
+        commissionMinMinor?.let { commission = maxOf(commission, it) }
+        commissionMaxMinor?.let { commission = minOf(commission, it) }
+        commission = minOf(commission, price)
+        return OfferBreakdown(price, tax, price + tax, commission, price - commission)
+    }
+}
+
+data class OfferBreakdown(val price: Long, val tax: Long, val total: Long, val commission: Long, val net: Long)
 
 data class MovingExtrasDto(
     val packing: Boolean = false,
@@ -207,6 +262,14 @@ data class MovingEndDto(
 )
 
 data class MediaDto(val id: Long = 0, val url: String? = null)
+
+/** The customer's voice note: its address, length and bars (0–100). */
+data class MovingVoiceDto(
+    val id: Long = 0,
+    val url: String? = null,
+    @SerializedName("duration_ms") val durationMs: Long? = null,
+    val waveform: List<Int> = emptyList(),
+)
 
 data class MovingMoneyDto(
     @SerializedName("price_minor") val priceMinor: Long? = null,

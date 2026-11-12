@@ -307,6 +307,8 @@ struct ApiFailure {
     let lockedUntil: String?
     /// `data.retry_after` (seconds) on a `chat_slow_mode` (429) answer.
     let retryAfter: Int?
+    /// The whole `data` object of the error (e.g. `errors[{line, field}]` of a refused marketing results file).
+    var data: JSONAny? = nil
 }
 
 extension Error {
@@ -332,7 +334,8 @@ extension Error {
             errorCode: root?["error_code"] as? String,
             httpStatus: status,
             lockedUntil: data?["locked_until"] as? String,
-            retryAfter: (data?["retry_after"] as? NSNumber)?.intValue
+            retryAfter: (data?["retry_after"] as? NSNumber)?.intValue,
+            data: (try? JSONDecoder().decode(JSONAny.self, from: body))?["data"]
         )
     }
 

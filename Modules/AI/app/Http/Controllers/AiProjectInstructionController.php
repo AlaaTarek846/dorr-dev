@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiProjectInstructionRequest;
 use Modules\AI\Services\AiProjectInstructionService;
 
-class AiProjectInstructionController extends Controller
+/**
+ * Admin AI project instructions - the catalog CRUD (like CountryController, no translations): index/show, store, update, status, bulk
+ * delete, trash/restore/force delete.
+ */
+class AiProjectInstructionController extends CatalogController
 {
-    public function __construct(protected AiProjectInstructionService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-project-instructions';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-project-instructions')) - so no controller
+     * permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiProjectInstructionService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiProjectInstructionRequest $request)
@@ -20,18 +38,18 @@ class AiProjectInstructionController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $instruction)
-    {
-        return $this->service->find($instruction);
-    }
-
-    public function update(AiProjectInstructionRequest $request, int $instruction)
+    public function update(AiProjectInstructionRequest $request, int|string $instruction)
     {
         return $this->service->updateRecord($instruction, $request->validated());
     }
 
-    public function destroy(int $instruction)
+    public function deleteMultiple(AiProjectInstructionRequest $request)
     {
-        return $this->service->delete($instruction);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiProjectInstructionRequest $request, int|string $instruction)
+    {
+        return $this->service->changeStatus($instruction, (bool) $request->validated('status'));
     }
 }

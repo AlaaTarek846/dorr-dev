@@ -210,6 +210,30 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         if (groups.isNotEmpty()) storyViewer = StoryViewerSession(groups, start.coerceIn(0, groups.lastIndex))
     }
 
+    /**
+     * One status by its id (a reply's quote in the chat): that person's statuses from it on. From the feed I have —
+     * read again once when it isn't there; gone (expired / deleted / not mine to see) → [unavailable] as a toast.
+     */
+    fun openStoryById(id: String, unavailable: String) {
+        scope.launch {
+            fun find(feed: com.dorr.app.network.StoryFeedDto?): Pair<com.dorr.app.network.StoryGroupDto, Int>? {
+                val groups = listOfNotNull(feed?.mine) + feed?.recent.orEmpty() + feed?.muted.orEmpty()
+                for (g in groups) {
+                    val i = g.stories.indexOfFirst { it.id == id }
+                    if (i >= 0) return g to i
+                }
+                return null
+            }
+            val hit = find(stories) ?: run { refreshStories(); find(stories) }
+            if (hit == null) {
+                showToast(unavailable)
+                return@launch
+            }
+            val (group, index) = hit
+            storyViewer = StoryViewerSession(listOf(group.copy(stories = group.stories.drop(index))), 0)
+        }
+    }
+
     var toast by mutableStateOf<String?>(null)
     var toastError by mutableStateOf(false)
         private set

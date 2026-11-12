@@ -487,6 +487,8 @@ struct QuotesPanel: View {
             }
             let note = state.pickupNote.trimmingCharacters(in: .whitespacesAndNewlines)
             if !note.isEmpty { body["pickup_note"] = .string(note) }
+            // A quiet ride for this trip (the captain sees it on the request).
+            if let quiet = state.quietRide { body["quiet"] = .bool(quiet) }
             // R-INN-07: the favourite captains first.
             if let circle = state.circleBody { body["circle"] = .object(circle) }
             if state.forOther {

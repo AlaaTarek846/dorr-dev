@@ -607,4 +607,15 @@
     <string name="ai_home_yours">خليه على مزاجك</string>
     <string name="ai_home_yours_sub">ذاكرته ولغته وباقتك</string>
     <string name="ai_home_footer">%1$s ممكن يغلط أحياناً، اتأكد من المعلومات المهمة.</string>
+    <!-- محادثة دُرر AI: كارت مشوار دُرر تحت الرد -->
+    <string name="ai_ride_card_title">احجز مشوارك مع دُرر</string>
+    <string name="ai_ride_card_sub">فهمت مشوارك — جاهز للحجز</string>
+    <string name="ai_ride_card_to">رايح</string>
+    <string name="ai_ride_card_or">ولا تقصد</string>
+    <string name="ai_ride_card_book">احجز مع دُرر</string>
+    <string name="ai_ride_card_pick">اختار المكان في دُرر</string>
+    <string name="ai_ride_card_hint">هيفتح خدمة التوصيل والبيانات جاهزة — بتأكد المكان على الخريطة وتشوف السعر الحقيقي.</string>
+    <string name="ai_ride_pay_cash">كاش</string>
+    <string name="ai_ride_pay_wallet">المحفظة</string>
+    <string name="ai_ride_pay_card">بطاقة</string>
 </resources>

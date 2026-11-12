@@ -58,6 +58,7 @@ private fun healthReasonRes(code: String, hasDays: Boolean): Int? = when (code) 
     "review_waiting" -> R.string.fs_health_r_review_waiting
     "report_late" -> R.string.fs_health_r_report_late
     "change_waiting" -> R.string.fs_health_r_change_waiting
+    "task_overdue" -> if (hasDays) R.string.fs_health_r_task_overdue else R.string.fs_health_r_task_overdue_nodays
     else -> null
 }
 
@@ -71,6 +72,7 @@ private fun healthNextRes(code: String, mine: Boolean, hasDays: Boolean): Int? =
     "review_waiting" -> R.string.fs_health_n_mine_review_waiting
     "report_late" -> R.string.fs_health_n_mine_report_late
     "change_waiting" -> R.string.fs_health_n_mine_change_waiting
+    "task_overdue" -> R.string.fs_health_n_mine_task_overdue
     else -> null
 } else when (code) {
     "dispute_open" -> R.string.fs_health_n_wait_dispute_open
@@ -81,6 +83,7 @@ private fun healthNextRes(code: String, mine: Boolean, hasDays: Boolean): Int? =
     "review_waiting" -> R.string.fs_health_n_wait_review_waiting
     "report_late" -> R.string.fs_health_n_wait_report_late
     "change_waiting" -> R.string.fs_health_n_wait_change_waiting
+    "task_overdue" -> R.string.fs_health_n_wait_task_overdue
     else -> null
 }
 

@@ -17,7 +17,21 @@ import retrofit2.http.Path
 interface AppearanceApi {
     @GET("provider/v1/appearance")
     suspend fun show(): Response<ApiEnvelope<AppearanceDto>>
+
+    /**
+     * Which map to draw — Google, or Mapbox with its public token and style: the admin's choice in Rides → Settings, the same
+     * payload as the captain's `driver/v1/map-config` (map/DorrMap.kt `MapEngine`). Read once after sign-in.
+     */
+    @GET("provider/v1/map-config")
+    suspend fun mapConfig(): Response<ApiEnvelope<MapConfigDto>>
 }
+
+/** `ios_provider` is the iPhone app's (it may be `apple`); the Android app follows [provider]. */
+data class MapConfigDto(
+    val provider: String? = "google",
+    @SerializedName("mapbox_token") val mapboxToken: String? = null,
+    @SerializedName("mapbox_style") val mapboxStyle: String? = null,
+)
 
 data class AppearanceDto(
     @SerializedName("uses_default_colors") val usesDefaultColors: Boolean = true,

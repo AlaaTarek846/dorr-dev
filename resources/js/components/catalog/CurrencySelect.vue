@@ -16,7 +16,7 @@
             :filter-fields="['name', 'code']"
             :show-clear="true"
             :invalid="invalid"
-            append-to="self"
+            :append-to="appendTo"
             auto-filter-focus
             class="w-100"
             @update:model-value="emit('update:modelValue', $event)"
@@ -71,6 +71,9 @@ const props = defineProps({
     inputId: { type: String, default: 'currency-select' },
     show: { type: Boolean, default: true },
     loadOnShow: { type: Boolean, default: false },
+    // Where the dropdown opens: "self" (default) or "body" — inside a modal whose body scrolls (.catalog-scroll-form)
+    // a "self" panel would be clipped by the scroll box.
+    appendTo: { type: String, default: 'self' },
 });
 
 const emit = defineEmits(['update:modelValue']);

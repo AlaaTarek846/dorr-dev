@@ -17,6 +17,9 @@ use Modules\AI\Models\AiDomainPolicy;
  * AiIntentClassifier and AiSafetyGuard: no ML classifier is wired up,
  * so this stays simple, auditable and easy for an admin to extend
  * later without redeploying.
+ *
+ * Only policies switched on (`status`) and not in the trash (SoftDeletes)
+ * are ever returned.
  */
 class AiDomainClassifier
 {
@@ -56,7 +59,7 @@ class AiDomainClassifier
                 if (Str::contains($lower, mb_strtolower($keyword))) {
                     $policy = AiDomainPolicy::query()
                         ->where('domain_key', $domainKey)
-                        ->where('is_active', true)
+                        ->where('status', true)
                         ->first();
 
                     if ($policy) {
@@ -71,7 +74,7 @@ class AiDomainClassifier
         // time-sensitive fact vs. stable-knowledge distinction.
         return AiDomainPolicy::query()
             ->where('domain_key', AiDomainPolicy::DOMAIN_GENERAL_INFO)
-            ->where('is_active', true)
+            ->where('status', true)
             ->first();
     }
 }

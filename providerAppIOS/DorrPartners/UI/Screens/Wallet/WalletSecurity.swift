@@ -13,24 +13,28 @@ struct WalletSecurity: View {
     @State private var sub = SecuritySub.menu
     @State private var forgot = false
     @State private var status: PinStatusDto?
+    /// Read once when this opens, and again after the recovery method changed.
+    @State private var refresh = 0
 
     var body: some View {
-        content.task {
+        content.task(id: refresh) {
             if let data = await WalletApi.pinStatus().value { status = data }
         }
     }
 
     @ViewBuilder private var content: some View {
-        if forgot, let current = status {
-            // A recovered PIN is a new one: the wallet locks and asks for it again (the stale one is dropped).
-            WalletRecover(status: current, onBack: { forgot = false }) { _ in
+        if forgot {
+            // The DORR app's "forgot your PIN?" page. A recovered PIN is a new one: the wallet locks and asks for it again
+            // (the stale one is dropped).
+            WaForgotPinPage(status: status, onExit: { forgot = false }, onDone: {
                 forgot = false
                 WalletSession.shared.lock()
-            }
+            })
         } else {
             switch sub {
             case .changePin: WlChangePinPage(onBack: { sub = .menu }, onForgot: { forgot = true })
-            case .recovery: WlChangeRecoveryPage(status: status, onExit: { sub = .menu })
+            // The DORR app's page: the current PIN, then the same method wizard as at setup (ends after the method).
+            case .recovery: WaChangeRecoveryPage(onExit: { sub = .menu }, onDone: { sub = .menu; refresh += 1 })
             case .biometric: WlBiometricPage(onBack: { sub = .menu })
             case .menu: WlSecurityMenu(onBack: onBack, onOpen: { sub = $0 })
             }
@@ -181,35 +185,7 @@ private struct WlChangePinPage: View {
 }
 
 // MARK: - 2. the recovery method
-
-/// Switch how a forgotten PIN is recovered. Proves the current PIN first (the server asks for it too), then the same method
-/// pages as at setup — which end after the method, since the PIN itself stays.
-@MainActor
-private struct WlChangeRecoveryPage: View {
-    let status: PinStatusDto?
-    let onExit: () -> Void
-    @State private var pin: String?
-
-    var body: some View {
-        if let proven = pin, let status {
-            WalletSetup(status: status, onBack: onExit, onUnlocked: { _, _ in }, onStatus: { _ in }, existingPin: proven, onChanged: onExit)
-        } else {
-            WaPage(title: L("wa_rec_change_title"), onBack: onExit, scroll: false) {
-                WaPinPad(title: L("wa_pin_enter_title"), sub: L("wa_rec_change_pin_sub"), icon: "checkmark.shield.fill") { entered in
-                    let result = await WalletApi.verifyPin(entered)
-                    if result.value != nil {
-                        pin = entered
-                        return .ok
-                    }
-                    return padFailure(result, L("wa_error_network"), L("wa_error_generic"))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 8)
-                .waRise(0)
-            }
-        }
-    }
-}
+// `WaChangeRecoveryPage` (UI/Wallet/WaPinFlows.swift), the DORR app's own page.
 
 // MARK: - 3. Face ID / Touch ID
 

@@ -3,7 +3,7 @@ import UIKit
 
 // freelanceApp `ui/components/DorrTextField.kt`, `DateField.kt`.
 
-/// The app's text field: a rounded pill with a soft fill, a hairline that turns the app colour when focused, an icon in
+/// The app's text field: a rounded white pill lifted by a soft shadow (like the sign-in fields), an outline in the app colour when focused, an icon in
 /// the app colour. `label` is a small caption above the field; `password` hides the text and adds an eye; `onClick`
 /// makes the pill a tap target (date pickers) without opening the keyboard.
 struct DorrTextField: View {
@@ -35,8 +35,8 @@ struct DorrTextField: View {
     var body: some View {
         let danger = appearance.color("danger", AppColors.danger, dark: wa.night)
         let shape = RoundedRectangle(cornerRadius: radius ?? (singleLine ? 999 : 20), style: .continuous)
-        let background = fill ?? (wa.night ? wa.bg : (focused ? appearance.color("surface", .white, dark: false) : Color(hex: 0xFBF7F8)))
-        let border = error ? danger : focused ? wa.red : (wa.night ? wa.line : Color(hex: 0xF3D5DB))
+        let background = fill ?? (wa.night ? wa.bg : appearance.color("surface", .white, dark: false))
+        let border = error ? danger : focused ? wa.red : (wa.night ? wa.line : Color.clear)
         VStack(alignment: .leading, spacing: 0) {
             if let label {
                 Text(verbatim: label).font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk).padding(.bottom, 8)
@@ -72,6 +72,7 @@ struct DorrTextField: View {
             .padding(.vertical, singleLine ? 8 : 12)
             .frame(minHeight: minHeight)
             .background(background, in: shape)
+            .shadow(color: wa.night ? .clear : .black.opacity(0.08), radius: 3, y: 1)
             .overlay(shape.stroke(border, lineWidth: focused || error ? 1.5 : 1))
             .contentShape(shape)
             .onTapGesture { if enabled { onClick?() } }

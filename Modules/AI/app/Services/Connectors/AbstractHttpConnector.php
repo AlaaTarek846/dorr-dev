@@ -132,9 +132,30 @@ abstract class AbstractHttpConnector implements AiConnector
         return rtrim((string) $baseUrl, '/');
     }
 
+    /**
+     * HTTP status of the last provider answer this connector received
+     * (null when no answer came back: connection error, missing key,
+     * unsupported call). Read by AiGateway::logCall() for
+     * ai_provider_logs.http_status.
+     */
+    protected ?int $lastHttpStatus = null;
+
+    public function lastHttpStatus(): ?int
+    {
+        return $this->lastHttpStatus;
+    }
+
     protected function client(): PendingRequest
     {
-        return Http::timeout((int) config('ai.request_timeout', 20))->acceptJson();
+        $this->lastHttpStatus = null;
+
+        return Http::timeout((int) config('ai.request_timeout', 20))
+            ->acceptJson()
+            ->withResponseMiddleware(function ($response) {
+                $this->lastHttpStatus = $response->getStatusCode();
+
+                return $response;
+            });
     }
 
     /**

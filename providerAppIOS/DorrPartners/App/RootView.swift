@@ -48,6 +48,8 @@ struct RootView: View {
             if signedIn {
                 Realtime.shared.start()
                 Task { await loadAppearance() }
+                // The admin's map engine, once per sign-in, saved for the next start (providerApp ProviderApp).
+                Task { await MapEngine.shared.refresh() }
             } else {
                 Realtime.shared.stop()
                 // No position is sent for a session that ended.
@@ -64,6 +66,7 @@ struct RootView: View {
         .task {
             if session.signedIn {
                 Realtime.shared.start()
+                Task { await MapEngine.shared.refresh() }
                 await loadAppearance()
             }
             await appearance.loadFont()
@@ -93,6 +96,13 @@ struct RootView: View {
             )
         case .onboarding:
             onboarding
+        case .firstVehicle:
+            // Registration's 4th step when moving is chosen: the first vehicle, then the home with the papers on top.
+            FirstVehicleScreen(onDone: {
+                nav.reset(to: .home)
+                nav.push(.documents)
+            })
+            .background(PinkBackdrop())
         case .invitations:
             invitations
         case .home:
@@ -144,10 +154,15 @@ struct RootView: View {
     private var onboarding: some View {
         OnboardingScreen(
             onExit: backOrLeave,
-            // The new establishment is chosen already: the home, with its papers page on top.
-            onCreated: {
-                nav.reset(to: .home)
-                nav.push(.documents)
+            // The new establishment is chosen already. Moving chosen: its first vehicle first (registration's 4th step);
+            // then — or straight away otherwise — the home, with its papers page on top.
+            onCreated: { needsVehicle in
+                if needsVehicle {
+                    nav.reset(to: .firstVehicle)
+                } else {
+                    nav.reset(to: .home)
+                    nav.push(.documents)
+                }
             }
         )
     }

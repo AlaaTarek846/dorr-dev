@@ -19,7 +19,8 @@ class VehicleRequest extends FormRequest
         return [
             'vehicle_type_id' => [$req, 'integer'],
             'branch_id' => ['sometimes', 'nullable', 'integer'],
-            'plate_letters' => ['nullable', 'string', 'max:32'],
+            // The plate's letters are as much the plate as its numbers (the admin matches both to the photo).
+            'plate_letters' => [$req, 'string', 'max:32'],
             'plate_number' => [$req, 'string', 'max:20'],
             'make' => ['nullable', 'string', 'max:60'],
             'model' => ['nullable', 'string', 'max:60'],

@@ -149,7 +149,7 @@ internal fun VoiceStoryEditor(editor: StoryEditorHost) {
         Crossfade(targetState = backgrounds[bg], animationSpec = tween(450), label = "voiceBg") { name ->
             Box(Modifier.fillMaxSize().background(StoryLook.brush(name)))
         }
-        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp).padding(bottom = 120.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp).padding(bottom = 170.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             val recorded = clip
             when {
                 recorder.recording -> {
@@ -214,7 +214,6 @@ internal fun VoiceStoryEditor(editor: StoryEditorHost) {
 
         StoryTopBar(editor.onClose) {
             MentionTool(mentions) { mentions = it }
-            StoryTool(Icons.Rounded.Palette, stringResource(R.string.st_tool_colors), active = colors) { colors = !colors }
         }
 
         Column(
@@ -222,6 +221,9 @@ internal fun VoiceStoryEditor(editor: StoryEditorHost) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             AnimatedVisibility(colors) { BackgroundSwatches(bg, Modifier.padding(bottom = 12.dp)) { bg = it } }
+            // The colour tool at the bottom, right under the colours it opens (as the text status).
+            StoryTool(Icons.Rounded.Palette, stringResource(R.string.st_tool_colors), active = colors) { colors = !colors }
+            Spacer(Modifier.height(12.dp))
             StoryModeSwitch(StoryMode.Voice, editor.onSwitch)
             Spacer(Modifier.height(12.dp))
             StoryBottomBar(allowReplies, onToggleReplies = { allowReplies = !allowReplies }, sendEnabled = clip != null && !recorder.recording) {

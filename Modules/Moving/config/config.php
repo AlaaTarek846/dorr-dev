@@ -48,4 +48,8 @@ return [
 
     // A customer's report after delivery (§9).
     'report_reasons' => ['damage', 'missing_item', 'incomplete_service', 'other'],
+
+    // What the customer scores the establishment on after the move, as the rider scores the captain (rides O-41):
+    // stars per criterion, the overall stars their average; their averages show with the establishment's offers.
+    'rating_criteria' => ['punctuality', 'care', 'team', 'assembly', 'price'],
 ];

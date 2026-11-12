@@ -9,25 +9,61 @@ private let groups = ["all", "active", "completed", "disputes", "closed"]
 struct MyWorkTab: View {
     let onBack: () -> Void
     let onOpenProject: (String) -> Void
+    /// FS-209b: a team's project opens its agreement page.
+    var onOpenAgreement: ((String) -> Void)? = nil
     var embedded = false
 
     @EnvironmentObject private var network: NetworkMonitor
+    @ObservedObject private var hub = HomeHub.shared
     @State private var group = "all"
+    // FS-209b: «Me | My team» - the team's projects I reach, next to the ones I signed myself (only where the teams switch is on and I am in one).
+    @State private var teams: [TeamSummaryDto] = []
+    @State private var scopeKey = "me"
+    @State private var teamPick: String?
     @StateObject private var paged = PagedRows<MyProjectDto>(perPage: 15, key: { $0.uuid ?? "" })
 
+    private var teamsOn: Bool { hub.home?.on("teams") == true }
+    private var team: TeamSummaryDto? { teams.first { $0.uuid == teamPick } ?? teams.first }
+
+    private func loadTeams() async {
+        guard teamsOn else {
+            teams = []
+            return
+        }
+        if let list = await TeamsApi.mine().value?.teams { teams = list.filter { $0.status == "active" } }
+    }
+
     var body: some View {
+        let team = self.team
+        let teamScope = scopeKey == "team" && team != nil
         TabPage(title: L("work_title"), onBack: onBack, onNearEnd: { Task { await paged.loadMore() } }, embedded: embedded) {
-            FilterChips(options: groups.map { FilterOption(key: $0, label: L(workGroupLabel($0)), icon: workGroupIcon($0)) }, selected: group) { group = $0 }
-            if !paged.loaded && paged.failure == nil {
-                SkeletonList()
-            } else if paged.loaded && paged.rows.isEmpty && paged.failure == nil {
-                EmptyState(icon: "hammer.fill", title: L(workEmptyTitle(group)), body: L(workEmptyBody(group))).padding(.top, 90)
-            } else {
-                ForEach(paged.rows) { p in
-                    MyProjectCard(p: p) { if let uuid = p.project?.uuid { onOpenProject(uuid) } }
-                }
+            if !teams.isEmpty {
+                SegmentTabs(
+                    segments: [
+                        Segment(key: "me", label: L("tw_scope_me"), icon: "person.fill"),
+                        Segment(key: "team", label: L("tw_scope_team"), icon: "person.3.fill"),
+                    ],
+                    selected: teamScope ? "team" : "me", onSelect: { scopeKey = $0 }
+                )
             }
-            PagedFooter(paged: paged) { Task { await paged.loadMore() } }
+            if teamScope, let team {
+                if teams.count > 1 {
+                    FilterChips(options: teams.map { FilterOption(key: $0.uuid ?? "", label: $0.name ?? "") }, selected: team.uuid ?? "") { teamPick = $0 }
+                }
+                TeamProjectsList(teamUuid: team.uuid ?? "", role: team.role, onOpenProject: onOpenAgreement ?? onOpenProject)
+            } else {
+                FilterChips(options: groups.map { FilterOption(key: $0, label: L(workGroupLabel($0)), icon: workGroupIcon($0)) }, selected: group) { group = $0 }
+                if !paged.loaded && paged.failure == nil {
+                    SkeletonList()
+                } else if paged.loaded && paged.rows.isEmpty && paged.failure == nil {
+                    EmptyState(icon: "hammer.fill", title: L(workEmptyTitle(group)), body: L(workEmptyBody(group))).padding(.top, 90)
+                } else {
+                    ForEach(paged.rows) { p in
+                        MyProjectCard(p: p) { if let uuid = p.project?.uuid { onOpenProject(uuid) } }
+                    }
+                }
+                PagedFooter(paged: paged) { Task { await paged.loadMore() } }
+            }
         }
         .messageToast(paged.failure.map { $0.errorText(L("login_error_offline")) ?? L("login_error_generic") })
         .task(id: "\(network.reconnectTick)|\(group)") {
@@ -35,7 +71,13 @@ struct MyWorkTab: View {
             paged.reset { page in await AgreementsApi.myProjects(page: page, perPage: 15, group: g) }
             await paged.reload()
         }
-        .onReceive(Realtime.shared.changed) { _ in Task { await paged.reload() } }
+        .task(id: "\(teamsOn)|\(network.reconnectTick)") { await loadTeams() }
+        .onReceive(Realtime.shared.changed) { _ in
+            Task {
+                await paged.reload()
+                await loadTeams()
+            }
+        }
     }
 }
 
@@ -79,7 +121,7 @@ private func workEmptyBody(_ group: String) -> String {
     }
 }
 
-private func workStatusColor(_ status: String) -> Color {
+func workStatusColor(_ status: String) -> Color {
     switch status {
     case "active": return Color(hex: 0x2563EB)
     case "completed": return Color(hex: 0x16A34A)
@@ -88,8 +130,8 @@ private func workStatusColor(_ status: String) -> Color {
     }
 }
 
-/// `statusLabel` of MyWorkScreen.kt (private there; named apart from the account status label of HomeScreen).
-private func workStatusLabel(_ status: String) -> String {
+/// `statusLabel` of MyWorkScreen.kt (named apart from the account status label of HomeScreen; FS-209b: the team's project cards use it too).
+func workStatusLabel(_ status: String) -> String {
     switch status {
     case "active": return L("work_status_active")
     case "completed": return L("work_status_completed")

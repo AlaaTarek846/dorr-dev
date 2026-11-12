@@ -15,10 +15,11 @@ class AiConversationAttachmentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'conversation' => $this->whenLoaded('conversation', fn () => [
+            // The conversation can be gone (deleted / erased) while the attachment row is still listed.
+            'conversation' => $this->whenLoaded('conversation', fn () => $this->conversation ? [
                 'id' => $this->conversation->id,
                 'title' => $this->conversation->title,
-            ]),
+            ] : null),
             'message_id' => $this->message_id,
             'file_name' => $this->file_name,
             'mime_type' => $this->mime_type,

@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  * @property string $uuid
  * @property int $project_id
  * @property int $freelancer_id
+ * @property ?int $team_id FS-213: invited as this team (the row is its Owner's)
  * @property int $client_id
  * @property string $status
  * @property ?\Illuminate\Support\Carbon $invited_at
@@ -33,7 +34,7 @@ class FreelanceProjectInvitation extends Model
     /** Still counts: the freelancer may see the project and offer on it. */
     public const LIVE = [self::SENT, self::ACCEPTED];
 
-    protected $fillable = ['uuid', 'project_id', 'freelancer_id', 'client_id', 'status', 'invited_at', 'responded_at'];
+    protected $fillable = ['uuid', 'project_id', 'freelancer_id', 'team_id', 'client_id', 'status', 'invited_at', 'responded_at'];
 
     protected function casts(): array
     {
@@ -55,5 +56,10 @@ class FreelanceProjectInvitation extends Model
     public function freelancer(): BelongsTo
     {
         return $this->belongsTo(Freelancer::class, 'freelancer_id');
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceTeam::class, 'team_id');
     }
 }

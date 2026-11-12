@@ -54,6 +54,7 @@ import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.map.DorrCamera
 import com.dorr.app.map.DorrMap
+import com.dorr.app.map.GoogleDarkStyle
 import com.dorr.app.map.MapColors
 import com.dorr.app.map.MapLine
 import com.dorr.app.map.MapPin
@@ -73,11 +74,13 @@ import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.rides.AccentButton
 import com.dorr.app.ui.screens.rides.PanelCard
 import com.dorr.app.ui.screens.rides.Plate
 import com.dorr.app.ui.screens.rides.RoundButton
 import com.dorr.app.ui.screens.rides.TripLine
+import com.dorr.app.ui.screens.rides.decodePolyline
 import com.dorr.app.ui.screens.rides.parseTime
 import com.dorr.app.ui.screens.rides.rememberWhenLabels
 import com.dorr.app.ui.screens.rides.whenText
@@ -144,6 +147,8 @@ internal fun MovingRequestPage(uuid: String, nav: MovingNav) {
 
     val current = show
     val status = current?.request?.status
+    // The road between the two ends: asked once per pair (a reload of the page doesn't ask again).
+    val route = rememberMovingRoute((current?.request?.pickup).latLng(), (current?.request?.dropoff).latLng())
 
     // A draft continues in the steps.
     LaunchedEffect(status) { if (status == "draft") nav.replace(MvRoute.Wizard(uuid)) }
@@ -159,7 +164,7 @@ internal fun MovingRequestPage(uuid: String, nav: MovingNav) {
             val camera = rememberDorrCamera(LatLng(24.7136, 46.6753), 13f)
             val panelMax = (LocalConfiguration.current.screenHeightDp * 0.6f).dp
             Box(Modifier.fillMaxSize().background(settingsBackground())) {
-                JobMap(current.request, truck, heading, camera)
+                JobMap(current.request, truck, heading, camera, route.route?.polyline)
                 Box(Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp)) {
                     RoundButton(Icons.AutoMirrored.Rounded.ArrowBack, onClick = { nav.pop() })
                 }
@@ -167,7 +172,7 @@ internal fun MovingRequestPage(uuid: String, nav: MovingNav) {
                     PanelCard {
                         CompositionLocalProvider(LocalMvOnPanel provides true) {
                             Column(Modifier.heightIn(max = panelMax).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                RequestSections(current, changes, nav, onReload, onCancel = { cancelOpen = true }, onWithdraw = { withdrawOpen = true })
+                                RequestSections(current, changes, route, nav, onReload, onCancel = { cancelOpen = true }, onWithdraw = { withdrawOpen = true })
                             }
                         }
                     }
@@ -177,7 +182,7 @@ internal fun MovingRequestPage(uuid: String, nav: MovingNav) {
         else -> MvPage(title = title, onBack = { nav.pop() }) {
             PullToRefreshHost(Modifier.fillMaxSize()) {
                 MvScroll {
-                    RequestSections(current, changes, nav, onReload, onCancel = { cancelOpen = true }, onWithdraw = { withdrawOpen = true })
+                    RequestSections(current, changes, route, nav, onReload, onCancel = { cancelOpen = true }, onWithdraw = { withdrawOpen = true })
                 }
             }
         }
@@ -206,9 +211,9 @@ internal fun MovingRequestPage(uuid: String, nav: MovingNav) {
     )
 }
 
-/** The rides map: the two ends joined, and the truck sliding as its place arrives. */
+/** The rides map: the two ends joined by the road (a straight line until it is known), and the truck sliding as its place arrives. */
 @Composable
-private fun JobMap(request: MovingRequestDto, truck: LatLng?, heading: Float, camera: DorrCamera) {
+private fun JobMap(request: MovingRequestDto, truck: LatLng?, heading: Float, camera: DorrCamera, polyline: String?) {
     val pickup = request.pickup.latLng()
     val dropoff = request.dropoff.latLng()
     val pins = buildList {
@@ -216,7 +221,8 @@ private fun JobMap(request: MovingRequestDto, truck: LatLng?, heading: Float, ca
         dropoff?.let { add(MapPin(it, PinKind.Dropoff)) }
         truck?.let { add(MapPin(it, PinKind.Car, heading, id = "moving-truck")) }
     }
-    val route = listOfNotNull(pickup, dropoff)
+    val road = remember(polyline) { decodePolyline(polyline) }
+    val route = road.takeIf { it.size > 1 } ?: listOfNotNull(pickup, dropoff)
     val width = dpPx(5f)
     DorrMap(
         camera = camera,
@@ -224,9 +230,11 @@ private fun JobMap(request: MovingRequestDto, truck: LatLng?, heading: Float, ca
         pins = pins,
         lines = if (route.size > 1) listOf(MapLine(route, MapColors.route, width)) else emptyList(),
         padding = PaddingValues(bottom = 300.dp),
+        night = settingsNight(),
+        googleNightJson = GoogleDarkStyle,
     )
     val fitPadding = dpPx(48f).toInt()
-    LaunchedEffect(route.size, truck != null) { camera.fit(listOfNotNull(pickup, dropoff, truck), fitPadding) }
+    LaunchedEffect(route.size, truck != null) { camera.fit(route + listOfNotNull(truck), fitPadding) }
 }
 
 private fun MovingEndDto?.latLng(): LatLng? {
@@ -240,6 +248,7 @@ private fun MovingEndDto?.latLng(): LatLng? {
 private fun ColumnScope.RequestSections(
     show: MovingShowDto,
     changes: List<MovingChangeDto>,
+    route: MovingRouteState,
     nav: MovingNav,
     onReload: () -> Unit,
     onCancel: () -> Unit,
@@ -248,6 +257,8 @@ private fun ColumnScope.RequestSections(
     val r = show.request
     val status = r.status
     StatusHeader(r)
+    // On the live map the road is drawn already: its distance and time stay one glance away.
+    if (status in MAP_STATUSES) MovingRouteChips(route, bothEnds = r.pickup.latLng() != null && r.dropoff.latLng() != null, fallbackKm = r.distanceKm)
     when (status) {
         "open" -> OpenCard(show, nav, onReload)
         "expired" -> MvNote(stringResource(R.string.mv_expired_note), AppColors.warning)
@@ -271,9 +282,9 @@ private fun ColumnScope.RequestSections(
     show.deliveryCode?.let { code -> DeliveryCodeCard(code, show.deliveryQr) }
     if (status == "delivered") DeliveredCard(show, nav, onReload)
     CasesCard(show)
-    if (status in CAN_RATE && !show.rated) RatingCard(r, onReload)
+    if (status in CAN_RATE && !show.rated) RatingCard(r, show.ratingCriteria, onReload)
     r.money?.let { MoneyCard(r) }
-    if (status !in MAP_STATUSES) RequestSummary(r)
+    if (status !in MAP_STATUSES) RequestSummary(r, route)
     Actions(show, nav, onCancel, onWithdraw)
 }
 
@@ -467,7 +478,7 @@ private fun caseDecision(decision: String): String = when (decision) {
 
 /** Stars for the establishment and the driver. Once rated (`rated` in the show) the page no longer draws this card. */
 @Composable
-private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
+private fun RatingCard(r: MovingRequestDto, criteria: List<com.dorr.app.network.MovingCriterionDto>, onReload: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var establishment by remember { mutableIntStateOf(0) }
@@ -481,6 +492,14 @@ private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text(r.establishment?.name ?: stringResource(R.string.mv_rate_establishment), color = settingsMut(), fontSize = 13.sp)
         MvStars(establishment) { establishment = it }
+        // As rides: a row of stars per criterion, starting at the overall stars.
+        val scores = rememberCriteriaScores(r.uuid)
+        if (establishment > 0 && criteria.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.mv_rate_by_criteria), color = settingsMut(), fontSize = 12.sp)
+            Spacer(Modifier.height(4.dp))
+            MvCriteriaStars(criteria, establishment, scores)
+        }
         r.driver?.let { d ->
             Spacer(Modifier.height(6.dp))
             Text(d.name ?: stringResource(R.string.mv_rate_driver), color = settingsMut(), fontSize = 13.sp)
@@ -496,6 +515,7 @@ private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
                 scope.launch {
                     val body = JsonObject().apply {
                         addProperty("establishment_stars", establishment)
+                        if (criteria.isNotEmpty()) add("scores", JsonObject().apply { criteria.forEach { c -> addProperty(c.key, scores[c.key] ?: establishment) } })
                         if (driver > 0) addProperty("driver_stars", driver)
                         if (comment.isNotBlank()) addProperty("comment", comment.trim())
                     }
@@ -534,11 +554,18 @@ private fun MoneyCard(r: MovingRequestDto) {
 
 /** What was asked for. */
 @Composable
-private fun RequestSummary(r: MovingRequestDto) {
+private fun RequestSummary(r: MovingRequestDto, route: MovingRouteState) {
+    val from = r.pickup.latLng()
+    val to = r.dropoff.latLng()
     MvCard {
         MvCardTitle(stringResource(R.string.mv_summary))
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
+        if (from != null || to != null) {
+            MovingRouteMap(from, to, route.route, Modifier.fillMaxWidth().height(170.dp))
+            MovingRouteChips(route, bothEnds = from != null && to != null, fallbackKm = r.distanceKm, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
+        }
         r.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsInk(), fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp)) }
+        r.voice?.let { Box(Modifier.padding(bottom = 8.dp)) { MvVoicePlayer(it) } }
         if (r.photos.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
                 items(r.photos, key = { it.id }) { p ->
@@ -548,10 +575,10 @@ private fun RequestSummary(r: MovingRequestDto) {
         }
         SummaryEnd(AppColors.brandNavy, r.pickup)
         SummaryEnd(AppColors.brandOrange, r.dropoff)
-        r.distanceKm?.let { MvLine(stringResource(R.string.mv_distance), stringResource(R.string.mv_km, String.format(java.util.Locale.US, "%.1f", it))) }
         r.piecesCount?.let { MvLine(stringResource(R.string.mv_pieces), it.toString()) }
         r.dimensions?.takeIf { it.isNotBlank() }?.let { MvLine(stringResource(R.string.mv_dimensions), it) }
-        r.vehicleType?.name?.let { MvLine(stringResource(R.string.mv_vehicle_title), it) }
+        r.vehicleTypes.mapNotNull { it.name }.ifEmpty { listOfNotNull(r.vehicleType?.name) }.takeIf { it.isNotEmpty() }
+            ?.let { MvLine(stringResource(R.string.mv_vehicle_title), it.joinToString(" / ")) }
         r.workersCount?.let { MvLine(stringResource(R.string.mv_workers), it.toString()) }
         val extras = r.extras
         val chosen = listOfNotNull(

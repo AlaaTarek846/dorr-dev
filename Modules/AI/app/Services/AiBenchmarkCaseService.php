@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiBenchmarkCaseResource;
 use Modules\AI\Repositories\AiBenchmarkCaseRepository;
 
-class AiBenchmarkCaseService extends BaseService
+/** AI benchmark cases catalog (no translations): list (+status counts), create/update, status, bulk delete, trash. */
+class AiBenchmarkCaseService extends CatalogService
 {
     /**
      * @var class-string

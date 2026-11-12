@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use Illuminate\Pagination\LengthAwarePaginator;
 use App\Support\Media\WebpUploadConverter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -49,7 +50,7 @@ class StoryService
     /**
      * @param  array<string, mixed>  $data  type, body, style, duration_ms, allow_replies
      */
-    public function create(Model $owner, array $data, ?UploadedFile $file, ?Media $copyMedia = null): ChatStory
+    public function create(Model $owner, array $data, ?UploadedFile $file, ?Media $copyMedia = null, ?UploadedFile $poster = null): ChatStory
     {
         $settings = $this->assertEnabled();
         $type = $data['type'];
@@ -79,7 +80,7 @@ class StoryService
         // Mentions: only people I saved, and they always get to see it.
         $mentioned = $this->mentionable($owner, (array) ($data['mentions'] ?? []));
 
-        return DB::transaction(function () use ($owner, $data, $type, $file, $settings, $public, $mentioned, $copyMedia) {
+        return DB::transaction(function () use ($owner, $data, $type, $file, $settings, $public, $mentioned, $copyMedia, $poster) {
             $story = ChatStory::query()->create([
                 'owner_type' => ParticipantType::aliasFor($owner),
                 'owner_id' => $owner->getKey(),
@@ -111,6 +112,10 @@ class StoryService
                 $story->addMedia($file)
                     ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                     ->toMediaCollection(ChatStory::MEDIA);
+            }
+            // A video's poster frame (the app sends one): the picture in quotes of this status.
+            if ($poster !== null && $type === 'video') {
+                $story->addMedia($poster)->usingFileName(Str::uuid().'.jpg')->toMediaCollection(ChatStory::POSTER);
             }
 
             $recipients = $this->audienceOf($owner);
@@ -498,7 +503,18 @@ class StoryService
     {
         $this->assertCanSee($viewer, $story);
         $view = $this->viewRow($viewer, $story);
+        $before = $view->reaction;
         $view->update(['reaction' => $emoji]);
+
+        // As in WhatsApp: a quick reaction also lands in our chat, quoting the status — once per new emoji (tapping
+        // the same one again sends nothing), only where replies are on, never on my own. It never fails the reaction.
+        if ($emoji !== null && $emoji !== $before && $story->allow_replies && ParticipantType::key($viewer) !== $story->ownerKey()) {
+            try {
+                $this->sendReply($viewer, $story, $emoji);
+            } catch (ChatException) {
+                // A chat that can't take it (blocked, …): the reaction stays in the viewers list.
+            }
+        }
 
         // A reaction is a deliberate answer, so the owner hears about it even with receipts off.
         $this->broadcaster->toAccounts([[$story->owner_type, (int) $story->owner_id]], 'chat.story.reaction', [
@@ -544,14 +560,13 @@ class StoryService
     /** @return array<string, mixed> */
     private function snapshot(ChatStory $story): array
     {
-        $media = $story->getFirstMedia(ChatStory::MEDIA);
-
         return [
             'story_id' => $story->uuid,
             'story_type' => $story->type,
             'text' => $story->type === 'text' ? Str::limit((string) $story->body, 200) : $story->body,
             'style' => $story->style,
-            'thumbnail' => $media !== null && str_starts_with((string) $media->mime_type, 'image/') ? $media->getUrl() : null,
+            // The photo, or a video's poster frame.
+            'thumbnail' => $story->thumbnailUrl(),
             'owner' => $story->ownerKey(),
             'expires_at' => $story->expires_at?->toIso8601String(),
         ];
@@ -592,22 +607,19 @@ class StoryService
             throw ChatException::storyRepliesOff();
         }
 
+        return $this->sendReply($viewer, $story, $body);
+    }
+
+    /** A `story_reply` message in our private chat (opened when there's none yet), quoting the status. */
+    private function sendReply(Model $viewer, ChatStory $story, string $body): ChatMessage
+    {
         $owner = ParticipantType::modelClassFor($story->owner_type)::query()->find($story->owner_id) ?? throw ChatException::userNotFound();
-        $conversations = app(ConversationService::class);
-        $participant = $conversations->openDirect($viewer, $owner);
-        $media = $story->getFirstMedia(ChatStory::MEDIA);
+        $participant = app(ConversationService::class)->openDirect($viewer, $owner);
 
         return app(MessageService::class)->send($viewer, $participant->conversation, [
             'type' => 'story_reply',
             'body' => $body,
-            'story_meta' => [
-                'story_id' => $story->uuid,
-                'story_type' => $story->type,
-                'text' => $story->type === 'text' ? Str::limit((string) $story->body, 200) : $story->body,
-                'style' => $story->style,
-                'thumbnail' => $media !== null && str_starts_with((string) $media->mime_type, 'image/') ? $media->getUrl() : null,
-                'owner' => $story->ownerKey(),
-            ],
+            'story_meta' => $this->snapshot($story),
         ]);
     }
 
@@ -626,13 +638,37 @@ class StoryService
         }
 
         $views = ChatStoryView::query()->where('story_id', $story->id)->where('hidden', false)->latest('viewed_at')->get();
+
+        return $this->presentViews($owner, $views);
+    }
+
+    /**
+     * The same, a page at a time (newest first) — the app's viewers sheet loads 15 more as it scrolls. Empty when my
+     * read receipts are off (they're mutual).
+     */
+    public function viewersPage(Model $owner, ChatStory $story, int $page, int $perPage = 15): LengthAwarePaginator
+    {
+        $this->assertOwner($owner, $story);
+        if (! $this->privacy->peek($owner)->read_receipts) {
+            return new LengthAwarePaginator([], 0, $perPage, $page);
+        }
+
+        $paginator = ChatStoryView::query()->where('story_id', $story->id)->where('hidden', false)
+            ->latest('viewed_at')->latest('id')->paginate($perPage, ['*'], 'page', $page);
+
+        return $paginator->setCollection(collect($this->presentViews($owner, $paginator->getCollection())));
+    }
+
+    /** @return list<array{viewer: mixed, viewed_at: ?string, reaction: ?string}> */
+    private function presentViews(Model $owner, \Illuminate\Support\Collection $views): array
+    {
         $this->directory->prime($owner, $views->map(fn ($v) => [$v->viewer_type, $v->viewer_id]));
 
         return $views->map(fn (ChatStoryView $v) => [
             'viewer' => $this->directory->profile($owner, $v->viewer_type, $v->viewer_id),
             'viewed_at' => $v->viewed_at?->toIso8601String(),
             'reaction' => $v->reaction,
-        ])->all();
+        ])->values()->all();
     }
 
     // ---------------------------------------------------------------- privacy & mutes

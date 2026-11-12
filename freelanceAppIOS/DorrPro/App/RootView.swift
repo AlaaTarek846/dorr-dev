@@ -75,9 +75,6 @@ struct RootView: View {
                 if nav.stage == .home { nav.reset(to: .login) }
             }
         }
-        // The terms come first: as soon as the account is known and they are not accepted, from the home.
-        .onChange(of: session.me?.terms?.accepted) { _ in showTermsIfNeeded() }
-        .onChange(of: nav.path) { _ in showTermsIfNeeded() }
         // A notification tapped in the phone's tray: the screen of what it is about from wherever the app was left; one
         // without such a screen, the notifications page from the home.
         .onChange(of: realtime.opened) { _ in openTapped() }
@@ -156,9 +153,6 @@ struct RootView: View {
             switch route {
             case let .otp(dial, phone, cooldown):
                 OtpScreen(dialCode: dial, phoneNumber: phone, cooldownSeconds: cooldown, onBack: back, onVerified: { nav.reset(to: .home) })
-            case .terms:
-                // The name is not asked for here: it can be added later from the profile.
-                TermsScreen(version: session.me?.terms?.currentVersion ?? "1", onAccepted: back)
             case .profile:
                 ProfileScreen(onBack: back, onSaved: { nav.popToHome() })
             case .specialties: SpecialtiesScreen(onBack: back)
@@ -181,6 +175,21 @@ struct RootView: View {
                 })
             case .skillTests: SkillTestsScreen(onBack: back, onOpenSkills: { nav.push(.skills) })
             case .capacity: CapacityScreen(onBack: back)
+            case .teams: TeamsScreen(onBack: back, onOpenTeam: { nav.push(.team($0)) })
+            case let .team(uuid):
+                TeamScreen(
+                    uuid: uuid, onBack: back, onOpenProject: { nav.push(.agreement($0)) },
+                    onOpenThread: { nav.push(.teamThread(team: uuid, thread: $0)) },
+                    onOpenPortfolio: { nav.push(.teamPortfolio(uuid)) },
+                    onOpenVerification: { nav.push(.teamVerification(uuid)) },
+                    onOpenPlan: { nav.push(.teamPlan(uuid)) }
+                )
+            case let .teamThread(team, thread): TeamThreadScreen(teamUuid: team, threadUuid: thread, onBack: back)
+            case let .teamPortfolio(team):
+                PortfolioTab(onBack: back, onOpenItem: { nav.push(.teamPortfolioItem(team: team, id: $0)) }, team: team)
+            case let .teamPortfolioItem(team, id): PortfolioFormScreen(itemId: id, onBack: back, team: team)
+            case let .teamVerification(team): TeamVerificationScreen(teamUuid: team, onBack: back)
+            case let .teamPlan(team): TeamPlanScreen(teamUuid: team, onBack: back, onOpenWallet: { nav.pushSingleTop(.wallet) })
             case .portfolio: PortfolioTab(onBack: back, onOpenItem: { nav.push(.portfolioItem($0)) })
             case let .project(uuid):
                 ProjectDetailScreen(uuid: uuid, onBack: back, onOffer: { nav.push(.offerForm(uuid)) },
@@ -203,7 +212,11 @@ struct RootView: View {
             case let .agreement(uuid):
                 AgreementScreen(projectUuid: uuid, onBack: back, onDispute: { milestone, dispute in
                     if let dispute { nav.push(.dispute(project: uuid, dispute: dispute)) } else { nav.push(.disputeNew(project: uuid, milestone: milestone)) }
-                })
+                }, onWorkroom: { nav.push(.workroom(project: uuid, tab: "tasks")) })
+            // FS-150e: a project's Workroom and one file of it.
+            case let .workroom(project, tab):
+                WorkroomScreen(project: project, tab: tab, onBack: back, onOpenFile: { nav.push(.workroomFile(project: project, file: $0)) })
+            case let .workroomFile(project, file): WorkroomFileScreen(project: project, fileUuid: file, onBack: back)
             case let .dispute(project, dispute):
                 DisputeScreen(projectUuid: project, milestoneUuid: nil, disputeUuid: dispute, onBack: back, onOpened: { _ in })
             case let .disputeNew(project, milestone):
@@ -251,12 +264,6 @@ struct RootView: View {
             }
         }
         .background(PinkBackdrop())
-    }
-
-    private func showTermsIfNeeded() {
-        if session.signedIn && session.me?.terms?.accepted == false && nav.stage == .home && nav.path.isEmpty {
-            nav.push(.terms)
-        }
     }
 
     private func openTapped() {

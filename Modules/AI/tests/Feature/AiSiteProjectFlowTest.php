@@ -123,7 +123,9 @@ class AiSiteProjectFlowTest extends TestCase
 
     private function admin(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
+        // Every declared screen permission (like super-admin): these tests check the screens' behaviour, not their permissions.
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
     }
 
     private function planUser(int $projects = 2, int $daily = 5): User
@@ -700,7 +702,8 @@ class AiSiteProjectFlowTest extends TestCase
         $this->admin();
 
         $id = $this->postJson('/api/admin/v1/ai-site-offers', [
-            'name' => 'Portfolio site', 'code' => 'portfolio', 'generations_included' => 20, 'is_active' => true,
+            'code' => 'portfolio', 'generations_included' => 20, 'status' => true,
+            'translations' => [['locale' => 'ar', 'name' => 'موقع أعمال'], ['locale' => 'en', 'name' => 'Portfolio site']],
         ])->assertCreated()->json('data.id');
 
         $this->putJson("/api/admin/v1/ai-site-offers/{$id}/prices", ['prices' => [['country_id' => $this->country->id, 'price' => 250]]])->assertSuccessful();
@@ -709,7 +712,9 @@ class AiSiteProjectFlowTest extends TestCase
         $this->assertEquals(250, $row['price']);
         $this->assertSame('EGP', $row['currency_code']);
 
-        $this->postJson('/api/admin/v1/ai-site-offers', ['name' => 'Dup', 'code' => 'portfolio', 'generations_included' => 1, 'is_active' => true])->assertUnprocessable();
+        $this->postJson('/api/admin/v1/ai-site-offers', [
+            'code' => 'portfolio', 'generations_included' => 1, 'status' => true, 'translations' => [['locale' => 'en', 'name' => 'Dup']],
+        ])->assertUnprocessable()->assertJsonValidationErrors('code');
 
         Sanctum::actingAs($this->user(), ['*'], 'user_api');
         $offers = $this->getJson('/api/user/v1/ai-sites/offers')->assertSuccessful()->json('data.offers');
@@ -735,7 +740,7 @@ class AiSiteProjectFlowTest extends TestCase
         $this->admin();
 
         $response = $this->postJson('/api/admin/v1/ai-plans', [
-            'name' => 'Pro', 'code' => 'pro-'.uniqid(), 'usage_minutes' => 120, 'cooldown_minutes' => 0, 'duration_days' => 30, 'price' => 10,
+            'translations' => [['locale' => 'en', 'name' => 'Pro']], 'code' => 'pro-'.uniqid(), 'usage_minutes' => 120, 'cooldown_minutes' => 0, 'duration_days' => 30, 'price' => 10,
             'site_projects_limit' => 3, 'site_daily_generations' => 4,
         ])->assertSuccessful();
 

@@ -61,7 +61,8 @@ struct WalletPickerCard: View {
     }
 }
 
-/// My wallets: the one of where I am first, then the others (with their balances), then my number's country.
+/// All my wallets: the one of where I am first, then the others (with their balances), my number's country, and last
+/// the dollar wallet (when I have one) — so the dollar card can switch back and any card can reach it.
 @MainActor
 struct WalletPickerSheet: View {
     @EnvironmentObject private var host: WalletHost
@@ -72,14 +73,17 @@ struct WalletPickerSheet: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        let current = balance.countryCode?.uppercased()
+        let dollarOn = WalletCountry.isInternational
+        let current = dollarOn ? nil : balance.countryCode?.uppercased()
         let here = walletCountry.here?.uppercased()
         let others = Dictionary((balance.otherWallets ?? []).map { ($0.countryCode?.uppercased() ?? "", $0) }, uniquingKeysWith: { first, _ in first })
         let phoneCountry = session.user?.country?.code?.uppercased()
         var options: [String] = []
-        for code in [here, current] + (balance.otherWallets ?? []).map({ $0.countryCode?.uppercased() }) + [phoneCountry] {
-            if let code, !options.contains(code) { options.append(code) }
+        // The dollar card's balance doesn't list the country wallets: the ones the host has seen fill in.
+        for code in [here, current] + (balance.otherWallets ?? []).map({ $0.countryCode?.uppercased() }) + host.localCodes.map({ Optional($0) }) + [phoneCountry] {
+            if let code, code != "INT", !options.contains(code) { options.append(code) }
         }
+        let dollarSeen = dollarOn ? balance : host.balances["INT"]
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -89,14 +93,12 @@ struct WalletPickerSheet: View {
                 ForEach(Array(options.enumerated()), id: \.element) { index, code in
                     let on = code == current
                     let other = others[code]
+                    let seen = other ?? host.balances[code]
                     let amount: String = on
                         ? "\(money(balance.totalMinor)) \(balance.currencyCode ?? "")"
-                        : other.map { "\(money($0.totalMinor)) \($0.currencyCode ?? "")" } ?? L("wa_wallet_new")
+                        : seen.map { "\(money($0.totalMinor)) \($0.currencyCode ?? "")" } ?? L("wa_wallet_new")
                     Button {
-                        if !on {
-                            walletCountry.select(code)
-                            Task { await host.refreshBalance() }
-                        }
+                        if !on { host.pickKey = code }
                         onDismiss()
                     } label: {
                         HStack(spacing: 0) {
@@ -122,6 +124,30 @@ struct WalletPickerSheet: View {
                     .buttonStyle(.plain)
                     .padding(.bottom, 8)
                     .waRise(index)
+                }
+                // The dollar wallet, last (not for whom the local currency is already the dollar).
+                if host.intlWallet {
+                    Button {
+                        if !dollarOn { host.pickKey = "INT" }
+                        onDismiss()
+                    } label: {
+                        HStack(spacing: 0) {
+                            WalletFlag(code: "INT")
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(L("wa_intl_wallet_title")).font(.dorr(15, .heavy)).foregroundStyle(wa.ink)
+                                Text(dollarSeen.map { "\(money($0.totalMinor)) \($0.currencyCode ?? "")" } ?? "USD").font(.dorr(12.5)).foregroundStyle(wa.mut)
+                            }
+                            .padding(.leading, 12)
+                            Spacer(minLength: 8)
+                            if dollarOn { Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundStyle(wa.red) }
+                        }
+                        .padding(14)
+                        .background(dollarOn ? wa.red.opacity(0.08) : wa.field, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(dollarOn ? wa.red : .clear, lineWidth: 1.5))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 8)
+                    .waRise(options.count)
                 }
                 Text(L("wa_wallet_rule")).font(.dorr(11.5)).foregroundStyle(wa.soft).lineSpacing(3).padding(.top, 4)
             }

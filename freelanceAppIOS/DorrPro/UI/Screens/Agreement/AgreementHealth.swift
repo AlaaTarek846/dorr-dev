@@ -30,6 +30,7 @@ private func healthReasonKey(_ code: String?, hasDays: Bool) -> String? {
     case "review_waiting": return "fs_health_r_review_waiting"
     case "report_late": return "fs_health_r_report_late"
     case "change_waiting": return "fs_health_r_change_waiting"
+    case "task_overdue": return hasDays ? "fs_health_r_task_overdue" : "fs_health_r_task_overdue_nodays"
     default: return nil
     }
 }
@@ -46,6 +47,7 @@ private func healthNextKey(_ code: String?, mine: Bool, hasDays: Bool) -> String
     case "review_waiting": return prefix + "review_waiting"
     case "report_late": return prefix + "report_late"
     case "change_waiting": return prefix + "change_waiting"
+    case "task_overdue": return prefix + "task_overdue"
     default: return nil
     }
 }

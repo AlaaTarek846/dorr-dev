@@ -230,7 +230,10 @@ enum WorkspaceApi {
     }
 
     /// One paper: `subject`, `subject_uuid` (not for the establishment), `document_type_id`, `number`, `expires_on`; the front and back.
-    static func upload(_ fields: [String: String], front: FilePart, back: FilePart?) async -> ApiResult<ProviderDocumentDto> {
-        await Api.upload(base + "documents", fields: fields, files: [front.asField("front")] + (back.map { [$0.asField("back")] } ?? []))
+    /// `progress` hears how much of the files has gone (0...1, off the main thread) — providerApp counts it in `uploadPaper`.
+    static func upload(_ fields: [String: String], front: FilePart, back: FilePart?,
+                       progress: (@Sendable (Double) -> Void)? = nil) async -> ApiResult<ProviderDocumentDto> {
+        await Api.upload(base + "documents", fields: fields, files: [front.asField("front")] + (back.map { [$0.asField("back")] } ?? []),
+                         progress: progress)
     }
 }

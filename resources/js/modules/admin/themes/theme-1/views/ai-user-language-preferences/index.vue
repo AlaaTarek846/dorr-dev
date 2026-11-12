@@ -49,6 +49,7 @@
                                         <td>
                                             <select
                                                 class="form-select form-select-sm w-auto"
+                                                :disabled="!canUpdate"
                                                 :value="preference.language?.id ?? ''"
                                                 @change="update(preference, { language_id: $event.target.value || null })"
                                             >
@@ -59,6 +60,7 @@
                                         <td>
                                             <select
                                                 class="form-select form-select-sm w-auto"
+                                                :disabled="!canUpdate"
                                                 :value="preference.variant?.id ?? ''"
                                                 @change="update(preference, { variant_id: $event.target.value || null })"
                                             >
@@ -78,6 +80,7 @@
                                                     class="form-check-input"
                                                     type="checkbox"
                                                     role="switch"
+                                                    :disabled="!canUpdate"
                                                     :checked="preference.auto_detect"
                                                     @change="update(preference, { auto_detect: $event.target.checked })"
                                                 >
@@ -86,6 +89,7 @@
                                         <td>
                                             <select
                                                 class="form-select form-select-sm w-auto"
+                                                :disabled="!canUpdate"
                                                 :value="preference.response_language_mode"
                                                 @change="update(preference, { response_language_mode: $event.target.value })"
                                             >
@@ -122,6 +126,7 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 
 /**
  * Business gap fix: PUT /api/admin/v1/ai-user-language-preferences/{id} has
@@ -134,6 +139,7 @@ import useAdminPagination from '../../../../../../composables/useAdminPagination
 
 const { t } = useI18n();
 const { showSuccess, showError } = useToast();
+const { canUpdate } = useCatalogPermissions('ai-user-language-preferences');
 
 const preferences = ref([]);
 const languages = ref([]);
@@ -167,7 +173,7 @@ async function loadOptions() {
     try {
         const [languagesResponse, variantsResponse] = await Promise.all([
             adminAxios.get('/api/admin/v1/ai-languages', { params: { all: 1 } }),
-            adminAxios.get('/api/admin/v1/ai-language-variants', { params: { all: 1 } }),
+            adminAxios.get('/api/admin/v1/ai-language-variants/dropdown'),
         ]);
 
         languages.value = languagesResponse.data.data ?? [];
@@ -178,6 +184,8 @@ async function loadOptions() {
 }
 
 async function update(preference, payload) {
+    if (! canUpdate.value) return;
+
     const previous = { ...preference };
 
     if ('language_id' in payload) {

@@ -56,10 +56,12 @@ class ComfortPreferences
     }
 
     /** What the app needs for the «راحتي» sheet. */
-    public function screen(User $rider, bool $enabled): array
+    public function screen(User $rider, bool $enabled, bool $quietEnabled = false): array
     {
         return [
             'enabled' => $enabled,
+            // The quiet-ride switch on the booking sheet (on with «راحتي», or on its own).
+            'quiet_enabled' => $enabled || $quietEnabled,
             'prefs' => $this->saved($rider),
             'options' => [
                 'ac' => array_map(fn (string $v) => ['value' => $v, 'label' => __('rides.comfort.ac.'.$v)], self::AC),
@@ -74,14 +76,27 @@ class ComfortPreferences
      * After booking: the rider's «راحتي» (or what they chose for this ride) goes with it — only where the
      * switch is on, and only when something was asked for.
      *
+     * A quiet ride also goes alone where only the `quiet_ride` switch is on; `$quiet` is the rider's choice
+     * for this trip (null = their saved one).
+     *
      * @param  array<string, mixed>|null  $override
      */
-    public function attach(Ride $ride, User $rider, ?array $override): void
+    public function attach(Ride $ride, User $rider, ?array $override, ?bool $quiet = null): void
     {
-        if ($ride->comfort !== null || ! $this->features->allows((int) $ride->country_id, $ride->city_id, 'comfort')) {
+        if ($ride->comfort !== null) {
+            return;
+        }
+        $all = $this->features->allows((int) $ride->country_id, $ride->city_id, 'comfort');
+        if (! $all && ! $this->features->allows((int) $ride->country_id, $ride->city_id, 'quiet_ride')) {
             return;
         }
         $prefs = $override !== null ? self::clean($override) : $this->saved($rider);
+        if ($quiet !== null) {
+            $prefs['quiet'] = $quiet;
+        }
+        if (! $all) {
+            $prefs = self::clean(['quiet' => $prefs['quiet']]);
+        }
         if (! self::asksForSomething($prefs)) {
             return;
         }

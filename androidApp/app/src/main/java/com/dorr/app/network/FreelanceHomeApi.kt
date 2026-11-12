@@ -24,6 +24,8 @@ data class FlHomeDto(
     val promos: List<FlPromoDto> = emptyList(),
     val stats: FlHomeStatsDto = FlHomeStatsDto(),
     val attention: FlHomeAttentionDto = FlHomeAttentionDto(),
+    /** FS-104: the projects others brought me into, and their invitations waiting for me. */
+    val team: FlHomeTeamDto = FlHomeTeamDto(),
     @SerializedName("next_consultation") val nextConsultation: FlHomeConsultationDto? = null,
     val projects: List<FreelanceProjectDto> = emptyList(),
     val services: List<MarketServiceCardDto> = emptyList(),

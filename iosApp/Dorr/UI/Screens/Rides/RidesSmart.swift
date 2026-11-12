@@ -118,6 +118,19 @@ final class SpeechListener: ObservableObject {
 
 /// The assistant: say or write the trip, see what DORR AI understood, pick the place — then it is shown on the map to
 /// confirm or move (nothing is booked here).
+extension RidesState {
+    /// What DORR AI understood besides the place (category, time, riders, payment, a note) fills the booking —
+    /// from «دُرر يفهم مقصدك» or DORR AI's chat. The rider still sees and changes all of it.
+    func applyAiBooking(_ understood: RideAiUnderstoodDto?) {
+        guard let u = understood else { return }
+        if let p = u.passengers { passengers = p }
+        if let pay = u.payment, feature(pay) { payment = pay }
+        if let note = u.note { pickupNote = note }
+        if let cat = u.category { preferCategory = cat }
+        if let when = u.when, feature("scheduled"), let at = parseRideTime(when) { scheduledAt = at }
+    }
+}
+
 struct SmartDestinationSheet: View {
     @Environment(\.wa) private var wa
     @ObservedObject var state: RidesState
@@ -147,13 +160,8 @@ struct SmartDestinationSheet: View {
     }
 
     private func pick(_ place: RideAiPlaceDto) {
-        let u = answer?.understood
         // What else was said fills the booking sheet; the rider still sees and changes all of it.
-        if let p = u?.passengers { state.passengers = p }
-        if let pay = u?.payment, state.feature(pay) { state.payment = pay }
-        if let note = u?.note { state.pickupNote = note }
-        if let cat = u?.category { state.preferCategory = cat }
-        if let when = u?.when, state.feature("scheduled"), let at = parseRideTime(when) { state.scheduledAt = at }
+        state.applyAiBooking(answer?.understood)
         state.editing = "destination"
         state.set(RidePoint(lat: place.lat, lng: place.lng, address: (place.address ?? "").isEmpty ? (place.name ?? "") : place.address!, name: place.name))
         // Confirm (or move) it on the map before anything is priced or booked.
@@ -204,6 +212,13 @@ struct SmartDestinationSheet: View {
         }
         .background(wa.settingsCard.ignoresSafeArea())
         .onDisappear { speech.stop() }
+        // Words from DORR AI's chat: understood at once.
+        .task {
+            guard let words = state.smartText else { return }
+            state.smartText = nil
+            text = words
+            ask(words)
+        }
     }
 
     @ViewBuilder
@@ -309,7 +324,7 @@ private func comfortSummary(_ p: RideComfortPrefsDto?, _ s: RideComfortScreenDto
     return parts.joined(separator: " · ")
 }
 
-/// «راحتي» on the booking sheet: what I like, in one line — tap to change.
+/// On the booking sheet: a quiet ride for this trip (one switch), then «راحتي» — what I like, in one line, tap to change.
 struct ComfortRow: View {
     @Environment(\.wa) private var wa
     @ObservedObject var state: RidesState
@@ -318,6 +333,9 @@ struct ComfortRow: View {
 
     var body: some View {
         Group {
+            if let s = screen, s.quietEnabled == true {
+                QuietRideRow(state: state, saved: s.prefs?.quiet ?? false)
+            }
             if state.feature("comfort"), let s = screen, s.enabled == true {
                 let summary = comfortSummary(s.prefs, s)
                 Button { open = true } label: {
@@ -341,9 +359,33 @@ struct ComfortRow: View {
             }
         }
         .task {
-            guard state.feature("comfort") else { return }
+            guard state.feature("comfort") || state.feature("quiet_ride") else { return }
             screen = try? await RidesApi.comfort(lat: state.pickup?.lat, lng: state.pickup?.lng).data
         }
+    }
+}
+
+/// A quiet ride, like the big ride apps: the captain is told the rider prefers no small talk.
+private struct QuietRideRow: View {
+    @Environment(\.wa) private var wa
+    @ObservedObject var state: RidesState
+    let saved: Bool
+
+    var body: some View {
+        let on = Binding(get: { state.quietRide ?? saved }, set: { state.quietRide = $0 })
+        HStack(spacing: 10) {
+            Image(systemName: "speaker.slash.fill").font(.system(size: 14)).foregroundStyle(wa.accent)
+                .frame(width: 30, height: 30).background(wa.accent.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 0) {
+                Text(L("rd_quiet_title")).font(.dorr(14, .semibold)).foregroundStyle(wa.settingsInk)
+                Text(L("rd_quiet_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            }
+            Spacer(minLength: 0)
+            Toggle("", isOn: on).labelsHidden().tint(wa.accent)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture { on.wrappedValue.toggle() }
     }
 }
 

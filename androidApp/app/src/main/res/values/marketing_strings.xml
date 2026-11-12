@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI Marketing Director (docs/marketing_tasks.md). Every key exists in both languages. -->
+    <string name="mktg_title">AI Marketing Director</string>
+    <string name="mktg_menu_sub">Research, business and marketing plans for your project</string>
+    <string name="mktg_unavailable_title">Not available in your country yet</string>
+    <string name="mktg_unavailable_text">The AI marketing director will open here soon.</string>
+    <string name="mktg_error_generic">Something went wrong. Try again.</string>
+    <string name="mktg_retry">Try again</string>
+    <string name="mktg_cancel">Cancel</string>
+    <string name="mktg_save">Save</string>
+    <string name="mktg_close">Close</string>
+    <string name="mktg_load_more">Show more</string>
+
+    <!-- package -->
+    <string name="mktg_package">Marketing package</string>
+    <string name="mktg_packages">Packages</string>
+    <string name="mktg_no_package_title">Subscribe to start</string>
+    <string name="mktg_no_package_text">The package covers research with sources, plans, finance and exports for you and your team.</string>
+    <string name="mktg_see_packages">See the packages</string>
+    <string name="mktg_active_until">Active until %1$s</string>
+    <string name="mktg_renew">Add a period</string>
+    <string name="mktg_buy">Subscribe</string>
+    <string name="mktg_per_days">every %1$d days</string>
+    <string name="mktg_limit_projects">Projects: %1$s</string>
+    <string name="mktg_limit_research_runs">Research runs: %1$s</string>
+    <string name="mktg_limit_plan_generations">Plan writings: %1$s</string>
+    <string name="mktg_limit_members">Team members: %1$s</string>
+    <string name="mktg_unlimited">unlimited</string>
+    <string name="mktg_used_of">%1$d of %2$s</string>
+    <string name="mktg_paid">Subscribed. You can start now.</string>
+    <string name="mktg_no_packages">No package is sold in your country yet.</string>
+
+    <!-- projects -->
+    <string name="mktg_projects">My projects</string>
+    <string name="mktg_new_project">New project</string>
+    <string name="mktg_search_projects">Search projects</string>
+    <string name="mktg_no_projects_title">No projects yet</string>
+    <string name="mktg_no_projects_text">Add your business and the director starts with the questions that matter.</string>
+    <string name="mktg_project_name">Project name</string>
+    <string name="mktg_industry">Industry</string>
+    <string name="mktg_industry_hint">e.g. bakery, delivery, beauty salon</string>
+    <string name="mktg_city">Main city</string>
+    <string name="mktg_stage">Stage</string>
+    <string name="mktg_stage_idea">Idea</string>
+    <string name="mktg_stage_launch">Launch</string>
+    <string name="mktg_stage_growth">Growth</string>
+    <string name="mktg_create">Create</string>
+    <string name="mktg_created">Project created.</string>
+    <string name="mktg_archived_badge">Archived</string>
+    <string name="mktg_archive">Archive</string>
+    <string name="mktg_unarchive">Bring back</string>
+    <string name="mktg_delete">Delete project</string>
+    <string name="mktg_delete_confirm_title">Delete this project?</string>
+    <string name="mktg_delete_confirm_text">Its research and plans go with it. This cannot be undone.</string>
+    <string name="mktg_deleted">Project deleted.</string>
+    <string name="mktg_role_owner">Owner</string>
+    <string name="mktg_role_manager">Manager</string>
+    <string name="mktg_role_analyst">Analyst</string>
+    <string name="mktg_role_viewer">Viewer</string>
+
+    <!-- discovery -->
+    <string name="mktg_discovery">Discovery</string>
+    <string name="mktg_discovery_sub">%1$d of %2$d answered</string>
+    <string name="mktg_discovery_missing">Answer the required questions so plans are built on facts, not guesses.</string>
+    <string name="mktg_discovery_done">The essentials are answered.</string>
+    <string name="mktg_required">Required</string>
+    <string name="mktg_from_ai">From the AI</string>
+    <string name="mktg_one_per_line">One per line</string>
+    <string name="mktg_dont_know">I don\'t know yet</string>
+    <string name="mktg_suggest">Suggest more questions</string>
+    <string name="mktg_saved">Saved.</string>
+    <string name="mktg_answer_invalid">Check this answer.</string>
+
+    <!-- research -->
+    <string name="mktg_research">Research</string>
+    <string name="mktg_research_market">Market</string>
+    <string name="mktg_research_competitor">Competitors</string>
+    <string name="mktg_research_audience">Audience</string>
+    <string name="mktg_research_start">Start %1$s research</string>
+    <string name="mktg_research_started">Research started. You\'ll see it here when it\'s done.</string>
+    <string name="mktg_no_research">No research yet. Every figure will come with its source.</string>
+    <string name="mktg_research_not_ready">Web search is not set up yet, so research will say \"no sources\" instead of guessing.</string>
+    <string name="mktg_sources">Sources</string>
+    <string name="mktg_findings">Findings</string>
+    <string name="mktg_gaps">What the sources don\'t cover</string>
+    <string name="mktg_quality">Evidence quality</string>
+    <string name="mktg_assumption">Assumption</string>
+    <string name="mktg_sources_count">%1$d sources · %2$d findings</string>
+    <string name="mktg_no_findings">No finding could be tied to a source.</string>
+    <string name="mktg_published">Published %1$s</string>
+    <string name="mktg_retrieved">Retrieved %1$s</string>
+    <string name="mktg_open_source">Open</string>
+    <string name="mktg_confidence_high">High confidence</string>
+    <string name="mktg_confidence_medium">Medium confidence</string>
+    <string name="mktg_confidence_low">Low confidence</string>
+
+    <!-- job / status -->
+    <string name="mktg_status_QUEUED">Waiting</string>
+    <string name="mktg_status_RUNNING">Working…</string>
+    <string name="mktg_status_EVIDENCE_CHECK">Checking sources…</string>
+    <string name="mktg_status_COMPLETED">Done</string>
+    <string name="mktg_status_PARTIAL">Partial</string>
+    <string name="mktg_status_FAILED">Failed</string>
+    <string name="mktg_status_CANCELLED">Cancelled</string>
+    <string name="mktg_status_DRAFT">Draft</string>
+    <string name="mktg_status_READY_FOR_REVIEW">Ready for review</string>
+    <string name="mktg_status_APPROVED">Approved</string>
+    <string name="mktg_status_SUPERSEDED">Superseded</string>
+    <string name="mktg_status_ARCHIVED">Archived</string>
+    <string name="mktg_job_failed">It stopped: %1$s</string>
+
+    <!-- plans -->
+    <string name="mktg_plans">Plans</string>
+    <string name="mktg_plan_business">Business plan</string>
+    <string name="mktg_plan_marketing">Marketing plan</string>
+    <string name="mktg_plan_gtm">Go-to-market plan</string>
+    <string name="mktg_plan_write">Write it</string>
+    <string name="mktg_plan_rewrite">Write again with AI</string>
+    <string name="mktg_plan_writing">Writing the plan…</string>
+    <string name="mktg_plan_started">The plan is being written.</string>
+    <string name="mktg_version">Version %1$d</string>
+    <string name="mktg_versions">Versions</string>
+    <string name="mktg_origin_ai">by AI</string>
+    <string name="mktg_origin_edit">edited</string>
+    <string name="mktg_submit">Send for review</string>
+    <string name="mktg_approve">Approve version %1$d</string>
+    <string name="mktg_return">Return to draft</string>
+    <string name="mktg_approved_on">Approved version %1$d · %2$s</string>
+    <string name="mktg_approve_confirm_title">Approve this version?</string>
+    <string name="mktg_approve_confirm_text">The approval is for this exact version. Any later change makes a new version that needs approving again.</string>
+    <string name="mktg_edit">Edit</string>
+    <string name="mktg_edit_plan">Edit the plan</string>
+    <string name="mktg_edit_note">Saving makes a new version. An approved plan goes back to draft.</string>
+    <string name="mktg_title_field">Title</string>
+    <string name="mktg_summary">Summary</string>
+    <string name="mktg_assumptions">Assumptions</string>
+    <string name="mktg_risks">Risks</string>
+    <string name="mktg_confidence_notes">Confidence notes</string>
+    <string name="mktg_issues">Things to check</string>
+    <string name="mktg_issue_blocking">Must be fixed before review</string>
+    <string name="mktg_positioning">Positioning</string>
+    <string name="mktg_segments">Segments</string>
+    <string name="mktg_channels">Channels</string>
+    <string name="mktg_messages">Key messages</string>
+    <string name="mktg_kpis">KPIs</string>
+    <string name="mktg_horizon">%1$d days</string>
+    <string name="mktg_phase_days">Days %1$d–%2$d</string>
+    <string name="mktg_tasks">Tasks</string>
+    <string name="mktg_go_no_go">Go / no-go</string>
+    <string name="mktg_cited_sources">Cited sources: %1$s</string>
+    <string name="mktg_export_pdf">PDF</string>
+    <string name="mktg_export_docx">Word</string>
+    <string name="mktg_export_failed">The file could not be prepared.</string>
+    <string name="mktg_archive_plan">Archive plan</string>
+    <string name="mktg_instructions">Anything to focus on? (optional)</string>
+    <string name="mktg_issue_budget_missing">The monthly budget is unknown, so no money figure is assumed.</string>
+    <string name="mktg_issue_invented_budget_removed">A budget the AI suggested was removed: only yours counts.</string>
+    <string name="mktg_issue_unknown_sources_removed">Sources that are not in this project were removed.</string>
+    <string name="mktg_issue_numbers_without_sources">Some figures have no source: treat them as assumptions.</string>
+    <string name="mktg_issue_budget_share_over_100">Channel budget shares add up to more than 100 percent.</string>
+    <string name="mktg_issue_invalid_phase_range">A phase has wrong days.</string>
+    <string name="mktg_issue_overlapping_phases">Two phases overlap.</string>
+    <string name="mktg_issue_phase_without_go_no_go">A phase has no go / no-go criteria.</string>
+
+    <!-- finance -->
+    <string name="mktg_finance">Finance</string>
+    <string name="mktg_finance_sub">Scenarios computed from your figures</string>
+    <string name="mktg_finance_note">Estimates from the figures you enter — not a promise of results. Saving makes a new version.</string>
+    <string name="mktg_in_price">Price per unit</string>
+    <string name="mktg_in_variable_cost">Variable cost per unit</string>
+    <string name="mktg_in_fixed_costs">Fixed costs per month</string>
+    <string name="mktg_in_marketing_spend">Marketing spend per month</string>
+    <string name="mktg_in_new_customers">New customers per month</string>
+    <string name="mktg_in_conversions">Conversions per month</string>
+    <string name="mktg_in_revenue">Revenue from ads per month</string>
+    <string name="mktg_in_churn">Monthly churn (percent)</string>
+    <string name="mktg_scenario_conservative">Conservative</string>
+    <string name="mktg_scenario_base">Base</string>
+    <string name="mktg_scenario_optimistic">Optimistic</string>
+    <string name="mktg_m_contribution_margin_per_unit_minor">Margin per unit</string>
+    <string name="mktg_m_break_even_units">Break-even units</string>
+    <string name="mktg_m_cac_minor">CAC</string>
+    <string name="mktg_m_cpa_minor">CPA</string>
+    <string name="mktg_m_roas">ROAS</string>
+    <string name="mktg_m_ltv_minor">LTV</string>
+    <string name="mktg_m_monthly_profit_minor">Monthly profit</string>
+    <string name="mktg_unavailable">N/A</string>
+    <string name="mktg_estimated">Estimated</string>
+    <string name="mktg_no_finance">Enter your figures to see the three scenarios.</string>
+
+    <!-- team -->
+    <string name="mktg_team">Team</string>
+    <string name="mktg_team_sub">%1$d people</string>
+    <string name="mktg_add_member">Add a member</string>
+    <string name="mktg_phone">Phone number</string>
+    <string name="mktg_role">Role</string>
+    <string name="mktg_member_added">Added to the team.</string>
+    <string name="mktg_member_removed">Removed from the team.</string>
+    <string name="mktg_role_changed">Role changed.</string>
+    <string name="mktg_remove">Remove</string>
+    <string name="mktg_leave">Leave the project</string>
+    <string name="mktg_you">You</string>
+    <string name="mktg_role_manager_sub">Edits the profile and the plans, approves them</string>
+    <string name="mktg_role_analyst_sub">Reads and runs research</string>
+    <string name="mktg_role_viewer_sub">Reads only</string>
+</resources>

@@ -29,6 +29,8 @@
 	<string>$(DORR_API_HOST)</string>
 	<key>DorrApiScheme</key>
 	<string>$(DORR_API_SCHEME)</string>
+	<key>DorrGoogleMapsKey</key>
+	<string>$(DORR_GOOGLE_MAPS_KEY)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -53,7 +55,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick pictures of your establishment's papers and the pieces you move.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Set your branch at your current location, and let the customer follow the truck while your moving job runs.</string>
+	<string>Open the map where you are to place your branch, and let the customer follow the truck while your moving job runs.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Let the customer follow the truck while your moving job runs, even with the app in the background.</string>
 	<key>UILaunchScreen</key>

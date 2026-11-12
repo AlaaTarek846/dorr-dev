@@ -152,6 +152,9 @@ object ApiClient {
     val freelanceLoyalty: FreelanceLoyaltyApi by lazy { retrofit.create(FreelanceLoyaltyApi::class.java) }
     val freelanceRights: FreelanceRightsApi by lazy { retrofit.create(FreelanceRightsApi::class.java) }
     val freelanceTalent: FreelanceTalentApi by lazy { retrofit.create(FreelanceTalentApi::class.java) }
+    val freelanceTeam: FreelanceTeamApi by lazy { retrofit.create(FreelanceTeamApi::class.java) }
+    /** FS-150e: a project's Workroom — tasks, files, decisions and the timeline. */
+    val freelanceWorkroom: FreelanceWorkroomApi by lazy { retrofit.create(FreelanceWorkroomApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
@@ -177,6 +180,7 @@ object ApiClient {
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
     /** Watch & Earn: the viewer, the advertiser and the ad wallet (docs/modules/watch-earn/API.md). */
     val watchEarn: WatchEarnApi by lazy { retrofit.create(WatchEarnApi::class.java) }
+    val marketing: MarketingApi by lazy { retrofit.create(MarketingApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 

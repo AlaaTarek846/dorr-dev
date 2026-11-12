@@ -409,6 +409,16 @@ final class FreelanceLink: ObservableObject {
         if group == "consultation" { return consultation.flatMap { $0.isEmpty ? nil : "consult:\($0)" } ?? "consults" }
         // A message whose room is not known (an older notice): my projects list, where each project shows its unread chat — not the hub.
         guard let project, !project.isEmpty else { return group == "message" ? "list" : "home" }
+        // FS-104: the project team - an invitation (or being taken out) opens my shared projects; an answer, someone leaving opens the team;
+        // my changed role opens the project; a step my delegate took opens its agreement.
+        if group == "team" {
+            switch name {
+            case "team.invited", "team.removed": return "shared"
+            case "team.joined", "team.declined", "team.left": return "team:\(project)"
+            case "team.role_changed": return "show:\(project)"
+            default: return "agreement:\(project)"
+            }
+        }
         switch group {
         // A message from the freelancer: their offer page (its chat button carries the unread count).
         case "message": return offer.map { $0.isEmpty ? "offers:\(project)" : "offer:\(project):\($0)" } ?? "offers:\(project)"
@@ -419,6 +429,17 @@ final class FreelanceLink: ObservableObject {
         // FL-L13: the rights of a part passed, or the freelancer asks to show a finished work: the agreement (the claim notice has no project).
         case "agreement", "milestone", "change", "report", "review", "payment", "rights", "health": return "agreement:\(project)"
         case "sanction": return "home"
+        // FS-150e: a Workroom notice opens the part it is about, over the agreement (so back lands on the agreement): a task given to me ·
+        // a file or a note on one · a decision to answer or answered.
+        case "workroom":
+            let what = name.firstIndex(of: ".").map { String(name[name.index(after: $0)...]) } ?? name
+            let tab: String
+            switch what {
+            case "task_assigned": tab = "tasks"
+            case "file_shared", "comment_added": tab = "files"
+            default: tab = "decisions"
+            }
+            return "agreement:\(project)|workroom:\(project):\(tab)"
         default: return "show:\(project)"
         }
     }

@@ -29,14 +29,16 @@ class AiSafetyEvent extends Model
         return $this->morphTo();
     }
 
+    /** withTrashed: the log still names a policy that was moved to the trash. */
     public function policy(): BelongsTo
     {
-        return $this->belongsTo(AiSafetyPolicy::class, 'safety_policy_id');
+        return $this->belongsTo(AiSafetyPolicy::class, 'safety_policy_id')->withTrashed();
     }
 
+    /** withTrashed: the log still names a rule that was moved to the trash. */
     public function rule(): BelongsTo
     {
-        return $this->belongsTo(AiSafetyRule::class, 'safety_rule_id');
+        return $this->belongsTo(AiSafetyRule::class, 'safety_rule_id')->withTrashed();
     }
 
     public function request(): BelongsTo
