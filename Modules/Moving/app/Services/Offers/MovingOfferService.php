@@ -40,7 +40,9 @@ class MovingOfferService
         $this->assertOpen($request);
         $vehicle = Vehicle::query()->where('uuid', $data['vehicle_uuid'])->where('establishment_id', $actor->establishment_id)->first()
             ?? throw new MovingException('vehicle_not_found', 404);
-        if ($problem = $this->gate->offerProblem($actor, $vehicle, $request->service_category_id)) {
+        // The type first: papers put right wouldn't make a quarter truck answer a half-truck request.
+        $this->assertTypeAsked($request, $vehicle);
+        if ($problem = $this->gate->offerProblem($actor, $vehicle, $request->service_category_id, $branch)) {
             throw new MovingException('cannot_offer', 403, ['reason' => __('provider.errors.'.$problem)], ['reason' => $problem]);
         }
 
@@ -89,7 +91,8 @@ class MovingOfferService
         if (isset($data['vehicle_uuid'])) {
             $vehicle = Vehicle::query()->where('uuid', $data['vehicle_uuid'])->where('establishment_id', $actor->establishment_id)->first()
                 ?? throw new MovingException('vehicle_not_found', 404);
-            if ($problem = $this->gate->offerProblem($actor, $vehicle, $request->service_category_id)) {
+            $this->assertTypeAsked($request, $vehicle);
+            if ($problem = $this->gate->offerProblem($actor, $vehicle, $request->service_category_id, $offer->branch)) {
                 throw new MovingException('cannot_offer', 403, ['reason' => __('provider.errors.'.$problem)], ['reason' => $problem]);
             }
             $offer->vehicle_id = $vehicle->id;
@@ -145,6 +148,15 @@ class MovingOfferService
         }
 
         throw new MovingException('request_not_found', 404);
+    }
+
+    /** The customer said which vehicles fit their move: an offer comes with one of those types (a half truck isn't offered a quarter one). */
+    private function assertTypeAsked(MovingRequest $request, Vehicle $vehicle): void
+    {
+        $types = $request->vehicleTypeIds();
+        if ($types !== [] && ! in_array((int) $vehicle->vehicle_type_id, $types, true)) {
+            throw new MovingException('vehicle_type_not_asked', 422);
+        }
     }
 
     private function needsApproval(Membership $actor, int $price): bool

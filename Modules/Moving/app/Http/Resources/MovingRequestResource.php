@@ -57,6 +57,9 @@ class MovingRequestResource extends JsonResource
             'dimensions' => $this->dimensions,
             'vehicle_type' => $this->whenLoaded('vehicleType', fn () => $this->vehicleType ? new VehicleTypeResource($this->vehicleType) : null),
             'vehicle_type_id' => $this->vehicle_type_id,
+            // Every vehicle type the customer accepts, the first choice first (vehicle_type above is that first one).
+            'vehicle_type_ids' => $this->vehicleTypeIds(),
+            'vehicle_types' => VehicleTypeResource::collection($this->vehicleTypes()),
             'workers_count' => $this->workers_count,
             'extras' => ['packing' => $this->packing, 'disassembly' => $this->disassembly, 'crane' => $this->crane, 'technician' => $this->technician],
             'pickup' => $end('pickup'),
@@ -67,6 +70,11 @@ class MovingRequestResource extends JsonResource
             'notes' => $this->notes,
             'photos' => $this->getMedia('photos')->map(fn ($m) => ['id' => $m->id, 'url' => $m->getUrl()])->values(),
             'videos' => $this->getMedia('videos')->map(fn ($m) => ['id' => $m->id, 'url' => $m->getUrl()])->values(),
+            // The customer's voice note about the load (heard by the companies too), with its length and bars.
+            'voice' => ($voice = $this->getFirstMedia('voice')) ? [
+                'id' => $voice->id, 'url' => $voice->getUrl(),
+                'duration_ms' => $voice->getCustomProperty('duration_ms'), 'waveform' => $voice->getCustomProperty('waveform', []),
+            ] : null,
             'policy_version' => $this->policy_version,
             'offers_deadline_at' => $this->offers_deadline_at?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),

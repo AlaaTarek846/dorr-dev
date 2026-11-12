@@ -100,14 +100,22 @@ struct MovingMediaDto: Decodable, Equatable, Identifiable {
     var id: Int
     var url: String?
     var collection: String?
+    /// A voice note: its length and bars (0–100).
+    var durationMs: Int64?
+    var waveform: [Int]
 
-    enum CodingKeys: String, CodingKey { case id, url, collection }
+    enum CodingKeys: String, CodingKey {
+        case id, url, collection, waveform
+        case durationMs = "duration_ms"
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = c.value(.id, 0)
         url = c.value(.url, nil)
         collection = c.value(.collection, nil)
+        durationMs = c.value(.durationMs, nil)
+        waveform = c.value(.waveform, [])
     }
 }
 
@@ -238,6 +246,9 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
     var dimensions: String?
     var vehicleType: MovingVehicleTypeDto?
     var vehicleTypeId: Int?
+    /// Every vehicle type the customer accepts, the first choice first.
+    var vehicleTypeIds: [Int]
+    var vehicleTypes: [MovingVehicleTypeDto]
     var workersCount: Int?
     var extras: MovingExtrasDto?
     var pickup: MovingEndDto?
@@ -247,6 +258,8 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
     var notes: String?
     var photos: [MovingMediaDto]
     var videos: [MovingMediaDto]
+    /// The customer's voice note about the load, heard by the companies too.
+    var voice: MovingMediaDto?
     var offersDeadlineAt: String?
     var publishedAt: String?
     var currencyCode: String?
@@ -261,8 +274,9 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
     var id: String { uuid }
 
     enum CodingKeys: String, CodingKey {
-        case uuid, status, description, dimensions, extras, pickup, dropoff, notes, photos, videos, money, establishment, vehicle, driver
+        case uuid, status, description, dimensions, extras, pickup, dropoff, notes, photos, videos, voice, money, establishment, vehicle, driver
         case loadType = "load_type", piecesCount = "pieces_count", vehicleType = "vehicle_type", vehicleTypeId = "vehicle_type_id"
+        case vehicleTypeIds = "vehicle_type_ids", vehicleTypes = "vehicle_types"
         case workersCount = "workers_count", distanceKm = "distance_km", scheduledAt = "scheduled_at"
         case offersDeadlineAt = "offers_deadline_at", publishedAt = "published_at", currencyCode = "currency_code"
         case currencyDecimals = "currency_decimals", driverAccepted = "driver_accepted"
@@ -278,6 +292,8 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
         dimensions = c.value(.dimensions, nil)
         vehicleType = c.value(.vehicleType, nil)
         vehicleTypeId = c.value(.vehicleTypeId, nil)
+        vehicleTypeIds = c.value(.vehicleTypeIds, [])
+        vehicleTypes = c.value(.vehicleTypes, [])
         workersCount = c.value(.workersCount, nil)
         extras = c.value(.extras, nil)
         pickup = c.value(.pickup, nil)
@@ -287,6 +303,7 @@ struct MovingRequestDto: Decodable, Equatable, Identifiable {
         notes = c.value(.notes, nil)
         photos = c.value(.photos, [])
         videos = c.value(.videos, [])
+        voice = c.value(.voice, nil)
         offersDeadlineAt = c.value(.offersDeadlineAt, nil)
         publishedAt = c.value(.publishedAt, nil)
         currencyCode = c.value(.currencyCode, nil)
@@ -379,9 +396,12 @@ struct MovingShowDto: Decodable, Equatable {
     var objectionUntil: String?
     var inventory: [MovingInventoryItemDto]
     var cases: [MovingCaseDto]
+    /// What the rating card asks the customer to score the establishment on (as rides ask about the captain).
+    var ratingCriteria: [MovingCriterionDto]
 
     enum CodingKeys: String, CodingKey {
         case request, rated, missing, inventory, cases
+        case ratingCriteria = "rating_criteria"
         case offersCount = "offers_count", deliveryCode = "delivery_code", deliveryQr = "delivery_qr"
         case cancelFeeMinor = "cancel_fee_minor", driverLocation = "driver_location", objectionUntil = "objection_until"
     }
@@ -400,6 +420,52 @@ struct MovingShowDto: Decodable, Equatable {
         objectionUntil = c.value(.objectionUntil, nil)
         inventory = c.value(.inventory, [])
         cases = c.value(.cases, [])
+        ratingCriteria = c.value(.ratingCriteria, [])
+    }
+}
+
+/// A rating criterion: its key and label, and — with an establishment — its average and how many scored it.
+struct MovingCriterionDto: Decodable, Equatable {
+    var key: String
+    var label: String?
+    var average: Double?
+    var count: Int
+
+    enum CodingKeys: String, CodingKey { case key, label, average, count }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        key = c.value(.key, "")
+        label = c.value(.label, nil)
+        average = c.value(.average, nil)
+        count = c.value(.count, 0)
+    }
+}
+
+/// One of the company's branches on an offer: the one that answered first, then the nearest to the pickup point.
+struct MovingOfferBranchDto: Decodable, Equatable {
+    var name: String?
+    var address: String?
+    var lat: Double?
+    var lng: Double?
+    var isMain: Bool
+    var answering: Bool
+    var distanceKm: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case name, address, lat, lng, answering
+        case isMain = "is_main", distanceKm = "distance_km"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = c.value(.name, nil)
+        address = c.value(.address, nil)
+        lat = c.value(.lat, nil)
+        lng = c.value(.lng, nil)
+        isMain = c.value(.isMain, false)
+        answering = c.value(.answering, false)
+        distanceKm = c.value(.distanceKm, nil)
     }
 }
 
@@ -411,8 +477,10 @@ struct MovingOfferEstablishmentDto: Decodable, Equatable {
     var average: Double?
     var count: Int
     var jobs: Int
+    /// Its average on each criterion customers score (nil average = nobody scored it yet).
+    var criteria: [MovingCriterionDto]
 
-    enum CodingKeys: String, CodingKey { case uuid, name, type, logo, average, count, jobs }
+    enum CodingKeys: String, CodingKey { case uuid, name, type, logo, average, count, jobs, criteria }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -423,6 +491,7 @@ struct MovingOfferEstablishmentDto: Decodable, Equatable {
         average = c.value(.average, nil)
         count = c.value(.count, 0)
         jobs = c.value(.jobs, 0)
+        criteria = c.value(.criteria, [])
     }
 }
 
@@ -456,6 +525,8 @@ struct MovingOfferDto: Decodable, Equatable, Identifiable {
     var validUntil: String?
     var establishment: MovingOfferEstablishmentDto?
     var branch: String?
+    /// Where the company is: its branches with their address and distance from the pickup point.
+    var branches: [MovingOfferBranchDto]
     var vehicle: MovingOfferVehicleDto?
     /// Why it sits where it does: cheapest, earliest, vehicle_fit.
     var reasons: [String]
@@ -463,7 +534,7 @@ struct MovingOfferDto: Decodable, Equatable, Identifiable {
     var id: String { uuid }
 
     enum CodingKeys: String, CodingKey {
-        case uuid, status, includes, terms, establishment, branch, vehicle, reasons
+        case uuid, status, includes, terms, establishment, branch, branches, vehicle, reasons
         case requestUuid = "request_uuid", priceMinor = "price_minor", currencyCode = "currency_code"
         case workersCount = "workers_count", tripsCount = "trips_count", technicianNote = "technician_note"
         case arrivalAt = "arrival_at", afterService = "after_service", validUntil = "valid_until"
@@ -486,6 +557,7 @@ struct MovingOfferDto: Decodable, Equatable, Identifiable {
         validUntil = c.value(.validUntil, nil)
         establishment = c.value(.establishment, nil)
         branch = c.value(.branch, nil)
+        branches = c.value(.branches, [])
         vehicle = c.value(.vehicle, nil)
         reasons = c.value(.reasons, [])
     }
@@ -743,6 +815,11 @@ enum MovingApi {
 
     static func addMedia(_ uuid: String, file: ApiClient.FilePart) async throws -> ApiEnvelope<MovingMediaDto> {
         try await ApiClient.upload("\(base)/requests/\(uuid)/media", files: [file])
+    }
+
+    /// The customer's voice note about the load: `kind=voice`, its length and bars (a JSON list); it replaces the last one.
+    static func addVoice(_ uuid: String, file: ApiClient.FilePart, durationMs: Int64, waveform: String) async throws -> ApiEnvelope<MovingMediaDto> {
+        try await ApiClient.upload("\(base)/requests/\(uuid)/media", fields: ["kind": "voice", "duration_ms": String(durationMs), "waveform": waveform], files: [file])
     }
 
     /// Answers 204 with no body, so there is no envelope to read: the answer is not looked at (as on Android).

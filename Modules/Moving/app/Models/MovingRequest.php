@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Modules\Moving\Enums\LoadType;
 use Modules\Moving\Enums\MovingStatus;
@@ -60,6 +61,7 @@ class MovingRequest extends Model implements HasMedia
             'settled_at' => 'datetime',
             'refunded_minor' => 'integer',
             'policy' => 'array',
+            'vehicle_type_ids' => 'array',
             'price_minor' => 'integer',
             'tax_minor' => 'integer',
             'total_minor' => 'integer',
@@ -97,6 +99,23 @@ class MovingRequest extends Model implements HasMedia
     public function vehicleType(): BelongsTo
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type_id');
+    }
+
+    /** @return list<int> every vehicle type the customer accepts, the first choice first (older requests: their one type) */
+    public function vehicleTypeIds(): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $this->vehicle_type_ids ?? [])));
+
+        return $ids !== [] ? $ids : ($this->vehicle_type_id !== null ? [(int) $this->vehicle_type_id] : []);
+    }
+
+    /** @return Collection<int, VehicleType> the accepted vehicle types, in the customer's order */
+    public function vehicleTypes(): Collection
+    {
+        $ids = $this->vehicleTypeIds();
+
+        return VehicleType::query()->with('translations')->whereIn('id', $ids)->get()
+            ->sortBy(fn (VehicleType $t) => array_search($t->id, $ids, true))->values();
     }
 
     public function offers(): HasMany

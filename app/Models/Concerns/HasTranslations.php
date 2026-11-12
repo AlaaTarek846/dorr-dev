@@ -36,7 +36,9 @@ trait HasTranslations
      */
     public function translated(string $field): ?string
     {
-        if ($this->relationLoaded('translation') && $this->translation) {
+        // The current language's row — unless its value is empty, then another language's (a service with no
+        // English name showed only its image on the providers' services).
+        if ($this->relationLoaded('translation') && filled($this->translation?->{$field})) {
             return $this->translation->{$field};
         }
 
@@ -47,8 +49,9 @@ trait HasTranslations
         }
 
         if ($this->relationLoaded('translations')) {
-            return $this->translations->firstWhere('locale', app()->getLocale())?->{$field}
-                ?? $this->translations->first()?->{$field};
+            $value = $this->translations->firstWhere('locale', app()->getLocale())?->{$field};
+
+            return filled($value) ? $value : $this->translations->first(fn ($t) => filled($t->{$field}))?->{$field};
         }
 
         return null;

@@ -31,7 +31,15 @@ return [
         'title' => 'Furniture moving',
     ],
 
+    'rating_criteria' => [
+        'punctuality' => 'On time',
+        'care' => 'Care with the furniture',
+        'team' => 'The team\'s manners',
+        'assembly' => 'Assembly and wrapping',
+        'price' => 'Kept to the agreed price',
+    ],
     'errors' => [
+        'rating_stars_required' => 'Choose the stars.',
         'cannot_republish' => 'This request cannot be posted again.',
         'cannot_change_now' => 'The move cannot be changed at this stage.',
         'change_exists' => 'A change is already waiting for an answer.',
@@ -65,6 +73,7 @@ return [
         'cannot_withdraw' => 'A request cannot be withdrawn after an offer is chosen.',
         'request_not_found' => 'Request not found.',
         'request_closed' => 'The request no longer takes offers.',
+        'vehicle_type_not_asked' => 'This vehicle is not one of the types the customer asked for; pick a vehicle of a requested type.',
         'vehicle_not_found' => 'The vehicle is not in your establishment.',
         'cannot_offer' => 'You cannot send an offer now: :reason',
         'offer_exists' => 'Your establishment already sent an offer on this request; you can edit it.',

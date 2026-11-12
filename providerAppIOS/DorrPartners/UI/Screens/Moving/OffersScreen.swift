@@ -60,7 +60,7 @@ struct OffersScreen: View {
                 Text(verbatim: info).font(.dorr(13, .semibold)).foregroundStyle(Green).frame(maxWidth: .infinity, alignment: .leading)
             }
             if !paged.loaded {
-                ProgressView().tint(wa.red).frame(width: 28, height: 28).padding(.top, 40)
+                SkeletonList(count: 3)
             } else if paged.rows.isEmpty {
                 EmptyState(icon: "doc.text.fill", title: L("mv_offers_empty_title"), body: L("mv_offers_empty_body")).padding(.top, 30)
             } else {
@@ -125,43 +125,44 @@ private struct OfferCard: View {
     let onOpenRequest: (String) -> Void
 
     var body: some View {
-        let includes = offer.included()
-        Card {
-            HStack {
-                Text(verbatim: formatMinor(offer.priceMinor ?? 0, offer.currencyCode)).font(.dorr(17, .heavy)).foregroundStyle(wa.settingsInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                StatusPill(text: offerStatusLabel(offer.status), color: offerStatusColor(offer.status))
+        let color = offerStatusColor(offer.status)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                MvVehicleImage(image: offer.vehicle?.type?.image, size: 30)
+                    .frame(width: 40, height: 40)
+                    .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: formatMinor(offer.priceMinor ?? 0, offer.currencyCode)).font(.dorr(19, .black)).foregroundStyle(wa.settingsInk)
+                    if let type = offer.vehicle?.type?.name { Text(verbatim: type).font(.dorr(12)).foregroundStyle(wa.settingsMut) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                StatusPill(text: offerStatusLabel(offer.status), color: color)
             }
-            InfoLine(L("mv_arrival"), dateTimeText(offer.arrivalAt))
+            FlowLayout(spacing: 6) {
+                if let arrival = notBlank(dateTimeText(offer.arrivalAt)) { MvChip(icon: "clock.fill", text: arrival) }
+                if let workers = offer.workersCount, workers > 0 { MvChip(icon: "person.3.fill", text: L("mv_workers_n", workers), color: Slate) }
+                if let trips = offer.tripsCount, trips > 1 { MvChip(icon: nil, text: L("mv_trips_n", trips), color: Slate) }
+                if let branch = notBlank(offer.branch) { MvChip(icon: "building.2.fill", text: branch, color: Slate) }
+                ForEach(offer.included().filter { $0 != "tax" }.sorted(), id: \.self) { key in MvChip(icon: includeIcon(key), text: includeLabel(key), color: Slate) }
+            }
             InfoLine(L("mv_valid_until"), dateTimeText(offer.validUntil))
-            InfoLine(L("mv_offer_vehicle"), offer.vehicle?.type?.name)
-            InfoLine(L("mv_workers"), offer.workersCount.map { String($0) })
-            InfoLine(L("mv_trips"), offer.tripsCount.map { String($0) })
-            InfoLine(L("mv_branch"), offer.branch)
-            if !includes.isEmpty {
-                Text(verbatim: includes.sorted().map { includeLabel($0) }.joined(separator: " · ")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-            }
             if offer.status == "awaiting_approval" {
                 Text(L("mv_awaiting_approval_hint")).font(.dorr(12)).foregroundStyle(Amber).lineSpacing(3)
             }
-            if let request = offer.requestUuid {
-                ProfileTextLink(text: L("mv_open_request")) { onOpenRequest(request) }
-            }
             if canManage || canApprove {
-                HStack(spacing: 20) {
-                    if canApprove { colouredLink(L("mv_approve"), Green, onApprove) }
+                HStack(spacing: 8) {
+                    if canApprove { MvOutlineButton(text: L("mv_approve"), color: Green, busy: busy, action: onApprove) }
                     if canManage {
-                        ProfileTextLink(text: L("common_edit"), enabled: !busy, action: onEdit)
-                        colouredLink(L("mv_withdraw"), Red, onWithdraw)
+                        MvOutlineButton(text: L("common_edit"), color: wa.red, busy: busy, action: onEdit)
+                        MvOutlineButton(text: L("mv_withdraw"), color: Red, busy: busy, action: onWithdraw)
                     }
                 }
             }
         }
-    }
-
-    private func colouredLink(_ text: String, _ color: Color, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { Text(verbatim: text).font(.dorr(14, .bold)).foregroundStyle(color) }
-            .buttonStyle(.plain)
-            .disabled(busy)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .settingsSurface(22)
+        .contentShape(Rectangle())
+        .onTapGesture { if let request = offer.requestUuid { onOpenRequest(request) } }
     }
 }

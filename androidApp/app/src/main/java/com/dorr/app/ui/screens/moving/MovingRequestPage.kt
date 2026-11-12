@@ -282,7 +282,7 @@ private fun ColumnScope.RequestSections(
     show.deliveryCode?.let { code -> DeliveryCodeCard(code, show.deliveryQr) }
     if (status == "delivered") DeliveredCard(show, nav, onReload)
     CasesCard(show)
-    if (status in CAN_RATE && !show.rated) RatingCard(r, onReload)
+    if (status in CAN_RATE && !show.rated) RatingCard(r, show.ratingCriteria, onReload)
     r.money?.let { MoneyCard(r) }
     if (status !in MAP_STATUSES) RequestSummary(r, route)
     Actions(show, nav, onCancel, onWithdraw)
@@ -478,7 +478,7 @@ private fun caseDecision(decision: String): String = when (decision) {
 
 /** Stars for the establishment and the driver. Once rated (`rated` in the show) the page no longer draws this card. */
 @Composable
-private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
+private fun RatingCard(r: MovingRequestDto, criteria: List<com.dorr.app.network.MovingCriterionDto>, onReload: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var establishment by remember { mutableIntStateOf(0) }
@@ -492,6 +492,14 @@ private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text(r.establishment?.name ?: stringResource(R.string.mv_rate_establishment), color = settingsMut(), fontSize = 13.sp)
         MvStars(establishment) { establishment = it }
+        // As rides: a row of stars per criterion, starting at the overall stars.
+        val scores = rememberCriteriaScores(r.uuid)
+        if (establishment > 0 && criteria.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.mv_rate_by_criteria), color = settingsMut(), fontSize = 12.sp)
+            Spacer(Modifier.height(4.dp))
+            MvCriteriaStars(criteria, establishment, scores)
+        }
         r.driver?.let { d ->
             Spacer(Modifier.height(6.dp))
             Text(d.name ?: stringResource(R.string.mv_rate_driver), color = settingsMut(), fontSize = 13.sp)
@@ -507,6 +515,7 @@ private fun RatingCard(r: MovingRequestDto, onReload: () -> Unit) {
                 scope.launch {
                     val body = JsonObject().apply {
                         addProperty("establishment_stars", establishment)
+                        if (criteria.isNotEmpty()) add("scores", JsonObject().apply { criteria.forEach { c -> addProperty(c.key, scores[c.key] ?: establishment) } })
                         if (driver > 0) addProperty("driver_stars", driver)
                         if (comment.isNotBlank()) addProperty("comment", comment.trim())
                     }
@@ -556,6 +565,7 @@ private fun RequestSummary(r: MovingRequestDto, route: MovingRouteState) {
             MovingRouteChips(route, bothEnds = from != null && to != null, fallbackKm = r.distanceKm, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
         }
         r.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsInk(), fontSize = 14.sp, modifier = Modifier.padding(bottom = 6.dp)) }
+        r.voice?.let { Box(Modifier.padding(bottom = 8.dp)) { MvVoicePlayer(it) } }
         if (r.photos.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
                 items(r.photos, key = { it.id }) { p ->
@@ -567,7 +577,8 @@ private fun RequestSummary(r: MovingRequestDto, route: MovingRouteState) {
         SummaryEnd(AppColors.brandOrange, r.dropoff)
         r.piecesCount?.let { MvLine(stringResource(R.string.mv_pieces), it.toString()) }
         r.dimensions?.takeIf { it.isNotBlank() }?.let { MvLine(stringResource(R.string.mv_dimensions), it) }
-        r.vehicleType?.name?.let { MvLine(stringResource(R.string.mv_vehicle_title), it) }
+        r.vehicleTypes.mapNotNull { it.name }.ifEmpty { listOfNotNull(r.vehicleType?.name) }.takeIf { it.isNotEmpty() }
+            ?.let { MvLine(stringResource(R.string.mv_vehicle_title), it.joinToString(" / ")) }
         r.workersCount?.let { MvLine(stringResource(R.string.mv_workers), it.toString()) }
         val extras = r.extras
         val chosen = listOfNotNull(

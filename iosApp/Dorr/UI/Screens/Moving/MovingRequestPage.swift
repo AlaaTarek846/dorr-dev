@@ -165,7 +165,7 @@ struct MovingRequestPage: View {
         Group {
             if status == "delivered" { DeliveredCard(show: show, nav: nav) { await reload() } }
             CasesCard(show: show)
-            if canRate.contains(status) && !show.rated { RatingCard(r: r) { await reload() } }
+            if canRate.contains(status) && !show.rated { RatingCard(r: r, criteria: show.ratingCriteria) { await reload() } }
             if r.money != nil { MoneyCard(r: r) }
             if !mapStatuses.contains(status) { RequestSummary(r: r, route: route) }
             Actions(show: show, nav: nav, onCancel: { cancelOpen = true }, onWithdraw: { withdrawOpen = true })
@@ -446,8 +446,11 @@ private struct CasesCard: View {
 private struct RatingCard: View {
     @Environment(\.wa) private var wa
     let r: MovingRequestDto
+    let criteria: [MovingCriterionDto]
     let onReload: () async -> Void
     @State private var establishment = 0
+    /// What was moved on each criterion; an untouched one counts as the overall stars.
+    @State private var scores: [String: Int] = [:]
     @State private var driver = 0
     @State private var comment = ""
     @State private var busy = false
@@ -458,6 +461,11 @@ private struct RatingCard: View {
             MvCardTitle(text: L("mv_rate_title")).padding(.bottom, 8)
             Text(verbatim: r.establishment?.name ?? L("mv_rate_establishment")).font(.dorr(13)).foregroundStyle(wa.settingsMut)
             MvStars(value: establishment) { establishment = $0 }
+            // As rides: a row of stars per criterion, starting at the overall stars.
+            if establishment > 0 && !criteria.isEmpty {
+                Text(L("mv_rate_by_criteria")).font(.dorr(12)).foregroundStyle(wa.settingsMut).padding(.top, 6)
+                MvCriteriaStars(criteria: criteria, overall: establishment, scores: $scores).padding(.top, 4)
+            }
             if let d = r.driver {
                 Text(verbatim: d.name ?? L("mv_rate_driver")).font(.dorr(13)).foregroundStyle(wa.settingsMut).padding(.top, 6)
                 MvStars(value: driver) { driver = $0 }
@@ -477,6 +485,11 @@ private struct RatingCard: View {
         error = nil
         Task {
             var body: [String: JSONValue] = ["establishment_stars": .int(establishment)]
+            if !criteria.isEmpty {
+                var scored: [String: JSONValue] = [:]
+                criteria.forEach { scored[$0.key] = .int(scores[$0.key] ?? establishment) }
+                body["scores"] = .object(scored)
+            }
             if driver > 0 { body["driver_stars"] = .int(driver) }
             let text = comment.trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty { body["comment"] = .string(text) }
@@ -532,6 +545,7 @@ private struct RequestSummary: View {
             if let d = r.description, !d.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text(verbatim: d).font(.dorr(14)).foregroundStyle(wa.settingsInk).padding(.bottom, 6)
             }
+            if let voice = r.voice { MvVoicePlayer(media: voice).padding(.bottom, 8) }
             if !r.photos.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -549,7 +563,8 @@ private struct RequestSummary: View {
             Group {
                 if let n = r.piecesCount { MvLine(label: L("mv_pieces"), value: String(n)) }
                 if let d = r.dimensions, !d.trimmingCharacters(in: .whitespaces).isEmpty { MvLine(label: L("mv_dimensions"), value: d) }
-                if let name = r.vehicleType?.name { MvLine(label: L("mv_vehicle_title"), value: name) }
+                let typeNames = r.vehicleTypes.isEmpty ? [r.vehicleType?.name].compactMap { $0 } : r.vehicleTypes.compactMap { $0.name }
+                if !typeNames.isEmpty { MvLine(label: L("mv_vehicle_title"), value: typeNames.joined(separator: " / ")) }
                 if let w = r.workersCount { MvLine(label: L("mv_workers"), value: String(w)) }
             }
             let e = r.extras

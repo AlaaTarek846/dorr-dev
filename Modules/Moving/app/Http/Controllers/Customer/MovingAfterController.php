@@ -67,11 +67,17 @@ class MovingAfterController extends Controller
     public function rate(Request $request, MovingRequest $move): JsonResponse
     {
         $data = $request->validate([
-            'establishment_stars' => ['required', 'integer', 'between:1,5'],
+            'establishment_stars' => ['required_without:scores', 'nullable', 'integer', 'between:1,5'],
+            // criterion => 1..5 (the show's `rating_criteria`), as the rider scores the captain.
+            'scores' => ['sometimes', 'array'],
+            'scores.*' => ['integer', 'between:1,5'],
             'driver_stars' => ['nullable', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
-        $this->after->rate($this->user($request), $move, (int) $data['establishment_stars'], $data['driver_stars'] ?? null, $data['comment'] ?? null);
+        $this->after->rate(
+            $this->user($request), $move, isset($data['establishment_stars']) ? (int) $data['establishment_stars'] : null,
+            $data['driver_stars'] ?? null, $data['comment'] ?? null, $data['scores'] ?? [],
+        );
 
         return ApiResponse::created([], __('moving.rated'));
     }

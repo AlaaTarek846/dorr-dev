@@ -24,6 +24,7 @@ use Modules\Moving\Services\Offers\MovingOfferService;
 use Modules\Moving\Services\Requests\MovingAssignmentService;
 use Modules\Moving\Services\Requests\MovingCancellationService;
 use Modules\Moving\Services\Requests\MovingExecutionService;
+use Modules\Provider\Http\Resources\App\VehicleResource;
 use Modules\Provider\Models\Branch;
 use Modules\Provider\Models\Membership;
 use Modules\Provider\Models\Vehicle;
@@ -40,6 +41,7 @@ class MovingProviderController extends Controller
         private readonly EstablishmentAccess $access,
         private readonly MovingOfferService $offers,
         private readonly MovingAssignmentService $assignments,
+        private readonly WorkGate $gate,
     ) {}
 
     /**
@@ -108,8 +110,48 @@ class MovingProviderController extends Controller
         }
 
         $move->load($ownJob ? ['vehicleType.translations', 'vehicle', 'driver.provider'] : ['vehicleType.translations']);
+        $data = (new MovingRequestResource($move))->masked(! $ownJob)->withoutMoney(! $this->access->can($actor, 'jobs.track', $move->branch))->resolve();
+        if (! $ownJob) {
+            $data['my_offer'] = ($offer = MovingOffer::query()->where('request_id', $move->id)->where('establishment_id', $actor->establishment_id)
+                ->latest('id')->with(['establishment', 'branch', 'vehicle.type.translations'])->first()) ? (new MovingOfferResource($offer))->resolve() : null;
+            $data['my_vehicles'] = $this->vehiclesFor($actor, $move);
+            // The values kept with the request, so the offer form shows as the price is typed what the customer pays
+            // (price + tax) and what the establishment gets (price − Dorr's commission) — MovingPricing::forPrice.
+            $data['pricing'] = [
+                'tax_bp' => (int) ($move->policy('tax.bp') ?? 0),
+                'commission_bp' => (int) ($move->policy('commission.bp') ?? 0),
+                'commission_min_minor' => $move->policy('commission.min_minor'),
+                'commission_max_minor' => $move->policy('commission.max_minor'),
+            ];
+        }
 
-        return ApiResponse::success((new MovingRequestResource($move))->masked(! $ownJob)->withoutMoney(! $this->access->can($actor, 'jobs.track', $move->branch)), __('api.retrieved'));
+        return ApiResponse::success($data, __('api.retrieved'));
+    }
+
+    /**
+     * The establishment's vehicles for the offer form, the ones that can answer first: `fits` = a type the customer
+     * asked for, `problem` = why it can't be offered now (not approved, papers…) — null when it can.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function vehiclesFor(Membership $actor, MovingRequest $move): array
+    {
+        $types = $move->vehicleTypeIds();
+        $branch = $this->offers->reachedBranch($actor, $move);
+
+        return Vehicle::query()->where('establishment_id', $actor->establishment_id)->with('type.translations')->get()
+            ->map(function (Vehicle $v) use ($actor, $move, $types, $branch) {
+                $fits = $types === [] || in_array((int) $v->vehicle_type_id, $types, true);
+                $problem = $fits ? $this->gate->offerProblem($actor, $v, $move->service_category_id, $branch) : 'vehicle_type_not_asked';
+
+                return [
+                    ...(new VehicleResource($v))->resolve(),
+                    'fits' => $fits,
+                    'problem' => $problem,
+                    'problem_text' => $problem === null ? null : ($problem === 'vehicle_type_not_asked' ? __('moving.errors.vehicle_type_not_asked') : __('provider.errors.'.$problem)),
+                ];
+            })
+            ->sortBy(fn (array $v) => [$v['problem'] !== null, ! $v['fits']])->values()->all();
     }
 
     public function sendOffer(MovingOfferRequest $request, MovingRequest $move): JsonResponse

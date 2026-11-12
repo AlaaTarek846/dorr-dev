@@ -212,7 +212,8 @@ internal class MovingDraft {
     var description by mutableStateOf("")
     var pieces by mutableStateOf("")
     var dimensions by mutableStateOf("")
-    var vehicleTypeId by mutableStateOf<Int?>(null)
+    /** The vehicle types the customer accepts, in the order picked: the first is their first choice. */
+    val vehicleTypeIds = mutableStateListOf<Int>()
     var workers by mutableIntStateOf(0)
     var packing by mutableStateOf(false)
     var disassembly by mutableStateOf(false)
@@ -224,6 +225,8 @@ internal class MovingDraft {
     var notes by mutableStateOf("")
     val photos = mutableStateListOf<MovingMediaDto>()
     val videos = mutableStateListOf<MovingMediaDto>()
+    /** The voice note about the load (one; a new one replaces it). */
+    var voice by mutableStateOf<MovingMediaDto?>(null)
     var missing by mutableStateOf<List<String>>(emptyList())
 
     fun fill(r: MovingRequestDto) {
@@ -232,7 +235,8 @@ internal class MovingDraft {
         description = r.description.orEmpty()
         pieces = r.piecesCount?.toString().orEmpty()
         dimensions = r.dimensions.orEmpty()
-        vehicleTypeId = r.vehicleTypeId
+        vehicleTypeIds.clear()
+        vehicleTypeIds.addAll(r.vehicleTypeIds.ifEmpty { listOfNotNull(r.vehicleTypeId) })
         workers = r.workersCount ?: 0
         packing = r.extras?.packing == true
         disassembly = r.extras?.disassembly == true
@@ -246,6 +250,7 @@ internal class MovingDraft {
         photos.addAll(r.photos)
         videos.clear()
         videos.addAll(r.videos)
+        voice = r.voice
     }
 
     fun body(): JsonObject = JsonObject().apply {
@@ -254,7 +259,7 @@ internal class MovingDraft {
         val count = pieces.trim().toIntOrNull()
         if (count != null) addProperty("pieces_count", count) else addProperty("pieces_count", "")
         addProperty("dimensions", dimensions.trim().take(255))
-        vehicleTypeId?.let { addProperty("vehicle_type_id", it) }
+        add("vehicle_type_ids", com.google.gson.JsonArray().apply { vehicleTypeIds.forEach { add(it) } })
         addProperty("workers_count", workers)
         addProperty("packing", packing)
         addProperty("disassembly", disassembly)
@@ -866,6 +871,9 @@ private fun LoadStep(draft: MovingDraft, options: MovingOptionsDto?, onType: (St
                 label = stringResource(R.string.mv_description), placeholder = stringResource(R.string.mv_description_hint),
                 singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth(),
             )
+            // Or say it: a voice note on the same page as the description.
+            Spacer(Modifier.height(10.dp))
+            MvVoiceNote(draft, scope, context)
             MissingNote(draft, "description_or_photo")
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -966,14 +974,19 @@ private fun VehicleStep(draft: MovingDraft, options: MovingOptionsDto?) {
         val types = options?.vehicleTypes.orEmpty()
         if (options != null && types.isEmpty()) MvNote(stringResource(R.string.mv_no_vehicle_types))
         types.forEachIndexed { index, type ->
-            val on = draft.vehicleTypeId == type.id
+            val order = draft.vehicleTypeIds.indexOf(type.id)
+            val on = order >= 0
             val tint = settingsAccent()
             val bg by animateColorAsState(if (on) tint.copy(alpha = 0.10f) else mvCardColor(), tween(200), label = "mv-vehicle")
             val pop by animateFloatAsState(if (on) 1.02f else 1f, spring(dampingRatio = 0.5f), label = "mv-vehicle-pop")
             Row(
                 Modifier.fillMaxWidth().staggerIn(index + 1).scale(pop).clip(RoundedCornerShape(20.dp)).background(bg)
                     .border(1.5.dp, if (on) tint else Color.Transparent, RoundedCornerShape(20.dp))
-                    .pressable { draft.vehicleTypeId = type.id; draft.missing = draft.missing.filterNot { it == "vehicle_type_id" } }.padding(12.dp),
+                    .pressable {
+                        // Several types may fit (a quarter or a half truck…): each tap adds or removes one, in the order picked.
+                        if (on) draft.vehicleTypeIds.remove(type.id) else draft.vehicleTypeIds.add(type.id)
+                        draft.missing = draft.missing.filterNot { it == "vehicle_type_id" }
+                    }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(width = 96.dp, height = 68.dp).clip(RoundedCornerShape(14.dp)).background(tint.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
@@ -984,11 +997,21 @@ private fun VehicleStep(draft: MovingDraft, options: MovingOptionsDto?) {
                 Column(Modifier.weight(1f)) {
                     Text(type.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     type.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                    if (order == 0 && draft.vehicleTypeIds.size > 1) {
+                        Text(stringResource(R.string.mv_first_choice), color = tint, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
                 }
+                // Picked: its place in the customer's order (1 = first choice); not picked: an empty box.
                 Box(
-                    Modifier.size(24.dp).clip(CircleShape).background(if (on) tint else Color.Transparent).border(1.5.dp, if (on) tint else settingsMut().copy(alpha = 0.4f), CircleShape),
+                    Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(if (on) tint else Color.Transparent)
+                        .border(1.5.dp, if (on) tint else settingsMut().copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center,
-                ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(15.dp)) }
+                ) {
+                    if (on) {
+                        if (draft.vehicleTypeIds.size > 1) Text("${order + 1}", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                        else Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    }
+                }
             }
         }
         MvCard(Modifier.staggerIn(types.size + 1)) {
@@ -1097,11 +1120,12 @@ private fun ReviewStep(draft: MovingDraft, options: MovingOptionsDto?, route: Mo
             if (draft.pieces.isNotBlank()) MvLine(stringResource(R.string.mv_pieces), draft.pieces)
             if (draft.dimensions.isNotBlank()) MvLine(stringResource(R.string.mv_dimensions), draft.dimensions)
             MvLine(stringResource(R.string.mv_media_title), stringResource(R.string.mv_media_counts, draft.photos.size, draft.videos.size))
+            draft.voice?.let { MvLine(stringResource(R.string.mv_voice_title), voiceTime(it.durationMs ?: 0L)) }
             MissingNote(draft, "description_or_photo")
         }
         ReviewCard(stringResource(R.string.mv_step_vehicle), Modifier.staggerIn(3), onEdit = { onEdit(STEP_VEHICLE) }) {
-            val type = options?.vehicleTypes?.firstOrNull { it.id == draft.vehicleTypeId }
-            MvLine(stringResource(R.string.mv_vehicle_title), type?.name ?: "—")
+            val names = draft.vehicleTypeIds.mapNotNull { id -> options?.vehicleTypes?.firstOrNull { it.id == id }?.name }
+            MvLine(stringResource(R.string.mv_vehicle_title), names.joinToString(" / ").ifEmpty { "—" })
             MvLine(stringResource(R.string.mv_workers), draft.workers.toString())
             val extras = listOfNotNull(
                 "packing".takeIf { draft.packing },

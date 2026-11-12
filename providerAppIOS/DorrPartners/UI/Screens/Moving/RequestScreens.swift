@@ -1,10 +1,10 @@
 // providerApp `ui/screens/RequestScreens.kt`
 import SwiftUI
 
-/// The requests that reached my branches (C-04, `requests.view`), newest first, page by page: the neighbourhoods only (the server
-/// never sends the exact address before the job is ours), distance, time, load, workers, extras, vehicle type, photos, and «عرضي» when
-/// the establishment already answered. Read on open, when the connection returns and on every notice (a new request is one) — never
-/// on a timer.
+/// The requests that reached my branches (C-04, `requests.view`), newest first, page by page: the route between the two
+/// neighbourhoods (the server never sends the exact address before the job is ours), the time, distance and when offers close, the
+/// vehicle types the customer accepts, and «عرضي» with its price when the establishment already answered. Read on open, when the
+/// connection returns and on every notice (a new request is one) — never on a timer.
 @MainActor
 struct RequestsScreen: View {
     @Environment(\.wa) private var wa
@@ -18,7 +18,7 @@ struct RequestsScreen: View {
     var body: some View {
         Page(title: L("mv_requests_title"), onBack: onBack, onNearEnd: { Task { await paged.loadMore() } }) {
             if !paged.loaded {
-                ProgressView().tint(wa.red).frame(width: 28, height: 28).padding(.top, 40)
+                SkeletonList(count: 3)
             } else if paged.rows.isEmpty {
                 EmptyState(icon: "shippingbox.fill", title: L("mv_requests_empty_title"), body: L("mv_requests_empty_body")).padding(.top, 30)
             } else {
@@ -32,7 +32,7 @@ struct RequestsScreen: View {
     }
 }
 
-/// One request in a list: the route, when, what, and the pills.
+/// One request in a list: the route card, then what is moved, the vehicle types asked, the extras — and my offer's price.
 struct RequestCard: View {
     @Environment(\.wa) private var wa
     let move: MovingRequestDto
@@ -40,35 +40,26 @@ struct RequestCard: View {
     let onClick: () -> Void
 
     var body: some View {
-        Card {
-            Button(action: onClick) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(verbatim: routeText(move)).font(.dorr(15, .heavy)).foregroundStyle(wa.settingsInk).frame(maxWidth: .infinity, alignment: .leading)
-                        if let offer = move.myOffer { StatusPill(text: L("mv_my_offer"), color: offerStatusColor(offer.status)) }
-                        if statusPill { StatusPill(text: moveStatusLabel(move.status), color: moveStatusColor(move.status)) }
+        MvRouteCard(move: move, compact: true, onClick: onClick, badge: {
+            VStack(alignment: .trailing, spacing: 4) {
+                if statusPill { StatusPill(text: moveStatusLabel(move.status), color: moveStatusColor(move.status)) }
+                if let mine = move.myOffer {
+                    StatusPill(text: L("mv_my_offer") + " · " + offerStatusLabel(mine.status), color: offerStatusColor(mine.status))
+                    if let price = mine.priceMinor, price > 0 {
+                        Text(verbatim: formatMinor(price, move.currencyCode)).font(.dorr(13, .black)).foregroundStyle(wa.settingsInk)
                     }
-                    Text(verbatim: dateTimeText(move.scheduledAt)).font(.dorr(12)).foregroundStyle(wa.settingsMut)
-                    if !facts.isEmpty {
-                        Text(verbatim: facts.joined(separator: " · ")).font(.dorr(12, .semibold)).foregroundStyle(wa.settingsInk)
-                    }
-                    ExtrasRow(move: move)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var facts: [String] {
-        var out: [String] = []
-        if let km = move.distanceKm { out.append(L("mv_distance", formatKm(km))) }
-        if let load = notBlank(loadTypeLabel(move.loadType)) { out.append(load) }
-        if let workers = move.workersCount, workers > 0 { out.append(L("mv_workers_n", workers)) }
-        if let vehicle = move.vehicleType?.name { out.append(vehicle) }
-        if let photos = move.photos?.count, photos > 0 { out.append(L("mv_photos_n", photos)) }
-        return out
+        }, footer: {
+            Rectangle().fill(wa.settingsMut.opacity(0.15)).frame(height: 1)
+            FlowLayout(spacing: 6) {
+                if let load = notBlank(loadTypeLabel(move.loadType)) { MvChip(icon: "shippingbox.fill", text: load, color: Slate) }
+                ForEach(move.askedTypes()) { type in if let name = type.name { MvChip(icon: "box.truck.fill", text: name) } }
+                if let workers = move.workersCount, workers > 0 { MvChip(icon: "person.3.fill", text: L("mv_workers_n", workers), color: Slate) }
+                if let photos = move.photos?.count, photos > 0 { MvChip(icon: "photo.on.rectangle", text: L("mv_photos_n", photos), color: Slate) }
+            }
+            ExtrasRow(move: move)
+        })
     }
 }
 
@@ -78,72 +69,57 @@ struct RequestDetails: View {
     let move: MovingRequestDto
 
     var body: some View {
-        Card {
-            HStack {
-                Text(verbatim: routeText(move)).font(.dorr(16, .heavy)).foregroundStyle(wa.settingsInk).frame(maxWidth: .infinity, alignment: .leading)
-                StatusPill(text: moveStatusLabel(move.status), color: moveStatusColor(move.status))
-            }
-            InfoLine(L("mv_when"), dateTimeText(move.scheduledAt))
-            InfoLine(L("mv_distance_label"), move.distanceKm.map { L("mv_distance", formatKm($0)) })
-            InfoLine(L("mv_load"), loadTypeLabel(move.loadType))
-            InfoLine(L("mv_pieces"), move.piecesCount?.text)
-            InfoLine(L("mv_dimensions"), move.dimensions)
-            InfoLine(L("mv_workers"), move.workersCount.map { String($0) })
-            InfoLine(L("mv_vehicle_type"), move.vehicleType?.name)
-            InfoLine(L("mv_deadline"), dateTimeText(move.offersDeadlineAt))
-            ExtrasRow(move: move)
-            if let description = notBlank(move.description) {
-                Text(verbatim: description).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(4)
-            }
-            if let notes = notBlank(move.notes) {
-                Text(L("mv_notes_line", notes)).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(3)
-            }
+        MvRouteCard(move: move, badge: { StatusPill(text: moveStatusLabel(move.status), color: moveStatusColor(move.status)) })
+
+        let types = move.askedTypes()
+        if !types.isEmpty {
+            MvSection(icon: "box.truck.fill", title: L("mv_sec_vehicles_asked"), hint: L(types.count > 1 ? "mv_sec_vehicles_asked_many" : "mv_sec_vehicles_asked_one"))
+            MvAskedTypes(types: types).frame(maxWidth: .infinity, alignment: .leading)
         }
-        EndCard(title: L("mv_pickup"), end: move.pickup)
-        EndCard(title: L("mv_dropoff"), end: move.dropoff)
-        if let photos = move.photos, !photos.isEmpty {
-            FieldLabel(text: L("mv_photos")).frame(maxWidth: .infinity, alignment: .leading)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(photos) { photo in
-                        MediaThumb(url: photo.url)
-                            .frame(width: 110, height: 110)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                }
-            }
+
+        MvSection(icon: "shippingbox.fill", title: L("mv_sec_load"))
+        MvFactGrid(facts: facts)
+        if let description = notBlank(move.description) {
+            Text(verbatim: description).font(.dorr(14)).foregroundStyle(wa.settingsInk).lineSpacing(5)
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading).settingsSurface(18)
         }
+        if let voice = move.voice, voice.url != nil { MvCustomerVoice(voice: voice) }
+        MvPhotos(urls: (move.photos ?? []).compactMap { $0.url })
+        if move.extras?.packing == true || move.extras?.disassembly == true || move.extras?.crane == true || move.extras?.technician == true {
+            Text(L("mv_sec_extras")).font(.dorr(12, .bold)).foregroundStyle(wa.settingsMut).frame(maxWidth: .infinity, alignment: .leading)
+            ExtrasRow(move: move).frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        MvSection(icon: "mappin.and.ellipse", title: L("mv_sec_places"))
+        MvEndsCard(move: move)
+        if let notes = notBlank(move.notes) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "text.alignleft").font(.system(size: 15)).foregroundStyle(Amber)
+                Text(L("mv_notes_line", notes)).font(.dorr(13)).foregroundStyle(wa.settingsInk).lineSpacing(3).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .background(Amber.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private var facts: [(icon: String, label: String, value: String)] {
+        var out: [(icon: String, label: String, value: String)] = []
+        if let load = notBlank(loadTypeLabel(move.loadType)) { out.append(("square.grid.2x2.fill", L("mv_load"), load)) }
+        if let pieces = notBlank(move.piecesCount?.text) { out.append(("shippingbox.fill", L("mv_pieces"), pieces)) }
+        if let workers = move.workersCount, workers > 0 { out.append(("person.3.fill", L("mv_workers"), String(workers))) }
+        if let dimensions = notBlank(move.dimensions) { out.append(("ruler", L("mv_dimensions"), dimensions)) }
+        return out
     }
 }
 
-/// One end of the move: the neighbourhood, floor and lift; the exact address only once the job is ours (the server decides).
-private struct EndCard: View {
-    @Environment(\.wa) private var wa
-    let title: String
-    let end: MovingEndDto?
-
-    var body: some View {
-        if let end {
-            Card {
-                Text(verbatim: title).font(.dorr(14, .heavy)).foregroundStyle(wa.settingsInk)
-                InfoLine(L("mv_area"), end.area)
-                InfoLine(L("mv_floor"), end.floor?.text)
-                InfoLine(L("mv_elevator"), end.elevator.map { L($0 ? "common_yes" : "mv_no") })
-                InfoLine(L("mv_address"), end.address)
-                InfoLine(L("mv_entrance"), end.entrance)
-                if end.address == nil { Text(L("mv_address_hidden")).font(.dorr(11)).foregroundStyle(wa.settingsMut).lineSpacing(2) }
-            }
-        }
-    }
-}
-
-/// A request's page: its details, and «إرسال عرض» for a seat with `offers.send`. The move's own live channel reloads it once on each
-/// change while the page is open (no timer).
+/// A request's page: its details; then my offer (changed or taken back while the customer hasn't chosen) or «قدّم عرضك» for a seat
+/// with `offers.send`. The move's own live channel reloads it once on each change while the page is open (no timer).
 @MainActor
 struct RequestScreen: View {
     @Environment(\.wa) private var wa
     @EnvironmentObject private var network: NetworkMonitor
     @ObservedObject private var realtime = Realtime.shared
+    @ObservedObject private var session = Session.shared
     let uuid: String
     let canOffer: Bool
     let onBack: () -> Void
@@ -151,28 +127,49 @@ struct RequestScreen: View {
     @State private var move: MovingRequestDto?
     @State private var error: String?
     @State private var offering = false
+    @State private var editing = false
+    @State private var withdrawing = false
+    @State private var busy = false
     @State private var sentMessage: String?
+
+    private var mine: MovingOfferDto? {
+        guard let offer = move?.myOffer, ["sent", "awaiting_approval", "accepted"].contains(offer.status ?? "") else { return nil }
+        return offer
+    }
 
     var body: some View {
         ZStack {
-            if offering, let current = move {
-                OfferForm(move: current, offer: nil, onBack: { offering = false }, onDone: { message in
-                    sentMessage = message
+            if offering || editing, let current = move {
+                OfferForm(move: current, offer: editing ? mine : nil, onBack: { offering = false; editing = false }, onDone: { message in
+                    withAnimation { sentMessage = message }
                     offering = false
+                    editing = false
+                    Task { await reload() }
                 })
             } else {
                 Page(title: L("mv_request_title"), onBack: onBack) {
                     if let current = move {
-                        RequestDetails(move: current)
-                        if let sentMessage {
-                            Text(verbatim: sentMessage).font(.dorr(13, .semibold)).foregroundStyle(Green).frame(maxWidth: .infinity, alignment: .leading)
+                        MvDoneBanner(text: sentMessage)
+                        if let mine {
+                            MvMyOfferCard(offer: mine, canManage: session.membership.can("offers.manage"), busy: busy,
+                                          onEdit: { editing = true }, onWithdraw: { withdrawing = true })
                         }
-                        if canOffer && current.status == "open" { SettingsPrimaryButton(text: L("mv_send_offer")) { offering = true } }
+                        RequestDetails(move: current)
+                        if mine == nil && canOffer && current.status == "open" {
+                            SettingsPrimaryButton(text: L("mv_make_offer")) { sentMessage = nil; offering = true }.padding(.top, 4)
+                            Text(L("mv_make_offer_hint")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     } else if error == nil {
-                        ProgressView().tint(wa.red).frame(width: 28, height: 28).padding(.top, 40)
+                        SkeletonList(count: 3)
                     }
                 }
                 .messageToast(error)
+                .dorrDialog(isPresented: Binding(get: { withdrawing }, set: { if !$0 && !busy { withdrawing = false } })) {
+                    if let mine {
+                        ConfirmDialog(icon: "arrow.uturn.backward", title: L("mv_withdraw_title"), message: L("mv_withdraw_message"), loading: busy,
+                                      confirmLabel: L("mv_withdraw"), onConfirm: { withdraw(mine) }, onDismiss: { if !busy { withdrawing = false } })
+                    }
+                }
             }
         }
         .task(id: network.reconnectTick) { await reload() }
@@ -190,14 +187,31 @@ struct RequestScreen: View {
             error = result.errorText(L("login_error_offline")) ?? L("login_error_generic")
         }
     }
+
+    private func withdraw(_ offer: MovingOfferDto) {
+        busy = true
+        Task {
+            let failed = await MovingApi.withdrawOffer(offer.uuid, offline: L("login_error_offline"), generic: L("login_error_generic"))
+            busy = false
+            withdrawing = false
+            if let failed {
+                error = failed
+            } else {
+                withAnimation { sentMessage = L("mv_offer_withdrawn_ok") }
+                await reload()
+            }
+        }
+    }
 }
 
-private let offerIncludeKeys = ["packing", "disassembly", "crane", "technician", "tax"]
+private let offerIncludeKeys = ["packing", "disassembly", "crane", "technician"]
 
-/// Sending an offer on `move` (`offer` nil) or changing one: the vehicle (approved ones only — the others say why), the price, workers
-/// and trips, what it includes, arrival and how long it holds (new offers only: the server keeps them), terms and the promise after
-/// the move. The server's refusal is shown as it is (e.g. «لا يمكن إرسال عرض: …»). An offer above the sender's limit goes to the
-/// approver first. `onDone` gets the sentence to show.
+/// Sending an offer on `move` (`offer` nil) or changing one, in clear blocks: the vehicle (my vehicles, the ones of a type the
+/// customer asked for first; the others say why they can't), the price with what the customer pays and what reaches the
+/// establishment, the team (workers and trips with − and +), what it includes (what the customer asked for is ticked already), the
+/// arrival (the asked time, or another) and how long it holds (until offers close, or another time), and — folded — terms and the
+/// promise after the move. With `move` nil (changing from «العروض»), the request is read first. The server's refusal is shown as it
+/// is; an offer above the sender's limit goes to the approver first. `onDone` gets the sentence to show.
 @MainActor
 struct OfferForm: View {
     @Environment(\.wa) private var wa
@@ -206,19 +220,22 @@ struct OfferForm: View {
     let onBack: () -> Void
     let onDone: (String) -> Void
 
-    @State private var vehicles: [VehicleDto]?
+    @State private var request: MovingRequestDto?
     @State private var vehicleUuid: String?
     @State private var price: String
-    @State private var workers: String
-    @State private var trips: String
+    @State private var workers: Int
+    @State private var trips: Int
     @State private var includes: [String]
     @State private var technicianNote: String
+    @State private var arrivalAsAsked = true
     @State private var arrivalDate: String
     @State private var arrivalTime: String
-    @State private var validDate = ""
-    @State private var validTime = ""
+    @State private var validToDeadline = true
+    @State private var validDate: String
+    @State private var validTime: String
     @State private var terms: String
     @State private var afterService: String
+    @State private var moreOpen: Bool
     @State private var busy = false
     @State private var error: String?
 
@@ -227,9 +244,10 @@ struct OfferForm: View {
         self.offer = offer
         self.onBack = onBack
         self.onDone = onDone
-        _price = State(initialValue: offer?.priceMinor.map { formatMinor($0, nil).replacingOccurrences(of: "\u{200E}", with: "") } ?? "")
-        _workers = State(initialValue: (offer?.workersCount ?? move?.workersCount).map { String($0) } ?? "")
-        _trips = State(initialValue: String(offer?.tripsCount ?? 1))
+        _request = State(initialValue: move)
+        _price = State(initialValue: offer?.priceMinor.flatMap { $0 > 0 ? formatMinor($0, nil).replacingOccurrences(of: "\u{200E}", with: "") : nil } ?? "")
+        _workers = State(initialValue: offer?.workersCount ?? move?.workersCount.flatMap { $0 > 0 ? $0 : nil } ?? 2)
+        _trips = State(initialValue: offer?.tripsCount ?? 1)
         var ticked: [String] = []
         if let offer {
             ticked = Array(offer.included())
@@ -241,146 +259,156 @@ struct OfferForm: View {
         }
         _includes = State(initialValue: ticked)
         _technicianNote = State(initialValue: offer?.technicianNote ?? "")
-        let scheduled = localDateAndTime(move?.scheduledAt)
-        _arrivalDate = State(initialValue: scheduled?.date ?? "")
-        _arrivalTime = State(initialValue: scheduled?.time ?? "")
+        let asked = localDateAndTime(move?.scheduledAt)
+        _arrivalDate = State(initialValue: asked?.date ?? "")
+        _arrivalTime = State(initialValue: asked?.time ?? "")
+        let deadline = localDateAndTime(move?.offersDeadlineAt ?? move?.scheduledAt)
+        _validDate = State(initialValue: deadline?.date ?? "")
+        _validTime = State(initialValue: deadline?.time ?? "")
         _terms = State(initialValue: offer?.terms ?? "")
         _afterService = State(initialValue: offer?.afterService ?? "")
+        _moreOpen = State(initialValue: notBlank(offer?.terms) != nil || notBlank(offer?.afterService) != nil)
     }
 
     private var creating: Bool { offer == nil }
-    private var currency: String? { offer?.currencyCode ?? move?.currencyCode }
+    private var currency: String? { offer?.currencyCode ?? request?.currencyCode }
     private var priceMinor: Int? { parseMinor(price) }
-    private var workersValue: Int? { Int(workers) }
-    private var tripsValue: Int? { Int(trips) }
-    private var arrivalIso: String? { isoAt(arrivalDate, arrivalTime) }
-    private var validIso: String? { isoAt(validDate, validTime) }
-    private var ready: Bool {
-        guard priceMinor != nil else { return false }
-        if !workers.trimmingCharacters(in: .whitespaces).isEmpty {
-            guard let value = workersValue, (0...50).contains(value) else { return false }
-        }
-        guard let tripCount = tripsValue, (1...50).contains(tripCount) else { return false }
-        return !creating || (vehicleUuid != nil && arrivalIso != nil && validIso != nil)
-    }
+    private var deadline: String? { move?.offersDeadlineAt ?? move?.scheduledAt }
+    private var arrivalIso: String? { arrivalAsAsked ? move?.scheduledAt : isoAt(arrivalDate, arrivalTime) }
+    private var validIso: String? { validToDeadline ? deadline : isoAt(validDate, validTime) }
+    private var ready: Bool { priceMinor != nil && (!creating || (vehicleUuid != nil && arrivalIso != nil && validIso != nil)) }
 
     var body: some View {
-        let title = L(creating ? "mv_send_offer" : "mv_edit_offer")
-        Page(title: title, onBack: onBack) {
-            FormIntro(icon: "doc.text.fill", title: title, text: L("mv_offer_form_body"))
-            vehicleSection
-            FormGroup {
-                DorrTextField(value: $price.profileMap(decimalInput(12)), label: L("mv_offer_price", currency ?? ""), icon: "banknote.fill",
-                              keyboard: .decimalPad, error: !price.trimmingCharacters(in: .whitespaces).isEmpty && priceMinor == nil)
-                HStack(alignment: .top, spacing: 10) {
-                    DorrTextField(value: $workers.profileDigits(2), label: L("mv_workers"), icon: "person.3.fill", keyboard: .numberPad)
-                    DorrTextField(value: $trips.profileDigits(2), label: L("mv_trips"), icon: "repeat", keyboard: .numberPad)
+        Page(title: L(creating ? "mv_make_offer" : "mv_edit_offer"), onBack: onBack) {
+            if let req = request {
+                MvRouteCard(move: req, compact: true, footer: { MvAskedTypes(types: req.askedTypes()) })
+                vehicleSection(req)
+                priceSection(req)
+                teamSection(req)
+                includesSection(req)
+                timesSection
+                moreSection
+                SettingsPrimaryButton(text: L(creating ? "mv_send_offer" : "common_save"), enabled: ready, loading: busy, action: send)
+                if creating {
+                    Text(L("mv_offer_form_body")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(2).frame(maxWidth: .infinity, alignment: .leading)
                 }
+            } else {
+                SkeletonList(count: 3)
             }
-            includesSection
-            timesSection
-            FormGroup {
-                DorrTextField(value: $terms.profileTake(3000), label: L("mv_terms"), placeholder: L("onb_optional"), icon: "text.alignleft", singleLine: false, minLines: 3)
-                DorrTextField(value: $afterService.profileTake(2000), label: L("mv_after_service"), placeholder: L("mv_after_service_hint"), icon: "box.truck.fill", singleLine: false, minLines: 2)
-            }
-            SettingsPrimaryButton(text: L(creating ? "mv_send_offer" : "common_save"), enabled: ready, loading: busy, action: send)
         }
         .messageToast(error)
         .task {
-            guard let list = await ManageApi.vehicles().value else { return }
-            vehicles = list
-            if vehicleUuid == nil && creating {
-                // The approved vehicle of the requested type first, else any approved one.
-                vehicleUuid = (list.first(where: { $0.status == "approved" && $0.vehicleTypeId == move?.vehicleTypeId })
-                    ?? list.first(where: { $0.status == "approved" }))?.uuid
+            if request == nil, let uuid = offer?.requestUuid, let data = await MovingApi.request(uuid).value { request = data }
+            // A new offer starts on the first vehicle that can answer (the server lists those first).
+            if creating && vehicleUuid == nil { vehicleUuid = request?.myVehicles?.first(where: { $0.usable })?.uuid }
+        }
+    }
+
+    // 1 · The vehicle.
+    @ViewBuilder private func vehicleSection(_ req: MovingRequestDto) -> some View {
+        MvSection(icon: "box.truck.fill", title: L("mv_sec_offer_vehicle"), hint: L(creating ? "mv_sec_offer_vehicle_hint" : "mv_vehicle_keep"))
+        let vehicles = req.myVehicles ?? []
+        if vehicles.isEmpty {
+            MvWarning(text: L("mv_no_vehicles"))
+        } else if !vehicles.contains(where: { $0.usable }) {
+            MvWarning(text: L("mv_no_fitting_vehicle", req.askedTypes().compactMap { $0.name }.joined(separator: " / ")))
+        }
+        ForEach(vehicles) { vehicle in
+            MvVehicleOption(vehicle: vehicle, selected: vehicleUuid == vehicle.uuid) {
+                vehicleUuid = (!creating && vehicleUuid == vehicle.uuid) ? nil : vehicle.uuid
             }
         }
     }
 
-    // The vehicle: only an approved one can carry an offer; the others say why not.
-    @ViewBuilder private var vehicleSection: some View {
-        FieldLabel(text: L("mv_offer_vehicle")).frame(maxWidth: .infinity, alignment: .leading)
-        if let list = vehicles {
-            if list.isEmpty {
-                Text(L("mv_no_vehicles")).font(.dorr(13)).foregroundStyle(Red).frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Card {
-                    ForEach(list) { vehicle in vehicleRow(vehicle) }
-                    if !creating { Text(L("mv_vehicle_keep")).font(.dorr(11)).foregroundStyle(wa.settingsMut) }
-                }
-            }
-        } else {
-            ProgressView().tint(wa.red).frame(width: 24, height: 24)
+    // 2 · The price, and what it means for both sides.
+    @ViewBuilder private func priceSection(_ req: MovingRequestDto) -> some View {
+        MvSection(icon: "banknote.fill", title: L("mv_sec_price"), hint: L("mv_sec_price_hint"))
+        DorrTextField(value: $price.profileMap(decimalInput(12)), label: L("mv_offer_price", currency ?? ""), icon: "banknote.fill",
+                      keyboard: .decimalPad, error: !price.trimmingCharacters(in: .whitespaces).isEmpty && priceMinor == nil, minHeight: 56)
+        if let pricing = req.pricing, let value = priceMinor {
+            MvPriceBreakdown(b: pricing.breakdown(value), currency: currency).transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 
-    private func vehicleRow(_ vehicle: VehicleDto) -> some View {
-        let usable = vehicle.status == "approved"
-        let wanted = move?.vehicleTypeId
-        return Button { vehicleUuid = vehicle.uuid } label: {
-            HStack(spacing: 8) {
-                Image(systemName: vehicleUuid == vehicle.uuid ? "largecircle.fill.circle" : "circle").font(.system(size: 18))
-                    .foregroundStyle(usable ? wa.red : wa.settingsMut.opacity(0.4)).frame(width: 22, height: 22)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: (vehicle.vehicleType?.name ?? L("vh_vehicle")) + " · \u{200E}" + vehicle.plate())
-                        .font(.dorr(13, .bold)).foregroundStyle(wa.settingsInk.opacity(usable ? 1 : 0.5))
-                    if !usable {
-                        Text(L("mv_vehicle_unusable", vehicleStatusLabel(vehicle.status))).font(.dorr(11)).foregroundStyle(wa.settingsMut)
-                    } else if let wanted, vehicle.vehicleTypeId != wanted {
-                        Text(L("mv_vehicle_other_type")).font(.dorr(11)).foregroundStyle(Amber)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!usable)
+    // 3 · The team.
+    @ViewBuilder private func teamSection(_ req: MovingRequestDto) -> some View {
+        MvSection(icon: "person.3.fill", title: L("mv_sec_team"))
+        MvStepper(icon: "person.3.fill", label: L("mv_workers"), value: $workers, range: 0...50,
+                  hint: req.workersCount.flatMap { $0 > 0 ? L("mv_customer_asked_n", $0) : nil })
+        MvStepper(icon: "repeat", label: L("mv_trips"), value: $trips, range: 1...20, hint: L("mv_trips_hint"))
     }
 
-    @ViewBuilder private var includesSection: some View {
-        FieldLabel(text: L("mv_offer_includes")).frame(maxWidth: .infinity, alignment: .leading)
-        Card {
+    // 4 · What it includes.
+    @ViewBuilder private func includesSection(_ req: MovingRequestDto) -> some View {
+        MvSection(icon: "checklist", title: L("mv_sec_includes"), hint: L("mv_sec_includes_hint"))
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach(offerIncludeKeys, id: \.self) { key in
-                let on = includes.contains(key)
-                Button {
+                MvIncludeTile(key: key, on: includes.contains(key), asked: askedFor(key, req)) {
                     if let i = includes.firstIndex(of: key) { includes.remove(at: i) } else { includes.append(key) }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: on ? "checkmark.square.fill" : "square").font(.system(size: 18)).foregroundStyle(on ? wa.red : wa.settingsMut).frame(width: 22, height: 22)
-                        Text(verbatim: includeLabel(key)).font(.dorr(13, .semibold)).foregroundStyle(wa.settingsInk)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.vertical, 2)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
             }
-            if includes.contains("technician") {
-                DorrTextField(value: $technicianNote.profileTake(255), label: L("mv_technician_note"), placeholder: L("onb_optional"))
-            }
+        }
+        if includes.contains("technician") {
+            DorrTextField(value: $technicianNote.profileTake(255), label: L("mv_technician_note"), placeholder: L("onb_optional"))
         }
     }
 
+    private func askedFor(_ key: String, _ req: MovingRequestDto) -> Bool {
+        switch key {
+        case "packing": return req.extras?.packing == true
+        case "disassembly": return req.extras?.disassembly == true
+        case "crane": return req.extras?.crane == true
+        default: return req.extras?.technician == true
+        }
+    }
+
+    // 5 · When the truck arrives, and 6 · how long the offer holds (new offers only: the server keeps them).
     @ViewBuilder private var timesSection: some View {
         if creating {
-            FieldLabel(text: L("mv_arrival")).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(alignment: .top, spacing: 10) {
-                DateField(value: $arrivalDate, label: L("mv_date"))
-                TimeField(value: $arrivalTime, label: L("mv_time"))
+            MvSection(icon: "clock.fill", title: L("mv_sec_arrival"))
+            MvChoice(first: L("mv_arrival_as_asked", dateTimeText(move?.scheduledAt)), second: L("mv_other_time"), firstOn: $arrivalAsAsked)
+            if !arrivalAsAsked {
+                HStack(alignment: .top, spacing: 10) {
+                    DateField(value: $arrivalDate, label: L("mv_date"))
+                    TimeField(value: $arrivalTime, label: L("mv_time"))
+                }
             }
-            FieldLabel(text: L("mv_valid_until")).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(alignment: .top, spacing: 10) {
-                DateField(value: $validDate, label: L("mv_date"))
-                TimeField(value: $validTime, label: L("mv_time"))
+            MvSection(icon: "timer", title: L("mv_sec_validity"), hint: L("mv_valid_until_hint"))
+            MvChoice(first: L("mv_valid_to_deadline", dateTimeText(deadline)), second: L("mv_other_time"), firstOn: $validToDeadline)
+            if !validToDeadline {
+                HStack(alignment: .top, spacing: 10) {
+                    DateField(value: $validDate, label: L("mv_date"))
+                    TimeField(value: $validTime, label: L("mv_time"))
+                }
             }
-            Text(L("mv_valid_until_hint")).font(.dorr(11)).foregroundStyle(wa.settingsMut).lineSpacing(2).frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            Card {
+            VStack(alignment: .leading, spacing: 6) {
                 InfoLine(L("mv_arrival"), dateTimeText(offer?.arrivalAt))
                 InfoLine(L("mv_valid_until"), dateTimeText(offer?.validUntil))
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .settingsSurface(18)
+        }
+    }
+
+    // 7 · Terms and the promise after the move, folded.
+    @ViewBuilder private var moreSection: some View {
+        Button { withAnimation(.easeOut(duration: 0.2)) { moreOpen.toggle() } } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "text.alignleft").font(.system(size: 16)).foregroundStyle(wa.red)
+                Text(L("mv_more_details")).font(.dorr(14, .bold)).foregroundStyle(wa.settingsInk).frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: moreOpen ? "chevron.up" : "chevron.down").font(.system(size: 13, weight: .bold)).foregroundStyle(wa.settingsMut)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(wa.mvWell, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        if moreOpen {
+            DorrTextField(value: $terms.profileTake(3000), label: L("mv_terms"), placeholder: L("mv_terms_hint"), icon: "text.alignleft", singleLine: false, minLines: 3)
+            DorrTextField(value: $afterService.profileTake(2000), label: L("mv_after_service"), placeholder: L("mv_after_service_hint"), icon: "box.truck.fill", singleLine: false, minLines: 2)
         }
     }
 
@@ -388,13 +416,13 @@ struct OfferForm: View {
         busy = true
         error = nil
         // `jsonBody`: an emptied note is sent as null, so it is cleared; a missing key would keep the old one.
-        var body: JsonBody = ["price_minor": priceMinor, "trips_count": tripsValue]
+        var body: JsonBody = ["price_minor": priceMinor, "trips_count": trips, "workers_count": workers]
         if let vehicleUuid { body["vehicle_uuid"] = vehicleUuid }
-        if let workersValue { body["workers_count"] = workersValue }
+        // The tax is always added on top by the server: it isn't something an offer includes or not.
         var ticked: [String: Bool] = [:]
         offerIncludeKeys.forEach { ticked[$0] = includes.contains($0) }
         body["includes"] = ticked
-        body.updateValue(trimmedOrNil(technicianNote), forKey: "technician_note")
+        body.updateValue(includes.contains("technician") ? trimmedOrNil(technicianNote) : nil, forKey: "technician_note")
         if creating {
             body["arrival_at"] = arrivalIso
             body["valid_until"] = validIso
@@ -404,7 +432,7 @@ struct OfferForm: View {
         let sent = body
         Task {
             let result: ApiResult<MovingOfferDto>
-            if let offer { result = await MovingApi.updateOffer(offer.uuid, sent) } else { result = await MovingApi.sendOffer(move?.uuid ?? "", sent) }
+            if let offer { result = await MovingApi.updateOffer(offer.uuid, sent) } else { result = await MovingApi.sendOffer(request?.uuid ?? "", sent) }
             busy = false
             if let answer = result.value {
                 if offer != nil {

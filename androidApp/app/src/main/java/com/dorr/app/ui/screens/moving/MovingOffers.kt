@@ -305,6 +305,9 @@ internal fun MovingOfferDetailsPage(uuid: String, offer: MovingOfferDto, decimal
                 }
             }
             MvCard { OfferVehicle(offer); OfferFacts(offer); OfferValidity(offer) }
+            // Knowing the company: its rating by criteria and where its branches are.
+            offer.establishment?.let { MvCompanyRatingCard(it) }
+            MvCompanyBranchesCard(offer.branches)
             offer.technicianNote?.takeIf { it.isNotBlank() }?.let { note ->
                 MvCard {
                     MvCardTitle(stringResource(R.string.mv_extra_technician))

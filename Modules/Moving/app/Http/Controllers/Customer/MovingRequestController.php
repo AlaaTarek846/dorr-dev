@@ -22,6 +22,7 @@ use Modules\Moving\Models\MovingRequest;
 use Modules\Moving\Services\Payment\MovingCheckoutPurpose;
 use Modules\Moving\Services\Payment\MovingSettlement;
 use Modules\Moving\Services\Policy\MovingPolicies;
+use Modules\Moving\Services\Requests\MovingAfterService;
 use Modules\Moving\Services\Requests\MovingCancellationService;
 use Modules\Moving\Services\Requests\MovingRequestService;
 use Modules\Provider\Http\Resources\App\VehicleTypeResource;
@@ -122,6 +123,8 @@ class MovingRequestController extends Controller
             'driver_location' => $move->driver_location_at ? ['lat' => $move->driver_lat, 'lng' => $move->driver_lng, 'at' => $move->driver_location_at->toIso8601String()] : null,
             'objection_until' => $move->objection_until?->toIso8601String(),
             'rated' => MovingRating::query()->where('request_id', $move->id)->exists(),
+            // What the rating card asks the customer to score the establishment on.
+            'rating_criteria' => MovingAfterService::criteria(),
             'inventory' => MovingInventoryResource::collection($move->inventory),
             'cases' => $move->cases()->latest('id')->get()->map(fn ($c) => ['uuid' => $c->uuid, 'kind' => $c->kind, 'status' => $c->status, 'decision' => $c->decision, 'award_minor' => $c->award_minor]),
         ], __('api.retrieved'));
@@ -137,10 +140,37 @@ class MovingRequestController extends Controller
     public function addMedia(Request $request, MovingRequest $move): JsonResponse
     {
         $this->assertMine($request, $move);
-        $request->validate(['file' => ['required', 'file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime']]);
-        $media = $this->requests->addMedia($move, $request->file('file'));
+        $voice = $request->input('kind') === 'voice';
+        $request->validate([
+            'file' => ['required', 'file', $voice
+                // A voice note about the load (owner, 2026-11-12): an m4a from the phone reads as audio or as mp4.
+                ? 'mimetypes:audio/mp4,audio/x-m4a,audio/m4a,audio/aac,audio/mpeg,audio/ogg,audio/webm,audio/wav,audio/x-wav,video/mp4,application/octet-stream'
+                : 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/quicktime'],
+            'kind' => ['nullable', 'in:voice'],
+            'duration_ms' => ['nullable', 'integer', 'min:0', 'max:600000'],
+            'waveform' => ['nullable'],
+        ]);
+        $media = $this->requests->addMedia($move, $request->file('file'), $voice ? [
+            'duration_ms' => $request->integer('duration_ms') ?: null,
+            'waveform' => $this->waveform($request->input('waveform')),
+        ] : null);
 
-        return ApiResponse::created(['id' => $media->id, 'url' => $media->getUrl(), 'collection' => $media->collection_name], __('api.created'));
+        return ApiResponse::created([
+            'id' => $media->id, 'url' => $media->getUrl(), 'collection' => $media->collection_name,
+            'duration_ms' => $media->getCustomProperty('duration_ms'), 'waveform' => $media->getCustomProperty('waveform'),
+        ], __('api.created'));
+    }
+
+    /**
+     * The voice note's bars (0–100), sent as a list or as its JSON text; at most 64 of them.
+     *
+     * @return list<int>
+     */
+    private function waveform(mixed $value): array
+    {
+        $bars = is_string($value) ? json_decode($value, true) : $value;
+
+        return array_slice(array_map(fn ($v) => max(0, min(100, (int) $v)), array_values(is_array($bars) ? $bars : [])), 0, 64);
     }
 
     public function removeMedia(Request $request, MovingRequest $move, int $media): JsonResponse

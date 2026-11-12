@@ -25,7 +25,26 @@ class MovingAfterService
         private readonly MovingJournal $journal,
     ) {}
 
-    public function rate(User $user, MovingRequest $request, int $establishmentStars, ?int $driverStars, ?string $comment): MovingRating
+    /**
+     * The criteria the customer scores the establishment on, with their labels — what the rating card shows (as rides).
+     *
+     * @return list<array{key: string, label: string}>
+     */
+    public static function criteria(): array
+    {
+        return array_values(array_map(
+            fn ($k) => ['key' => (string) $k, 'label' => __('moving.rating_criteria.'.$k)],
+            array_filter((array) config('moving.rating_criteria', []), 'is_string'),
+        ));
+    }
+
+    /**
+     * The customer's rating after delivery: stars for the establishment (or, given only the criteria, their average),
+     * a score per criterion, stars for the driver and a comment.
+     *
+     * @param  array<string, int>  $scores  criterion => 1..5
+     */
+    public function rate(User $user, MovingRequest $request, ?int $establishmentStars, ?int $driverStars, ?string $comment, array $scores = []): MovingRating
     {
         if ($request->user_id !== $user->id || ! in_array($request->status, [MovingStatus::Delivered, MovingStatus::Completed, MovingStatus::Disputed], true)) {
             throw new MovingException('cannot_rate', 409);
@@ -33,28 +52,59 @@ class MovingAfterService
         if (MovingRating::query()->where('request_id', $request->id)->exists()) {
             throw new MovingException('already_rated', 409);
         }
+        // Only the criteria asked about, each 1..5; the overall stars default to their average.
+        $scores = array_filter(
+            array_intersect_key(array_map('intval', $scores), array_flip(array_column(self::criteria(), 'key'))),
+            fn (int $s) => $s >= 1 && $s <= 5,
+        );
+        $establishmentStars ??= $scores === [] ? null : (int) round(array_sum($scores) / count($scores));
+        if ($establishmentStars === null) {
+            throw new MovingException('rating_stars_required', 422);
+        }
 
-        return MovingRating::query()->create([
-            'request_id' => $request->id,
-            'user_id' => $user->id,
-            'establishment_id' => $request->establishment_id,
-            'driver_membership_id' => $request->driver_membership_id,
-            'establishment_stars' => $establishmentStars,
-            'driver_stars' => $request->driver_membership_id ? $driverStars : null,
-            'comment' => $comment,
-        ]);
+        return DB::transaction(function () use ($user, $request, $establishmentStars, $driverStars, $comment, $scores): MovingRating {
+            $rating = MovingRating::query()->create([
+                'request_id' => $request->id,
+                'user_id' => $user->id,
+                'establishment_id' => $request->establishment_id,
+                'driver_membership_id' => $request->driver_membership_id,
+                'establishment_stars' => $establishmentStars,
+                'driver_stars' => $request->driver_membership_id ? $driverStars : null,
+                'comment' => $comment,
+            ]);
+            foreach ($scores as $criterion => $stars) {
+                DB::table('moving_rating_scores')->insert(['rating_id' => $rating->id, 'criterion' => $criterion, 'stars' => $stars]);
+            }
+
+            return $rating;
+        });
     }
 
-    /** @return array{average: float|null, count: int, jobs: int} an establishment's stars and finished moves, shown with its offers */
+    /**
+     * An establishment's stars, its average on each criterion and its finished moves, shown with its offers.
+     *
+     * @return array{average: float|null, count: int, jobs: int, criteria: list<array{key: string, label: string, average: float|null, count: int}>}
+     */
     public static function reputation(int $establishmentId): array
     {
         $row = MovingRating::query()->where('establishment_id', $establishmentId)
             ->selectRaw('AVG(establishment_stars) as avg_stars, COUNT(*) as total')->first();
+        $scores = DB::table('moving_rating_scores')
+            ->join('moving_ratings', 'moving_ratings.id', '=', 'moving_rating_scores.rating_id')
+            ->where('moving_ratings.establishment_id', $establishmentId)
+            ->groupBy('moving_rating_scores.criterion')
+            ->selectRaw('moving_rating_scores.criterion as criterion, AVG(moving_rating_scores.stars) as a, COUNT(*) as c')
+            ->get()->keyBy('criterion');
 
         return [
             'average' => $row?->avg_stars !== null ? round((float) $row->avg_stars, 1) : null,
             'count' => (int) ($row?->total ?? 0),
             'jobs' => MovingRequest::query()->where('establishment_id', $establishmentId)->where('status', MovingStatus::Completed->value)->count(),
+            'criteria' => array_map(fn (array $c) => [
+                ...$c,
+                'average' => isset($scores[$c['key']]) ? round((float) $scores[$c['key']]->a, 1) : null,
+                'count' => (int) ($scores[$c['key']]->c ?? 0),
+            ], self::criteria()),
         ];
     }
 

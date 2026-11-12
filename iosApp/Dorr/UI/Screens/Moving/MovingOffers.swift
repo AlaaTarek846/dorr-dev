@@ -294,6 +294,9 @@ struct MovingOfferDetailsPage: View {
                         OfferValidity(offer: offer)
                     }
                 }
+                // Knowing the company: its rating by criteria and where its branches are.
+                if let e = offer.establishment { MvCompanyRatingCard(e: e) }
+                MvCompanyBranchesCard(branches: offer.branches)
                 if let note = offer.technicianNote, !note.trimmingCharacters(in: .whitespaces).isEmpty { textCard(L("mv_extra_technician"), note) }
                 if let terms = offer.terms, !terms.trimmingCharacters(in: .whitespaces).isEmpty { textCard(L("mv_terms"), terms) }
                 if let after = offer.afterService, !after.trimmingCharacters(in: .whitespaces).isEmpty { textCard(L("mv_after_service"), after) }

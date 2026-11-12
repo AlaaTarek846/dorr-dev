@@ -99,7 +99,8 @@ final class MovingDraft: ObservableObject {
     @Published var description = ""
     @Published var pieces = ""
     @Published var dimensions = ""
-    @Published var vehicleTypeId: Int?
+    /// The vehicle types the customer accepts, in the order picked: the first is their first choice.
+    @Published var vehicleTypeIds: [Int] = []
     @Published var workers = 0
     @Published var packing = false
     @Published var disassembly = false
@@ -111,6 +112,8 @@ final class MovingDraft: ObservableObject {
     @Published var notes = ""
     @Published var photos: [MovingMediaDto] = []
     @Published var videos: [MovingMediaDto] = []
+    /// The voice note about the load (one; a new one replaces it).
+    @Published var voice: MovingMediaDto?
     @Published var missing: [String] = []
     /// The save running now: the next one waits for it (Android's `Mutex`), so two quick taps never make two drafts.
     var saving: Task<Bool, Never>?
@@ -121,7 +124,7 @@ final class MovingDraft: ObservableObject {
         description = r.description ?? ""
         pieces = r.piecesCount.map(String.init) ?? ""
         dimensions = r.dimensions ?? ""
-        vehicleTypeId = r.vehicleTypeId
+        vehicleTypeIds = r.vehicleTypeIds.isEmpty ? [r.vehicleTypeId].compactMap { $0 } : r.vehicleTypeIds
         workers = r.workersCount ?? 0
         packing = r.extras?.packing == true
         disassembly = r.extras?.disassembly == true
@@ -133,6 +136,7 @@ final class MovingDraft: ObservableObject {
         notes = r.notes ?? ""
         photos = r.photos
         videos = r.videos
+        voice = r.voice
     }
 
     func body() -> [String: JSONValue] {
@@ -141,7 +145,7 @@ final class MovingDraft: ObservableObject {
         b["description"] = .string(String(description.trimmingCharacters(in: .whitespacesAndNewlines).prefix(3000)))
         if let count = Int(pieces.trimmingCharacters(in: .whitespaces)) { b["pieces_count"] = .int(count) } else { b["pieces_count"] = .string("") }
         b["dimensions"] = .string(String(dimensions.trimmingCharacters(in: .whitespacesAndNewlines).prefix(255)))
-        if let vehicleTypeId { b["vehicle_type_id"] = .int(vehicleTypeId) }
+        b["vehicle_type_ids"] = .array(vehicleTypeIds.map { .int($0) })
         b["workers_count"] = .int(workers)
         b["packing"] = .bool(packing)
         b["disassembly"] = .bool(disassembly)
@@ -800,6 +804,8 @@ private struct LoadStep: View {
                 DorrTextArea(value: limited({ draft.description }, { draft.description = $0; draft.clearMissing("description_or_photo") }, 3000),
                              label: L("mv_description"), placeholder: L("mv_description_hint"), minHeight: 96)
                     .padding(.top, 10)
+                // Or say it: a voice note on the same page as the description.
+                MvVoiceNote(draft: draft).padding(.top, 10)
                 MissingNote(draft: draft, key: "description_or_photo")
                 HStack(alignment: .top, spacing: 10) {
                     DorrTextArea(value: limited({ draft.pieces }, { draft.pieces = $0 }, 5, filter: plainDigits), label: L("mv_pieces"), singleLine: true)
@@ -987,8 +993,9 @@ private struct VehicleStep: View {
             MissingNote(draft: draft, key: "vehicle_type_id")
             if options != nil && types.isEmpty { MvNote(text: L("mv_no_vehicle_types")) }
             ForEach(Array(types.enumerated()), id: \.element.id) { index, type in
-                VehicleCard(type: type, on: draft.vehicleTypeId == type.id) {
-                    draft.vehicleTypeId = type.id
+                VehicleCard(type: type, order: draft.vehicleTypeIds.firstIndex(of: type.id), picked: draft.vehicleTypeIds.count) {
+                    // Several types may fit (a quarter or a half truck…): each tap adds or removes one, in the order picked.
+                    if let i = draft.vehicleTypeIds.firstIndex(of: type.id) { draft.vehicleTypeIds.remove(at: i) } else { draft.vehicleTypeIds.append(type.id) }
                     draft.clearMissing("vehicle_type_id")
                 }
                 .staggerIn(index + 1)
@@ -1020,8 +1027,13 @@ private struct VehicleCard: View {
     @Environment(\.wa) private var wa
     @Environment(\.mvOnPanel) private var onPanel
     let type: MovingVehicleTypeDto
-    let on: Bool
+    /// Its place in the customer's order (0 = first choice); nil when not picked.
+    let order: Int?
+    /// How many types are picked: with more than one, the box shows the number.
+    let picked: Int
     let action: () -> Void
+
+    private var on: Bool { order != nil }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -1041,14 +1053,24 @@ private struct VehicleCard: View {
                     if let d = type.description, !d.trimmingCharacters(in: .whitespaces).isEmpty {
                         Text(verbatim: d).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineLimit(3)
                     }
+                    if order == 0 && picked > 1 {
+                        Text(L("mv_first_choice")).font(.dorr(11, .bold)).foregroundStyle(wa.accent)
+                    }
                 }
                 Spacer(minLength: 0)
+                // Picked: its place in the customer's order (1 = first choice); not picked: an empty box.
                 ZStack {
-                    Circle().fill(on ? wa.accent : Color.clear)
-                    Circle().stroke(on ? wa.accent : wa.settingsMut.opacity(0.4), lineWidth: 1.5)
-                    if on { Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy)).foregroundStyle(.white) }
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).fill(on ? wa.accent : Color.clear)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(on ? wa.accent : wa.settingsMut.opacity(0.4), lineWidth: 1.5)
+                    if let order {
+                        if picked > 1 {
+                            Text(verbatim: "\(order + 1)").font(.dorr(13, .black)).foregroundStyle(.white)
+                        } else {
+                            Image(systemName: "checkmark").font(.system(size: 11, weight: .heavy)).foregroundStyle(.white)
+                        }
+                    }
                 }
-                .frame(width: 24, height: 24)
+                .frame(width: 26, height: 26)
             }
             .padding(12)
             .background(on ? wa.accent.opacity(0.10) : wa.mvCard(onPanel), in: shape)
@@ -1179,12 +1201,13 @@ private struct ReviewStep: View {
                 if !draft.pieces.isEmpty { MvLine(label: L("mv_pieces"), value: draft.pieces) }
                 if !draft.dimensions.trimmingCharacters(in: .whitespaces).isEmpty { MvLine(label: L("mv_dimensions"), value: draft.dimensions) }
                 MvLine(label: L("mv_media_title"), value: L("mv_media_counts", draft.photos.count, draft.videos.count))
+                if let voice = draft.voice { MvLine(label: L("mv_voice_title"), value: voiceTime(voice.durationMs ?? 0)) }
                 MissingNote(draft: draft, key: "description_or_photo")
             }
             .staggerIn(2)
             ReviewCard(title: L("mv_step_vehicle"), onEdit: { onEdit(stepVehicle) }) {
-                let type = options?.vehicleTypes.first { $0.id == draft.vehicleTypeId }
-                MvLine(label: L("mv_vehicle_title"), value: type?.name ?? "—")
+                let names = draft.vehicleTypeIds.compactMap { id in options?.vehicleTypes.first { $0.id == id }?.name }
+                MvLine(label: L("mv_vehicle_title"), value: names.isEmpty ? "—" : names.joined(separator: " / "))
                 MvLine(label: L("mv_workers"), value: String(draft.workers))
                 let extras = [
                     draft.packing ? "packing" : nil,
