@@ -266,7 +266,7 @@ class AiSiteHostingTest extends TestCase
         $this->getRaw('/sites/ahmed-plumbing/')->assertOk();
 
         $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
         $this->postJson("/api/admin/v1/ai-site-hostings/{$hosting->id}/suspend")->assertSuccessful();
         $this->getRaw('/sites/ahmed-plumbing/')->assertNotFound();
         $this->assertSame('hosting_suspended', $this->reason(fn () => app(AiSiteHostingService::class)->renew($hosting->fresh())));
@@ -388,13 +388,39 @@ class AiSiteHostingTest extends TestCase
         $this->assertSame(0, AiSiteHosting::query()->count());
     }
 
+    public function test_the_admin_cannot_delete_a_site_while_its_paid_hosting_runs(): void
+    {
+        $owner = $this->user();
+        $this->wallet($owner, 100000);
+        $project = $this->site($owner);
+        $hosting = $this->host($owner, $project);
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
+
+        $this->deleteJson("/api/admin/v1/ai-sites/{$project->id}")->assertStatus(422)
+            ->assertJsonPath('message', __('ai.site_admin_hosting_active'));
+        $this->assertNotNull(AiSiteProject::query()->find($project->id));
+
+        // Paused by an admin but the paid period is not over yet: still refused.
+        $hosting->forceFill(['admin_suspended' => true])->save();
+        $this->deleteJson("/api/admin/v1/ai-sites/{$project->id}")->assertStatus(422);
+
+        // The paid time is over: the site and its ended hosting go.
+        $hosting->forceFill(['admin_suspended' => false, 'status' => AiSiteHosting::STATUS_SUSPENDED, 'ends_at' => now()->subDays(10), 'grace_ends_at' => now()->subDays(3)])->save();
+        $this->deleteJson("/api/admin/v1/ai-sites/{$project->id}")->assertSuccessful();
+        $this->assertNull(AiSiteProject::query()->find($project->id));
+        $this->assertSame(0, AiSiteHosting::query()->count());
+    }
+
     public function test_admin_manages_hosting_plans_and_country_prices(): void
     {
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
+        $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
 
-        $id = $this->postJson('/api/admin/v1/ai-site-hosting-plans', ['name' => 'Monthly', 'code' => 'monthly', 'period' => 'monthly', 'is_active' => true])
+        $translations = [['locale' => 'ar', 'name' => 'شهري'], ['locale' => 'en', 'name' => 'Monthly']];
+        $id = $this->postJson('/api/admin/v1/ai-site-hosting-plans', ['code' => 'monthly', 'period' => 'monthly', 'status' => true, 'translations' => $translations])
             ->assertCreated()->json('data.id');
-        $this->postJson('/api/admin/v1/ai-site-hosting-plans', ['name' => 'Bad', 'code' => 'bad', 'period' => 'weekly', 'is_active' => true])->assertUnprocessable();
+        $this->postJson('/api/admin/v1/ai-site-hosting-plans', ['code' => 'bad', 'period' => 'weekly', 'status' => true, 'translations' => $translations])
+            ->assertUnprocessable()->assertJsonValidationErrors('period');
 
         $this->putJson("/api/admin/v1/ai-site-hosting-plans/{$id}/prices", ['prices' => [['country_id' => $this->country->id, 'price' => 75]]])->assertSuccessful();
         $row = collect($this->getJson("/api/admin/v1/ai-site-hosting-plans/{$id}/prices")->json('data.rows'))->firstWhere('country_id', $this->country->id);

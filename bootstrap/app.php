@@ -34,13 +34,16 @@ return Application::configure(basePath: dirname(__DIR__))
             'remember-locale' => RememberLocale::class,
             'country' => ResolveCountryContext::class,
             'ensure-phone-verified' => EnsurePhoneVerified::class,
-            'freelance.feature' => EnsureFreelanceFeature::class,
+            'freelance.feature' => \Modules\Freelance\Http\Middleware\EnsureFreelanceFeature::class,
+            'marketing.feature' => \Modules\Marketing\Http\Middleware\EnsureMarketingFeature::class,
             'freelance.project-access' => \Modules\Freelance\Http\Middleware\ProjectTeamAccess::class,
             // FS-206a: somebody of a freelancers' team on the team's project (runs as the Owner who signed).
             'freelance.team-project-access' => \Modules\Freelance\Http\Middleware\FreelancerProjectTeamAccess::class,
             'freelance.verified' => EnsureFreelancerVerified::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
+            // A whole admin screen's route group: GET → {group}.view, store → .create, … (docs/screens/README.md).
+            'admin.screen' => \App\Http\Middleware\AdminScreenPermission::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'admin.area' => AdminAreaPermission::class,
         ]);

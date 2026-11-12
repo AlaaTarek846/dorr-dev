@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiBenchmarkCaseRequest;
 use Modules\AI\Services\AiBenchmarkCaseService;
 
-class AiBenchmarkCaseController extends Controller
+/**
+ * Admin AI benchmark cases - the catalog CRUD (like CountryController, no translations): index/show, store, update,
+ * status, bulk delete, trash/restore/force delete.
+ */
+class AiBenchmarkCaseController extends CatalogController
 {
-    public function __construct(protected AiBenchmarkCaseService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-benchmark-cases';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-benchmark-cases')) - so no
+     * controller permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiBenchmarkCaseService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiBenchmarkCaseRequest $request)
@@ -20,18 +38,18 @@ class AiBenchmarkCaseController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $case)
-    {
-        return $this->service->find($case);
-    }
-
-    public function update(AiBenchmarkCaseRequest $request, int $case)
+    public function update(AiBenchmarkCaseRequest $request, int|string $case)
     {
         return $this->service->updateRecord($case, $request->validated());
     }
 
-    public function destroy(int $case)
+    public function deleteMultiple(AiBenchmarkCaseRequest $request)
     {
-        return $this->service->delete($case);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiBenchmarkCaseRequest $request, int|string $case)
+    {
+        return $this->service->changeStatus($case, (bool) $request->validated('status'));
     }
 }

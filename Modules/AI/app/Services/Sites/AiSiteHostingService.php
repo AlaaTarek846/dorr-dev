@@ -93,7 +93,8 @@ class AiSiteHostingService
             throw new AiSiteException('no_version_yet', 409);
         }
 
-        if (! $plan->is_active) {
+        // Switched off or in the trash = not sold any more (AiSiteHostingPlan::isAvailable()).
+        if (! $plan->isAvailable()) {
             throw new AiSiteException('plan_unavailable', 404);
         }
 
@@ -198,7 +199,9 @@ class AiSiteHostingService
         $amount = $price['price'] ?? $hosting->amount;
         $currency = $price['currency'] ?? $hosting->currency;
 
-        if ($plan === null || $country === null) {
+        // A plan the admin switched off or moved to the trash is not renewed: the site runs to the end of what was paid,
+        // then follows the usual grace / suspension path (like AiPlan::isAvailable() for AI subscriptions).
+        if ($plan === null || $country === null || ! $plan->isAvailable()) {
             throw new AiSiteException('plan_unavailable', 404);
         }
 

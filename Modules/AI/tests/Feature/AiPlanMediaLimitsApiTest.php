@@ -14,14 +14,22 @@ class AiPlanMediaLimitsApiTest extends TestCase
 
     protected function admin(): void
     {
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create([
+        // AI plans screen permissions (AdminPermissionSeeder 'ai-plans').
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'] as $action) {
+            \Spatie\Permission\Models\Permission::findOrCreate("ai-plans.{$action}", 'admin_api');
+        }
+        $admin = Admin::query()->create([
             'name' => 'Plan Admin', 'email' => 'plan-admin-'.uniqid().'@example.test', 'password' => 'password', 'status' => true,
-        ])), ['*'], 'admin_api');
+        ]);
+        $admin->givePermissionTo(['ai-plans.view', 'ai-plans.create', 'ai-plans.update']);
+
+        Sanctum::actingAs($admin, ['*'], 'admin_api');
     }
 
     protected function payload(array $extra = []): array
     {
-        return $extra + ['name' => 'Pro', 'code' => 'pro-'.uniqid(), 'usage_minutes' => 120, 'cooldown_minutes' => 0, 'duration_days' => 30, 'price' => 10];
+        return $extra + ['translations' => [['locale' => 'en', 'name' => 'Pro']], 'code' => 'pro-'.uniqid(), 'usage_minutes' => 120, 'cooldown_minutes' => 0, 'duration_days' => 30, 'price' => 10];
     }
 
     public function test_admin_can_set_media_limits_on_a_plan(): void
@@ -52,7 +60,7 @@ class AiPlanMediaLimitsApiTest extends TestCase
     public function test_clearing_the_video_fields_means_none_and_clearing_images_means_unlimited(): void
     {
         $this->admin();
-        $plan = AiPlan::query()->create($this->payload(['image_daily_limit' => 5, 'video_daily_limit' => 2, 'video_max_seconds' => 8, 'is_active' => true]));
+        $plan = AiPlan::query()->create(['name' => 'Pro'] + $this->payload(['image_daily_limit' => 5, 'video_daily_limit' => 2, 'video_max_seconds' => 8, 'is_active' => true]));
 
         $this->putJson("/api/admin/v1/ai-plans/{$plan->id}", ['image_daily_limit' => null, 'video_daily_limit' => null, 'video_max_seconds' => ''])->assertSuccessful();
 

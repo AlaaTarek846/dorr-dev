@@ -3,6 +3,7 @@ import AuthLayout from '../../layouts/AuthLayout.vue';
 import { resolvePage } from '../../dashboard/resolvePage';
 import { resolveShell } from '../../dashboard/resolveShell';
 import userAuth from '../../router/middleware/userAuth';
+import marketingRoutes from '../../components/marketing/marketingRoutes';
 import userGuest from '../../router/middleware/userGuest';
 
 const page = (viewPath) => resolvePage('user', viewPath);
@@ -76,6 +77,7 @@ export default [
                 component: page('Dashboard'),
                 meta: { middleware: [userAuth] },
             },
+            marketingRoutes('user', page('marketing/index'), [userAuth]),
             {
                 path: 'profile',
                 name: 'user.profile',

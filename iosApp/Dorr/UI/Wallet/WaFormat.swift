@@ -173,7 +173,7 @@ func countryName(_ code: String?) -> String {
 /// Icon + meaning for each ledger type, the same table as the preview's `TX_META` (SF Symbols for Material icons).
 func txMeta(_ type: String) -> (icon: String, tone: Tone) {
     switch type {
-    case "topup": return ("plus", .green)
+    case "topup": return ("creditcard.and.123", .green) // the home «Top up» button's icon
     case "topup_fee": return ("doc.plaintext.fill", .amber)
     case "topup_bonus": return ("gift.fill", .pink)
     case "transfer_out": return ("arrow.up.right", .red)

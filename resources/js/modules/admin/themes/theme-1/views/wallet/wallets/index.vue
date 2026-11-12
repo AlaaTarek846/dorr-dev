@@ -21,12 +21,23 @@
                 <Select
                     filter
                     :filter-placeholder="t('search_placeholder')"
-                    v-model="filters.owner_type"
+                    v-model="ownerChoice"
                     :placeholder="t('wallet.common.owner')"
                     show-clear
                     :options="ownerFilterOptions"
                     option-label="label"
                     option-value="value"
+                    class="wallet-filter-select"
+                />
+                <Select
+                    filter
+                    :filter-placeholder="t('search_placeholder')"
+                    v-model="filters.country_id"
+                    :placeholder="t('wallet.wallets.country')"
+                    show-clear
+                    :options="countryOptions"
+                    option-label="name"
+                    option-value="id"
                     class="wallet-filter-select"
                 />
                 </div>
@@ -80,7 +91,7 @@
                                         </div>
                                     </td>
                                     <td><span class="badge bg-secondary-transparent font-monospace" dir="ltr">{{ formatWalletNumber(row.wallet_number) }}</span></td>
-                                    <td><span class="badge bg-primary-transparent">{{ row.country_code }}</span></td>
+                                    <td><span class="badge bg-primary-transparent">{{ row.country_name || row.country_code }}</span></td>
                                     <td class="fw-semibold">{{ fmtMinor(row.total_minor, row.currency_code) }}</td>
                                     <td>{{ fmtMinor(row.withdrawable_minor) }}</td>
                                     <td>{{ fmtMinor(row.spend_only_minor) }}</td>
@@ -101,7 +112,7 @@
             <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
-        <WalletModal :show="showModal" :title="wallet ? `${wallet.owner?.name || '#' + wallet.owner_id} · ${wallet.country_code}` : ''" size="xl" smooth @close="showModal = false">
+        <WalletModal :show="showModal" :title="wallet ? `${wallet.owner?.name || '#' + wallet.owner_id} · ${wallet.country_name || wallet.country_code}` : ''" size="xl" smooth @close="showModal = false">
             <div v-if="wallet" class="d-flex flex-column gap-3">
                 <WalletDetailHero
                     icon="ri-wallet-3-line"
@@ -110,7 +121,7 @@
                     :subtitle="formatWalletNumber(wallet.wallet_number)"
                 >
                     <span class="badge bg-secondary-transparent fs-12">{{ t(`wallet.owner.${wallet.owner_type}`) }}</span>
-                    <span class="badge bg-primary-transparent fs-12">{{ wallet.country_code }}</span>
+                    <span class="badge bg-primary-transparent fs-12">{{ wallet.country_name || wallet.country_code }}</span>
                 </WalletDetailHero>
 
                 <div class="row g-3">
@@ -340,9 +351,25 @@ const { showSuccess, showWarning } = useToast();
 const { requiredField, minString, maxString, moneyFormat, applyApiErrors } = useValidation();
 
 const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('wallets', {
-    defaults: { search: '', owner_type: null },
+    defaults: { search: '', owner_type: null, international: null, country_id: null },
 });
 fetch(1);
+
+// Every active country plus the hidden international (INT) one, searchable by name.
+const countryOptions = ref([]);
+adminAxios.get('/api/general/v1/countries/dropdown', { params: { with_international: 1 } })
+    .then(({ data }) => { countryOptions.value = data.data ?? []; })
+    .catch(() => { countryOptions.value = []; });
+
+// The owner picker also offers "user international wallet": owner = user + only the INT (freelance) wallets.
+const USER_INTERNATIONAL = 'user_international';
+const ownerChoice = ref(null);
+watch(ownerChoice, (choice) => {
+    const international = choice === USER_INTERNATIONAL;
+
+    filters.owner_type = international ? 'user' : choice;
+    filters.international = international ? 1 : null;
+});
 
 // 11 digits shown as "123 4567 8901" (same grouping as the app).
 const formatWalletNumber = (n) => (n ? String(n).replace(/^(\d{3})(\d{4})(\d+)$/, '$1 $2 $3') : '—');
@@ -403,7 +430,10 @@ const directionOptions = computed(() => [
     { value: 'credit', label: t('wallet.direction.credit') },
     { value: 'debit', label: t('wallet.direction.debit') },
 ]);
-const ownerFilterOptions = ownerOptions;
+const ownerFilterOptions = computed(() => [
+    ...ownerOptions.value,
+    { value: USER_INTERNATIONAL, label: t('wallet.wallets.owner_user_international') },
+]);
 const bucketFilterOptions = bucketOptions;
 const directionFilterOptions = directionOptions;
 const adjusting = ref(false);

@@ -18,6 +18,8 @@ class AiRequestResource extends JsonResource
                 'type' => $this->owner_type,
                 'id' => $this->owner_id,
                 'name' => $this->owner->name ?? null,
+                // Admin panel only (ownerDisplayName falls back to the phone); never sent to the apps.
+                'phone' => $this->when($request->is('api/admin/*'), fn () => $this->owner->phone ?? null),
             ] : null),
             'gateway' => $this->whenLoaded('gateway', fn () => $this->gateway ? [
                 'id' => $this->gateway->id,

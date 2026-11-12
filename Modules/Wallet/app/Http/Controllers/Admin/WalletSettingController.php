@@ -37,10 +37,14 @@ class WalletSettingController extends Controller implements HasMiddleware
         $perPage = max(1, min((int) $request->input('per_page', 15), 50));
         $search = trim((string) $request->query('search', ''));
 
-        // One row per country (200+): paged, and searchable by country code.
+        $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%';
+
+        // One row per country (200+): paged, and searchable by the country's code or its name in any language.
         $paginator = WalletSetting::query()
             ->with('country.translations')
-            ->when($search !== '', fn ($q) => $q->whereHas('country', fn ($c) => $c->where('code', 'like', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%')))
+            ->when($search !== '', fn ($q) => $q->whereHas('country', fn ($c) => $c->where(
+                fn ($w) => $w->where('code', 'like', $like)->orWhereHas('translations', fn ($t) => $t->where('name', 'like', $like)),
+            )))
             ->orderBy('country_id')
             ->paginate($perPage);
 

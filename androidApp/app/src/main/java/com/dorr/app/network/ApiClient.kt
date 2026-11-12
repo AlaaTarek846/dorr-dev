@@ -180,6 +180,7 @@ object ApiClient {
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
     /** Watch & Earn: the viewer, the advertiser and the ad wallet (docs/modules/watch-earn/API.md). */
     val watchEarn: WatchEarnApi by lazy { retrofit.create(WatchEarnApi::class.java) }
+    val marketing: MarketingApi by lazy { retrofit.create(MarketingApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 

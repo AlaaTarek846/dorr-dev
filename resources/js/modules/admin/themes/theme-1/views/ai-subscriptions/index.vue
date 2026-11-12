@@ -22,7 +22,11 @@
                 <div class="card custom-card">
                     <div class="card-body">
                         <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.overview_mrr') }}</span>
-                        <span class="d-block fw-semibold fs-20">{{ overview.mrr }}</span>
+                        <!-- One line per currency: amounts in different currencies are never added together. -->
+                        <template v-if="(overview.mrr_by_currency ?? []).length">
+                            <span v-for="row in overview.mrr_by_currency" :key="row.currency ?? '-'" class="d-block fw-semibold fs-20" dir="ltr">{{ row.amount }} {{ row.currency ?? '' }}</span>
+                        </template>
+                        <span v-else class="d-block fw-semibold fs-20">0</span>
                     </div>
                 </div>
             </div>
@@ -30,7 +34,11 @@
                 <div class="card custom-card">
                     <div class="card-body">
                         <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.overview_revenue_month') }}</span>
-                        <span class="d-block fw-semibold fs-20">{{ overview.revenue_this_month }}</span>
+                        <!-- One line per currency: amounts in different currencies are never added together. -->
+                        <template v-if="(overview.revenue_this_month_by_currency ?? []).length">
+                            <span v-for="row in overview.revenue_this_month_by_currency" :key="row.currency ?? '-'" class="d-block fw-semibold fs-20" dir="ltr">{{ row.amount }} {{ row.currency ?? '' }}</span>
+                        </template>
+                        <span v-else class="d-block fw-semibold fs-20">0</span>
                     </div>
                 </div>
             </div>
@@ -143,6 +151,7 @@
                                                 <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('ai_subscriptions.details')" @click="openDetails(subscription.id)">
                                                     <i class="ri-eye-line"></i>
                                                 </button>
+                                                <template v-if="canUpdate">
                                                 <input
                                                     v-model.number="extendDays[subscription.id]"
                                                     type="number"
@@ -186,6 +195,7 @@
                                                 >
                                                     {{ t('ai_subscriptions.cancel') }}
                                                 </button>
+                                                </template>
                                             </div>
                                         </td>
                                     </tr>
@@ -249,9 +259,9 @@
                     </div>
                 </div>
 
-                <hr>
+                <hr v-if="canUpdate">
 
-                <div class="d-flex flex-wrap align-items-center gap-2">
+                <div v-if="canUpdate" class="d-flex flex-wrap align-items-center gap-2">
                     <input v-model.number="extendDays[detail.id]" type="number" min="1" class="form-control form-control-sm" style="width: 130px" :placeholder="t('ai_subscriptions.extend_days_placeholder')">
                     <button type="button" class="btn btn-sm btn-primary-light" :disabled="busyId === detail.id" @click="extend(detail)">{{ t('ai_subscriptions.extend') }}</button>
                     <button v-if="detail.status === 'active'" type="button" class="btn btn-sm btn-warning-light" :disabled="busyId === detail.id" @click="suspend(detail)">{{ t('ai_subscriptions.suspend') }}</button>
@@ -277,6 +287,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
@@ -289,6 +300,7 @@ import useAdminPagination from '../../../../../../composables/useAdminPagination
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 
 const { t, locale } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-subscriptions');
 const { showSuccess, showError, showWarning } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 const actionConfirm = useConfirmDelete();

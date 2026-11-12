@@ -618,4 +618,15 @@
     <string name="ai_home_yours">Make it yours</string>
     <string name="ai_home_yours_sub">Its memory, its language and your plan</string>
     <string name="ai_home_footer">%1$s can make mistakes. Check important information.</string>
+    <!-- DORR AI chat: a DORR ride card under the answer -->
+    <string name="ai_ride_card_title">Book your trip with DORR</string>
+    <string name="ai_ride_card_sub">I understood your trip — it\'s ready to book</string>
+    <string name="ai_ride_card_to">Going to</string>
+    <string name="ai_ride_card_or">Or did you mean</string>
+    <string name="ai_ride_card_book">Book with DORR</string>
+    <string name="ai_ride_card_pick">Choose the place in DORR</string>
+    <string name="ai_ride_card_hint">Opens DORR Rides with everything filled in — you confirm the place on the map and see the real price.</string>
+    <string name="ai_ride_pay_cash">Cash</string>
+    <string name="ai_ride_pay_wallet">Wallet</string>
+    <string name="ai_ride_pay_card">Card</string>
 </resources>

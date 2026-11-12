@@ -187,4 +187,8 @@
     <string name="fs_tm_ch_price_hidden">سعر جديد لـ %1$s</string>
     <string name="fs_tm_ch_add_hidden">مرحلة جديدة: %1$s</string>
     <string name="fs_tm_shared_tool">مشاركة معايا</string>
+    <!-- FS-802: an overdue Workroom task -->
+    <string name="fs_hl_r_task_overdue">المهمة “%1$s” عدّت ميعادها بـ %2$s (%3$d متأخرة في الإجمالي).</string>
+    <string name="fs_hl_n_task_overdue">خلّص المهمة “%1$s” أو غيّر ميعادها.</string>
+    <string name="fs_hl_w_task_overdue">مستنيين المستقل يخلّص “%1$s”.</string>
 </resources>

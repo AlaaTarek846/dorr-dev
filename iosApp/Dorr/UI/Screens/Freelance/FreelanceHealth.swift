@@ -98,6 +98,7 @@ private func flHealthReasonText(_ r: FreelanceHealthReasonDto) -> String {
     case "review_waiting": return L("fs_hl_r_review_waiting", part, days)
     case "report_late": return L("fs_hl_r_report_late")
     case "change_waiting": return L("fs_hl_r_change_waiting")
+    case "task_overdue": return L("fs_hl_r_task_overdue", part, days, r.data?.count ?? 1)
     default: return L("fs_hl_r_other")
     }
 }
@@ -106,7 +107,7 @@ private func flHealthReasonText(_ r: FreelanceHealthReasonDto) -> String {
 private func flHealthStepText(_ code: String, mine: Bool, part: String) -> String {
     let p = mine ? "fs_hl_n_" : "fs_hl_w_"
     switch code {
-    case "dispute_open", "part_unfunded", "part_overdue", "part_due_soon", "part_not_started", "review_waiting":
+    case "dispute_open", "part_unfunded", "part_overdue", "part_due_soon", "part_not_started", "review_waiting", "task_overdue":
         return L(p + code, part)
     case "report_late", "change_waiting":
         return L(p + code)

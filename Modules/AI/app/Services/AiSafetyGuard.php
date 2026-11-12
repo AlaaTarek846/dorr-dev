@@ -40,11 +40,14 @@ class AiSafetyGuard
      */
     public function evaluate(string $content): array
     {
+        // Switched on and not in the trash - the rule and its policy (the policy relation is withTrashed for the
+        // admin screens, so the guard excludes a trashed policy itself). The names are not needed here.
         $rules = AiSafetyRule::query()
-            ->where('is_active', true)
-            ->whereHas('policy', fn ($query) => $query->where('is_active', true))
-            ->with('policy')
+            ->without('translations')
+            ->where('status', true)
+            ->whereHas('policy', fn ($query) => $query->where('status', true)->whereNull('ai_safety_policies.deleted_at'))
             ->orderByDesc('priority')
+            ->orderBy('id')
             ->get();
 
         foreach ($rules as $rule) {

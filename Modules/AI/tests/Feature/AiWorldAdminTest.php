@@ -37,7 +37,7 @@ class AiWorldAdminTest extends TestCase
     private function admin(): Admin
     {
         $admin = Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
 
         return $admin;
     }
@@ -96,5 +96,20 @@ class AiWorldAdminTest extends TestCase
         $this->assertSame($admin->id, (int) $report->refresh()->resolved_by);
 
         $this->getJson('/api/admin/v1/ai-world/stats')->assertOk()->assertJsonPath('data.projects_by_status.completed', 1)->assertJsonPath('data.open_reports', 0);
+    }
+
+    public function test_money_answers_carry_each_currencys_decimal_places(): void
+    {
+        $this->admin();
+        Currency::create(['code' => 'KWD', 'symbol' => 'د.ك', 'decimal_places' => 3]);
+        $kw = AiWorldProject::create(['owner_type' => 'user', 'owner_id' => 7, 'status' => 'completed', 'currency' => 'KWD', 'charged_minor' => 1500]);
+        AiWorldCostLedger::create(['project_id' => $kw->id, 'type' => 'charge', 'amount_minor' => 1500, 'currency' => 'KWD']);
+        AiWorldProject::create(['owner_type' => 'user', 'owner_id' => 8, 'status' => 'completed', 'currency' => 'EGP', 'charged_minor' => 800]);
+
+        // 1500 fils = 1.500 KWD, not 15.00: the screen divides by 10^3 for KWD and 10^2 for EGP.
+        $this->getJson('/api/admin/v1/ai-world/stats')->assertOk()->assertJsonPath('currency_decimals.KWD', 3)->assertJsonPath('currency_decimals.EGP', 2);
+        $this->getJson('/api/admin/v1/ai-world/projects')->assertOk()->assertJsonPath('currency_decimals.KWD', 3)->assertJsonPath('currency_decimals.EGP', 2)
+            ->assertJsonCount(2, 'data');
+        $this->getJson('/api/admin/v1/ai-world/projects/'.$kw->id)->assertOk()->assertJsonPath('currency_decimals', ['KWD' => 3]);
     }
 }

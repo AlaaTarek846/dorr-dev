@@ -15,6 +15,10 @@ internal sealed interface FlRoute {
     data class Project(val project: String) : FlRoute { override val key get() = "show:$project" }
     data class Preview(val project: String) : FlRoute { override val key get() = "preview:$project" }
     data class Invitations(val project: String) : FlRoute { override val key get() = "invites:$project" }
+    // FS-503: the best people for a project (DORR AI).
+    data class Matches(val project: String) : FlRoute { override val key get() = "matches:$project" }
+    // FS-801: the AI Project Manager's summary of a running project.
+    data class PmSummary(val project: String) : FlRoute { override val key get() = "pmsum:$project" }
     data class Offers(val project: String) : FlRoute { override val key get() = "offers:$project" }
     data class Compare(val project: String, val offers: List<String>) : FlRoute { override val key get() = "compare:$project:" + offers.joinToString(",") }
     data class Offer(val project: String, val offer: String) : FlRoute { override val key get() = "offer:$project:$offer" }
@@ -85,6 +89,8 @@ internal sealed interface FlRoute {
                 "show" -> a?.let(::Project)
                 "preview" -> a?.let(::Preview)
                 "invites" -> a?.let(::Invitations)
+                "matches" -> a?.let(::Matches)
+                "pmsum" -> a?.let(::PmSummary)
                 "offers" -> a?.let(::Offers)
                 "agreement" -> a?.let(::Agreement)
                 "workroom" -> a?.let { Workroom(it, b.orEmpty()) }

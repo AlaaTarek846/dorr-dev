@@ -4,12 +4,16 @@ namespace Modules\AI\Services;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Modules\AI\Models\AiGateway as AiGatewayModel;
 use Modules\AI\Models\AiIntent;
 use Modules\AI\Models\AiProvider;
+use Modules\AI\Models\AiProviderLog;
 use Modules\AI\Models\AiRoutingPolicy;
 use Modules\AI\Models\AiRoutingRule;
 use Modules\AI\Repositories\AiProviderRepository;
+use Throwable;
 
 /**
  * The real per-request routing engine (Phase 4 tables) that decides which
@@ -67,9 +71,10 @@ class AiRoutingEngine
             }
         }
 
+        // Switched off or in the trash (SoftDeletes' default scope) = not used - here and for policies / rules below.
         $gateway = AiGatewayModel::query()
             ->where('environment', 'production')
-            ->where('is_active', true)
+            ->where('status', true)
             ->with('defaultPolicy')
             ->orderBy('id')
             ->first();
@@ -80,8 +85,18 @@ class AiRoutingEngine
             $countryCode = $owner->country()->value('code');
         }
 
+        // The gateway's default policy is shown even when trashed (the relation is withTrashed for the admin screen),
+        // so the fallback only takes it while it is switched on and not in the trash.
+        $defaultPolicy = $gateway?->defaultPolicy;
+        $defaultPolicySkipped = false;
+
+        if ($defaultPolicy !== null && (! $defaultPolicy->status || $defaultPolicy->trashed())) {
+            $defaultPolicy = null;
+            $defaultPolicySkipped = true;
+        }
+
         $policy = AiRoutingPolicy::query()
-            ->where('is_active', true)
+            ->where('status', true)
             ->orderByDesc('priority')
             ->get()
             ->first(fn (AiRoutingPolicy $candidate) => match ($candidate->scope_type) {
@@ -92,32 +107,44 @@ class AiRoutingEngine
                 // message doesn't carry (no service/booking is being acted
                 // on here), so they are skipped rather than guessed at.
                 default => false,
-            }) ?? $gateway?->defaultPolicy;
+            }) ?? $defaultPolicy;
 
         $candidates = collect();
 
         if ($policy) {
             $rules = AiRoutingRule::query()
                 ->where('routing_policy_id', $policy->id)
-                ->where('is_active', true)
+                ->where('status', true)
                 ->with('provider')
                 ->orderByDesc('priority')
                 ->get();
 
-            $ordered = $rules
-                ->filter(fn (AiRoutingRule $rule) => $intent && $rule->intent_id === $intent->id)
-                ->concat($rules->filter(fn (AiRoutingRule $rule) => $rule->intent_id === null));
+            $usable = fn (AiRoutingRule $rule) => $rule->provider
+                && $rule->provider->isUsableForChat()
+                && $this->featureFlags->isProviderAllowed($rule->provider, $countryCode, $intent?->key)
+                && (! $rule->model_key || $this->featureFlags->isModelAllowed($rule->provider, $rule->model_key, $countryCode, $intent?->key));
 
-            foreach ($ordered as $rule) {
-                if (
-                    $rule->provider
-                    && $rule->provider->isUsableForChat()
-                    && $this->featureFlags->isProviderAllowed($rule->provider, $countryCode, $intent?->key)
-                    && (! $rule->model_key || $this->featureFlags->isModelAllowed($rule->provider, $rule->model_key, $countryCode, $intent?->key))
-                ) {
+            // Rules for this exact intent first, then the generic ones; the policy's selection strategy orders each
+            // group (priority = as configured).
+            $groups = [
+                $rules->filter(fn (AiRoutingRule $rule) => $intent && $rule->intent_id === $intent->id)->filter($usable)->values(),
+                $rules->filter(fn (AiRoutingRule $rule) => $rule->intent_id === null)->filter($usable)->values(),
+            ];
+
+            foreach ($groups as $index => $group) {
+                foreach ($this->applySelectionStrategy($policy, $group, $index) as $rule) {
                     $candidates->push(['provider' => $rule->provider, 'model_key' => $rule->model_key ?: null]);
                 }
             }
+        } else {
+            // Never "no policy": with no usable admin policy (none matches, or the gateway's default was switched off
+            // or trashed - and that choice is respected, its rules are not used) the built-in defaults apply: the
+            // active provider, with config('ai.routing.*') fallback and strategy.
+            Log::warning('AI routing: no active routing policy matched; using the built-in defaults', [
+                'reason' => $defaultPolicySkipped ? 'default_policy_inactive' : 'no_matching_policy',
+                'gateway_id' => $gateway?->id,
+                'default_policy_id' => $gateway?->default_policy_id,
+            ]);
         }
 
         if ($candidates->isEmpty()) {
@@ -134,10 +161,87 @@ class AiRoutingEngine
             'intent' => $intent,
             'gateway' => $gateway,
             'policy' => $policy,
+            // 'admin' = an ai_routing_policies row; 'defaults' = none usable, the built-in config applies.
+            'policy_source' => $policy ? 'admin' : 'defaults',
             'candidates' => $this->uniqueByProvider($candidates)->values()->all(),
             'required_capabilities' => $requiredCapabilities,
-            'fallback_enabled' => $policy->fallback_enabled ?? true,
+            'fallback_enabled' => $policy
+                ? (bool) ($policy->fallback_enabled ?? true)
+                : (bool) config('ai.routing.defaults.fallback_enabled', true),
         ];
+    }
+
+    /** The strategies the engine knows; anything else (an old or unknown value) is treated as "priority". */
+    public const STRATEGIES = ['priority', 'round_robin', 'latency_optimized'];
+
+    /**
+     * Orders a group of usable rules by the policy's selection_strategy (fail-safe: any problem keeps the
+     * configured priority order):
+     * - priority (default): highest rule priority first, as configured.
+     * - round_robin: the same rules, rotated by one on every message the policy routes, so the first choice takes
+     *   turns (a counter per policy and group in the cache).
+     * - latency_optimized: the provider with the lowest average response time over the last 24 hours of successful
+     *   calls (ai_provider_logs) first; providers with no recent calls keep their priority order after them.
+     *
+     * @param  Collection<int, AiRoutingRule>  $rules
+     * @return Collection<int, AiRoutingRule>
+     */
+    protected function applySelectionStrategy(AiRoutingPolicy $policy, Collection $rules, int $group): Collection
+    {
+        if ($rules->count() < 2) {
+            return $rules;
+        }
+
+        $strategy = $policy->selection_strategy ?: (string) config('ai.routing.defaults.selection_strategy', 'priority');
+
+        try {
+            return match ($strategy) {
+                'round_robin' => $this->rotate($rules, (int) Cache::increment("ai:routing:round-robin:{$policy->id}:{$group}") - 1),
+                'latency_optimized' => $this->byLatency($rules),
+                default => $rules,
+            };
+        } catch (Throwable $e) {
+            Log::warning('AI routing: selection strategy failed; using priority order', [
+                'policy_id' => $policy->id, 'strategy' => $strategy, 'error' => $e->getMessage(),
+            ]);
+
+            return $rules;
+        }
+    }
+
+    /**
+     * @param  Collection<int, AiRoutingRule>  $rules
+     * @return Collection<int, AiRoutingRule>
+     */
+    protected function rotate(Collection $rules, int $turn): Collection
+    {
+        $offset = (($turn % $rules->count()) + $rules->count()) % $rules->count();
+
+        return $rules->slice($offset)->concat($rules->slice(0, $offset))->values();
+    }
+
+    /**
+     * @param  Collection<int, AiRoutingRule>  $rules
+     * @return Collection<int, AiRoutingRule>
+     */
+    protected function byLatency(Collection $rules): Collection
+    {
+        $averages = AiProviderLog::query()
+            ->whereIn('provider_id', $rules->pluck('provider_id')->unique()->all())
+            ->where('created_at', '>=', now()->subDay())
+            ->whereNull('error_code')
+            ->whereNotNull('response_time_ms')
+            ->groupBy('provider_id')
+            ->selectRaw('provider_id, AVG(response_time_ms) as average_ms')
+            ->pluck('average_ms', 'provider_id');
+
+        // Stable: measured providers by speed, then the unmeasured ones in priority order.
+        return $rules
+            ->values()
+            ->map(fn (AiRoutingRule $rule, int $position) => [$rule, $averages->get($rule->provider_id), $position])
+            ->sort(fn (array $a, array $b) => [$a[1] === null ? 1 : 0, (float) $a[1], $a[2]] <=> [$b[1] === null ? 1 : 0, (float) $b[1], $b[2]])
+            ->map(fn (array $row) => $row[0])
+            ->values();
     }
 
     /**

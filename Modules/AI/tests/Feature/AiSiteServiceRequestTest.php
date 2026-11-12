@@ -7,9 +7,11 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Events\AiSiteRequestChanged;
 use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Models\AiSiteRequestStatus;
 use Modules\AI\Models\AiSiteServiceRequest;
@@ -53,7 +55,7 @@ class AiSiteServiceRequestTest extends TestCase
 
     private function admin(): void
     {
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'a-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
     }
 
     private function wallet(User $user, int $minor): Wallet
@@ -288,6 +290,89 @@ class AiSiteServiceRequestTest extends TestCase
         foreach (['ai_site_request.admin_new', 'ai_site_request.admin_accepted', 'ai_site_request.admin_message'] as $event) {
             $center->shouldHaveReceived('send')->withArgs(fn ($to, $e) => $e === $event && $to->contains($admin))->once();
         }
+    }
+
+    public function test_rejecting_or_cancelling_a_paid_request_refunds_the_customer_once(): void
+    {
+        $user = $this->user();
+        $wallet = $this->wallet($user, 100000);
+        $accepted = $this->service()->accept($this->quoted($user), $user);
+        $this->assertSame(60000, $wallet->fresh()->spend_only_minor);
+
+        $this->admin();
+        $this->postJson('/api/admin/v1/ai-site-requests/'.$accepted->id.'/status', ['status' => 'rejected', 'note' => 'out of scope'])
+            ->assertSuccessful()->assertJsonPath('data.status.code', 'rejected');
+
+        // The 400 taken on acceptance is back, as spend-only credit, and the instalment says so.
+        $this->assertSame(100000, $wallet->fresh()->spend_only_minor);
+        $this->assertSame(['refunded', 'pending', 'pending'], $accepted->installments()->orderBy('sort_order')->pluck('status')->all());
+        $this->assertSame(1, \Modules\Wallet\Models\WalletTransaction::query()->where('reference_type', 'ai_site_service_request')->where('type', 'refund')->count());
+
+        // Re-applying the same final status (double click) gives nothing back a second time.
+        $this->postJson('/api/admin/v1/ai-site-requests/'.$accepted->id.'/status', ['status' => 'rejected'])->assertSuccessful();
+        $this->assertSame(100000, $wallet->fresh()->spend_only_minor);
+        $this->assertSame(1, \Modules\Wallet\Models\WalletTransaction::query()->where('reference_type', 'ai_site_service_request')->where('type', 'refund')->count());
+        $this->assertTrue($accepted->messages()->where('sender', 'system')->where('body', 'like', '%400%')->exists());
+    }
+
+    public function test_cancelling_after_two_payments_refunds_both_and_an_unpaid_request_refunds_nothing(): void
+    {
+        $user = $this->user();
+        $wallet = $this->wallet($user, 100000);
+        $accepted = $this->service()->accept($this->quoted($user), $user);
+        $this->service()->setMilestoneStatus($accepted, $accepted->milestones->first(), 'delivered');
+        $second = $accepted->installments()->where('trigger', 'on_milestone')->firstOrFail();
+        $this->service()->pay($accepted->fresh(), $second->id, $user);
+        $this->assertSame(30000, $wallet->fresh()->spend_only_minor);
+
+        $this->service()->changeStatus($accepted->fresh(), 'cancelled');
+        $this->assertSame(100000, $wallet->fresh()->spend_only_minor);
+
+        $other = $this->user();
+        $otherWallet = $this->wallet($other, 5000);
+        $this->service()->changeStatus($this->quoted($other), 'rejected');
+        $this->assertSame(5000, $otherWallet->fresh()->spend_only_minor);
+        $this->assertSame(0, \Modules\Wallet\Models\WalletTransaction::query()->where('wallet_id', $otherWallet->id)->where('type', 'refund')->count());
+    }
+
+    public function test_the_customer_is_notified_of_the_refund(): void
+    {
+        $center = $this->spy(\App\Services\Notifications\NotificationCenter::class);
+        $center->shouldReceive('adminsWith')->andReturn(collect());
+        $center->shouldReceive('send')->andReturnNull();
+
+        $user = $this->user();
+        $this->wallet($user, 100000);
+        $accepted = $this->service()->accept($this->quoted($user), $user);
+        $this->service()->changeStatus($accepted, 'rejected');
+
+        $center->shouldHaveReceived('send')->withArgs(fn ($to, $e, $title, $body, $vars) => $e === 'ai_site_request.refunded' && $vars['amount'] === '400 EGP')->once();
+    }
+
+    public function test_every_new_message_is_broadcast_once_to_the_customer_and_the_admins(): void
+    {
+        $admin = Admin::query()->create(['name' => 'Boss', 'email' => 'boss-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]);
+        $center = $this->spy(\App\Services\Notifications\NotificationCenter::class);
+        $center->shouldReceive('adminsWith')->andReturn(collect([$admin]));
+        $center->shouldReceive('send')->andReturnNull();
+        Event::fake([AiSiteRequestChanged::class]);
+
+        $user = $this->user();
+        $this->wallet($user, 100000);
+        $request = $this->service()->create($user, $this->brief());
+        Event::assertDispatchedTimes(AiSiteRequestChanged::class, 1);
+
+        // Sending a quote writes one system line; accepting writes two inside one transaction: still one event each.
+        $quoted = $this->service()->sendQuote($request, $this->quoteData());
+        $this->service()->accept($quoted, $user);
+        Event::assertDispatchedTimes(AiSiteRequestChanged::class, 3);
+
+        $this->service()->customerMessage($request->fresh(), 'hello');
+        Event::assertDispatched(AiSiteRequestChanged::class, fn (AiSiteRequestChanged $e) => $e->requestId === $request->id && $e->sender === 'customer'
+            && in_array('App.Models.Admin.'.$admin->id, $e->channels, true)
+            && in_array('Modules.User.Models.User.'.$user->id, $e->channels, true)
+            && $e->broadcastAs() === 'ai_site_request.changed'
+            && $e->broadcastWith()['request_id'] === $request->id);
     }
 
     public function test_the_android_form_payload_is_accepted(): void

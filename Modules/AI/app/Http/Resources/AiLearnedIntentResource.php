@@ -5,6 +5,11 @@ namespace Modules\AI\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * One learned phrase. `status` is the catalog's on/off switch (boolean, like every catalog screen) and `is_active`
+ * stays next to it; the router's view of the row - active | pending | conflict - moved from `status` to `state`
+ * (only the admin panel reads it).
+ */
 class AiLearnedIntentResource extends JsonResource
 {
     /**
@@ -12,12 +17,6 @@ class AiLearnedIntentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $status = match (true) {
-            $this->conflicts > 0 => 'conflict',
-            $this->is_active => 'active',
-            default => 'pending',
-        };
-
         return [
             'id' => $this->id,
             'phrase' => $this->phrase,
@@ -30,12 +29,14 @@ class AiLearnedIntentResource extends JsonResource
             'conflicts' => $this->conflicts,
             'hits' => $this->hits,
             'last_hit_at' => $this->last_hit_at?->toISOString(),
-            'is_active' => (bool) $this->is_active,
-            'status' => $status,
+            'status' => (bool) $this->status,
+            'is_active' => (bool) $this->status,
+            'state' => $this->resource->state(),
             'source' => $this->source,
             'learned_with_model' => $this->learned_with_model,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

@@ -63,6 +63,7 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'العمل الحر', 'en' => 'Freelance'], 'module_name' => 'freelance', 'requires_provider' => false],
             // Watch & Earn's dashboard (Modules/WatchEarn): its own service in the header so its pages show alone.
             ['name' => ['ar' => 'شاهد واكسب', 'en' => 'Watch & Earn'], 'module_name' => 'watch_earn', 'requires_provider' => false],
+            ['name' => ['ar' => 'مدير التسويق الذكي', 'en' => 'AI Marketing Director'], 'module_name' => 'marketing', 'requires_provider' => false],
         ];
 
         foreach ($rows as $index => $row) {

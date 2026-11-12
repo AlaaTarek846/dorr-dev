@@ -33,7 +33,7 @@ class AiLanguageVariantDefaultExclusivityTest extends TestCase
             'status' => true,
         ]);
 
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
 
         return $admin;
     }
@@ -74,7 +74,8 @@ class AiLanguageVariantDefaultExclusivityTest extends TestCase
         $response = $this->postJson('/api/admin/v1/ai-language-variants', [
             'language_id' => $language->id,
             'code' => 'ar-SA',
-            'name' => 'Saudi Arabic',
+            // The name is translated now (catalog like countries): one entry per stored language.
+            'translations' => [['locale' => 'en', 'name' => 'Saudi Arabic']],
             'style' => 'formal',
             'is_default' => true,
             'is_active' => true,
@@ -139,7 +140,7 @@ class AiLanguageVariantDefaultExclusivityTest extends TestCase
         $response = $this->postJson('/api/admin/v1/ai-language-variants', [
             'language_id' => $languageOne->id,
             'code' => 'ar-EG',
-            'name' => 'Egyptian Arabic',
+            'translations' => [['locale' => 'en', 'name' => 'Egyptian Arabic']],
             'style' => 'conversational',
             'is_default' => true,
             'is_active' => true,

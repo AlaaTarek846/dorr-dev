@@ -27,6 +27,36 @@ class AiRequest extends Model
 
     const STATUS_RETRYING = 'retrying';
 
+    /** error_code written on a failed / blocked request (2026-11-11). */
+    const ERROR_PROVIDER = 'provider_error';
+
+    const ERROR_CIRCUIT_OPEN = 'circuit_open';
+
+    const ERROR_SAFETY_BLOCKED = 'safety_blocked';
+
+    /** A safety rule asked the person to confirm first (status cancelled; sending it again confirms). */
+    const ERROR_SAFETY_CONFIRMATION = 'safety_confirmation_required';
+
+    const ERROR_IMAGE_QUOTA = 'image_quota';
+
+    const ERROR_FAILED = 'request_failed';
+
+    /**
+     * The error_code for a failed provider call from its failure message
+     * (image quota refusals carry an "image_quota:<reason>" message; a call
+     * skipped by an open circuit breaker the ai.circuit_breaker_open text).
+     */
+    public static function failureCode(?string $message): string
+    {
+        $message = (string) $message;
+
+        return match (true) {
+            str_starts_with($message, 'image_quota:') => self::ERROR_IMAGE_QUOTA,
+            $message !== '' && $message === __('ai.circuit_breaker_open') => self::ERROR_CIRCUIT_OPEN,
+            default => self::ERROR_PROVIDER,
+        };
+    }
+
     /**
      * @var list<string>
      */
@@ -64,12 +94,14 @@ class AiRequest extends Model
 
     public function gateway(): BelongsTo
     {
-        return $this->belongsTo(AiGateway::class, 'gateway_id');
+        // withTrashed: the log still names a gateway moved to the trash.
+        return $this->belongsTo(AiGateway::class, 'gateway_id')->withTrashed();
     }
 
     public function intent(): BelongsTo
     {
-        return $this->belongsTo(AiIntent::class, 'intent_id');
+        // withTrashed: history still names an intent moved to the trash.
+        return $this->belongsTo(AiIntent::class, 'intent_id')->withTrashed();
     }
 
     public function provider(): BelongsTo

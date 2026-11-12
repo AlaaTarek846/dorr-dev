@@ -147,6 +147,8 @@ return [
     'ai_site_request_message_body' => ':text',
     'ai_site_request_completed_title' => 'موقعك جاهز للاستلام',
     'ai_site_request_completed_body' => 'تم سداد كل الدفعات. تقدر تستلم موقع ":title" دلوقتي.',
+    'ai_site_request_refunded_title' => 'فلوسك رجعت',
+    'ai_site_request_refunded_body' => 'طلب ":title" اتوقف و:amount رجعوا لمحفظتك.',
 
     'ai_site_request_admin_new_title' => 'طلب موقع جديد',
     'ai_site_request_admin_new_body' => ':name بعت طلب ":title" (:reference). محتاج عرض سعر.',
@@ -1149,4 +1151,12 @@ return [
     'admin_moving_exception_requested_body' => 'طُلب استثناء من رسوم الإلغاء في طلب النقل :request، وينتظر قرارًا.',
     'admin_moving_ticket_escalated_title' => 'تذكرة نقل تحتاج إلى متابعة',
     'admin_moving_ticket_escalated_body' => 'وصلت التذكرة «:subject» على طلب النقل :request إلى فريق دُرر.',
+    'marketing_budget_warning_title' => 'الميزانية تقترب من السقف',
+    'marketing_budget_warning_body' => '":project": ميزانية :kind وصلت :pct% من السقف.',
+    'marketing_budget_exceeded_title' => 'بلغت الميزانية السقف',
+    'marketing_budget_exceeded_body' => '":project": بلغت ميزانية :kind السقف (:pct%).',
+    'marketing_campaign_approval_title' => 'حملة بانتظار اعتمادك',
+    'marketing_campaign_approval_body' => '":project": الحملة ":campaign" تحتاج اعتماد الإنفاق.',
+    'marketing_alert_title' => 'تنبيه تسويقي',
+    'marketing_alert_body' => '":project": :metric بلغ :value (حدّك :threshold).',
 ];

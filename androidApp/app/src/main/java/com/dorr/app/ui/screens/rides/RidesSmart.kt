@@ -111,6 +111,16 @@ import java.util.Locale
 
 private val AiGradient = listOf(Color(0xFF6D5BFF), Color(0xFFB54BFF), Color(0xFFFF7A59))
 
+/** What DORR AI understood besides the place fills the booking sheet (the rider still sees and changes it all). */
+internal fun RidesState.applyAiBooking(understood: com.dorr.app.network.RideAiUnderstoodDto?) {
+    val u = understood ?: return
+    u.passengers?.let { passengers = it }
+    u.payment?.takeIf { feature(it) }?.let { payment = it }
+    u.note?.let { pickupNote = it }
+    u.category?.let { preferCategory = it }
+    u.`when`?.takeIf { feature("scheduled") }?.let { iso -> runCatching { ZonedDateTime.parse(iso) }.getOrNull()?.let { scheduledAt = it } }
+}
+
 /** The entry under "Where to?": a glowing pill that opens the assistant — locked with the plan when needed. */
 @Composable
 internal fun SmartDestinationEntry(state: RidesState, onOpen: () -> Unit) {
@@ -184,6 +194,15 @@ internal fun SmartDestinationSheet(state: RidesState, camera: DorrCamera, onClos
         }
     }
 
+    // Words from DORR AI's chat: understood at once.
+    LaunchedEffect(Unit) {
+        state.smartText?.let { words ->
+            state.smartText = null
+            text = words
+            ask(words)
+        }
+    }
+
     // Voice: the phone's own speech recogniser turns it into text (nothing recorded here), then the same ask.
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -203,15 +222,8 @@ internal fun SmartDestinationSheet(state: RidesState, camera: DorrCamera, onClos
     }
 
     fun pick(place: RideAiPlaceDto) {
-        val understood = answer?.understood
         // What else was said fills the booking sheet; the rider still sees and changes all of it.
-        understood?.passengers?.let { state.passengers = it }
-        understood?.payment?.takeIf { state.feature(it) }?.let { state.payment = it }
-        understood?.note?.let { state.pickupNote = it }
-        understood?.category?.let { state.preferCategory = it }
-        understood?.`when`?.takeIf { state.feature("scheduled") }?.let { iso ->
-            runCatching { ZonedDateTime.parse(iso) }.getOrNull()?.let { state.scheduledAt = it }
-        }
+        state.applyAiBooking(answer?.understood)
         state.editing = "destination"
         state.set(RidePoint(place.lat, place.lng, place.address.ifBlank { place.name.orEmpty() }, place.name))
         // Confirm (or move) it on the map before anything is priced or booked.

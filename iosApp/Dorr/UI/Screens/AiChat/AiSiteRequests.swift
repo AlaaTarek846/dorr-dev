@@ -4,8 +4,8 @@ import UniformTypeIdentifiers
 // androidApp `aichat/AiSiteRequestUi.kt`, `AiSiteRequestForm.kt`, `AiSiteRequestDetail.kt` — a site built by a person:
 // a four-step brief (business, pages and features, look, contact + budget + files), then the request: where it
 // stands on the journey, the quote (accept with the first payment behind the PIN, or decline), the countdown,
-// instalments as they are released, milestones, the handover, and the chat with the team. The request is
-// read every 20 s and the chat every 8 s while its tab is open, like Android.
+// instalments as they are released, milestones, the handover, and the chat with the team. Like Android, no timer:
+// read on open (the chat when its tab opens), then once per `ai_site_request.changed` of this request and on reconnect.
 
 /// The dashboard names a status colour the Bootstrap way; mapped onto the app's palette.
 private func requestColor(_ name: String?, _ c: SitePalette, _ accent: Color) -> Color {
@@ -395,17 +395,21 @@ struct SiteRequestDetail: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        // Like Android: the request every 20 s, the chat every 8 s while its tab is open.
-        .task(id: id) {
-            while !Task.isCancelled {
+        // Like Android: no timer. One read on open (the chat when its tab opens), then one more only when the server
+        // says this request changed (`ai_site_request.changed`) or the real-time connection comes back.
+        .task(id: id) { await refresh() }
+        .task(id: "\(id)|\(tab)") { if tab == 2 { await refreshMessages() } }
+        .onReceive(ChatRealtime.shared.events) { event in
+            guard event.name == "ai_site_request.changed", event.str("request_id") == String(id) else { return }
+            Task {
                 await refresh()
-                try? await Task.sleep(nanoseconds: 20_000_000_000)
+                if tab == 2 { await refreshMessages() }
             }
         }
-        .task(id: "\(id)|\(tab)") {
-            while tab == 2 && !Task.isCancelled {
-                await refreshMessages()
-                try? await Task.sleep(nanoseconds: 8_000_000_000)
+        .onReceive(ChatRealtime.shared.$connected.removeDuplicates().dropFirst().filter { $0 }) { _ in
+            Task {
+                await refresh()
+                if tab == 2 { await refreshMessages() }
             }
         }
         .onChange(of: scenePhase) { if $0 == .active { Task { await refresh() } } }

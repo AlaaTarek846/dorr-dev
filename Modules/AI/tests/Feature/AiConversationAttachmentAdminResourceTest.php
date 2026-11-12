@@ -35,7 +35,7 @@ class AiConversationAttachmentAdminResourceTest extends TestCase
             'status' => true,
         ]);
 
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
 
         return $admin;
     }

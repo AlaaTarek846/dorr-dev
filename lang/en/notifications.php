@@ -147,6 +147,8 @@ return [
     'ai_site_request_message_body' => ':text',
     'ai_site_request_completed_title' => 'Your site is ready for handover',
     'ai_site_request_completed_body' => 'Every payment is settled. You can take over ":title" now.',
+    'ai_site_request_refunded_title' => 'Your payment was refunded',
+    'ai_site_request_refunded_body' => '":title" was stopped and :amount went back to your wallet.',
 
     'ai_site_request_admin_new_title' => 'New website request',
     'ai_site_request_admin_new_body' => ':name sent request ":title" (:reference). It needs a quote.',
@@ -1149,4 +1151,12 @@ return [
     'admin_moving_exception_requested_body' => 'An exception from the cancellation fee was asked on move :request; it waits for a decision.',
     'admin_moving_ticket_escalated_title' => 'A moving ticket needs you',
     'admin_moving_ticket_escalated_body' => 'The ticket «:subject» on move :request reached the DORR team.',
+    'marketing_budget_warning_title' => 'Budget close to its cap',
+    'marketing_budget_warning_body' => '":project": the :kind budget reached :pct% of its cap.',
+    'marketing_budget_exceeded_title' => 'Budget cap reached',
+    'marketing_budget_exceeded_body' => '":project": the :kind budget reached its cap (:pct%).',
+    'marketing_campaign_approval_title' => 'A campaign waits for your approval',
+    'marketing_campaign_approval_body' => '":project": the campaign ":campaign" needs a spending approval.',
+    'marketing_alert_title' => 'Marketing alert',
+    'marketing_alert_body' => '":project": :metric is :value (your limit :threshold).',
 ];

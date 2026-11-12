@@ -16,6 +16,9 @@ struct MainScreen: View {
     @State private var showFreelance = false
     // Passenger rides open their own map screen, not the generic service page.
     @State private var showRides = false
+    /// Rides opened from DORR AI's chat ("Book with DORR"): over the chat, which is there again on back.
+    @State private var ridesOverAi = false
+    @ObservedObject private var ridesLink = RidesLink.shared
     // Furniture moving: «طلباتي», a new request and its follow-up, on their own pages.
     @State private var showMoving = false
     #if DEBUG
@@ -25,6 +28,7 @@ struct MainScreen: View {
     @ObservedObject private var eventsLink = EventsLink.shared
     @ObservedObject private var sportsLink = SportsLink.shared
     @ObservedObject private var watchEarnLink = WatchEarnLink.shared
+    @ObservedObject private var marketingLink = MarketingLink.shared
     @ObservedObject private var aiGate = AiPlanGate.shared
     @State private var serviceDetail: (service: ServiceDto, color: Color)?
 
@@ -119,9 +123,9 @@ struct MainScreen: View {
 
             // DORR Rides (passenger): the map, booking and the ride.
             if showRides {
-                RidesHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { showRides = false } })
+                RidesHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { showRides = false; ridesOverAi = false } })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(1)
+                    .zIndex(ridesOverAi ? 2 : 1)
             }
 
             // Furniture moving: the customer's requests, offers and following the job (the payment screen opens over it).
@@ -167,6 +171,13 @@ struct MainScreen: View {
                     .zIndex(1)
             }
 
+            // AI marketing director: projects, sourced research, plans (docs/marketing_tasks.md) — from Account and the Services tab.
+            if marketingLink.open {
+                MarketingHost(onExit: { withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { marketingLink.close() } })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+
             #if DEBUG
             if showMapPreview { MapPreview(onBack: { showMapPreview = false }).zIndex(4) }
             #endif
@@ -205,6 +216,13 @@ struct MainScreen: View {
         // After a cold start the saved user can still be filling in from the server: connect again once it has (start is idempotent).
         .onReceive(AuthSession.shared.$sessionVersion.dropFirst()) { _ in ChatRealtime.shared.start() }
         // A tapped chat notification opens the chat (which opens the conversation itself).
+        // DORR AI's chat: "Book with DORR" opens rides over it, the trip filled in (back returns to the chat).
+        .onChange(of: ridesLink.openRequested) { requested in
+            guard requested else { return }
+            ridesLink.openRequested = false
+            ridesOverAi = showAi
+            withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showRides = true }
+        }
         .onReceive(ChatPush.shared.$deepLink) { link in
             switch link {
             case .conversation, .join, .callLink, .chatLink, .tasks: withAnimation { showChat = true }
@@ -292,6 +310,10 @@ struct MainScreen: View {
         }
         if service.moduleName == "freelance" {
             withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.42)) { showFreelance = true }
+            return
+        }
+        if service.moduleName == "marketing" {
+            MarketingLink.shared.show()
             return
         }
         withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.34)) { serviceDetail = (service, color) }

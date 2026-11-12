@@ -38,7 +38,9 @@ export function useCatalog({
             return;
         }
 
-        const base = { paginate: 1, page: 1 };
+        // The counts follow the same extra list params as the list (e.g. ?kind= on the offers / edit packs screens).
+        const extra = typeof getExtraListParams === 'function' ? (getExtraListParams() ?? {}) : {};
+        const base = { paginate: 1, page: 1, ...extra };
 
         const results = await Promise.allSettled([
             fetchCount(base),
@@ -59,12 +61,38 @@ export function useCatalog({
         }
     }
 
+    /**
+     * Lazy mode: active / inactive / all come from the list the admin is looking at, but the Trash filter is only
+     * shown when its count is known (> 0) - and the admin never opens Trash to learn it. So the trashed count alone is
+     * asked for after every list load (and after delete / restore / force delete, which reload the list).
+     */
+    async function fetchDeletedCount() {
+        if (! countsStore) {
+            return;
+        }
+
+        // On the Trash view the list total is the trashed count (set in onAfterFetch) - no extra request.
+        if (crudRef?.statusFilter.value !== 'deleted') {
+            const extra = typeof getExtraListParams === 'function' ? (getExtraListParams() ?? {}) : {};
+
+            try {
+                countsStore.setCounts({ deleted: await fetchCount({ paginate: 1, page: 1, ...extra, ...trashedFilterParams() }) });
+            } catch {
+                // Keep the last known count; the list itself already loaded.
+            }
+        }
+
+        if ((countsStore.deletedCount ?? 0) === 0 && crudRef?.statusFilter.value === 'deleted') {
+            crudRef.setStatusFilter('all');
+        }
+    }
+
     const crud = crudStructure({
         confirmDeleteKey,
         searchDefaults,
         statusFilterEnabled: true,
         optimisticStatus: true,
-        fetchCounts: countsStore && ! lazyCounts ? fetchCounts : null,
+        fetchCounts: countsStore ? (lazyCounts ? fetchDeletedCount : fetchCounts) : null,
         getExtraListParams,
         onAfterFetch(data, { statusFilter }) {
             if (! countsStore || data.pagination?.total == null) {
@@ -87,6 +115,8 @@ export function useCatalog({
                 countsStore.setCounts({ active: total });
             } else if (statusFilter === 'inactive') {
                 countsStore.setCounts({ inactive: total });
+            } else if (statusFilter === 'deleted') {
+                countsStore.setCounts({ deleted: total });
             }
         },
     });

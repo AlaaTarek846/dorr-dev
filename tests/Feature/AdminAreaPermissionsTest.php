@@ -11,8 +11,8 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * Dashboard pages that had no permission of their own: the AI pages (`admin.area:{group}` — reading needs `.view`,
- * changing needs `.update`), the providers list and the permissions list; and Watch & Earn as its own service.
+ * Dashboard pages that had no permission of their own: the AI pages (one group per screen, Modules\AI\Support\AiAdminScreens),
+ * the providers list and the permissions list; and Watch & Earn as its own service.
  */
 class AdminAreaPermissionsTest extends TestCase
 {
@@ -28,7 +28,7 @@ class AdminAreaPermissionsTest extends TestCase
         return $admin;
     }
 
-    public function test_the_ai_pages_need_their_area_permission_to_read_and_to_change(): void
+    public function test_the_ai_pages_need_their_screen_permission_to_read_and_to_change(): void
     {
         $this->admin();
         $this->getJson('/api/admin/v1/ai-plans')->assertForbidden();
@@ -39,7 +39,7 @@ class AdminAreaPermissionsTest extends TestCase
         $this->postJson('/api/admin/v1/ai-plans', [])->assertForbidden();
         $this->getJson('/api/admin/v1/ai-safety-rules')->assertForbidden();
 
-        $this->admin(['ai-plans.view', 'ai-plans.update']);
+        $this->admin(['ai-plans.view', 'ai-plans.create']);
         $this->postJson('/api/admin/v1/ai-plans', [])->assertStatus(422);
     }
 
@@ -64,6 +64,6 @@ class AdminAreaPermissionsTest extends TestCase
 
         $linked = Permission::query()->where('group_name', 'like', 'watch-earn-%')->pluck('service_category_id')->unique()->values()->all();
         $this->assertSame([$service->id], $linked);
-        $this->assertTrue(Permission::query()->where('name', 'ai-routing.update')->exists());
+        $this->assertTrue(Permission::query()->where('name', 'ai-routing-rules.update')->exists());
     }
 }

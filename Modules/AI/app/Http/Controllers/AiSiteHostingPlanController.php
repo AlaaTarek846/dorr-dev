@@ -2,7 +2,7 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use App\Models\Country;
 use App\Support\Api\ApiResponse;
 use Illuminate\Support\Facades\DB;
@@ -10,50 +10,57 @@ use Modules\AI\Http\Requests\AiSiteHostingPlanRequest;
 use Modules\AI\Http\Requests\AiSiteOfferPricesRequest;
 use Modules\AI\Http\Resources\AiSiteHostingPlanResource;
 use Modules\AI\Models\AiSiteHostingPlan;
+use Modules\AI\Services\AiSiteHostingPlanService;
 
-/** Admin: hosting plans (monthly/yearly) and their price per country. */
-class AiSiteHostingPlanController extends Controller
+/**
+ * Admin site hosting plans (monthly / yearly) - the catalog CRUD (like CountryController): index/show, store, update,
+ * status, bulk delete, trash/restore/force delete, each behind its ai-site-hosting-plans.* permission - plus the price
+ * per country (reading = view, saving = update).
+ */
+class AiSiteHostingPlanController extends CatalogController
 {
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return ApiResponse::success(AiSiteHostingPlanResource::collection(
-            AiSiteHostingPlan::query()->withCount('prices')->orderBy('sort_order')->orderBy('id')->get()
-        ));
+        return 'ai-site-hosting-plans';
+    }
+
+    /**
+     * @return list<array{0: string, 1: list<string>}>
+     */
+    protected static function extraAdminPermissionActionMethods(): array
+    {
+        return [
+            ['view', ['prices']],
+            ['update', ['syncPrices']],
+        ];
+    }
+
+    public function __construct(AiSiteHostingPlanService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiSiteHostingPlanRequest $request)
     {
-        $plan = AiSiteHostingPlan::query()->create($request->validated() + ['sort_order' => 0]);
-
-        return ApiResponse::success(new AiSiteHostingPlanResource($plan), __('ai.site_offer_saved'), 201);
+        return $this->service->create($request->validated());
     }
 
-    public function show(AiSiteHostingPlan $plan)
+    public function update(AiSiteHostingPlanRequest $request, int|string $plan)
     {
-        return ApiResponse::success(new AiSiteHostingPlanResource($plan));
+        return $this->service->updateRecord($plan, $request->validated());
     }
 
-    public function update(AiSiteHostingPlanRequest $request, AiSiteHostingPlan $plan)
+    public function deleteMultiple(AiSiteHostingPlanRequest $request)
     {
-        $plan->update($request->validated());
-
-        return ApiResponse::success(new AiSiteHostingPlanResource($plan->fresh()), __('ai.site_offer_saved'));
+        return $this->service->deleteMultiple($request->validated('ids'));
     }
 
-    public function destroy(AiSiteHostingPlan $plan)
+    public function changeStatus(AiSiteHostingPlanRequest $request, int|string $plan)
     {
-        if ($plan->hostings()->exists()) {
-            $plan->update(['is_active' => false]);
-
-            return ApiResponse::success(new AiSiteHostingPlanResource($plan->fresh()), __('ai.site_offer_deactivated'));
-        }
-
-        $plan->prices()->delete();
-        $plan->delete();
-
-        return ApiResponse::success(null, __('ai.site_offer_deleted'));
+        return $this->service->changeStatus($plan, (bool) $request->validated('status'));
     }
 
+    /** One row per active country; `price` null = not sold there. */
     public function prices(AiSiteHostingPlan $plan)
     {
         $existing = $plan->prices()->get()->keyBy('country_id');
@@ -70,7 +77,7 @@ class AiSiteHostingPlanController extends Controller
                 'price' => $existing->get($c->id)?->price,
             ]);
 
-        return ApiResponse::success(['plan' => new AiSiteHostingPlanResource($plan), 'rows' => $rows]);
+        return ApiResponse::success(['plan' => new AiSiteHostingPlanResource($plan->loadCount('prices')), 'rows' => $rows]);
     }
 
     /** Replaces the whole price list: countries not sent stop selling this plan. */

@@ -2,7 +2,10 @@
     <div>
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div>
-                <p class="fw-semibold fs-18 mb-0">{{ t('ai_language_evaluations.title') }}</p>
+                <h1 class="page-title fw-semibold fs-18 mb-0">
+                    {{ t('ai_language_evaluations.title') }}
+                    <span v-if="pagination?.total != null" class="badge bg-primary-transparent ms-2 fs-12 align-middle">{{ pagination.total }}</span>
+                </h1>
                 <span class="fs-semibold text-muted">{{ t('ai_language_evaluations.subtitle') }}</span>
             </div>
             <div class="ms-md-1 ms-0">
@@ -20,11 +23,57 @@
         <div class="row">
             <div class="col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-header d-flex align-items-center justify-content-end py-3">
-                        <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
-                            <i class="ri-add-line me-1 align-middle"></i>
-                            {{ t('ai_language_evaluations.add_short') }}
-                        </button>
+                    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                        <div class="d-flex flex-wrap align-items-center gap-1 catalog-toolbar-filters">
+                            <div class="input-group input-group-sm catalog-toolbar-search">
+                                <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                                <input v-model="search" type="search" class="form-control" :placeholder="t('ai_language_evaluations.search')">
+                                <button v-if="search" type="button" class="btn btn-light border catalog-search-clear" :title="t('ai_language_evaluations.clear_search')" @click="search = ''">
+                                    <i class="ri-close-line"></i>
+                                </button>
+                            </div>
+
+                            <button v-if="statusFilter !== 'all'" type="button" class="btn btn-sm catalog-filter-btn catalog-filter-btn--all-idle" @click="setStatusFilter('all')">
+                                {{ t('ai_language_evaluations.filter_all') }} ({{ counts.total }})
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'active' ? 'catalog-filter-btn--active' : 'catalog-filter-btn--active-idle'"
+                                @click="setStatusFilter('active')"
+                            >
+                                {{ t('ai_language_evaluations.filter_active') }} ({{ counts.active }})
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'inactive' ? 'catalog-filter-btn--inactive' : 'catalog-filter-btn--inactive-idle'"
+                                @click="setStatusFilter('inactive')"
+                            >
+                                {{ t('ai_language_evaluations.filter_inactive') }} ({{ counts.inactive }})
+                            </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
+                        </div>
+
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                            <button v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'" type="button" class="btn btn-danger btn-sm btn-wave" @click="confirmDeleteSelected">
+                                <i class="ri-delete-bin-line me-1 align-middle"></i>{{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button v-if="canDelete && selectedCount && statusFilter === 'deleted'" type="button" class="btn btn-danger btn-sm btn-wave" @click="confirmForceDeleteSelected">
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>{{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button v-if="canCreate && statusFilter !== 'deleted'" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                <i class="ri-add-line me-1 align-middle"></i>{{ t('ai_language_evaluations.add_short') }}
+                            </button>
+                        </div>
                     </div>
 
                     <div class="card-body p-0">
@@ -32,49 +81,112 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                :checked="allSelected"
+                                                :disabled="loading || !items.length"
+                                                :aria-label="t('ai_language_evaluations.select_all')"
+                                                @change="toggleSelectAll($event.target.checked)"
+                                            >
+                                        </th>
                                         <th scope="col">{{ t('ai_language_evaluations.name') }}</th>
                                         <th scope="col">{{ t('ai_language_evaluations.language') }}</th>
                                         <th scope="col">{{ t('ai_language_evaluations.test_case_count') }}</th>
                                         <th scope="col">{{ t('ai_language_evaluations.pass_rate') }}</th>
+                                        <th scope="col">{{ t('ai_language_evaluations.evaluation_status') }}</th>
                                         <th scope="col">{{ t('ai_language_evaluations.status') }}</th>
+                                        <th scope="col">{{ t('ai_language_evaluations.created_at') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('ai_language_evaluations.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="6" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="tableColumnCount" />
 
-                                    <tr v-else-if="!evaluations.length">
-                                        <td colspan="6" class="border-0">
+                                    <tr v-else-if="!items.length">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
+                                                <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3"><i class="ri-bar-chart-box-line fs-2 text-primary"></i></span>
                                                 <p class="fw-semibold mb-1">{{ t('ai_language_evaluations.empty_title') }}</p>
-                                                <p class="text-muted mb-0">{{ t('ai_language_evaluations.empty') }}</p>
+                                                <p class="text-muted mb-3">{{ t('ai_language_evaluations.empty') }}</p>
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                    <i class="ri-add-line me-1 align-middle"></i>{{ t('ai_language_evaluations.add_short') }}
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
 
-                                    <tr v-for="evaluation in evaluations" v-else :key="evaluation.id">
-                                        <td>
-                                            <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="openEdit(evaluation)">
-                                                {{ evaluation.name }}
-                                            </button>
-                                        </td>
-                                        <td>{{ evaluation.language?.name || '-' }}</td>
-                                        <td>{{ evaluation.test_case_count }}</td>
-                                        <td>{{ evaluation.pass_rate != null ? `${evaluation.pass_rate}%` : '-' }}</td>
-                                        <td>
-                                            <span class="badge" :class="statusBadgeClass(evaluation.status)">{{ evaluation.status }}</span>
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            <div class="btn-list justify-content-end">
-                                                <button type="button" class="btn btn-sm btn-info-light btn-icon" @click="openEdit(evaluation)">
-                                                    <i class="ri-pencil-line"></i>
+                                    <template v-else>
+                                        <tr v-for="evaluation in items" :key="evaluation.id">
+                                            <td v-if="canMultipleDelete" class="ps-4">
+                                                <input class="form-check-input" type="checkbox" :checked="isSelected(evaluation.id)" :aria-label="evaluation.name" @change="toggleSelect(evaluation.id, $event.target.checked)">
+                                            </td>
+                                            <td class="text-wrap" style="max-width: 320px;">
+                                                <button v-if="canUpdate && !isTrashedRecord(evaluation)" type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="openEdit(evaluation)">
+                                                    {{ evaluation.name }}
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(evaluation)">
-                                                    <i class="ri-delete-bin-line"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                                <span v-else class="fw-semibold text-default">{{ evaluation.name }}</span>
+                                                <span v-if="evaluation.notes" class="d-block text-muted fs-11 text-truncate" style="max-width: 300px;">{{ evaluation.notes }}</span>
+                                                <span class="d-block text-muted fs-11">#{{ evaluation.id }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="d-block">{{ evaluation.language?.name || '-' }}</span>
+                                                <span v-if="evaluation.variant" class="d-block text-muted fs-11">
+                                                    {{ evaluation.variant.name }}
+                                                    <span v-if="evaluation.variant.deleted" class="badge bg-danger-transparent ms-1">{{ t('catalog.deleted_badge') }}</span>
+                                                    <span v-else-if="!evaluation.variant.status" class="badge bg-secondary-transparent ms-1">{{ t('ai_language_evaluations.filter_inactive') }}</span>
+                                                </span>
+                                            </td>
+                                            <td>{{ evaluation.test_case_count }}</td>
+                                            <td>{{ evaluation.pass_rate != null ? `${evaluation.pass_rate}%` : '-' }}</td>
+                                            <td>
+                                                <span class="badge" :class="evaluationStatusBadgeClass(evaluation.evaluation_status)">{{ evaluationStatusLabel(evaluation.evaluation_status) }}</span>
+                                            </td>
+                                            <td>
+                                                <span v-if="isTrashedRecord(evaluation)" class="badge bg-danger-transparent">{{ t('catalog.deleted_badge') }}</span>
+                                                <div
+                                                    v-else-if="canChangeStatus"
+                                                    class="toggle toggle-success mb-0 catalog-status-toggle"
+                                                    :class="{ on: evaluation.status, 'catalog-status-toggle--loading': isTogglingStatus(evaluation.id) }"
+                                                    role="switch"
+                                                    tabindex="0"
+                                                    :aria-checked="evaluation.status"
+                                                    :aria-busy="isTogglingStatus(evaluation.id)"
+                                                    @click="toggleStatus(evaluation)"
+                                                    @keydown.enter.space.prevent="toggleStatus(evaluation)"
+                                                >
+                                                    <span></span>
+                                                </div>
+                                                <span v-else class="badge" :class="evaluation.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                    {{ evaluation.status ? t('ai_language_evaluations.filter_active') : t('ai_language_evaluations.filter_inactive') }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="d-block">{{ formatCatalogDate(catalogPrimaryDate(evaluation), locale) }}</span>
+                                                <span v-if="catalogShowUpdatedSubtext(evaluation)" class="d-block text-muted fs-11">{{ t('ai_language_evaluations.updated') }}: {{ formatCatalogDate(evaluation.updated_at, locale) }}</span>
+                                                <span v-if="catalogShowDeletedSubtext(evaluation, isDeletedView)" class="d-block text-muted fs-11">{{ t('catalog.deleted_at') }}: {{ formatCatalogDate(evaluation.deleted_at, locale) }}</span>
+                                            </td>
+                                            <td class="text-end pe-4">
+                                                <div v-if="isTrashedRecord(evaluation)" class="btn-list justify-content-end">
+                                                    <button v-if="canUpdate" type="button" class="btn btn-sm btn-success-light btn-icon" :title="t('catalog.restore_title')" @click="confirmRestore(evaluation.id)">
+                                                        <i class="ri-arrow-go-back-line"></i>
+                                                    </button>
+                                                    <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" :title="t('catalog.force_delete_title')" @click="confirmForceDelete(evaluation.id)">
+                                                        <i class="ri-delete-bin-7-line"></i>
+                                                    </button>
+                                                </div>
+                                                <div v-else class="btn-list justify-content-end">
+                                                    <button v-if="canUpdate" type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('ai_language_evaluations.edit_title')" @click="openEdit(evaluation)">
+                                                        <i class="ri-pencil-line"></i>
+                                                    </button>
+                                                    <button v-if="canDelete" type="button" class="btn btn-sm btn-danger-light btn-icon" :title="t('ai_language_evaluations.delete_title')" @click="confirmDelete(evaluation.id)">
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -82,47 +194,87 @@
 
                     <AdminPaginationFooter
                         :pagination="pagination"
-                        :current-page="page"
+                        :current-page="currentPage"
                         :per-page="perPage"
+                        :per-page-options="[15, 25, 50]"
                         :loading="loading"
-                        @change-page="onChangePage"
-                        @change-per-page="onChangePerPage"
+                        @change-page="changePage"
+                        @change-per-page="perPage = $event"
                     />
                 </div>
             </div>
         </div>
 
-        <ModalCreateAndUpdate
-            :show="modalShow"
-            :type="modalType"
-            :record="selectedRecord"
-            @close="modalShow = false"
-            @saved="onSaved"
+        <ModalCreateAndUpdate :show="modalShow" :type="modalType" :record="selectedRecord" @close="modalShow = false" @saved="onSaved" />
+
+        <ConfirmDeleteModal
+            :show="deleteConfirm.state.show"
+            :title="deleteConfirm.state.title"
+            :message="deleteConfirm.state.message"
+            :loading="deleteConfirm.state.loading"
+            @close="deleteConfirm.close()"
+            @confirm="handleDeleteConfirm"
         />
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import adminAxios from '../../../../../../api/adminAxios';
-import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
-import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
-import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
+import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useAiLanguageEvaluations } from '../../../../../../composables/useAiQualityScreens';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
+import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
+import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
+import { useAiLanguageEvaluationsStore } from '../../../../../../stores/aiQualityScreens';
+import {
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    formatCatalogDate,
+    isTrashedRecord,
+} from '../../../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
-const { t } = useI18n();
-const { showSuccess, showError } = useToast();
+const { t, locale } = useI18n();
 
-const evaluations = ref([]);
-const loading = ref(true);
+const countsStore = useAiLanguageEvaluationsStore();
+const { canCreate, canUpdate, canDelete, canChangeStatus, canMultipleDelete } = useCatalogPermissions('ai-language-evaluations');
+
+const catalog = useAiLanguageEvaluations();
+const { items, loading, pagination, selectedIds, currentPage, perPage, search, statusFilter, isDeletedView } = catalog;
+const { fetchItems, setStatusFilter, toggleStatus, toggleSelectAll, toggleSelect, isTogglingStatus } = catalog;
+
+const tableColumnCount = computed(() => 8 + (canMultipleDelete.value ? 1 : 0));
+
+const counts = computed(() => ({
+    total: countsStore.total ?? pagination.value?.total ?? 0,
+    active: countsStore.activeCount ?? 0,
+    inactive: countsStore.inactiveCount ?? 0,
+    deleted: countsStore.deletedCount ?? 0,
+}));
+
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
-const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
+const deleteConfirm = useConfirmDelete();
 
-function statusBadgeClass(status) {
+const selectedCount = computed(() => selectedIds.value.length);
+const allSelected = computed(() => items.value.length > 0 && items.value.every((row) => selectedIds.value.includes(Number(row.id))));
+
+function isSelected(id) {
+    return selectedIds.value.includes(Number(id));
+}
+
+const EVALUATION_STATUSES = ['pending', 'running', 'passed', 'failed'];
+
+function evaluationStatusLabel(status) {
+    return EVALUATION_STATUSES.includes(status) ? t(`ai_language_evaluations.status_${status}`) : (status || '-');
+}
+
+function evaluationStatusBadgeClass(status) {
     return {
         pending: 'bg-secondary-transparent',
         running: 'bg-info-transparent',
@@ -131,17 +283,9 @@ function statusBadgeClass(status) {
     }[status] ?? 'bg-secondary-transparent';
 }
 
-async function loadEvaluations() {
-    loading.value = true;
-
-    try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-language-evaluations', { params: paginationParams.value });
-        evaluations.value = data.data ?? [];
-        applyPagination(data);
-    } catch (error) {
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    } finally {
-        loading.value = false;
+function changePage(page) {
+    if (pagination.value && page >= 1 && page <= pagination.value.last_page) {
+        fetchItems(page);
     }
 }
 
@@ -157,35 +301,28 @@ function openEdit(evaluation) {
     modalShow.value = true;
 }
 
-async function remove(evaluation) {
-    if (! window.confirm(t('ai_language_evaluations.confirm_delete'))) {
-        return;
-    }
-
-    try {
-        const response = await adminAxios.delete(`/api/admin/v1/ai-language-evaluations/${evaluation.id}`);
-        showSuccess(extractApiMessage(response, t('toast.deleted')));
-        await loadEvaluations();
-    } catch (error) {
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected: catalog.deleteSelected,
+    deleteItem: catalog.deleteItem,
+    restoreItem: catalog.restoreItem,
+    forceDeleteItem: catalog.forceDeleteItem,
+    forceDeleteSelected: catalog.forceDeleteSelected,
+    i18nPrefix: 'ai_language_evaluations',
+});
 
 function onSaved() {
     modalShow.value = false;
-    loadEvaluations();
+    fetchItems(currentPage.value);
 }
 
-function onChangePage(target) {
-    page.value = target;
-    loadEvaluations();
-}
-
-function onChangePerPage(value) {
-    perPage.value = value;
-    page.value = 1;
-    loadEvaluations();
-}
-
-onMounted(() => loadEvaluations());
+onMounted(() => fetchItems());
 </script>

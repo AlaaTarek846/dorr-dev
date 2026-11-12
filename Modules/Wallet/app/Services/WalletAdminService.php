@@ -29,15 +29,20 @@ class WalletAdminService
     ) {}
 
     /**
-     * @param  array<string, mixed>  $filters  owner_type, owner_id, country_id, search
+     * @param  array<string, mixed>  $filters  owner_type, owner_id, country_id, international, search
      */
     public function list(array $filters): JsonResponse
     {
         $query = Wallet::query()
-            ->with(['country:id,code', 'currency:id,code'])
+            ->with(['country:id,code', 'country.translations', 'currency:id,code'])
             ->when($filters['owner_type'] ?? null, fn (Builder $q, $v) => $q->where('owner_type', $v))
             ->when($filters['owner_id'] ?? null, fn (Builder $q, $v) => $q->where('owner_id', $v))
             ->when($filters['country_id'] ?? null, fn (Builder $q, $v) => $q->where('country_id', $v))
+            // Only the international (freelance) wallets: the hidden country row, matched by code so a read never creates it.
+            ->when(filter_var($filters['international'] ?? false, FILTER_VALIDATE_BOOLEAN), fn (Builder $q) => $q->whereHas(
+                'country',
+                fn (Builder $c) => $c->where('code', (string) config('freelance.money.country_code', 'INT')),
+            ))
             ->when($filters['search'] ?? null, fn (Builder $q, string $v) => $this->searchOwners($q, $v))
             ->latest('id');
 
@@ -46,7 +51,7 @@ class WalletAdminService
 
     public function show(Wallet $wallet): JsonResponse
     {
-        return ApiResponse::success(new WalletResource($wallet->load(['country:id,code', 'currency:id,code'])), __('api.retrieved'));
+        return ApiResponse::success(new WalletResource($wallet->load(['country:id,code', 'country.translations', 'currency:id,code'])), __('api.retrieved'));
     }
 
     /**

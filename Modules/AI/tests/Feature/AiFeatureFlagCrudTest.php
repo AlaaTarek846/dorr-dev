@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiFeatureFlag;
+use Modules\AI\Tests\Feature\Concerns\BuildsAiRoutingScreens;
 use Tests\TestCase;
 
 /**
@@ -16,7 +17,15 @@ use Tests\TestCase;
  */
 class AiFeatureFlagCrudTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsAiRoutingScreens, RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The description is translated: one row per stored language.
+        $this->seedStoredLanguages();
+    }
 
     protected function actingAsAdmin(): Admin
     {
@@ -27,7 +36,7 @@ class AiFeatureFlagCrudTest extends TestCase
             'status' => true,
         ]);
 
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant($admin), ['*'], 'admin_api');
 
         return $admin;
     }
@@ -63,15 +72,20 @@ class AiFeatureFlagCrudTest extends TestCase
             'target_type' => AiFeatureFlag::TARGET_TOOL,
             'tool_key' => 'code_sandbox',
             'is_enabled' => false,
-            'description' => 'Temporarily disable the code sandbox tool.',
+            'translations' => [
+                ['locale' => 'ar', 'description' => 'إيقاف أداة تشغيل الكود مؤقتًا.'],
+                ['locale' => 'en', 'description' => 'Temporarily disable the code sandbox tool.'],
+            ],
         ]);
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('ai_feature_flags', [
             'key' => 'sandbox-disabled-globally',
             'tool_key' => 'code_sandbox',
-            'is_enabled' => false,
+            'status' => false,
         ]);
+        $this->assertFalse($response->json('data.is_enabled'), 'the old key is still in the output');
+        $this->assertDatabaseHas('ai_feature_flag_translations', ['locale' => 'en', 'description' => 'Temporarily disable the code sandbox tool.']);
     }
 
     public function test_creating_a_flag_without_a_required_target_type_fails_validation(): void
@@ -116,7 +130,7 @@ class AiFeatureFlagCrudTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseHas('ai_feature_flags', [
             'id' => $flag->id,
-            'is_enabled' => false,
+            'status' => false,
         ]);
     }
 
@@ -136,7 +150,8 @@ class AiFeatureFlagCrudTest extends TestCase
         // BaseService::delete() (shared across every module's CRUD) returns
         // 204 No Content, not 200 - see app/Services/BaseService.php.
         $response->assertStatus(204);
-        $this->assertDatabaseMissing('ai_feature_flags', ['id' => $flag->id]);
+        // Delete moves the flag to the trash (AiFeatureFlagCatalogTest covers restore / force delete).
+        $this->assertSoftDeleted('ai_feature_flags', ['id' => $flag->id]);
     }
 
     public function test_show_returns_404_for_a_nonexistent_flag(): void

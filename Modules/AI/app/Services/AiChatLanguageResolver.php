@@ -57,7 +57,8 @@ class AiChatLanguageResolver
 
         $instruction = "Always reply in {$preference->language->translatedName()} ({$preference->language->code}), regardless of the language the user writes in.";
 
-        if ($preference->variant) {
+        // A switched-off or trashed variant is never applied (the user's fixed language still is).
+        if ($preference->variant?->isAvailable()) {
             $instruction .= " Use a {$preference->variant->style} tone, matching the \"{$preference->variant->name}\" style.";
         } else {
             $instruction .= ' '.self::AUTO_DETECT_INSTRUCTION;

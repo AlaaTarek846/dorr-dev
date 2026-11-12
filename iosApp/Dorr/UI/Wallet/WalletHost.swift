@@ -68,6 +68,9 @@ final class WalletHost: ObservableObject {
     @Published var localCodes: [String] = []
     /// Whether a separate international (dollar) wallet exists for me — not when my local currency is the freelance one.
     @Published var intlWallet = true
+    /// A wallet chosen in «My wallets» (a country code, or "INT"): the wallet home switches to it and clears this —
+    /// the dollar wallet's on/off lives in WalletHome's own state, which the sheet can't reach.
+    @Published var pickKey: String?
     var onExit: () -> Void
 
     private var toastTask: Task<Void, Never>?

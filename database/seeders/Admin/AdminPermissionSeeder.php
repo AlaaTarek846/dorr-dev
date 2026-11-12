@@ -6,6 +6,7 @@ use App\Models\ServiceCategory;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Support\AiAdminScreens;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -304,22 +305,19 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
             ],
-            // The AI assistant's dashboard (Modules/AI routes/admin.php), one group per area of its sidebar: reading
-            // needs `.view`, any change `.update` (the `admin.area:{group}` route middleware).
-            'ai-settings' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-plans' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-sites' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-ar-world' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-routing' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-safety' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-security' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-logs' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-conversations' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-monitoring' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-languages' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-knowledge' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-projects' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
-            'ai-benchmarks' => ['module_name' => 'ai_assistant', 'actions' => ['view', 'update']],
+            // DORR AI Marketing Director (docs/marketing_tasks.md): switches per country, packages, operations.
+            'marketing-feature-rules' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'marketing-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'marketing-operations' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
                 'module_name' => 'general_services',
@@ -535,6 +533,11 @@ class AdminPermissionSeeder extends Seeder
                     'send',
                 ],
             ],
+            // AI assistant screens: one group per screen (Modules\AI\Support\AiAdminScreens, docs/screens/README.md).
+            ...array_map(
+                fn (array $actions) => ['module_name' => 'ai_assistant', 'actions' => $actions],
+                AiAdminScreens::GROUPS,
+            ),
         ];
     }
 

@@ -21,7 +21,8 @@ class AiSitePurchase extends Model
 
     public function offer(): BelongsTo
     {
-        return $this->belongsTo(AiSiteOffer::class, 'offer_id');
+        // withTrashed: an offer moved to the trash still names what was bought.
+        return $this->belongsTo(AiSiteOffer::class, 'offer_id')->withTrashed();
     }
 
     public function generationsLeft(): int

@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiRoutingPolicyResource;
 use Modules\AI\Repositories\AiRoutingPolicyRepository;
 
-class AiRoutingPolicyService extends BaseService
+/** AI routing policies catalog: list (+status counts), create/update with translations, status, bulk delete, trash, dropdown. */
+class AiRoutingPolicyService extends CatalogService
 {
     /**
      * @var class-string

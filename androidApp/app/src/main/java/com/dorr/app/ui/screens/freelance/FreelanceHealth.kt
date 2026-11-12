@@ -123,6 +123,7 @@ private fun healthReasonText(r: FreelanceHealthReasonDto): String {
         "review_waiting" -> stringResource(R.string.fs_hl_r_review_waiting, part, days)
         "report_late" -> stringResource(R.string.fs_hl_r_report_late)
         "change_waiting" -> stringResource(R.string.fs_hl_r_change_waiting)
+        "task_overdue" -> stringResource(R.string.fs_hl_r_task_overdue, part, days, r.data?.count ?: 1)
         else -> stringResource(R.string.fs_hl_r_other)
     }
 }
@@ -138,6 +139,7 @@ private fun healthStepText(code: String, mine: Boolean, part: String): String = 
     "review_waiting" -> stringResource(if (mine) R.string.fs_hl_n_review_waiting else R.string.fs_hl_w_review_waiting, part)
     "report_late" -> stringResource(if (mine) R.string.fs_hl_n_report_late else R.string.fs_hl_w_report_late)
     "change_waiting" -> stringResource(if (mine) R.string.fs_hl_n_change_waiting else R.string.fs_hl_w_change_waiting)
+    "task_overdue" -> stringResource(if (mine) R.string.fs_hl_n_task_overdue else R.string.fs_hl_w_task_overdue, part)
     else -> stringResource(if (mine) R.string.fs_hl_n_other else R.string.fs_hl_w_other)
 }
 

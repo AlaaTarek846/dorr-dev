@@ -354,13 +354,9 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost, key: String)
         Box(Modifier.size(150.dp).offset(x = (-30).dp, y = 50.dp).align(Alignment.BottomStart).background(Color(0x10FFFFFF), CircleShape))
 
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            // Which wallet this card is: its country (or the world, for the dollar wallet) and its currency.
+            // Which wallet this card is: its country's flag (the US flag for the dollar wallet) and its currency.
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (international) {
-                    Box(Modifier.size(24.dp).background(Color.White.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) { WalletFlag("INT") }
-                } else {
-                    WalletFlag(balance.countryCode, Modifier.size(width = 24.dp, height = 17.dp))
-                }
+                WalletFlag(if (international) "INT" else balance.countryCode, Modifier.size(width = 24.dp, height = 17.dp))
                 Text(
                     if (international) stringResource(R.string.wa_intl_wallet_title) else stringResource(R.string.wa_wallet_of, countryName(balance.countryCode)),
                     color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
@@ -406,46 +402,56 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost, key: String)
                             copied = true
                             host.showToast(copiedText)
                         }
-                        // The international wallet receives nothing from others and has no country to switch: copy only.
+                        // The dollar wallet receives nothing from others: no QR or share — but it can switch to my other wallets.
                         if (!international) {
                             HeroCircle(Icons.Outlined.QrCode2) { host.push(WaRoute.MyQr) }
                             HeroCircle(Icons.Rounded.Share) {
                                 val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
                                 context.startActivity(Intent.createChooser(send, null))
                             }
-                            HeroCircle(Icons.Rounded.SwapHoriz) { pickWallet = true }
                         }
+                        HeroCircle(Icons.Rounded.SwapHoriz) { pickWallet = true }
                     }
                 }
             }
 
             Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp).height(1.dp).background(Color.White.copy(alpha = 0.16f)))
 
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50))
-                    .padding(horizontal = 9.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(12.dp))
-                Spacer(Modifier.width(5.dp))
-                Text(stringResource(R.string.wa_total_balance), color = Color.White.copy(alpha = 0.92f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            // «Total balance» and, on the same line at the other end (the left in Arabic), the amount.
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(
-                    Modifier.padding(top = 6.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.Bottom,
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50))
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        if (hidden) "******" else money(shown.value.toLong()),
-                        color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp,
-                        maxLines = 1,
-                    )
-                    if (currencyCode.isNotBlank()) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(currencyCode, color = Color.White.copy(alpha = 0.82f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 3.dp))
+                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(stringResource(R.string.wa_total_balance), color = Color.White.copy(alpha = 0.92f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        // One line whatever the amount: the currency keeps its room, the number steps down (28 → 24) to fit.
+                        var amountSize by remember(key, balance.totalMinor) { mutableStateOf(28f) }
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                if (hidden) "******" else money(shown.value.toLong()),
+                                color = Color.White, fontSize = amountSize.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp,
+                                maxLines = 1, softWrap = false,
+                                onTextLayout = { if (it.didOverflowWidth && amountSize > 24f) amountSize -= 1f },
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            if (currencyCode.isNotBlank()) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    currencyCode, color = Color.White.copy(alpha = 0.82f), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                    maxLines = 1, softWrap = false, modifier = Modifier.padding(bottom = 3.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }

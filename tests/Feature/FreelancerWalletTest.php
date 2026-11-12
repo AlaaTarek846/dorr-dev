@@ -184,4 +184,31 @@ class FreelancerWalletTest extends TestCase
         $this->getJson('/api/admin/v1/wallets?owner_type=freelancer')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/admin/v1/wallets?owner_type=user')->assertOk()->assertJsonCount(0, 'data');
     }
+
+    public function test_the_admin_filters_the_users_international_wallets(): void
+    {
+        // phpunit.xml points the freelance money at SA; here it needs its own hidden INT row, as in production.
+        config(['freelance.money.country_code' => 'INT']);
+        $wallets = app(\Modules\Wallet\Services\WalletService::class);
+        $international = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->country();
+        $this->assertSame('INT', $international->code);
+        $client = User::query()->create(['name' => 'Client', 'phone' => '+966500000011', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $rider = User::query()->create(['name' => 'Rider', 'phone' => '+966500000012', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $clientWallet = $wallets->firstOrCreateWallet($client, $international);
+        $wallets->firstOrCreateWallet($rider, $this->saudi);
+        $wallets->firstOrCreateWallet($this->me, $international);
+        $this->app['auth']->forgetGuards();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $admin = Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        Permission::findOrCreate('wallets.view', 'admin_api');
+        $admin->givePermissionTo('wallets.view');
+        Sanctum::actingAs($admin, [], 'admin_api');
+
+        // Users' INT wallets only: not the user's local wallet, not the freelancer's INT wallet.
+        $this->getJson('/api/admin/v1/wallets?owner_type=user&international=1')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $clientWallet->id);
+        $this->getJson('/api/admin/v1/wallets?international=1')->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson('/api/admin/v1/wallets?owner_type=user')->assertOk()->assertJsonCount(2, 'data');
+    }
 }

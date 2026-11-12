@@ -22,7 +22,7 @@ class AiSiteHostingController extends Controller
 
     public function plans()
     {
-        $plans = AiSiteHostingPlan::query()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get()
+        $plans = AiSiteHostingPlan::query()->where('status', true)->orderBy('sort_order')->orderBy('id')->get()
             ->filter(fn ($p) => $p->priceFor(currentCountry()) !== null)->values();
 
         $domain = config('ai.sites.hosting.domain');

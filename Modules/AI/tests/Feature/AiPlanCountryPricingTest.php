@@ -76,6 +76,11 @@ class AiPlanCountryPricingTest extends TestCase
 
     private function actingAsAdmin(): Admin
     {
+        // AI plans screen permissions (AdminPermissionSeeder 'ai-plans').
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'] as $action) {
+            \Spatie\Permission\Models\Permission::findOrCreate("ai-plans.{$action}", 'admin_api');
+        }
         $admin = Admin::query()->create([
             'name' => 'Pricing Test Admin',
             'email' => 'pricing-admin-'.uniqid().'@example.test',
@@ -83,7 +88,8 @@ class AiPlanCountryPricingTest extends TestCase
             'status' => true,
         ]);
 
-        Sanctum::actingAs(\Tests\Support\AdminAccess::full($admin), ['*'], 'admin_api');
+        $admin->givePermissionTo(['ai-plans.view', 'ai-plans.update']);
+        Sanctum::actingAs($admin, ['*'], 'admin_api');
 
         return $admin;
     }

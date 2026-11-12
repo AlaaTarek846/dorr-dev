@@ -14,10 +14,22 @@ use Modules\AI\Models\AiProvider;
  * allowed by default; it is blocked only when an explicit is_enabled=false
  * flag matches the current country/domain/environment (or applies
  * globally via null scope fields).
+ *
+ * The flag's on/off column is `status` (it was is_enabled): status off = the
+ * kill switch. A flag in the trash is never applied (SoftDeletes), so its
+ * target is allowed again - as when a flag was deleted before.
  */
 class AiFeatureFlagGate
 {
     protected const CACHE_TTL = 30;
+
+    /** Forget the cached switched-off flags (AiFeatureFlag clears it on every save / trash / restore / delete). */
+    public static function flushCache(): void
+    {
+        foreach (AiFeatureFlag::TARGETS as $targetType) {
+            Cache::forget("ai_feature_flags_disabled_{$targetType}");
+        }
+    }
 
     public function isProviderAllowed(AiProvider $provider, ?string $countryCode = null, ?string $domain = null): bool
     {
@@ -88,8 +100,8 @@ class AiFeatureFlagGate
 
     /**
      * Short-lived cache (30s) so a single chat request doesn't run this
-     * query per candidate provider, while an admin toggling a flag still
-     * takes effect within seconds rather than needing a cache clear.
+     * query per candidate provider; an admin change clears it at once
+     * (flushCache), the TTL only bounds changes made outside Eloquent.
      *
      * @return list<array{provider_id: ?int, model_key: ?string, tool_key: ?string, country_code: ?string, domain: ?string, environment: string}>
      */
@@ -98,7 +110,7 @@ class AiFeatureFlagGate
         return Cache::remember("ai_feature_flags_disabled_{$targetType}", self::CACHE_TTL, function () use ($targetType) {
             return AiFeatureFlag::query()
                 ->where('target_type', $targetType)
-                ->where('is_enabled', false)
+                ->where('status', false)
                 ->get(['provider_id', 'model_key', 'tool_key', 'country_code', 'domain', 'environment'])
                 ->map(fn (AiFeatureFlag $flag) => $flag->only(['provider_id', 'model_key', 'tool_key', 'country_code', 'domain', 'environment']))
                 ->all();
