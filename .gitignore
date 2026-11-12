@@ -20,6 +20,7 @@ env
 /storage/*.key
 /storage/pail
 /vendor
+/Almohtraf
 Homestead.json
 Homestead.yaml
 Thumbs.db
