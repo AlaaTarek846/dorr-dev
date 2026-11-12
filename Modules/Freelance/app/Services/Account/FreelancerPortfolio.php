@@ -52,7 +52,7 @@ class FreelancerPortfolio
         // FS-705: a plan raises the works in the portfolio, never lowers them (null = no cap).
         $max = app(PlanFeatures::class)->forFreelancer($freelancer, 'portfolio_max');
         if ($max !== null && $freelancer->portfolioItems()->count() >= $max) {
-            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max]);
+            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($freelancer, 'portfolio_max', $max));
         }
 
         return DB::transaction(function () use ($freelancer, $data) {
@@ -121,7 +121,7 @@ class FreelancerPortfolio
         // FS-705: the team's plan raises the works in the team's portfolio (the team's work only).
         $max = app(PlanFeatures::class)->forTeam($team, 'team_portfolio_max');
         if ($max !== null && $team->portfolioItems()->count() >= $max) {
-            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max]);
+            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($team, 'team_portfolio_max', $max));
         }
 
         return DB::transaction(function () use ($team, $by, $data) {

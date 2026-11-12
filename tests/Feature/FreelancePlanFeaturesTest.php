@@ -301,6 +301,51 @@ class FreelancePlanFeaturesTest extends TestCase
         }
     }
 
+    public function test_the_catalogs_carry_the_comparison_table_and_a_refusal_names_the_way_out(): void
+    {
+        $this->policy(['consultations.max_active' => 5, 'commission.value' => 1000, 'teams.members_max' => 3, 'teams.projects_max' => 1, 'teams.offers_monthly' => 2]);
+        $this->features->set($this->plus, 'consultations_max', 10);
+
+        $catalog = app(\Modules\Freelance\Services\Plans\FreelanceSubscriptions::class)->catalog($this->sara);
+        $keys = array_column($catalog['features'], 'key');
+        // Only what works today is listed, named in the caller's language, and never a team-only feature or the admin's `column` flag.
+        $this->assertContains('consultations_max', $keys);
+        $this->assertNotContains('workroom_storage_mb', $keys);
+        $this->assertNotContains('team_staff_max', $keys);
+        $this->assertArrayNotHasKey('column', $catalog['features'][0]);
+        $bySlug = collect($catalog['plans'])->keyBy('slug');
+        $this->assertSame(['free', 'plus', 'pro'], $bySlug->keys()->all());
+        $this->assertSame([5, 10, 5], [$bySlug['free']['perks']['consultations_max'], $bySlug['plus']['perks']['consultations_max'], $bySlug['pro']['perks']['consultations_max']]);
+        $this->assertSame([false, true], [$bySlug['free']['perks']['badge'], $bySlug['plus']['perks']['badge']]);
+        $this->assertSame([1000, 800, 600], [$bySlug['free']['perks']['commission_bp'], $bySlug['plus']['perks']['commission_bp'], $bySlug['pro']['perks']['commission_bp']]);
+        // Every plan has a value for every listed feature.
+        foreach ($bySlug as $plan) {
+            $this->assertSame($keys, array_keys($plan['perks']));
+        }
+
+        $team = app(\Modules\Freelance\Services\FreelancerTeam\TeamSubscriptions::class)->catalog($this->team);
+        $teamKeys = array_column($team['features'], 'key');
+        $this->assertContains('team_members_max', $teamKeys);
+        $this->assertNotContains('consultations_max', $teamKeys);
+        $this->assertSame(3, $team['plans'][0]['perks']['team_members_max']);
+        $this->assertSame(10, $team['plans'][1]['perks']['team_members_max']);
+
+        // A refusal for a limit names the feature and the lowest plan that lifts it; none lifts it → null (the app shows no upgrade button).
+        $hint = $this->features->upgradeHint($this->sara, 'consultations_max', 5);
+        $this->assertSame(['feature' => 'consultations_max', 'upgrade' => ['slug' => 'plus', 'name' => 'Plus']], $hint);
+        $this->assertNull($this->features->upgradeHint($this->sara, 'consultations_max', 10)['upgrade']);
+        $this->assertSame('team_starter', $this->features->upgradeHint($this->team, 'team_members_max', 3)['upgrade']['slug']);
+        $this->assertNull($this->features->upgradeHint($this->sara, 'team_members_max', 3)['upgrade']);
+
+        // The refusal's message says which plan lifts the limit (every screen shows it as it is); with none to name it stays as it was.
+        $with = new \Modules\Freelance\Exceptions\FreelanceException('consultation_listing_limit', 422, ['max' => 5], ['max' => 5] + $hint);
+        $without = new \Modules\Freelance\Exceptions\FreelanceException('consultation_listing_limit', 422, ['max' => 5], ['max' => 5]);
+        $this->assertStringContainsString('Plus', $with->apiMessage());
+        $this->assertStringStartsWith($without->apiMessage(), $with->apiMessage());
+        $this->assertStringNotContainsString('Plus', $without->apiMessage());
+        $this->assertSame($hint['upgrade'], $with->apiData()['upgrade']);
+    }
+
     public function test_the_admin_sets_the_features_of_a_freelancer_plan_and_a_team_plan(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();

@@ -1337,6 +1337,9 @@
 "plans_cancel_renewal" = "Turn off renewal";
 "plans_commission" = "Commission %1$@%%";
 "plans_commission_country" = "The standard commission";
+"plans_compare_mine" = "Yours";
+"plans_compare_title" = "Compare the plans";
+"plans_compare_unlimited" = "No limit";
 "plans_confirm_later" = "%1$@ (%2$@) starts on %3$@ at %4$@. Nothing is charged now.";
 "plans_confirm_ok" = "Confirm";
 "plans_confirm_pay" = "%1$@ (%2$@) costs %3$@, charged from your wallet now.";
@@ -1351,6 +1354,14 @@
 "plans_extra_title" = "Extra offers";
 "plans_extra_unlimited" = "Your plan has no limit on offers, so you do not need a pack.";
 "plans_free_price" = "Free";
+"plans_group_money" = "Fees and money";
+"plans_group_offers" = "Offers";
+"plans_group_other" = "More";
+"plans_group_selling" = "Selling";
+"plans_group_support" = "Support";
+"plans_group_team" = "Team";
+"plans_group_tools" = "Tools";
+"plans_group_visibility" = "Being seen";
 "plans_invoice_credit" = "Credit %1$@";
 "plans_invoice_failed" = "Failed";
 "plans_invoice_purchase" = "Subscription";

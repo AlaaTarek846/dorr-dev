@@ -51,10 +51,13 @@ class FreelanceSubscriptions
         $country = $this->countryOf($freelancer);
         $enabled = $country !== null && $this->plans->enabled($country->id);
         $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
-        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'plans' => []];
+        $out = ['enabled' => $enabled, 'currency' => $currency?->code, 'currency_symbol' => $currency?->symbol, 'decimals' => (int) ($currency?->decimal_places ?? 2), 'features' => [], 'plans' => []];
         if (! $enabled) {
             return $out;
         }
+        // FS-705: the comparison table - the features the app checks today, and per plan what it gives (`perks`).
+        $features = app(PlanFeatures::class);
+        $out['features'] = $features->comparisonFeatures(FreelancePlan::FREELANCER);
 
         $current = $this->plans->planFor($freelancer);
         $trialUsed = Subscription::query()->where('freelancer_id', $freelancer->id)->exists();
@@ -88,6 +91,7 @@ class FreelanceSubscriptions
                     'crm' => (int) $plan->crm,
                     'services_max' => $plan->services_max === null ? $policyServices : max($policyServices, (int) $plan->services_max),
                 ],
+                'perks' => $features->perksOf($plan, FreelancePlan::FREELANCER, $country->id),
                 'trial_days' => ! $plan->isFree() && ! $trialUsed ? (int) $plan->trial_days : 0,
             ];
         }

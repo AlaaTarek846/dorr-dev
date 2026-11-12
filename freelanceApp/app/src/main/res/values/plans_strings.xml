@@ -74,4 +74,16 @@
     <string name="plans_perk_crm_2">Your clients, notes and follow-up reminders</string>
     <string name="plans_perk_services">Up to %1$d ready-made services</string>
     <string name="plans_open_insights">My performance</string>
+    <!-- FS-705c: the comparison of the plans -->
+    <string name="plans_compare_title">Compare the plans</string>
+    <string name="plans_compare_mine">Yours</string>
+    <string name="plans_compare_unlimited">No limit</string>
+    <string name="plans_group_money">Fees and money</string>
+    <string name="plans_group_offers">Offers</string>
+    <string name="plans_group_visibility">Being seen</string>
+    <string name="plans_group_selling">Selling</string>
+    <string name="plans_group_tools">Tools</string>
+    <string name="plans_group_team">Team</string>
+    <string name="plans_group_support">Support</string>
+    <string name="plans_group_other">More</string>
 </resources>

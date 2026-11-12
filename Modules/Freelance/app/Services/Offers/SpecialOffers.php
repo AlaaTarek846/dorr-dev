@@ -702,7 +702,7 @@ class SpecialOffers
     private function assertWithinCaps(Freelancer $f, User $client, array $rules): void
     {
         if (SpecialOffer::query()->where('freelancer_id', $f->id)->where('created_at', '>=', now()->startOfDay())->count() >= $rules['daily_limit']) {
-            throw new FreelanceException('special_offer_daily_limit', 429, ['max' => $rules['daily_limit']], ['max' => $rules['daily_limit']]);
+            throw new FreelanceException('special_offer_daily_limit', 429, ['max' => $rules['daily_limit']], ['max' => $rules['daily_limit']] + app(PlanFeatures::class)->upgradeHint($f, 'special_offers_daily', $rules['daily_limit']));
         }
         $open = SpecialOffer::query()->where('freelancer_id', $f->id)->where('client_id', $client->id)->where('status', SpecialOffer::SENT)->where('expires_at', '>', now())->count();
         if ($open >= $rules['open_per_client']) {

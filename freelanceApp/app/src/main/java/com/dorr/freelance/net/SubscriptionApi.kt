@@ -47,7 +47,19 @@ data class PlansDto(
     @SerializedName("currency_symbol") val currencySymbol: String? = null,
     /** Decimal places of [currency]: prices are whole minor units of it. */
     val decimals: Int = 2,
+    /** FS-705c: the rows of the comparison table (only what works today); each plan's [PlanDto.perks] has a value per row. */
+    val features: List<PlanFeatureDto> = emptyList(),
     val plans: List<PlanDto> = emptyList(),
+)
+
+/** One row of the comparison: [type] is `switch`, `level` (0..[max]), `limit` (null = no cap) or `fee_bp`; [name] and [hint] come in my language. */
+data class PlanFeatureDto(
+    val key: String = "",
+    val type: String = "switch",
+    val group: String = "other",
+    val max: Int? = null,
+    val name: String = "",
+    val hint: String? = null,
 )
 
 data class PlanDto(
@@ -61,6 +73,8 @@ data class PlanDto(
     val prices: PlanPricesDto = PlanPricesDto(),
     @SerializedName("yearly_saving_minor") val yearlySavingMinor: Long? = null,
     val benefits: PlanBenefitsDto = PlanBenefitsDto(),
+    /** What the plan gives per [PlansDto.features] row: a boolean (switch), a number (level, limit, fee), or null (limit: no cap; fee: the country's own). */
+    val perks: Map<String, com.google.gson.JsonElement?> = emptyMap(),
     /** Days of free trial I would get (0 when I used mine, or the plan has none). */
     @SerializedName("trial_days") val trialDays: Int = 0,
 )

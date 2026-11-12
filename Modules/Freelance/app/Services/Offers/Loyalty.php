@@ -99,7 +99,7 @@ class Loyalty
      */
     public function save(Freelancer $f, bool $enabled, array $tiers): FreelanceLoyaltyProgram
     {
-        $clean = $this->clean($tiers, $this->rules((int) $f->country_id, $f));
+        $clean = $this->clean($tiers, $this->rules((int) $f->country_id, $f), $f);
 
         return DB::transaction(function () use ($f, $enabled, $clean) {
             // One saving at a time per freelancer: two taps make one program.
@@ -356,13 +356,13 @@ class Loyalty
      * @param  array{min_discount_bp: int, max_discount_bp: int, max_tiers: int, max_after: int}  $rules
      * @return list<array{after: int, discount_bp: int}>
      */
-    private function clean(array $tiers, array $rules): array
+    private function clean(array $tiers, array $rules, ?Freelancer $f = null): array
     {
         if ($tiers === []) {
             throw new FreelanceException('loyalty_tiers_required', 422);
         }
         if (count($tiers) > $rules['max_tiers']) {
-            throw new FreelanceException('loyalty_tiers_many', 422, ['max' => $rules['max_tiers']], ['max' => $rules['max_tiers']]);
+            throw new FreelanceException('loyalty_tiers_many', 422, ['max' => $rules['max_tiers']], ['max' => $rules['max_tiers']] + ($f === null ? [] : app(PlanFeatures::class)->upgradeHint($f, 'loyalty_tiers_max', $rules['max_tiers'])));
         }
         $out = [];
         foreach ($tiers as $t) {

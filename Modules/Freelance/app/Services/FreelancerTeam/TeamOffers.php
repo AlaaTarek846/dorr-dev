@@ -159,7 +159,7 @@ class TeamOffers
         $this->plans->assertProjectsRoom($team);
         $q = $this->quota($team);
         if ($q['limit'] !== null && $q['left'] <= 0) {
-            throw new FreelanceException('team_offer_quota_exhausted', 422, ['limit' => $q['limit']], ['limit' => $q['limit']]);
+            throw new FreelanceException('team_offer_quota_exhausted', 422, ['limit' => $q['limit']], ['limit' => $q['limit']] + app(PlanFeatures::class)->upgradeHint($team, 'offers_monthly', $q['limit']));
         }
     }
 

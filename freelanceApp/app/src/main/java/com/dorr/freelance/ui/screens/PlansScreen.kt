@@ -211,6 +211,9 @@ fun PlansScreen(onBack: () -> Unit, onOpenWallet: () -> Unit, onOpenInsights: ()
             )
         }
 
+        // FS-705c: the plans side by side, on every feature that works today.
+        PlanComparison(data.features, data.plans.map { PlanColumn(it.slug, it.name, it.current, it.perks) })
+
         packs?.takeIf { it.enabled && it.packs.isNotEmpty() }?.let { p ->
             ExtraOffersCard(p, busy) { pack ->
                 buyRequest = UUID.randomUUID().toString()

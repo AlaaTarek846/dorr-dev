@@ -333,7 +333,7 @@ class ConsultationListings
         $max = $this->maxActive((int) $o->country_id, $f);
         $live = Offer::query()->where('freelancer_id', $f->id)->whereKeyNot($o->id)->whereIn('status', [Offer::PENDING, Offer::PUBLISHED])->count();
         if ($live >= $max) {
-            throw new FreelanceException('consultation_listing_limit', 422, ['max' => $max], ['max' => $max]);
+            throw new FreelanceException('consultation_listing_limit', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($f, 'consultations_max', $max));
         }
     }
 

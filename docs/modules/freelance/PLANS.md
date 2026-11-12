@@ -74,7 +74,7 @@
 
 - **705b**: كل ميزة `live: []` تتربط في مكانها (الجرد تحت) وتتعلّم live؛ شاشة مصفوفة الأدمن (معيار شاشات الأدمن)؛ الأدمن يعدّل عمولة/شارة/boost/أرقام/CRM لباقة الفريق (`FreelancePlanController::update` لسه بيشيلهم من باقة الفريق).
 - **قرار مفتوح (NEEDS-DECISION) لـ 705b**: عرض الفريق النهارده بيتحسب بعمولة **باقة الـ Owner الشخصية** (`FreelancerOffers.php:157-173`). مع قرار «شغل الفريق ياخد باقة الفريق بس»، المفروض عمولة الفريق تيجي من باقة الفريق. ده هيغلّي العمولة على Owner عنده Pro وفريقه على Free — محتاج تأكيد قبل التغيير.
-- **705c**: `GET plans` و`teams/{team}/subscription` يرجّعوا الكتالوج + القيم؛ شاشة مقارنة؛ القفل في كل شاشة يقول الميزة وأقل باقة بتفتحها؛ iOS twin.
+- **705c** ✅ اتعمل — شوف «705c — المقارنة والقفل» تحت.
 
 ## الجرد — أماكن التطبيق للمميزات الجديدة (لـ 705b)
 
@@ -117,3 +117,14 @@
 - أرقام الأداء (`analytics`) و`crm` **للفريق**: أسطح جديدة (إحصائيات فريق، CRM مشترك) لسه ما اتبنوش.
 
 **الأدمن:** `PUT freelance-plans/{id}` بقى يقبل `features` ({key: قيمة | null = من غير حد | {clear: true}})؛ باقة الفريق بقت تقبل `commission_bp` و`badge` و`boost` و`analytics` و`crm`؛ الرد فيه `features` لكل باقة و`features_catalog` للجمهورين. الشاشة (`views/freelance/plans/index.vue`) فيها قسم «مميزات إضافية» وعلامة «جاية» على اللي مش متطبّق.
+
+## 705c — المقارنة والقفل (2026-11-12)
+
+**السيرفر (مفاتيح قديمة ماتغيّرتش، اتضاف بس):**
+- `GET plans` (`FreelanceSubscriptions::catalog`) و`GET teams/{team}/subscription` → `catalog` (`TeamSubscriptions::catalog`) بقوا يرجّعوا `features` (صفوف جدول المقارنة: `key, type, group, max, name, hint` — **الـ live بس**؛ اللي «جاي» مابيظهرش) و`perks` لكل باقة (القيمة الفعلية بقاعدة «الباقة بتحسّن بس»: switch = bool، level = رقم، limit = رقم أو `null` = من غير حد، fee_bp = رقم). عمود الفري = القيمة من غير باقة. باقة الفريق بتتحسب على شغل الفريق بس. الدوال: `PlanFeatures::comparisonFeatures($audience)` و`perksOf($plan, $audience, $countryId)`.
+- أي رفض بسبب حد باقة بيرجّع في `data`: `feature` (مفتاح الميزة) و`upgrade{slug,name}` (أقل باقة بتفتحه، أو `null`)، من `PlanFeatures::upgradeHint($freelancerOrTeam, $key, $current)`. اتربط في: `profile_limit` (portfolio / team_portfolio)، `offer_templates_full`، `consultation_listing_limit`، `special_offer_daily_limit`، `loyalty_tiers_many`، `capacity_too_high`، `crm_reminders_full` (بقت بـ `max`)، `team_projects_limit`، `team_offer_quota_exhausted`، `freelancer_team_limit_members`.
+- **القفل من غير كود في كل شاشة:** `FreelanceException::apiMessage()` لو الـ data فيها `feature` و`upgrade.name` بيزوّد جملة `freelance.errors.upgrade_to` («علشان تزوّد الحد ده انتقل لباقة X») على رسالة الرفض، فكل شاشة (أندرويد/iOS/ويب) بتعرضها زي ما هي. باقة الفريق بتتسمّى لخطأ الفريق وباقة المحترف لخطأ المحترف.
+
+**التطبيق (أندرويد + iOS):** كارت «قارن بين الباقات» (`PlanComparison` في `PlanCompare.kt` / `PlanCompare.swift`) تحت كروت الباقات في «باقتي» وفي باقة الفريق: عمود لكل باقة (الفري أولاً، باقتي معلّمة «باقتك»)، المميزات متجمّعة (فلوس · عروض · ظهور · بيع · أدوات · فريق · دعم) بنفس ترتيب السيرفر، العلامة ✓ أو «—» أو الرقم أو «بلا حد» حسب النوع. النصوص `plans_compare_*` و`plans_group_*` في `plans_strings.xml`.
+
+**مش اتعمل (متعمّد):** زرار «افتح الباقات» جنب كل رسالة حد (الرسالة بتسمّي الباقة والمستخدم بيفتح «باقتي» من الحساب)؛ لو عايزه زرار فهو شغل منفصل بيحتاج تعديل في كل شاشة من التسع.

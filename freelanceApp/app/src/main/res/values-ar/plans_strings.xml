@@ -74,4 +74,16 @@
     <string name="plans_perk_crm_2">عملاء وملاحظات وتذكيرات</string>
     <string name="plans_perk_services">لحد %1$d خدمة جاهزة</string>
     <string name="plans_open_insights">إحصائيات أدائي</string>
+    <!-- FS-705c: مقارنة الباقات -->
+    <string name="plans_compare_title">قارن بين الباقات</string>
+    <string name="plans_compare_mine">باقتك</string>
+    <string name="plans_compare_unlimited">بلا حد</string>
+    <string name="plans_group_money">الرسوم والفلوس</string>
+    <string name="plans_group_offers">العروض</string>
+    <string name="plans_group_visibility">الظهور</string>
+    <string name="plans_group_selling">البيع</string>
+    <string name="plans_group_tools">الأدوات</string>
+    <string name="plans_group_team">الفريق</string>
+    <string name="plans_group_support">الدعم</string>
+    <string name="plans_group_other">أخرى</string>
 </resources>

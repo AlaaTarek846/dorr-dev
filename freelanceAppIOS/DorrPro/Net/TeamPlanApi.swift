@@ -39,6 +39,8 @@ struct TeamPlanCatalogDto: Decodable {
     var currencySymbol: String?
     /// Decimal places of `currency`: prices are whole minor units of it.
     var decimals: Int?
+    /// FS-705c: the comparison rows (what the team's work checks today); each plan's `perks` has a value per row.
+    var features: [PlanFeatureDto]?
     var plans: [TeamPlanDto]?
 }
 
@@ -54,6 +56,8 @@ struct TeamPlanDto: Decodable, Identifiable, Equatable {
     var prices: PlanPricesDto?
     var yearlySavingMinor: Int?
     var benefits: TeamPlanBenefitsDto?
+    /// What the plan gives the team's work per `TeamPlanCatalogDto.features` row (see `PlanDto.perks`).
+    var perks: [String: PlanPerk]?
     /// Days of free trial the team would get (0 when it used its trial, or the plan has none).
     var trialDays: Int?
 }

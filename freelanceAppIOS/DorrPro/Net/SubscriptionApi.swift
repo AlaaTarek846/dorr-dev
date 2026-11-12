@@ -37,7 +37,34 @@ struct PlansDto: Decodable {
     var currencySymbol: String?
     /// Decimal places of `currency`: prices are whole minor units of it.
     var decimals: Int?
+    /// FS-705c: the rows of the comparison table (only what works today); each plan's `perks` has a value per row.
+    var features: [PlanFeatureDto]?
     var plans: [PlanDto]?
+}
+
+/// One row of the comparison: `type` is `switch`, `level` (0...max), `limit` (nil = no cap) or `fee_bp`; `name` and `hint` come in my language.
+struct PlanFeatureDto: Decodable, Equatable {
+    var key: String?
+    var type: String?
+    var group: String?
+    var max: Int?
+    var name: String?
+    var hint: String?
+}
+
+/// What a plan gives for one comparison row: on/off (switch), a number (level, limit, fee), or nothing (limit: no cap; fee: the country's own).
+enum PlanPerk: Decodable, Equatable {
+    case on(Bool)
+    case number(Int)
+    case none
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .none }
+        else if let b = try? c.decode(Bool.self) { self = .on(b) }
+        else if let n = try? c.decode(Int.self) { self = .number(n) }
+        else { self = .none }
+    }
 }
 
 struct PlanDto: Decodable, Identifiable, Equatable {
@@ -52,6 +79,8 @@ struct PlanDto: Decodable, Identifiable, Equatable {
     var prices: PlanPricesDto?
     var yearlySavingMinor: Int?
     var benefits: PlanBenefitsDto?
+    /// What the plan gives per `PlansDto.features` row (the keys come back camel-cased by the decoder: see `PlanComparison.perk`).
+    var perks: [String: PlanPerk]?
     /// Days of free trial I would get (0 when I used mine, or the plan has none).
     var trialDays: Int?
 }

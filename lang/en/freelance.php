@@ -103,6 +103,7 @@ return [
         'crm_locked' => 'This is not in your plan. Upgrade your plan to open it.',
         'crm_notes_full' => 'You reached the most notes for one client. Delete an old note first.',
         'crm_reminders_full' => 'You reached the most waiting reminders. Finish or delete one first.',
+        'upgrade_to' => 'To raise this limit, move to the :plan plan.',
         'crm_bad_due' => 'The reminder must be set in the future, within the next year.',
         'skill_challenge_off' => 'There is no practical challenge for this skill.',
         'skill_challenge_open' => 'You already have a challenge under review for this skill.',

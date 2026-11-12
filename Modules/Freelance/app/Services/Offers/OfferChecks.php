@@ -80,8 +80,8 @@ class OfferChecks
     {
         $this->assertNoContact($data['title'].' '.$data['details']);
         $max = app(PlanFeatures::class)->forFreelancer($freelancer, 'offer_templates_max');
-        if ($template === null && $max !== null && template::query()->where('freelancer_id', $freelancer->id)->count() >= $max) {
-            throw new freelanceexception('offer_templates_full', 422, ['max' => $max], ['max' => $max]);
+        if ($template === null && $max !== null && Template::query()->where('freelancer_id', $freelancer->id)->count() >= $max) {
+            throw new FreelanceException('offer_templates_full', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($freelancer, 'offer_templates_max', $max));
         }
         $values = ['title' => trim(strip_tags($data['title'])), 'details' => trim(strip_tags($data['details']))];
 

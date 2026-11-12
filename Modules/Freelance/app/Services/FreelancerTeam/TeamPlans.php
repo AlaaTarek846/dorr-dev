@@ -106,7 +106,7 @@ class TeamPlans
     {
         $max = $this->projectsMax($team);
         if ($max !== null && $this->running($team) >= $max) {
-            throw new FreelanceException('team_projects_limit', 422, ['max' => $max], ['max' => $max]);
+            throw new FreelanceException('team_projects_limit', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($team, 'team_projects_max', $max));
         }
     }
 

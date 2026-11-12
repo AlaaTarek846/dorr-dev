@@ -28,7 +28,12 @@ class FreelanceException extends RuntimeException implements ApiRenderable
 
     public function apiMessage(): string
     {
-        return __('freelance.errors.'.$this->errorCode, $this->replace);
+        $message = __('freelance.errors.'.$this->errorCode, $this->replace);
+        // FS-705c: a refusal for a plan limit (it carries `feature` and `upgrade`, see `PlanFeatures::upgradeHint`) says which plan lifts it,
+        // so every screen of every app shows the way out without a line of its own.
+        $plan = isset($this->data['feature']) ? ($this->data['upgrade']['name'] ?? null) : null;
+
+        return $plan === null ? $message : $message.' '.__('freelance.errors.upgrade_to', ['plan' => $plan]);
     }
 
     public function apiErrorCode(): string

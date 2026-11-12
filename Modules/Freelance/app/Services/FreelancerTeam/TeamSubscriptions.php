@@ -17,6 +17,7 @@ use Modules\Freelance\Models\FreelanceTeamMember as Member;
 use Modules\Freelance\Models\FreelanceTeamSubscription as Subscription;
 use Modules\Freelance\Models\FreelanceTeamSubscriptionInvoice as Invoice;
 use Modules\Freelance\Models\Freelancer;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelanceLedger;
 use Modules\Freelance\Services\Policy\FreelanceMoney;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -83,14 +84,17 @@ class TeamSubscriptions
      */
     public function catalog(FreelanceTeam $team): array
     {
-        $out = $this->money->meta() + ['plans' => []];
+        // FS-705: the comparison table - the features the team's work checks today; per plan what it gives (`perks`), on the team's work only.
+        $features = app(PlanFeatures::class);
+        $country = $team->country_id === null ? null : (int) $team->country_id;
+        $out = $this->money->meta() + ['features' => $features->comparisonFeatures(FreelancePlan::TEAM), 'plans' => []];
         $current = $this->plans->plan($team);
         $used = Subscription::query()->where('team_id', $team->id)->exists();
 
         $out['plans'][] = [
             'slug' => FreelancePlan::FREE, 'name' => __('freelance.team_plans.free_name'), 'description' => __('freelance.team_plans.free_description'),
             'rank' => 0, 'free' => true, 'current' => $current === null, 'prices' => (object) [], 'yearly_saving_minor' => null,
-            'benefits' => $this->benefits($this->plans->limitsFor($team, null)), 'trial_days' => 0,
+            'benefits' => $this->benefits($this->plans->limitsFor($team, null)), 'perks' => $features->perksOf(null, FreelancePlan::TEAM, $country), 'trial_days' => 0,
         ];
         foreach (FreelancePlan::query()->forTeams()->where('status', true)->orderBy('rank')->get() as $plan) {
             $prices = $this->pricesOf($plan);
@@ -102,6 +106,7 @@ class TeamSubscriptions
                 'current' => $current?->id === $plan->id, 'prices' => $prices,
                 'yearly_saving_minor' => isset($prices['monthly'], $prices['yearly']) ? max(0, $prices['monthly'] * 12 - $prices['yearly']) : null,
                 'benefits' => $this->benefits($this->plans->limitsFor($team, $plan)),
+                'perks' => $features->perksOf($plan, FreelancePlan::TEAM, $country),
                 'trial_days' => ! $used ? (int) $plan->trial_days : 0,
             ];
         }

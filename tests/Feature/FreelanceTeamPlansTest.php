@@ -774,12 +774,13 @@ class FreelanceTeamPlansTest extends TestCase
     {
         $this->staff('freelance-plans.view', 'freelance-plans.update');
 
-        $this->putJson(self::ADMIN.'/freelance-plans/'.$this->starter->id, ['team_members_max' => 12, 'team_projects_max' => 8, 'offers_monthly' => 70, 'commission_bp' => 500, 'badge' => true])->assertOk()
+        $this->putJson(self::ADMIN.'/freelance-plans/'.$this->starter->id, ['team_members_max' => 12, 'team_projects_max' => 8, 'offers_monthly' => 70, 'commission_bp' => 500, 'badge' => true, 'services_max' => 9])->assertOk()
             ->assertJsonPath('data.team_members_max', 12)->assertJsonPath('data.team_projects_max', 8)->assertJsonPath('data.offers_monthly', 70);
         $starter = $this->starter->refresh();
         $this->assertSame([12, 8, 70], [$starter->team_members_max, $starter->team_projects_max, $starter->offers_monthly]);
-        $this->assertNull($starter->commission_bp, 'a team plan has no commission');
-        $this->assertFalse((bool) $starter->badge, 'and no badge');
+        // FS-705 (owner): a team plan now carries the commission, badge, boost, numbers and CRM (on the team's work); ready-made services stay a freelancer's.
+        $this->assertSame([500, true], [$starter->commission_bp, (bool) $starter->badge]);
+        $this->assertNull($starter->services_max, 'ready-made services belong to freelancer plans');
 
         // Empty = no cap.
         $this->putJson(self::ADMIN.'/freelance-plans/'.$this->starter->id, ['team_projects_max' => null])->assertOk()->assertJsonPath('data.team_projects_max', null);

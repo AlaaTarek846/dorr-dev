@@ -863,3 +863,7 @@ JAVA_HOME=~/.jdks/jbr-21.0.11 ./gradlew :app:compileDebugKotlin -q -Pkotlin.daem
 - المستوى الأساسي: كارت «المزيد» فيه سطر جديد (`insights_more_new`) بيقول إن التحليلات دي في الباقة الأعلى.
 
 **المنصّات:** أندرويد اتبنى واتجرّب على موبايل فعلي (الـ CRM والتحليلات في تطبيق الفريلانسر، وفتح عمل من تطبيق العميل اتسجّل في `freelance_profile_views`)؛ iOS **من غير بناء** (مفيش Swift toolchain) — شغّل `freelanceAppIOS/scripts/typecheck.sh` أو أمر البناء قبل الإصدار.
+
+### مقارنة الباقات (FS-705c)
+
+**الشاشات:** كارت «قارن بين الباقات» (`PlanComparison` في `ui/screens/PlanCompare.kt` ← `UI/Screens/Growth/PlanCompare.swift`) تحت كروت الباقات في `PlansScreen` و`TeamPlanScreen`. بياخد `features` و`perks` من `GET plans` / `catalog` الفريق ([PLANS.md «705c»](PLANS.md)). الـ DTO: `PlanFeatureDto` و`perks` في `PlanDto` / `TeamPlanDto`؛ على iOS `PlanPerk` (on / number / none) — ومفاتيح الـ `perks` بترجع camelCase من الـ decoder فالبحث بيجرّب الشكلين. أي رسالة حد من السيرفر فيها اسم الباقة اللي بتفتحه (مفيش كود في الشاشات التسع). النصوص `plans_compare_*` و`plans_group_*` في `plans_strings.xml`.

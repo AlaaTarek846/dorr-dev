@@ -11,6 +11,7 @@ use Modules\Freelance\Models\FreelanceOffer;
 use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\FreelanceTeamMember as Member;
 use Modules\Freelance\Models\Freelancer;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Verification\FreelancerGate;
 
@@ -373,7 +374,7 @@ class FreelancerTeams
     {
         $max = $this->maxMembers($team);
         if ($max !== null && $team->activeMembers()->count() >= $max) {
-            throw new FreelanceException('freelancer_team_limit_members', 422, ['max' => $max], ['max' => $max]);
+            throw new FreelanceException('freelancer_team_limit_members', 422, ['max' => $max], ['max' => $max] + app(PlanFeatures::class)->upgradeHint($team, 'team_members_max', $max));
         }
     }
 

@@ -81,7 +81,7 @@ class FreelanceCapacity
     public function setMax(Freelancer $f, ?int $max): array
     {
         if ($max !== null && $max > self::maxChoice($f)) {
-            throw new FreelanceException('capacity_too_high', 422, ['max' => self::maxChoice($f)]);
+            throw new FreelanceException('capacity_too_high', 422, ['max' => self::maxChoice($f)], ['max' => self::maxChoice($f)] + app(PlanFeatures::class)->upgradeHint($f, 'capacity_max', self::maxChoice($f)));
         }
         $f->forceFill(['capacity_max' => $max])->save();
         // A higher cap (or none) may free places for those in line.

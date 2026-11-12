@@ -176,6 +176,8 @@ fun TeamPlanScreen(teamUuid: String, onBack: () -> Unit, onOpenWallet: () -> Uni
             catalog.plans.forEach { plan ->
                 TeamPlanCard(plan = plan, catalog = catalog, period = period, live = live, busy = busy, onChoose = { confirm = plan })
             }
+            // FS-705c: the plans side by side, on the team's work only.
+            PlanComparison(catalog.features, catalog.plans.map { PlanColumn(it.slug, it.name, it.current, it.perks) })
             Text(stringResource(R.string.tpl_footer), color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp)
         }
 

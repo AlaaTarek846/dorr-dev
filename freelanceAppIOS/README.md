@@ -86,6 +86,11 @@ build (fast, no DerivedData).
   yearly price and the invoices. `planMoney`, `PlanStatusPill`, `Benefit` and `periodName` are no longer `private` in `PlansScreen.swift` (the two
   screens share them, like `StatusPill` / `Benefit` on Android). The meter bar is a `GeometryReader` capsule. **Not compiled**: there was no Swift
   toolchain when this was written — run `typecheck.sh` / the build check before shipping.
+- Compare the plans (FS-705c — `UI/Screens/Growth/PlanCompare.swift`, `PlanFeatureDto` / `PlanPerk` / `perks` in `Net/SubscriptionApi.swift` and
+  `Net/TeamPlanApi.swift`, and one line each in `PlansScreen` / `TeamPlanScreen`): ported from `PlanCompare.kt`. The one difference: the decoder's
+  snake-case strategy turns the dictionary keys of `perks` into camelCase too (`offers_monthly` → `offersMonthly`), so `PlanComparison.perk` looks
+  for both spellings; the columns are a fixed 64 pt wide where Compose uses weights. **Not compiled** (no Swift toolchain here) — run
+  `typecheck.sh` / the build check before shipping.
 - A signing Owner (FS-212 / D12 — `Net/TeamsApi.swift` `signedAgreements` on `TeamMembersMeDto` / `TeamMemberDto`, and `TeamDetailScreen.swift` / `TeamMembersSection.swift`): ported from `TeamsApi.kt` / `TeamDetailScreen.kt` / `TeamMembersSection.kt` — «Leave the team», the role chips and «Remove from the team» are locked, with the reason under them, while the Owner signed agreements of the team that have not ended or has offers in its name that are still open (`openOffers` next to `signedAgreements`). **Not compiled**: there was no Swift toolchain when this was written — run `typecheck.sh` / the build check before shipping.
 - The whole team on an offer (FS-213 — `Net/OffersApi.swift`, `Net/TeamsApi.swift` `setTitle` / `jobTitle`, `Net/InvitationsApi.swift` `InvitationTeamDto`,
   `Net/NotificationsApi.swift`, and `OfferTeamParts`, `OfferScreens`, `TeamMembersSection`, `TeamDetailScreen`, `InvitationScreens`): ported from the

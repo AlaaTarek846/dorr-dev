@@ -148,8 +148,9 @@ class FreelancerCrm
         if ($due->lte(now()) || $due->gt(now()->addDays((int) config('freelance.crm.remind_ahead_days', 365)))) {
             throw new FreelanceException('crm_bad_due');
         }
-        if (Reminder::query()->where('freelancer_id', $me->id)->whereNull('done_at')->count() >= (app(PlanFeatures::class)->forFreelancer($me, 'crm_reminders_max') ?? PHP_INT_MAX)) {
-            throw new FreelanceException('crm_reminders_full');
+        $remindersMax = app(PlanFeatures::class)->forFreelancer($me, 'crm_reminders_max');
+        if ($remindersMax !== null && Reminder::query()->where('freelancer_id', $me->id)->whereNull('done_at')->count() >= $remindersMax) {
+            throw new FreelanceException('crm_reminders_full', 422, ['max' => $remindersMax], ['max' => $remindersMax] + app(PlanFeatures::class)->upgradeHint($me, 'crm_reminders_max', $remindersMax));
         }
         Reminder::query()->create(['freelancer_id' => $me->id, 'user_id' => $contact->user_id, 'title' => trim($title), 'due_at' => $due]);
 

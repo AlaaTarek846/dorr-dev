@@ -48,6 +48,8 @@ data class TeamPlanCatalogDto(
     @SerializedName("currency_symbol") val currencySymbol: String? = null,
     /** Decimal places of [currency]: prices are whole minor units of it. */
     val decimals: Int = 2,
+    /** FS-705c: the comparison rows (what the team's work checks today); each plan's [TeamPlanDto.perks] has a value per row. */
+    val features: List<PlanFeatureDto> = emptyList(),
     val plans: List<TeamPlanDto> = emptyList(),
 )
 
@@ -62,6 +64,8 @@ data class TeamPlanDto(
     val prices: PlanPricesDto = PlanPricesDto(),
     @SerializedName("yearly_saving_minor") val yearlySavingMinor: Long? = null,
     val benefits: TeamPlanBenefitsDto = TeamPlanBenefitsDto(),
+    /** What the plan gives the team's work per [TeamPlanCatalogDto.features] row (see [PlanDto.perks]). */
+    val perks: Map<String, com.google.gson.JsonElement?> = emptyMap(),
     /** Days of free trial the team would get (0 when it used its trial, or the plan has none). */
     @SerializedName("trial_days") val trialDays: Int = 0,
 )

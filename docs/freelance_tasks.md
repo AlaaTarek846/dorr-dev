@@ -314,7 +314,7 @@
   - ➕ الأرقام النهائية بعد تحليل تكلفة ومنافسين (FS-004). Plus $9 وPro $24 نقطة بداية مش توصية.
   - [x] **705a — كتالوج المميزات** ✅ 2026-11-12: `plan_features` + جدول `freelance_plan_features` + `PlanFeatures` (قاعدة «الباقة بتحسّن بس») + Team Starter اتفتحت بمميزات Pro على شغل الفريق بس + الـ upsell للمحترف مابيقترحش باقة فريق — `FreelancePlanFeaturesTest` (7).
   - [x] **705b** ✅ 2026-11-12 — عمولة عرض الفريق من باقة الفريق (قرار المالك) + ربط 9 مميزات + شارة/وزن الفريق + حقول الأدمن للفريق وقسم «مميزات إضافية». لسه `live: []`: `workroom_storage_mb` (NEEDS-DECISION: باقة مين) و`priority_support` وأرقام/CRM الفريق — [PLANS.md](modules/freelance/PLANS.md).
-  - [ ] **705c** — شاشة المقارنة والقفل في تطبيق المحترف (أندرويد + iOS).
+  - [x] **705c** ✅ 2026-11-12 — `GET plans` / `teams/{team}/subscription` بيرجّعوا `features` + `perks`؛ كارت «قارن بين الباقات» في «باقتي» وباقة الفريق (أندرويد + iOS)؛ رفض أي حد بيسمّي أقل باقة بتفتحه (`feature` + `upgrade` في الـ data وفي نص الرسالة) — [PLANS.md](modules/freelance/PLANS.md). iOS ماتبنيش (مفيش Xcode هنا).
 - [ ] **FS-706 — AI Proposal Assistant + Profile Optimization** · M · 👤 —
   - يكمّل قوالب العروض: اقتراح عرض من الـ Brief، تحسين البروفايل، تحليل العروض الخاسرة.
 

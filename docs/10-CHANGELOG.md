@@ -8,6 +8,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+- **Freelance FS-705c — plan comparison and limit upsell (owner 2026-11-12):** `GET plans` and `GET teams/{team}/subscription` now also return
+  `features` (the rows of a comparison table: only what works today) and, per plan, `perks` (what it gives; no key removed). A refusal for a plan
+  limit carries `feature` and `upgrade{slug,name}` in its data and names that plan in its message (`freelance.errors.upgrade_to`), for the ten
+  limit errors (portfolio, templates, consultations, special offers, loyalty tiers, capacity, CRM reminders, team projects, team offers, team
+  members). Freelancer apps (Android + iOS twin): a "Compare the plans" card under the plans in My plan and the team's plan. iOS not compiled
+  (no Xcode here). Docs: [PLANS.md](modules/freelance/PLANS.md).
+
 
 - **Freelance FS-705b (owner 2026-11-12):** an offer or agreement in a team's name is charged under the TEAM's plan commission only (a team on no
   plan pays the country's rate, whatever the Owner's own plan). Wired the catalog limits where they were fixed numbers: consultations at once,

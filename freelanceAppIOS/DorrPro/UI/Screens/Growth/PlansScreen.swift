@@ -217,6 +217,9 @@ struct PlansScreen: View {
             PlanCard(plan: plan, plans: data, period: period, live: live, busy: busy, onChoose: { confirm = plan })
         }
 
+        // FS-705c: the plans side by side, on every feature that works today.
+        PlanComparison(features: data.features ?? [], plans: (data.plans ?? []).map { PlanColumn(slug: $0.slug ?? "", name: $0.name ?? "", mine: $0.current ?? false, perks: $0.perks ?? [:]) })
+
         if let p = packs, p.enabled ?? false, !(p.packs ?? []).isEmpty {
             ExtraOffersCard(p: p, busy: busy) { pack in
                 buyRequest = UUID().uuidString

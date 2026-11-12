@@ -157,6 +157,8 @@ struct TeamPlanScreen: View {
             ForEach(plans) { plan in
                 TeamPlanCard(plan: plan, catalog: catalog, period: period, live: live, busy: busy, onChoose: { confirm = plan })
             }
+            // FS-705c: the plans side by side, on the team's work only.
+            PlanComparison(features: catalog.features ?? [], plans: plans.map { PlanColumn(slug: $0.slug ?? "", name: $0.name ?? "", mine: $0.current ?? false, perks: $0.perks ?? [:]) })
             Text(L("tpl_footer")).font(.dorr(12)).foregroundStyle(wa.settingsMut).lineSpacing(4)
         }
 

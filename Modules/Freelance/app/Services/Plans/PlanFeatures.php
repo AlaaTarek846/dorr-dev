@@ -260,6 +260,55 @@ class PlanFeatures
         return null;
     }
 
+    /**
+     * What a refusal for a plan limit carries so the app can offer the way out: the feature and the lowest plan that lifts it
+     * (`upgrade` null when no plan on sale does, or plans are not sold here). `$who` is the freelancer (their own plan) or the team.
+     *
+     * @return array{feature: string, upgrade: array{slug: string, name: ?string}|null}
+     */
+    public function upgradeHint(Freelancer|FreelanceTeam $who, string $key, int|bool|null $current): array
+    {
+        $audience = $who instanceof FreelanceTeam ? FreelancePlan::TEAM : FreelancePlan::FREELANCER;
+        $country = $who->country_id === null ? null : (int) $who->country_id;
+
+        return ['feature' => $key, 'upgrade' => $this->lowestPlanBeyond($audience, $key, $current, $country)];
+    }
+
+    /**
+     * The rows of the app's comparison table: the features whose checks read them today (what is "coming" is never shown), in the catalog's
+     * order, without the admin-only `column` flag.
+     *
+     * @return list<array{key: string, type: string, group: string, max: ?int, name: string, hint: ?string}>
+     */
+    public function comparisonFeatures(string $audience): array
+    {
+        $out = [];
+        foreach ($this->catalog($audience) as $f) {
+            if ($f['live']) {
+                unset($f['live'], $f['column']);
+                $out[] = $f;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * What a plan (null = no plan) gives per comparison feature: switch bool, level int, limit int (null = no cap), fee int (hundredths of
+     * a percent; null = the country's own).
+     *
+     * @return array<string, int|bool|null>
+     */
+    public function perksOf(?FreelancePlan $plan, string $audience, ?int $countryId): array
+    {
+        $row = [];
+        foreach ($this->comparisonFeatures($audience) as $f) {
+            $row[$f['key']] = $this->value($plan, $f['key'], $audience, $countryId);
+        }
+
+        return $row;
+    }
+
     /** @param  array<string, mixed>  $def */
     private function beats(array $def, int|bool|null $value, int|bool|null $than): bool
     {

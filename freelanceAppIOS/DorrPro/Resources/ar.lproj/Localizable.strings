@@ -1349,6 +1349,9 @@
 "plans_cancel_renewal" = "اقفل التجديد";
 "plans_commission" = "عمولة %1$@%%";
 "plans_commission_country" = "العمولة العادية";
+"plans_compare_mine" = "باقتك";
+"plans_compare_title" = "قارن بين الباقات";
+"plans_compare_unlimited" = "بلا حد";
 "plans_confirm_later" = "%1$@ (%2$@) هتبدأ يوم %3$@ بـ %4$@. مفيش خصم دلوقتي.";
 "plans_confirm_ok" = "تأكيد";
 "plans_confirm_pay" = "%1$@ (%2$@) بـ %3$@، هتتخصم من محفظتك دلوقتي.";
@@ -1363,6 +1366,14 @@
 "plans_extra_title" = "عروض إضافية";
 "plans_extra_unlimited" = "باقتك مفيهاش حد للعروض، فمش محتاج حزمة.";
 "plans_free_price" = "مجانية";
+"plans_group_money" = "الرسوم والفلوس";
+"plans_group_offers" = "العروض";
+"plans_group_other" = "أخرى";
+"plans_group_selling" = "البيع";
+"plans_group_support" = "الدعم";
+"plans_group_team" = "الفريق";
+"plans_group_tools" = "الأدوات";
+"plans_group_visibility" = "الظهور";
 "plans_invoice_credit" = "رصيد %1$@";
 "plans_invoice_failed" = "فشلت";
 "plans_invoice_purchase" = "اشتراك";
