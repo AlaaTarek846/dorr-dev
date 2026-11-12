@@ -834,10 +834,8 @@ private struct EvSaved: View {
             Spacer().frame(height: 14)
             EventList(items: items, loading: loading && items.isEmpty, onOpen: { go(.event($0.id)) }, empty: L("ev_saved_empty"),
                       onInterest: { e in if !e.interested { items.removeAll { $0.id == e.id } } })
-            if more {
-                WaButton(text: L("ev_more"), style: .ghost, loading: loadingMore) { if !loadingMore { Task { await load(page + 1) } } }
-                    .padding(.top, 4)
-            }
+            // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+            AutoLoadMore(hasMore: more && !loading, loading: loadingMore, tint: wa.red) { Task { await load(page + 1) } }
             Spacer().frame(height: 24)
         }
         .task(id: past) { await load(1) }
@@ -949,10 +947,8 @@ private struct EvSettings: View {
             }
             .waRise(0)
             .task { if kinds.isEmpty { await loadKinds(1) } }
-            if kindsMore {
-                WaButton(text: L("ev_more"), style: .ghost, loading: kindsLoading) { if !kindsLoading { Task { await loadKinds(kindsPage + 1) } } }
-                    .padding(.top, 10)
-            }
+            // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+            AutoLoadMore(hasMore: kindsMore, loading: kindsLoading, tint: wa.red) { Task { await loadKinds(kindsPage + 1) } }
         case .alerts:
             SettingsToggleCard {
                 SettingsToggleRow(icon: "bell.badge.fill", title: L("ev_alerts_on"), help: L("ev_alerts_sub"), on: prefs.alerts, divider: true) { on in
@@ -1161,10 +1157,8 @@ private struct EvOrganizer: View {
             ForEach(Array(events.enumerated()), id: \.element.id) { i, e in
                 EventRow(e: e, review: e.reviewStatus) { go(.event(e.id)) }.padding(.bottom, 8).waRise(min(i, 6))
             }
-            if more {
-                WaButton(text: L("ev_more"), style: .ghost, loading: loadingMore) { if !loadingMore { Task { await loadEvents(page + 1) } } }
-                    .padding(.top, 4)
-            }
+            // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+            AutoLoadMore(hasMore: more, loading: loadingMore, tint: wa.red) { Task { await loadEvents(page + 1) } }
         }
     }
 

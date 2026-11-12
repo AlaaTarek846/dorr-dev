@@ -82,6 +82,7 @@ class OnlineTransactionController extends Controller implements HasMiddleware
             'country_id' => ['nullable', 'integer'],
             'owner_type' => ['nullable', 'in:user,provider,freelancer'],
             'owner_id' => ['nullable', 'integer'],
+            'international' => ['nullable', 'boolean'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
             'search' => ['nullable', 'string', 'max:100'],

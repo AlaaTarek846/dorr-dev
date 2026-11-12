@@ -76,6 +76,11 @@ class OnlineTransactionService
             ->when($filters['country_id'] ?? null, fn (Builder $q, $v) => $q->where('country_id', $v))
             ->when($filters['owner_type'] ?? null, fn (Builder $q, $v) => $q->where('owner_type', $v))
             ->when($filters['owner_id'] ?? null, fn (Builder $q, $v) => $q->where('owner_id', $v))
+            // Only payments into the international (freelance) wallets: the hidden country row, matched by code so a read never creates it.
+            ->when(filter_var($filters['international'] ?? false, FILTER_VALIDATE_BOOLEAN), fn (Builder $q) => $q->whereHas(
+                'country',
+                fn (Builder $c) => $c->where('code', (string) config('freelance.money.country_code', 'INT')),
+            ))
             ->when($filters['from'] ?? null, fn (Builder $q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filters['to'] ?? null, fn (Builder $q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($filters['search'] ?? null, fn (Builder $q, string $v) => $q->where(

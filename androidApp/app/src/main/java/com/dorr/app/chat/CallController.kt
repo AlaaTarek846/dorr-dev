@@ -120,7 +120,11 @@ object CallController {
         // Usage stats (spec 83): a call counts from when it's through until it's over.
         if (next == CallPhase.Incoming) ringingIn = true else if (next == CallPhase.Outgoing) ringingIn = false
         if (changed && next == CallPhase.Active) ChatUsage.callStarted(ringingIn)
-        if (changed && next == CallPhase.Ended) ChatUsage.callEnded()
+        if (changed && next == CallPhase.Ended) {
+            ChatUsage.callEnded()
+            // After the first call (made or answered) the chat asks once to let calls show over other apps.
+            appContext?.let { CallPermissions.markHadCall(it) }
+        }
         if (changed) watch(next)
         // A new call opens full screen; a finished one leaves nothing minimised behind.
         if (next == null || next == CallPhase.Incoming || (changed && next == CallPhase.Outgoing)) minimized = false

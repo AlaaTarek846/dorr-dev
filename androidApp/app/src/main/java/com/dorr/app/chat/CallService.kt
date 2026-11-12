@@ -138,6 +138,15 @@ object CallPermissions {
 
     fun missing(context: Context): Boolean = !canOverlay(context) || !canFullScreen(context)
 
+    /** Where «a call has happened» and «already asked» are kept (ChatCallPermissionsUi reads them). */
+    const val PREFS = "dorr_calls"
+    const val HAD_CALL = "had_call"
+
+    /** The first call is over: from now on the chat may ask for these, once (asking before any call made no sense). */
+    fun markHadCall(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(HAD_CALL, true).apply()
+    }
+
     fun openOverlay(context: Context) {
         runCatching {
             context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

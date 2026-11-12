@@ -10,7 +10,7 @@
     <string name="wa_wallet_you_are_here">You are here</string>
     <string name="wa_wallet_rule">A wallet only sends to wallets of its own country, in its own currency.</string>
     <!-- The freelance international wallet (US dollars) -->
-    <string name="wa_intl_wallet_title">International wallet</string>
+    <string name="wa_intl_wallet_title">Dollar wallet</string>
     <string name="wa_intl_note">Your freelance wallet, in US dollars: freelance work is paid from it, and you top it up and withdraw from it. Money cannot be sent from it to anyone.</string>
     <string name="fl_intl_wallet">Freelance wallet</string>
     <string name="fl_intl_wallet_sub">In US dollars · every freelance payment</string>

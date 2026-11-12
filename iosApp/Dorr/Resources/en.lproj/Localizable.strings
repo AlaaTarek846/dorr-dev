@@ -6450,7 +6450,7 @@
 "wa_history_empty_title" = "No activity";
 "wa_history_title" = "Statement";
 "wa_intl_note" = "Your freelance wallet, in US dollars: freelance work is paid from it, and you top it up and withdraw from it. Money cannot be sent from it to anyone.";
-"wa_intl_wallet_title" = "International wallet";
+"wa_intl_wallet_title" = "Dollar wallet";
 "wa_load_failed" = "Couldn't load your wallet";
 "wa_method_coming_soon_toast" = "This payment method will be available soon";
 "wa_method_sandbox_sub" = "Test gateway — no real money is charged";

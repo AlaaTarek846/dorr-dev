@@ -15,7 +15,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.EmojiEvents
@@ -28,6 +27,7 @@ import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.vectorResource
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -38,8 +38,10 @@ import java.util.Locale
 import com.dorr.app.network.AppLocale
 
 /** Icon + tint for each ledger type, the same table as the preview's `TX_META`. */
+@Composable
 internal fun txMeta(type: String): Pair<ImageVector, Tone> = when (type) {
-    "topup" -> Icons.Rounded.Add to Tone.Green
+    // The same card-with-plus as the home «Top up» button.
+    "topup" -> ImageVector.vectorResource(com.dorr.app.R.drawable.ic_ms_add_card) to Tone.Green
     "topup_fee" -> Icons.Rounded.Receipt to Tone.Amber
     "topup_bonus" -> Icons.Rounded.CardGiftcard to Tone.Pink
     "transfer_out" -> Icons.Rounded.NorthEast to Tone.Red
