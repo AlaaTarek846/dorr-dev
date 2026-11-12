@@ -73,6 +73,16 @@ Owner's standing rule: mobile/web screens never ask the server on a timer (`whil
 
 ---
 
+## Paging — 15 at a time, loads by itself (no «show more»)
+
+Owner's standing rule: any paged list asks for **15 per page** (`per_page=15`) and the next 15 load **by themselves** when the user scrolls near the end — never a «عرض المزيد» / "Load more" button. One request at a time, a small spinner while a page is on its way, stop when `pagination.has_more_pages` is false.
+
+- A list in a normal scrolling page: put `AutoLoadMore` under its last row — Android `ui/components/AutoLoadMore.kt`, iOS `UI/Components/AutoLoadMore.swift`.
+- A `LazyColumn`: watch its own list state near the end (example: `NotificationsScreen.kt`).
+- Backend: paginated endpoints accept `page` / `per_page` and return `ApiPaginator::meta` (`has_more_pages`).
+
+---
+
 ## After Implementation
 
 1. Run `composer test` (and `npm run build` if frontend changed)

@@ -583,19 +583,16 @@ struct WaDivider: View {
     }
 }
 
-/// A country's flag (the same CDN the phone fields use).
+/// A country's flag (the same CDN the phone fields use); the dollar wallet ("INT") shows the US flag.
 struct WalletFlag: View {
     let code: String?
     var width: CGFloat = 26
     var height: CGFloat = 19
 
     var body: some View {
-        if let code, code.caseInsensitiveCompare("INT") == .orderedSame {
-            // The freelance international wallet has no flag: a globe.
-            Image(systemName: "globe").font(.system(size: min(width, height) * 0.9, weight: .semibold)).foregroundStyle(.white)
-                .frame(width: width, height: height)
-        } else if let code, !code.isEmpty {
-            AsyncImage(url: URL(string: "https://flagcdn.com/w80/\(code.lowercased()).png")) { phase in
+        if let code, !code.isEmpty {
+            let iso = code.caseInsensitiveCompare("INT") == .orderedSame ? "us" : code.lowercased()
+            AsyncImage(url: URL(string: "https://flagcdn.com/w80/\(iso).png")) { phase in
                 if let image = phase.image { image.resizable().scaledToFill() } else { Color.gray.opacity(0.15) }
             }
             .frame(width: width, height: height)

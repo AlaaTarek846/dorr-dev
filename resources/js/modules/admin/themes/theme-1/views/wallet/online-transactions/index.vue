@@ -23,7 +23,9 @@
         </div>
 
         <div class="card custom-card">
-            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+            <div class="card-header d-flex align-items-start justify-content-between gap-3 py-3">
+                <!-- Two rows: the search and the lists, then the two dates under them; the refresh button keeps its place at the end. -->
+                <div class="d-flex flex-column gap-2 flex-grow-1" style="min-width: 0">
                 <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
                     <div class="input-group input-group-sm catalog-toolbar-search">
                         <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
@@ -52,7 +54,7 @@
                     <Select
                         filter
                         :filter-placeholder="t('search_placeholder')"
-                        v-model="filters.owner_type"
+                        v-model="ownerChoice"
                         :placeholder="t('wallet.common.owner')"
                         show-clear
                         :options="ownerFilterOptions"
@@ -60,8 +62,22 @@
                         option-value="value"
                         class="wallet-filter-select"
                     />
+                    <Select
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        v-model="filters.country_id"
+                        :placeholder="t('wallet.wallets.country')"
+                        show-clear
+                        :options="countryOptions"
+                        option-label="name"
+                        option-value="id"
+                        class="wallet-filter-select"
+                    />
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
                     <AdminDatePicker v-model="filters.from" :placeholder="t('wallet.common.date_from')" />
                     <AdminDatePicker v-model="filters.to" :placeholder="t('wallet.common.date_to')" />
+                </div>
                 </div>
                 <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                     <button type="button" class="btn btn-sm btn-light" :title="t('wallet.common.refresh')" @click="reload">
@@ -296,6 +312,7 @@ const { can } = usePermission();
 const { showSuccess } = useToast();
 
 const statuses = ['pending', 'paid', 'failed', 'expired', 'refunded'];
+const USER_INTERNATIONAL = 'user_international';
 
 const statusFilterOptions = computed(() => [
     ...statuses.map((status) => ({ value: status, label: t(`wallet.status.${status}`) })),
@@ -304,9 +321,25 @@ const ownerFilterOptions = computed(() => [
     { value: 'user', label: t('wallet.owner.user') },
     { value: 'provider', label: t('wallet.owner.provider') },
     { value: 'freelancer', label: t('wallet.owner.freelancer') },
+    { value: USER_INTERNATIONAL, label: t('wallet.wallets.owner_user_international') },
 ]);
 const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('online-transactions', {
-    defaults: { search: '', status: null, owner_type: null, from: '', to: '' },
+    defaults: { search: '', status: null, owner_type: null, international: null, country_id: null, from: '', to: '' },
+});
+
+// Every active country plus the hidden international (INT) one, searchable by name.
+const countryOptions = ref([]);
+adminAxios.get('/api/general/v1/countries/dropdown', { params: { with_international: 1 } })
+    .then(({ data }) => { countryOptions.value = data.data ?? []; })
+    .catch(() => { countryOptions.value = []; });
+
+// "User international wallet" = owner user + only payments into the INT (freelance) wallets — same as the wallets page.
+const ownerChoice = ref(null);
+watch(ownerChoice, (choice) => {
+    const international = choice === USER_INTERNATIONAL;
+
+    filters.owner_type = international ? 'user' : choice;
+    filters.international = international ? 1 : null;
 });
 
 const canReconcile = computed(() => can('online-transactions.reconcile'));

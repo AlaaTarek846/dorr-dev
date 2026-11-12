@@ -180,6 +180,16 @@ struct WalletHome: View {
         .onChange(of: activeKey) { key in
             if let key, key != pageKey, walletKeys.contains(key) { withAnimation(.easeOut(duration: 0.3)) { pageKey = key } }
         }
+        // A wallet chosen in «My wallets»: one with a card — the pager slides to it (and switches); a new one — switch directly.
+        .onChange(of: host.pickKey) { key in
+            guard let key else { return }
+            host.pickKey = nil
+            if walletKeys.contains(key) {
+                withAnimation(.easeOut(duration: 0.3)) { pageKey = key }
+            } else if key != activeKey {
+                switchTo(key)
+            }
+        }
     }
 
     private func load() async {
@@ -272,14 +282,9 @@ private struct WaHeroCard: View {
         ZStack(alignment: .bottomLeading) {
             Circle().fill(Color.white.opacity(0.063)).frame(width: 150, height: 150).offset(x: -30, y: 50)
             VStack(alignment: .leading, spacing: 0) {
-                // Which wallet this card is: its country (or the world, for the dollar wallet) and its currency.
+                // Which wallet this card is: its country's flag (the US flag for the dollar wallet) and its currency.
                 HStack(spacing: 8) {
-                    if international {
-                        Image(systemName: "globe").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                            .frame(width: 24, height: 24).background(Color.white.opacity(0.18), in: Circle())
-                    } else {
-                        WalletFlag(code: balance.countryCode, width: 24, height: 17)
-                    }
+                    WalletFlag(code: international ? "INT" : balance.countryCode, width: 24, height: 17)
                     Text(international ? L("wa_intl_wallet_title") : L("wa_wallet_of", countryName(balance.countryCode)))
                         .font(.dorr(14, .heavy)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 8)
@@ -311,39 +316,46 @@ private struct WaHeroCard: View {
                                 copied = false
                             }
                         }
-                        // The international wallet receives nothing from others and has no country to switch: copy only.
+                        // The dollar wallet receives nothing from others: no QR or share — but it can switch to my other wallets.
                         if !international {
                             HeroCircle(icon: "qrcode") { host.push(.myQr) }
                             HeroCircle(icon: "square.and.arrow.up") { shareText(L("wa_qr_share_text", number)) }
-                            HeroCircle(icon: "arrow.left.arrow.right") { pickWallet = true }
                         }
+                        HeroCircle(icon: "arrow.left.arrow.right") { pickWallet = true }
                     }
                     .environment(\.layoutDirection, .leftToRight)
                 }
 
                 Color.white.opacity(0.16).frame(height: 1).padding(.vertical, 10)
 
-                HStack(spacing: 5) {
-                    Image(systemName: "wallet.pass.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
-                    Text(L("wa_total_balance")).font(.dorr(11, .semibold)).foregroundStyle(.white.opacity(0.92))
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.12), in: Capsule())
-                .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
-
-                HStack(alignment: .lastTextBaseline, spacing: 8) {
-                    if hidden {
-                        Text("******").font(.dorr(28, .heavy)).foregroundStyle(.white)
-                    } else {
-                        Text("").modifier(CountingMoney(value: shown)).font(.dorr(28, .heavy)).kerning(-0.3).foregroundStyle(.white).lineLimit(1)
+                // «Total balance» and, on the same line at the other end (the left in Arabic), the amount.
+                HStack(spacing: 8) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "wallet.pass.fill").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
+                        Text(L("wa_total_balance")).font(.dorr(11, .semibold)).foregroundStyle(.white.opacity(0.92))
                     }
-                    if !currency.isEmpty {
-                        Text(currency).font(.dorr(14, .bold)).foregroundStyle(.white.opacity(0.82))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    Spacer(minLength: 0)
+                    // One line whatever the amount: the currency keeps its room, the number shrinks (28 → 24) to fit.
+                    HStack(alignment: .lastTextBaseline, spacing: 6) {
+                        Group {
+                            if hidden {
+                                Text("******")
+                            } else {
+                                Text("").modifier(CountingMoney(value: shown)).kerning(-0.3)
+                            }
+                        }
+                        .font(.dorr(28, .heavy)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.86)
+                        if !currency.isEmpty {
+                            Text(currency).font(.dorr(14, .bold)).foregroundStyle(.white.opacity(0.82))
+                                .lineLimit(1).fixedSize().layoutPriority(1)
+                        }
                     }
+                    .environment(\.layoutDirection, .leftToRight)
                 }
-                .environment(\.layoutDirection, .leftToRight)
-                .padding(.top, 6)
                 .padding(.bottom, 10)
 
                 HStack(spacing: 0) {
@@ -553,11 +565,12 @@ private enum HistoryFilter: CaseIterable {
     var bucket: String? { self == .spendOnly ? "spend_only" : nil }
 }
 
-/// androidApp `WalletHistory.kt` — the statement: every posted movement, newest first, filterable, paged.
+/// androidApp `WalletHistory.kt` — the statement: every posted movement, newest first, filterable; 15 at a time, endless.
 @MainActor
 struct WalletHistory: View {
     @EnvironmentObject private var host: WalletHost
     @EnvironmentObject private var network: NetworkMonitor
+    @Environment(\.wa) private var wa
     @State private var filter = HistoryFilter.all
     @State private var rows: [WalletTransactionDto] = []
     @State private var page = 1
@@ -598,13 +611,12 @@ struct WalletHistory: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 4)
                 }
-                if hasMore {
-                    WaButton(text: L("wa_show_more"), style: .ghost, loading: loading) { page += 1 }.padding(.top, 12)
-                }
+                // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+                AutoLoadMore(hasMore: hasMore, loading: loading, tint: wa.red) { page += 1 }
             }
         }
         .task { if host.balance == nil { await host.refreshBalance() } }
-        // A filter change or "show more" re-runs this; page 1 replaces the list, later pages append. A
+        // A filter change or reaching the end re-runs this; page 1 replaces the list, later pages append. A
         // reconnect restarts from the first page so fresh rows replace the stale list.
         .task(id: "\(filter)-\(page)-\(network.reconnectTick)") {
             if network.reconnectTick != lastTick {

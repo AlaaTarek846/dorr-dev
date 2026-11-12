@@ -235,7 +235,7 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             host.joinToken?.let { token -> JoinGroupSheet(token) { host.joinToken = null } }
             // A call link was opened: who made it, then "Join".
             host.callLinkToken?.let { token -> CallLinkSheet(token) { host.callLinkToken = null } }
-            // Once: let calls show over other apps and the lock screen.
+            // Once, after the first call: let calls show over other apps and the lock screen.
             CallPermissionPrompt()
             // The admins answered my request to join.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {

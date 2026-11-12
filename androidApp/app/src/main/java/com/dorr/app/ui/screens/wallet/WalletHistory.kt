@@ -52,7 +52,7 @@ private enum class HistoryFilter(val label: Int, val icon: ImageVector, val dire
     SPEND_ONLY(R.string.wa_spend_only, Icons.Rounded.CardGiftcard, null, "spend_only"),
 }
 
-/** The statement: every posted movement, newest first, grouped by day, filterable, paged. */
+/** The statement: every posted movement, newest first, filterable; 15 at a time, the next 15 loading by themselves near the end. */
 @Composable
 fun WalletHistory() {
     val host = LocalWallet.current
@@ -69,7 +69,7 @@ fun WalletHistory() {
     val reconnectTick = collectReconnectTick()
     LaunchedEffect(reconnectTick) { page = 1 }
 
-    // A filter change or "show more" re-runs this; page 1 replaces the list, later pages append.
+    // A filter change or reaching the end re-runs this; page 1 replaces the list, later pages append.
     // No error card here on purpose: offline is covered by the app-wide
     // screen and a reconnect reloads, so a failed load keeps the skeleton
     // (loading stays true) until the next attempt succeeds.
@@ -114,10 +114,8 @@ fun WalletHistory() {
                         }
                     }
                 }
-                if (hasMore) {
-                    androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 12.dp))
-                    WaButton(stringResource(R.string.wa_show_more), { page += 1 }, style = WaButtonStyle.Ghost, loading = loading)
-                }
+                // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+                com.dorr.app.ui.components.AutoLoadMore(hasMore, loading, Wa.Red) { page += 1 }
             }
         }
     }

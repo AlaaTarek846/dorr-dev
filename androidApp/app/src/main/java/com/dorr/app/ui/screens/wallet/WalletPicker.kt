@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MyLocation
@@ -59,17 +58,13 @@ import kotlinx.coroutines.launch
  * it shows its own number and QR, receives, and sends to its own country's numbers and wallets.
  */
 
-/** A country's flag (the same CDN the phone fields use). */
+/** A country's flag (the same CDN the phone fields use); the dollar wallet ("INT") shows the US flag. */
 @Composable
 internal fun WalletFlag(code: String?, modifier: Modifier = Modifier) {
     if (code.isNullOrBlank()) return
-    // The freelance international wallet has no flag: a globe.
-    if (code.equals("INT", ignoreCase = true)) {
-        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Public, null, tint = androidx.compose.ui.graphics.Color.White, modifier = modifier.size(width = 16.dp, height = 16.dp))
-        return
-    }
+    val iso = if (code.equals("INT", ignoreCase = true)) "us" else code.lowercase()
     AsyncImage(
-        model = "https://flagcdn.com/w80/${code.lowercase()}.png", contentDescription = null, contentScale = ContentScale.Crop,
+        model = "https://flagcdn.com/w80/$iso.png", contentDescription = null, contentScale = ContentScale.Crop,
         modifier = modifier.size(width = 26.dp, height = 19.dp).clip(RoundedCornerShape(4.dp)),
     )
 }
@@ -119,18 +114,24 @@ internal fun WalletPickerCard(balance: WalletBalanceDto, modifier: Modifier = Mo
     if (open) WalletPickerSheet(balance) { open = false }
 }
 
-/** My wallets: the one of where I am first, then the others (with their balances), then my number's country. */
+/**
+ * All my wallets: the one of where I am first, then the others (with their balances), my number's country, and last
+ * the dollar wallet (when I have one) — so the dollar card can switch back and any card can reach it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit) {
     val host = LocalWallet.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val current = balance.countryCode?.uppercase()
+    val dollarOn = WalletCountry.international
+    val current = if (dollarOn) null else balance.countryCode?.uppercase()
     val here = WalletCountry.here?.uppercase()
     val others = balance.otherWallets.orEmpty().associateBy { it.countryCode?.uppercase() }
     val phoneCountry = AuthSession.user?.country?.code?.uppercase()
-    val options = listOfNotNull(here, current, *others.keys.toTypedArray(), phoneCountry).distinct()
+    // The dollar card's balance doesn't list the country wallets: the ones the host has seen fill in.
+    val options = listOfNotNull(here, current, *others.keys.toTypedArray(), *host.localCodes.toTypedArray(), phoneCountry)
+        .filter { it != "INT" }.distinct()
 
     LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
       WalletFont {
@@ -141,9 +142,11 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
             options.forEachIndexed { i, code ->
                 val on = code == current
                 val other = others[code]
+                val seen = host.balances[code]
                 val amount = when {
                     on -> money(balance.totalMinor) + " " + balance.currencyCode.orEmpty()
                     other != null -> money(other.totalMinor) + " " + other.currencyCode.orEmpty()
+                    seen != null -> money(seen.totalMinor) + " " + seen.currencyCode.orEmpty()
                     else -> stringResource(R.string.wa_wallet_new)
                 }
                 Row(
@@ -152,6 +155,7 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
                         .border(1.5.dp, if (on) Wa.Red else Color.Transparent, RoundedCornerShape(18.dp))
                         .clickable {
                             if (!on) {
+                                WalletCountry.international = false
                                 WalletCountry.select(context, code)
                                 scope.launch { host.refreshBalance() }
                             }
@@ -173,6 +177,31 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
                         Text(amount, color = Wa.Mut, fontSize = 12.5.sp)
                     }
                     if (on) Icon(Icons.Rounded.CheckCircle, null, tint = Wa.Red, modifier = Modifier.size(22.dp))
+                }
+            }
+            // The dollar wallet, last (not for whom the local currency is already the dollar).
+            if (host.intlWallet) {
+                val seen = if (dollarOn) balance else host.balances["INT"]
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp).waRise(options.size).clip(RoundedCornerShape(18.dp))
+                        .background(if (dollarOn) Wa.Red.copy(alpha = 0.08f) else Wa.Field)
+                        .border(1.5.dp, if (dollarOn) Wa.Red else Color.Transparent, RoundedCornerShape(18.dp))
+                        .clickable {
+                            if (!dollarOn) {
+                                WalletCountry.international = true
+                                scope.launch { host.refreshBalance() }
+                            }
+                            onDismiss()
+                        }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WalletFlag("INT")
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.wa_intl_wallet_title), color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(seen?.let { money(it.totalMinor) + " " + it.currencyCode.orEmpty() } ?: "USD", color = Wa.Mut, fontSize = 12.5.sp)
+                    }
+                    if (dollarOn) Icon(Icons.Rounded.CheckCircle, null, tint = Wa.Red, modifier = Modifier.size(22.dp))
                 }
             }
             Box(Modifier.fillMaxWidth().padding(top = 4.dp)) {

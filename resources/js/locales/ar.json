@@ -2478,6 +2478,7 @@
             "reason": "السبب (إجباري)",
             "reason_required": "السبب المكتوب إجباري (3 أحرف على الأقل).",
             "choose_bucket": "اختر نوع الرصيد",
+            "owner_user_international": "محفظة دولية للمستخدم",
             "empty_title": "لا توجد محافظ بعد",
             "apply_adjustment": "تنفيذ التسوية",
             "adjusted": "تم تسجيل التسوية.",
@@ -2645,7 +2646,7 @@
             "min_allowed_balance_user_minor": "الدين المسموح للمستخدم",
             "saved": "تم حفظ الإعدادات.",
             "saving": "جارٍ الحفظ...",
-            "search": "ابحث بكود الدولة…"
+            "search": "ابحث باسم الدولة أو كودها…"
         }
     },
     "notifications": {

@@ -349,10 +349,11 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
     color: var(--default-text-color, rgba(255, 255, 255, 0.85));
 }
 
-/* PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles). */
-.modal.show:has(.catalog-modal-header) .modal-dialog,
-.modal.show:has(.catalog-modal-header) .modal-content,
-.modal.show:has(.catalog-modal-header) .modal-body {
+/* PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles), nor to the
+   wallet forms that scroll (.wallet-scroll-form): there the body must clip and scroll under a fixed footer. */
+.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-dialog,
+.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-content,
+.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-body {
     overflow: visible;
 }
 

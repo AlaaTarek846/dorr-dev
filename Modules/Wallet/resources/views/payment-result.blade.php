@@ -7,7 +7,8 @@
     <style>
         @include('wallet::partials.theme-vars', ['theme' => $theme])
         * { box-sizing: border-box; }
-        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, rgba(var(--primary-rgb), .14), var(--bg) 60%); font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; color: var(--ink); }
+        html { height: 100%; }
+        body { margin: 0; min-height: 100%; padding: 16px 0; display: flex; align-items: center; justify-content: center; background: var(--bg); font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; color: var(--ink); }
         .card { width: min(92vw, 340px); margin: 1rem; padding: 28px 24px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 20px 50px rgba(var(--primary-rgb), .14); animation: rise .4s ease both; }
         @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
         .icon { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; }

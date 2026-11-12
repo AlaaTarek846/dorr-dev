@@ -42,6 +42,7 @@ class WalletController extends Controller implements HasMiddleware
             'owner_type' => ['nullable', 'in:user,provider,freelancer'],
             'owner_id' => ['nullable', 'integer'],
             'country_id' => ['nullable', 'integer'],
+            'international' => ['nullable', 'boolean'],
             'search' => ['nullable', 'string', 'max:100'],
         ]));
     }
