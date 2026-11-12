@@ -79,6 +79,8 @@
                                 <li class="mb-1"><i class="ri-team-line me-2 text-primary"></i>{{ p.team_members_max == null ? t('freelance.plans.team_members_unlimited') : t('freelance.plans.team_members_n', { n: p.team_members_max }) }}</li>
                                 <li class="mb-1"><i class="ri-folder-chart-line me-2 text-primary"></i>{{ p.team_projects_max == null ? t('freelance.plans.team_projects_unlimited') : t('freelance.plans.team_projects_n', { n: p.team_projects_max }) }}</li>
                                 <li class="mb-1"><i class="ri-send-plane-line me-2 text-primary"></i>{{ teamOffersText(p) }}</li>
+                                <li class="mb-1"><i class="ri-percent-line me-2 text-primary"></i>{{ commissionText(p) }}</li>
+                                <li class="mb-1"><i class="ri-medal-line me-2 text-primary"></i>{{ perksText(p) }}</li>
                                 <li class="mb-1"><i class="ri-gift-line me-2 text-primary"></i>{{ t('freelance.plans.trial_days', { n: p.trial_days }) }}</li>
                                 <li class="mb-1"><i class="ri-group-line me-2 text-primary"></i>{{ t('freelance.plans.on_plan_teams', { n: p.subscribers }) }}</li>
                             </ul>
@@ -381,7 +383,7 @@
                         <input v-model.number="form.offers_monthly" type="number" min="0" class="form-control" :disabled="form.offers_unlimited">
                         <div class="form-text">{{ editing.audience === 'team' ? t('freelance.plans.team_offers_hint') : t('freelance.plans.offers_monthly_hint') }}</div>
                     </div>
-                    <div v-if="editing.audience !== 'team'" class="col-md-4">
+                    <div class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.commission') }}</label>
                         <div class="input-group">
                             <input v-model="form.commission" type="text" inputmode="decimal" class="form-control" dir="ltr">
@@ -393,21 +395,21 @@
                         <label class="form-label">{{ t('freelance.plans.trial_label') }}</label>
                         <input v-model.number="form.trial_days" type="number" min="0" max="90" class="form-control">
                     </div>
-                    <div v-if="editing.audience !== 'team'" class="col-12">
+                    <div class="col-12">
                         <div class="form-check form-switch">
                             <input id="plan-badge" v-model="form.badge" class="form-check-input" type="checkbox">
                             <label class="form-check-label" for="plan-badge">{{ t('freelance.plans.badge') }}</label>
                         </div>
                         <div class="form-text">{{ t('freelance.plans.badge_hint') }}</div>
                     </div>
-                    <div v-if="editing.audience !== 'team'" class="col-md-4">
+                    <div class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.boost') }}</label>
                         <select v-model.number="form.boost" class="form-select">
                             <option v-for="n in [0, 1, 2, 3]" :key="n" :value="n">{{ n === 0 ? t('freelance.plans.boost_none') : n }}</option>
                         </select>
                         <div class="form-text">{{ t('freelance.plans.boost_hint') }}</div>
                     </div>
-                    <div v-if="editing.audience !== 'team'" class="col-md-4">
+                    <div class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.analytics') }}</label>
                         <select v-model.number="form.analytics" class="form-select">
                             <option :value="0">{{ t('freelance.plans.analytics_0') }}</option>
@@ -416,7 +418,7 @@
                         </select>
                         <div class="form-text">{{ t('freelance.plans.analytics_hint') }}</div>
                     </div>
-                    <div v-if="editing.audience !== 'team'" class="col-md-4">
+                    <div class="col-md-4">
                         <label class="form-label">{{ t('freelance.plans.crm') }}</label>
                         <select v-model.number="form.crm" class="form-select">
                             <option :value="0">{{ t('freelance.plans.crm_0') }}</option>
@@ -429,6 +431,44 @@
                         <label class="form-label">{{ t('freelance.plans.services_max') }}</label>
                         <input v-model="form.services_max" type="number" min="1" max="1000" class="form-control" :placeholder="t('freelance.plans.services_max_policy')">
                         <div class="form-text">{{ t('freelance.plans.services_max_hint') }}</div>
+                    </div>
+                    <!-- FS-705: the rest of the catalog - what the plan gives beyond its own fields. Empty = the plan does not set it, the country's rules apply. -->
+                    <div v-if="extraFeatures.length" class="col-12">
+                        <h6 class="fw-semibold fs-14 mt-2 mb-1">{{ t('freelance.plans.features_title') }}</h6>
+                        <p class="text-muted fs-12 mb-2">{{ editing.audience === 'team' ? t('freelance.plans.features_team_hint') : t('freelance.plans.features_hint') }}</p>
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-sm align-middle mb-0">
+                                <tbody>
+                                    <tr v-for="f in extraFeatures" :key="f.key">
+                                        <td class="ps-3" style="width: 55%">
+                                            <span class="d-block fw-semibold fs-13">{{ f.name }}</span>
+                                            <span v-if="f.hint" class="d-block text-muted fs-11">{{ f.hint }}</span>
+                                            <span v-if="!f.live" class="badge bg-warning-transparent fs-10 mt-1">{{ t('freelance.plans.feature_coming') }}</span>
+                                        </td>
+                                        <td class="pe-3">
+                                            <div v-if="f.type === 'switch'" class="form-check form-switch mb-0">
+                                                <input :id="`plan-f-${f.key}`" v-model="featureForm[f.key].given" class="form-check-input" type="checkbox">
+                                                <label class="form-check-label fs-12" :for="`plan-f-${f.key}`">{{ featureForm[f.key].given ? t('freelance.plans.feature_on') : t('freelance.plans.feature_unset') }}</label>
+                                            </div>
+                                            <div v-else class="d-flex align-items-center gap-2">
+                                                <select v-if="f.type === 'level'" v-model="featureForm[f.key].value" class="form-select form-select-sm">
+                                                    <option value="">{{ t('freelance.plans.feature_unset') }}</option>
+                                                    <option v-for="n in (f.max ?? 1) + 1" :key="n" :value="String(n - 1)">{{ n - 1 }}</option>
+                                                </select>
+                                                <template v-else>
+                                                    <input v-model="featureForm[f.key].value" type="number" min="0" class="form-control form-control-sm" dir="ltr" :disabled="featureForm[f.key].nocap" :placeholder="t('freelance.plans.feature_unset')">
+                                                    <div v-if="f.type === 'limit'" class="form-check mb-0 text-nowrap">
+                                                        <input :id="`plan-n-${f.key}`" v-model="featureForm[f.key].nocap" class="form-check-input" type="checkbox">
+                                                        <label class="form-check-label fs-11" :for="`plan-n-${f.key}`">{{ t('freelance.plans.no_cap') }}</label>
+                                                    </div>
+                                                    <span v-if="f.type === 'fee_bp'" class="text-muted fs-11">bp</span>
+                                                </template>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="col-12">
                         <div class="form-check form-switch">
@@ -545,7 +585,7 @@ const toMinor = (text, decimals = 2) => {
 
 // ---- the plans
 const loading = ref(false);
-const overview = reactive({ plans: [], revenue_30d: [], subscribers: 0, team_subscribers: 0 });
+const overview = reactive({ plans: [], revenue_30d: [], subscribers: 0, team_subscribers: 0, features_catalog: { freelancer: [], team: [] } });
 const subCounts = ref({});
 const shownPlans = computed(() => overview.plans.filter((p) => (p.audience ?? 'freelancer') === audience.value));
 const paidPlans = computed(() => shownPlans.value.filter((p) => !p.free));
@@ -604,7 +644,41 @@ function openEdit(p) {
     form.team_members_max = p.team_members_max == null ? '' : String(p.team_members_max);
     form.team_projects_max = p.team_projects_max == null ? '' : String(p.team_projects_max);
     form.status = !!p.status;
+    // FS-705: the catalog features beyond the plan's own fields: given = the plan sets it, nocap = a limit lifted.
+    Object.keys(featureForm).forEach((k) => delete featureForm[k]);
+    extraFeaturesOf(p).forEach((f) => {
+        const row = p.features?.[f.key] ?? { given: false, value: null };
+        featureForm[f.key] = {
+            given: !!row.given && (f.type !== 'switch' || !!row.value),
+            nocap: f.type === 'limit' && !!row.given && row.value == null,
+            value: row.given && row.value != null ? String(row.value) : '',
+        };
+    });
     editing.value = p;
+}
+
+const featureForm = reactive({});
+const extraFeaturesOf = (p) => (overview.features_catalog?.[p.audience] ?? []).filter((f) => !f.column);
+const extraFeatures = computed(() => (editing.value ? extraFeaturesOf(editing.value) : []));
+
+/** What to send for each extra feature: a value sets it, `null` lifts a limit's cap, `{ clear: true }` makes the plan stop setting it. */
+function featuresBody() {
+    const out = {};
+    extraFeaturesOf(editing.value).forEach((f) => {
+        const s = featureForm[f.key];
+        const before = editing.value.features?.[f.key]?.given;
+        if (f.type === 'switch') {
+            if (s.given) out[f.key] = 1;
+            else if (before) out[f.key] = { clear: true };
+        } else if (f.type === 'limit' && s.nocap) {
+            out[f.key] = null;
+        } else if (String(s.value ?? '').trim() !== '') {
+            out[f.key] = Number(s.value);
+        } else if (before) {
+            out[f.key] = { clear: true };
+        }
+    });
+    return out;
 }
 
 const numberOrNull = (v) => (String(v ?? '').trim() === '' ? null : Number(v));
@@ -612,13 +686,14 @@ const numberOrNull = (v) => (String(v ?? '').trim() === '' ? null : Number(v));
 async function savePlan() {
     const team = editing.value.audience === 'team';
     const percent = String(form.commission ?? '').trim().replace(',', '.');
-    if (!team && percent !== '' && !(Number(percent) >= 0 && Number(percent) <= 100)) {
+    if (percent !== '' && !(Number(percent) >= 0 && Number(percent) <= 100)) {
         showError(t('freelance.plans.commission_invalid'));
         return;
     }
     planSaving.value = true;
     try {
-        // A team plan has the room it opens and no commission, badge, boost, analytics, crm or services: those are a freelancer's.
+        // FS-705: both audiences carry the commission, badge, boost, numbers and CRM (a team's count on the team's work only). The team also
+        // has the room it opens; ready-made services are a freelancer's.
         const body = {
             name: form.name,
             description: form.description,
@@ -626,17 +701,16 @@ async function savePlan() {
             offers_monthly: form.offers_unlimited ? null : (form.offers_monthly ?? 0),
             trial_days: form.trial_days ?? 0,
             status: form.status,
+            commission_bp: percent === '' ? null : Math.round(Number(percent) * 100),
+            badge: form.badge,
+            boost: form.boost ?? 0,
+            analytics: form.analytics ?? 0,
+            crm: form.crm ?? 0,
+            features: featuresBody(),
         };
         Object.assign(body, team
             ? { team_members_max: numberOrNull(form.team_members_max), team_projects_max: numberOrNull(form.team_projects_max) }
-            : {
-                commission_bp: percent === '' ? null : Math.round(Number(percent) * 100),
-                badge: form.badge,
-                boost: form.boost ?? 0,
-                analytics: form.analytics ?? 0,
-                crm: form.crm ?? 0,
-                services_max: numberOrNull(form.services_max),
-            });
+            : { services_max: numberOrNull(form.services_max) });
         const response = await adminAxios.put(`${base}/${editing.value.id}`, body);
         showSuccess(extractApiMessage(response, t('toast.success')));
         editing.value = null;

@@ -31,6 +31,7 @@ use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Projects\Agreements;
 use Modules\Freelance\Services\Projects\ClientProjects;
 use Modules\Freelance\Services\Projects\ProjectStateMachine;
@@ -72,7 +73,7 @@ class SpecialOffers
         $p = $this->policies->for($countryId, null);
         $max = max(1, (int) ($p->get('special_offers.max_valid_days') ?? 14));
         // FS-705: a plan raises the offers a day, never lowers them (null = no cap).
-        $daily = $f === null ? max(1, (int) ($p->get('special_offers.daily_limit') ?? 10)) : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'special_offers_daily');
+        $daily = $f === null ? max(1, (int) ($p->get('special_offers.daily_limit') ?? 10)) : app(PlanFeatures::class)->forFreelancer($f, 'special_offers_daily');
 
         return [
             'daily_limit' => $daily === null ? PHP_INT_MAX : max(1, (int) $daily),

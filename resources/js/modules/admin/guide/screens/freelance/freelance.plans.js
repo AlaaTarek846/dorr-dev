@@ -40,21 +40,28 @@ export default {
                     { name: 'الاسم والوصف (عربي / إنجليزي)', desc: 'الاسمين إجباريين (لحد 60 حرف). الوصف اختياري (لحد 300 حرف). بيظهروا للمحترف في التطبيق بلغته.' },
                     { name: 'الأشخاص في الفريق / المشاريع مع بعض', desc: 'باقة الفريق بس. الفاضي = من غير حد، والأكبر بين الرقم ده ورقم السياسة هو اللي بيتطبق.' },
                     { name: 'عروض بلا حد / العروض المجانية في الشهر', desc: 'لو "بلا حد" اتفعّل الرقم بيتبعت فاضي وبيتقفل. غير كده الرقم من 0 لـ 100000. لو رقم سياسة الدولة أعلى بيتاخد هو.' },
-                    { name: 'العمولة %', desc: 'باقة المحترف بس، من 0 لـ 100. الفاضي = عمولة الدولة. العمولة بتقلّل بس ومش بتزوّد.' },
+                    { name: 'العمولة %', desc: 'باقة المحترف، وباقة الفريق على عروض الفريق واتفاقياته بس. من 0 لـ 100. الفاضي = عمولة الدولة. العمولة بتقلّل بس ومش بتزوّد.' },
                     { name: 'التجربة المجانية (أيام)', desc: 'من 0 لـ 90 يوم قبل أول دفع.' },
-                    { name: 'شارة الباقة', desc: 'باقة المحترف بس. بتظهر جنب اسم المحترف عند العملاء طول ما اشتراكه ساري.' },
-                    { name: 'أولوية الظهور', desc: 'باقة المحترف بس، من 0 لـ 3. وزن في ترتيب "الموصى بهم" بس؛ ترتيبات الأرخص والأسرع مش بتتأثر. أي قيد على الشغل أو إيقاف بيشيل الأولوية.' },
+                    { name: 'شارة الباقة', desc: 'باقة المحترف، وباقة الفريق على عروض الفريق بس. بتظهر جنب اسم المحترف عند العملاء طول ما اشتراكه ساري.' },
+                    { name: 'أولوية الظهور', desc: 'باقة المحترف، وباقة الفريق على عروض الفريق بس. من 0 لـ 3. وزن في ترتيب "الموصى بهم" بس؛ ترتيبات الأرخص والأسرع مش بتتأثر. أي قيد على الشغل أو إيقاف بيشيل الأولوية.' },
                     {
                         name: 'إحصائيات الأداء',
-                        desc: 'باقة المحترف بس. مقفولة (0) / أساسية (1: آخر 30 يوم) / كاملة (2: 30 و90 و365 يوم مع تفصيل الدخل حسب التخصص وأهم العملاء وتحليل المعرض). بتفتح شاشة "إحصائيات أدائي" في تطبيق المحترف.',
+                        desc: 'باقة المحترف (وباقة الفريق: الرقم بيتسجل لكن مش مطبّق على الفريق لسه). مقفولة (0) / أساسية (1: آخر 30 يوم) / كاملة (2: 30 و90 و365 يوم مع تفصيل الدخل حسب التخصص وأهم العملاء وتحليل المعرض). بتفتح شاشة "إحصائيات أدائي" في تطبيق المحترف.',
                     },
                     {
                         name: 'إدارة العملاء (CRM)',
-                        desc: 'باقة المحترف بس (مش بتتطبق على باقة الفريق ولا على المجانية). دفتر عملاء خاص بالمحترف في التطبيق، والعميل مبيشوفش منه حاجة. '
+                        desc: 'باقة المحترف (باقة الفريق بتتسجل لكن CRM الفريق مش مطبّق لسه، والمجانية مقفولة). دفتر عملاء خاص بالمحترف في التطبيق، والعميل مبيشوفش منه حاجة. '
                             + 'مقفولة (0): الشاشة بتظهر مقفولة وبتعرض أول باقة بتفتحها. '
                             + 'عملاء وملاحظات (1): قايمة العملاء (اللي اشتغل معاهم أو بيشتغل معاهم، والعملاء المحتملين اللي عرضه مستني أو دعوة لسه متردش عليها)، المشاريع السابقة مع كل عميل، ملاحظات (لحد 50 لكل عميل)، ونجمة. '
                             + 'عملاء وملاحظات وتذكيرات (2): كل اللي فوق + تصنيف العميل (VIP / عادي / محتمل / متوقف) وتذكيرات متابعة (لحد 30 مستنيين، لحد سنة قدام) والمحترف بيوصله إشعار مرة واحدة وقت التذكير. '
                             + 'الافتراضي: بلس = 1، برو = 2.',
+                    },
+                    {
+                        name: 'مميزات إضافية',
+                        desc: 'قايمة بباقي كتالوج الباقات (حسب نوع الباقة): قوالب العروض، العروض الخاصة في اليوم، درجات الولاء، أعمال المعرض، الاستشارات، المشاريع في نفس الوقت، '
+                            + 'تذكيرات المتابعة، مساحة الغرفة، أولوية الدعم، وللفريق: أعضاء العرض وأعمال معرض الفريق. كل صف: رقم (فاضي = الباقة ما بتحددهاش والبلد هي اللي بتحكم)، '
+                            + 'أو "بلا حد" في الأرقام، أو تشغيل في المفاتيح. الباقة بتزوّد على حدود البلد بس، عمرها ما تقلّلها. '
+                            + 'علامة "جاية" معناها إن الميزة بتتسجل لكن الكود لسه ما بيطبّقها: مش بتتحسب سبب لبيع الباقة.',
                     },
                     { name: 'أقصى عدد خدمات جاهزة', desc: 'باقة المحترف بس، من 1 لـ 1000. الفاضي = حسب سياسة الدولة، ولو رقم الدولة أعلى بيتاخد هو (الباقة عمرها ما بتقلّل الرقم).' },
                     { name: 'معروضة للفريلانسرز', desc: 'لو اتقفلت الباقة بتختفي عن المشتركين الجداد، واللي مشترك فيها بيكمّل لحد ما تخلص فترته.' },
@@ -130,7 +137,7 @@ export default {
             { level: 'warning', text: 'لو باقة اتقفلت ("معروضة" مطفية) مزاياها كلها (الشارة والأولوية والإحصائيات والـ CRM) بتقف عند مشتركيها فورًا، حتى لو لسه فترة اشتراكهم ماخلصتش.' },
             { level: 'info', text: 'مزايا الباقة بتيجي من اشتراك ساري بس (تجربة أو مدفوع أو فشل تجديد جوه أيام السماح)، وفي دولة مفتاح الاشتراكات فيها شغّال. غير كده المحترف على المجانية: CRM مقفول.' },
             { level: 'info', text: 'تقسيم مستويات الـ CRM (1 عملاء وملاحظات، 2 كمان تصنيفات وتذكيرات) قرار مبدئي ممكن يتغيّر من هنا من غير كود.' },
-            { level: 'info', text: 'مفيش حقل CRM لباقة الفريق ولا للمجانية: الخادم بيتجاهله لو اتبعت.' },
+            { level: 'info', text: 'باقة الفريق بتاخد العمولة والشارة والأولوية والأرقام والـ CRM كمان (من القرار: على شغل الفريق بس، مش على حسابات الأعضاء). المطبّق فعلاً للفريق دلوقتي: العمولة والشارة والأولوية والعروض والأعضاء والمشاريع؛ الأرقام والـ CRM بيتسجلوا بس لحد ما يتبنوا. الباقة المجانية بيتجاهل السيرفر أي حاجة بتتبعت ليها.' },
             { level: 'info', text: 'كل تعديل في باقة أو سعر بيتسجّل في سجل المراجعة.' },
         ],
     },
@@ -166,10 +173,10 @@ export default {
                     { name: 'Name and description (Arabic / English)', desc: 'Both names are required (up to 60 characters). The description is optional (up to 300). The freelancer sees them in the app in their own language.' },
                     { name: 'People in the team / Projects at once', desc: 'Team plans only. Empty = no cap; the larger of this and the policy\'s number applies.' },
                     { name: 'Unlimited offers / Free offers per month', desc: 'With "unlimited" on, the number is sent empty and locked. Otherwise 0 to 100000. If the country\'s own number is higher, that one is used.' },
-                    { name: 'Commission %', desc: 'Freelancer plans only, 0 to 100. Empty keeps the country\'s commission. It only lowers, never raises.' },
+                    { name: 'Commission %', desc: 'Freelancer plans, and team plans on the team offers and agreements only. 0 to 100. Empty keeps the country\'s commission. It only lowers, never raises.' },
                     { name: 'Free trial (days)', desc: '0 to 90 days before the first payment.' },
-                    { name: 'Plan badge', desc: 'Freelancer plans only. Shown by the freelancer\'s name to clients while the subscription is live.' },
-                    { name: 'Visibility priority', desc: 'Freelancer plans only, 0 to 3. A weight in the "Recommended" order only; cheapest / fastest orders are not affected. A work limit or suspension removes the priority.' },
+                    { name: 'Plan badge', desc: 'Freelancer plans, and team plans on the team offers only. Shown by the freelancer\'s name to clients while the subscription is live.' },
+                    { name: 'Visibility priority', desc: 'Freelancer plans, and team plans on the team offers only. 0 to 3. A weight in the "Recommended" order only; cheapest / fastest orders are not affected. A work limit or suspension removes the priority.' },
                     {
                         name: 'Performance numbers',
                         desc: 'Freelancer plans only. Locked (0) / Basic (1: last 30 days) / Full (2: 30, 90 and 365 days with earnings by specialty, top clients and portfolio analytics). Opens the "My performance" screen in the freelancer app.',
@@ -181,6 +188,13 @@ export default {
                             + 'Clients and notes (1): the client list (people they work or worked with, plus leads: a waiting offer or an unanswered invitation), past projects per client, notes (up to 50 per client) and a star. '
                             + 'Clients, notes and reminders (2): everything above + a client label (VIP / regular / lead / paused) and follow-up reminders (up to 30 pending, up to a year ahead), with one notification when a reminder is due. '
                             + 'Default: Plus = 1, Pro = 2.',
+                    },
+                    {
+                        name: 'More features',
+                        desc: 'The rest of the plan catalog (by plan type): offer templates, special offers a day, loyalty tiers, portfolio works, consultations, projects at once, '
+                            + 'follow-up reminders, workroom storage, priority support, and for teams: staff per offer and team portfolio works. Each row is a number (empty = the plan '
+                            + 'does not set it and the country decides), "No cap" on limits, or a switch. A plan only raises the country\'s limits, never lowers them. '
+                            + 'A "Coming" tag means the feature is stored but the code does not apply it yet: it never counts as a reason to sell the plan.',
                     },
                     { name: 'Most ready-made services', desc: 'Freelancer plans only, 1 to 1000. Empty = the country\'s policy; if the country\'s own number is higher it is used (a plan never lowers it).' },
                     { name: 'Offered to freelancers', desc: 'Turning it off hides the plan from new subscribers; current ones keep it until their period ends.' },
@@ -256,7 +270,7 @@ export default {
             { level: 'warning', text: 'When a plan is switched off ("Offered" off), all its perks (badge, priority, numbers, CRM) stop for its subscribers right away, even if their period has not ended.' },
             { level: 'info', text: 'A plan\'s perks come only from a live subscription (trial, paid, or a failed renewal inside its grace days), in a country where the subscriptions switch is on. Otherwise the freelancer is on Free: CRM locked.' },
             { level: 'info', text: 'The CRM level split (1 clients and notes, 2 also labels and reminders) is a provisional decision and can be changed here without code.' },
-            { level: 'info', text: 'There is no CRM field for team plans or the Free plan: the server ignores it if sent.' },
+            { level: 'info', text: 'A team plan now takes the commission, badge, priority, numbers and CRM too (owner decision: on the team\'s work only, never the members\' own accounts). Wired for teams today: commission, badge, priority, offers, people and projects; the numbers and the CRM are only stored until they are built. The server ignores anything sent for the Free plan.' },
             { level: 'info', text: 'Every plan and price change is written to the audit log.' },
         ],
     },

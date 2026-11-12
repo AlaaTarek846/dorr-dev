@@ -15,6 +15,7 @@ use Modules\Freelance\Models\FreelanceEarning as Earning;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Plans\FreelancePlans;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 
 /**
  * FS-703, the freelancer's private CRM. The list of clients is read, not stored: every client the freelancer works or worked with (an

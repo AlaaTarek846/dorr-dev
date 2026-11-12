@@ -91,6 +91,8 @@ class PlanFeatures
             $hint = __("freelance.plan_features.{$key}.hint");
             $out[] = [
                 'key' => $key, 'type' => $def['type'], 'group' => $def['group'] ?? 'other', 'max' => isset($def['max']) ? (int) $def['max'] : null,
+                // A feature kept in its own column of the plan is edited with the plan's own fields, the others in the features list.
+                'column' => isset($def['column']),
                 'live' => $this->isLive($key, $audience), 'name' => __("freelance.plan_features.{$key}.name"),
                 'hint' => $hint === "freelance.plan_features.{$key}.hint" ? null : $hint,
             ];

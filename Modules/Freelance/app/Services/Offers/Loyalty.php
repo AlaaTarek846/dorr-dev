@@ -15,6 +15,7 @@ use Modules\Freelance\Models\FreelanceOffer as Offer;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\User\Models\User;
 
@@ -69,7 +70,7 @@ class Loyalty
     {
         $p = $this->policies->for($countryId, null);
         // FS-705: a plan raises the steps of the program, never lowers them (null = no cap, but a program stays readable: 10 is the most).
-        $tiers = $f === null ? max(1, (int) ($p->get('loyalty.max_tiers') ?? 4)) : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'loyalty_tiers_max');
+        $tiers = $f === null ? max(1, (int) ($p->get('loyalty.max_tiers') ?? 4)) : app(PlanFeatures::class)->forFreelancer($f, 'loyalty_tiers_max');
 
         return [
             'min_discount_bp' => self::MIN_BP,

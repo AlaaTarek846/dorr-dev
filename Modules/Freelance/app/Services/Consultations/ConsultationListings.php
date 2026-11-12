@@ -15,6 +15,7 @@ use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Moderation\Sanctions;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
 use Modules\Freelance\Services\Offers\OfferChecks;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 
 /**
@@ -317,7 +318,7 @@ class ConsultationListings
     {
         $policy = max(1, (int) ($this->policies->for($countryId, null)->get('consultations.max_active') ?? 5));
         // FS-705: a plan raises the listings at once, never lowers them (null = no cap).
-        $plan = $f === null ? $policy : app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'consultations_max');
+        $plan = $f === null ? $policy : app(PlanFeatures::class)->forFreelancer($f, 'consultations_max');
 
         return $plan === null ? PHP_INT_MAX : max(1, (int) $plan);
     }

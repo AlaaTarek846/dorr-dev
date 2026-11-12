@@ -9,6 +9,7 @@ use Modules\Freelance\Models\FreelanceService as Service;
 use Modules\Freelance\Models\FreelanceWaitlistEntry as Entry;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\User\Models\User;
 
 /**
@@ -30,7 +31,7 @@ class FreelanceCapacity
     public static function maxChoice(?Freelancer $f = null): int
     {
         // FS-705: a plan can raise the highest capacity a freelancer may choose (never lower it).
-        return $f === null ? (int) config('freelance.capacity.max_choice', 20) : (int) (app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($f, 'capacity_max') ?? PHP_INT_MAX);
+        return $f === null ? (int) config('freelance.capacity.max_choice', 20) : (int) (app(PlanFeatures::class)->forFreelancer($f, 'capacity_max') ?? PHP_INT_MAX);
     }
 
     /** FL-L05: an active monthly subscription is one running project (between its months too); its months are not counted again. */

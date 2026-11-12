@@ -24,6 +24,8 @@ use Modules\Freelance\Models\FreelanceTeamSubscription;
 use Modules\Freelance\Models\FreelanceTeamSubscriptionInvoice;
 use Modules\Freelance\Services\Plans\FreelanceOfferPackDefaults;
 use Modules\Freelance\Services\Plans\FreelancePlanDefaults;
+use Modules\Freelance\Services\Plans\PlanFeatures;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The plans desk (FL-L01): what each plan gives, its price in every country (monthly and yearly), who is subscribed, and the money the
@@ -62,6 +64,8 @@ class FreelancePlanController extends Controller implements HasMiddleware
             'revenue_30d' => $revenue,
             'subscribers' => (int) $freelancerSubs->sum(),
             'team_subscribers' => (int) $teamSubs->sum(),
+            // FS-705: the catalog of what a plan can give, per audience (name, hint, type, group, and whether the checks read it yet).
+            'features_catalog' => ['freelancer' => app(PlanFeatures::class)->catalog(FreelancePlan::FREELANCER), 'team' => app(PlanFeatures::class)->catalog(FreelancePlan::TEAM)],
             'defaults' => ['yearly_discount_bp' => (int) config('freelance.plan_yearly_discount_bp'), 'grace_days' => (int) config('freelance.plan_grace_days')],
         ], __('api.retrieved'));
     }
@@ -86,13 +90,16 @@ class FreelancePlanController extends Controller implements HasMiddleware
             // FS-211 (a team plan): the people and the running projects it allows; empty = no cap.
             'team_members_max' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
             'team_projects_max' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100000'],
+            'features' => ['sometimes', 'array'],
         ]);
         if ($model->isTeam()) {
-            // A team plan has no commission, badge, boost, analytics or services: those are a freelancer's.
-            unset($data['commission_bp'], $data['badge'], $data['boost'], $data['analytics'], $data['crm'], $data['services_max']);
+            // FS-705: a team plan carries the commission, badge, boost, numbers and CRM too - they count on the team's work only. Ready-made services are a freelancer's.
+            unset($data['services_max']);
         } else {
             unset($data['team_members_max'], $data['team_projects_max']);
         }
+        $features = (array) ($data['features'] ?? []);
+        unset($data['features']);
         if ($model->isFree()) {
             // Free follows the policy and is always on.
             unset($data['offers_monthly'], $data['offers_unlimited'], $data['commission_bp'], $data['trial_days'], $data['status'], $data['badge'], $data['boost'], $data['analytics'], $data['crm'], $data['services_max']);
@@ -101,7 +108,39 @@ class FreelancePlanController extends Controller implements HasMiddleware
         $model->update($data);
         $this->audit->record('freelance_plan.updated', $model, $before, $model->only(array_keys($data)));
 
+        // FS-705: the catalog features (`freelance.plan_features`): a value sets it, `null` on a limit lifts the cap, `{"clear": true}` goes back to the country's.
+        $changed = $model->isFree() ? [] : $this->setFeatures($model, $features);
+        if ($changed !== []) {
+            $this->audit->record('freelance_plan.features_updated', $model, [], $changed);
+        }
+
         return ApiResponse::success($this->plan($model->refresh()), __('api.updated'));
+    }
+
+    /**
+     * Sets the catalog features the request names and returns what changed (key => value). A value sets it; `null` on a limit lifts the cap;
+     * `{"clear": true}` makes the plan stop setting it. A key that is not in the catalog, or not sold to this plan's audience, is a 422.
+     *
+     * @param  array<string, mixed>  $features
+     * @return array<string, mixed>
+     */
+    private function setFeatures(FreelancePlan $plan, array $features): array
+    {
+        $catalog = app(PlanFeatures::class);
+        $changed = [];
+        foreach ($features as $key => $value) {
+            if (! array_key_exists($key, $catalog->definitions()) || ! $catalog->sells($key, $plan->audience)) {
+                throw ValidationException::withMessages(["features.{$key}" => __('validation.in', ['attribute' => $key])]);
+            }
+            $clear = is_array($value) && ! empty($value['clear']);
+            if (! $clear && is_array($value)) {
+                throw ValidationException::withMessages(["features.{$key}" => __('validation.invalid')]);
+            }
+            $catalog->set($plan, $key, $clear ? null : $value, $clear);
+            $changed[$key] = $clear ? 'cleared' : $value;
+        }
+
+        return $changed;
     }
 
     /** GET freelance-plans/{plan}/prices[?search=&per_page=&page=] — every country with this plan's two prices (empty where not set). */
@@ -233,6 +272,8 @@ class FreelancePlanController extends Controller implements HasMiddleware
             'offers_monthly' => $p->offers_monthly, 'offers_unlimited' => $p->offers_unlimited, 'commission_bp' => $p->commission_bp, 'trial_days' => $p->trial_days, 'status' => $p->status,
             'badge' => (bool) $p->badge, 'boost' => (int) $p->boost, 'analytics' => (int) $p->analytics, 'crm' => (int) $p->crm, 'services_max' => $p->services_max,
             'team_members_max' => $p->team_members_max, 'team_projects_max' => $p->team_projects_max,
+            // FS-705: everything the plan gives in the catalog (key => {given, value}) with the catalog itself (names, types, which are live).
+            'features' => app(PlanFeatures::class)->matrix($p),
         ];
     }
 }

@@ -8,6 +8,7 @@ use Modules\Freelance\Models\FreelanceOfferTemplate as Template;
 use Modules\Freelance\Models\FreelanceProject as Project;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Chat\ContactGuard;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 
 /**
  * Helping a freelancer send a good offer (FL-304): what looks weak before it is sent (short details, no files, a price far from the
@@ -78,7 +79,7 @@ class OfferChecks
     public function saveTemplate(Freelancer $freelancer, array $data, ?Template $template = null): Template
     {
         $this->assertNoContact($data['title'].' '.$data['details']);
-        $max = app(ModulesFreelanceServicesPlansPlanFeatures::class)->forFreelancer($freelancer, 'offer_templates_max');
+        $max = app(PlanFeatures::class)->forFreelancer($freelancer, 'offer_templates_max');
         if ($template === null && $max !== null && template::query()->where('freelancer_id', $freelancer->id)->count() >= $max) {
             throw new freelanceexception('offer_templates_full', 422, ['max' => $max], ['max' => $max]);
         }

@@ -1,6 +1,6 @@
 # باقات المحترف والفريق — كتالوج المميزات (FS-705)
 
-> الحالة: **FS-705a اتنفّذ 2026-11-12** (الكتالوج + التخزين + الـ resolver + فتح Team Starter). باقي الشغل: **705b** (ربط المميزات الجديدة بأماكنها + شاشة مصفوفة الأدمن) و**705c** (شاشة المقارنة والقفل في تطبيق المحترف أندرويد + iOS).
+> الحالة: **FS-705a + 705b اتنفّذوا 2026-11-12** (الكتالوج + التخزين + الـ resolver + فتح Team Starter + ربط المميزات بأماكنها + حقول الأدمن). باقي الشغل: **705c** (شاشة المقارنة والقفل في تطبيق المحترف أندرويد + iOS) وميزات لسه `live: []`.
 > مفيش باقات جديدة: نفس الأربعة — `free` و`plus` و`pro` (للمحترف) و`team_starter` (للفريق).
 
 ## قرارات المالك (2026-11-12)
@@ -93,3 +93,27 @@
 | شارة/boost/أرقام/CRM للفريق | مفيش شارة ولا boost للفريق النهارده (`ServiceCatalog`، `ProjectInvitations`، `ClientOfferViews`) |
 
 قاعدة 705b: ما نقفلش ميزة مجانية موجودة النهارده (زي الـ Workload وصلاحيات الأدوار) — الباقة بتزوّد فوق المجاني بس.
+
+## 705b — اللي اتربط (2026-11-12)
+
+**قرار المالك:** عرض/اتفاقية باسم فريق = عمولتها من **باقة الفريق** بس (`FreelancePlans::withCommission($values, $freelancer, $team)`)، مش باقة الـ Owner الشخصية. فريق من غير باقة بيدفع عمولة الدولة حتى لو الـ Owner عنده Pro. اتطبّق في معاينة العرض (`FreelancerOffers::preview`)، وإرسال العرض وتعديله، ومعاينة الفريلانسر (`FreelancerOfferController::preview`)، ومسودة الاتفاقية (`Agreements::draft`). الاتفاقية بتنسخ العمولة وقت إنشائها زي الأول.
+
+| الميزة | المكان | الجمهور |
+|---|---|---|
+| `consultations_max` | `ConsultationListings::maxActive` | محترف |
+| `special_offers_daily` | `SpecialOffers::rules($countryId, $f)` | محترف |
+| `loyalty_tiers_max` | `Loyalty::rules($countryId, $f)` (سقف 10 شرائح مهما كانت الباقة) | محترف |
+| `portfolio_max` / `team_portfolio_max` | `FreelancerPortfolio::create` / `createForTeam` | محترف / فريق |
+| `offer_templates_max` | `OfferChecks::saveTemplate` | محترف |
+| `capacity_max` | `FreelanceCapacity::maxChoice($f)` | محترف |
+| `crm_reminders_max` | `FreelancerCrm::addReminder` | محترف |
+| `team_staff_max` | `TeamOffers::staff` | فريق |
+| `badge` / `boost` للفريق | `ClientOfferViews::badgeOf/boostOf` — عرض الفريق بياخد شارة ووزن باقة الفريق مش باقة الـ Owner | فريق |
+| `commission_bp` للفريق | شوف فوق | فريق |
+
+**لسه مش متطبّق (`live: []` — بيتخزّن ومابيتباعش):**
+- `workroom_storage_mb`: غرفة الشغل بين عميل ومحترف/فريق، ومش واضح باقة مين بتحكم (المحترف؟ العميل؟ الفريق؟). NEEDS-DECISION.
+- `priority_support`: مفيش نظام أولويات في الدعم النهارده. محتاج تصميم.
+- أرقام الأداء (`analytics`) و`crm` **للفريق**: أسطح جديدة (إحصائيات فريق، CRM مشترك) لسه ما اتبنوش.
+
+**الأدمن:** `PUT freelance-plans/{id}` بقى يقبل `features` ({key: قيمة | null = من غير حد | {clear: true}})؛ باقة الفريق بقت تقبل `commission_bp` و`badge` و`boost` و`analytics` و`crm`؛ الرد فيه `features` لكل باقة و`features_catalog` للجمهورين. الشاشة (`views/freelance/plans/index.vue`) فيها قسم «مميزات إضافية» وعلامة «جاية» على اللي مش متطبّق.

@@ -4,8 +4,10 @@ namespace Modules\Freelance\Services\Plans;
 
 use Modules\Freelance\Models\FreelancePlan;
 use Modules\Freelance\Models\FreelanceSubscription;
+use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
+use Modules\Freelance\Services\FreelancerTeam\TeamPlans;
 
 /**
  * Which plan a freelancer is on and what it changes (FL-L01). A freelancer with no live subscription — or in a country where the

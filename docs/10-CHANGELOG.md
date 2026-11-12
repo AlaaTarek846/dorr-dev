@@ -8,6 +8,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+- **Freelance FS-705b (owner 2026-11-12):** an offer or agreement in a team's name is charged under the TEAM's plan commission only (a team on no
+  plan pays the country's rate, whatever the Owner's own plan). Wired the catalog limits where they were fixed numbers: consultations at once,
+  special offers a day, loyalty tiers, portfolio (own and team's), offer templates, capacity, CRM reminders, staff per offer; a team offer shows
+  the team's badge and weighs by the team's boost. Admin: `PUT freelance-plans/{id}` takes `features`; team plans take commission, badge, boost,
+  numbers and CRM; the plans screen has a "More features" section with a "Coming" tag. Not live yet: workroom storage, priority support, the
+  team's numbers and CRM. Docs: [PLANS.md](modules/freelance/PLANS.md).
 - **Freelance FS-705a — plan features catalog (owner 2026-11-12, no new plans):** `config('freelance.plan_features')` lists what a plan
   can give (switch / level / limit / fee), who it is sold to (freelancer / team), its base with no plan, and where it is live. New table
   `freelance_plan_features` for the features beyond the old plan columns; `PlanFeatures` resolves them with one rule (a plan only ever

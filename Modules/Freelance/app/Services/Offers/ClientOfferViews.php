@@ -15,7 +15,9 @@ use Modules\Freelance\Models\FreelancerExperience;
 use Modules\Freelance\Services\Account\FreelancerCompleteness;
 use Modules\Freelance\Services\Account\FreelancerPortfolio;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
+use Modules\Freelance\Services\FreelancerTeam\TeamPlans;
 use Modules\Freelance\Services\Plans\FreelancePerks;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
 use Modules\Freelance\Services\Skills\FreelanceSkillBadges;
@@ -118,7 +120,7 @@ class ClientOfferViews
         if ($f !== null) {
             $out['freelancer'] += $this->summary($f, $project);
             // FL-L01 phase 4: the badge of the plan they hold.
-            $out['freelancer']['badge'] = $this->perks->badge($f);
+            $out['freelancer']['badge'] = $this->badgeOf($offer);
             // FL-306: the client keeps this freelancer.
             $out['freelancer']['is_favorite'] = app(ClientFavorites::class)->has($project->client, $f->id);
         }
@@ -168,7 +170,7 @@ class ClientOfferViews
             'bio' => $f->bio,
             'avatar_url' => $f->getFirstMediaUrl('avatar') ?: null,
             'verified' => $f->status?->value === 'verified',
-            'badge' => $this->perks->badge($f),
+            'badge' => $this->badgeOf($offer),
             // FL-L08: skills the freelancer passed the test of.
             'skill_badges' => app(FreelanceSkillBadges::class)->of($f),
             'city' => $f->city,
@@ -202,13 +204,39 @@ class ClientOfferViews
         return $offers;
     }
 
+    /**
+     * FS-705: the badge by an offer's name. An offer in a team's name carries the TEAM's plan badge, never the signing Owner's own
+     * (the team's plan counts on the team's work only).
+     *
+     * @return array{plan: string, name: ?string}|null
+     */
+    private function badgeOf(Offer $offer): ?array
+    {
+        if ($offer->team_id === null || $offer->team === null) {
+            return $this->perks->badge($offer->freelancer);
+        }
+        $plan = app(TeamPlans::class)->plan($offer->team);
+
+        return $plan !== null && app(PlanFeatures::class)->forTeam($offer->team, 'badge') ? ['plan' => $plan->slug, 'name' => $plan->text('name')] : null;
+    }
+
+    /** The weight of an offer in the «recommended» order: a team's offer weighs by the team's plan, a person's by their own. */
+    private function boostOf(Offer $offer): int
+    {
+        if ($offer->team_id === null || $offer->team === null) {
+            return $this->perks->boost($offer->freelancer);
+        }
+
+        return (int) app(PlanFeatures::class)->forTeam($offer->team, 'boost');
+    }
+
     /** Freelancers on a better plan first, then those with more verified skill badges; the newest first within the same weight (the sort is stable). @param Collection<int, Offer> $offers @return Collection<int, Offer> */
     private function recommended(Collection $offers): Collection
     {
         // The plan weighs most; the verified skill badges break a tie (FL-L08).
         $badges = app(FreelanceSkillBadges::class);
 
-        return $offers->sortByDesc(fn (Offer $o) => $o->freelancer === null ? 0 : $this->perks->boost($o->freelancer) * 1000 + min(999, $badges->count($o->freelancer)))->values();
+        return $offers->sortByDesc(fn (Offer $o) => $o->freelancer === null ? 0 : $this->boostOf($o) * 1000 + min(999, $badges->count($o->freelancer)))->values();
     }
 
     /** @return array<string, mixed> what helps compare freelancers on this project */

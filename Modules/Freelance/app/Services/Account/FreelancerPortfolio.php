@@ -15,6 +15,7 @@ use Modules\Freelance\Models\FreelanceTeam;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Models\FreelancerPortfolioItem as Item;
 use Modules\Freelance\Services\Notifications\FreelanceNotifier;
+use Modules\Freelance\Services\Plans\PlanFeatures;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
@@ -48,8 +49,10 @@ class FreelancerPortfolio
     /** @param  array<string, mixed>  $data */
     public function create(Freelancer $freelancer, array $data): Item
     {
-        if ($freelancer->portfolioItems()->count() >= (int) config('freelance.profile.max_portfolio', 30)) {
-            throw new FreelanceException('profile_limit', 422, ['max' => (int) config('freelance.profile.max_portfolio', 30)], ['max' => (int) config('freelance.profile.max_portfolio', 30)]);
+        // FS-705: a plan raises the works in the portfolio, never lowers them (null = no cap).
+        $max = app(PlanFeatures::class)->forFreelancer($freelancer, 'portfolio_max');
+        if ($max !== null && $freelancer->portfolioItems()->count() >= $max) {
+            throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max]);
         }
 
         return DB::transaction(function () use ($freelancer, $data) {
@@ -115,8 +118,9 @@ class FreelancerPortfolio
     public function createForTeam(FreelanceTeam $team, Freelancer $by, array $data): Item
     {
         unset($data['agreement_uuid']);
-        $max = (int) config('freelance.profile.max_portfolio', 30);
-        if ($team->portfolioItems()->count() >= $max) {
+        // FS-705: the team's plan raises the works in the team's portfolio (the team's work only).
+        $max = app(PlanFeatures::class)->forTeam($team, 'team_portfolio_max');
+        if ($max !== null && $team->portfolioItems()->count() >= $max) {
             throw new FreelanceException('profile_limit', 422, ['max' => $max], ['max' => $max]);
         }
 

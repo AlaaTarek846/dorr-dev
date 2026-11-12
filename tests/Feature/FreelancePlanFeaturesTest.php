@@ -7,7 +7,12 @@ use App\Models\Currency;
 use App\Models\Flag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Freelance\Models\FreelanceFeatureRule;
+use Modules\Freelance\Services\Plans\FreelancePlans;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Modules\Freelance\Models\FreelancePlan;
 use Modules\Freelance\Models\FreelancePlanFeature;
 use Modules\Freelance\Models\FreelancePlanPrice;
@@ -160,8 +165,10 @@ class FreelancePlanFeaturesTest extends TestCase
     {
         $limits = fn () => app(TeamPlans::class)->raises($this->team, $this->starter->refresh());
 
-        // Every team policy open: the room has nothing to lift. Team Starter's badge, boost, numbers and CRM are not wired for a team yet, so
-        // they do not count either - nobody pays for them before they work.
+        // Every team policy open: the room has nothing to lift. The plan's numbers and CRM are not wired for a team yet, so they do not count
+        // either - nobody pays for them before they work. (Its commission, badge and boost ARE wired: take them off to see only the rest.)
+        $this->starter->update(['commission_bp' => null, 'badge' => false, 'boost' => 0]);
+        $this->assertFalse($this->features->isLive('analytics', FreelancePlan::TEAM));
         $this->policy(['teams.members_max' => null, 'teams.projects_max' => null, 'teams.offers_monthly' => null]);
         $this->assertFalse($this->features->isLive('crm', FreelancePlan::TEAM));
         $this->assertFalse($limits());
@@ -225,7 +232,10 @@ class FreelancePlanFeaturesTest extends TestCase
             }
         }
         $team = array_column($this->features->catalog(FreelancePlan::TEAM), 'live', 'key');
-        $this->assertSame(['offers_monthly' => true, 'team_members_max' => true, 'team_projects_max' => true], array_filter($team));
+        $this->assertEqualsCanonicalizing(
+            ['offers_monthly', 'commission_bp', 'badge', 'boost', 'team_portfolio_max', 'team_members_max', 'team_projects_max', 'team_staff_max'],
+            array_keys(array_filter($team)),
+        );
         $this->assertArrayNotHasKey('services_max', $team);
     }
 
@@ -247,5 +257,83 @@ class FreelancePlanFeaturesTest extends TestCase
         $this->features->set($plus, 'portfolio_max', 75);
         $this->assertSame(['plans' => 0, 'prices' => 0, 'features' => 0], app(FreelancePlanDefaults::class)->seed());
         $this->assertSame(['given' => true, 'value' => 75], $this->features->raw($plus->refresh(), 'portfolio_max'));
+    }
+
+    public function test_an_offer_in_a_teams_name_is_charged_under_the_teams_plan_only(): void
+    {
+        $values = ['commission.type' => 'percent', 'commission.value' => 1000];
+        $plans = app(FreelancePlans::class);
+        // Sara has Pro (6%) on her own work; her team has Team Starter (5% here) - the team's offers use the team's.
+        $this->subscribe($this->sara, $this->pro);
+        $this->starter->update(['commission_bp' => 500]);
+        $this->subscribeTeam($this->starter);
+        $this->assertSame(600, $plans->withCommission($values, $this->sara)['commission.value']);
+        $this->assertSame(500, $plans->withCommission($values, $this->sara, $this->team)['commission.value']);
+        // A team on no plan pays the country's rate even when its Owner is on Pro: the Owner's plan is not the team's.
+        FreelanceTeamSubscription::query()->delete();
+        $this->assertSame(1000, $plans->withCommission($values, $this->sara, $this->team)['commission.value']);
+    }
+
+    public function test_the_wired_limits_read_the_plan_of_the_one_who_works(): void
+    {
+        $this->policy(['consultations.max_active' => 5, 'special_offers.daily_limit' => 10, 'loyalty.max_tiers' => 4]);
+        $this->features->set($this->plus, 'consultations_max', 10);
+        $this->features->set($this->plus, 'special_offers_daily', 20);
+        $this->features->set($this->plus, 'loyalty_tiers_max', 6);
+        $this->features->set($this->plus, 'capacity_max', 40);
+        $this->subscribe($this->sara, $this->plus);
+
+        $special = app(\Modules\Freelance\Services\Offers\SpecialOffers::class);
+        $loyalty = app(\Modules\Freelance\Services\Offers\Loyalty::class);
+        // Sara is on Plus: her limits are the plan's; Lina, with no plan, has the country's - even though they share a team.
+        $this->assertSame([20, 6], [$special->rules($this->saudi->id, $this->sara)['daily_limit'], $loyalty->rules($this->saudi->id, $this->sara)['max_tiers']]);
+        $this->assertSame([10, 4], [$special->rules($this->saudi->id, $this->lina)['daily_limit'], $loyalty->rules($this->saudi->id, $this->lina)['max_tiers']]);
+        $this->assertSame([10, 4], [$special->rules($this->saudi->id)['daily_limit'], $loyalty->rules($this->saudi->id)['max_tiers']]);
+        $this->assertSame([40, 20], [\Modules\Freelance\Services\Market\FreelanceCapacity::maxChoice($this->sara), \Modules\Freelance\Services\Market\FreelanceCapacity::maxChoice($this->lina)]);
+        // Not wired yet: never claimed live.
+        $this->assertFalse($this->features->isLive('workroom_storage_mb', FreelancePlan::FREELANCER));
+        $this->assertFalse($this->features->isLive('priority_support', FreelancePlan::TEAM));
+        foreach (['special_offers_daily', 'offer_templates_max', 'loyalty_tiers_max', 'portfolio_max', 'consultations_max', 'capacity_max', 'crm_reminders_max'] as $key) {
+            $this->assertTrue($this->features->isLive($key, FreelancePlan::FREELANCER), $key);
+        }
+        foreach (['team_portfolio_max', 'team_staff_max', 'badge', 'boost', 'commission_bp'] as $key) {
+            $this->assertTrue($this->features->isLive($key, FreelancePlan::TEAM), $key);
+        }
+    }
+
+    public function test_the_admin_sets_the_features_of_a_freelancer_plan_and_a_team_plan(): void
+    {
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $admin = Admin::create(['name' => 'Staff', 'email' => uniqid('a').'@example.com', 'password' => 'secret123', 'status' => 'active']);
+        foreach (['freelance-plans.view', 'freelance-plans.update'] as $permission) {
+            Permission::findOrCreate($permission, 'admin_api');
+            $admin->givePermissionTo($permission);
+        }
+        $this->app['auth']->forgetGuards();
+        Sanctum::actingAs($admin, [], 'admin_api');
+        $url = '/api/admin/v1/freelance-plans/';
+
+        // The list carries each plan's features and the catalog of each audience.
+        $list = $this->getJson(rtrim($url, '/'))->assertOk();
+        $this->assertArrayHasKey('portfolio_max', collect($list->json('data.plans'))->firstWhere('slug', 'plus')['features']);
+        $this->assertContains('team_staff_max', array_column($list->json('data.features_catalog.team'), 'key'));
+        $this->assertNotContains('team_staff_max', array_column($list->json('data.features_catalog.freelancer'), 'key'));
+
+        // A value, a lifted cap and a cleared feature on Plus.
+        $this->putJson($url.$this->plus->id, ['features' => ['portfolio_max' => 80, 'consultations_max' => null]])->assertOk()
+            ->assertJsonPath('data.features.portfolio_max', ['given' => true, 'value' => 80])->assertJsonPath('data.features.consultations_max', ['given' => true, 'value' => null]);
+        $this->putJson($url.$this->plus->id, ['features' => ['portfolio_max' => ['clear' => true]]])->assertOk()->assertJsonPath('data.features.portfolio_max.given', false);
+        $this->assertSame(2, \App\Models\AuditLog::query()->where('action', 'freelance_plan.features_updated')->count());
+
+        // A team plan now takes the commission and the perks (they count on the team's work); the freelancer-only ready-made services are not its.
+        $this->putJson($url.$this->starter->id, ['commission_bp' => 550, 'boost' => 3, 'features' => ['team_staff_max' => 40]])->assertOk()
+            ->assertJsonPath('data.commission_bp', 550)->assertJsonPath('data.boost', 3)->assertJsonPath('data.features.team_staff_max.value', 40);
+        // The wrong audience, an unknown key and a wrong value are refused; Free sets nothing.
+        $this->putJson($url.$this->plus->id, ['features' => ['team_staff_max' => 40]])->assertStatus(422);
+        $this->putJson($url.$this->starter->id, ['features' => ['portfolio_max' => 40]])->assertStatus(422);
+        $this->putJson($url.$this->plus->id, ['features' => ['nope' => 1]])->assertStatus(422);
+        $this->putJson($url.$this->plus->id, ['features' => ['crm' => 9]])->assertStatus(422);
+        $this->putJson($url.$this->free->id, ['features' => ['portfolio_max' => 99]])->assertOk();
+        $this->assertSame(['given' => false, 'value' => null], $this->features->raw($this->free, 'portfolio_max'));
     }
 }

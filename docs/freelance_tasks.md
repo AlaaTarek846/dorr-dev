@@ -313,7 +313,7 @@
   - ضبط مصفوفة (Free/Plus/Pro/Team) من لوحة الأدمن: عروض، عمولة، Boost، AI، CRM، Workspace، Roles، Workload، Support.
   - ➕ الأرقام النهائية بعد تحليل تكلفة ومنافسين (FS-004). Plus $9 وPro $24 نقطة بداية مش توصية.
   - [x] **705a — كتالوج المميزات** ✅ 2026-11-12: `plan_features` + جدول `freelance_plan_features` + `PlanFeatures` (قاعدة «الباقة بتحسّن بس») + Team Starter اتفتحت بمميزات Pro على شغل الفريق بس + الـ upsell للمحترف مابيقترحش باقة فريق — `FreelancePlanFeaturesTest` (7).
-  - [ ] **705b** — ربط المميزات الجديدة بأماكنها + مصفوفة الأدمن (NEEDS-DECISION: عمولة عرض الفريق من باقة الفريق بدل باقة الـ Owner).
+  - [x] **705b** ✅ 2026-11-12 — عمولة عرض الفريق من باقة الفريق (قرار المالك) + ربط 9 مميزات + شارة/وزن الفريق + حقول الأدمن للفريق وقسم «مميزات إضافية». لسه `live: []`: `workroom_storage_mb` (NEEDS-DECISION: باقة مين) و`priority_support` وأرقام/CRM الفريق — [PLANS.md](modules/freelance/PLANS.md).
   - [ ] **705c** — شاشة المقارنة والقفل في تطبيق المحترف (أندرويد + iOS).
 - [ ] **FS-706 — AI Proposal Assistant + Profile Optimization** · M · 👤 —
   - يكمّل قوالب العروض: اقتراح عرض من الـ Brief، تحسين البروفايل، تحليل العروض الخاسرة.
