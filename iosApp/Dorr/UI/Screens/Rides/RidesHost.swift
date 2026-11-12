@@ -181,6 +181,39 @@ struct RidesHost: View {
             default: break
             }
         }
+        // DORR AI's chat: "Book with DORR" — the trip it understood fills the booking in: the pickup is where the
+        // rider is now, the destination the place understood, and the prices open at once with the route drawn on
+        // the map (the confirmation — the destination can still be changed there). When no place was found, the
+        // assistant opens with the person's words.
+        .task(id: "\(link.prefill != nil)|\(state.features != nil)|\(resumed)") {
+            guard let action = link.prefill, resumed, state.features != nil, state.ride == nil else { return }
+            link.prefill = nil
+            state.servicePicked = true
+            state.resetBooking()
+            if let place = action.destination {
+                state.applyAiBooking(action.understood)
+                // The pickup first: where the rider is now (the map may not have placed it yet).
+                if state.pickup == nil, location.ready, let here = await location.current() {
+                    state.me = here
+                    state.pickup = RidePoint(lat: here.latitude, lng: here.longitude, address: await addressOf(here) ?? coordinateText(here))
+                }
+                state.editing = "destination"
+                let address = (place.address ?? "").isEmpty ? (place.name ?? "") : (place.address ?? "")
+                state.set(RidePoint(lat: place.lat, lng: place.lng, address: address, name: place.name))
+                if state.pickup != nil {
+                    state.loadQuotes()
+                } else {
+                    // No position (location off): the rider sets the pickup, the destination stays filled in.
+                    state.editing = "pickup"
+                    state.step = .search
+                }
+            } else if state.feature("ai_booking") {
+                state.smartText = action.text
+                state.smartOpen = true
+            } else {
+                state.step = .search
+            }
+        }
         // A tapped ride notification: that ride — an ended one shows its receipt and the rating (O-41).
         .task(id: link.pending) {
             guard let uuid = link.pending else { return }

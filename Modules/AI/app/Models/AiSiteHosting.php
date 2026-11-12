@@ -46,7 +46,8 @@ class AiSiteHosting extends Model
 
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(AiSiteHostingPlan::class, 'plan_id');
+        // withTrashed: a plan moved to the trash still names what the hosted site is on.
+        return $this->belongsTo(AiSiteHostingPlan::class, 'plan_id')->withTrashed();
     }
 
     public function publishedVersion(): BelongsTo
@@ -73,5 +74,19 @@ class AiSiteHosting extends Model
 
         return in_array($this->status, [self::STATUS_ACTIVE, self::STATUS_GRACE], true)
             || ($this->status === self::STATUS_CANCELLED && $this->ends_at !== null && $this->ends_at->isFuture());
+    }
+
+    /**
+     * The customer still has paid time on it: live, or paused by an admin before its end date. Removing it now would
+     * take away time that was paid for, so the admin delete of the site refuses until it has ended.
+     */
+    public function hasPaidTimeLeft(): bool
+    {
+        if ($this->isLive()) {
+            return true;
+        }
+
+        return $this->admin_suspended && $this->status !== self::STATUS_SUSPENDED
+            && $this->ends_at !== null && $this->ends_at->isFuture();
     }
 }

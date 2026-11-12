@@ -55,6 +55,13 @@
                             <span class="category-name">{{ t('sidebar.rides') }}</span>
                         </li>
 
+                        <li class="slide">
+                            <router-link :to="{ name: 'admin.guide', params: { service: 'rides' } }" class="side-menu__item">
+                                <i class="ri-road-map-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('guide.sidebar') }}</span>
+                            </router-link>
+                        </li>
+
                         <li v-for="item in ridesItems" v-show="can(item.permission)" :key="item.route" class="slide">
                             <router-link :to="{ name: item.route }" class="side-menu__item">
                                 <i :class="`${item.icon} side-menu__icon`"></i>
@@ -81,7 +88,34 @@
                             <span class="category-name">{{ t('sidebar.freelance') }}</span>
                         </li>
 
+                        <li class="slide">
+                            <router-link :to="{ name: 'admin.guide', params: { service: 'freelance' } }" class="side-menu__item">
+                                <i class="ri-road-map-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('guide.sidebar') }}</span>
+                            </router-link>
+                        </li>
+
                         <li v-for="item in freelanceItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
+                    <template v-if="showMarketingSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('adminMarketing.sidebar') }}</span>
+                        </li>
+
+                        <li class="slide">
+                            <router-link :to="{ name: 'admin.guide', params: { service: 'marketing' } }" class="side-menu__item">
+                                <i class="ri-road-map-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('guide.sidebar') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-for="item in marketingItems" v-show="can(item.permission)" :key="item.route" class="slide">
                             <router-link :to="{ name: item.route }" class="side-menu__item">
                                 <i :class="`${item.icon} side-menu__icon`"></i>
                                 <span class="side-menu__label">{{ t(item.label) }}</span>
@@ -93,79 +127,86 @@
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible" class="slide">
+                        <router-link :to="{ name: 'admin.guide', params: { service: 'ai' } }" class="side-menu__item">
+                            <i class="ri-road-map-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('guide.sidebar') }}</span>
+                        </router-link>
+                    </li>
+
+                    <li v-if="isAiVisible && canAny(['ai-settings.view', 'ai-plans.view', 'ai-site-offers.view', 'ai-site-requests.view', 'ai-ar.view', 'ai-world.view', 'ai-site-download.view', 'ai-sites.view', 'ai-site-hosting-plans.view', 'ai-site-hostings.view', 'ai-subscriptions.view', 'ai-usage-sessions.view', 'ai-trial-control.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-settings-3-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.core') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-settings.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-settings' }" class="side-menu__item">
                                     {{ t('sidebar.ai_items.settings') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-plans.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-plans.index' }" class="side-menu__item">
                                     {{ t('ai_plans.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-offers.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-offers.index' }" class="side-menu__item">
                                     {{ t('ai_site_offers.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-requests.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-requests.index' }" class="side-menu__item">
                                     {{ t('ai_site_requests.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-offers.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-edit-packs.index' }" class="side-menu__item">
                                     {{ t('ai_site_offers.packs_title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-ar.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-ar.index' }" class="side-menu__item">
                                     {{ t('ai_ar.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-world.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-world.index' }" class="side-menu__item">
                                     {{ t('ai_world.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-download.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-download.index' }" class="side-menu__item">
                                     {{ t('ai_site_download.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-sites.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-sites.index' }" class="side-menu__item">
                                     {{ t('ai_sites.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-hosting-plans.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-hosting-plans.index' }" class="side-menu__item">
                                     {{ t('ai_site_hosting.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-site-hostings.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-hostings.index' }" class="side-menu__item">
                                     {{ t('ai_site_hosting.hostings_title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-subscriptions.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-subscriptions.index' }" class="side-menu__item">
                                     {{ t('ai_subscriptions.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-usage-sessions.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-usage-sessions.index' }" class="side-menu__item">
                                     {{ t('ai_usage_sessions.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-trial-control.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-trial-control.index' }" class="side-menu__item">
                                     {{ t('ai_trial_control.title') }}
                                 </router-link>
@@ -173,44 +214,44 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-intents.view', 'ai-learned-intents.view', 'ai-routing-policies.view', 'ai-gateways.view', 'ai-routing-rules.view', 'ai-feature-flags.view', 'ai-domain-policies.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-route-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.routing') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-intents.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-intents.index' }" class="side-menu__item">
                                     {{ t('ai_intents.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-learned-intents.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-learned-intents.index' }" class="side-menu__item">
                                     {{ t('ai_learned_intents.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-routing-policies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-routing-policies.index' }" class="side-menu__item">
                                     {{ t('ai_routing_policies.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-gateways.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-gateways.index' }" class="side-menu__item">
                                     {{ t('ai_gateways.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-routing-rules.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-routing-rules.index' }" class="side-menu__item">
                                     {{ t('ai_routing_rules.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-feature-flags.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-feature-flags.index' }" class="side-menu__item">
                                     {{ t('ai_feature_flags.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-domain-policies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-domain-policies.index' }" class="side-menu__item">
                                     {{ t('ai_domain_policies.title') }}
                                 </router-link>
@@ -218,29 +259,29 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-safety-policies.view', 'ai-safety-rules.view', 'ai-safety-events.view', 'ai-safety-scans.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-shield-check-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.safety') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-safety-policies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-safety-policies.index' }" class="side-menu__item">
                                     {{ t('ai_safety_policies.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-safety-rules.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-safety-rules.index' }" class="side-menu__item">
                                     {{ t('ai_safety_rules.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-safety-events.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-safety-events.index' }" class="side-menu__item">
                                     {{ t('ai_safety_events.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-safety-scans.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-safety-scans.index' }" class="side-menu__item">
                                     {{ t('ai_safety_scans.title') }}
                                 </router-link>
@@ -248,29 +289,29 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-security-policies.view', 'ai-data-policies.view', 'ai-provider-data-rules.view', 'ai-security-events.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-lock-2-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.security') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-security-policies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-security-policies.index' }" class="side-menu__item">
                                     {{ t('ai_security_policies.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-data-policies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-data-policies.index' }" class="side-menu__item">
                                     {{ t('ai_data_policies.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-provider-data-rules.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-provider-data-rules.index' }" class="side-menu__item">
                                     {{ t('ai_provider_data_rules.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-security-events.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-security-events.index' }" class="side-menu__item">
                                     {{ t('ai_security_events.title') }}
                                 </router-link>
@@ -278,39 +319,39 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-requests.view', 'ai-responses.view', 'ai-usage.view', 'ai-verifications.view', 'ai-code-executions.view', 'ai-audit-events.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-exchange-2-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.requests') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-requests.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-requests.index' }" class="side-menu__item">
                                     {{ t('ai_requests.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-responses.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-responses.index' }" class="side-menu__item">
                                     {{ t('ai_responses.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-usage.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-usage.index' }" class="side-menu__item">
                                     {{ t('ai_usage.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-verifications.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-verifications.index' }" class="side-menu__item">
                                     {{ t('ai_verifications.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-code-executions.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-code-executions.index' }" class="side-menu__item">
                                     {{ t('ai_code_executions.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-audit-events.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-audit-events.index' }" class="side-menu__item">
                                     {{ t('ai_audit_events.title') }}
                                 </router-link>
@@ -318,24 +359,24 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-conversation-contexts.view', 'ai-conversation-attachments.view', 'ai-conversation-instructions.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-chat-3-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.conversations') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-conversation-contexts.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-conversation-contexts.index' }" class="side-menu__item">
                                     {{ t('ai_conversation_contexts.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-conversation-attachments.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-conversation-attachments.index' }" class="side-menu__item">
                                     {{ t('ai_conversation_attachments.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-conversation-instructions.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-conversation-instructions.index' }" class="side-menu__item">
                                     {{ t('ai_conversation_instructions.title') }}
                                 </router-link>
@@ -343,29 +384,29 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-provider-logs.view', 'ai-provider-health.view', 'ai-failovers.view', 'ai-reliability-metrics.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-pulse-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.monitoring') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-provider-logs.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-provider-logs.index' }" class="side-menu__item">
                                     {{ t('ai_provider_logs.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-provider-health.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-provider-health.index' }" class="side-menu__item">
                                     {{ t('ai_provider_health.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-failovers.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-failovers.index' }" class="side-menu__item">
                                     {{ t('ai_failovers.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-reliability-metrics.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-reliability-metrics.index' }" class="side-menu__item">
                                     {{ t('ai_reliability_metrics.title') }}
                                 </router-link>
@@ -373,29 +414,29 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-languages.view', 'ai-language-variants.view', 'ai-user-language-preferences.view', 'ai-language-evaluations.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-translate-2 side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.language') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-languages.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-languages.index' }" class="side-menu__item">
                                     {{ t('ai_languages.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-language-variants.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-language-variants.index' }" class="side-menu__item">
                                     {{ t('ai_language_variants.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-user-language-preferences.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-user-language-preferences.index' }" class="side-menu__item">
                                     {{ t('ai_user_language_preferences.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-language-evaluations.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-language-evaluations.index' }" class="side-menu__item">
                                     {{ t('ai_language_evaluations.title') }}
                                 </router-link>
@@ -403,34 +444,34 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-files.view', 'ai-file-processing.view', 'ai-knowledge-sources.view', 'ai-knowledge-chunks.view', 'ai-document-generations.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-folder-open-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.knowledge') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-files.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-files.index' }" class="side-menu__item">
                                     {{ t('ai_files.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-file-processing.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-file-processing.index' }" class="side-menu__item">
                                     {{ t('ai_file_processing.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-knowledge-sources.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-knowledge-sources.index' }" class="side-menu__item">
                                     {{ t('ai_knowledge_sources.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-knowledge-chunks.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-knowledge-chunks.index' }" class="side-menu__item">
                                     {{ t('ai_knowledge_chunks.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-document-generations.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-document-generations.index' }" class="side-menu__item">
                                     {{ t('ai_document_generations.title') }}
                                 </router-link>
@@ -438,19 +479,19 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-project-instructions.view', 'ai-project-context.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-folder-3-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.projects') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-project-instructions.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-project-instructions.index' }" class="side-menu__item">
                                     {{ t('ai_project_instructions.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-project-context.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-project-context.index' }" class="side-menu__item">
                                     {{ t('ai_project_context.title') }}
                                 </router-link>
@@ -458,19 +499,19 @@
                         </ul>
                     </li>
 
-                    <li v-if="isAiVisible" class="slide has-sub">
+                    <li v-if="isAiVisible && canAny(['ai-benchmark-cases.view', 'ai-benchmark-runs.view'])" class="slide has-sub">
                         <a href="javascript:void(0);" class="side-menu__item" @click.prevent="toggleSubMenu">
                             <i class="ri-flask-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai_groups.benchmark') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
                         </a>
                         <ul class="slide-menu child1">
-                            <li class="slide">
+                            <li v-show="can('ai-benchmark-cases.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-benchmark-cases.index' }" class="side-menu__item">
                                     {{ t('ai_benchmark_cases.title') }}
                                 </router-link>
                             </li>
-                            <li class="slide">
+                            <li v-show="can('ai-benchmark-runs.view')" class="slide">
                                 <router-link :to="{ name: 'admin.ai-benchmark-runs.index' }" class="side-menu__item">
                                     {{ t('ai_benchmark_runs.title') }}
                                 </router-link>
@@ -790,7 +831,7 @@ import { useAdminServiceSelectionStore } from '../../../stores/adminServiceSelec
 import { usePermission } from '../../../composables/usePermission';
 
 const { t } = useI18n();
-const { can } = usePermission();
+const { can, canAny } = usePermission();
 const authStore = useAuthStore();
 const selectionStore = useAdminServiceSelectionStore();
 const { selectedService } = storeToRefs(selectionStore);
@@ -974,6 +1015,17 @@ const showMovingSection = computed(
 
 const showFreelanceSection = computed(
     () => selectedModuleName.value === 'freelance' && freelanceItems.some((item) => can(item.permission)),
+);
+
+/** AI Marketing Director (Modules/Marketing), shown when the header service is the marketing one. */
+const marketingItems = [
+    { route: 'admin.marketing.countries', permission: 'marketing-feature-rules.view', icon: 'ri-toggle-line', label: 'adminMarketing.countries.title' },
+    { route: 'admin.marketing.packages', permission: 'marketing-packages.view', icon: 'ri-vip-crown-2-line', label: 'adminMarketing.packages.title' },
+    { route: 'admin.marketing.operations', permission: 'marketing-operations.view', icon: 'ri-pulse-line', label: 'adminMarketing.operations.title' },
+];
+
+const showMarketingSection = computed(
+    () => selectedModuleName.value === 'marketing' && marketingItems.some((item) => can(item.permission)),
 );
 
 const showRidesSection = computed(

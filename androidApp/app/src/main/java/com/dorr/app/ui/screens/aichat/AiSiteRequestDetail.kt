@@ -62,7 +62,7 @@ import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.chat.chatAuth
 import com.dorr.app.ui.screens.wallet.PadResult
 import com.dorr.app.ui.screens.wallet.walletAuth
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -315,17 +315,31 @@ internal fun SiteRequestDetail(night: Boolean, id: Int, onClosed: () -> Unit) {
         }
     }
 
+    // No timer: one read on open (and the chat when its tab opens), then one more only when the server says this
+    // request changed (`ai_site_request.changed` on my private channel — every new message, status move, payment
+    // or refund) or when the real-time connection comes back (the catch-up).
+    LaunchedEffect(id) { refresh() }
+
+    LaunchedEffect(id, tab) {
+        if (tab == 2) refreshMessages()
+    }
+
     LaunchedEffect(id) {
-        while (true) {
-            refresh()
-            delay(20_000)
+        com.dorr.app.chat.ChatRealtime.events.collect { event ->
+            val changed = event.data.get("request_id")?.takeIf { it.isJsonPrimitive }?.asInt
+            if (event.name == "ai_site_request.changed" && changed == id) {
+                refresh()
+                if (tab == 2) refreshMessages()
+            }
         }
     }
 
-    LaunchedEffect(id, tab) {
-        while (tab == 2) {
-            refreshMessages()
-            delay(8_000)
+    LaunchedEffect(id) {
+        com.dorr.app.chat.ChatRealtime.connected.drop(1).collect { up ->
+            if (up) {
+                refresh()
+                if (tab == 2) refreshMessages()
+            }
         }
     }
 

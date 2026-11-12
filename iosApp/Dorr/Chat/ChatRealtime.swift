@@ -34,6 +34,14 @@ final class ChatRealtime: NSObject, ObservableObject {
         "support.ticket.created", "support.message", "support.ticket.updated",
         // Watch & Earn: one of my ads changed (status, views, spend) — its pages reload once.
         "watch_earn.ad.changed",
+        // AI marketing director: a research run or a plan job of one of my projects moved — its page reloads once.
+        "marketing.job.changed",
+        // A marketing budget crossed its alert line or its cap — the open budget pages reload once.
+        "marketing.budget.alert",
+        // A marketing ad platform connected (OAuth came back) or a campaign moved — its pages reload once.
+        "marketing.integration.changed", "marketing.campaign.changed",
+        // A website request built with a person got a new message (or moved / was paid / refunded) — its page reloads once.
+        "ai_site_request.changed",
     ]
 
     /// A ride's private channel while its screen is open: status, the car's place, its chat.

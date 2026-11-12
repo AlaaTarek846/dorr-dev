@@ -28,7 +28,7 @@ class AiPlanPricingResource extends AiPlanResource
     public static function collectionFor(iterable $plans, ?Country $country): array
     {
         return Collection::make($plans)
-            ->map(fn ($plan) => (new static($plan, $country))->toArray(request()))
+            ->map(fn ($plan) => (new static($plan, $country))->resolve(request()))
             ->values()
             ->all();
     }

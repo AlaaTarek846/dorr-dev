@@ -44,6 +44,10 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
             Route::post('/', [ClientProjectController::class, 'store'])->middleware('throttle:30,1,freelance-project-create');
             Route::get('budget-rules', [ClientProjectController::class, 'budgetRules']);
             Route::get('cost-quote', [ClientProjectController::class, 'costQuote']);
+            // FS-401 / FS-501: DORR AI for the client (a DORR AI plan pays) - the project written from an idea, the best people for a project.
+            Route::get('ai/status', [\Modules\Freelance\Http\Controllers\Client\ClientAiController::class, 'status']);
+            Route::post('ai/build', [\Modules\Freelance\Http\Controllers\Client\ClientAiController::class, 'build'])->middleware(['freelance.feature:ai_project_builder', 'throttle:10,1,freelance-ai-build']);
+            Route::get('{uuid}/matches', [\Modules\Freelance\Http\Controllers\Client\ClientAiController::class, 'matches'])->whereUuid('uuid')->middleware(['freelance.feature:smart_matching', 'throttle:20,1,freelance-ai-match']);
             Route::get('{uuid}', [ClientProjectController::class, 'show'])->whereUuid('uuid');
             Route::put('{uuid}', [ClientProjectController::class, 'update'])->whereUuid('uuid');
             Route::delete('{uuid}', [ClientProjectController::class, 'destroy'])->whereUuid('uuid');
@@ -142,6 +146,9 @@ Route::middleware('locale')->prefix('mobile/v1/freelance')->group(function () {
                 Route::delete('{decision}', [$c, 'destroy'])->whereUuid(['uuid', 'decision'])->middleware('throttle:60,1,freelance-workroom-decision');
             });
             Route::get('{uuid}/workroom/timeline', [\Modules\Freelance\Http\Controllers\WorkroomTimelineController::class, 'index'])->whereUuid('uuid')->middleware('freelance.feature:workroom');
+            // FS-801: the AI Project Manager's summary of the running project (DORR AI, the client's plan; reading only).
+            Route::get('{uuid}/workroom/ai/summary', [\Modules\Freelance\Http\Controllers\Client\ClientAiController::class, 'summary'])->whereUuid('uuid')
+                ->middleware(['freelance.feature:workroom', 'freelance.feature:ai_project_manager', 'throttle:20,1,freelance-ai-summary']);
             Route::post('{uuid}/agreement/changes', [ChangeRequestController::class, 'store'])->whereUuid('uuid')->middleware('throttle:20,1,freelance-change');
             Route::get('{uuid}/agreement/changes/{change}/files/{media}', [ChangeRequestController::class, 'file'])->whereUuid(['uuid', 'change'])->whereNumber('media');
             Route::post('{uuid}/agreement/changes/{change}/{action}', [ChangeRequestController::class, 'answer'])->whereUuid(['uuid', 'change'])->whereIn('action', ['accept', 'reject', 'withdraw']);

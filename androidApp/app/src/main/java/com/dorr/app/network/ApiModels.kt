@@ -49,6 +49,8 @@ data class ApiFailure(
     val lockedUntil: String? = null,
     /** `data.retry_after` (seconds) on a `chat_slow_mode` (429) answer. */
     val retryAfter: Int? = null,
+    /** The whole `data` object of the error (e.g. `errors[{line, field}]` of a refused results file). */
+    val data: com.google.gson.JsonObject? = null,
 )
 
 /**
@@ -68,7 +70,7 @@ fun Throwable.apiFailure(): ApiFailure {
     val data = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
     val lockedUntil = data?.get("locked_until").text()
     val retryAfter = data?.get("retry_after")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
-    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter)
+    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter, data)
 }
 
 data class CountryDto(

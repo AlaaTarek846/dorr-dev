@@ -2,14 +2,35 @@
 
 namespace Modules\AI\Models;
 
+use App\Models\Concerns\HasTranslations;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Repositories\General\LanguageRepository;
+use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * An AI subscription plan - a catalog entity like Country: its customer-facing text (name, description, badge,
+ * features) lives in ai_plan_translations, `status` is the on/off switch, and deleting moves it to the trash.
+ *
+ * Back-compat: `$plan->name / description / badge / features` read the current language's translation, and
+ * `$plan->is_active` reads `status` - so the chat, wallet notes, notifications and the mobile API keep working.
+ * Setting them flat (seeders, tests: `create(['name' => 'Pro'])`) writes that text into every stored language;
+ * the admin screen sends `translations[]` instead (TranslatableRepository).
+ */
 class AiPlan extends Model
 {
+    use HasTranslations, SearchFilterTrait, SoftDeletes;
+
+    /** Translatable text, settable flat for back-compat (see the class doc). */
+    private const TRANSLATED = ['name', 'description', 'badge', 'features'];
+
+    /** The plan text is shown wherever a plan is, so its translations always come along (plans are a handful). */
+    protected $with = ['translations'];
+
     /**
      * @var list<string>
      */
@@ -32,6 +53,7 @@ class AiPlan extends Model
         'is_featured',
         'features',
         'is_trial',
+        'status',
         'is_active',
         'sort_order',
     ];
@@ -53,11 +75,152 @@ class AiPlan extends Model
             'price' => 'decimal:2',
             'original_price' => 'decimal:2',
             'is_trial' => 'boolean',
-            'is_active' => 'boolean',
+            'status' => 'boolean',
             'is_featured' => 'boolean',
-            'features' => 'array',
             'sort_order' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Pending flat text was just written to ai_plan_translations (HasTranslations' saved hook runs first):
+        // drop the cached relations so the next read sees it.
+        static::saved(function (self $plan): void {
+            $plan->unsetRelation('translations')->unsetRelation('translation');
+        });
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(AiPlanTranslation::class, 'ai_plan_id');
+    }
+
+    protected function translationModel(): string
+    {
+        return AiPlanTranslation::class;
+    }
+
+    /** Open for new subscriptions and renewals: switched on and not in the trash. */
+    public function isAvailable(): bool
+    {
+        return (bool) $this->status && ! $this->trashed();
+    }
+
+    public function getNameAttribute(): ?string
+    {
+        return $this->translatedValue('name');
+    }
+
+    public function getDescriptionAttribute(): ?string
+    {
+        return $this->translatedValue('description');
+    }
+
+    public function getBadgeAttribute(): ?string
+    {
+        return $this->translatedValue('badge');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getFeaturesAttribute(): array
+    {
+        return array_values($this->translatedValue('features') ?? []);
+    }
+
+    public function setNameAttribute(?string $value): void
+    {
+        $this->queueFlatTranslation('name', $value);
+    }
+
+    public function setDescriptionAttribute(?string $value): void
+    {
+        $this->queueFlatTranslation('description', $value);
+    }
+
+    public function setBadgeAttribute(?string $value): void
+    {
+        $this->queueFlatTranslation('badge', $value);
+    }
+
+    /**
+     * @param  list<string>|null  $value
+     */
+    public function setFeaturesAttribute(?array $value): void
+    {
+        $this->queueFlatTranslation('features', $value === null ? null : array_values($value));
+    }
+
+    public function getIsActiveAttribute(): bool
+    {
+        return (bool) ($this->attributes['status'] ?? false);
+    }
+
+    public function setIsActiveAttribute(mixed $value): void
+    {
+        $this->attributes['status'] = (bool) $value;
+    }
+
+    /** Current-language value of a translated column, else any language's (never blank while one exists). */
+    private function translatedValue(string $field): mixed
+    {
+        if (! $this->relationLoaded('translation') && ! $this->relationLoaded('translations')) {
+            if (! $this->exists) {
+                return null;
+            }
+
+            $this->load('translations');
+        }
+
+        $translation = $this->relationLoaded('translation') && $this->translation
+            ? $this->translation
+            : ($this->translations->firstWhere('locale', app()->getLocale()) ?? $this->translations->first());
+
+        return $translation?->{$field};
+    }
+
+    /**
+     * HasTranslations writes one field at a time; a new translation row needs its (NOT NULL) name in the same
+     * insert, so write each language's queued fields together.
+     */
+    protected function syncPendingTranslations(): void
+    {
+        if ($this->pendingTranslations === []) {
+            return;
+        }
+
+        $byLocale = [];
+
+        foreach ($this->pendingTranslations as $field => $locales) {
+            if (! in_array($field, self::TRANSLATED, true)) {
+                continue;
+            }
+
+            foreach ($locales as $locale => $value) {
+                $byLocale[$locale][$field] = $value;
+            }
+        }
+
+        $this->pendingTranslations = [];
+
+        foreach ($byLocale as $locale => $values) {
+            $existing = $this->translations()->where('locale', $locale)->first();
+
+            if ($existing) {
+                $existing->update($values);
+            } else {
+                $this->translations()->create(['locale' => $locale, 'name' => $values['name'] ?? (string) $this->code] + $values);
+            }
+        }
+    }
+
+    private function queueFlatTranslation(string $field, mixed $value): void
+    {
+        $locales = LanguageRepository::storableLocaleCodes()
+            ?: array_values(array_unique([app()->getLocale(), (string) config('app.fallback_locale', 'en')]));
+
+        $this->fillAllTranslations([$field => array_fill_keys($locales, $value)]);
     }
 
     public function subscriptions(): HasMany

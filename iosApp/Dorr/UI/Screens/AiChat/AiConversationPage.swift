@@ -640,6 +640,8 @@ struct AiMessageBubble: View {
                 }
                 // Sources for this reply, folded — never on my own message.
                 if !isUser, let citations = message.citations, !citations.isEmpty { AiCitations(citations: citations) }
+                // DORR's own services offered with this answer — e.g. «احجز مشوارك مع دُرر», the trip filled in.
+                if !isUser, let actions = message.actions, !actions.isEmpty { AiServiceActionCards(actions: actions) }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             .environment(\.layoutDirection, direction)

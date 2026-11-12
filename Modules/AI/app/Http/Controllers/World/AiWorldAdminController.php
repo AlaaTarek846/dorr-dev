@@ -4,6 +4,7 @@ namespace Modules\AI\Http\Controllers\World;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Modules\AI\Models\World\AiWorldPrice;
 use Modules\AI\Models\World\AiWorldProject;
 use Modules\AI\Models\World\AiWorldReport;
 use Modules\AI\Models\World\AiWorldSetting;
+use Modules\AI\Support\CurrencyDecimals;
 
 /**
  * Ops console API for DORR AI WORLD: service settings, which modes each country gets, the price per second,
@@ -110,18 +112,25 @@ class AiWorldAdminController extends Controller
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->query('owner_id'), fn ($q, $id) => $q->where('owner_id', (int) $id));
 
-        return ApiResponse::paginated($query, \Modules\AI\Http\Resources\World\AiWorldProjectResource::class);
+        $result = ApiPaginator::resolve($query, \Modules\AI\Http\Resources\World\AiWorldProjectResource::class);
+
+        // currency_decimals: the *_minor amounts are divided by each currency's own places (KWD has 3), not a fixed 100.
+        return ApiResponse::success($result['data'], 'OK', 200, $result['pagination'], [
+            'currency_decimals' => CurrencyDecimals::for(collect($result['data'])->map(fn ($row) => data_get($row, 'currency'))),
+        ]);
     }
 
     public function project(int $id)
     {
         $project = AiWorldProject::query()->withTrashed()->with('scenes.versions')->find($id) ?? throw new AiWorldException('not_found', 404);
 
+        $ledger = AiWorldCostLedger::query()->where('project_id', $id)->orderBy('id')->get();
+
         return ApiResponse::success([
             'project' => (new \Modules\AI\Http\Resources\World\AiWorldProjectResource($project))->resolve(),
             'versions' => $project->scenes->flatMap->versions->map(fn ($v) => $v->only(['id', 'scene_id', 'number', 'status', 'identity_score', 'error_code']))->values()->all(),
-            'ledger' => AiWorldCostLedger::query()->where('project_id', $id)->orderBy('id')->get(),
-        ]);
+            'ledger' => $ledger,
+        ], meta: ['currency_decimals' => CurrencyDecimals::for($ledger->pluck('currency')->push($project->currency))]);
     }
 
     public function reports(Request $request)
@@ -141,10 +150,12 @@ class AiWorldAdminController extends Controller
     /** Headline numbers for the console: projects per status and money in/out (minor units, per currency). */
     public function stats()
     {
+        $money = AiWorldProject::query()->select('currency', DB::raw('sum(charged_minor) as charged'), DB::raw('sum(refunded_minor) as refunded'))->groupBy('currency')->get();
+
         return ApiResponse::success([
             'projects_by_status' => AiWorldProject::query()->select('status', DB::raw('count(*) as total'))->groupBy('status')->pluck('total', 'status'),
-            'money' => AiWorldProject::query()->select('currency', DB::raw('sum(charged_minor) as charged'), DB::raw('sum(refunded_minor) as refunded'))->groupBy('currency')->get(),
+            'money' => $money,
             'open_reports' => AiWorldReport::query()->where('status', 'open')->count(),
-        ]);
+        ], meta: ['currency_decimals' => CurrencyDecimals::for($money->pluck('currency'))]);
     }
 }

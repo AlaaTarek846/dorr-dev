@@ -529,6 +529,8 @@ return [
         'unable_sent' => 'We told the rider.',
     ],
     'ai' => [
+        'card_book_title' => 'Book your trip with DORR',
+        'card_book_sub' => 'Pick where to on the map — the rest is filled in',
         'saved_home' => 'Home',
         'saved_work' => 'Work',
         'saved_favorite' => 'Saved place',

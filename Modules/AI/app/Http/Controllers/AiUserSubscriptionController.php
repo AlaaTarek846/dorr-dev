@@ -37,7 +37,7 @@ class AiUserSubscriptionController extends Controller
         $country = currentCountry();
 
         $plans = AiPlan::query()
-            ->where('is_active', true)
+            ->where('status', true)
             ->orderBy('sort_order')
             // currencyRef: avoids an N+1 currency lookup per plan now that
             // the base currency is a real relation (see AiPlan::getCurrencyAttribute()).

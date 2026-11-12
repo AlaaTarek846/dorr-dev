@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiSecurityPolicyResource;
 use Modules\AI\Repositories\AiSecurityPolicyRepository;
 
-class AiSecurityPolicyService extends BaseService
+/** AI security policies catalog: list (+status counts), create/update with translations, status, bulk delete, trash. */
+class AiSecurityPolicyService extends CatalogService
 {
     /**
      * @var class-string

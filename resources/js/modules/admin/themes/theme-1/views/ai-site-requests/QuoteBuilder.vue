@@ -27,7 +27,7 @@
             <hr class="my-4">
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <p class="fw-semibold mb-0">{{ t('ai_site_requests.schedule') }}</p>
-                <button type="button" class="btn btn-light btn-sm" @click="addMilestone"><i class="ri-add-line me-1"></i>{{ t('ai_site_requests.add_milestone') }}</button>
+                <button v-if="canUpdate" type="button" class="btn btn-light btn-sm" @click="addMilestone"><i class="ri-add-line me-1"></i>{{ t('ai_site_requests.add_milestone') }}</button>
             </div>
             <p v-if="! form.milestones.length" class="text-muted fs-13">{{ t('ai_site_requests.schedule_hint') }}</p>
             <div v-for="(m, i) in form.milestones" :key="i" class="row g-2 mb-2 align-items-start">
@@ -36,13 +36,13 @@
                 <div class="col-md-2">
                     <div class="input-group input-group-sm"><span class="input-group-text">{{ t('ai_site_requests.day') }}</span><input v-model.number="m.due_days" type="number" min="0" class="form-control" dir="ltr"></div>
                 </div>
-                <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="removeMilestone(i)"><i class="ri-delete-bin-line"></i></button></div>
+                <div class="col-md-1 text-end"><button v-if="canUpdate" type="button" class="btn btn-sm btn-danger-light btn-icon" @click="removeMilestone(i)"><i class="ri-delete-bin-line"></i></button></div>
             </div>
 
             <hr class="my-4">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                 <p class="fw-semibold mb-0">{{ t('ai_site_requests.payments') }}</p>
-                <div class="d-flex gap-2">
+                <div v-if="canUpdate" class="d-flex gap-2">
                     <button type="button" class="btn btn-light btn-sm" @click="splitDefault"><i class="ri-magic-line me-1"></i>{{ t('ai_site_requests.split_default') }}</button>
                     <button type="button" class="btn btn-light btn-sm" @click="addInstallment"><i class="ri-add-line me-1"></i>{{ t('ai_site_requests.add_payment') }}</button>
                 </div>
@@ -62,7 +62,7 @@
                         <option v-for="(m, mi) in form.milestones" :key="mi" :value="mi">{{ m.title || `#${mi + 1}` }}</option>
                     </select>
                 </div>
-                <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="removeInstallment(i)"><i class="ri-delete-bin-line"></i></button></div>
+                <div class="col-md-1 text-end"><button v-if="canUpdate" type="button" class="btn btn-sm btn-danger-light btn-icon" @click="removeInstallment(i)"><i class="ri-delete-bin-line"></i></button></div>
             </div>
 
             <div class="alert mt-3 mb-0 d-flex justify-content-between flex-wrap" :class="balanced ? 'alert-success' : 'alert-warning'">
@@ -71,7 +71,7 @@
                 <span v-else><i class="ri-check-line"></i> {{ t('ai_site_requests.balanced') }}</span>
             </div>
         </div>
-        <div class="card-footer text-end">
+        <div v-if="canUpdate" class="card-footer text-end">
             <button type="button" class="btn btn-primary" :disabled="! canSend || saving" @click="submit">
                 <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span><i v-else class="ri-send-plane-line me-1"></i>{{ request.quote ? t('ai_site_requests.resend_quote') : t('ai_site_requests.send_quote') }}
             </button>
@@ -83,12 +83,14 @@
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const props = defineProps({ request: { type: Object, required: true } });
 const emit = defineEmits(['saved']);
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-site-requests');
 const { showSuccess, showError } = useToast();
 const saving = ref(false);
 

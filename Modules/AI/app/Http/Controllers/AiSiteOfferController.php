@@ -2,65 +2,90 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use App\Models\Country;
+use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Modules\AI\Http\Requests\AiSiteOfferPricesRequest;
 use Modules\AI\Http\Requests\AiSiteOfferRequest;
 use Modules\AI\Http\Resources\AiSiteOfferResource;
 use Modules\AI\Models\AiSiteOffer;
+use Modules\AI\Services\AiSiteOfferService;
+use Modules\AI\Support\AiAdminScreens;
 
-/** Admin: the standalone "build me a site" products and their per-country prices. */
-class AiSiteOfferController extends Controller
+/**
+ * Admin website-builder offers and edit packs - the catalog CRUD (like CountryController): index/show, store, update,
+ * status, bulk delete, trash/restore/force delete, each behind its ai-site-offers.* permission - plus the price per
+ * country (reading = view, saving = update). `?kind=site|edit_pack` picks the screen.
+ */
+class AiSiteOfferController extends CatalogController
 {
-    public function index(\Illuminate\Http\Request $request)
+    protected static function adminPermissionGroup(): string
     {
-        $kind = $request->query('kind');
+        return 'ai-site-offers';
+    }
 
-        return ApiResponse::success(AiSiteOfferResource::collection(
-            AiSiteOffer::query()
-                ->where('kind', '!=', AiSiteOffer::KIND_SOURCE_DOWNLOAD)
-                ->when(in_array($kind, [AiSiteOffer::KIND_SITE, AiSiteOffer::KIND_EDIT_PACK], true), fn ($q) => $q->where('kind', $kind))
-                ->withCount('prices')->orderBy('sort_order')->orderBy('id')->get()
-        ));
+    /**
+     * @return list<array{0: string, 1: list<string>}>
+     */
+    protected static function extraAdminPermissionActionMethods(): array
+    {
+        return [
+            ['update', ['syncPrices']],
+        ];
+    }
+
+    /**
+     * The catalog permissions, plus: reading the prices = ai-site-offers.view OR ai-site-download.view (the
+     * site-download screen shows the download offer's prices - AiAdminScreens::READERS). Saving them stays
+     * ai-site-offers.update.
+     *
+     * @return list<Middleware>
+     */
+    public static function middleware(): array
+    {
+        $readers = array_map(
+            fn (string $group) => $group.'.view',
+            ['ai-site-offers', ...(AiAdminScreens::READERS['ai-site-offers'] ?? [])],
+        );
+
+        return [
+            ...parent::middleware(),
+            new Middleware('permission:'.implode('|', $readers).','.AdminPermissionMiddleware::GUARD, only: ['prices']),
+        ];
+    }
+
+    public function __construct(AiSiteOfferService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiSiteOfferRequest $request)
     {
-        $offer = AiSiteOffer::query()->create($request->validated() + ['sort_order' => 0]);
-
-        return ApiResponse::success(new AiSiteOfferResource($offer), __('ai.site_offer_saved'), 201);
+        return $this->service->create($request->validated());
     }
 
-    public function show(AiSiteOffer $offer)
+    public function update(AiSiteOfferRequest $request, int|string $offer)
     {
-        return ApiResponse::success(new AiSiteOfferResource($offer));
+        return $this->service->updateRecord($offer, $request->validated());
     }
 
-    public function update(AiSiteOfferRequest $request, AiSiteOffer $offer)
+    public function deleteMultiple(AiSiteOfferRequest $request)
     {
-        $offer->update($request->validated());
-
-        return ApiResponse::success(new AiSiteOfferResource($offer->fresh()), __('ai.site_offer_saved'));
+        return $this->service->deleteMultiple($request->validated('ids'));
     }
 
-    public function destroy(AiSiteOffer $offer)
+    public function changeStatus(AiSiteOfferRequest $request, int|string $offer)
     {
-        // Purchases keep pointing at the offer for their history, so an offer that was ever sold is only switched off.
-        if ($offer->purchases()->exists()) {
-            $offer->update(['is_active' => false]);
-
-            return ApiResponse::success(new AiSiteOfferResource($offer->fresh()), __('ai.site_offer_deactivated'));
-        }
-
-        $offer->prices()->delete();
-        $offer->delete();
-
-        return ApiResponse::success(null, __('ai.site_offer_deleted'));
+        return $this->service->changeStatus($offer, (bool) $request->validated('status'));
     }
 
-    /** One row per active country; `price` null = not sold there. */
+    /**
+     * One row per active country; `price` null = not sold there. The source-download screen uses it too (its offer
+     * id comes from admin/v1/ai-site-download), so this binds the plain model, not this screen's list.
+     */
     public function prices(AiSiteOffer $offer)
     {
         $existing = $offer->prices()->get()->keyBy('country_id');
@@ -77,7 +102,7 @@ class AiSiteOfferController extends Controller
                 'price' => $existing->get($c->id)?->price,
             ]);
 
-        return ApiResponse::success(['offer' => new AiSiteOfferResource($offer), 'rows' => $rows]);
+        return ApiResponse::success(['offer' => new AiSiteOfferResource($offer->loadCount('prices')), 'rows' => $rows]);
     }
 
     /** Replaces the whole price list: countries not sent stop selling this offer. */

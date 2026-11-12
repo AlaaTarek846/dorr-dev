@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiSecurityPolicyRequest;
 use Modules\AI\Services\AiSecurityPolicyService;
 
-class AiSecurityPolicyController extends Controller
+/**
+ * Admin AI security policies - the catalog CRUD (like CountryController): index/show, store, update, status, bulk
+ * delete, trash/restore/force delete.
+ */
+class AiSecurityPolicyController extends CatalogController
 {
-    public function __construct(protected AiSecurityPolicyService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-security-policies';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-security-policies')) - so no controller
+     * permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiSecurityPolicyService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiSecurityPolicyRequest $request)
@@ -20,18 +38,18 @@ class AiSecurityPolicyController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $policy)
-    {
-        return $this->service->find($policy);
-    }
-
-    public function update(AiSecurityPolicyRequest $request, int $policy)
+    public function update(AiSecurityPolicyRequest $request, int|string $policy)
     {
         return $this->service->updateRecord($policy, $request->validated());
     }
 
-    public function destroy(int $policy)
+    public function deleteMultiple(AiSecurityPolicyRequest $request)
     {
-        return $this->service->delete($policy);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiSecurityPolicyRequest $request, int|string $policy)
+    {
+        return $this->service->changeStatus($policy, (bool) $request->validated('status'));
     }
 }

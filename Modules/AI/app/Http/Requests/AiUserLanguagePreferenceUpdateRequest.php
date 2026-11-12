@@ -32,7 +32,8 @@ class AiUserLanguagePreferenceUpdateRequest extends FormRequest
                 AiUserLanguagePreference::MODE_FIXED,
             ])],
             'language_id' => ['nullable', 'exists:languages,id'],
-            'variant_id' => ['nullable', 'exists:ai_language_variants,id'],
+            // A variant in the trash can't be picked (AiLanguageVariant SoftDeletes).
+            'variant_id' => ['nullable', Rule::exists('ai_language_variants', 'id')->whereNull('deleted_at')],
             'auto_detect' => ['sometimes', 'boolean'],
         ];
     }

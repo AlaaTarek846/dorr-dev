@@ -26,24 +26,25 @@
                         <p class="fw-semibold mb-1">{{ t('ai_site_requests.enabled') }}</p>
                         <p class="text-muted fs-13 mb-0">{{ t('ai_site_requests.enabled_hint') }}</p>
                     </div>
-                    <div v-if="settings" class="toggle toggle-success mb-0" :class="{ on: settings.is_enabled }" role="button" tabindex="0" @click="toggleEnabled" @keydown.enter.space.prevent="toggleEnabled"><span></span></div>
+                    <div v-if="settings && canUpdate" class="toggle toggle-success mb-0" :class="{ on: settings.is_enabled }" role="button" tabindex="0" @click="toggleEnabled" @keydown.enter.space.prevent="toggleEnabled"><span></span></div>
+                    <div v-else-if="settings" class="toggle toggle-success mb-0 opacity-50" :class="{ on: settings.is_enabled }" aria-disabled="true"><span></span></div>
                 </div>
 
                 <div v-if="settings" class="row g-3 mt-1">
                     <div class="col-md-3">
                         <label class="form-label fs-13">{{ t('ai_site_requests.quote_valid_days') }}</label>
-                        <input v-model.number="settings.quote_valid_days" type="number" min="1" max="90" class="form-control form-control-sm">
+                        <input v-model.number="settings.quote_valid_days" :disabled="! canUpdate" type="number" min="1" max="90" class="form-control form-control-sm">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fs-13">{{ t('ai_site_requests.intro_ar') }}</label>
-                        <textarea v-model="settings.intro_ar" rows="2" class="form-control form-control-sm" dir="rtl"></textarea>
+                        <textarea v-model="settings.intro_ar" :disabled="! canUpdate" rows="2" class="form-control form-control-sm" dir="rtl"></textarea>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fs-13">{{ t('ai_site_requests.intro_en') }}</label>
-                        <textarea v-model="settings.intro_en" rows="2" class="form-control form-control-sm" dir="ltr"></textarea>
+                        <textarea v-model="settings.intro_en" :disabled="! canUpdate" rows="2" class="form-control form-control-sm" dir="ltr"></textarea>
                     </div>
                     <div class="col-md-1 d-flex align-items-end">
-                        <button type="button" class="btn btn-primary btn-sm w-100" :disabled="savingSettings" @click="saveSettings">{{ t('ai_site_offers.save') }}</button>
+                        <button v-if="canUpdate" type="button" class="btn btn-primary btn-sm w-100" :disabled="savingSettings" @click="saveSettings">{{ t('ai_site_offers.save') }}</button>
                     </div>
                 </div>
             </div>
@@ -114,6 +115,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
@@ -121,6 +123,7 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 import ModalRequestStatuses from './ModalRequestStatuses.vue';
 
 const { t, locale } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-site-requests');
 const router = useRouter();
 const { showSuccess, showError } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();

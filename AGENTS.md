@@ -67,6 +67,20 @@ Route → Controller → Service → Repository → Model
 
 ---
 
+## Admin screen standard — map, guide, permissions, languages (mandatory)
+
+Owner's standing rule for **every new module and every admin screen added or changed**. Full checklist: [docs/screens/README.md](docs/screens/README.md).
+
+1. **Map** — every module has its map `resources/js/modules/admin/guide/services/<module>.js` (`module: '<Name>'`); every screen is on it. New module → new map in the same task.
+2. **Guide** — every screen has `resources/js/modules/admin/guide/screens/<module>/<route>.js` (Arabic + English), written from the code: what it does, who uses it, every field, step-by-step tasks, what it affects, warnings. Change a screen → update its guide (and `updated`).
+3. **Permission** — `meta.permission` on the route; the group and actions in `AdminPermissionSeeder` (+ a migration that creates them and grants `super-admin`, because re-seeding wipes roles); the backend guard (`admin.screen:<group>` on the route group, or the catalog controller's permissions); sidebar `v-show="can()"`; every button through `useCatalogPermissions`.
+4. **CRUD = like countries** — language tabs (`CatalogTranslationTabs`) for names/descriptions (translation table + `TranslatableRepository`), status filters with counts, search, trash / restore / force delete, bulk delete, `.catalog-scroll-form` for long forms. A CRUD with no text to translate says why in its guide (`tech.noTranslatableText`).
+5. **Strings** in both `locales/ar.json` and `locales/en.json`; mobile API keys unchanged, text in the caller's `X-Locale`.
+
+Enforced: `tests/Feature/AdminScreenStandardTest.php` fails `composer test` on any screen/module that misses it. The legacy list `tests/Fixtures/admin-screens/baseline.json` only shrinks — **never add to it**; finish a screen and delete its line. Claude Code also gets the checklist from the `PostToolUse` hook `.claude/hooks/admin-screen-standard.sh`; other agents follow this section by hand.
+
+---
+
 ## Modern, event-driven apps — no polling
 
 Owner's standing rule: mobile/web screens never ask the server on a timer (`while(true){delay(...)}`, Timer, periodic refresh). Use real-time (Pusher/Reverb events → one reload), push (OneSignal, high priority + ttl for urgent), the device clock for times already known, and one catch-up request on open / reconnect. Connection settings come from the server (`realtime-config`). Details: [docs/rides_tasks.md](docs/rides_tasks.md).
@@ -85,8 +99,8 @@ Owner's standing rule: any paged list asks for **15 per page** (`per_page=15`) a
 
 ## After Implementation
 
-1. Run `composer test` (and `npm run build` if frontend changed)
-2. Update docs if API, schema, or architecture changed
+1. Run `composer test` (and `npm run build` if frontend changed) — includes `AdminScreenStandardTest`
+2. Update docs if API, schema, or architecture changed; update the screen's guide and its module map if a screen changed
 3. Report: files changed, tests run, remaining TODO, NEEDS-DECISION items
 
 ---

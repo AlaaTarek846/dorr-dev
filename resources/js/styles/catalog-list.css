@@ -349,11 +349,14 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
     color: var(--default-text-color, rgba(255, 255, 255, 0.85));
 }
 
-/* PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles), nor to the
-   wallet forms that scroll (.wallet-scroll-form): there the body must clip and scroll under a fixed footer. */
-.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-dialog,
-.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-content,
-.modal.show:has(.catalog-modal-header):not(:has(.wallet-scroll-form)) .modal-body {
+/*
+ * PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles), nor to the long
+ * forms that scroll inside the dialog (.catalog-scroll-form / .wallet-scroll-form below): there "visible" would cancel
+ * the body's scroll and the fields would spill out of the dialog. Those forms open their selects on <body> instead.
+ */
+.modal.show:has(.catalog-modal-header):not(:has(.catalog-scroll-form, .wallet-scroll-form)) .modal-dialog,
+.modal.show:has(.catalog-modal-header):not(:has(.catalog-scroll-form, .wallet-scroll-form)) .modal-content,
+.modal.show:has(.catalog-modal-header):not(:has(.catalog-scroll-form, .wallet-scroll-form)) .modal-body {
     overflow: visible;
 }
 
@@ -395,11 +398,12 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
 }
 
 /*
- * Wallet form modals whose fields and footer sit inside a <form>. Bootstrap's scrollable modal expects the body to be
- * a direct child of the content box, so a tall form was just cut off. The form becomes the flex column, the body
+ * Long catalog / wallet form modals (.catalog-scroll-form, .wallet-scroll-form) whose fields and footer sit inside a
+ * <form>. Bootstrap's scrollable modal expects the body to be a direct child of the content box, so a tall form was just cut off. The form becomes the flex column, the body
  * scrolls inside it — smoothly, contained in the dialog, with a clearly visible themed bar — and the footer with the
  * save button stays in view.
  */
+.catalog-scroll-form,
 .wallet-scroll-form {
     display: flex;
     flex: 1 1 auto;
@@ -407,6 +411,7 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
     min-height: 0;
 }
 
+.catalog-scroll-form .modal-body,
 .wallet-scroll-form .modal-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -421,16 +426,19 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
 
 /* Chromium / Brave / Edge / Safari use the ::-webkit-scrollbar rules (Chromium ignores them once scrollbar-width /
    scrollbar-color are set, so those are kept in the @supports block for Firefox only). */
+.catalog-scroll-form .modal-body::-webkit-scrollbar,
 .wallet-scroll-form .modal-body::-webkit-scrollbar {
     width: 12px;
 }
 
+.catalog-scroll-form .modal-body::-webkit-scrollbar-track,
 .wallet-scroll-form .modal-body::-webkit-scrollbar-track {
     margin-block: 6px;
     border-radius: 999px;
     background: rgba(var(--primary-rgb, 132, 90, 223), 0.1);
 }
 
+.catalog-scroll-form .modal-body::-webkit-scrollbar-thumb,
 .wallet-scroll-form .modal-body::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
@@ -438,18 +446,21 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
     background-clip: padding-box;
 }
 
+.catalog-scroll-form .modal-body::-webkit-scrollbar-thumb:hover,
 .wallet-scroll-form .modal-body::-webkit-scrollbar-thumb:hover {
     background: rgba(var(--primary-rgb, 132, 90, 223), 0.85);
     background-clip: padding-box;
 }
 
 @supports not selector(::-webkit-scrollbar) {
+    .catalog-scroll-form .modal-body,
     .wallet-scroll-form .modal-body {
         scrollbar-width: thin;
         scrollbar-color: rgba(var(--primary-rgb, 132, 90, 223), 0.6) rgba(var(--primary-rgb, 132, 90, 223), 0.1);
     }
 }
 
+.catalog-scroll-form .modal-footer,
 .wallet-scroll-form .modal-footer {
     flex-shrink: 0;
 }

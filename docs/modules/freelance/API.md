@@ -1589,3 +1589,50 @@ Route::middleware(['auth:freelance_api', 'freelance.feature:bidding'])->post('of
 **المسمى الوظيفي** — `PUT freelance/v1/teams/{team}/members/{freelancer}/title {job_title?: ≤60}`:
 - Owner بيكتب لأي حد (`manage_members`)، والشخص بيكتب لنفسه؛ غير كده 403. مش عضو نشط = 404، فريق موقوف/مؤرشف = 409. فاضي أو مش مبعوت = يمسحه. HTML بيتشال. بيتسجّل في الـ audit (`freelance.team.job_title_changed`).
 - `job_title` في `GET teams/{team}/members`، وفي ملف الفريق (`members[]` و`me`)، وفي ملف الفريق للعميل جنب الاسم الأول **للي وافق على الظهور بس** (D10 زي ما هو).
+
+## دُرر AI للعميل: يكتب المشروع ويرشّح الناس (FS-401 / FS-501، نسخة خفيفة) — 2026-11-09
+
+أداتين من أدوات دُرر AI للعميل في تطبيق المستخدم، **على باقة دُرر AI بتاعة العميل** زي أي أداة ذكاء اصطناعي (ADR-013). من غير باقة الرد
+`402 freelance_ai_plan_{reason}` و`data.reason` (`no_plan`, `trial_ended`, `cooldown`, `limit_reached`, `subscription_suspended`)، والتطبيقات بتفتح
+«محتاج باقة دُرر AI» لوحدها. كل أداة ليها مفتاح دولة: `ai_project_builder` و`smart_matching` (مفيش قاعدة = مقفول). الـ AI بيقترح بس: مفيش حاجة بتتحفظ
+أو تتبعت لوحدها. الكود: `Services/Ai/FreelanceAi.php` (الربط بالباقة)، `ProjectBuilder.php`، `SmartMatching.php`، `Client/ClientAiController.php`.
+
+- `GET mobile/v1/freelance/projects/ai/status` → `{builder, matching, allowed, reason}`: الأداتين شغالين في دولة العميل ولا لأ، والباقة تسمح دلوقتي ولا لأ (عشان الزرار يتقفل قبل ما يتداس).
+- `POST mobile/v1/freelance/projects/ai/build` `{idea (10..2000), answers?: [{question, answer}] (≤5)}` — مفتاح `ai_project_builder`، 10 في الدقيقة.
+  - الرد: `draft {title, description, specialty{id,name}|null, skills[{id,name}], budget{type, min_minor, max_minor, currency}, duration_days, visibility: public, questions[]}`
+    + `brief {summary, goal, audience, features[], deliverables[], acceptance[], out_of_scope[], assumptions[]}` + `questions[]` (≤3، اللي لسه مش واضح للعميل).
+  - التخصص من الكتالوج بس (النشط)، والمهارات بتتطابق مع الكتالوج بالاسم (اللي مش موجود بيتشال، مش بيتعمل). الميزانية والمدة **تقدير** جوه حدود الدولة
+    (`project.min_budget_minor` / `max_budget_minor`) و`max_duration_days`. الوصف = الـ brief كنص بعناوين بلغة العميل.
+  - أرقام التليفون والإيميلات بتتشال من الكلام قبل ما يروح للنموذج (FS-405). **مفيش حفظ:** التطبيق بيملا نموذج المشروع، والعميل بيحفظ المسودة بالطريق العادي.
+- `GET mobile/v1/freelance/projects/{uuid}/matches?refresh=1` — مفتاح `smart_matching`، 20 في الدقيقة، مشروعي أنا بس (غيره 404).
+  - `candidates[]`: `{uuid, name, headline, avatar_url, specialties[], skills_matched[], score (0..100), rating, reviews_count, completed_projects, similar_projects,
+    on_time_rate, available_now, years_of_experience, rate{type,min_minor,max_minor}|null, is_new, reasons[] (جمل جاهزة بلغة العميل), why (سطر دُرر AI), invited, offered}`.
+  - `lists {best, quality, value, fastest}` (uuids بالترتيب، 10 لكل قايمة)، `teams[]` (لو `teams` شغالة: `{uuid, name, logo_url, members_count, verified, score, rating,
+    reviews_count, completed_projects, reasons[], why}`)، `summary` (توصية دُرر AI)، `needs: "specialty"` لو المشروع مالوش تخصص ولا مهارات، `can_invite`.
+  - **الدرجة قواعد واضحة مش صندوق أسود:** المهارات 30، التخصص 15 (الأب 8)، التقييم 20 (الجديد بياخد النص — FS-504)، مشاريع شبيهة 10، الالتزام بالمواعيد 10،
+    التوفر 10، الميزانية 5، وشارات اختبار مهارات المشروع لحد 5. **الباقة المدفوعة للمحترف مش بتأثر على الترتيب.** المرشحين: موثّقين من الدول المفتوحة، في
+    التخصص (أو الأب) أو عندهم مهارة من مهاراته، أول 30.
+  - دُرر AI بيقرا أحسن 6 + أحسن 3 فرق **من غير أسماء** ويكتب سطر لكل واحد وخلاصة. الرد بيتحفظ 30 دقيقة لكل نسخة من المشروع (`updated_at`) ولغة،
+    فالفتح تاني مش بيعمل طلب AI جديد؛ `refresh=1` بيعيد. `invited` / `offered` / `can_invite` بيتحسبوا كل مرة.
+  - الدعوة من القايمة بالـ endpoint العادي `POST projects/{uuid}/invitations` (المشروع الخاص المنشور بس).
+- **الاختبار:** `FreelanceAiClientTest` (3).
+
+## Phase 8 — مدير المشروع الذكي (FS-801 / FS-802 / FS-806، نسخة خفيفة) — 2026-11-11
+
+- `GET mobile/v1/freelance/projects/{uuid}/workroom/ai/summary?days=1|7|30&refresh=1` — **العميل صاحب المشروع بس** (عضو فريق العميل مش واصل له،
+  والمحترف مالوش route)، على **باقة دُرر AI بتاعته** (`402 freelance_ai_plan_*`)، مفاتيح `workroom` + `ai_project_manager`، 20 في الدقيقة.
+  - الرد: `{days, facts {tasks_open, tasks_overdue, tasks_done, tasks_new, decisions, files, reports, percent, changes, messages, parts, parts_done},
+    health (نفس شكل FS-106 من جهة العميل), quiet, summary {headline, progress[], decisions[], changes[], risks[], next_client[], next_freelancer[]}|null, generated_at}`.
+  - **الأرقام بيعدّها دُرر مش النموذج.** الفترة الهادية (مفيش نشاط) = `quiet: true` من غير أي طلب AI. نفس النشاط = نفس الملخص من الكاش 6 ساعات
+    (المفتاح = بصمة اللي اتبعت للنموذج)؛ `refresh=1` بيعيد.
+  - النموذج بيقرا اللي الطرفين شايفينه بس: المهام والملفات المشتركة (`scope=shared`، حاجات الفريق الداخلية لأ)، القرارات، تقارير التقدم، طلبات التعديل،
+    المراحل وحالتها، وآخر 40 رسالة نصية في شات المشروع. **من غير أسماء** (الأطراف «client» / «freelancer»)، والتليفونات والإيميلات بتتشال، ومن غير مبالغ.
+  - طلب من بره الاتفاق في الشات بيظهر في `changes` كـ «ممكن يبقى طلب تعديل» (FS-803 خفيف) — العميل هو اللي يقرر.
+  - الكود: `Services/Ai/ProjectSummary.php`، `ClientAiController@summary`؛ `ai/status` فيه `manager`.
+- **FS-802 — المهام المتأخرة في صحة المشروع:** سبب جديد `task_overdue` (`at_risk`، مش `delayed` لأن ميعاد المهمة خطة الطرفين مش الاتفاق) لكل طرف عليه
+  مهمة مشتركة مش خلصانة وميعادها عدّى: `data {part: أقدم مهمة, days, count}`، `who` = اللي المهمة عليه. التنبيه كل ساعة (`alertWorse`) بيشتغل عليه زي باقي الأسباب.
+  التطبيقات الأربعة بتعرض الجملة (الكود المجهول في نسخة قديمة بيتشال أو «فيه حاجة محتاجة نظرة»).
+- **FS-806 — حدود الأمان:** كل routes دُرر AI في الفريلانس `GET` (إلا `ai/build` اللي مش بيحفظ حاجة)، وخدمات `Services/Ai` ما بتستخدمش الفلوس ولا
+  الاتفاق ولا النزاعات ولا بتكتب في أي موديل — اختبار بيثبت ده.
+- **الاختبار:** `FreelanceAiProjectManagerTest` (4).
+

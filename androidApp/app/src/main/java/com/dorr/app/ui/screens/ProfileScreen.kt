@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.Paid
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsCar
@@ -454,6 +455,8 @@ private fun ProfileMenuScreen(
     val menuItems = listOf(
         // Watch & Earn (D17): above the personal data.
         MenuEntry(Icons.Rounded.PlayCircleFilled, R.string.we_title, R.string.we_menu_sub) { com.dorr.app.ui.screens.watchearn.WatchEarnLink.show() },
+        // AI marketing director (docs/marketing_tasks.md): the section itself says when it is not open in this country.
+        MenuEntry(Icons.Rounded.Campaign, R.string.mktg_title, R.string.mktg_menu_sub) { com.dorr.app.ui.screens.marketing.MarketingLink.show() },
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = onOpenSettings),
         MenuEntry(Icons.Rounded.VerifiedUser, R.string.verification_title, R.string.verification_menu_sub, onClick = onOpenVerification),

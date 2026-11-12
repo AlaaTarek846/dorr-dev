@@ -50,6 +50,11 @@ class AiArController extends Controller
             'arcore_supported' => ['required', 'boolean'], 'depth_supported' => ['nullable', 'boolean'],
         ]);
 
+        // The apps send no platform field but every request carries X-Platform (android / ios): an iPhone must be
+        // matched against the iOS device list, not the Android one.
+        $platform = strtolower((string) ($data['platform'] ?? $request->header('X-Platform', 'android')));
+        $data['platform'] = in_array($platform, ['android', 'ios'], true) ? $platform : 'android';
+
         return ApiResponse::success($this->capability->evaluate($data));
     }
 

@@ -6,7 +6,7 @@
                 <span class="fs-semibold text-muted">{{ t('ai_knowledge_sources.subtitle') }}</span>
             </div>
             <div class="ms-md-1 ms-0 d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-primary btn-sm" @click="showForm = !showForm">
+                <button v-if="canCreate" type="button" class="btn btn-primary btn-sm" @click="showForm = !showForm">
                     <i class="ri-add-line me-1"></i>{{ t('ai_knowledge_sources.add') }}
                 </button>
                 <nav>
@@ -20,7 +20,7 @@
             </div>
         </div>
 
-        <div v-if="showForm" class="row">
+        <div v-if="showForm && canCreate" class="row">
             <div class="col-xl-12">
                 <div class="card custom-card mb-4">
                     <div class="card-body">
@@ -123,7 +123,7 @@
                                         </td>
                                         <td>{{ formatDateTime(source.created_at) }}</td>
                                         <td class="text-end">
-                                            <div class="d-flex gap-1 justify-content-end">
+                                            <div v-if="canUpdate" class="d-flex gap-1 justify-content-end">
                                                 <button
                                                     v-if="source.approval_status !== 'approved'"
                                                     type="button"
@@ -181,9 +181,11 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 
 const { t, locale } = useI18n();
 const { showSuccess, showError } = useToast();
+const { canCreate, canUpdate } = useCatalogPermissions('ai-knowledge-sources');
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 const sources = ref([]);

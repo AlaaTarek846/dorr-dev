@@ -46,7 +46,7 @@
                                 <div class="fw-semibold">{{ m.title }}</div>
                                 <div class="fs-12 text-muted">{{ m.description }} <span v-if="m.due_at">· {{ t('ai_site_requests.due') }} {{ new Date(m.due_at).toLocaleDateString() }}</span></div>
                             </div>
-                            <select class="form-select form-select-sm w-auto" :value="m.status" :disabled="request.status.final" @change="setMilestone(m, $event.target.value)">
+                            <select class="form-select form-select-sm w-auto" :value="m.status" :disabled="request.status.final || ! canUpdate" @change="setMilestone(m, $event.target.value)">
                                 <option value="pending">{{ t('ai_site_requests.ms_pending') }}</option>
                                 <option value="in_progress">{{ t('ai_site_requests.ms_in_progress') }}</option>
                                 <option value="delivered">{{ t('ai_site_requests.ms_delivered') }}</option>
@@ -65,11 +65,11 @@
                                     <td class="fw-semibold">{{ p.title }}<div class="fs-12 text-muted">{{ t('ai_site_requests.trigger_' + p.trigger) }}</div></td>
                                     <td dir="ltr">{{ p.amount }} {{ request.currency }}</td>
                                     <td>
-                                        <span class="badge" :class="{ 'bg-success-transparent': p.status === 'paid', 'bg-warning-transparent': p.status === 'due', 'bg-secondary-transparent': p.status === 'pending' }">{{ t('ai_site_requests.pay_' + p.status) }}</span>
+                                        <span class="badge" :class="{ 'bg-success-transparent': p.status === 'paid', 'bg-warning-transparent': p.status === 'due', 'bg-secondary-transparent': p.status === 'pending', 'bg-info-transparent': p.status === 'refunded' }">{{ t('ai_site_requests.pay_' + p.status) }}</span>
                                         <div v-if="p.paid_at" class="fs-11 text-muted">{{ new Date(p.paid_at).toLocaleString() }}</div>
                                     </td>
                                     <td class="text-end">
-                                        <button v-if="p.status === 'pending' && request.accepted_at && ! request.status.final" type="button" class="btn btn-sm btn-primary-light" @click="release(p)">{{ t('ai_site_requests.release_now') }}</button>
+                                        <button v-if="canUpdate && p.status === 'pending' && request.accepted_at && ! request.status.final" type="button" class="btn btn-sm btn-primary-light" @click="release(p)">{{ t('ai_site_requests.release_now') }}</button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -100,14 +100,15 @@
                 <div class="card custom-card">
                     <div class="card-header"><div class="card-title">{{ t('ai_site_requests.change_status') }}</div></div>
                     <div class="card-body">
-                        <select v-model="statusForm.status" class="form-select mb-2">
+                        <select v-model="statusForm.status" class="form-select mb-2" :disabled="! canChangeStatus">
                             <option v-for="s in statuses" :key="s.code" :value="s.code">{{ locale === 'ar' ? s.name_ar : s.name_en }}</option>
                         </select>
-                        <input v-model="statusForm.note" class="form-control mb-2" :placeholder="t('ai_site_requests.status_note')">
-                        <button type="button" class="btn btn-primary w-100" :disabled="busy || statusForm.status === request.status.code" @click="applyStatus">{{ t('ai_site_requests.apply') }}</button>
+                        <input v-if="canChangeStatus" v-model="statusForm.note" class="form-control mb-2" :placeholder="t('ai_site_requests.status_note')">
+                        <button v-if="canChangeStatus" type="button" class="btn btn-primary w-100" :disabled="busy || statusForm.status === request.status.code" @click="applyStatus">{{ t('ai_site_requests.apply') }}</button>
+                        <p v-if="refundOnStop" class="text-warning fs-12 mt-2 mb-0">{{ t('ai_site_requests.refund_warning', { amount: `${request.payments.paid} ${request.currency || ''}` }) }}</p>
                         <p class="text-muted fs-12 mt-2 mb-0">{{ t('ai_site_requests.status_hint') }}</p>
 
-                        <template v-if="request.accepted_at && ! request.status.final">
+                        <template v-if="canUpdate && request.accepted_at && ! request.status.final">
                             <hr>
                             <label class="form-label fs-13">{{ t('ai_site_requests.extend_deadline') }}</label>
                             <div class="input-group input-group-sm">
@@ -118,20 +119,20 @@
                     </div>
                 </div>
 
-                <RequestChat :request-id="request.id" />
+                <RequestChat :request-id="request.id" @changed="refreshRequest" />
 
                 <!-- Handover + notes -->
                 <div class="card custom-card">
                     <div class="card-header"><div class="card-title">{{ t('ai_site_requests.handover') }}</div></div>
                     <div class="card-body">
                         <label class="form-label fs-13">{{ t('ai_site_requests.delivery_url') }}</label>
-                        <input v-model="internal.delivery_url" class="form-control form-control-sm mb-2" dir="ltr" placeholder="https://">
+                        <input v-model="internal.delivery_url" :disabled="! canUpdate" class="form-control form-control-sm mb-2" dir="ltr" placeholder="https://">
                         <label class="form-label fs-13">{{ t('ai_site_requests.delivery_notes') }}</label>
-                        <textarea v-model="internal.delivery_notes" rows="2" class="form-control form-control-sm mb-2"></textarea>
+                        <textarea v-model="internal.delivery_notes" :disabled="! canUpdate" rows="2" class="form-control form-control-sm mb-2"></textarea>
                         <p class="text-muted fs-12">{{ t('ai_site_requests.handover_hint') }}</p>
                         <label class="form-label fs-13">{{ t('ai_site_requests.admin_notes') }}</label>
-                        <textarea v-model="internal.admin_notes" rows="3" class="form-control form-control-sm mb-2"></textarea>
-                        <button type="button" class="btn btn-light btn-sm w-100" :disabled="busy" @click="saveInternal">{{ t('ai_site_offers.save') }}</button>
+                        <textarea v-model="internal.admin_notes" :disabled="! canUpdate" rows="3" class="form-control form-control-sm mb-2"></textarea>
+                        <button v-if="canUpdate" type="button" class="btn btn-light btn-sm w-100" :disabled="busy" @click="saveInternal">{{ t('ai_site_offers.save') }}</button>
                     </div>
                 </div>
             </div>
@@ -144,11 +145,13 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import QuoteBuilder from './QuoteBuilder.vue';
 import RequestChat from './RequestChat.vue';
 
 const { t, locale } = useI18n();
+const { canUpdate, canChangeStatus } = useCatalogPermissions('ai-site-requests');
 const route = useRoute();
 const { showSuccess, showError } = useToast();
 
@@ -164,6 +167,8 @@ let ticker = null;
 
 const base = computed(() => `/api/admin/v1/ai-site-requests/${route.params.id}`);
 const today = new Date().toISOString().slice(0, 10);
+// Rejecting / cancelling a paid request gives every paid instalment back to the customer's wallet (once).
+const refundOnStop = computed(() => request.value && ! request.value.status.final && ['rejected', 'cancelled'].includes(statusForm.status) && Number(request.value.payments?.paid || 0) > 0);
 const canQuote = computed(() => request.value && ['submitted', 'under_review', 'quote_sent', 'quote_declined'].includes(request.value.status.code));
 const paidPercent = computed(() => (request.value?.payments.total ? Math.round((request.value.payments.paid / request.value.payments.total) * 100) : 0));
 
@@ -235,6 +240,18 @@ async function load() {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         loading.value = false;
+    }
+}
+
+/** The conversation said this request changed (live event or reconnect): re-read it once, quietly, only if it moved. */
+async function refreshRequest() {
+    try {
+        const { data } = await adminAxios.get(base.value);
+        if (data.data?.updated_at !== request.value?.updated_at) {
+            apply(data.data);
+        }
+    } catch {
+        // the next event reads again
     }
 }
 

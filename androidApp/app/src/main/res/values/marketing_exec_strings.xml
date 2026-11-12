@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI marketing director, phase B: calendar, ad studio, budgets, results, report (docs/marketing_tasks.md). -->
+    <string name="mktg_limit_content_generations">Content generations: %1$s</string>
+    <string name="mktg_execution">Execution</string>
+    <string name="mktg_add">Add</string>
+    <string name="mktg_from">From</string>
+    <string name="mktg_to">To</string>
+    <string name="mktg_day">Day</string>
+    <string name="mktg_days">Days</string>
+    <string name="mktg_n_days">%1$d days</string>
+    <string name="mktg_last_n_days">Last %1$d days</string>
+    <string name="mktg_when">When</string>
+    <string name="mktg_note_optional">Note (optional)</string>
+    <string name="mktg_copy">Copy</string>
+    <string name="mktg_copied">Copied.</string>
+    <string name="mktg_updated">updated %1$s</string>
+
+    <!-- channels, formats, kinds -->
+    <string name="mktg_channel">Channel</string>
+    <string name="mktg_format">Format</string>
+    <string name="mktg_ch_instagram">Instagram</string>
+    <string name="mktg_ch_tiktok">TikTok</string>
+    <string name="mktg_ch_snapchat">Snapchat</string>
+    <string name="mktg_ch_x">X</string>
+    <string name="mktg_ch_facebook">Facebook</string>
+    <string name="mktg_ch_youtube">YouTube</string>
+    <string name="mktg_ch_google">Google</string>
+    <string name="mktg_ch_linkedin">LinkedIn</string>
+    <string name="mktg_ch_whatsapp">WhatsApp</string>
+    <string name="mktg_ch_email">Email</string>
+    <string name="mktg_ch_sms">SMS</string>
+    <string name="mktg_ch_website">Website</string>
+    <string name="mktg_ch_offline">Offline</string>
+    <string name="mktg_ch_other">Other</string>
+    <string name="mktg_fmt_image">Image</string>
+    <string name="mktg_fmt_video">Video</string>
+    <string name="mktg_fmt_story">Story</string>
+    <string name="mktg_fmt_reel">Reel</string>
+    <string name="mktg_fmt_carousel">Carousel</string>
+    <string name="mktg_fmt_text">Text</string>
+    <string name="mktg_kind_post">Post</string>
+    <string name="mktg_kind_ad">Ad</string>
+    <string name="mktg_kind_task">Task</string>
+
+    <!-- content states -->
+    <string name="mktg_cs_DRAFT">Draft</string>
+    <string name="mktg_cs_POLICY_REVIEW">In review</string>
+    <string name="mktg_cs_APPROVED">Approved</string>
+    <string name="mktg_cs_SCHEDULED">Scheduled</string>
+    <string name="mktg_cs_PUBLISHED">Posted</string>
+    <string name="mktg_cs_FAILED">Not posted</string>
+    <string name="mktg_cs_REJECTED">Returned</string>
+    <string name="mktg_cs_OPEN">To do</string>
+    <string name="mktg_cs_DONE">Done</string>
+
+    <!-- calendar -->
+    <string name="mktg_calendar">Daily calendar</string>
+    <string name="mktg_calendar_sub">What to post each day, on which channel</string>
+    <string name="mktg_calendar_generate">Fill the calendar</string>
+    <string name="mktg_calendar_generate_sub">The AI turns your approved plan into posts, ads and tasks for the coming days. Everything arrives as a draft for you to review.</string>
+    <string name="mktg_calendar_started">The calendar is being prepared.</string>
+    <string name="mktg_calendar_writing">Preparing the calendar…</string>
+    <string name="mktg_calendar_empty">Nothing planned this day</string>
+    <string name="mktg_calendar_empty_sub">Fill the calendar from your approved plan, or add an item.</string>
+    <string name="mktg_calendar_empty_view">Nothing is planned for this day.</string>
+    <string name="mktg_channels_optional">Channels (optional — the plan\'s channels if none)</string>
+    <string name="mktg_replace_drafts">Replace untouched drafts</string>
+    <string name="mktg_replace_drafts_sub">Drafts the calendar made and nobody edited are replaced; your own work is kept.</string>
+    <string name="mktg_prev_week">Previous week</string>
+    <string name="mktg_next_week">Next week</string>
+    <string name="mktg_unplanned">%1$d item(s) have no date yet.</string>
+    <string name="mktg_add_item">New item</string>
+    <string name="mktg_item_title">Title</string>
+    <string name="mktg_task_done">Mark done</string>
+    <string name="mktg_task_reopen">Reopen</string>
+    <string name="mktg_has_blocking">Needs fixing</string>
+
+    <!-- one item -->
+    <string name="mktg_variants">Versions</string>
+    <string name="mktg_variant">Version %1$s</string>
+    <string name="mktg_use_variant">Use version %1$s</string>
+    <string name="mktg_variant_blocked">This version has a blocking issue.</string>
+    <string name="mktg_visual_brief">Image / video idea</string>
+    <string name="mktg_headline">Headline</string>
+    <string name="mktg_body">Text</string>
+    <string name="mktg_cta">Call to action</string>
+    <string name="mktg_objective">Goal</string>
+    <string name="mktg_objective_hint">e.g. more weekend orders</string>
+    <string name="mktg_cost_estimate">Your cost estimate: %1$s</string>
+    <string name="mktg_claims">Claims review</string>
+    <string name="mktg_claims_clear">No risky claims found.</string>
+    <string name="mktg_blocking">Blocking</string>
+    <string name="mktg_warning">Check</string>
+    <string name="mktg_claim_guaranteed_result">Promises a result, a profit or a cure — not allowed.</string>
+    <string name="mktg_claim_absolute_claim">\"Best / #1 / only\" — keep it only if you can prove it.</string>
+    <string name="mktg_claim_number_needs_proof">A number or percentage — make sure it is true and provable.</string>
+    <string name="mktg_claim_price_claim">Mentions a price or an offer — check it is correct and still valid.</string>
+    <string name="mktg_claim_too_long_for_channel">Longer than this channel allows.</string>
+    <string name="mktg_claim_headline_too_long">The headline is long and may be cut.</string>
+    <string name="mktg_claim_empty_text">There is no text yet.</string>
+    <string name="mktg_send_review">Send for review</string>
+    <string name="mktg_sent_review">Sent for review.</string>
+    <string name="mktg_fix_blocking">Fix the blocking issues first (edit the text).</string>
+    <string name="mktg_approve_content">Approve this wording</string>
+    <string name="mktg_approved_toast">Approved.</string>
+    <string name="mktg_waiting_review">Waiting for the owner or a manager to review it.</string>
+    <string name="mktg_returned_note">Returned: %1$s</string>
+    <string name="mktg_schedule">Schedule</string>
+    <string name="mktg_reschedule">Change time</string>
+    <string name="mktg_mark_posted">I posted it</string>
+    <string name="mktg_not_posted">Couldn\'t post</string>
+    <string name="mktg_post_yourself">DORR doesn\'t post for you: post it on the platform, then mark it here.</string>
+    <string name="mktg_post_link">Post link (optional)</string>
+    <string name="mktg_edit_resets">Changing the wording sends it back to draft and it needs approval again.</string>
+
+    <!-- ad studio -->
+    <string name="mktg_studio">Ad studio</string>
+    <string name="mktg_studio_sub">A/B versions of an ad or a post</string>
+    <string name="mktg_studio_note">Describe what you want to say. The AI writes different versions; nothing is posted or paid.</string>
+    <string name="mktg_studio_write">Write the versions</string>
+    <string name="mktg_studio_started">The versions are being written.</string>
+    <string name="mktg_studio_writing">Writing the versions…</string>
+    <string name="mktg_n_variants">%1$d versions</string>
+    <string name="mktg_brief">What should it say?</string>
+    <string name="mktg_brief_hint">e.g. our family box for Friday breakfast, delivered before 9</string>
+    <string name="mktg_drafts">Drafts and items in review</string>
+    <string name="mktg_no_drafts">No drafts yet.</string>
+
+    <!-- budgets -->
+    <string name="mktg_budgets">Budgets</string>
+    <string name="mktg_budgets_sub">Ad spend cap and AI cap, kept apart</string>
+    <string name="mktg_budgets_note">Ad spend is counted from the results you enter (estimates aside). The AI cap stops marketing AI requests once used up.</string>
+    <string name="mktg_budgets_empty">No budget yet</string>
+    <string name="mktg_budgets_empty_sub">Set a cap to be alerted before you go over it.</string>
+    <string name="mktg_budget_add">New budget</string>
+    <string name="mktg_budget_change">Change cap</string>
+    <string name="mktg_budget_close">Close</string>
+    <string name="mktg_budget_close_text">The budget stops counting and alerting.</string>
+    <string name="mktg_budget_ads">Ad spend</string>
+    <string name="mktg_budget_ai">AI requests</string>
+    <string name="mktg_budget_ads_sub">Money spent on the platforms in this period.</string>
+    <string name="mktg_budget_ai_sub">How many marketing AI requests (research, plans, calendar, studio) in this period.</string>
+    <string name="mktg_cap_money">Cap</string>
+    <string name="mktg_cap_calls">Cap (requests)</string>
+    <string name="mktg_calls">%1$d requests</string>
+    <string name="mktg_of_cap">of %1$s</string>
+    <string name="mktg_alert_line">Alert me at</string>
+    <string name="mktg_alert_at">Alert at %1$d%%</string>
+    <string name="mktg_estimated_apart">Estimated, not counted: %1$s</string>
+    <string name="mktg_budget_warning">Close to the cap.</string>
+    <string name="mktg_budget_exceeded">The cap is reached.</string>
+    <string name="mktg_budget_pending_note">Waiting for the owner\'s approval — it doesn\'t apply yet.</string>
+    <string name="mktg_approve_budget">Approve</string>
+    <string name="mktg_budget_approved">Budget approved.</string>
+    <string name="mktg_bs_PENDING">Waiting</string>
+    <string name="mktg_bs_APPROVED">Approved</string>
+    <string name="mktg_bs_CLOSED">Closed</string>
+
+    <!-- results -->
+    <string name="mktg_results">Results</string>
+    <string name="mktg_results_sub">KPIs from the platforms\' reports</string>
+    <string name="mktg_results_add">Enter results</string>
+    <string name="mktg_results_import">Import a file</string>
+    <string name="mktg_import_hint">CSV with columns: date, channel, impressions, clicks, spend, conversions, revenue. A file with a wrong line is refused whole.</string>
+    <string name="mktg_results_imported">File imported</string>
+    <string name="mktg_results_saved">Results saved.</string>
+    <string name="mktg_file_refused">The file was not imported:</string>
+    <string name="mktg_file_line">Line %1$d: %2$s</string>
+    <string name="mktg_file_too_big">The file is larger than 1 MB.</string>
+    <string name="mktg_measured">Measured</string>
+    <string name="mktg_estimated_section">Your estimates</string>
+    <string name="mktg_estimated_note">Shown apart and never added to what was measured.</string>
+    <string name="mktg_basis_imported">From the platform</string>
+    <string name="mktg_basis_estimated">My estimate</string>
+    <string name="mktg_basis_imported_sub">Numbers copied from the platform\'s own report.</string>
+    <string name="mktg_basis_estimated_sub">Your guess; kept apart from measured results.</string>
+    <string name="mktg_no_results">No results yet</string>
+    <string name="mktg_no_results_sub">Enter the numbers from the platforms\' reports, or import a file, to see the KPIs.</string>
+    <string name="mktg_coverage">Data on %1$d of %2$d days</string>
+    <string name="mktg_no_revenue_for">No revenue entered for %1$s: return on ad spend can\'t be measured there.</string>
+    <string name="mktg_by_channel">By channel</string>
+    <string name="mktg_entries">Entries</string>
+    <string name="mktg_spend_per_day">Spend per day</string>
+    <string name="mktg_results_blank_hint">Leave a box empty if you don\'t know it — it is not counted as 0. Money in %1$s.</string>
+    <string name="mktg_clicks_too_many">Clicks can\'t be more than impressions.</string>
+    <string name="mktg_k_spend">Spend</string>
+    <string name="mktg_k_revenue">Revenue</string>
+    <string name="mktg_k_roas">ROAS</string>
+    <string name="mktg_k_cpa">Cost per conversion</string>
+    <string name="mktg_k_ctr">Click rate</string>
+    <string name="mktg_k_conversions">Conversions</string>
+    <string name="mktg_k_clicks">Clicks</string>
+    <string name="mktg_k_impressions">Impressions</string>
+    <string name="mktg_r_missing_data">not enough data</string>
+    <string name="mktg_r_no_impressions">no impressions</string>
+    <string name="mktg_r_no_clicks">no clicks</string>
+    <string name="mktg_r_no_conversions">no conversions</string>
+    <string name="mktg_r_no_spend">no spend</string>
+    <string name="mktg_r_no_revenue_data">no revenue entered</string>
+
+    <!-- report -->
+    <string name="mktg_report">Executive report</string>
+    <string name="mktg_report_sub">Today\'s decisions, results, risks, next steps</string>
+    <string name="mktg_period_day">Today</string>
+    <string name="mktg_period_week">Week</string>
+    <string name="mktg_period_month">Month</string>
+    <string name="mktg_decisions">Decisions for today</string>
+    <string name="mktg_nothing_to_decide">Nothing waits for you today.</string>
+    <string name="mktg_no_risks">No risks found in the data.</string>
+    <string name="mktg_next_steps">Next steps</string>
+    <string name="mktg_nothing_to_suggest">Nothing to suggest right now.</string>
+    <string name="mktg_vs_previous">Change against the period before.</string>
+</resources>
