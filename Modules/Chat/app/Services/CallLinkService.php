@@ -3,6 +3,8 @@
 namespace Modules\Chat\Services;
 
 use App\Support\LocaleResolver;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -55,9 +57,21 @@ class CallLinkService
     /** @return Collection<int, ChatCallLink> */
     public function mine(Model $me): Collection
     {
+        return $this->mineQuery($me)->get();
+    }
+
+    /** Working links I made, newest first. Pages of 15. */
+    public function minePage(Model $me, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->mineQuery($me)->paginate($perPage);
+    }
+
+    /** @return Builder<ChatCallLink> */
+    private function mineQuery(Model $me): Builder
+    {
         return ChatCallLink::query()->usable()
             ->where('owner_type', ParticipantType::aliasFor($me))->where('owner_id', $me->getKey())
-            ->latest('id')->get();
+            ->latest('id');
     }
 
     public function find(string $token): ChatCallLink

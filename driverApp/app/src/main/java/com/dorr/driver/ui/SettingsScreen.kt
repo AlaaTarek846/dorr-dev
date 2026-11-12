@@ -117,7 +117,7 @@ fun SettingsScreen(onBack: () -> Unit, onClosed: () -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
                             Text(d.device + if (d.current) " · " + stringResource(R.string.st_this_phone) else "", color = Pal.ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text(d.lastSeenAt?.take(16)?.replace('T', ' ').orEmpty(), color = Pal.mut, fontSize = 11.sp)
+                            Text(whenText(d.lastSeenAt), color = Pal.mut, fontSize = 11.sp)
                         }
                         if (!d.current) Icon(Icons.Rounded.DeleteOutline, null, tint = Pal.danger, modifier = Modifier.size(22.dp).clickable {
                             scope.launch { devices = (apiCall { DriverBackend.api.forgetDevice(d.id) } as? ApiResult.Ok)?.data ?: devices }

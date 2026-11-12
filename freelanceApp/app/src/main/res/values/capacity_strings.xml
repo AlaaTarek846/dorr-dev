@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L10: my capacity and the waiting list -->
+    <string name="cap_title">My capacity</string>
+    <string name="cap_home_card">My capacity</string>
+    <string name="cap_state_open">No cap — clients can always order</string>
+    <string name="cap_state_full">You are full now</string>
+    <string name="cap_state_room">Room for %1$d more</string>
+    <string name="cap_running_line">%1$d projects running now</string>
+    <string name="cap_used_of">%1$d of %2$d places taken</string>
+    <string name="cap_limit_title">Cap my projects</string>
+    <string name="cap_limit_sub">Only running projects count. When you are full, clients wait in line for your services instead of ordering.</string>
+    <string name="cap_projects_at_once">projects at once</string>
+    <string name="cap_below_running">You have %1$d running now: no new work starts until you are under the cap.</string>
+    <string name="cap_save">Save</string>
+    <string name="cap_saved">Saved</string>
+    <string name="cap_line_title">Waiting for you</string>
+    <string name="cap_line_empty">Nobody is waiting. When you are full, clients can wait in line and the first gets your next free place.</string>
+    <string name="cap_holding">Place kept</string>
+    <string name="cap_holding_until">Kept until %1$s</string>
+    <string name="cap_stat_running">Running</string>
+    <string name="cap_stat_holds">Held</string>
+    <string name="cap_stat_waiting">Waiting</string>
+</resources>

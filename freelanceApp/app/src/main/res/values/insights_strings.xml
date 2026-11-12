@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="insights_title">My performance</string>
+    <string name="insights_home_card">My performance</string>
+    <string name="insights_period_30">30 days</string>
+    <string name="insights_period_90">90 days</string>
+    <string name="insights_period_365">A year</string>
+    <string name="insights_period_other">%1$d days</string>
+    <string name="insights_summary">The last %1$d days</string>
+    <string name="insights_stat_sent">Offers sent</string>
+    <string name="insights_stat_accept">Offers accepted</string>
+    <string name="insights_stat_earned">You earned</string>
+    <string name="insights_stat_rating">Rating</string>
+    <string name="insights_rating_new">New</string>
+    <string name="insights_offers_title">Your offers</string>
+    <string name="insights_offers_none">You did not send offers in this period.</string>
+    <string name="insights_funnel_sent">Sent</string>
+    <string name="insights_funnel_viewed">Seen by the client</string>
+    <string name="insights_funnel_shortlisted">Shortlisted</string>
+    <string name="insights_funnel_accepted">Accepted</string>
+    <string name="insights_view_rate">%1$d%% of your offers were seen</string>
+    <string name="insights_offers_extra">Withdrawn %1$d · Turned down %2$d</string>
+    <string name="insights_services_title">Your ready-made services</string>
+    <string name="insights_services_none">No one ordered your services in this period.</string>
+    <string name="insights_services_received">Orders received</string>
+    <string name="insights_services_awaiting">Waiting for you</string>
+    <string name="insights_services_active">In progress</string>
+    <string name="insights_services_completed">Completed</string>
+    <string name="insights_services_declined">Declined or ran out</string>
+    <string name="insights_services_rate">You accepted %1$d%% of the orders you answered</string>
+    <string name="insights_earn_title">Your earnings</string>
+    <string name="insights_earn_sub">What reached your wallet in this period</string>
+    <string name="insights_earn_none">No earnings in this period yet.</string>
+    <string name="insights_rep_title">Your name with clients</string>
+    <string name="insights_rep_reviews">%1$d ratings</string>
+    <string name="insights_rep_completed">Finished projects</string>
+    <string name="insights_rep_completion">Completion rate</string>
+    <string name="insights_rep_ontime">Delivered on time</string>
+    <string name="insights_rep_in_period">Finished in this period</string>
+    <string name="insights_spec_title">Your best specialties</string>
+    <string name="insights_spec_row">%1$d sent · %2$d accepted</string>
+    <string name="insights_locked_title">Know how you are doing</string>
+    <string name="insights_locked_body">See how many of your offers are seen and accepted, what you earn, and where your offers do best.</string>
+    <string name="insights_locked_b1">Your offers: seen and accepted</string>
+    <string name="insights_locked_b2">Orders on your ready-made services</string>
+    <string name="insights_locked_b3">Your earnings over time</string>
+    <string name="insights_unlock">Upgrade to %1$s</string>
+    <string name="insights_no_plans">Plans are not offered in your country yet.</string>
+    <string name="insights_more_title">Want to look further back?</string>
+    <string name="insights_more_body">%1$s opens 90 days and a year, the earnings chart and your best specialties.</string>
+    <!-- FS-103: the lists clients keep me in (a number only, never whose). -->
+    <string name="insights_saved_title">Saved by clients</string>
+    <string name="insights_saved_new">%1$d new in this period</string>
+    <string name="insights_saved_note">Clients keep you in private lists to hire you again. You can\'t see who.</string>
+</resources>

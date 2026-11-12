@@ -21,10 +21,15 @@ class CallController extends Controller
 {
     public function __construct(private readonly CallService $calls) {}
 
+    /** GET calls?page=&per_page= — the call log, newest first. Pages of 15. */
     public function index(Request $request)
     {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
         $me = $request->user();
-        $page = $this->calls->history($me);
+        $page = $this->calls->history($me, (int) ($data['per_page'] ?? 15));
 
         return ApiResponse::success($page->getCollection()->map(fn (ChatCall $c) => $this->calls->payload($me, $c))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }

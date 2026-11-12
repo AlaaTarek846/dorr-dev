@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiGatewayResource;
 use Modules\AI\Repositories\AiGatewayRepository;
 
-class AiGatewayService extends BaseService
+/** AI gateways catalog: list (+status counts), create/update with translations, status, bulk delete, trash. */
+class AiGatewayService extends CatalogService
 {
     /**
      * @var class-string

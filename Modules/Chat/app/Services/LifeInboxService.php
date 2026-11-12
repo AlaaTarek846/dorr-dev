@@ -4,6 +4,7 @@ namespace Modules\Chat\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -38,8 +39,10 @@ class LifeInboxService
         private readonly ConversationService $conversations,
     ) {}
 
-    /** @return array<string, mixed> */
-    public function inbox(Model $me, string $zone): array
+    /**
+     * @return array{data: array<string, mixed>, paginator: LengthAwarePaginator}
+     */
+    public function inbox(Model $me, string $zone, ?string $section = null, int $page = 1, int $perPage = 15, ?string $q = null): array
     {
         $mine = $this->visible($me);
         $byConversation = $mine->keyBy('conversation_id');
@@ -148,6 +151,7 @@ class LifeInboxService
             ->orderBy('due_at')->limit(30)->get()
             ->map(fn (ChatTask $t) => ['kind' => 'task', 'id' => $t->uuid, 'title' => $t->text, 'at' => $t->due_at?->toIso8601String(), 'late' => $t->due_at?->isPast() ?? false]);
 
+        $order = ['reply', 'pay', 'approve', 'follow', 'appointments'];
         $sections = [
             'reply' => $reply,
             'pay' => $pay,
@@ -155,12 +159,50 @@ class LifeInboxService
             'follow' => $follow->values()->all(),
             'appointments' => $appointments->concat($tasks)->sortBy('at')->values()->all(),
         ];
+        $needle = mb_strtolower(trim((string) $q));
+        if ($needle !== '') {
+            foreach ($sections as $key => $list) {
+                $sections[$key] = array_values(array_filter($list, fn (array $item) => $this->matchesSearch($item, $needle)));
+            }
+        }
+        $counts = collect($sections)->map(fn ($s) => count($s))->all() + ['message_requests' => $requests];
+        $perPage = max(1, min($perPage, 50));
+        $page = max(1, $page);
+        $active = $section !== null && isset($sections[$section])
+            ? $section
+            : (collect($order)->first(fn ($key) => ($counts[$key] ?? 0) > 0) ?? 'reply');
+        $all = array_values($sections[$active] ?? []);
+        $slice = array_values(array_slice($all, ($page - 1) * $perPage, $perPage));
+        $lists = array_fill_keys($order, []);
+        if ($section !== null) {
+            $lists[$active] = $slice;
+        } else {
+            foreach ($order as $key) {
+                $lists[$key] = array_values(array_slice($sections[$key], 0, $perPage));
+            }
+        }
 
-        return $sections + [
-            'message_requests' => $requests,
-            'counts' => collect($sections)->map(fn ($s) => count($s))->all() + ['message_requests' => $requests],
-            'total' => collect($sections)->sum(fn ($s) => count($s)) + $requests,
+        return [
+            'data' => $lists + [
+                'message_requests' => $requests,
+                'counts' => $counts,
+                'total' => collect($sections)->sum(fn ($s) => count($s)) + $requests,
+            ],
+            'paginator' => new LengthAwarePaginator($slice, count($all), $perPage, $page),
         ];
+    }
+
+    /** Title, who, chat name, or location. */
+    private function matchesSearch(array $item, string $needle): bool
+    {
+        $hay = mb_strtolower(trim(implode(' ', array_filter([
+            $item['title'] ?? null,
+            $item['by'] ?? null,
+            $item['chat'] ?? null,
+            $item['location'] ?? null,
+        ], fn ($v) => is_string($v) && $v !== ''))));
+
+        return $hay !== '' && str_contains($hay, $needle);
     }
 
     /** @return Collection<int, ChatParticipant> */

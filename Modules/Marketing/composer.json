@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/marketing",
+    "description": "DORR AI Marketing Director.",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Marketing\\": "app/",
+            "Modules\\Marketing\\Database\\Factories\\": "database/factories/",
+            "Modules\\Marketing\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Marketing\\Tests\\": "tests/"
+        }
+    }
+}

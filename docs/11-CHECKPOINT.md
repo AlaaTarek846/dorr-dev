@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-19  
+**Last updated:** 2026-10-26  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -63,6 +63,67 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **AI Marketing Director A–D (2026-11-09 → 11):** `Modules/Marketing` — A: switches, package, projects + team, sourced research, plans with approvals (owner or manager), finance, export. B: calendar, ad studio + claims review, budgets (ads money / AI calls), results + CSV, KPI board, executive report. C: Meta (sandbox first) — OAuth vault, campaigns created PAUSED, approvals bound to version/payload/cap, delegations, Idempotency-Key, UNKNOWN + reconcile, metrics, signed webhooks. D: A/B tests, alert rules, suggestions, simulation. 70 tests. Android compiles (A–D); iOS ported (not compiled); admin Vue pages done; user/provider web: phase A done, B–C in progress. Open: Xcode build, `TAVILY_API_KEY`, Meta sandbox keys, ad creative (Page) step. See `docs/marketing_tasks.md`.
+- **Freelance FL-L16 consultation video session (2026-11-02):** backend (room, attendance, recording into the bucket then our storage, signed downloads, deletion after a week / after the staff's decision, no-show complaint), tests, admin session panel, DORR app Android + iOS, freelancer app. Open: the bucket (`CHAT_RECORDINGS_*` empty until the owner sets it — sessions run unrecorded until then), device testing (postponed by the owner), iOS build in Xcode.
+- **Freelance FL-L12 professional community (2026-11-02):** backend (feed per country, posts / questions / works, comments + replies, reactions, saves, follows, reports with auto-hide, staff decisions and mutes), tests, admin moderation page and freelancer app screens. The academy was dropped. Open: device check of the new screens.
+- **Freelance FL-L13 ownership and licences (2026-11-02):** backend (3 models per offer/service, agreement snapshot with the standard text, rights per approved part, delivery declaration + materials, portfolio leave, rights reports, dispute reason `rights`), tests, admin page, freelancer app and DORR app Android + iOS (iOS not built here). Open: device check of the new screens, legal review of the standard texts per country.
+- **Freelance FL-L09 batches A + B (2026-11-02):** special offers to past clients (A) and the loyalty program (B: per-freelancer discount steps applied by the server to offers, one-time services and consultations) — backend, tests (525 Freelance tests green), freelancer app, DORR app Android + iOS (iOS not built here). Admin pages for loyalty programs and special offers done (own permissions, read only). Open: device check of the new app screens.
+- **Chat educational & work groups (2026-10-29):** every non-AI task of `docs/groups_tasks.md` is done, the parents included (D8: an ordinary account linked to the child with the teacher's approval, never a member of the class chat). Admin page `admin.chat.groups` (`chat-groups.view/update`), tool switches in chat settings. The Android work and parent screens have not been built with Gradle yet. The AI tasks are still open: GR-023, 029, 046 (summary), 047, 048, 054.
+- **Chat group kinds (2026-10-27):** GR-001/002 of `docs/groups_tasks.md` — ordinary / educational / work, fixed at creation, switch + limit in chat settings, Android picker. The rest of the educational and work tools follow that file.
+- **Chat hidden members (2026-10-27):** paid group setting (once, never switched off) — numbers hidden from each other, no private chats from the group, names shown. Price per country in admin chat settings; Android switch on «جروب جديد» and in the group settings. `ParticipantDirectory::isHiddenFrom()`.
+- **iOS wallet (2026-10-28):** done — every Android wallet screen and flow in `iosApp/Dorr/UI/Wallet/`, marked ✅ in the iOS parity table. Next on iOS: to be chosen by the owner.
+- **iOS app (2026-10-28):** `iosApp/` SwiftUI foundation (auth flow, tabs, Home/Services/Account). Every Android change must be mirrored there (AGENTS.md sync rule); parity table in `docs/modules/ios/README.md`.
+- **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
+- **Android send-money gift card (2026-11-01):** send-money with `meta.gift` is a compact receipt in chat colours; attach-sheet transfer receipts keep the old red card.
+- **Chat calls (2026-11-01):** a second start of my own still-ringing 1:1 call cancels the leftover and starts a new one (`409` only when the other person already has a call in that chat). Android no longer hangs up a ringing call when LiveKit closes an empty room.
+- **Android share-a-transfer picker (2026-11-01):** «اختر تحويلا لمشاركته» pages 15 (`GET wallet/transactions?type=transfer_out&page=&per_page=15`); next page near the end of the list.
+- **Android AI memory (2026-11-01):** chat overlay uses `LocaleAwareDialog` (Arabic strings) and the settings header (`SubHeader` + pink wash).
+- **Android conversation AI menu (2026-11-01):** header AI `ChoiceSheet` uses a fixed ~58% screen height; options scroll; title/cancel stay put. Other choice sheets stay wrap-content.
+- **Android Gradle (2026-11-01):** 4 GB heap, Gradle cache; Kotlin compile stays `in-process` (daemon dies on startup here).
+- **Android media / links / files (2026-11-01):** `ChatMediaPage` uses the settings header (`SubHeader` + pink wash).
+- **Android chat sheets (2026-11-01):** all chat `ChSheet`s use `Ch.Surface` (appearance token `surface`).
+- **Android attach sheet (2026-11-01):** composer attach circles are smaller; each still has its own colour.
+- **Chat broadcasts (2026-11-01):** `GET broadcasts` pages of 15 like communities; Android list loads more near the end. Cap still 50 lists.
+- **Android broadcasts (2026-10-29):** «قوائم البث» uses the settings header (`SubHeader` + pink wash).
+- **Android new chat (2026-10-29):** settings header (`SubHeader` + pink wash).
+- **Android community groups (2026-10-29):** 6 rows then «عرض الكل (N)» to the full list (`ChRoute.CommunityGroups`).
+- **iOS wallet (2026-10-28):** done — every Android wallet screen and flow in `iosApp/Dorr/UI/Wallet/`, marked ✅ in the iOS parity table. Next on iOS: to be chosen by the owner.
+- **iOS app (2026-10-28):** `iosApp/` SwiftUI foundation (auth flow, tabs, Home/Services/Account). Every Android change must be mirrored there (AGENTS.md sync rule); parity table in `docs/modules/ios/README.md`.
+- **Android community detail (2026-10-28):** looks like group info (orange hero, overlay search/back, `SettingRow`); community wording unchanged.
+- **Android communities (2026-10-28):** settings header; create bar pinned at the bottom; search; pages of 15 (`GET communities?q=&page=&per_page=`). `ChatCommunitiesDemoSeeder` fills every list/detail kind for last `mobile-app` login.
+- **Chat communities demo (2026-10-28):** `ChatCommunitiesDemoSeeder` — creator, member-only, hop-in / ask-to-join groups, long names, fillers for page 2, plus three groups outside a community for «إضافة مجموعات موجودة».
+- **Android calls log (2026-10-28):** one card for overlay / fullscreen / create link / link log (count on the left); call list has icon + title on the right and the count on the left; pages of 15.
+- **Android business tools (2026-10-28):** privacy-style settings card; each row opens a sheet.
+- **Android calls + business tools (2026-10-28):** settings header (`SubHeader` + pink wash).
+- **Android manage storage (2026-10-27):** summary card; select-all on the open chip; delete confirms then a toast. Files page 15.
+- **Chat storage demo (2026-10-27):** `ChatStorageDemoSeeder` — large, forwarded, and per-chat files for last `mobile-app` login.
+- **Android usage stats hero (2026-10-27):** memory well, calendar on the since date, mobile/Wi-Fi glass split like the wallet.
+- **Android usage stats confirm (2026-10-27):** clear cache and reset stats use `ConfirmDialog` then a toast.
+- **Android data and performance (2026-10-27):** data/performance, manage storage, and usage stats use the settings header (`SubHeader` + pink wash).
+- **Android life inbox search (2026-10-27):** `q` on `GET life-inbox` (title, who, chat, location); pages of 15.
+- **Android life inbox requests (2026-10-27):** row uses `MarkChatUnread`; tap opens the requests list (`filter=requests`) with search, not Chat Settings.
+- **Android life inbox (2026-10-27):** chips in one row, first with data selected; pages of 15 (`section`/`page`/`per_page`).
+- **Chat life-inbox demo (2026-10-27):** `ChatLifeInboxDemoSeeder` — reply, pay, appointments for last `mobile-app` login.
+- **Android commitments search (2026-10-27):** `q` on commitments/handoffs (name, phone, title/note); pages of 15.
+- **Android commitments list (2026-10-26):** pages of 15; scroll loads more (`GET commitments` / `handoffs` `page`/`per_page`).
+- **Chat commitments demo (2026-10-26):** `ChatCommitmentsDemoSeeder` for last `mobile-app` login — open commitments + handoffs on «التزاماتي».
+- **Android my tasks (2026-10-26):** compact **إضافة**; lists page 15 (`GET tasks?page=&per_page=`).
+- **Android tasks / commitments / life inbox (2026-10-26):** settings header (`SubHeader` + pink wash).
+- **Android important + today (2026-10-26):** settings rows open `ChRoute.Important` / `ChRoute.Today` (pink header). Important pages 15 (`POST ai/important` `page`/`per_page`/`has_more`). In-chat important stays a sheet.
+- **Chat important demo (2026-10-26):** seeder targets the last `mobile-app` token (currently `+201113667448`); `POST ai/important` ranks unread picks (pages of 15).
+- **Android “what I missed” (2026-10-26):** settings header; compact time chips; search by name/phone; unread rows are cards with a badge; unread chats page 15 (`GET catch-up?q=&page=&per_page=`).
+- **Android starred messages (2026-10-26):** Favourites lists compact cards. Search at the top (name/phone/text). Star only on unsorted Favourites. Expand arrow; tap jumps to the message; pages of 15.
+- **Android current context (2026-10-26):** communication rules “Right now” is a row + choice sheet (then duration), not chips.
+- **Android context rules (2026-10-26):** one `ChRoute.ContextRules(key)` screen; list rows on communication rules push it.
+- **Android communication rules calls + on-phone (2026-10-26):** same card/rows as the sections above; RedToggle like Account notifications.
+- **Android always-get-through (2026-10-26):** privacy-style row with a count; picker checks the chosen people and loads contacts 15 at a time.
+- **Android communication rules (2026-10-26):** “What interrupts me” uses privacy-style rows + ChoiceSheet; title/description stay outside the card.
+- **Android locked chats empty (2026-10-25):** empty locked list uses `ChEmptyState` like blocked contacts (`ch_no_locked`).
+- **Android blocked contacts (2026-10-25):** Privacy and security → Blocked contacts (search name/phone, pages of 15). Removed from the privacy settings page.
+- **Android username delete (2026-10-25):** remove sends `username: ""` (Gson was dropping JSON null). Save/delete and privacy updates toast. API missing-username message is translated.
+- **Android privacy schedule sheet (2026-10-25):** time boxes have a clock icon; weekdays are named chips (multi-select) under **أيام الأسبوع**.
+- **Android chat privacy screen (2026-10-25):** Privacy matches Account → Notifications (one settings card, 13.5/11sp rows, PinkIcon + RedToggle). Blocked contacts stay a list under that card.
+- **Android channel unfollow (2026-10-25):** unfollow uses the same confirm dialog as clear chat, then pops back to the list.
 - **Android channels create (2026-10-22):** sticky **إنشاء قناة** at the bottom of Channels; filter beside search matches browse.
 - **Android channels filter (2026-10-22):** Channels search uses the browse Tune circle; the sheet is verification + category `FilterSelect`, Apply / Clear.
 - **Android chat money page (2026-10-20):** chat info → money is `ChRoute.ChatMoney` (settings header). Ledger pages 15 (`has_more`, Show more / المزيد). `GET conversations/{c}/money?page=&per_page=`.
@@ -382,3 +443,74 @@ php artisan route:list  # Verify API routes
 npm run dev             # Vite dev server only
 npm run build           # Production frontend build
 ```
+
+### Freelancer app redesign — batches A + B (2026-11-02)
+
+- **Navigation:** new tabs Home · Opportunities · My work · Community (per country) · Me.
+- **Header:** shown on every tab.
+- **Home:** a dashboard fed by one call to `GET freelance/v1/home`, with banners, numbers, items waiting for an answer, current work and matching projects.
+- **Admin:** promo banners managed at `admin/v1/freelance-promos` (permissions `freelance-promos.*`).
+- **Tests:** `FreelancerHomeTest` (5).
+- **Not verified:** not run on a device.
+- **Next:** batches C to H in [APP-REDESIGN-PLAN.md](modules/freelance/APP-REDESIGN-PLAN.md).
+
+### Freelancer app redesign — batches C to H (2026-11-03)
+
+- **Status:** all eight batches of [APP-REDESIGN-PLAN.md](modules/freelance/APP-REDESIGN-PLAN.md) are done.
+- **What changed, by batch:**
+  - C: opportunities.
+  - D: my work.
+  - E: store pages.
+  - F: «Me».
+  - G: notifications.
+  - H: finishing touches.
+- **Verification:** `freelanceApp` compiles. Nothing has been run on a device yet.
+- **Not committed.**
+
+### Client freelance redesign — batch A (2026-11-03)
+
+- **Plan:** [CLIENT-APP-REDESIGN-PLAN.md](modules/freelance/CLIENT-APP-REDESIGN-PLAN.md) (owner: no bottom bar, promos from the same admin table with an audience field, iOS in every batch, the app's own colour, «Services» not «Market»).
+- **Done:** the hub, the shared look, typed pages on a stack with per-page state, My projects without the shortcut chips (Android + iOS).
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build (Windows). Nothing run on a device. Not committed.
+- **Next:** batch B — `GET mobile/v1/freelance/home`, the `audience` field on `freelance_promos`, and the hub's numbers / priorities / slider.
+
+### Client freelance redesign — batch B (2026-11-03)
+
+- **Done:** `GET mobile/v1/freelance/home`, the promo `audience` (migration `2026_11_22_100000`, admin picker and filter), the hub's dashboard on Android and iOS.
+- **Verification:** `FreelanceClientHomeTest` (5) and `FreelancerHomeTest` (5) pass; `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch C — my projects (list, card, filters, project page, invitations).
+
+### Client freelance redesign — batch C (2026-11-03)
+
+- **Done:** `scope=active|ended` on `GET mobile/v1/freelance/projects`; My projects, the project card, the project page (parts + fixed main step + «More») and the invitations page on Android and iOS.
+- **Verification:** `FreelanceClientProjectsTest` passes; `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch D — offers, compare, the freelancer's profile, the agreement and its stages.
+
+### Client freelance redesign — batch D (2026-11-03)
+
+- **Done:** offers list, offer page (fixed foot), compare, freelancer profile, favourites, and the agreement head with the parts as steps, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch E — services and consultations (browse, one service, booking).
+
+### Client freelance redesign — batch E (2026-11-03)
+
+- **Done:** one «Services» page (ready-made services + consultations as two parts), pull to refresh, the shared head on the service page and the booking, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch F — «My activity» (orders, subscriptions, consultations, special offers).
+
+### Client freelance redesign — batch F (2026-11-03)
+
+- **Done:** one «My activity» page (orders with subscriptions, consultations, special offers) on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch G — favourites, my discounts, receipts, sanctions and clean-up.
+
+### Client freelance redesign — batch G (2026-11-03)
+
+- **Done:** «My receipts», the hub's tools in rows of three, the shared head everywhere but the chat, one avatar and one status pill, unused strings removed, on Android and iOS. No backend change.
+- **Verification:** `androidApp` compiles; iOS written without an Xcode build. Nothing run on a device. Not committed.
+- **Next:** batch H (last) — skeletons, empty and error states, accessibility, dark mode.
+
+### Client freelance redesign — batch H (2026-11-03)
+
+- **Status:** all eight batches of [CLIENT-APP-REDESIGN-PLAN.md](modules/freelance/CLIENT-APP-REDESIGN-PLAN.md) are done.
+- **Verification:** `androidApp` compiles; the Freelance PHP suite passed after the last backend change (batch C, 568). iOS written without an Xcode build. Nothing run on a device. Not committed.

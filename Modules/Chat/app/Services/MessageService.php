@@ -30,6 +30,7 @@ use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
+use Modules\Chat\Support\GroupMedia;
 use Modules\Chat\Support\ParticipantType;
 use Modules\Chat\Support\SharedMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -276,7 +277,7 @@ class MessageService
             if (($thumbnail = $data['thumbnail_file'] ?? null) instanceof UploadedFile && $type === MessageType::Video) {
                 $thumbnail = WebpUploadConverter::convert($thumbnail);
                 $extension = strtolower($thumbnail->getClientOriginalExtension() ?: $thumbnail->extension() ?: 'jpg');
-                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL);
+                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL, GroupMedia::diskFor($conversation));
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
@@ -752,16 +753,29 @@ class MessageService
     /**
      * My starred messages — across every chat, or in one. Pages of 15 (the app loads the next 15 at the end of the list).
      */
-    public function starred(Model $me, ?ChatConversation $conversation = null, int|string|null $folder = null, int $page = 1, int $perPage = 15): LengthAwarePaginator
+    public function starred(Model $me, ?ChatConversation $conversation = null, int|string|null $folder = null, int $page = 1, int $perPage = 15, ?string $q = null): LengthAwarePaginator
     {
         $perPage = min(max(1, $perPage), 50);
         $page = max(1, $page);
+        $search = trim((string) $q);
+        $matchChats = $search === '' ? null : $this->starredConversationIdsMatching($me, $search);
         $paginator = ChatMessageUserState::query()
             ->whereIn('participant_id', ChatParticipant::query()->of($me)->when($conversation, fn ($q) => $q->where('conversation_id', $conversation->id))->pluck('id'))
             ->whereNotNull('starred_at')->whereNull('deleted_at')
             // One favourites folder, or "none" = the ones in no folder.
             ->when($folder === 'none', fn ($q) => $q->whereNull('star_folder_id'))
             ->when(is_int($folder), fn ($q) => $q->where('star_folder_id', $folder))
+            ->when($matchChats !== null, function ($query) use ($matchChats, $search) {
+                $like = '%'.addcslashes($search, '%_\\').'%';
+                $query->whereHas('message', function ($m) use ($matchChats, $like) {
+                    $m->where(function ($inner) use ($matchChats, $like) {
+                        $inner->where('body', 'like', $like);
+                        if ($matchChats !== []) {
+                            $inner->orWhereIn('conversation_id', $matchChats);
+                        }
+                    });
+                });
+            })
             ->latest('starred_at')->with('message.conversation')
             ->paginate($perPage, ['*'], 'page', $page);
 
@@ -774,6 +788,44 @@ class MessageService
         );
 
         return $paginator;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function starredConversationIdsMatching(Model $me, string $q): array
+    {
+        $needle = mb_strtolower($q);
+        $digits = preg_replace('/\D+/', '', $q) ?? '';
+        $mine = ChatParticipant::query()->of($me)->whereNull('left_at')->with('conversation.group')->get();
+        $directory = app(ParticipantDirectory::class);
+        $myType = ParticipantType::aliasFor($me);
+        $direct = $mine->filter(fn ($p) => $p->conversation && ! $p->conversation->isGroup())->pluck('conversation_id');
+        $others = ChatParticipant::query()->whereIn('conversation_id', $direct)
+            ->where(fn ($w) => $w->where('participant_type', '!=', $myType)->orWhere('participant_id', '!=', $me->getKey()))
+            ->get()->keyBy('conversation_id');
+        $directory->prime($me, $others->map(fn ($o) => [$o->participant_type, $o->participant_id]));
+        $keep = [];
+        foreach ($mine as $p) {
+            if ($p->conversation === null) {
+                continue;
+            }
+            $peer = (! $p->conversation->isGroup() && ! $p->conversation->isSelf()) ? ($others[$p->conversation_id] ?? null) : null;
+            $profile = $peer ? $directory->profile($me, $peer->participant_type, $peer->participant_id) : null;
+            $title = mb_strtolower((string) ($p->conversation->isGroup() ? $p->conversation->group?->name
+                : ($p->conversation->isSelf() ? __('chat.self_title') : ($profile['name'] ?? ''))));
+            $phone = preg_replace('/\D+/', '', (string) ($profile['phone'] ?? '')) ?? '';
+            if ($needle !== '' && str_contains($title, $needle)) {
+                $keep[] = $p->conversation_id;
+
+                continue;
+            }
+            if ($digits !== '' && $phone !== '' && str_contains($phone, $digits)) {
+                $keep[] = $p->conversation_id;
+            }
+        }
+
+        return $keep;
     }
 
     /**
@@ -1066,6 +1118,8 @@ class MessageService
             if (($conversation->isChannel() || $conversation->group->only_admins_send) && ! $participant->isAdmin()) {
                 throw ChatException::adminsOnly();
             }
+            // Archived, or a term / project that closed (docs/groups_tasks.md GR-006, GR-007).
+            GroupLifecycleService::assertWritable($conversation);
 
             $this->assertNotTooSoon($participant, $conversation);
 
@@ -1221,7 +1275,8 @@ class MessageService
                 // A photo's size and tiny preview (data saver shows it before the download).
                 ->withCustomProperties(ImagePreview::of($file))
                 ->setOrder($i + 1)
-                ->toMediaCollection(ChatMessage::ATTACHMENTS);
+                // Educational / work groups: the private disk, read through signed links only (GR-008).
+                ->toMediaCollection(ChatMessage::ATTACHMENTS, GroupMedia::diskFor($message->conversation));
         }
     }
 

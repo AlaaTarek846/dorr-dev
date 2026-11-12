@@ -30,6 +30,23 @@ class MobileAppearanceService
      */
     public function update(User $user, array $data): JsonResponse
     {
+        $attributes = $this->attributesFrom($data);
+
+        if ($attributes !== []) {
+            $this->appearances->upsertForUser($user, $attributes);
+        }
+
+        return ApiResponse::success($this->resolvePayload($user->fresh()), __('api.updated'));
+    }
+
+    /**
+     * The columns an appearance request changes (shared with the freelancer app, which keeps the same settings on its own table).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function attributesFrom(array $data): array
+    {
         $attributes = [];
 
         if (array_key_exists('uses_default_colors', $data)) {
@@ -52,11 +69,7 @@ class MobileAppearanceService
             $attributes['dark_mode'] = $data['dark_mode'];
         }
 
-        if ($attributes !== []) {
-            $this->appearances->upsertForUser($user, $attributes);
-        }
-
-        return ApiResponse::success($this->resolvePayload($user->fresh()), __('api.updated'));
+        return $attributes;
     }
 
     /**
@@ -64,8 +77,17 @@ class MobileAppearanceService
      */
     public function resolvePayload(User $user): array
     {
+        return $this->payload($this->appearances->forUser($user));
+    }
+
+    /**
+     * What the app reads: the account's saved choice (any model with the appearance columns, or none yet) resolved against the platform defaults.
+     *
+     * @return array<string, mixed>
+     */
+    public function payload(?object $appearance): array
+    {
         $defaults = $this->colorDefaults->active();
-        $appearance = $this->appearances->forUser($user);
 
         $storedLight = is_array($defaults->light_tokens) ? $defaults->light_tokens : [];
         $storedDark = is_array($defaults->dark_tokens) ? $defaults->dark_tokens : [];

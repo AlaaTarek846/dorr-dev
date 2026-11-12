@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -119,7 +120,14 @@ class PrivacyController extends Controller
 
     public function blocked(Request $request)
     {
-        return ApiResponse::success($this->blocks->list($request->user())->values(), __('api.retrieved'));
+        $q = $request->validate([
+            'q' => ['nullable', 'string', 'max:80'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $page = $this->blocks->page($request->user(), $q['q'] ?? null, (int) ($q['page'] ?? 1), (int) ($q['per_page'] ?? 15));
+
+        return ApiResponse::success($page->getCollection()->values()->all(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     public function block(Request $request)

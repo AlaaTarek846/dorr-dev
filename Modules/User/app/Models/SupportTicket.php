@@ -17,6 +17,7 @@ class SupportTicket extends Model
         'number',
         'user_id',
         'driver_id',
+        'freelancer_id',
         'ride_id',
         'category',
         'reference',
@@ -67,16 +68,30 @@ class SupportTicket extends Model
         return $this->belongsTo(\Modules\Driver\Models\Driver::class);
     }
 
-    /** Whoever opened it — a rider or a captain. */
+    /** A freelancer's ticket. */
+    public function freelancer(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Freelance\Models\Freelancer::class);
+    }
+
+    /** Whoever opened it — a rider, a captain or a freelancer. */
     public function getOwnerAttribute(): ?\Illuminate\Database\Eloquent\Model
     {
-        return $this->driver_id !== null ? $this->driver : $this->user;
+        return match (true) {
+            $this->driver_id !== null => $this->driver,
+            $this->freelancer_id !== null => $this->freelancer,
+            default => $this->user,
+        };
     }
 
     /** The private channel of whoever opened it. */
     public function ownerChannel(): string
     {
-        return $this->driver_id !== null ? 'Modules.Driver.Models.Driver.'.$this->driver_id : 'Modules.User.Models.User.'.$this->user_id;
+        return match (true) {
+            $this->driver_id !== null => 'Modules.Driver.Models.Driver.'.$this->driver_id,
+            $this->freelancer_id !== null => 'Modules.Freelance.Models.Freelancer.'.$this->freelancer_id,
+            default => 'Modules.User.Models.User.'.$this->user_id,
+        };
     }
 
     /** The support agent who took the ticket (the first one to answer it). */

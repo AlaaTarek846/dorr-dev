@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="insights_title">إحصائيات أدائي</string>
+    <string name="insights_home_card">إحصائيات أدائي</string>
+    <string name="insights_period_30">30 يوم</string>
+    <string name="insights_period_90">90 يوم</string>
+    <string name="insights_period_365">سنة</string>
+    <string name="insights_period_other">%1$d يوم</string>
+    <string name="insights_summary">آخر %1$d يوم</string>
+    <string name="insights_stat_sent">عروض بعتّها</string>
+    <string name="insights_stat_accept">نسبة قبول عروضك</string>
+    <string name="insights_stat_earned">اللي كسبته</string>
+    <string name="insights_stat_rating">تقييمي</string>
+    <string name="insights_rating_new">جديد</string>
+    <string name="insights_offers_title">عروضك</string>
+    <string name="insights_offers_none">ما بعتّش عروض في الفترة دي.</string>
+    <string name="insights_funnel_sent">اتبعتت</string>
+    <string name="insights_funnel_viewed">العميل شافها</string>
+    <string name="insights_funnel_shortlisted">دخلت القايمة المختصرة</string>
+    <string name="insights_funnel_accepted">اتقبلت</string>
+    <string name="insights_view_rate">%1$d%% من عروضك اتشافت</string>
+    <string name="insights_offers_extra">سحبت %1$d · اترفضت %2$d</string>
+    <string name="insights_services_title">خدماتك الجاهزة</string>
+    <string name="insights_services_none">محدش طلب خدماتك في الفترة دي.</string>
+    <string name="insights_services_received">طلبات وصلتك</string>
+    <string name="insights_services_awaiting">مستنية ردك</string>
+    <string name="insights_services_active">شغالة</string>
+    <string name="insights_services_completed">خلصت</string>
+    <string name="insights_services_declined">اعتذرت أو انتهت</string>
+    <string name="insights_services_rate">قبلت %1$d%% من الطلبات اللي ردّيت عليها</string>
+    <string name="insights_earn_title">أرباحك</string>
+    <string name="insights_earn_sub">اللي نزل لمحفظتك في الفترة دي</string>
+    <string name="insights_earn_none">لسه مفيش أرباح في الفترة دي.</string>
+    <string name="insights_rep_title">سمعتك عند العملاء</string>
+    <string name="insights_rep_reviews">%1$d تقييم</string>
+    <string name="insights_rep_completed">مشاريع خلصت</string>
+    <string name="insights_rep_completion">نسبة الإكمال</string>
+    <string name="insights_rep_ontime">التسليم في الميعاد</string>
+    <string name="insights_rep_in_period">خلصت في الفترة دي</string>
+    <string name="insights_spec_title">تخصصاتك الأنجح</string>
+    <string name="insights_spec_row">%1$d عرض · %2$d اتقبل</string>
+    <string name="insights_locked_title">اعرف أداءك بالأرقام</string>
+    <string name="insights_locked_body">شوف كام عرض من عروضك بيتشاف وبيتقبل، وبتكسب كام، وفي أنهي تخصص عروضك أنجح.</string>
+    <string name="insights_locked_b1">عروضك: اتشافت واتقبلت</string>
+    <string name="insights_locked_b2">طلبات خدماتك الجاهزة</string>
+    <string name="insights_locked_b3">أرباحك على مدى الوقت</string>
+    <string name="insights_unlock">ترقّى لباقة %1$s</string>
+    <string name="insights_no_plans">الباقات مش متاحة في بلدك دلوقتي.</string>
+    <string name="insights_more_title">عايز تبص أبعد؟</string>
+    <string name="insights_more_body">باقة %1$s بتفتح 90 يوم وسنة، ورسم الأرباح، وأنجح تخصصاتك.</string>
+    <!-- FS-103: القوايم اللي العملاء حافظينك فيها (رقم بس، من غير أسماء). -->
+    <string name="insights_saved_title">محفوظ عند العملاء</string>
+    <string name="insights_saved_new">%1$d جديد في الفترة دي</string>
+    <string name="insights_saved_note">العملاء بيحفظوك في قوايم خاصة علشان يشغّلوك تاني. مش هتشوف مين.</string>
+</resources>

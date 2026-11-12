@@ -22,7 +22,9 @@ final class FreelancePolicyData
      *   enum      — one of `options`
      *   amount    — `commission.value` / `client_fee.value`: basis points when its `*.type` is percent, money when fixed
      *   money     — minor units of the country's currency, or null for "no limit"
+     *   rate      — basis points (0–10000), shown as a percent
      *   int       — a whole number between `min` and `max`
+     *   limit     — like `int`, or null for "no limit" (FS-150a: the Workroom starts unlimited and the admin sets a cap later)
      *   bool
      */
     public const KEYS = [
@@ -44,7 +46,37 @@ final class FreelancePolicyData
         'milestones.min_amount_minor' => ['group' => 'milestones', 'kind' => 'money'],
         'project.min_budget_minor' => ['group' => 'project', 'kind' => 'money'],
         'project.max_budget_minor' => ['group' => 'project', 'kind' => 'money'],
+        'cancellation.started_freelancer_bp' => ['group' => 'cancellation', 'kind' => 'rate'],
+        'ratings.window_days' => ['group' => 'ratings', 'kind' => 'int', 'min' => 1, 'max' => 90],
+        'changes.response_days' => ['group' => 'changes', 'kind' => 'int', 'min' => 1, 'max' => 30],
+        'disputes.response_days' => ['group' => 'disputes', 'kind' => 'int', 'min' => 1, 'max' => 30],
+        'disputes.appeal_days' => ['group' => 'disputes', 'kind' => 'int', 'min' => 0, 'max' => 30],
         'earnings.hold_days' => ['group' => 'earnings', 'kind' => 'int', 'min' => 0, 'max' => 365],
+        'invitations.max_per_project' => ['group' => 'invitations', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'services.require_review' => ['group' => 'services', 'kind' => 'bool'],
+        'services.max_active' => ['group' => 'services', 'kind' => 'int', 'min' => 1, 'max' => 1000],
+        'services.answer_hours' => ['group' => 'services', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.require_review' => ['group' => 'consultations', 'kind' => 'bool'],
+        'consultations.max_active' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'consultations.free_cancel_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 0, 'max' => 168],
+        'consultations.complaint_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.response_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 168],
+        'consultations.min_notice_hours' => ['group' => 'consultations', 'kind' => 'int', 'min' => 0, 'max' => 72],
+        'consultations.max_days_ahead' => ['group' => 'consultations', 'kind' => 'int', 'min' => 1, 'max' => 90],
+        'special_offers.daily_limit' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 100],
+        'special_offers.open_per_client' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 5],
+        'special_offers.cooldown_days' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 0, 'max' => 90],
+        'special_offers.max_valid_days' => ['group' => 'special_offers', 'kind' => 'int', 'min' => 1, 'max' => 60],
+        'loyalty.max_discount_bp' => ['group' => 'loyalty', 'kind' => 'rate'],
+        'loyalty.max_tiers' => ['group' => 'loyalty', 'kind' => 'int', 'min' => 1, 'max' => 10],
+        'workroom.tasks_max' => ['group' => 'workroom', 'kind' => 'limit', 'min' => 1, 'max' => 100000],
+        'workroom.files_max' => ['group' => 'workroom', 'kind' => 'limit', 'min' => 1, 'max' => 100000],
+        'workroom.storage_mb' => ['group' => 'workroom', 'kind' => 'limit', 'min' => 1, 'max' => 1000000],
+        'teams.owned_max' => ['group' => 'teams', 'kind' => 'limit', 'min' => 1, 'max' => 100],
+        'teams.joined_max' => ['group' => 'teams', 'kind' => 'limit', 'min' => 1, 'max' => 100],
+        'teams.members_max' => ['group' => 'teams', 'kind' => 'limit', 'min' => 1, 'max' => 1000],
+        'teams.offers_monthly' => ['group' => 'teams', 'kind' => 'limit', 'min' => 1, 'max' => 100000],
+        'teams.projects_max' => ['group' => 'teams', 'kind' => 'limit', 'min' => 1, 'max' => 100000],
     ];
 
     /** Pairs that must not cross: [lower, upper]. */
@@ -109,6 +141,8 @@ final class FreelancePolicyData
                 'enum' => is_string($value) && in_array($value, $meta['options'], true),
                 'bool' => is_bool($value),
                 'int' => is_int($value) && $value >= $meta['min'] && $value <= $meta['max'],
+                'limit' => $value === null || (is_int($value) && $value >= $meta['min'] && $value <= $meta['max']),
+                'rate' => is_int($value) && $value >= 0 && $value <= self::MAX_BP,
                 'money' => $value === null || (is_int($value) && $value >= 0 && $value <= self::MAX_MONEY),
                 'amount' => is_int($value) && $value >= 0 && $value <= self::MAX_MONEY,
                 default => false,

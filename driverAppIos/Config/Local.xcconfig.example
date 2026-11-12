@@ -1,0 +1,3 @@
+DORR_API_HOST = dorr-app.com
+DORR_API_SCHEME = https
+DORR_GOOGLE_MAPS_KEY =

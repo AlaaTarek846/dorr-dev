@@ -16,6 +16,9 @@ class AiSiteRequestInstallment extends Model
 
     public const PAID = 'paid';
 
+    /** Paid, then given back to the wallet because the team rejected / cancelled the request. */
+    public const REFUNDED = 'refunded';
+
     public const ON_ACCEPT = 'on_accept';
 
     public const ON_MILESTONE = 'on_milestone';

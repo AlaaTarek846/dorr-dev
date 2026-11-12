@@ -42,8 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
@@ -133,8 +133,8 @@ fun ChatCapsuleSheet(conversationId: String, onDismiss: () -> Unit) {
 @Composable
 fun ChatMemoryDialog(onDismiss: () -> Unit) {
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize()) { AiMemoryScreen(night = night, onExit = onDismiss) }
+    LocaleAwareDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Box(Modifier.fillMaxSize()) { AiMemoryScreen(night = night, onExit = onDismiss, settingsHeader = true) }
     }
 }
 

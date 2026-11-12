@@ -1,5 +1,8 @@
 package com.dorr.freelance.ui.kit
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -79,6 +82,42 @@ fun MenuRow(entry: MenuEntry) {
     }
 }
 
+/**
+ * Rows grouped in one card (the settings look): each row an icon tile, a title and a line, a chevron; a hairline between rows. Used by the
+ * «Me» tab and «My profile».
+ */
+@Composable
+fun MenuGroup(entries: List<MenuEntry>, modifier: Modifier = Modifier) {
+    if (entries.isEmpty()) return
+    val dark = settingsNight()
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp), elevation = 4.dp)) {
+        entries.forEachIndexed { index, entry ->
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = entry.onClick).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PinkIcon(entry.icon)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(entry.label), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (entry.danger) settingsAccent() else settingsInk())
+                    entry.subtitle?.let { Text(stringResource(it), fontSize = 11.5.sp, color = settingsMut(), maxLines = 2) }
+                }
+                if (entry.trailing != null) entry.trailing.invoke()
+                else Icon(
+                    Icons.Rounded.ChevronRight, contentDescription = null,
+                    tint = if (dark) AccountDark.chevron else settingsMut().copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp).graphicsLayer { if (rtl) scaleX = -1f },
+                )
+            }
+            if (index < entries.lastIndex) Spacer(
+                Modifier.padding(start = 60.dp, end = 14.dp).fillMaxWidth().height(1.dp)
+                    .background(if (dark) AccountDark.line else androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.06f)),
+            )
+        }
+    }
+}
+
 /** A yes / cancel question (sign out, delete the account). */
 @Composable
 fun ConfirmDialog(
@@ -89,18 +128,57 @@ fun ConfirmDialog(
     loading: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    dismissLabel: String = stringResource(R.string.common_cancel),
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(icon, contentDescription = null, tint = settingsAccent()) },
-        title = { Text(title, fontWeight = FontWeight.ExtraBold) },
-        text = { Text(message) },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !loading) {
-                if (loading) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp)) else Text(confirmLabel, color = settingsAccent(), fontWeight = FontWeight.Bold)
+    val dark = settingsNight()
+    val ink = if (dark) AccountDark.accent else settingsAccent()
+    com.dorr.freelance.ui.locale.LocaleAwareDialog(
+        onDismissRequest = { if (!loading) onDismiss() },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)).clickable(enabled = !loading, onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.foundation.layout.Box(
+                Modifier.padding(horizontal = 24.dp).widthIn(max = 300.dp).fillMaxWidth()
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = androidx.compose.ui.graphics.Color(0x24001B53), spotColor = androidx.compose.ui.graphics.Color(0x24001B53))
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = {}),
+            ) {
+                PinkBackdrop(Modifier.matchParentSize())
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.padding(bottom = 12.dp).size(56.dp)
+                            .then(if (dark) Modifier else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = androidx.compose.ui.graphics.Color(0x1A001B53), spotColor = androidx.compose.ui.graphics.Color(0x1A001B53)))
+                            .clip(RoundedCornerShape(18.dp)).background(settingsCard())
+                            .then(if (dark) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(18.dp)) else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(26.dp)) }
+                    Text(title, color = ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Spacer(Modifier.height(4.dp))
+                    Text(message, color = settingsMut(), fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 20.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.weight(1f).height(46.dp)
+                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = androidx.compose.ui.graphics.Color(0x38001B53), spotColor = androidx.compose.ui.graphics.Color(0x38001B53))
+                                .clip(RoundedCornerShape(14.dp)).background(settingsAccent().copy(alpha = if (loading) 0.6f else 1f))
+                                .clickable(enabled = !loading, onClick = onConfirm),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (loading) CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White, strokeWidth = 2.dp, modifier = Modifier.size(17.dp))
+                            else Text(confirmLabel, color = androidx.compose.ui.graphics.Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(14.dp)).background(settingsCard())
+                                .border(1.5.dp, if (dark) AccountDark.line else ink.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                                .clickable(enabled = !loading, onClick = onDismiss),
+                            contentAlignment = Alignment.Center,
+                        ) { Text(dismissLabel, color = ink.copy(alpha = if (loading) 0.5f else 1f), fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
             }
-        },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
-        containerColor = settingsCard(),
-    )
+        }
+    }
 }

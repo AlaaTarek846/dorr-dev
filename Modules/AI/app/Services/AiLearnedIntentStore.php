@@ -83,7 +83,8 @@ class AiLearnedIntentStore
             return;
         }
 
-        if (AiLearnedIntent::query()->count() >= (int) config('ai.intent_router.max_learned_rows', 5000)) {
+        // Rows in the admin's trash still take room in the table.
+        if (AiLearnedIntent::query()->withTrashed()->count() >= (int) config('ai.intent_router.max_learned_rows', 5000)) {
             Log::warning('ai_intent_router.learned_table_full');
 
             return;
@@ -142,7 +143,9 @@ class AiLearnedIntentStore
         $minConfirmations = max(1, (int) config('ai.intent_router.learn_min_confirmations', 2));
 
         DB::transaction(function () use ($phrase, $mode, $intent, $format, $language, $confidence, $modelKey, $minConfirmations) {
-            $conflicting = AiLearnedIntent::query()
+            // withTrashed (here and below): a phrase the admin moved to the trash still counts as "seen" - it is
+            // never re-created next to it (the unique index) and never switched back on.
+            $conflicting = AiLearnedIntent::query()->withTrashed()
                 ->where('phrase', $phrase)
                 ->where('match_mode', $mode)
                 ->where('intent', '!=', $intent)
@@ -154,7 +157,7 @@ class AiLearnedIntentStore
             if ($conflicting->isNotEmpty()) {
                 foreach ($conflicting as $row) {
                     $row->conflicts++;
-                    $row->is_active = false;
+                    $row->status = false;
                     $row->save();
                 }
 
@@ -163,7 +166,7 @@ class AiLearnedIntentStore
                 return;
             }
 
-            $row = AiLearnedIntent::query()
+            $row = AiLearnedIntent::query()->withTrashed()
                 ->where('phrase', $phrase)
                 ->where('match_mode', $mode)
                 ->where('intent', $intent)
@@ -179,7 +182,7 @@ class AiLearnedIntentStore
                     'language' => $language,
                     'confidence' => $confidence,
                     'confirmations' => 1,
-                    'is_active' => $mode === AiLearnedIntent::MODE_EXACT || $minConfirmations <= 1,
+                    'status' => $mode === AiLearnedIntent::MODE_EXACT || $minConfirmations <= 1,
                     'source' => AiLearnedIntent::SOURCE_MODEL,
                     'learned_with_model' => $modelKey,
                 ]);
@@ -188,11 +191,11 @@ class AiLearnedIntentStore
                 $row->confidence = max((float) $row->confidence, $confidence);
                 $row->file_format ??= $format;
 
-                // Never auto-reactivate something the model contradicted
-                // or an admin switched off (the admin command marks it
-                // with conflicts > 0 for exactly this reason).
-                if ($row->conflicts === 0 && $row->confirmations >= $minConfirmations) {
-                    $row->is_active = true;
+                // Never auto-reactivate something the model contradicted, an
+                // admin switched off (the admin screen / command marks it with
+                // conflicts > 0 for exactly this reason) or moved to the trash.
+                if ($row->conflicts === 0 && ! $row->trashed() && $row->confirmations >= $minConfirmations) {
+                    $row->status = true;
                 }
 
                 $row->save();
@@ -224,7 +227,7 @@ class AiLearnedIntentStore
             (int) config('ai.intent_router.active_cache_seconds', 300),
             function (): array {
                 return AiLearnedIntent::query()
-                    ->where('is_active', true)
+                    ->where('status', true)
                     ->orderByDesc('hits')
                     ->limit(2000)
                     ->get(['id', 'phrase', 'match_mode', 'intent', 'file_format'])

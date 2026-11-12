@@ -3,6 +3,7 @@
 namespace App\Services\General;
 
 use App\Models\Country;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The country a sign-in comes from: looked up by IP once, at sign-in, and kept on the account
@@ -32,6 +33,12 @@ class LoginCountry
     {
         if (! isset($user->id) || ! method_exists($user, 'forceFill')) {
             return;
+        }
+
+        // The city and coordinates of the sign-in too (Watch & Earn targeting) — looked up first, so the country
+        // below comes from the same cached lookup.
+        if ($user instanceof Model && $user->getTable() === 'users') {
+            app(LoginLocation::class)->remember($user);
         }
 
         $country = $this->detect();

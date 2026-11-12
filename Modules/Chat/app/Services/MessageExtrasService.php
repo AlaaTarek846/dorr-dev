@@ -142,7 +142,8 @@ class MessageExtrasService
         });
 
         $summary = self::pollSummary($message->id);
-        $this->broadcaster->toParticipants($message->conversation->activeParticipants()->get(), 'chat.poll.updated', [
+        $everyone = $message->conversation->activeParticipants()->get();
+        $payload = [
             'conversation_id' => $message->conversation->uuid,
             'message_id' => $message->uuid,
             'participant' => $participant->key(),
@@ -150,7 +151,17 @@ class MessageExtrasService
             // Always a JSON object: with no votes left it went out as `[]`, which crashed older apps.
             'counts' => (object) $summary['counts'],
             'voters' => $summary['voters'],
-        ]);
+        ];
+        // A survey (GR-030): only its maker and the managers get the numbers; the rest just hear "it changed".
+        // An anonymous poll (GR-045): nobody hears who voted for what.
+        if ((bool) data_get($message->meta, 'anonymous')) {
+            $payload = ['participant' => null, 'option_ids' => []] + $payload;
+        }
+        [$see, $not] = $everyone->partition(fn ($p) => \Modules\Chat\Support\SurveyAccess::canSeeResults($p, $message->conversation, $message));
+        $this->broadcaster->toParticipants($see, 'chat.poll.updated', $payload);
+        if ($not->isNotEmpty()) {
+            $this->broadcaster->toParticipants($not, 'chat.poll.updated', ['counts' => (object) [], 'voters' => null, 'participant' => null, 'option_ids' => []] + $payload);
+        }
 
         return $message;
     }
@@ -162,7 +173,13 @@ class MessageExtrasService
      */
     public function voters(Model $me, ChatMessage $message): array
     {
-        $this->conversations->participantOf($me, $message->conversation);
+        $mine = $this->conversations->participantOf($me, $message->conversation);
+        if (! \Modules\Chat\Support\SurveyAccess::canSeeResults($mine, $message->conversation, $message)) {
+            throw new ChatException('survey_results_hidden', 403);
+        }
+        if ((bool) data_get($message->meta, 'anonymous')) {
+            throw new ChatException('poll_anonymous', 403);
+        }
         // An interactive message's answers read the same way (its options carry a title).
         if ($message->type === MessageType::Interactive && ! $message->isGone()) {
             $message->meta = ['options' => collect((array) data_get($message->meta, 'options'))->map(fn ($o) => ['id' => $o['id'], 'text' => $o['title']])->all()];

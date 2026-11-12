@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -70,14 +71,21 @@ class CommunityService
         });
     }
 
-    /** @return list<array<string, mixed>> */
-    public function mine(Model $me): array
+    /** Communities I'm in, newest first. Pages of 15. `q` matches name or description. */
+    public function mine(Model $me, int $perPage = 15, ?string $q = null): LengthAwarePaginator
     {
         $rooms = ChatParticipant::query()->of($me)->whereNull('left_at')->pluck('conversation_id');
+        $like = ($q !== null && $q !== '') ? '%'.addcslashes($q, '%_\\').'%' : null;
+        $page = ChatCommunity::query()
+            ->whereIn('announcement_conversation_id', $rooms)
+            ->whereHas('announcement')
+            ->with('announcement.group')
+            ->when($like !== null, fn ($query) => $query->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('description', 'like', $like)))
+            ->latest('id')
+            ->paginate($perPage);
+        $page->setCollection($page->getCollection()->map(fn (ChatCommunity $c) => $this->brief($me, $c))->values());
 
-        return ChatCommunity::query()->whereIn('announcement_conversation_id', $rooms)->with('announcement.group')->latest('id')->get()
-            ->filter(fn (ChatCommunity $c) => $c->announcement !== null)
-            ->map(fn (ChatCommunity $c) => $this->brief($me, $c))->values()->all();
+        return $page;
     }
 
     /** @return array<string, mixed> */

@@ -21,7 +21,27 @@ import retrofit2.http.Query
  */
 interface OffersApi {
     @GET("${ApiClient.FREELANCE}projects/{uuid}/offer-preview")
-    suspend fun preview(@Path("uuid") uuid: String, @Query("price_minor") priceMinor: Long? = null): Response<ApiEnvelope<OfferPreviewDto>>
+    suspend fun preview(
+        @Path("uuid") uuid: String,
+        @Query("price_minor") priceMinor: Long? = null,
+        /** FS-209b: a team I am Owner or PM of - the team's quota and checks decide then, not mine. */
+        @Query("team") team: String? = null,
+        /** FS-209b: the Owner who signs, when a PM sends for the team. */
+        @Query("signer") signer: String? = null,
+    ): Response<ApiEnvelope<OfferPreviewDto>>
+
+    /** FL-304: what to fix (error) or think about (warning) before sending. */
+    @POST("${ApiClient.FREELANCE}projects/{uuid}/offer-check")
+    suspend fun check(@Path("uuid") uuid: String, @Body body: OfferCheckRequest): Response<ApiEnvelope<OfferChecksDto>>
+
+    @GET("${ApiClient.FREELANCE}offer-templates")
+    suspend fun templates(): Response<ApiEnvelope<List<OfferTemplateDto>>>
+
+    @POST("${ApiClient.FREELANCE}offer-templates")
+    suspend fun saveTemplate(@Body body: OfferTemplateRequest): Response<ApiEnvelope<OfferTemplateDto>>
+
+    @retrofit2.http.DELETE("${ApiClient.FREELANCE}offer-templates/{id}")
+    suspend fun deleteTemplate(@Path("id") id: Int): Response<ApiEnvelope<Map<String, Boolean>>>
 
     @GET("${ApiClient.FREELANCE}projects/{uuid}/my-offer")
     suspend fun mine(@Path("uuid") uuid: String): Response<ApiEnvelope<MyOfferDto>>
@@ -52,18 +72,55 @@ data class OfferPreviewDto(
     val quota: OfferQuotaDto = OfferQuotaDto(),
     @SerializedName("min_price_minor") val minPriceMinor: Long? = null,
     val breakdown: OfferBreakdownDto? = null,
+    /** FL-L09: set when this project's client earned a step of my loyalty program (it comes off the price I ask). */
+    val loyalty: OfferLoyaltyDto? = null,
+    /** FS-209b: the team's offers this month (asked with `team`; `limit` null = no cap). */
+    @SerializedName("team_quota") val teamQuota: TeamOfferQuotaDto? = null,
 )
+
+data class TeamOfferQuotaDto(val limit: Int? = null, val used: Int = 0, val left: Int? = null)
+
+data class OfferLoyaltyDto(val bp: Int = 0, val after: Int = 0, val works: Int = 0)
 
 data class OfferBlockedDto(val code: String = "", val message: String = "")
 
-data class OfferQuotaDto(val enabled: Boolean = false, val limit: Int? = null, val used: Int = 0, val left: Int? = null)
+data class OfferQuotaDto(
+    val enabled: Boolean = false,
+    val limit: Int? = null,
+    val used: Int = 0,
+    val left: Int? = null,
+    /** Bought (extra) offers I still have; they are spent after the free ones. */
+    val credits: Int = 0,
+    /** Whether I can buy more (the switch is on and my plan has a limit). */
+    val packs: Boolean = false,
+)
 
 data class OfferBreakdownDto(
     @SerializedName("price_minor") val priceMinor: Long = 0,
     @SerializedName("commission_minor") val commissionMinor: Long = 0,
     @SerializedName("net_minor") val netMinor: Long = 0,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
+    /** FL-L09: the price I asked and the loyalty discount taken off it (`priceMinor` is what the client pays). */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
 )
+
+data class OfferCheckRequest(
+    @SerializedName("price_minor") val priceMinor: Long?,
+    @SerializedName("duration_days") val durationDays: Int?,
+    val details: String,
+    val files: Int,
+)
+
+data class OfferChecksDto(val checks: List<OfferCheckDto> = emptyList())
+
+/** level: `error` (the server will refuse it) or `warning` (advice). */
+data class OfferCheckDto(val code: String = "", val level: String = "warning", val message: String = "")
+
+data class OfferTemplateDto(val id: Int, val title: String = "", val details: String = "")
+
+data class OfferTemplateRequest(val title: String, val details: String)
 
 data class MyOfferDto(val offer: OfferDto? = null)
 
@@ -71,9 +128,14 @@ data class OfferDto(
     val uuid: String,
     val status: String = "submitted",
     @SerializedName("price_minor") val priceMinor: Long = 0,
-    val currency: String = "",
+    /** FL-L09: the price I asked and the loyalty discount taken off it (null: none). */
+    @SerializedName("list_price_minor") val listPriceMinor: Long? = null,
+    @SerializedName("loyalty_bp") val loyaltyBp: Int? = null,
+    @SerializedName("saving_minor") val savingMinor: Long? = null,
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
     @SerializedName("duration_days") val durationDays: Int = 0,
     val details: String = "",
+    val answers: List<OfferAnswerDto> = emptyList(),
     @SerializedName("commission_minor") val commissionMinor: Long = 0,
     @SerializedName("net_minor") val netMinor: Long = 0,
     val attachments: List<OfferFileDto> = emptyList(),
@@ -83,8 +145,25 @@ data class OfferDto(
     /** Why the client turned it down, when they said. */
     @SerializedName("status_reason") val statusReason: String? = null,
     val timeline: List<OfferEventDto> = emptyList(),
+    /** The client's room about this offer (FL-308): null until they open it. */
+    val chat: OfferChatDto? = null,
+    /** FL-401: the agreement the client sent on it. */
+    val agreement: OfferAgreementDto? = null,
+    /** FL-L13: who owns the work once it is paid and what the client may do with it (null where the feature is off). */
+    val rights: RightsSummaryDto? = null,
     @SerializedName("created_at") val createdAt: String? = null,
+    /** FS-209b: set when it is in a team's name - the team and the people on it. */
+    val team: OfferTeamDto? = null,
+    /** FS-209b: the PM who sent it, when it was not the Owner who signs. */
+    @SerializedName("submitted_by") val submittedBy: TeamPersonRefDto? = null,
 )
+
+/** FS-209b: a team's offer. FS-213: a new offer names nobody ([members] empty); an older one keeps the people it named. */
+data class OfferTeamDto(val uuid: String = "", val name: String = "", val members: List<OfferTeamMemberDto> = emptyList())
+
+data class OfferTeamMemberDto(val name: String = "", val role: String = "executor", val responsibility: String? = null, val freelancer: String? = null)
+
+data class OfferAnswerDto(val question: String = "", val answer: String? = null)
 
 data class OfferEventDto(val type: String = "", val to: String? = null, val at: String? = null)
 
@@ -94,6 +173,8 @@ data class OfferUpdateRequest(
     @SerializedName("price_minor") val priceMinor: Long,
     @SerializedName("duration_days") val durationDays: Int,
     val details: String,
+    /** FL-L13: sent only when the feature is on. */
+    val rights: RightsInputDto? = null,
 )
 
 data class OfferRevisionDto(

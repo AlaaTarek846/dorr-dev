@@ -39,6 +39,7 @@ class DriverRideResource extends JsonResource
             ...RideResource::common($this->resource),
             'rider' => [
                 'name' => strtok((string) $this->rider?->name, ' ') ?: null,
+                'is_verified' => \App\Support\AccountBadge::verified($this->rider),
                 'rating' => $profile !== null && $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
                 'trips_count' => (int) ($profile?->trips_count ?? 0),
             ],
@@ -116,6 +117,7 @@ class DriverRideResource extends JsonResource
             'uuid' => $next->uuid,
             'number' => $next->number,
             'rider' => strtok((string) $next->rider?->name, ' ') ?: null,
+            'rider_verified' => \App\Support\AccountBadge::verified($next->rider),
             'pickup' => ['lat' => $next->origin_lat, 'lng' => $next->origin_lng, 'address' => $next->origin_address],
             'earning_minor' => $next->driver_net_minor ?? $next->snapshot('breakdown.driver_net'),
         ];

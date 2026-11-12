@@ -124,6 +124,36 @@ class ChatLifeTest extends TestCase
         $this->assertNotNull($mine->json('data.id'));
     }
 
+    public function test_commitments_and_handoffs_page_fifteen(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        $this->as($this->alice);
+        foreach (['One', 'Two', 'Three'] as $title) {
+            $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/commitment", ['title' => $title], $this->headers())->assertCreated();
+        }
+        $this->as($this->bob);
+        $this->getJson('/api/mobile/v1/chat/commitments?scope=mine&page=1&per_page=2', $this->headers())
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/commitments?scope=mine&page=2&per_page=2', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+        $this->getJson('/api/mobile/v1/chat/commitments?scope=mine&q=Two', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Two');
+
+        $group = $this->group();
+        $this->as($this->bob);
+        foreach (['Handoff-A', 'Handoff-B', 'Handoff-C'] as $note) {
+            $msg = $this->send($this->bob, $group, ['type' => 'text', 'body' => $note])->json('data.id');
+            $this->postJson("/api/mobile/v1/chat/messages/{$msg}/handoff", ['to_participant_id' => $this->pid($this->carol, $group), 'note' => $note], $this->headers())->assertCreated();
+        }
+        $this->as($this->carol);
+        $this->getJson('/api/mobile/v1/chat/handoffs?scope=received&page=1&per_page=2', $this->headers())
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/handoffs?scope=received&page=2&per_page=2', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+        $this->getJson('/api/mobile/v1/chat/handoffs?scope=received&q=Handoff-B', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.note', 'Handoff-B');
+    }
+
     public function test_a_message_is_handed_to_a_member_or_forwarded_to_someone_who_takes_it_on(): void
     {
         $group = $this->group();
@@ -204,6 +234,14 @@ class ChatLifeTest extends TestCase
         $inbox->assertJsonPath('data.approve.0.kind', 'commitment')->assertJsonPath('data.approve.0.by', 'Alice')->assertJsonPath('data.approve.0.conversation_id', $chat)
             ->assertJsonPath('data.appointments.0.title', 'Dentist');
         $this->assertEqualsCanonicalizing(['needs_reply', 'mention'], collect($inbox->json('data.reply'))->pluck('kind')->all());
+        $this->getJson('/api/mobile/v1/chat/life-inbox?timezone=UTC&section=reply&per_page=1&page=1', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data.reply')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/life-inbox?timezone=UTC&section=reply&per_page=1&page=2', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data.reply')->assertJsonPath('pagination.has_more_pages', false);
+        $this->getJson('/api/mobile/v1/chat/life-inbox?timezone=UTC&q=Dentist', $this->headers())
+            ->assertOk()->assertJsonPath('data.appointments.0.title', 'Dentist')->assertJsonPath('data.counts.reply', 0);
+        $this->getJson('/api/mobile/v1/chat/life-inbox?timezone=UTC&q=zzzznotfound', $this->headers())
+            ->assertOk()->assertJsonPath('data.counts.appointments', 0);
 
         // Bob takes it on: it moves to "follow up" for him, and Alice waits for it.
         $id = $inbox->json('data.approve.0.id');

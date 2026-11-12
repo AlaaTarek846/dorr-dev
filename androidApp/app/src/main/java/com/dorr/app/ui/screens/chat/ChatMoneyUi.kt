@@ -397,9 +397,7 @@ fun SendMoneySheet(conversationId: String, peerName: String, onDismiss: () -> Un
         AnimatedContent(step, label = "sendMoney", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.92f)) togetherWith fadeOut(tween(150)) }) { now ->
             when (now) {
                 0 -> Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(58.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Payments, null, tint = Color.White, modifier = Modifier.size(30.dp))
-                    }
+                    IconBadge(Icons.Rounded.Payments, Ch.Success, size = 58, iconTint = Ch.Red)
                     Spacer(Modifier.height(10.dp))
                     Text(stringResource(R.string.ch_money_send_to, peerName), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
@@ -455,9 +453,7 @@ fun RequestMoneySheet(peerName: String, onDismiss: () -> Unit, onSend: (amountMi
     val minor = parseAmountToMinor(amount)
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(58.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.RequestQuote, null, tint = Color.White, modifier = Modifier.size(30.dp))
-            }
+            IconBadge(Icons.Rounded.RequestQuote, Ch.Success, size = 58, iconTint = Ch.Red)
             Spacer(Modifier.height(10.dp))
             Text(stringResource(R.string.ch_money_request_from, peerName), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
@@ -494,9 +490,7 @@ fun SplitBillSheet(members: List<MemberDto>, onDismiss: () -> Unit, onSend: (tot
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 680.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.CallSplit, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                }
+                IconBadge(Icons.Rounded.CallSplit, Ch.Success, size = 44, iconTint = Ch.Red)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.ch_split_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             }

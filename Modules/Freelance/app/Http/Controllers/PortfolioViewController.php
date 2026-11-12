@@ -10,6 +10,7 @@ use Modules\Freelance\Http\Controllers\Freelancer\FreelancerPortfolioController;
 use Modules\Freelance\Models\Freelancer;
 use Modules\Freelance\Models\FreelancerPortfolioItem as Item;
 use Modules\Freelance\Services\Account\FreelancerPortfolio;
+use Modules\Freelance\Services\Plans\FreelanceProfileViews;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -24,8 +25,12 @@ class PortfolioViewController extends Controller
     public function show(Request $request, string $uuid): JsonResponse
     {
         $freelancer = Freelancer::query()->where('uuid', $uuid)->firstOrFail();
-        $client = $request->user('user_api') !== null;
+        $viewer = $request->user('user_api');
+        $client = $viewer !== null;
         $items = $this->portfolio->visibleTo($freelancer, $client);
+        if ($viewer !== null) {
+            app(FreelanceProfileViews::class)->record((int) $freelancer->getKey(), FreelanceProfileViews::PROFILE, 'portfolio', $viewer->getKey());
+        }
 
         return ApiResponse::success($items->map(fn (Item $i) => $this->portfolio->present($i, false))->values(), __('api.retrieved'));
     }
@@ -34,7 +39,9 @@ class PortfolioViewController extends Controller
     public function image(Media $media): BinaryFileResponse
     {
         $item = $media->model;
-        abort_unless($item instanceof Item && $media->collection_name === 'images' && ! $item->isHidden() && $item->visibility !== Item::PRIVATE && $item->freelancer?->status?->value === 'verified', 404);
+        abort_unless($item instanceof Item && $media->collection_name === 'images' && ! $item->isHidden() && ! $item->withdrawnByClient() && $item->visibility !== Item::PRIVATE && $item->freelancer?->status?->value === 'verified'
+            // FS-202a: a team's work only while its team is active.
+            && ($item->team_id === null || $item->team?->isActive() === true), 404);
 
         return FreelancerPortfolioController::file($media);
     }

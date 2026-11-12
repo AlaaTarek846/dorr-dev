@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -159,6 +160,16 @@ internal fun settingsAccent(): Color = if (settingsNight()) {
     appearanceColor("primary", AppColors.waRed, night = false)
 }
 
+@Composable
+internal fun settingsSwitchColors() = SwitchDefaults.colors(
+    checkedThumbColor = Color.White,
+    checkedTrackColor = settingsAccent(),
+    checkedBorderColor = Color.Transparent,
+    uncheckedThumbColor = Color.White,
+    uncheckedTrackColor = if (settingsNight()) Color(0xFF3A3F48) else Color(0xFFE2E8F0),
+    uncheckedBorderColor = Color.Transparent,
+)
+
 /** The card fill behind a settings row, matching [Modifier.settingsSurface] without its shape. */
 @Composable
 internal fun settingsCard(): Color = if (settingsNight()) AccountDark.card else appearanceColor("surface", Color.White, night = false)
@@ -196,6 +207,11 @@ internal fun SettingsScreenTitle(title: String, modifier: Modifier = Modifier) {
 
 @Composable
 internal fun SubHeader(title: String, onBack: () -> Unit) {
+    SubHeader(title, onBack, trailing = {})
+}
+
+@Composable
+internal fun SubHeader(title: String, onBack: () -> Unit, trailing: @Composable () -> Unit) {
     val dark = settingsNight()
     Row(
         modifier = Modifier
@@ -205,6 +221,7 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SettingsScreenTitle(title, Modifier.weight(1f))
+        trailing()
         Box(
             modifier = Modifier
                 .size(34.dp)

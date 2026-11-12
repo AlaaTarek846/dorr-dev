@@ -56,25 +56,33 @@ import java.util.UUID
 
 internal suspend fun loadCircle(state: RidesState) {
     if (!state.feature("favorite_circle")) return
-    state.circleDrivers = runCatching { ApiClient.rides.circle(ridesAuth()).data?.drivers }.getOrNull() ?: state.circleDrivers
+    // O-81: who of my favourites is free now, and how far from my pickup (nearest first).
+    state.circleDrivers = runCatching { ApiClient.rides.circle(ridesAuth(), state.pickup?.lat, state.pickup?.lng).data?.drivers }.getOrNull() ?: state.circleDrivers
 }
 
 /** On the booking sheet: "Ask my favorite captains first", and which of them. */
 @Composable
 internal fun CircleRow(state: RidesState) {
-    val has = state.circleDrivers.isNotEmpty()
+    // O-81: fresh for this pickup — once when the sheet opens and whenever the pickup moves.
+    androidx.compose.runtime.LaunchedEffect(state.pickup?.lat, state.pickup?.lng) { loadCircle(state) }
+    val available = state.circleDrivers.filter { it.available != false }
+    val hasFavorites = state.circleDrivers.isNotEmpty()
+    val has = available.isNotEmpty()
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Favorite, null, tint = settingsAccent(), modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.rd_circle_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(stringResource(if (has) R.string.rd_circle_hint else R.string.rd_circle_none), color = settingsMut(), fontSize = 12.sp)
+            Text(
+                stringResource(if (has) R.string.rd_circle_hint else if (hasFavorites) R.string.rd_circle_none_available else R.string.rd_circle_none),
+                color = if (!has && hasFavorites) AppColors.warning else settingsMut(), fontSize = 12.sp,
+            )
         }
         RedToggle(state.useCircle && has, settingsNight()) { if (has) state.useCircle = !state.useCircle }
     }
     if (state.useCircle && has) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.circleDrivers.forEach { driver ->
+            available.forEach { driver ->
                 val picked = driver.driverId in state.circlePicked
                 val shape = RoundedCornerShape(50)
                 Row(
@@ -86,6 +94,7 @@ internal fun CircleRow(state: RidesState) {
                 ) {
                     Text(driver.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     driver.rating?.let { Text("  ★ ${String.format("%.1f", it)}", color = settingsMut(), fontSize = 12.sp) }
+                    driver.distanceKm?.let { Text("  · " + stringResource(R.string.rd_circle_km, String.format(java.util.Locale.getDefault(), "%.1f", it)), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 }
             }
         }
@@ -98,9 +107,12 @@ internal fun CircleRow(state: RidesState) {
 
 /** What the booking sends: `{driver_ids: [...]}` (empty = all favourites), or null for the usual search. */
 internal fun circleBody(state: RidesState): com.google.gson.JsonObject? {
-    if (!state.useCircle || state.circleDrivers.isEmpty()) return null
+    val available = state.circleDrivers.filter { it.available != false }.map { it.driverId }
+    if (!state.useCircle || available.isEmpty()) return null
+    // None picked = every favourite who is free now.
+    val ids = state.circlePicked.filter { it in available }.ifEmpty { available }
     return com.google.gson.JsonObject().apply {
-        add("driver_ids", com.google.gson.JsonArray().apply { state.circlePicked.forEach { add(it) } })
+        add("driver_ids", com.google.gson.JsonArray().apply { ids.forEach { add(it) } })
     }
 }
 

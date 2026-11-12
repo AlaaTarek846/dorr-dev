@@ -26,6 +26,8 @@ Behaviour worth knowing: sending is optimistic. A message shows at once with ⏱
 
 **Server requirements for Android:** `BROADCAST_CONNECTION=pusher` with the Pusher keys (the app reads them from `realtime-config`), and "client events" doesn't need enabling because typing goes through the API. Calls also need the `LIVEKIT_*` values.
 
+**iPhone ringing (CallKit):** an iPhone registers its PushKit token next to its OneSignal id (`POST notifications/devices` with `voip_token`). With `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_KEY` (the .p8 path or contents), `APNS_BUNDLE_ID` and `APNS_PRODUCTION` set, a ringing chat call reaches it as an APNs VoIP push (`app/Services/Notifications/ApnsVoipPusher.php`, HTTP/2, no package) and the OneSignal call push skips that phone. Without the keys, iPhones get the OneSignal call push as before.
+
 ## Web (Vue user SPA)
 | Path | What |
 |---|---|
@@ -46,7 +48,7 @@ The web page supports optimistic sending with the same `uuid` rule as the app (r
 | `app/Services/ContactService.php` | Sync, lookup, QR |
 | `app/Services/CallService.php` + `Support/LiveKitToken.php` | Call state machine and LiveKit tokens |
 | `app/Services/WalletShareService.php` | Transfer-receipt and wallet-QR cards, built from the sender's own wallet |
-| `app/Services/ChatBroadcaster.php` / `ChatPushNotifier.php` | Pusher (via Laravel Broadcasting) and OneSignal |
+| `app/Services/ChatBroadcaster.php` / `ChatPushNotifier.php` | Pusher (via Laravel Broadcasting) and OneSignal; a ringing call goes to iPhones as an APNs VoIP push (`App\Services\Notifications\ApnsVoipPusher`) |
 | `app/Support/ParticipantDirectory.php` | Batch-loaded profiles, using the viewer's own contact names and respecting photo privacy |
 | `app/Support/ParticipantType.php` | `user` / `provider` aliases. Enabled types live in `config('chat.enabled_participants')` |
 | `app/Console` | `chat:expire-calls` (every minute), `chat:purge` (hourly), and `chat:call-recordings` (every minute: requests that ran out of time, saved files, retention) among others |

@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -76,6 +78,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
+import com.dorr.app.ui.components.DarkHeroButton
+import com.dorr.app.ui.components.DarkHeroPanel
+import com.dorr.app.ui.theme.CairoFontFamily
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.BroadcastDto
@@ -88,6 +93,7 @@ import com.dorr.app.network.apiFailure
 import com.google.gson.Gson
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -455,15 +461,42 @@ fun CircleEditorSheet(circle: CircleDto?, onDismiss: () -> Unit, onSaved: (Circl
 @Composable
 fun BroadcastsPage() {
     val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var lists by remember { mutableStateOf<List<BroadcastDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf(false) }
     // A list from one of my folders (labels) — backlog 129.
     var fromFolder by remember { mutableStateOf(false) }
-    suspend fun load() { lists = runCatching { ApiClient.organize.broadcasts(chatAuth()).data }.getOrNull().orEmpty() }
-    LaunchedEffect(Unit) { load() }
 
-    ChPage(stringResource(R.string.ch_broadcasts), onBack = { host.pop() }) {
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching { ApiClient.organize.broadcasts(chatAuth(), page = next, perPage = 15) }.getOrNull()
+        val chunk = envelope?.data.orEmpty()
+        lists = if (reset) chunk else {
+            val known = lists.orEmpty().map { it.id }.toSet()
+            lists.orEmpty() + chunk.filter { it.id !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+
+    LaunchedEffect(Unit) { loadPage(reset = true) }
+    LaunchedEffect(listState, lists?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
+
+    ChPage(stringResource(R.string.ch_broadcasts), onBack = { host.pop() }, settingsHeader = true) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             item {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ch.HeaderBrush).clickable { creating = true }.padding(16.dp),
@@ -514,6 +547,11 @@ fun BroadcastsPage() {
                     }
                 }
             }
+            if (loadingMore) item(key = "more") {
+                Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                }
+            }
         }
     }
 
@@ -525,7 +563,12 @@ fun BroadcastsPage() {
                 fromFolder = false
                 host.scope.launch {
                     runCatching { ApiClient.backlog.broadcastFromFolder(chatAuth(), com.google.gson.JsonObject().apply { addProperty("folder_id", f.id) }).data }
-                        .onSuccess { b -> b?.let { host.push(ChRoute.Broadcast(it.id)) } }
+                        .onSuccess { b ->
+                            b?.let {
+                                lists = listOf(it) + lists.orEmpty().filterNot { row -> row.id == it.id }
+                                host.push(ChRoute.Broadcast(it.id))
+                            }
+                        }
                         .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
                 }
                 Unit
@@ -536,8 +579,61 @@ fun BroadcastsPage() {
     if (creating) PeoplePickerSheet(emptySet(), onDismiss = { creating = false }) { ids ->
         host.scope.launch {
             runCatching { ApiClient.organize.createBroadcast(chatAuth(), JsonObject().apply { add("members", Gson().toJsonTree(ids)) }).data }
-                .onSuccess { created -> created?.let { host.push(ChRoute.Broadcast(it.id)) } }
+                .onSuccess { created ->
+                    created?.let {
+                        lists = listOf(it) + lists.orEmpty().filterNot { row -> row.id == it.id }
+                        host.push(ChRoute.Broadcast(it.id))
+                    }
+                }
                 .onFailure { host.showToast(it.apiFailure().message ?: "") }
+        }
+    }
+}
+
+@Composable
+private fun BroadcastHeader(
+    title: String,
+    membersCount: Int,
+    onPeople: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        DarkHeroPanel {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(onClick = onPeople).padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ChAvatar(null, title, title, size = 34.dp, isGroup = true)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            title,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = CairoFontFamily,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            stringResource(R.string.ch_broadcast_people, membersCount),
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 12.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DarkHeroButton(Icons.Rounded.People, onPeople, stringResource(R.string.ch_broadcast_people, membersCount))
+                    DarkHeroButton(Icons.Rounded.Edit, onRename, stringResource(R.string.ch_broadcast_name))
+                    DarkHeroButton(Icons.Rounded.Delete, onDelete, stringResource(R.string.ch_broadcast_delete))
+                    DarkHeroButton(Icons.AutoMirrored.Rounded.ArrowBack, onBack, stringResource(R.string.common_back), flip = true)
+                }
+            }
         }
     }
 }
@@ -560,14 +656,16 @@ fun BroadcastPage(id: String) {
     LaunchedEffect(Unit) { load() }
     val skippedText = stringResource(R.string.ch_broadcast_skipped)
 
-    ChPage(list?.title ?: stringResource(R.string.ch_broadcasts), onBack = { host.pop() }, actions = {
-        GlassIcon(Icons.Rounded.People) { editingPeople = true }
-        Spacer(Modifier.width(6.dp))
-        GlassIcon(Icons.Rounded.Edit) { renaming = true }
-        Spacer(Modifier.width(6.dp))
-        GlassIcon(Icons.Rounded.Delete) { confirmDelete = true }
-    }) {
-        Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize().background(Ch.Bg)) {
+        BroadcastHeader(
+            title = list?.title ?: stringResource(R.string.ch_broadcasts),
+            membersCount = list?.membersCount ?: 0,
+            onPeople = { editingPeople = true },
+            onRename = { renaming = true },
+            onDelete = { confirmDelete = true },
+            onBack = { host.pop() },
+        )
+        Column(Modifier.weight(1f).fillMaxWidth().imePadding()) {
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     Text(
@@ -654,17 +752,53 @@ fun BroadcastPage(id: String) {
     }), danger = true, onDismiss = { confirmDelete = false })
 }
 
-/** Pick people from my contacts on Dorr (search, tick, done). */
+/** Pick people from my contacts on Dorr (search, tick, pages of 15). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: Int = R.string.ch_broadcast_pick, onDone: (List<Int>) -> Unit) {
-    var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
-    var query by remember { mutableStateOf("") }
-    var visibleCount by remember { mutableIntStateOf(15) }
+internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: Int = R.string.ch_broadcast_pick, allowEmpty: Boolean = false, onDone: (List<Int>) -> Unit) {
+    val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    var query by remember { mutableStateOf("") }
+    var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
+    var page by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     val picked = remember { mutableStateListOf<Int>().apply { addAll(initial) } }
-    LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
-    LaunchedEffect(query) { visibleCount = 15 }
+
+    suspend fun loadPage(reset: Boolean) {
+        if (!reset && (loadingMore || !hasMore)) return
+        if (!reset) loadingMore = true
+        val next = if (reset) 1 else page + 1
+        val envelope = runCatching {
+            ApiClient.chat.contacts(
+                chatAuth(),
+                registered = 1,
+                q = query.trim().ifBlank { null },
+                page = next,
+                perPage = 15,
+            )
+        }.getOrNull()
+        val chunk = envelope?.data.orEmpty().filter { it.profile != null }
+        contacts = if (reset) chunk else {
+            val known = contacts.orEmpty().map { it.id }.toSet()
+            contacts.orEmpty() + chunk.filter { it.id !in known }
+        }
+        page = next
+        hasMore = envelope?.pagination?.hasMorePages == true
+        if (!reset) loadingMore = false
+    }
+
+    LaunchedEffect(query) {
+        delay(280)
+        loadPage(reset = true)
+    }
+    LaunchedEffect(listState, contacts?.size, hasMore) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect { scope.launch { loadPage(reset = false) } }
+    }
 
     ChSheet(
         onDismissRequest = onDismiss,
@@ -675,35 +809,35 @@ internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, title: 
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
             Text(stringResource(title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(8.dp))
-            ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
+            ChField(query, { query = it.take(80) }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search, clearable = true)
             Spacer(Modifier.height(8.dp))
-            val shown = contacts.orEmpty().filter { c -> c.profile != null && (query.isBlank() || c.name.contains(query.trim(), ignoreCase = true) || c.phone.contains(query.trim())) }
-            val paged = shown.take(visibleCount)
-            LaunchedEffect(listState, paged.size, shown.size) {
-                snapshotFlow {
-                    val info = listState.layoutInfo
-                    val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-                    info.totalItemsCount > 0 && last >= info.totalItemsCount - 3 && visibleCount < shown.size
-                }.distinctUntilChanged().filter { it }.collect {
-                    visibleCount = (visibleCount + 15).coerceAtMost(shown.size)
+            val items = contacts
+            when {
+                items == null -> Box(Modifier.fillMaxWidth().height(380.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Ch.Red)
                 }
-            }
-            LazyColumn(Modifier.height(380.dp), state = listState) {
-                items(paged, key = { it.id }) { c ->
-                    val uid = c.profile?.id ?: return@items
-                    val on = uid in picked
-                    Row(Modifier.fillMaxWidth().clickable { if (on) picked.remove(uid) else picked.add(uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChAvatar(c.profile.avatar, c.name, c.profile.key, size = 42.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(c.name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-                        Box(Modifier.size(24.dp).clip(CircleShape).background(if (on) Ch.Red else Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
-                            if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                else -> LazyColumn(Modifier.height(380.dp), state = listState) {
+                    items(items, key = { it.id }) { c ->
+                        val uid = c.profile?.id ?: return@items
+                        val on = uid in picked
+                        Row(Modifier.fillMaxWidth().clickable { if (on) picked.remove(uid) else picked.add(uid) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            ChAvatar(c.profile.avatar, c.name, c.profile.key, size = 42.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(c.name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+                            Box(Modifier.size(24.dp).clip(CircleShape).background(if (on) Ch.Red else Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                                if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                    if (loadingMore) item {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Ch.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            ChPrimaryButton(stringResource(R.string.ch_broadcast_done, picked.size), modifier = Modifier.fillMaxWidth(), enabled = picked.isNotEmpty()) {
+            ChPrimaryButton(stringResource(R.string.ch_broadcast_done, picked.size), modifier = Modifier.fillMaxWidth(), enabled = allowEmpty || picked.isNotEmpty()) {
                 onDone(picked.toList())
                 onDismiss()
             }

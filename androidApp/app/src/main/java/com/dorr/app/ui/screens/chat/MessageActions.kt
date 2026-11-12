@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.ShortText
 import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.AddTask
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Redeem
 import androidx.compose.material.icons.rounded.Inventory2
@@ -82,8 +84,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
@@ -221,6 +227,11 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                 if (aiText && !focused.isMine && ChatAi.understand) ActionRow(Icons.Rounded.Psychology, stringResource(R.string.ct_understand)) { state.aiTool = "understand" to dto; close() }
                 if (aiText && ChatAi.simplify && dto.body.orEmpty().length > 220) ActionRow(Icons.Rounded.ShortText, stringResource(R.string.ct_simplify)) { state.aiTool = "simplify" to dto; close() }
                 if (aiText && ChatAi.tasks) ActionRow(Icons.Rounded.TaskAlt, stringResource(R.string.ct_make_tasks)) { state.aiTool = "tasks" to dto; close() }
+                // A work group (or one of its projects): make this message a team task (GR-038).
+                val g = state.conversation?.group
+                if (aiText && !dto.isDeleted && (g?.kind == "work" || g?.space?.type == "project")) {
+                    ActionRow(Icons.Rounded.AddTask, stringResource(R.string.gt_make_task)) { state.groupTaskFrom = dto; close() }
+                }
                 // An image in the chat, changed as I describe (spec 51) — a preview first, sent only if I want.
                 if (ChatAi.imageEdit && dto.type == "image" && !dto.viewOnce && !dto.sealed && !dto.isDeleted) ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_image_edit_title)) { state.aiTool = "edit_image" to dto; close() }
                 if (aiText && ChatAi.notes) ActionRow(Icons.Rounded.Description, stringResource(R.string.ct_make_note)) { state.aiNote(listOf(dto.id), noteSaved); close() }
@@ -320,32 +331,71 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
 /** A small sheet of choices (delete for me / for everyone, pin duration, mute duration…). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, radios: Boolean = false, selected: Int? = null, onDismiss: () -> Unit) {
+internal fun ChoiceSheet(
+    title: String,
+    options: List<Pair<String, () -> Unit>>,
+    danger: Boolean = false,
+    subtitle: String? = null,
+    radios: Boolean = false,
+    selected: Int? = null,
+    values: List<String?>? = null,
+    fixedHeight: Dp? = null,
+    onDismiss: () -> Unit,
+) {
     var picked by remember { mutableStateOf(selected) }
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+        @Composable
+        fun optionRow(i: Int, label: String, action: () -> Unit) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(i).clip(RoundedCornerShape(16.dp))
+                    .background(if (danger && i == 0) Ch.Danger.copy(alpha = 0.1f) else Ch.SurfaceMuted)
+                    .clickable { picked = i; action(); onDismiss() }
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val hint = values?.getOrNull(i)
+                Text(
+                    buildAnnotatedString {
+                        append(label)
+                        if (!hint.isNullOrBlank()) {
+                            withStyle(SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Ch.Mut)) {
+                                append(" ($hint)")
+                            }
+                        }
+                    },
+                    color = if (danger) Ch.Danger else Ch.Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                if (radios) {
+                    val on = picked == i
+                    Icon(
+                        if (on) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                        null,
+                        tint = if (on) Ch.Red else Ch.Soft,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .then(if (fixedHeight != null) Modifier.height(fixedHeight) else Modifier)
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+        ) {
             Text(title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             subtitle?.let { Text(it, color = Ch.Mut, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp)) }
             Spacer(Modifier.height(14.dp))
-            options.forEachIndexed { i, (label, action) ->
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(i).clip(RoundedCornerShape(16.dp))
-                        .background(if (danger && i == 0) Ch.Danger.copy(alpha = 0.1f) else Ch.SurfaceMuted)
-                        .clickable { picked = i; action(); onDismiss() }
-                        .padding(horizontal = 16.dp, vertical = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(label, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.weight(1f))
-                    if (radios) {
-                        val on = picked == i
-                        Icon(
-                            if (on) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                            null,
-                            tint = if (on) Ch.Red else Ch.Soft,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
+            if (fixedHeight != null) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                    itemsIndexed(options) { i, (label, action) -> optionRow(i, label, action) }
                 }
+            } else {
+                options.forEachIndexed { i, (label, action) -> optionRow(i, label, action) }
             }
             Box(
                 Modifier

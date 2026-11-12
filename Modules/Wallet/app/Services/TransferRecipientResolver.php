@@ -246,6 +246,7 @@ class TransferRecipientResolver
             'expires_in' => self::TOKEN_TTL_SECONDS,
             'via' => $via,
             'name_masked' => MaskedName::of($recipient->name),
+            'is_verified' => \App\Support\AccountBadge::verified($recipient),
             // Echoed only when the sender typed it; a phone lookup must not reveal the recipient's wallet number.
             'wallet_number' => $via === 'wallet' ? $wallet?->wallet_number : null,
             'country_code' => $country->code,

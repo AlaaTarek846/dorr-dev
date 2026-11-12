@@ -200,6 +200,17 @@ class ChatAiToolsTest extends TestCase
         $this->deleteJson("/api/mobile/v1/chat/tasks/{$plumber}", [], $this->headers())->assertOk();
     }
 
+    public function test_tasks_page_fifteen(): void
+    {
+        $this->as($this->alice);
+        $tasks = array_map(fn (int $n) => ['text' => "Task {$n}"], range(1, 16));
+        $this->postJson('/api/mobile/v1/chat/tasks', ['tasks' => $tasks], $this->headers())->assertCreated();
+        $this->getJson('/api/mobile/v1/chat/tasks?page=1&per_page=15', $this->headers())
+            ->assertOk()->assertJsonCount(15, 'data')->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/tasks?page=2&per_page=15', $this->headers())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+    }
+
     public function test_a_note_goes_to_my_notes_and_dates_are_only_suggestions(): void
     {
         $this->travelTo(Carbon::parse('2026-10-08 08:00', 'UTC'));
@@ -249,6 +260,25 @@ class ChatAiToolsTest extends TestCase
             ->assertOk()->assertJsonPath('data.summary.0', 'Bob asked for the rent today.')->assertJsonPath('data.highlights.0.message_id', $ask);
 
         Http::assertNotSent(fn ($r) => str_contains(json_encode($r->data()), 'locked chat secret') || str_contains(json_encode($r->data()), 'sensitive diagnosis'));
+    }
+
+    public function test_important_pages_fifteen_from_the_ranked_list(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        foreach (range(1, 16) as $n) {
+            $this->send($this->bob, $chat, ['type' => 'text', 'body' => "Please confirm item {$n} today"])->assertCreated();
+        }
+
+        $this->reply = json_encode(array_map(fn (int $n) => ['ref' => $n, 'level' => 'medium', 'why' => "needs {$n}"], range(1, 16)));
+        $this->as($this->alice);
+        $this->postJson('/api/mobile/v1/chat/ai/important', ['page' => 1, 'per_page' => 15], $this->headers())
+            ->assertOk()
+            ->assertJsonCount(15, 'data.items')
+            ->assertJsonPath('data.has_more', true);
+        $this->postJson('/api/mobile/v1/chat/ai/important', ['page' => 2, 'per_page' => 15], $this->headers())
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.has_more', false);
     }
 
     public function test_related_files_send_names_never_the_files(): void

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L10: طاقتي وقايمة الانتظار -->
+    <string name="cap_title">طاقتي</string>
+    <string name="cap_home_card">طاقتي</string>
+    <string name="cap_state_open">من غير حد — العملاء يقدروا يطلبوا دايمًا</string>
+    <string name="cap_state_full">إنت مليان دلوقتي</string>
+    <string name="cap_state_room">فاضل مكان لـ%1$d</string>
+    <string name="cap_running_line">%1$d مشروع شغّال دلوقتي</string>
+    <string name="cap_used_of">%1$d من %2$d مكان مشغول</string>
+    <string name="cap_limit_title">حدّد عدد مشاريعك</string>
+    <string name="cap_limit_sub">المشاريع الشغّالة بس هي اللي بتتحسب. لما تتملي، العملاء بيدخلوا قايمة انتظار على خدماتك بدل ما يطلبوا.</string>
+    <string name="cap_projects_at_once">مشروع في نفس الوقت</string>
+    <string name="cap_below_running">عندك %1$d شغّالين دلوقتي: مفيش شغل جديد هيبدأ لحد ما تبقى تحت الحد.</string>
+    <string name="cap_save">احفظ</string>
+    <string name="cap_saved">اتحفظ</string>
+    <string name="cap_line_title">مستنيينك</string>
+    <string name="cap_line_empty">محدش مستني. لما تتملي، العملاء يقدروا يدخلوا قايمة الانتظار وأول واحد بياخد أول مكان يفضى.</string>
+    <string name="cap_holding">مكان محجوز</string>
+    <string name="cap_holding_until">محجوز لحد %1$s</string>
+    <string name="cap_stat_running">شغّالة</string>
+    <string name="cap_stat_holds">محجوزة</string>
+    <string name="cap_stat_waiting">مستنيين</string>
+</resources>

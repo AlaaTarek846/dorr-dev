@@ -1,5 +1,7 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Badge
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -16,7 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -194,7 +196,7 @@ fun VerificationScreen(onBack: () -> Unit, onOpenProfile: () -> Unit) {
             }
 
             val blockers = current.submitBlockers.mapNotNull { blockerText(it, current.required) }
-            if (editable && blockers.isNotEmpty()) {
+            if (editable && current.status != "verified" && blockers.isNotEmpty()) {
                 Card { blockers.forEach { Text("• $it", color = settingsMut(), fontSize = 13.sp) } }
             }
             if (editable && current.status != "verified") {
@@ -330,10 +332,10 @@ private fun DocumentForm(type: DocTypeDto, onBack: () -> Unit, onUploaded: () ->
     }
 
     Page(title = type.name, onBack = onBack) {
-        Card {
-            type.instructions?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp) }
+        com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Badge, type.name, type.instructions.orEmpty())
+        com.dorr.freelance.ui.components.FormGroup {
             if (type.hasNumber) {
-                DorrTextField(number, { number = it.take(64) }, label = stringResource(R.string.doc_number), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.fillMaxWidth())
+                DorrTextField(number, { number = it.take(64) }, label = stringResource(R.string.doc_number), icon = Icons.Rounded.Badge, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.fillMaxWidth())
             }
             if (type.hasExpiry) DateField(expires, { expires = it }, label = stringResource(R.string.doc_expires), modifier = Modifier.fillMaxWidth())
         }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MyLocation
@@ -62,6 +63,11 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun WalletFlag(code: String?, modifier: Modifier = Modifier) {
     if (code.isNullOrBlank()) return
+    // The freelance international wallet has no flag: a globe.
+    if (code.equals("INT", ignoreCase = true)) {
+        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Rounded.Public, null, tint = androidx.compose.ui.graphics.Color.White, modifier = modifier.size(width = 16.dp, height = 16.dp))
+        return
+    }
     AsyncImage(
         model = "https://flagcdn.com/w80/${code.lowercase()}.png", contentDescription = null, contentScale = ContentScale.Crop,
         modifier = modifier.size(width = 26.dp, height = 19.dp).clip(RoundedCornerShape(4.dp)),

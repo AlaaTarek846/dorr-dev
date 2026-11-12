@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiPlanResource;
 use Modules\AI\Repositories\AiPlanRepository;
 
-class AiPlanService extends BaseService
+/** AI plans catalog: list (+status counts), create/update with translations, status, bulk delete, trash. */
+class AiPlanService extends CatalogService
 {
     /**
      * @var class-string

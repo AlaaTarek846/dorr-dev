@@ -4,6 +4,7 @@ namespace Modules\Chat\Services;
 
 use App\Enums\UserStatus;
 use App\Models\Country;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -100,6 +101,26 @@ class ContactService
         $this->directory->prime($me, $contacts->whereNotNull('contact_id')->map(fn ($c) => [$c->contact_type, $c->contact_id]));
 
         return $contacts;
+    }
+
+    /** Pages of 15; `q` matches the name I saved or the number. */
+    public function page(Model $me, bool $registeredOnly = false, bool $favoritesOnly = false, ?string $q = null, int $page = 1, int $perPage = 15): LengthAwarePaginator
+    {
+        $this->refreshMatches($me);
+        $perPage = min(max(1, $perPage), 50);
+        $page = max(1, $page);
+        $query = ChatContact::query()->ownedBy($me)
+            ->when($registeredOnly, fn ($q) => $q->whereNotNull('contact_id'))
+            ->when($favoritesOnly, fn ($q) => $q->where('is_favorite', true));
+        $search = trim((string) $q);
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('phone', 'like', $like));
+        }
+        $paginator = $query->orderBy('name')->paginate($perPage, ['*'], 'page', $page);
+        $this->directory->prime($me, $paginator->getCollection()->whereNotNull('contact_id')->map(fn ($c) => [$c->contact_type, $c->contact_id]));
+
+        return $paginator;
     }
 
     public function add(Model $me, string $name, string $phone, ?Country $country, string $source = 'manual'): ChatContact

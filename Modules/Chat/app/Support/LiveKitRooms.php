@@ -28,8 +28,20 @@ class LiveKitRooms
         return $this->call($room, 'RemoveParticipant', ['room' => $room, 'identity' => $identity]);
     }
 
+    /** Make the room before anyone comes in, with a cap on how many may be in it and how long it stays once empty. */
+    public function create(string $room, int $maxParticipants, int $emptyTimeoutSeconds): bool
+    {
+        return $this->call($room, 'CreateRoom', ['name' => $room, 'max_participants' => $maxParticipants, 'empty_timeout' => $emptyTimeoutSeconds], LiveKitToken::server(['roomCreate' => true]));
+    }
+
+    /** Close the room: everyone in it is put out and its recordings end. */
+    public function delete(string $room): bool
+    {
+        return $this->call($room, 'DeleteRoom', ['room' => $room], LiveKitToken::server(['roomCreate' => true]));
+    }
+
     /** @param  array<string, mixed>  $body */
-    private function call(string $room, string $method, array $body): bool
+    private function call(string $room, string $method, array $body, ?string $token = null): bool
     {
         $url = LiveKitToken::url();
         if ($url === null) {
@@ -37,7 +49,7 @@ class LiveKitRooms
         }
         $base = preg_replace('#^ws(s?)://#', 'http$1://', rtrim($url, '/'));
         try {
-            return Http::withToken(LiveKitToken::admin($room))->acceptJson()->timeout(5)
+            return Http::withToken($token ?? LiveKitToken::admin($room))->acceptJson()->timeout(5)
                 ->post($base.'/twirp/livekit.RoomService/'.$method, $body)->successful();
         } catch (Throwable $e) {
             Log::warning('[chat] LiveKit '.$method.': '.$e->getMessage());

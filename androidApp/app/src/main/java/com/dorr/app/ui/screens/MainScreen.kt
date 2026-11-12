@@ -54,6 +54,7 @@ import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -127,11 +128,12 @@ fun MainScreen(
     // Passenger rides open their own map screen, not the generic service page.
     var ridesOpen by rememberSaveable { mutableStateOf(false) }
     // Freelance work (FL-201): my projects and the project form, over everything.
-    var freelanceOpen by rememberSaveable { mutableStateOf(false) }
+    var freelanceOpen by com.dorr.app.ui.screens.freelance.FreelanceLink::open
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
         when (service.moduleName) {
             "passenger_ride" -> ridesOpen = true
-            "freelance" -> freelanceOpen = true
+            "freelance" -> { com.dorr.app.ui.screens.freelance.FreelanceLink.stack = "home"; freelanceOpen = true }
+            "marketing" -> com.dorr.app.ui.screens.marketing.MarketingLink.show()
             else -> serviceDetail = service to color
         }
     }
@@ -162,11 +164,19 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
+                com.dorr.app.chat.ChatDeepLink.ParentChildren -> { walletOpen = false; chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Service -> {
                     walletOpen = false
                     chatOpen = false
                     com.dorr.app.ui.screens.rides.ServiceLink.pending = link.kind to link.uuid
                     ridesOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
+                is com.dorr.app.chat.ChatDeepLink.Freelance -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.freelance.FreelanceLink.show(link.page)
+                    freelanceOpen = true
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Ride -> {
@@ -187,10 +197,17 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Support,
-                com.dorr.app.chat.ChatDeepLink.Security -> {
+                com.dorr.app.chat.ChatDeepLink.Security,
+                com.dorr.app.chat.ChatDeepLink.Verification -> {
                     walletOpen = false
                     chatOpen = false
                     currentTab = 3
+                }
+                is com.dorr.app.chat.ChatDeepLink.WatchEarn -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.watchearn.WatchEarnLink.openFromPush(link.event, link.adId, link.role)
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 is com.dorr.app.chat.ChatDeepLink.Call -> {
                     com.dorr.app.chat.CallController.loadIncoming(link.id)
@@ -207,6 +224,9 @@ fun MainScreen(
     // so Android lets the location service start).
     val liveContext = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.app.chat.LiveLocationSharing.resume(liveContext) }
+    // After a cold start the saved user can still be filling in from the server: connect again once it has (start is idempotent).
+    val sessionVersion by com.dorr.app.network.AuthSession.sessionVersion.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(sessionVersion) { com.dorr.app.chat.ChatRealtime.start() }
     androidx.compose.runtime.DisposableEffect(lifecycle) {
         com.dorr.app.chat.ChatRealtime.start()
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -326,7 +346,8 @@ fun MainScreen(
                         onOpenAccount = { currentTab = 3 },
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
-                        onOpenServices = onOpenServices,
+                        // «View all» is the Services tab: a separate page had no handler, so Freelance and rides opened «coming soon».
+                        onOpenServices = { currentTab = 1 },
                         onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
                         onOpenAi = {
@@ -484,8 +505,32 @@ fun MainScreen(
         com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.freelance.FreelanceHost(onExit = { freelanceOpen = false }) }
     }
 
+    // Watch & Earn: watch ads and earn, my ads, the ad wallet — opened from the wallet, the chat list, Home and Account.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.watchearn.WatchEarnLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.theme.ProvideAppFont {
+            com.dorr.app.ui.screens.watchearn.WatchEarnHost(onExit = { com.dorr.app.ui.screens.watchearn.WatchEarnLink.close() })
+        }
+    }
+
+    // AI marketing director: projects, sourced research, plans (docs/marketing_tasks.md) — from Account and the Services tab.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.marketing.MarketingLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.theme.ProvideAppFont {
+            com.dorr.app.ui.screens.marketing.MarketingHost(onExit = { com.dorr.app.ui.screens.marketing.MarketingLink.close() })
+        }
+    }
+
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
+    // The wallet top-up opened from elsewhere (FL-501: not enough to fund a part).
+    com.dorr.app.ui.screens.wallet.TopupOverlay()
 
     // The goal moment and match banners, over anything (197, 198).
     com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsCelebrationHost() }

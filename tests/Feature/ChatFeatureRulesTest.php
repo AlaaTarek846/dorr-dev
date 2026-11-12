@@ -73,7 +73,7 @@ class ChatFeatureRulesTest extends TestCase
     {
         // No rules: everything on, and no city yet.
         $this->getJson('/api/mobile/v1/chat/features', $this->headers())->assertOk()
-            ->assertJsonPath('data.features', ['calls' => true, 'voice_rooms' => true, 'live' => true, 'stories' => true, 'ai' => true])
+            ->assertJsonPath('data.features', ['calls' => true, 'voice_rooms' => true, 'live' => true, 'stories' => true, 'ai' => true, 'verification_paid' => false, 'verification_celebrity' => false, 'education_groups' => true, 'work_groups' => true])
             ->assertJsonPath('data.city', null);
 
         // Calls off in the country — and with them voice rooms and lives.

@@ -38,8 +38,13 @@ interface ProjectsApi {
     suspend fun unfavorite(@Path("uuid") uuid: String): Response<ApiEnvelope<ProjectDto>>
 }
 
+/** Where something comes from (freelance work is open across countries): ISO code and the name in my language. */
+data class CountryRefDto(val code: String? = null, val name: String? = null)
+
 data class ProjectDto(
     val uuid: String,
+    /** The client's country (projects of every open country are listed). */
+    val country: CountryRefDto? = null,
     val title: String? = null,
     val specialty: NamedDto? = null,
     val skills: List<NamedDto> = emptyList(),
@@ -53,10 +58,14 @@ data class ProjectDto(
     val summary: String? = null,
     /** … the page shows all of it. */
     val description: String? = null,
+    /** FL-307: the client's questions, answered with the offer. Only the project page has them (the list leaves it out, so it is null there: Gson skips the default). */
+    val questions: List<String>? = null,
     @SerializedName("attachments_count") val attachmentsCount: Int = 0,
     val offers: ProjectOffersDto = ProjectOffersDto(),
     /** I already sent an offer on it (FL-301). */
     val offered: Boolean = false,
+    /** FL-205: my invitation to this (private) project, if any. */
+    val invitation: InvitationRefDto? = null,
 )
 
 /** Whether offers can still be made on this project (FL-204). */
@@ -72,5 +81,5 @@ data class ProjectBudgetDto(
     val type: String = "fixed",
     @SerializedName("min_minor") val minMinor: Long? = null,
     @SerializedName("max_minor") val maxMinor: Long? = null,
-    val currency: String = "",
+    @field:com.google.gson.annotations.JsonAdapter(CurrencyLabelAdapter::class) val currency: String = "",
 )

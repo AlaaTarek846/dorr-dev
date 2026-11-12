@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use App\Models\Concerns\HasReferralCode;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Freelance\Enums\FreelancerStatus;
 use Modules\Wallet\Concerns\HasWallets;
@@ -28,7 +29,7 @@ use Spatie\MediaLibrary\HasMedia;
  */
 class Freelancer extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasVerificationCodes, HasWallets, Notifiable, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasMediaTrait, HasReferralCode, HasNotificationDevices, HasVerificationCodes, HasWallets, Notifiable, SendsPhoneOtp, SoftDeletes;
 
     protected $table = 'freelancers';
 
@@ -119,6 +120,11 @@ class Freelancer extends Authenticatable implements HasMedia
         return $this->belongsToMany(FreelanceSkill::class, 'freelancer_skills', 'freelancer_id', 'freelance_skill_id')->withPivot('level');
     }
 
+    public function offers(): HasMany
+    {
+        return $this->hasMany(FreelanceOffer::class);
+    }
+
     public function experiences(): HasMany
     {
         return $this->hasMany(FreelancerExperience::class);
@@ -135,14 +141,27 @@ class Freelancer extends Authenticatable implements HasMedia
         return $this->hasOne(FreelancerAvailability::class);
     }
 
+    /** FL-L07: the paid consultations listed (any status). */
+    public function consultationOffers(): HasMany
+    {
+        return $this->hasMany(FreelanceConsultationOffer::class);
+    }
+
     public function timeOff(): HasMany
     {
         return $this->hasMany(FreelancerTimeOff::class);
     }
 
+    /** The freelancer's own works; a team's works he added (FS-202a, `team_id`) are the team's, not his. */
     public function portfolioItems(): HasMany
     {
-        return $this->hasMany(FreelancerPortfolioItem::class);
+        return $this->hasMany(FreelancerPortfolioItem::class)->whereNull('team_id');
+    }
+
+    /** FL-L04: my ready-made services. */
+    public function services(): HasMany
+    {
+        return $this->hasMany(FreelanceService::class);
     }
 
     public function certificates(): HasMany
@@ -153,5 +172,11 @@ class Freelancer extends Authenticatable implements HasMedia
     public function devices(): HasMany
     {
         return $this->hasMany(FreelancerDevice::class);
+    }
+
+    /** The support tickets this freelancer opened (the same tickets and dashboard as the riders'). */
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(\Modules\User\Models\SupportTicket::class);
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DatePickerFormatter
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -64,6 +65,22 @@ fun DateField(
                 }) { Text(stringResource(R.string.common_ok), color = settingsAccent()) }
             },
             dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
-        ) { DatePicker(state = state) }
+        ) { DatePicker(state = state, dateFormatter = LatinDateFormatter) }
     }
+}
+
+/**
+ * The picker's own text («نوفمبر 2026», the chosen date) in Latin digits: Material formats it through the phone's number system,
+ * which writes Arabic-Indic digits next to the Latin days of the grid.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+private object LatinDateFormatter : DatePickerFormatter {
+    private fun format(millis: Long?, pattern: String): String? = millis?.let {
+        java.text.SimpleDateFormat(pattern, com.dorr.freelance.net.AppLocale.java()).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.format(java.util.Date(it))
+    }
+
+    override fun formatMonthYear(monthMillis: Long?, locale: androidx.compose.material3.CalendarLocale): String? = format(monthMillis, "MMMM yyyy")
+
+    override fun formatDate(dateMillis: Long?, locale: androidx.compose.material3.CalendarLocale, forContentDescription: Boolean): String? =
+        format(dateMillis, if (forContentDescription) "EEEE, d MMMM yyyy" else "d MMM yyyy")
 }

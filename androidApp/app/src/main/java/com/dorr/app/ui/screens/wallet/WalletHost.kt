@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.wallet
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -76,7 +77,16 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRou
     var toastError by mutableStateOf(false)
 
     /** The total the hero card last counted up to, so the next count starts from there. */
-    var shownTotal: Long = 0L
+    val shownTotals = mutableMapOf<String, Long>()
+
+    /** Last balance seen per wallet (a country code, or "INT" for the dollar wallet): a page I swipe to shows its numbers at once. */
+    val balances = mutableStateMapOf<String, WalletBalanceDto>()
+
+    /** My country wallets, the one of where I am first — learnt from the balance of any of them (the dollar wallet doesn't list them). */
+    var localCodes by mutableStateOf<List<String>>(emptyList())
+
+    /** Whether a separate international (dollar) wallet exists for me — not when my local currency is the freelance one. */
+    var intlWallet by mutableStateOf(true)
 
     val stack = mutableStateListOf(start)
     val current: WaRoute get() = stack.last()
@@ -130,9 +140,20 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRou
     suspend fun refreshBalance(): Boolean {
         val fresh = runCatching { ApiClient.wallet.balance(walletAuth()).data }.getOrNull()
         if (fresh != null) {
+            val code = fresh.countryCode?.uppercase().orEmpty()
+            val intl = code == "INT"
             // No wallet chosen: the server opened the one of where I am.
-            if (com.dorr.app.network.WalletCountry.selected == null) com.dorr.app.network.WalletCountry.learnHere(fresh.countryCode)
-            balance = fresh
+            if (!intl && com.dorr.app.network.WalletCountry.selected == null) com.dorr.app.network.WalletCountry.learnHere(fresh.countryCode)
+            if (code.isNotEmpty()) balances[code] = fresh
+            if (!intl) {
+                intlWallet = fresh.internationalWallet
+                val here = com.dorr.app.network.WalletCountry.here?.uppercase()
+                val all = (listOf(code) + fresh.otherWallets.orEmpty().mapNotNull { it.countryCode?.uppercase() }).filter { it.isNotEmpty() }.distinct()
+                localCodes = all.sortedBy { if (it == here) 0 else 1 }
+            }
+            // A slow answer for the wallet I just swiped away from must not replace the one on screen.
+            // (No separate dollar wallet: the dollar flows read my local one, whichever side is asked for.)
+            if (intl == com.dorr.app.network.WalletCountry.international || !fresh.internationalWallet) balance = fresh
         }
         return fresh != null
     }

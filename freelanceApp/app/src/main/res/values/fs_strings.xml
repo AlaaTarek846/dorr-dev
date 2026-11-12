@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FS-101: change requests v2 (addendum, effect, files, deadline). -->
+<resources>
+    <string name="fs_ch_addendum">Addendum no. %1$d</string>
+    <string name="fs_ch_version">Agreement is now version %1$d</string>
+    <string name="fs_ch_effect_price">Price: %1$s → %2$s</string>
+    <string name="fs_ch_effect_days">Duration: %1$d → %2$d days</string>
+    <string name="fs_ch_effect_parts">Parts: %1$d → %2$d</string>
+    <string name="fs_ch_respond_by">Answer by %1$s</string>
+    <string name="fs_ch_attach">Attach a file (%1$d/%2$d)</string>
+    <string name="fs_ch_attach_hint">PDF, images, Word, Excel, PowerPoint, text or zip · up to 10 MB each</string>
+    <string name="fs_ch_file_too_big">This file is over 10 MB</string>
+    <!-- FS-106: project health (informational only). %1$s = the part, %2$s = "N days". -->
+    <string name="fs_health_title">Project health</string>
+    <string name="fs_health_on_track">The project is on track</string>
+    <string name="fs_health_state_healthy">On track</string>
+    <string name="fs_health_state_at_risk">At risk</string>
+    <string name="fs_health_state_delayed">Delayed</string>
+    <string name="fs_health_state_blocked">Blocked</string>
+    <string name="fs_health_part_fallback">this part</string>
+    <string name="fs_health_r_dispute_open">There is a dispute open on %1$s.</string>
+    <string name="fs_health_r_part_unfunded">%1$s has not been funded yet.</string>
+    <string name="fs_health_r_part_overdue">%1$s is past its date by %2$s.</string>
+    <string name="fs_health_r_part_overdue_nodays">%1$s is past its date.</string>
+    <string name="fs_health_r_part_due_soon">%1$s is due soon.</string>
+    <string name="fs_health_r_part_not_started">%1$s is funded but not started.</string>
+    <string name="fs_health_r_review_waiting">%1$s was delivered and is waiting for the client\'s review.</string>
+    <string name="fs_health_r_report_late">A progress report is late.</string>
+    <string name="fs_health_r_change_waiting">A change request is waiting for an answer.</string>
+    <string name="fs_health_n_mine_dispute_open">Follow the dispute on %1$s and add your evidence.</string>
+    <string name="fs_health_n_mine_part_unfunded">Check with the client about funding %1$s.</string>
+    <string name="fs_health_n_mine_part_overdue">Deliver %1$s as soon as you can.</string>
+    <string name="fs_health_n_mine_part_overdue_nodays">Deliver %1$s as soon as you can.</string>
+    <string name="fs_health_days_1">1 day</string>
+    <string name="fs_health_days_2">2 days</string>
+    <string name="fs_health_days_few">%1$d days</string>
+    <string name="fs_health_days_many">%1$d days</string>
+    <string name="fs_health_n_mine_part_due_soon">Deliver %1$s - it is due soon.</string>
+    <string name="fs_health_n_mine_part_not_started">Start %1$s.</string>
+    <string name="fs_health_n_mine_review_waiting">Follow up with the client on %1$s.</string>
+    <string name="fs_health_n_mine_report_late">Send your progress report.</string>
+    <string name="fs_health_n_mine_change_waiting">Answer the change request.</string>
+    <string name="fs_health_n_wait_dispute_open">Waiting for the decision on the dispute about %1$s.</string>
+    <string name="fs_health_n_wait_part_unfunded">Waiting for the client to fund %1$s.</string>
+    <string name="fs_health_n_wait_part_overdue">Waiting for %1$s to be delivered.</string>
+    <string name="fs_health_n_wait_part_overdue_nodays">Waiting for %1$s to be delivered.</string>
+    <string name="fs_health_n_wait_part_due_soon">%1$s is due soon.</string>
+    <string name="fs_health_n_wait_part_not_started">Waiting for %1$s to start.</string>
+    <string name="fs_health_n_wait_review_waiting">Waiting for the client to review %1$s.</string>
+    <string name="fs_health_n_wait_report_late">Waiting for the progress report.</string>
+    <string name="fs_health_n_wait_change_waiting">Waiting for the client to answer the change request.</string>
+    <!-- FS-802: an overdue Workroom task -->
+    <string name="fs_health_r_task_overdue">The task %1$s is past its date by %2$s.</string>
+    <string name="fs_health_r_task_overdue_nodays">The task %1$s is past its date.</string>
+    <string name="fs_health_n_mine_task_overdue">Finish the task %1$s or agree a new date in the Workroom.</string>
+    <string name="fs_health_n_wait_task_overdue">Waiting for the client to finish the task %1$s.</string>
+</resources>

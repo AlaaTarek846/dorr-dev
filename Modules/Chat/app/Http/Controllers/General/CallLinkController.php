@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,11 +19,17 @@ class CallLinkController extends Controller
 {
     public function __construct(private readonly CallLinkService $links) {}
 
+    /** GET call-links?page=&per_page= — my working links, newest first. Pages of 15. */
     public function index(Request $request)
     {
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
         $me = $request->user();
+        $page = $this->links->minePage($me, (int) ($data['per_page'] ?? 15));
 
-        return ApiResponse::success($this->links->mine($me)->map(fn (ChatCallLink $l) => $this->links->payload($me, $l))->values(), __('api.retrieved'));
+        return ApiResponse::success($page->getCollection()->map(fn (ChatCallLink $l) => $this->links->payload($me, $l))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     /** `{type: audio|video}` */

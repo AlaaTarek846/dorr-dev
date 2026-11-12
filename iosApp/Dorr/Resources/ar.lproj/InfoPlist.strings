@@ -1,0 +1,8 @@
+/* Permission prompts (hand-written: not part of the Android strings sync). */
+"NSFaceIDUsageDescription" = "افتح محفظة دُرر ببصمة الوجه بدل كتابة الرقم السري.";
+"NSCameraUsageDescription" = "لمسح رمز QR لمحفظة، أو لالتقاط صورة سيلفي لفك تجميد المحفظة، أو لوضع نماذج دُرر AR في مكانك.";
+"NSLocationWhenInUseUsageDescription" = "علشان نوريك مكانك على الخريطة ونحدد نقطة الركوب.";
+"NSMicrophoneUsageDescription" = "علشان تقول رايح فين بدل ما تكتب، وتبعت رسائل صوتية لمساعد دُرر.";
+"NSSpeechRecognitionUsageDescription" = "علشان كلامك يتحول لنص يفهمه مساعد دُرر.";
+"NSPhotoLibraryAddUsageDescription" = "لحفظ رمز QR الخاص بمحفظتك في الصور.";
+"NSContactsUsageDescription" = "علشان نعرّفك مين من جهات اتصالك على دُرر وتكلمهم.";

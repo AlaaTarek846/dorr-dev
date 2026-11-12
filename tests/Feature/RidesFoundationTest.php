@@ -391,6 +391,39 @@ class RidesFoundationTest extends TestCase
         $this->putJson('/api/admin/v1/ride-settings', ['fallback_road_factor_bp' => 5000])->assertStatus(422);
     }
 
+    public function test_the_iphone_map_follows_the_provider_or_is_apple_maps(): void
+    {
+        $admin = Admin::query()->create(['name' => 'Admin', 'email' => 'admin@dorr.test', 'password' => 'secret123', 'status' => 'active']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (['ride-settings.view', 'ride-settings.update'] as $name) {
+            Permission::findOrCreate($name, 'admin_api');
+        }
+        $admin->givePermissionTo(['ride-settings.view', 'ride-settings.update']);
+        $rider = User::query()->create(['phone' => '+966500000009', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+
+        // O-72: by default the iPhone draws with the provider above, like Android.
+        $this->actingAs($rider, 'user_api')->getJson('/api/mobile/v1/rides/map-config')
+            ->assertOk()
+            ->assertJsonPath('data.provider', 'google')
+            ->assertJsonPath('data.ios_provider', 'google');
+
+        Sanctum::actingAs($admin, [], 'admin_api');
+        $this->putJson('/api/admin/v1/ride-settings', ['ios_map_provider' => 'apple'])
+            ->assertOk()
+            ->assertJsonPath('data.ios_map_provider', 'apple');
+        $this->putJson('/api/admin/v1/ride-settings', ['ios_map_provider' => 'bing'])->assertStatus(422);
+
+        // Apple for the iPhone only; Android (and the server's routes) keep the provider above.
+        $this->actingAs($rider, 'user_api')->getJson('/api/mobile/v1/rides/map-config')
+            ->assertJsonPath('data.provider', 'google')
+            ->assertJsonPath('data.ios_provider', 'apple');
+
+        RideSetting::current()->fill(['map_provider' => 'mapbox', 'mapbox_token' => 'pk.test', 'ios_map_provider' => 'follow'])->save();
+        $this->actingAs($rider, 'user_api')->getJson('/api/mobile/v1/rides/map-config')
+            ->assertJsonPath('data.ios_provider', 'mapbox')
+            ->assertJsonPath('data.mapbox_token', 'pk.test');
+    }
+
     public function test_when_google_refuses_the_estimate_answers_and_google_is_left_alone_for_a_while(): void
     {
         config(['rides.google.key' => 'spent-key']);

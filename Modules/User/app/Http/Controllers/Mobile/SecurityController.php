@@ -10,6 +10,7 @@ use App\Services\Security\SecurityPresenter;
 use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Modules\User\Models\User;
@@ -20,21 +21,22 @@ use Modules\User\Models\User;
  */
 class SecurityController extends Controller
 {
-    public function __construct(private readonly AccountSessionService $sessions) {}
+    public function __construct(protected readonly AccountSessionService $sessions) {}
 
     public function devices(Request $request): JsonResponse
     {
-        return ApiResponse::success($this->deviceList($this->user($request)), __('api.retrieved'));
+        return ApiResponse::success($this->deviceList($this->owner($request)), __('api.retrieved'));
     }
 
     /** Signs one device out at once (this one too: that is the same as logging out). */
     public function signOut(Request $request, int $session): JsonResponse
     {
-        $user = $this->user($request);
+        $user = $this->owner($request);
         $target = AccountSession::query()->of($user)->active()->findOrFail($session);
         $isCurrent = $target->id === $this->sessions->current($user)?->id;
 
         $this->sessions->signOut($user, $target);
+        $this->afterSessionsEnded($user);
 
         return ApiResponse::success([
             'signed_out_current' => $isCurrent,
@@ -44,8 +46,9 @@ class SecurityController extends Controller
 
     public function signOutOthers(Request $request): JsonResponse
     {
-        $user = $this->user($request);
+        $user = $this->owner($request);
         $count = $this->sessions->signOutOthers($user);
+        $this->afterSessionsEnded($user);
 
         return ApiResponse::success([
             'count' => $count,
@@ -61,7 +64,7 @@ class SecurityController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
-        $paginator = SecurityEvent::query()->of($this->user($request))
+        $paginator = SecurityEvent::query()->of($this->owner($request))
             ->when($data['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
             ->when((bool) ($data['warnings'] ?? false), fn ($q) => $q->whereIn('type', SecurityEvent::WARNINGS))
             ->latest('created_at')->latest('id')
@@ -76,7 +79,7 @@ class SecurityController extends Controller
     }
 
     /** @return list<array<string, mixed>> */
-    private function deviceList(User $user): array
+    private function deviceList(Model $user): array
     {
         $current = $this->sessions->current($user);
 
@@ -87,9 +90,13 @@ class SecurityController extends Controller
             ->values()->all();
     }
 
-    private function user(Request $request): User
+    /** The account behind the request: the rider here; another kind of account overrides it (the freelancer app). */
+    protected function owner(Request $request): Model
     {
         /** @var User */
         return $request->user('user_api');
     }
+
+    /** Called once devices were signed out, so an account kind that keeps its own device rows can drop them too. */
+    protected function afterSessionsEnded(Model $owner): void {}
 }

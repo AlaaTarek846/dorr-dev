@@ -1,5 +1,11 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Work
+import com.dorr.freelance.ui.components.SkeletonDetail
+import com.dorr.freelance.ui.components.SkeletonList
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -29,7 +35,10 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import com.dorr.freelance.ui.components.EmptyState
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +58,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -80,6 +90,7 @@ import com.dorr.freelance.ui.components.FieldLabel
 import com.dorr.freelance.ui.components.Page
 import com.dorr.freelance.ui.kit.RedToggle
 import com.dorr.freelance.ui.kit.SettingsPrimaryButton
+import com.dorr.freelance.ui.kit.SubHeader
 import com.dorr.freelance.ui.kit.SettingsScreenTitle
 import com.dorr.freelance.ui.kit.settingsAccent
 import com.dorr.freelance.ui.kit.settingsInk
@@ -97,19 +108,43 @@ private const val MAX_WORKS = 30
 private const val MAX_IMAGES = 10
 private const val MAX_WORK_SKILLS = 10
 
-/** My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30. */
+/**
+ * FS-209c: where the works are kept — my own (`profile/portfolio`) or a team's (`teams/{team}/portfolio`, the same fields without the
+ * agreement link). The screens below work on either through this.
+ */
+private class PortfolioSource(val team: String?) {
+    suspend fun list() = if (team == null) ApiClient.portfolio.list() else ApiClient.teamPortfolio.list(team)
+    suspend fun order(ids: List<Int>) = if (team == null) ApiClient.portfolio.order(PortfolioOrderRequest(ids)) else ApiClient.teamPortfolio.order(team, PortfolioOrderRequest(ids))
+    suspend fun create(body: Map<String, Any?>) = if (team == null) ApiClient.portfolio.create(body) else ApiClient.teamPortfolio.create(team, body)
+    suspend fun update(id: Int, body: Map<String, Any?>) = if (team == null) ApiClient.portfolio.update(id, body) else ApiClient.teamPortfolio.update(team, id, body)
+    suspend fun delete(id: Int) = if (team == null) ApiClient.portfolio.delete(id) else ApiClient.teamPortfolio.delete(team, id)
+    suspend fun addImage(id: Int, part: MultipartBody.Part) = if (team == null) ApiClient.portfolio.addImage(id, part) else ApiClient.teamPortfolio.addImage(team, id, part)
+    suspend fun deleteImage(id: Int, media: Int) = if (team == null) ApiClient.portfolio.deleteImage(id, media) else ApiClient.teamPortfolio.deleteImage(team, id, media)
+}
+
+/**
+ * My portfolio as a tab: my works (first image, title, who can see it), add one, and put them in order. Up to 30.
+ * With [team] it is that team's: everybody in the team reads it, and only an Owner (of an active team) adds, changes and orders.
+ */
 @Composable
-fun PortfolioTab(onOpenItem: (Int) -> Unit) {
+fun PortfolioTab(onBack: () -> Unit, onOpenItem: (Int) -> Unit, team: String? = null) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
+    val src = remember(team) { PortfolioSource(team) }
     val items = remember { mutableStateListOf<PortfolioItemDto>() }
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // A team's works are changed by its Owners only (and not while the team is suspended); my own always by me.
+    var canEdit by remember(team) { mutableStateOf(team == null) }
 
-    LaunchedEffect(reconnect) {
-        val result = apiCall { ApiClient.portfolio.list() }
+    LaunchedEffect(team, reconnect) {
+        if (team != null) {
+            val mine = (apiCall { ApiClient.teams.profile(team) } as? ApiResult.Ok)?.data?.team
+            if (mine != null) canEdit = mine.me.role == "owner" && mine.status == "active"
+        }
+        val result = apiCall { src.list() }
         if (result is ApiResult.Ok) {
             items.clear()
             items.addAll(result.data)
@@ -126,21 +161,26 @@ fun PortfolioTab(onOpenItem: (Int) -> Unit) {
         val moved = items.removeAt(index)
         items.add(to, moved)
         scope.launch {
-            val result = apiCall { ApiClient.portfolio.order(PortfolioOrderRequest(items.map { it.id })) }
+            val result = apiCall { src.order(items.map { it.id }) }
             if (result !is ApiResult.Ok) error = result.errorText(offlineText) ?: genericError
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.padding(top = 14.dp)) { SettingsScreenTitle(stringResource(R.string.portfolio_title)) }
-        Text(stringResource(R.string.portfolio_hint), color = settingsMut(), fontSize = 12.sp)
-        if (!loaded && error == null) CircularProgressIndicator(color = settingsAccent(), modifier = Modifier.align(Alignment.CenterHorizontally))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SubHeader(title = stringResource(if (team == null) R.string.portfolio_title else R.string.tpf_title), onBack = onBack)
+        Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(if (team == null) R.string.portfolio_hint else if (canEdit) R.string.tpf_hint else R.string.tpf_hint_member), color = settingsMut(), fontSize = 12.sp)
+        if (!loaded && error == null) SkeletonList()
         if (loaded) {
-            if (items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
-            if (items.isEmpty()) Text(stringResource(R.string.portfolio_empty), color = settingsMut(), fontSize = 13.sp)
+            if (canEdit && items.size < MAX_WORKS) SettingsPrimaryButton(text = stringResource(R.string.portfolio_add), onClick = { onOpenItem(0) })
+            if (items.isEmpty()) EmptyState(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = stringResource(if (team == null) R.string.portfolio_empty else R.string.tpf_empty),
+                body = stringResource(if (team == null) R.string.portfolio_empty_body else R.string.tpf_empty_body),
+            )
             items.forEachIndexed { index, item ->
                 Row(
-                    Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).clickable { onOpenItem(item.id) }.padding(10.dp),
+                    Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(16.dp)).then(if (canEdit) Modifier.clickable { onOpenItem(item.id) } else Modifier).padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -154,8 +194,9 @@ fun PortfolioTab(onOpenItem: (Int) -> Unit) {
                         item.specialty?.name?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 12.sp, maxLines = 1) }
                         Text(visibilityLabel(item.visibility), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         if (item.hidden) Text(stringResource(R.string.portfolio_hidden) + (item.hiddenReason?.let { ": $it" } ?: ""), color = settingsMut(), fontSize = 11.sp)
+                        if (item.withdrawnByClient) Text(stringResource(R.string.rights_pf_withdrawn), color = Color(0xFFD97706), fontSize = 11.sp, maxLines = 2)
                     }
-                    Column {
+                    if (canEdit) Column {
                         Icon(Icons.Rounded.ArrowUpward, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(22.dp).clickable(enabled = index > 0) { move(index, -1) })
                         Spacer(Modifier.height(6.dp))
                         Icon(Icons.Rounded.ArrowDownward, contentDescription = null, tint = settingsMut(), modifier = Modifier.size(22.dp).clickable(enabled = index < items.lastIndex) { move(index, 1) })
@@ -164,6 +205,7 @@ fun PortfolioTab(onOpenItem: (Int) -> Unit) {
             }
         }
         ErrorBanner(error, Modifier.fillMaxWidth())
+        }
     }
 }
 
@@ -181,11 +223,12 @@ private fun visibilityLabel(visibility: String): String = when (visibility) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
+fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit, team: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val offlineText = stringResource(R.string.login_error_offline)
     val genericError = stringResource(R.string.login_error_generic)
+    val src = remember(team) { PortfolioSource(team) }
 
     var currentId by rememberSaveable { mutableStateOf(itemId) }
     var item by remember { mutableStateOf<PortfolioItemDto?>(null) }
@@ -200,6 +243,10 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     val skillIds = rememberSaveable(saver = intListSaver()) { mutableStateListOf<Int>() }
     var visibility by rememberSaveable { mutableStateOf("private") }
     var rights by rememberSaveable { mutableStateOf(false) }
+    // FL-L13: the finished work this one comes from (only one its client allowed), listed from the server.
+    var agreementUuid by rememberSaveable { mutableStateOf<String?>(null) }
+    var sources by remember { mutableStateOf<List<com.dorr.freelance.net.PortfolioSourceDto>>(emptyList()) }
+    val rightsOptions = rememberRightsOptions()
     var externalUrl by rememberSaveable { mutableStateOf("") }
     var videoUrl by rememberSaveable { mutableStateOf("") }
     val pending = rememberSaveable(saver = stringListSaver()) { mutableStateListOf<String>() }
@@ -217,19 +264,30 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
         skillIds.addAll(dto.skills.map { it.id })
         visibility = dto.visibility
         rights = dto.rightsConfirmed
+        agreementUuid = dto.agreement
         externalUrl = dto.externalUrl.orEmpty()
         videoUrl = ""
     }
 
-    // One read of each list when the page opens.
+    // One read of each list when the page opens. A team's work is filed under what the team covers (the union of its people's).
     LaunchedEffect(Unit) {
-        (apiCall { ApiClient.lists.mySpecialties() } as? ApiResult.Ok)?.data?.let { specialties = it }
-        (apiCall { ApiClient.lists.mySkills() } as? ApiResult.Ok)?.data?.let { mySkills = it }
+        if (team == null) {
+            (apiCall { ApiClient.lists.mySpecialties() } as? ApiResult.Ok)?.data?.let { specialties = it }
+            (apiCall { ApiClient.lists.mySkills() } as? ApiResult.Ok)?.data?.let { mySkills = it }
+        } else {
+            (apiCall { ApiClient.teams.profile(team) } as? ApiResult.Ok)?.data?.team?.let { t ->
+                specialties = t.specialties.mapNotNull { n -> n.name?.let { MySpecialtyDto(id = n.id, name = it) } }
+                mySkills = t.skills.mapNotNull { n -> n.name?.let { MySkillDto(id = n.id, name = it) } }
+            }
+        }
         if (itemId != 0) {
-            val result = apiCall { ApiClient.portfolio.list() }
+            val result = apiCall { src.list() }
             if (result is ApiResult.Ok) {
                 val found = result.data.firstOrNull { it.id == currentId }
                 if (found != null) {
+                    // What the work is already filed under stays pickable even when the team no longer covers it.
+                    found.specialty?.let { sp -> if (specialties.none { it.id == sp.id }) specialties = specialties + MySpecialtyDto(id = sp.id, name = sp.name.orEmpty()) }
+                    found.skills.forEach { sk -> if (mySkills.none { it.id == sk.id }) mySkills = mySkills + MySkillDto(id = sk.id, name = sk.name.orEmpty()) }
                     // A form restored after the app was killed keeps what was typed; only a fresh one is filled from the server.
                     if (!loaded) fill(found) else item = found
                 }
@@ -238,6 +296,10 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 error = result.errorText(offlineText) ?: genericError
             }
         }
+    }
+
+    LaunchedEffect(rightsOptions != null) {
+        if (rightsOptions != null && itemId == 0 && team == null) (apiCall { ApiClient.rights.portfolioSources() } as? ApiResult.Ok)?.data?.let { sources = it.filter { s -> !s.used } }
     }
 
     // ---- images ----
@@ -269,7 +331,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     fun deleteExisting(media: Int) {
         busy = true
         scope.launch {
-            val result = apiCall { ApiClient.portfolio.deleteImage(currentId, media) }
+            val result = apiCall { src.deleteImage(currentId, media) }
             busy = false
             if (result is ApiResult.Ok) item = result.data else error = result.errorText(offlineText) ?: genericError
         }
@@ -290,8 +352,9 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
             "external_url" to externalUrl.trim().ifEmpty { null },
             "video_url" to videoUrl.trim().ifEmpty { null },
         )
+        if (currentId == 0 && agreementUuid != null) body["agreement_uuid"] = agreementUuid
         scope.launch {
-            val saved = if (currentId == 0) apiCall { ApiClient.portfolio.create(body) } else apiCall { ApiClient.portfolio.update(currentId, body) }
+            val saved = if (currentId == 0) apiCall { src.create(body) } else apiCall { src.update(currentId, body) }
             if (saved !is ApiResult.Ok) {
                 busy = false
                 error = saved.errorText(offlineText) ?: genericError
@@ -308,7 +371,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                     continue
                 }
                 val part = MultipartBody.Part.createFormData("image", file.name, file.asRequestBody("image/jpeg".toMediaTypeOrNull()))
-                val up = apiCall { ApiClient.portfolio.addImage(currentId, part) }
+                val up = apiCall { src.addImage(currentId, part) }
                 if (up is ApiResult.Ok) {
                     item = up.data
                     pending.remove(path)
@@ -327,23 +390,44 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
     fun delete() {
         busy = true
         scope.launch {
-            val failed = apiDone(offlineText, genericError) { ApiClient.portfolio.delete(currentId) }
+            val failed = apiDone(offlineText, genericError) { src.delete(currentId) }
             busy = false
             if (failed == null) onBack() else error = failed
         }
     }
 
     Page(title = stringResource(if (currentId == 0) R.string.portfolio_add else R.string.common_edit), onBack = onBack) {
-        if (!loaded && error == null) CircularProgressIndicator(color = settingsAccent())
+        if (!loaded && error == null) SkeletonDetail()
         if (loaded) {
-            Card {
-                DorrTextField(title, { title = it }, label = stringResource(R.string.pf_title), modifier = Modifier.fillMaxWidth())
-                DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.pf_description), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+            com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Work, stringResource(R.string.pf_intro_title), stringResource(R.string.pf_intro))
+            // FL-L13: a finished work may be shown only when its client allowed it.
+            if (rightsOptions != null && currentId == 0 && team == null) com.dorr.freelance.ui.components.FormGroup {
+                FieldLabel(stringResource(R.string.rights_pf_pick_title))
+                if (sources.isEmpty()) Text(stringResource(R.string.rights_pf_none), color = settingsMut(), fontSize = 12.sp)
+                else ChipRow(
+                    options = sources.map { it.uuid to it.title },
+                    selected = setOfNotNull(agreementUuid),
+                    onToggle = { id ->
+                        agreementUuid = if (agreementUuid == id) null else id
+                        if (agreementUuid != null && title.isBlank()) title = sources.firstOrNull { it.uuid == id }?.title.orEmpty()
+                    },
+                )
+                Text(stringResource(R.string.rights_pf_pick_hint), color = settingsMut(), fontSize = 11.sp)
+            }
+            item?.takeIf { it.agreement != null }?.let { linked ->
+                com.dorr.freelance.ui.components.FormGroup {
+                    Text(stringResource(R.string.rights_pf_linked), color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (linked.withdrawnByClient) Text(stringResource(R.string.rights_pf_withdrawn), color = Color(0xFFD97706), fontSize = 12.sp, lineHeight = 17.sp)
+                }
+            }
+            com.dorr.freelance.ui.components.FormGroup {
+                DorrTextField(title, { title = it }, label = stringResource(R.string.pf_title), icon = Icons.Rounded.Work, modifier = Modifier.fillMaxWidth())
+                DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.pf_description), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
                 DateField(completed, { completed = it }, label = stringResource(R.string.pf_completed), modifier = Modifier.fillMaxWidth())
             }
 
             if (specialties.isNotEmpty()) {
-                Card {
+                com.dorr.freelance.ui.components.FormGroup {
                     FieldLabel(stringResource(R.string.pf_specialty))
                     ChipRow(
                         options = specialties.map { it.id.toString() to it.name },
@@ -353,7 +437,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
             if (mySkills.isNotEmpty()) {
-                Card {
+                com.dorr.freelance.ui.components.FormGroup {
                     FieldLabel(stringResource(R.string.pf_skills))
                     ChipRow(
                         options = mySkills.filter { !it.pending }.map { it.id.toString() to it.name },
@@ -366,7 +450,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 FieldLabel(stringResource(R.string.pf_visibility))
                 ChipRow(
                     options = listOf("private" to stringResource(R.string.vis_private), "clients_only" to stringResource(R.string.vis_clients), "public" to stringResource(R.string.vis_public)),
@@ -382,14 +466,14 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 }
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 DorrTextField(
-                    externalUrl, { externalUrl = it }, label = stringResource(R.string.pf_external), placeholder = "https://",
+                    externalUrl, { externalUrl = it }, label = stringResource(R.string.pf_external), icon = Icons.Rounded.Link, placeholder = "https://",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
                 )
                 DorrTextField(
-                    videoUrl, { videoUrl = it }, label = stringResource(R.string.pf_video), placeholder = "https://youtu.be/...",
+                    videoUrl, { videoUrl = it }, label = stringResource(R.string.pf_video), icon = Icons.Rounded.Videocam, placeholder = "https://youtu.be/...",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
                 )
@@ -397,7 +481,7 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
                 Text(stringResource(R.string.pf_video_hint), color = settingsMut(), fontSize = 11.sp)
             }
 
-            Card {
+            com.dorr.freelance.ui.components.FormGroup {
                 FieldLabel(stringResource(R.string.pf_images) + " ($imageCount/$MAX_IMAGES)")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     existing.forEach { image ->
@@ -427,8 +511,8 @@ fun PortfolioFormScreen(itemId: Int, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             text = { Text(stringResource(R.string.common_delete_confirm)) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete), color = settingsAccent()) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete)) } },
+            dismissButton = { DialogButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

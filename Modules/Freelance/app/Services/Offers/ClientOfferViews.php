@@ -2,6 +2,8 @@
 
 namespace Modules\Freelance\Services\Offers;
 
+use App\Support\Api\ApiPaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Freelance\Enums\FreelanceOfferStatus as OfferStatus;
 use Modules\Freelance\Exceptions\FreelanceException;
@@ -13,18 +15,21 @@ use Modules\Freelance\Models\FreelancerExperience;
 use Modules\Freelance\Services\Account\FreelancerCompleteness;
 use Modules\Freelance\Services\Account\FreelancerPortfolio;
 use Modules\Freelance\Services\Features\FreelanceFeatures;
+use Modules\Freelance\Services\Plans\FreelancePerks;
 use Modules\Freelance\Services\Policy\FreelanceFees;
 use Modules\Freelance\Services\Policy\FreelancePolicies;
+use Modules\Freelance\Services\Skills\FreelanceSkillBadges;
 
 /**
  * The offers on a project as its client compares them (FL-305): each with what helps to choose — how complete and verified the
  * freelancer is, how many works they show, which of the project's skills they have — sorted and filtered, up to three side by side,
- * and the freelancer's profile as a client may read it (never a phone or an email). The rating and the finished projects come with
- * FL-701 / FL-703: until then they are null and the app says «new».
+ * and the freelancer's profile as a client may read it (never a phone or an email). The rating (from three ratings, else null and the
+ * app says «new») and the finished projects come from FL-701 / FL-703.
  */
 class ClientOfferViews
 {
-    public const SORTS = ['newest', 'cheapest', 'fastest', 'completeness'];
+    /** `recommended` (the default) puts the freelancers on a better plan first, then the newest; every other order is plain (FL-L01 phase 4). */
+    public const SORTS = ['recommended', 'newest', 'cheapest', 'fastest', 'completeness'];
 
     public const COMPARE_MAX = 3;
 
@@ -34,14 +39,14 @@ class ClientOfferViews
         private readonly FreelancerPortfolio $portfolio,
         private readonly FreelancePolicies $policies,
         private readonly FreelanceFeatures $features,
+        private readonly FreelancePerks $perks,
     ) {}
 
     /** @return list<array<string, mixed>> the project's offers (not the ones taken back), filtered by status and sorted */
     public function list(Project $project, ?string $status, string $sort): array
     {
-        $rows = $this->offers->forProject($project)
-            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status))
-            ->map(fn (Offer $o) => $this->present($project, $o))->values();
+        $offers = $this->forProject($project, $status);
+        $rows = ($sort === 'recommended' ? $this->recommended($offers) : $offers)->map(fn (Offer $o) => $this->present($project, $o))->values();
 
         $rows = match ($sort) {
             'cheapest' => $rows->sortBy([['price_minor', 'asc'], ['created_at', 'desc']]),
@@ -54,6 +59,29 @@ class ClientOfferViews
     }
 
     /**
+     * The same list, one page of it (`page`, `per_page` of the request) — only the offers on the page are built, except when the sort
+     * needs what is built (completeness).
+     *
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function page(Project $project, ?string $status, string $sort): LengthAwarePaginator
+    {
+        if ($sort === 'completeness') {
+            return ApiPaginator::slice($this->list($project, $status, $sort));
+        }
+        $rows = $this->forProject($project, $status);
+        $rows = match ($sort) {
+            'cheapest' => $rows->sortBy([['price_minor', 'asc'], ['created_at', 'desc']]),
+            'fastest' => $rows->sortBy([['duration_days', 'asc'], ['price_minor', 'asc']]),
+            'recommended' => $this->recommended($rows),
+            default => $rows,
+        };
+        $page = ApiPaginator::slice($rows);
+
+        return $page->setCollection($page->getCollection()->map(fn (Offer $o) => $this->present($project, $o))->values());
+    }
+
+    /**
      * @param  list<string>  $uuids  two or three offers of this project
      * @return array{offers: list<array<string, mixed>>, best: array<string, ?string>}
      */
@@ -63,7 +91,7 @@ class ClientOfferViews
         if (count($uuids) < 2 || count($uuids) > self::COMPARE_MAX) {
             throw new FreelanceException('offer_compare_count', 422, ['max' => self::COMPARE_MAX], ['max' => self::COMPARE_MAX]);
         }
-        $found = $this->offers->forProject($project)->whereIn('uuid', $uuids);
+        $found = $this->forProject($project, null)->whereIn('uuid', $uuids);
         if ($found->count() !== count($uuids)) {
             abort(404);
         }
@@ -89,13 +117,23 @@ class ClientOfferViews
         $f = $offer->freelancer;
         if ($f !== null) {
             $out['freelancer'] += $this->summary($f, $project);
+            // FL-L01 phase 4: the badge of the plan they hold.
+            $out['freelancer']['badge'] = $this->perks->badge($f);
+            // FL-306: the client keeps this freelancer.
+            $out['freelancer']['is_favorite'] = app(ClientFavorites::class)->has($project->client, $f->id);
         }
         $out['can'] = [
             'shortlist' => $offer->status->canMoveTo(OfferStatus::Shortlisted) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
+            'unshortlist' => $offer->status === OfferStatus::Shortlisted && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
             'reject' => $offer->status->canMoveTo(OfferStatus::Rejected) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
             'choose' => $offer->status->canMoveTo(OfferStatus::Accepted) && $project->status === \Modules\Freelance\Enums\FreelanceProjectStatus::Published,
         ];
         $out['client_cost'] = $this->cost($project, $offer->price_minor);
+        // FL-210: dearer than the most the client said they'd pay (it can't be chosen as it stands).
+        $out['over_cap'] = $project->max_cost_minor !== null && $out['client_cost']['total_minor'] > (int) $project->max_cost_minor;
+        // The talk about it (FL-308): null until the client opens it.
+        $out['chat'] = app(\Modules\Freelance\Services\Chat\OfferChat::class)->summary($offer, 'client');
+        $out['can']['chat'] = in_array($offer->status->value, ['submitted', 'viewed', 'shortlisted', 'accepted'], true) && in_array($project->status->value, ['published', 'awarded'], true);
 
         return $out;
     }
@@ -112,7 +150,9 @@ class ClientOfferViews
         }
         $b = FreelanceFees::breakdown($priceMinor, $values);
 
-        return ['price_minor' => $b['amount_minor'], 'client_fee_minor' => $b['client_fee_minor'], 'total_minor' => $b['client_total_minor'], 'currency' => $project->currency_code];
+        $cost = ['price_minor' => $b['amount_minor'], 'client_fee_minor' => $b['client_fee_minor'], 'total_minor' => $b['client_total_minor']];
+
+        return $cost + ['currency' => $project->currency_code, 'lines' => FreelanceFees::lines('client', $cost)];
     }
 
     /** @return array<string, mixed> the freelancer's profile as the client of one of their offers reads it — no phone, no email */
@@ -128,6 +168,9 @@ class ClientOfferViews
             'bio' => $f->bio,
             'avatar_url' => $f->getFirstMediaUrl('avatar') ?: null,
             'verified' => $f->status?->value === 'verified',
+            'badge' => $this->perks->badge($f),
+            // FL-L08: skills the freelancer passed the test of.
+            'skill_badges' => app(FreelanceSkillBadges::class)->of($f),
             'city' => $f->city,
             'languages' => array_values((array) $f->contact_languages),
             'member_since' => $f->created_at?->toDateString(),
@@ -136,7 +179,34 @@ class ClientOfferViews
             ])->values()->all(),
             'certificates' => $f->certificates()->orderByDesc('issued_on')->get()->map(fn ($c) => ['title' => $c->title, 'issuer' => $c->issuer, 'issued_on' => $c->issued_on?->format('Y-m')])->values()->all(),
             'portfolio' => $this->portfolio->visibleTo($f, true)->map(fn ($i) => $this->portfolio->present($i, false))->values()->all(),
+            // FL-701: what clients said, once out; and the average by criterion.
+            'reviews' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->latestAbout($f),
+            'rating_criteria' => app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f)['criteria'],
+            'is_favorite' => app(ClientFavorites::class)->has($project->client, $f->id),
+            // FL-L07: the paid consultations listed and open now (empty: none).
+            'consultations' => app(\Modules\Freelance\Services\Consultations\ConsultationOffers::class)->teaser($f),
+            // FL-L09 (part B): their loyalty program as it stands for this client (null: none).
+            'loyalty' => app(Loyalty::class)->view($f, $project->client),
         ] + $this->summary($f, $project);
+    }
+
+    /** The project's offers (not the ones taken back), by status, with the plans of their freelancers read at once. @return Collection<int, Offer> */
+    private function forProject(Project $project, ?string $status): Collection
+    {
+        $offers = $this->offers->forProject($project)
+            ->when($status !== null && $status !== 'all', fn (Collection $c) => $c->filter(fn (Offer $o) => $o->status->value === $status));
+        $this->perks->warm($offers->map(fn (Offer $o) => $o->freelancer));
+
+        return $offers;
+    }
+
+    /** Freelancers on a better plan first, then those with more verified skill badges; the newest first within the same weight (the sort is stable). @param Collection<int, Offer> $offers @return Collection<int, Offer> */
+    private function recommended(Collection $offers): Collection
+    {
+        // The plan weighs most; the verified skill badges break a tie (FL-L08).
+        $badges = app(FreelanceSkillBadges::class);
+
+        return $offers->sortByDesc(fn (Offer $o) => $o->freelancer === null ? 0 : $this->perks->boost($o->freelancer) * 1000 + min(999, $badges->count($o->freelancer)))->values();
     }
 
     /** @return array<string, mixed> what helps compare freelancers on this project */
@@ -155,10 +225,11 @@ class ClientOfferViews
             // The project's skills this freelancer has.
             'matching_skills' => $mine->filter(fn (FreelanceSkill $s) => in_array((int) $s->id, $projectSkills, true))->map(fn (FreelanceSkill $s) => ['id' => $s->id, 'name' => $s->translatedName()])->values()->all(),
             'project_skills_count' => count($projectSkills),
-            // FL-701 / FL-703.
-            'rating' => null,
-            'reviews_count' => null,
-            'completed_projects' => null,
+        ] + array_intersect_key(
+            // FL-701 / FL-703: the average (from three ratings), how many, finished projects, on time, and like this one.
+            app(\Modules\Freelance\Services\Projects\FreelanceReviews::class)->stats($f, $project->freelance_specialty_id),
+            array_flip(['rating', 'reviews_count', 'completed_projects', 'completion_rate', 'on_time_rate', 'similar_projects']),
+        ) + [
         ];
     }
 }

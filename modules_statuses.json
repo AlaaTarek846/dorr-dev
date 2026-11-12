@@ -10,5 +10,8 @@
     "Sports": true,
     "Driver": true,
     "Rides": true,
-    "Freelance": true
+    "Freelance": true,
+    "WatchEarn": true,
+    "Moving": true,
+    "Marketing": true
 }

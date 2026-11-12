@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L10: الطاقة وقايمة الانتظار -->
+    <string name="mk_full_pill">مشغول دلوقتي</string>
+    <string name="mk_wait_join">انضم لقايمة الانتظار</string>
+    <string name="mk_wait_position">إنت رقم %1$d في الدور</string>
+    <string name="mk_wait_full">المحترف ده مشغول بأقصى عدد مشاريع دلوقتي. ادخل قايمة الانتظار وهنبلّغك أول ما يفضى مكان.</string>
+    <string name="mk_wait_full_n">المحترف ده مشغول دلوقتي وفيه %1$d مستنيين. ادخل القايمة وهنبلّغك لما ييجي دورك.</string>
+    <string name="mk_wait_in_line">إنت في قايمة الانتظار</string>
+    <string name="mk_wait_in_line_body">أول ما يفضى مكان، أول واحد في الدور بياخده وبنبلّغك على طول.</string>
+    <string name="mk_wait_leave">اخرج من القايمة</string>
+    <string name="mk_wait_turn">جه دورك! المكان محجوزلك لحد %1$s. اطلب دلوقتي.</string>
+</resources>

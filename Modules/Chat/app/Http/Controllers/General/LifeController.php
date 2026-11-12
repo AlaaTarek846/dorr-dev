@@ -47,12 +47,19 @@ class LifeController extends Controller
         return ApiResponse::created($this->life->commitmentMeta($request->user(), $c), __('api.created'));
     }
 
-    /** GET commitments?scope=mine|theirs|all&open=1 */
+    /** GET commitments?scope=mine|theirs|all&open=1&page=&per_page= — pages of 15. */
     public function commitments(Request $request)
     {
-        $data = $request->validate(['scope' => ['nullable', Rule::in(['mine', 'theirs', 'all'])], 'open' => ['nullable', 'boolean']]);
+        $data = $request->validate([
+            'scope' => ['nullable', Rule::in(['mine', 'theirs', 'all'])],
+            'open' => ['nullable', 'boolean'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+        $page = $this->life->commitments($request->user(), $data['scope'] ?? 'all', (bool) ($data['open'] ?? true), (int) ($data['page'] ?? 1), (int) ($data['per_page'] ?? 15), $data['q'] ?? null);
 
-        return ApiResponse::success($this->life->commitments($request->user(), $data['scope'] ?? 'all', (bool) ($data['open'] ?? true)), __('api.retrieved'));
+        return ApiResponse::fromPaginator($page, $page->getCollection()->values(), __('api.retrieved'));
     }
 
     /** GET commitments/{id} — with its history. */
@@ -111,12 +118,19 @@ class LifeController extends Controller
         return ApiResponse::success($this->life->handoffMeta($request->user(), $this->life->moveHandoff($request->user(), $handoff, $to)), __('api.updated'));
     }
 
-    /** GET handoffs?scope=received|sent&open=1 */
+    /** GET handoffs?scope=received|sent&open=1&page=&per_page= — pages of 15. */
     public function handoffs(Request $request)
     {
-        $data = $request->validate(['scope' => ['nullable', Rule::in(['received', 'sent'])], 'open' => ['nullable', 'boolean']]);
+        $data = $request->validate([
+            'scope' => ['nullable', Rule::in(['received', 'sent'])],
+            'open' => ['nullable', 'boolean'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+        $page = $this->life->handoffs($request->user(), $data['scope'] ?? 'received', (bool) ($data['open'] ?? true), (int) ($data['page'] ?? 1), (int) ($data['per_page'] ?? 15), $data['q'] ?? null);
 
-        return ApiResponse::success($this->life->handoffs($request->user(), $data['scope'] ?? 'received', (bool) ($data['open'] ?? true)), __('api.retrieved'));
+        return ApiResponse::fromPaginator($page, $page->getCollection()->values(), __('api.retrieved'));
     }
 
     // ------------------------------------------------------------------ agreements
@@ -175,12 +189,27 @@ class LifeController extends Controller
 
     // ------------------------------------------------------------------ the life inbox (147)
 
-    /** GET life-inbox?timezone= — what needs something from me: reply · pay · approve · follow up · appointments. */
+    /** GET life-inbox?timezone=&section=&page=&per_page=&q= — pages of 15 for one bucket. */
     public function inbox(Request $request)
     {
-        $zone = $request->validate(['timezone' => ['nullable', 'timezone:all']])['timezone'] ?? ($request->user()->timezone ?? config('app.timezone', 'UTC'));
+        $data = $request->validate([
+            'timezone' => ['nullable', 'timezone:all'],
+            'section' => ['nullable', Rule::in(['reply', 'pay', 'approve', 'follow', 'appointments'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'q' => ['nullable', 'string', 'max:80'],
+        ]);
+        $zone = $data['timezone'] ?? ($request->user()->timezone ?? config('app.timezone', 'UTC'));
+        $page = app(LifeInboxService::class)->inbox(
+            $request->user(),
+            $zone,
+            $data['section'] ?? null,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? 15),
+            $data['q'] ?? null,
+        );
 
-        return ApiResponse::success(app(LifeInboxService::class)->inbox($request->user(), $zone), __('api.retrieved'));
+        return ApiResponse::fromPaginator($page['paginator'], $page['data'], __('api.retrieved'));
     }
 
     // ------------------------------------------------------------------ helpers

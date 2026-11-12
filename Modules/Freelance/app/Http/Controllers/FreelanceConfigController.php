@@ -31,7 +31,7 @@ class FreelanceConfigController extends Controller
         $countryId = FreelanceCountry::of($who);
         $snapshot = $countryId !== null ? $this->features->snapshot($countryId) : ['service' => false, 'features' => array_fill_keys(FreelanceFeatures::FEATURES, false)];
 
-        $currency = $countryId !== null ? Country::query()->with('currency')->find($countryId)?->currency : null;
+        $currency = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->currency();
 
         return ApiResponse::success([
             'api_version' => (string) config('freelance.api_version'),
@@ -41,7 +41,7 @@ class FreelanceConfigController extends Controller
             'service' => $snapshot['service'],
             'features' => $snapshot['features'],
             'terms_version' => (string) config('freelance.terms_version'),
-            // The country's own currency: every *_minor amount below is in its minor unit (FL-008).
+            // The freelance currency (`freelance.money`, one for every country): every *_minor amount is in its minor unit.
             'currency' => [
                 'code' => $currency?->code,
                 'symbol' => $currency?->symbol,

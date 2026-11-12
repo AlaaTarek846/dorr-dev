@@ -13,7 +13,7 @@
                 </template>
             </div>
         </div>
-        <div class="card-footer">
+        <div v-if="canUpdate" class="card-footer">
             <div class="input-group">
                 <textarea v-model="draft" rows="2" class="form-control" :placeholder="t('ai_site_requests.write_message')" @keydown.ctrl.enter="send"></textarea>
                 <button type="button" class="btn btn-primary" :disabled="sending || ! draft.trim()" @click="send"><i class="ri-send-plane-2-line"></i></button>
@@ -27,17 +27,23 @@
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
+import { useAuthStore } from '../../../../../../stores/auth';
 
 const props = defineProps({ requestId: { type: Number, required: true } });
+const emit = defineEmits(['changed']);
+
+const EVENT = '.ai_site_request.changed';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
+const { canUpdate } = useCatalogPermissions('ai-site-requests');
 const { showError } = useToast();
 const messages = ref([]);
 const draft = ref('');
 const sending = ref(false);
 const box = ref(null);
-let timer = null;
 
 async function load() {
     try {
@@ -50,7 +56,7 @@ async function load() {
             box.value?.scrollTo({ top: box.value.scrollHeight });
         }
     } catch {
-        // polling failures are silent; the next tick retries
+        // a failed reload stays silent; the next event or reconnect reads again
     }
 }
 
@@ -74,11 +80,67 @@ async function send() {
     }
 }
 
+// Real time, no timer: the server sends `ai_site_request.changed` on the admin's own private channel
+// (`App.Models.Admin.{id}`, the one the notification bell uses) for every new message of a request.
+// This request's event -> one reload; a dropped connection that comes back -> one catch-up read.
+let channel = null;
+let connection = null;
+let wasDown = false;
+
+function onChanged(payload) {
+    if (Number(payload?.request_id) !== Number(props.requestId)) {
+        return;
+    }
+
+    load();
+    emit('changed', payload);
+}
+
+function onStateChange({ current }) {
+    if (['unavailable', 'disconnected', 'failed'].includes(current)) {
+        wasDown = true;
+    } else if (current === 'connected' && wasDown) {
+        wasDown = false;
+        load();
+        emit('changed', null);
+    }
+}
+
+function subscribe() {
+    const adminId = authStore.admin?.id;
+
+    if (! adminId || ! window.Echo) {
+        return;
+    }
+
+    try {
+        channel = window.Echo.private(`App.Models.Admin.${adminId}`);
+        channel.listen(EVENT, onChanged);
+        connection = window.Echo.connector?.pusher?.connection ?? null;
+        connection?.bind('state_change', onStateChange);
+    } catch (error) {
+        console.warn('[ai-site-requests] real-time subscription failed:', error);
+    }
+}
+
+function unsubscribe() {
+    try {
+        // Only this page's listener: the notification bell shares the channel.
+        channel?.stopListening(EVENT, onChanged);
+        connection?.unbind('state_change', onStateChange);
+    } catch {
+        // already gone
+    }
+
+    channel = null;
+    connection = null;
+}
+
 onMounted(() => {
     load();
-    timer = setInterval(load, 15000);
+    subscribe();
 });
-onUnmounted(() => clearInterval(timer));
+onUnmounted(unsubscribe);
 
 defineExpose({ reload: load });
 </script>

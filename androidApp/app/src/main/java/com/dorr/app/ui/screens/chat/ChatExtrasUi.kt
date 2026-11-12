@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -123,6 +124,8 @@ import com.dorr.app.network.LiveLocationDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.network.PollOptionVotersDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.CairoFontFamily
 import com.google.gson.JsonObject
 import kotlinx.coroutines.delay
@@ -331,7 +334,7 @@ fun PollComposerSheet(onDismiss: () -> Unit, onSend: (question: String, options:
     ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(Icons.Rounded.Poll, Color(0xFFF59E0B))
+                IconBadge(Icons.Rounded.Poll, Ch.Success, iconTint = Ch.Red)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.ch_poll_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             }
@@ -343,15 +346,28 @@ fun PollComposerSheet(onDismiss: () -> Unit, onSend: (question: String, options:
                 Row(Modifier.padding(vertical = 4.dp).chStagger(i), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { SheetField(value, stringResource(R.string.ch_poll_option_hint, i + 1), icon = Icons.Rounded.RadioButtonUnchecked) { options[i] = it.take(100) } }
                     AnimatedVisibility(options.size > 2, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
-                        Box(Modifier.padding(start = 6.dp).size(34.dp).clip(CircleShape).clickable { if (options.size > 2) options.removeAt(i) }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Close, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                        Box(
+                            Modifier
+                                .padding(start = 6.dp)
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Ch.Danger.copy(alpha = 0.12f))
+                                .clickable { if (options.size > 2) options.removeAt(i) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.Close, null, tint = Ch.Danger, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
             }
             AnimatedVisibility(options.size < 12) {
                 Row(
-                    Modifier.padding(top = 4.dp).clip(RoundedCornerShape(14.dp)).clickable { options.add("") }.padding(horizontal = 8.dp, vertical = 10.dp),
+                    Modifier
+                        .padding(top = 4.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Ch.Red.copy(alpha = 0.12f))
+                        .clickable { options.add("") }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
@@ -360,7 +376,14 @@ fun PollComposerSheet(onDismiss: () -> Unit, onSend: (question: String, options:
                 }
             }
             Row(
-                Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(14.dp)).clickable { multiple = !multiple }.padding(vertical = 10.dp, horizontal = 4.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Ch.SurfaceMuted)
+                    .border(1.dp, Ch.Line, RoundedCornerShape(14.dp))
+                    .clickable { multiple = !multiple }
+                    .padding(vertical = 10.dp, horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(stringResource(R.string.ch_poll_allow_many), color = Ch.Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
@@ -567,22 +590,29 @@ fun LocationShareSheet(onDismiss: () -> Unit, onCurrent: () -> Unit, onLive: (In
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_attach_location), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
-            ShareRow(Icons.Rounded.MyLocation, stringResource(R.string.ch_location_current), stringResource(R.string.ch_location_current_sub), Color(0xFF2563EB), 0) { onCurrent() }
-            Text(stringResource(R.string.ch_live_title), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
+            ShareRow(Icons.Rounded.MyLocation, stringResource(R.string.ch_location_current), stringResource(R.string.ch_location_current_sub), Color(0xFF2563EB), 0, iconTint = Ch.Red) { onCurrent() }
+            Row(
+                Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.NearMe, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.ch_live_title), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+            }
             listOf(900 to R.string.ch_live_15m, 3600 to R.string.ch_live_1h, 28800 to R.string.ch_live_8h).forEachIndexed { i, (seconds, label) ->
-                ShareRow(Icons.Rounded.NearMe, stringResource(label), stringResource(R.string.ch_live_sub), Ch.Success, i + 1) { onLive(seconds) }
+                ShareRow(Icons.Rounded.NearMe, stringResource(label), stringResource(R.string.ch_live_sub), Ch.Success, i + 1, iconTint = Ch.Red) { onLive(seconds) }
             }
         }
     }
 }
 
 @Composable
-private fun ShareRow(icon: ImageVector, title: String, sub: String, color: Color, index: Int, onClick: () -> Unit) {
+private fun ShareRow(icon: ImageVector, title: String, sub: String, color: Color, index: Int, iconTint: Color = color, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(index).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted).clickable(onClick = onClick).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(icon, color)
+        IconBadge(icon, color, iconTint = iconTint)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp)
@@ -604,6 +634,8 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
     var preview by remember { mutableStateOf<InvitePreviewDto?>(null) }
     var failed by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // join_mode request: they may say why (kept for the admins).
+    var reason by remember { mutableStateOf("") }
     val sent = stringResource(R.string.ch_join_request_sent)
     LaunchedEffect(token) {
         try {
@@ -646,6 +678,10 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                             Text(stringResource(R.string.ch_join_needs_approval), color = Color(0xFFB45309), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                    if (p.joinMode == "request" && !p.isMember && p.requestStatus == null) {
+                        Spacer(Modifier.height(14.dp))
+                        ChField(reason, { reason = it.take(300) }, stringResource(R.string.ch_join_reason_hint), singleLine = false, minLines = 2)
+                    }
                     Spacer(Modifier.height(20.dp))
                     AnimatedContent(p.requestStatus to p.isMember, label = "joinState") { (status, member) ->
                         when {
@@ -677,7 +713,7 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                                 busy = true
                                 host.scope.launch {
                                     try {
-                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token).data?.takeIf { it.isJsonObject }?.asJsonObject
+                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token, mapOf("reason" to reason.trim().ifBlank { null })).data?.takeIf { it.isJsonObject }?.asJsonObject
                                         if (result?.get("status")?.asString == "pending") {
                                             preview = p.copy(requestStatus = "pending")
                                         } else {
@@ -765,6 +801,7 @@ fun JoinRequestsSheet(conversationId: String, onDismiss: () -> Unit, onChanged: 
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(r.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1)
+                                r.reason?.takeIf { it.isNotBlank() }?.let { Text("“$it”", color = Ch.Ink, fontSize = 12.5.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
                                 Text(listTime(r.requestedAt), color = Ch.Mut, fontSize = 12.sp)
                             }
                             RoundIcon(Icons.Rounded.Close, Ch.Danger.copy(alpha = 0.12f), Ch.Danger) { decide(r, false) }
@@ -781,9 +818,9 @@ fun JoinRequestsSheet(conversationId: String, onDismiss: () -> Unit, onChanged: 
 // =============================================================================== small shared bits
 
 @Composable
-internal fun IconBadge(icon: ImageVector, color: Color, size: Int = 42) {
+internal fun IconBadge(icon: ImageVector, color: Color, size: Int = 42, iconTint: Color = color) {
     Box(Modifier.size(size.dp).clip(CircleShape).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = color, modifier = Modifier.size((size * 0.52f).dp))
+        Icon(icon, null, tint = iconTint, modifier = Modifier.size((size * 0.52f).dp))
     }
 }
 
@@ -806,8 +843,16 @@ internal fun SheetField(value: String, hint: String, bold: Boolean = false, icon
 @Composable
 fun ChSwitch(on: Boolean) {
     val x by animateFloatAsState(if (on) 1f else 0f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "switch")
-    val track by animateColorAsState(if (on) Ch.Red else Ch.Line, label = "switchTrack")
+    val track by animateColorAsState(if (on) settingsAccent() else if (settingsNight()) Color(0xFF3A3F48) else Ch.Line, label = "switchTrack")
     Box(Modifier.size(width = 46.dp, height = 28.dp).clip(RoundedCornerShape(14.dp)).background(track).padding(3.dp)) {
-        Box(Modifier.graphicsLayer { translationX = x * 18.dp.toPx() }.size(22.dp).shadow(3.dp, CircleShape).clip(CircleShape).background(Color.White))
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (18f * x).dp)
+                .size(22.dp)
+                .shadow(3.dp, CircleShape)
+                .clip(CircleShape)
+                .background(Color.White),
+        )
     }
 }

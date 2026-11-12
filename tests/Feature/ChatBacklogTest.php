@@ -12,8 +12,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Modules\Chat\Enums\CallParticipantStatus;
+use Modules\Chat\Enums\CallStatus;
+use Modules\Chat\Enums\CallType;
+use Modules\Chat\Models\ChatCall;
+use Modules\Chat\Models\ChatCallParticipant;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatParticipant;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -151,6 +157,49 @@ class ChatBacklogTest extends TestCase
         // Bob still has it.
         $this->as($this->bob);
         $this->getJson('/api/mobile/v1/chat/storage', $this->headers())->assertJsonPath('data.files', 1)->assertJsonPath('data.large', 1);
+    }
+
+    public function test_storage_files_page_fifteen(): void
+    {
+        $this->as($this->alice);
+        $chat = $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $this->bob->id], $this->headers())->json('data.id');
+        for ($i = 0; $i < 16; $i++) {
+            $this->post("/api/mobile/v1/chat/conversations/{$chat}/messages", ['type' => 'document', 'files' => [UploadedFile::fake()->create("f{$i}.pdf", 8, 'application/pdf')]], $this->headers())->assertCreated();
+        }
+
+        $this->getJson('/api/mobile/v1/chat/storage/files?kind=all&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data.items')->assertJsonPath('data.has_more', true);
+        $this->getJson('/api/mobile/v1/chat/storage/files?kind=all&page=2&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data.items')->assertJsonPath('data.has_more', false);
+    }
+
+    public function test_calls_page_fifteen(): void
+    {
+        $this->as($this->alice);
+        $chat = $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $this->bob->id], $this->headers())->json('data.id');
+        $conversation = ChatConversation::query()->where('uuid', $chat)->first();
+        $aliceP = ChatParticipant::query()->of($this->alice)->where('conversation_id', $conversation->id)->first();
+        $bobP = ChatParticipant::query()->of($this->bob)->where('conversation_id', $conversation->id)->first();
+        for ($i = 0; $i < 16; $i++) {
+            $call = ChatCall::query()->create([
+                'conversation_id' => $conversation->id,
+                'type' => CallType::Audio,
+                'status' => CallStatus::Ended,
+                'initiator_participant_id' => $aliceP->id,
+                'answered_at' => now()->subMinutes(10),
+                'ended_at' => now()->subMinutes(8),
+            ]);
+            ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $aliceP->id, 'status' => CallParticipantStatus::Left]);
+            ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $bobP->id, 'status' => CallParticipantStatus::Left]);
+        }
+
+        $this->getJson('/api/mobile/v1/chat/calls?per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(15, 'data')
+            ->assertJsonPath('pagination.per_page', 15)
+            ->assertJsonPath('pagination.has_more_pages', true);
+        $this->getJson('/api/mobile/v1/chat/calls?page=2&per_page=15', $this->headers())->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('pagination.has_more_pages', false);
     }
 
     public function test_a_channel_shows_its_numbers_and_chooses_its_reactions(): void

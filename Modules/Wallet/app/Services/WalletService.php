@@ -70,9 +70,9 @@ class WalletService
 
     /**
      * A charge (payment, fine, commission, tip…) taken from the non-withdrawable money first — it has
-     * the priority (owner's rule, O-38f) — and the rest from withdrawable, which may go below zero as a
-     * debt like any withdrawable debit. With an idempotency key, each part gets `:spend_only` /
-     * `:withdrawable` appended, and a retry returns what the first call did without splitting again.
+     * the priority (owner's rule, O-38f; rewards before spend-only, Watch & Earn D20) — and the rest from
+     * withdrawable, which may go below zero as a debt like any withdrawable debit. With an idempotency key,
+     * each part gets `:<bucket>` appended, and a retry returns what the first call did without splitting again.
      *
      * @return WalletTransaction the last part posted
      */
@@ -83,7 +83,7 @@ class WalletService
         return DB::transaction(function () use ($wallet, $amountMinor, $type, $meta) {
             $key = $meta['idempotency_key'] ?? null;
             if ($key !== null) {
-                $done = WalletTransaction::query()->whereIn('idempotency_key', [$key, $key.':'.WalletBucket::SpendOnly->value, $key.':'.WalletBucket::Withdrawable->value])
+                $done = WalletTransaction::query()->whereIn('idempotency_key', [$key, ...array_map(fn (WalletBucket $b) => $key.':'.$b->value, Wallet::SPEND_ORDER)])
                     ->orderByDesc('id')->first();
                 if ($done !== null) {
                     return $done;
@@ -91,12 +91,8 @@ class WalletService
             }
 
             $locked = $this->lock($wallet);
-            $fromSpendOnly = min(max(0, $locked->availableMinor(WalletBucket::SpendOnly)), $amountMinor);
             $last = null;
-            foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $amountMinor - $fromSpendOnly]] as [$bucket, $part]) {
-                if ($part <= 0) {
-                    continue;
-                }
+            foreach ($locked->spendParts($amountMinor) as [$bucket, $part]) {
                 $partMeta = $key === null ? $meta : ['idempotency_key' => $key.':'.$bucket->value] + $meta;
                 $last = $this->post($locked, WalletDirection::Debit, $bucket, $part, $type, $partMeta);
                 $locked->refresh();
@@ -371,12 +367,13 @@ class WalletService
         // spend_only can never go negative. withdrawable can (allowed debt
         // is a WalletEligibilityService concern for a later phase, not this
         // layer) — docs/wallet-structure.md §11 invariant #8.
-        if ($bucket === WalletBucket::SpendOnly && $newBucketBalance < 0) {
+        if ($bucket !== WalletBucket::Withdrawable && $newBucketBalance < 0) {
             throw new InsufficientBalanceException($wallet->id, $bucket->value);
         }
 
         $withdrawableMinor = $bucket === WalletBucket::Withdrawable ? $newBucketBalance : $wallet->withdrawable_minor;
         $spendOnlyMinor = $bucket === WalletBucket::SpendOnly ? $newBucketBalance : $wallet->spend_only_minor;
+        $rewardMinor = $bucket === WalletBucket::Reward ? $newBucketBalance : (int) $wallet->reward_minor;
 
         $transaction = WalletTransaction::query()->create([
             'uuid' => (string) Str::uuid(),
@@ -389,7 +386,7 @@ class WalletService
             'currency_id' => $wallet->currency_id,
             'country_id' => $wallet->country_id,
             'balance_after_minor' => $newBucketBalance,
-            'total_balance_after_minor' => $withdrawableMinor + $spendOnlyMinor,
+            'total_balance_after_minor' => $withdrawableMinor + $spendOnlyMinor + $rewardMinor,
             'reference_type' => $meta['reference_type'] ?? null,
             'reference_id' => $meta['reference_id'] ?? null,
             'counterparty_wallet_id' => $meta['counterparty_wallet_id'] ?? null,
@@ -407,6 +404,7 @@ class WalletService
         $wallet->update([
             'withdrawable_minor' => $withdrawableMinor,
             'spend_only_minor' => $spendOnlyMinor,
+            'reward_minor' => $rewardMinor,
         ]);
 
         return $transaction;
@@ -414,7 +412,11 @@ class WalletService
 
     private function adjustHeld(Wallet $wallet, WalletBucket $bucket, int $deltaMinor): void
     {
-        $column = $bucket === WalletBucket::Withdrawable ? 'held_withdrawable_minor' : 'held_spend_only_minor';
+        $column = match ($bucket) {
+            WalletBucket::Withdrawable => 'held_withdrawable_minor',
+            WalletBucket::SpendOnly => 'held_spend_only_minor',
+            WalletBucket::Reward => 'held_reward_minor',
+        };
 
         $wallet->update([$column => $wallet->{$column} + $deltaMinor]);
     }

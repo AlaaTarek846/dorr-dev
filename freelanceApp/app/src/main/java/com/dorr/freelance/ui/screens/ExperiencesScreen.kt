@@ -1,5 +1,9 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.Work
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,7 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -154,16 +159,17 @@ private fun ExperienceForm(initial: ExperienceDto, onBack: () -> Unit, onChanged
     }
 
     Page(title = stringResource(if (initial.id == 0) R.string.experiences_add else R.string.common_edit), onBack = onBack) {
-        Card {
-            DorrTextField(title, { title = it }, label = stringResource(R.string.experience_title), modifier = Modifier.fillMaxWidth())
-            DorrTextField(company, { company = it }, label = stringResource(R.string.experience_company), modifier = Modifier.fillMaxWidth())
+        com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.Work, stringResource(R.string.experience_intro_title), stringResource(R.string.experience_intro))
+        com.dorr.freelance.ui.components.FormGroup {
+            DorrTextField(title, { title = it }, label = stringResource(R.string.experience_title), icon = Icons.Rounded.Work, modifier = Modifier.fillMaxWidth())
+            DorrTextField(company, { company = it }, label = stringResource(R.string.experience_company), icon = Icons.Rounded.Business, modifier = Modifier.fillMaxWidth())
             DateField(start, { start = it }, label = stringResource(R.string.experience_start), modifier = Modifier.fillMaxWidth())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 RedToggle(on = current, onClick = { current = !current })
                 Text(stringResource(R.string.experience_current), color = settingsInk(), fontSize = 14.sp)
             }
             if (!current) DateField(end, { end = it }, label = stringResource(R.string.experience_end), modifier = Modifier.fillMaxWidth())
-            DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.experience_description), singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+            DorrTextField(description, { description = it.take(1000) }, label = stringResource(R.string.experience_description), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
         }
         SettingsPrimaryButton(text = stringResource(R.string.profile_save), enabled = title.trim().length >= 2 && start.isNotEmpty(), loading = busy, onClick = ::save)
         if (initial.id != 0) {
@@ -179,8 +185,8 @@ private fun ExperienceForm(initial: ExperienceDto, onBack: () -> Unit, onChanged
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             text = { Text(stringResource(R.string.common_delete_confirm)) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete), color = settingsAccent()) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete)) } },
+            dismissButton = { DialogButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

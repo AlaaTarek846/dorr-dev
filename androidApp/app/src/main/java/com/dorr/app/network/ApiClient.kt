@@ -95,7 +95,10 @@ object ApiClient {
         .addInterceptor { chain ->
             // My chosen wallet (another country's wallet of mine) — on wallet requests only.
             val walletCountry = WalletCountry.headerFor(chain.request().url.encodedPath)
+            // The freelance international wallet on screen: the same wallet calls, on its own path.
+            val walletPath = WalletCountry.rewrite(chain.request().url.encodedPath)
             val request = chain.request().newBuilder()
+                .apply { if (walletPath != null) url(chain.request().url.newBuilder().encodedPath(walletPath).build()) }
                 .apply { if (walletCountry != null) header("X-Country", walletCountry) }
                 .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
@@ -142,10 +145,22 @@ object ApiClient {
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
     val freelance: FreelanceApi by lazy { retrofit.create(FreelanceApi::class.java) }
+    val freelanceServices: FreelanceServicesApi by lazy { retrofit.create(FreelanceServicesApi::class.java) }
+    val freelanceConsultations: FreelanceConsultationsApi by lazy { retrofit.create(FreelanceConsultationsApi::class.java) }
+    val freelanceSpecialOffers: FreelanceSpecialOffersApi by lazy { retrofit.create(FreelanceSpecialOffersApi::class.java) }
+    val freelanceHome: FreelanceHomeApi by lazy { retrofit.create(FreelanceHomeApi::class.java) }
+    val freelanceLoyalty: FreelanceLoyaltyApi by lazy { retrofit.create(FreelanceLoyaltyApi::class.java) }
+    val freelanceRights: FreelanceRightsApi by lazy { retrofit.create(FreelanceRightsApi::class.java) }
+    val freelanceTalent: FreelanceTalentApi by lazy { retrofit.create(FreelanceTalentApi::class.java) }
+    val freelanceTeam: FreelanceTeamApi by lazy { retrofit.create(FreelanceTeamApi::class.java) }
+    /** FS-150e: a project's Workroom — tasks, files, decisions and the timeline. */
+    val freelanceWorkroom: FreelanceWorkroomApi by lazy { retrofit.create(FreelanceWorkroomApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    // Educational groups: lessons, homework, tests, attendance (docs/groups_tasks.md GR-011..017).
+    val classroom: ClassroomApi by lazy { retrofit.create(ClassroomApi::class.java) }
     val aiChat: AiChatApi by lazy { retrofit.create(AiChatApi::class.java) }
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
     val aiAssistant: AiAssistantApi by lazy { retrofit.create(AiAssistantApi::class.java) }
@@ -157,11 +172,15 @@ object ApiClient {
     val backlog: BacklogApi by lazy { retrofit.create(BacklogApi::class.java) }
     val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
+    val verification: VerificationApi by lazy { retrofit.create(VerificationApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
     val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
     val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
+    /** Watch & Earn: the viewer, the advertiser and the ad wallet (docs/modules/watch-earn/API.md). */
+    val watchEarn: WatchEarnApi by lazy { retrofit.create(WatchEarnApi::class.java) }
+    val marketing: MarketingApi by lazy { retrofit.create(MarketingApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 

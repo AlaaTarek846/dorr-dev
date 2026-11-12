@@ -115,6 +115,7 @@ return [
     'subscription_country_not_resolved' => 'لم نتمكن من تحديد الدولة اللازمة لتجديد الاشتراك.',
     'learned_intent_phrase_too_short' => 'العبارة قصيرة جداً.',
     'learned_intent_exists' => 'هذه العبارة محفوظة بالفعل بنفس النية ونوع المطابقة.',
+    'learned_intent_in_trash' => 'العبارة دي محفوظة بنفس النية ونوع المطابقة في سلة المحذوفات. استرجعها بدل ما تضيفها تاني.',
 
     // Website builder
     'site_pack_bought' => 'تم شراء باقة التعديلات، تقدر تعدّل موقعك براحتك.',
@@ -169,6 +170,7 @@ return [
     'site_hosting_not_live' => 'الاستضافة مش شغالة فمينفعش ينشر الموقع. جدّد الأول.',
     'site_hosting_not_found' => 'الموقع ده معندوش استضافة لسه.',
     'site_hosting_active' => 'الموقع ده مستضاف حالياً. الغي الاستضافة واستنى لحد ما تنتهي قبل الحذف.',
+    'site_admin_hosting_active' => 'الموقع ده عليه استضافة مدفوعة لسه شغالة. أوقف أو الغي الاستضافة من شاشة استضافة المواقع واستنى لحد ما تخلص قبل ما تحذف الموقع.',
     'site_hosting_suspended' => 'استضافة الموقع ده اتوقفت من الإدارة.',
     'site_hosting_started' => 'بدأت الاستضافة وموقعك أونلاين.',
     'site_published' => 'تم النشر. الزوار دلوقتي بيشوفوا النسخة دي.',
@@ -200,6 +202,7 @@ return [
     'site_unpaid_installments' => 'مينفعش يتم الاستلام قبل سداد كل الدفعات.',
     'site_status_unknown' => 'الحالة غير موجودة أو غير مفعلة.',
     'site_status_in_use' => 'الحالة دي أساسية أو مستخدمة في طلبات، فمينفعش تتحذف.',
+    'site_refund_failed' => 'مقدرناش نرجّع المبلغ لأن حساب العميل مش موجود.',
     'site_request_sent' => 'تم إرسال طلبك. هيراجعه الفريق ويرد عليك بالسعر والمدة.',
     'site_request_cancelled' => 'تم إلغاء الطلب.',
     'site_request_declined' => 'تم رفض العرض.',
@@ -214,6 +217,7 @@ return [
     'site_req_sys_installment_paid' => 'تم سداد: :title',
     'site_req_sys_milestone_delivered' => 'تم تسليم: :title',
     'site_req_sys_deadline_changed' => 'تم تعديل موعد التسليم إلى :date',
+    'site_req_sys_refunded' => 'كل اللي دفعته (:amount) رجع لمحفظتك.',
     'world_scene_count_invalid' => 'عدد المشاهد غير مسموح.',
     'world_duration_invalid' => 'مدة المشهد دي مش متاحة.',
     'world_price_missing' => 'الخدمة دي ملهاش سعر في بلدك لسه.',
@@ -286,4 +290,8 @@ return [
     'citation_math' => 'الحساب «:written» غلط، الناتج الصحيح :correct.',
     'citation_date' => 'التاريخ «:date» مش تاريخ صحيح.',
     'citation_jurisdiction' => 'الإجابة القانونية دي ماحددتش الدولة. القوانين بتختلف من بلد لبلد، فاتأكد من قانون بلدك.',
+    'provider_data_rule_exists' => 'المزود ده ليه قاعدة بيانات بالفعل (ممكن تكون في السلة - رجّعها بدل ما تعمل واحدة جديدة).',
+    'language_variant_code_taken' => 'الكود ده مستخدم بالفعل للغة دي (ممكن يكون في السلة - رجّعه بدل ما تعمل واحد جديد).',
+    'safety_confirmation_required' => 'الرسالة دي محتاجة تأكيد منك قبل ما أكمل. لو عايز تكمل، ابعت نفس الرسالة تاني.',
+    'safety_confirmation_unavailable' => 'الطلب ده محتاج تأكيد مينفعش يتعمل هنا، فماتبعتش.',
 ];

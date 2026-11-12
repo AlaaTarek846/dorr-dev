@@ -110,14 +110,12 @@ function formatDateTime(value) {
 }
 
 function statusBadgeClass(status) {
+    // The statuses the engine really writes (pending / retrying / cancelled never happen).
     return {
-        pending: 'bg-secondary-transparent',
         processing: 'bg-info-transparent',
         completed: 'bg-success-transparent',
         failed: 'bg-danger-transparent',
-        cancelled: 'bg-secondary-transparent',
         blocked: 'bg-dark-transparent',
-        retrying: 'bg-warning-transparent',
     }[status] ?? 'bg-secondary-transparent';
 }
 

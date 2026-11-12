@@ -37,6 +37,15 @@ class ChatSettingController extends Controller implements HasMiddleware
     {
         $data = $request->validate([
             'max_group_members' => ['sometimes', 'integer', 'min:2', 'max:5000'],
+            // Educational and work groups (docs/groups_tasks.md GR-001/002): on/off, and how many one person may own (0 = no limit).
+            'education_groups_enabled' => ['sometimes', 'boolean'],
+            'work_groups_enabled' => ['sometimes', 'boolean'],
+            'max_owned_kind_groups' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            // Days a deleted educational / work group can be brought back (GR-006).
+            'group_restore_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            // Extra tools of educational / work groups switched off for everyone (GR-051).
+            'group_tools_disabled' => ['sometimes', 'nullable', 'array'],
+            'group_tools_disabled.*' => ['string', \Illuminate\Validation\Rule::in(\Modules\Chat\Http\Middleware\EnsureGroupTool::all())],
             'max_file_size_mb' => ['sometimes', 'integer', 'min:1', 'max:2048'],
             'edit_window_minutes' => ['sometimes', 'integer', 'min:0', 'max:10080'],
             'delete_for_everyone_window_minutes' => ['sometimes', 'integer', 'min:0', 'max:43200'],
@@ -51,6 +60,11 @@ class ChatSettingController extends Controller implements HasMiddleware
             // Public stories on the home page: on/off, and how many one person may have running for free.
             'public_stories_enabled' => ['sometimes', 'boolean'],
             'public_stories_free' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            // Hidden members in a group (paid once): on/off, and its price per country (minor units).
+            'hidden_members_enabled' => ['sometimes', 'boolean'],
+            'hidden_members_prices' => ['sometimes', 'nullable', 'array'],
+            'hidden_members_prices.*.country_id' => ['required', 'integer', 'distinct', 'exists:countries,id'],
+            'hidden_members_prices.*.amount_minor' => ['required', 'integer', 'min:1', 'max:100000000000'],
             // DORR Moments: occasions, greeting cards, effects — off without touching the chat.
             'moments_enabled' => ['sometimes', 'boolean'],
             'calendar_enabled' => ['sometimes', 'boolean'],
@@ -69,6 +83,12 @@ class ChatSettingController extends Controller implements HasMiddleware
             $data['calls_disabled_countries'] = array_values(array_map('intval', $data['calls_disabled_countries'] ?? [])) ?: null;
         }
 
+        if (array_key_exists('hidden_members_prices', $data)) {
+            $data['hidden_members_prices'] = collect($data['hidden_members_prices'] ?? [])
+                ->map(fn ($row) => ['country_id' => (int) $row['country_id'], 'amount_minor' => (int) $row['amount_minor']])
+                ->values()->all() ?: null;
+        }
+
         $setting = ChatSetting::query()->firstOrCreate([]);
         $setting->update($data);
 
@@ -82,6 +102,14 @@ class ChatSettingController extends Controller implements HasMiddleware
     {
         return [
             'calls_disabled_countries' => array_values($setting->calls_disabled_countries ?? []),
+            'hidden_members_enabled' => $setting->hidden_members_enabled ?? true,
+            'education_groups_enabled' => $setting->education_groups_enabled ?? true,
+            'work_groups_enabled' => $setting->work_groups_enabled ?? true,
+            'max_owned_kind_groups' => (int) ($setting->max_owned_kind_groups ?? 0),
+            'group_restore_days' => (int) ($setting->group_restore_days ?? 30),
+            'group_tools_disabled' => array_values($setting->group_tools_disabled ?? []),
+            'group_tools' => \Modules\Chat\Http\Middleware\EnsureGroupTool::TOOLS,
+            'hidden_members_prices' => array_values($setting->hidden_members_prices ?? []),
             'call_recording_enabled' => $setting->call_recording_enabled ?? true,
             'call_recording_retention_days' => $setting->callRecordingRetentionDays(),
             // Read only: recordings need the bucket keys in .env (CHAT_RECORDINGS_*).

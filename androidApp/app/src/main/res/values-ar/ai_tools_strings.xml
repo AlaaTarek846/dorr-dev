@@ -35,10 +35,14 @@
     <string name="ct_tasks_none">مفيش مهام في الرسالة دي.</string>
     <string name="ct_tasks_save">احفظ %1$d مهام</string>
     <string name="ct_tasks_saved">اتضافت لمهامك ✅</string>
+    <string name="ct_tasks_deleted">اتمسحت المهمة</string>
+    <string name="ct_tasks_due_set">اتضاف الوقت</string>
+    <string name="ct_tasks_delete_title">حذف المهمة؟</string>
+    <string name="ct_tasks_delete_msg">المهمة دي هتتمسح ومش هترجع.</string>
     <string name="ct_tasks_add_hint">مهمة جديدة…</string>
-    <string name="ct_tasks_add">ضيف</string>
+    <string name="ct_tasks_add">إضافة</string>
     <string name="ct_tasks_empty">مفيش حاجة عليك — استمتع 🎉</string>
-    <string name="ct_tasks_done">خلصت</string>
+    <string name="ct_tasks_done">المكتملة</string>
     <string name="ct_dates">مواعيد في المحادثة</string>
     <string name="ct_dates_sub">دوس فكّرني على اللي عايزه</string>
     <string name="ct_dates_none">مفيش مواعيد متذكورة.</string>

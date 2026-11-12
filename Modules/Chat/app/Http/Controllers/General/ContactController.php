@@ -4,6 +4,7 @@ namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Chat\Http\Requests\ContactSyncRequest;
@@ -25,7 +26,21 @@ class ContactController extends Controller
     public function index(Request $request)
     {
         $me = $request->user();
-        $list = $this->contacts->list($me, $request->boolean('registered'), $request->boolean('favorites'));
+        $f = $request->validate([
+            'registered' => ['nullable', 'boolean'],
+            'favorites' => ['nullable', 'boolean'],
+            'q' => ['nullable', 'string', 'max:80'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+        $registered = $request->boolean('registered');
+        $favorites = $request->boolean('favorites');
+        if (isset($f['page'])) {
+            $page = $this->contacts->page($me, $registered, $favorites, $f['q'] ?? null, (int) $f['page'], (int) ($f['per_page'] ?? 15));
+
+            return ApiResponse::success($page->getCollection()->map(fn (ChatContact $c) => $this->present($me, $c))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
+        }
+        $list = $this->contacts->list($me, $registered, $favorites);
 
         return ApiResponse::success($list->map(fn (ChatContact $c) => $this->present($me, $c))->values(), __('api.retrieved'));
     }

@@ -21,6 +21,14 @@ class HandleDriverLocation
         try {
             $this->queue->onLocation($event->driver, $event->lat, $event->lng);
             $this->zones->onLocation($event->driver, $event->lat, $event->lng);
+            // O-72: the rider hears the captain is about to arrive.
+            if ($event->rideId !== null) {
+                app(\Modules\Rides\Services\Notifications\ArrivingSoon::class)->onLocation((int) $event->rideId, $event->lat, $event->lng);
+            }
+            // O-79: requests waiting near a free captain go out now.
+            if ($event->rideId === null) {
+                app(\Modules\Rides\Services\Dispatch\DispatchEngine::class)->nudgeNear((int) $event->driver->id, $event->lat, $event->lng);
+            }
         } catch (Throwable $e) {
             Log::warning('[Rides] driver location follow-up failed: '.$e->getMessage());
         }

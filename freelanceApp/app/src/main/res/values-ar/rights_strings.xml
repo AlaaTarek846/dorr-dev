@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L13: الملكية والتراخيص (جانب المحترف). -->
+<resources>
+    <string name="rights_title">الملكية والترخيص</string>
+    <string name="rights_editor_sub">قول مين صاحب الشغل بعد الدفع وإيه اللي يقدر العميل يعمله بيه. لو ما قلتش حاجة، الشغل كله بيبقى ملك العميل بعد الدفع.</string>
+    <string name="rights_default">الافتراضي</string>
+    <string name="rights_commercial">يقدر العميل يستخدمه تجاريًا</string>
+    <string name="rights_exclusive">حصري: مش هديه لحد تاني</string>
+    <string name="rights_term">مدة الترخيص (بالشهور)</string>
+    <string name="rights_term_hint">سيبه فاضي لو من غير مدة محددة</string>
+    <string name="rights_territory">مكان الاستخدام</string>
+    <string name="rights_territory_worldwide">في العالم كله</string>
+    <string name="rights_territory_country">في بلد العميل بس</string>
+    <string name="rights_portfolio_wish">أحب أعرض الشغل ده في معرض أعمالي (والقرار للعميل)</string>
+    <string name="rights_read_terms">اقرأ النص القياسي</string>
+    <string name="rights_hide_terms">إخفاء النص القياسي</string>
+    <string name="rights_terms_version">الإصدار %1$d</string>
+
+    <string name="rights_state_pending">لسه ما انتقلتش</string>
+    <string name="rights_state_partial">انتقلت جزئيًا</string>
+    <string name="rights_state_granted">انتقلت بالكامل</string>
+    <string name="rights_parts">%1$d من %2$d أجزاء انتقلت حقوقها للعميل</string>
+    <string name="rights_preview_only">لحد ما الجزء يتعتمد ويتدفع، العميل بيعاين ويراجع بس. حقوق كل جزء بتنتقل لما يتعتمد.</string>
+    <string name="rights_portfolio_allowed">العميل سمحلك تعرض الشغل ده في معرض أعمالك.</string>
+    <string name="rights_portfolio_not_allowed">ما ينفعش تعرض الشغل ده في معرض أعمالك غير بموافقة العميل.</string>
+    <string name="rights_portfolio_ask">اطلب موافقة العميل</string>
+    <string name="rights_portfolio_asked">طلبت بتاريخ %1$s.</string>
+    <string name="rights_portfolio_ask_done">طلبك اتبعت للعميل.</string>
+
+    <string name="rights_delivery_title">قبل التسليم</string>
+    <string name="rights_delivery_confirm">أُقرّ إن الشغل ده بتاعي أو إن من حقي أسلّمه، وإني ذكرت أي مواد من برّه استخدمتها.</string>
+    <string name="rights_materials_title">مواد من برّه (خطوط، صور، أكواد، قوالب…)</string>
+    <string name="rights_material_name">الاسم</string>
+    <string name="rights_material_source">مصدرها</string>
+    <string name="rights_material_license">ترخيصها</string>
+    <string name="rights_material_add">إضافة مادة</string>
+    <string name="rights_delivery_confirmed">أقررت إن الشغل من حقك تسلّمه.</string>
+    <string name="rights_materials_used">مواد من برّه:</string>
+
+    <string name="rights_pf_pick_title">من شغل خلّصته</string>
+    <string name="rights_pf_pick_hint">بتظهر هنا الأعمال اللي العميل سمحلك تعرضها بس. اطلب موافقة العميل من الاتفاق بعد ما يخلص.</string>
+    <string name="rights_pf_none">مفيش شغل مخلّص مسموح بعرضه لسه.</string>
+    <string name="rights_pf_linked">مربوط بشغل خلّصته.</string>
+    <string name="rights_pf_withdrawn">العميل سحب موافقته، فالعمل ده مخفي عن الكل.</string>
+    <string name="rights_pf_used">موجود في معرضك</string>
+
+    <string name="dp_r_rights">الحقوق (الملكية)</string>
+</resources>

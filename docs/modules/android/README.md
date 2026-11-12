@@ -1,6 +1,6 @@
 # Android App (`androidApp/`)
 
-**Last updated:** 2026-10-14
+**Last updated:** 2026-11-02
 
 Native Kotlin app for end users. It talks to the Laravel backend through `/api/mobile/v1/*` (guard `user_api`, Sanctum Bearer token) and `general/v1/services` for the service catalog. There is no Provider or Admin app here.
 
@@ -45,6 +45,13 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
 - **Following the ride:** polled every 3–4 s (searching radar → captain card with rating, car, a drawn plate, the PIN → free-waiting countdown at pickup → on the way); chat sheet (ready-made messages + text, closed when the ride ends); cancel sheet showing the fee first, with reasons; at the end the receipt lines and the rating (stars + tags + comment).
 - **Bidding (`RidesBidding.kt`):** a bid category shows "Name your price"; the sheet's price editor stops at the floor. After booking: my price with +5 / +10 raises, and every captain's offer as a card (cheapest first, cheapest / nearest badges, a draining timer bar, decline / take), polled every 2 s.
 - An active ride is resumed when the screen opens (`GET rides/current`). Strings: `res/values*/rides_strings.xml`.
+
+## Watch & Earn (`ui/screens/watchearn/`, `network/WatchEarnApi.kt`)
+Watch ads and earn wallet rewards; create ads paid from an ad wallet. Spec: [watch-earn/APP.md](../watch-earn/APP.md), endpoints: [watch-earn/API.md](../watch-earn/API.md).
+- **Opened from** the wallet card, the chat list's slim card (hidden from its ×, shown again from chat settings: `WatchEarnPrefs`), the Home banner and the «حسابي» row (D17), through `WatchEarnLink`, an overlay in `MainScreen`. A `type = watch_earn` push opens an ad's stats or my rewards (`ChatDeepLink.WatchEarn`).
+- **Pages (`WatchEarnHost`):** landing, the player (statuses-style; image seconds and the interaction countdown on the device clock), comments sheet, my rewards, the 5-step ad wizard (edit = steps 1–3), my ads, one ad's stats with Canvas charts, the ad wallet (fund behind the wallet PIN with an idempotency key, return).
+- **Live, no polling:** `watch_earn.ad.changed` on the account channel reloads my ads / stats once; `private-watch-earn.ad.{uuid}` carries comments and reaction counts while the comments sheet is open.
+- **Wallet:** `WalletBalanceDto` has `reward_minor`, `rewards_transferable`, `currency_decimals`; a third «رصيد المكافآت» balance and bucket dots on the hero card; the transfer screen offers rewards as the source (`from_bucket = reward`) only where the country allows it. `X-Country` also goes on `/v1/watch-earn` requests. Strings: the `we_*` keys.
 
 ## Behaviour to remember
 
@@ -91,7 +98,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
 - **WhatsApp backlog screens (`ChatBacklogUi.kt`, `StoryVoice.kt`, `network/BacklogApi.kt`):**
   - **Chats:** export a chat (info page); storage (Data and performance → manage storage); channel stats and allowed reactions.
   - **Business:** the business card and message stats.
-  - **Broadcasts:** a list from a folder.
+  - **Broadcasts:** a list from a folder. «قوائم البث» pages of 15 (`GET broadcasts?page=&per_page=`).
   - **Profile and QR:** a ready message on my QR / link.
   - **Statuses:** a voice status (the "Voice" tile, `ChRoute.StoryComposer("voice")`), "@ Mention" on every status editor, and "Mentioned you" with "Add to my status" in the viewer and in the chat (`story_mention`).
   - **Links:** `dorr://chat/{token}` links open the chat (manifest intent filter, `ChatDeepLink.ChatLink`). Exports are shared through the FileProvider `${applicationId}.files`.
@@ -109,7 +116,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
     - Tapping a layer picks it and shows a delete button. Tapping picked text rewrites it.
     - Layers are placed in the photo or video's own frame (`style[aspect]`). The viewer draws them with `StoryLayersView`.
   - **Call links (72) — `ChatCallLinks.kt`:**
-    - The calls page has "Create call link", plus my links (copy, share, join, cancel).
+    - The calls page has "Create call link" and a call-link log (count on the row, pages of 15). Copy, share, join, cancel stay on the link sheet.
     - `CallLinkSheet` opens from `dorr://chat/call/X`, https `/call/X`, a QR, a typed code, or the "someone joined" push.
     - `CallController.joinLink` joins the room with no call row and no hang-up when alone.
   - **Screen sharing (71):**
@@ -122,7 +129,7 @@ Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) 
     - The sender sees "N answered" and who picked what.
   - **Communities (93–98) — `ChatCommunityUi.kt`:**
     - Chat menu → Communities, routes `ChRoute.Communities` and `ChRoute.Community(id)`.
-    - A community page has announcements, my groups, and other groups (join or ask).
+    - A community page has announcements, my groups, and other groups (join or ask). Each list shows 6 then «عرض الكل (N)» (`ChRoute.CommunityGroups`).
     - Admin tools: add or make groups, members and admins, rename, delete (creator) or leave.
     - A group's info page links to its community.
 
@@ -149,7 +156,7 @@ Media URLs built by Laravel with `dorr.test` are rewritten to the reachable host
 3. New UI string → `values/strings.xml` **and** `values-ar/strings.xml`.
 4. Colors/fonts from the appearance tokens, not hard-coded.
 5. Chat details live in [../chat/README.md](../chat/README.md); wallet plan in [../../wallet-plan.md](../../wallet-plan.md).
-6. Build check: `./gradlew assembleDebug` from `androidApp/` with JDK 17–21 (Gradle 8.9 doesn't run on JDK 25).
+6. Build check: `./gradlew assembleDebug` from `androidApp/` with JDK 17–21 (Gradle 8.9 doesn't run on JDK 25). Kotlin compiles `in-process` (`gradle.properties`) because the compile daemon exits 0 after "is ready". Don't Clean unless the build is actually broken.
 7. Update this file and `docs/10-CHANGELOG.md` when behavior changes.
 
 ## App size

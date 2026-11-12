@@ -20,7 +20,7 @@ class MobileRatingService
      * Whether this user already rated the thing, and the rating they gave. `data` is always an object
      * (`{ rated: bool, rating: {...}|null }`) so a client can read it the same way both times.
      */
-    public function mine(User $user, ?string $rateableType, ?int $rateableId): JsonResponse
+    public function mine(Model $user, ?string $rateableType, ?int $rateableId): JsonResponse
     {
         $rating = Rating::query()
             ->where('unique_key', Rating::uniqueKeyFor($user, $this->resolveRateable($rateableType, $rateableId)))
@@ -35,7 +35,7 @@ class MobileRatingService
     /**
      * @param  array{stars: float|int, comment?: string|null, rateable_type?: string|null, rateable_id?: int|null}  $data
      */
-    public function submit(User $user, array $data): JsonResponse
+    public function submit(Model $user, array $data): JsonResponse
     {
         $rateable = $this->resolveRateable($data['rateable_type'] ?? null, $data['rateable_id'] ?? null);
         $uniqueKey = Rating::uniqueKeyFor($user, $rateable);

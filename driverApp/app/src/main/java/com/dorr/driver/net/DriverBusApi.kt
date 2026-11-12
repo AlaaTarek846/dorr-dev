@@ -70,6 +70,7 @@ data class BusPassengerSeatDto(val leg: String, val seat: Int, val boarded: Bool
 data class BusPassengerDto(
     @SerializedName("booking_uuid") val bookingUuid: String,
     val name: String? = null,
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     val phone: String? = null,
     @SerializedName("trip_type") val tripType: String = "outbound",
     val seats: List<BusPassengerSeatDto> = emptyList(),

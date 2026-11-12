@@ -160,7 +160,7 @@ class FreelancerProfileListsController extends Controller
             'issued_on' => ['nullable', 'date', 'before_or_equal:today'],
             'expires_on' => ['nullable', 'date', 'after_or_equal:'.($this->input('issued_on') ?? $current?->issued_on?->toDateString() ?? '1900-01-01')],
             'credential_url' => ['nullable', 'url:http,https', 'max:255'],
-            'proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120', new \Modules\Freelance\Rules\CleanUpload],
             'remove_proof' => ['sometimes', 'boolean'],
         ];
     }

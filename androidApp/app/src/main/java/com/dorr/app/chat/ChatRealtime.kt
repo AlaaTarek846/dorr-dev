@@ -54,15 +54,43 @@ object ChatRealtime {
         "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction",
         "chat.poll.updated", "chat.view_once.opened", "chat.location.moved",
         "chat.group.join_requests", "chat.group.join_decided",
+        // Educational / work groups: a task changed, a notice (hand-over, term, role) — GR-009, GR-033.
+        "chat.group.task", "chat.group.notice", "chat.group.ownership_offer", "chat.group.education",
+        // Work groups: a shift, competition, badge, idea or meeting changed (GR-040..046).
+        "chat.group.work",
+        // Parents (GR-018, 019, 027): a link asked / approved / removed, a meeting, a booking.
+        "chat.group.parent",
         "chat.scheduled.changed", "chat.reminder.due",
         // DORR Sports: an alert for a match I follow (the goal moment, 197–198).
         "sports.alert", "sports.prize",
         "support.ticket.created", "support.message", "support.ticket.updated",
+        // Account verification: one name for every step of my request (the step is `verification_event`).
+        "chat.verification.updated",
+        // Someone I chat with got (or lost) the verification ✔.
+        "account.verification.changed",
+        // Watch & Earn: one of my ads changed (status, views, spend) — its pages reload once.
+        "watch_earn.ad.changed",
+        // AI marketing director: a research run or a plan job of one of my projects moved — its page reloads once.
+        "marketing.job.changed", "marketing.budget.alert", "marketing.integration.changed", "marketing.campaign.changed",
+        // A website request built with a person got a new message (or moved / was paid / refunded) — its page reloads once.
+        "ai_site_request.changed",
     )
 
     /** A ride's private channel while its screen is open (`private-rides.{uuid}`): status, the car's place, its chat. */
     val RIDE_EVENTS = listOf("ride.changed", "ride.message", "ride.driver_location")
     private val watchedRides = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** One Watch & Earn ad while its comments are open (`private-watch-earn.ad.{uuid}`): comments and reaction counts. */
+    val WATCH_EARN_AD_EVENTS = listOf("watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions")
+    private val watchedAds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * A project's Workroom while it is open (`private-freelance-workroom.{project uuid}`, FS-150e): `freelance.workroom` arrives on [events]
+     * as `{kind: task|file|comment|decision, action, uuid, by}` plus the `project` it is about (added here). The count is how many open
+     * screens listen to that project, so the channel is left when the last one closes.
+     */
+    const val WORKROOM_EVENT = "freelance.workroom"
+    private val watchedWorkrooms = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
     private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
@@ -153,10 +181,46 @@ object ChatRealtime {
                 }
             }
 
-            client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
+            val userChannel = client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
+            // A freelance notice (`freelance.dispute.decided`, `freelance.delivery.submitted`…) means a screen on show may be stale:
+            // one reload, no timer. (Chat messages have their own channel and events.)
+            userChannel.bindGlobal { event ->
+                if (event.eventName.startsWith("freelance.") && event.eventName != "freelance.message" && event.eventName != "freelance.read") {
+                    com.dorr.app.network.RefreshCoordinator.noticeArrived()
+                }
+            }
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
             watchedRides.forEach { subscribeRide(client, it) }
+            watchedAds.forEach { subscribeAd(client, it) }
+            watchedWorkrooms.keys.forEach { subscribeWorkroom(client, it) }
         }
+    }
+
+    /** Listen to one Watch & Earn ad (its comments sheet is open). Safe before the connection is up. */
+    fun watchWatchEarnAd(uuid: String) {
+        if (watchedAds.add(uuid)) pusher?.let { subscribeAd(it, uuid) }
+    }
+
+    fun unwatchWatchEarnAd(uuid: String) {
+        if (watchedAds.remove(uuid)) runCatching { pusher?.unsubscribe("private-watch-earn.ad.$uuid") }
+    }
+
+    private fun subscribeAd(client: Pusher, uuid: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-watch-earn.ad.$uuid") != null) return
+            client.subscribePrivate("private-watch-earn.ad.$uuid", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Watch & Earn channel auth failed: $message", e)
+                }
+            }, *WATCH_EARN_AD_EVENTS.toTypedArray())
+        }.onFailure { Log.w(TAG, "Watch & Earn channel $uuid failed", it) }
     }
 
     /**
@@ -197,6 +261,62 @@ object ChatRealtime {
         }.onFailure { Log.w(TAG, "Ride channel $uuid failed", it) }
     }
 
+    /** A freelance room (`private-freelance-chat.{uuid}`) while its page is open: `freelance.message` / `freelance.read` arrive on [events]. */
+    fun watchFreelanceRoom(uuid: String) {
+        pusher?.let { client ->
+            runCatching {
+                if (client.getPrivateChannel("private-freelance-chat.$uuid") != null) return
+                client.subscribePrivate("private-freelance-chat.$uuid", object : PrivateChannelEventListener {
+                    override fun onEvent(event: PusherEvent) {
+                        val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                        _events.tryEmit(ChatEvent(event.eventName, data))
+                    }
+
+                    override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                    override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                        Log.w(TAG, "Freelance room auth failed: $message", e)
+                    }
+                }, "freelance.message", "freelance.read")
+            }.onFailure { Log.w(TAG, "Freelance room $uuid failed", it) }
+        }
+    }
+
+    fun unwatchFreelanceRoom(uuid: String) {
+        runCatching { pusher?.unsubscribe("private-freelance-chat.$uuid") }
+    }
+
+    /** Listen to a project's Workroom (its screens are open). Safe before the connection is up; call [unwatchWorkroom] when the screen leaves. */
+    fun watchWorkroom(project: String) {
+        val first = watchedWorkrooms.merge(project, 1) { old, one -> old + one } == 1
+        if (first) pusher?.let { subscribeWorkroom(it, project) }
+    }
+
+    fun unwatchWorkroom(project: String) {
+        val left = watchedWorkrooms.compute(project) { _, count -> if (count == null || count <= 1) null else count - 1 }
+        if (left == null) runCatching { pusher?.unsubscribe("private-freelance-workroom.$project") }
+    }
+
+    private fun subscribeWorkroom(client: Pusher, project: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-freelance-workroom.$project") != null) return
+            client.subscribePrivate("private-freelance-workroom.$project", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    // The payload names no project (the channel does): say it, so a screen can tell its own project's events.
+                    data.addProperty("project", project)
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Workroom channel auth failed: $message", e)
+                }
+            }, WORKROOM_EVENT)
+        }.onFailure { Log.w(TAG, "Workroom channel $project failed", it) }
+    }
+
     fun unwatchPublic(channel: String) {
         if (publicChannels.remove(channel) != null) runCatching { pusher?.unsubscribe(channel) }
     }
@@ -221,6 +341,8 @@ object ChatRealtime {
         runCatching { pusher?.disconnect() }
         pusher = null
         watchedRides.clear()
+        watchedAds.clear()
+        watchedWorkrooms.clear()
         userId = null
         starting = false
         _connected.value = false

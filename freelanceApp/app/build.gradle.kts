@@ -88,12 +88,16 @@ dependencies {
 
     // Avatars, portfolio and certificate images — through the API's own OkHttp client (FreelanceApp.newImageLoader).
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // Live updates: speaks the Pusher protocol, so it keeps working when we move to our own Soketi / Reverb server (the host
     // comes from GET realtime-config, never from the app).
     implementation("com.pusher:pusher-java-client:2.4.4")
     // Phone notifications — the server already sends through OneSignal; the app id comes from realtime-config.
     implementation("com.onesignal:OneSignal:5.1.6")
+    // FL-L16: the consultation's video session — the same LiveKit SDK and version as androidApp's chat calls (a copy of its call
+    // code lives in this app; driverApp/core stays without it, so the drivers' app does not carry the library).
+    implementation("io.livekit:livekit-android:2.5.0")
 
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")

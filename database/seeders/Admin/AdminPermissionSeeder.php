@@ -6,6 +6,7 @@ use App\Models\ServiceCategory;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Support\AiAdminScreens;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -242,6 +243,11 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],
             ],
+            // Educational and work groups (docs/groups_tasks.md GR-050..053).
+            'chat-groups' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
             'chat-dorr-stories' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete'],
@@ -249,6 +255,63 @@ class AdminPermissionSeeder extends Seeder
             'chat-moments' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
+            ],
+            // Account verification (docs/verification_tasks.md AV-004): reviewing a request is kept apart from
+            // approving it; early activation, badges, exemptions and prices each need their own permission.
+            'chat-verification-requests' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'review', 'approve', 'early-activate'],
+            ],
+            'chat-verification-badges' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-exemptions' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-verification-impersonation' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-verification-audit' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
+            // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
+            // management, and the money report.
+            'watch-earn-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-ads' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'watch-earn-finance' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
+            ],
+            // DORR AI Marketing Director (docs/marketing_tasks.md): switches per country, packages, operations.
+            'marketing-feature-rules' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'marketing-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'marketing-operations' => [
+                'module_name' => 'general_services',
+                'actions' => ['view'],
             ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
@@ -283,6 +346,7 @@ class AdminPermissionSeeder extends Seeder
             // Freelance (docs/freelance_tasks.md).
             'freelance-feature-rules' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-policies' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-checklist-templates' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-document-types' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
             'freelance-verifications' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-settings' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
@@ -290,6 +354,25 @@ class AdminPermissionSeeder extends Seeder
             'freelance-projects' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
             'freelance-catalogs' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete']],
             'freelance-disputes' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            // FS-150d: reading a team's internal chat about a disputed project - its own permission, not given with the disputes desk.
+            'freelance-internal-chat' => ['module_name' => 'freelance', 'actions' => ['view']],
+            // FS-208: the freelancers' teams desk.
+            'freelance-teams' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-reports' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-reviews' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-message-reports' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-sanctions' => ['module_name' => 'freelance', 'actions' => ['view', 'issue', 'suspend', 'appeal']],
+            'freelance-support' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-plans' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-services' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-consultations' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-loyalty' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-rights' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-community' => ['module_name' => 'freelance', 'actions' => ['view', 'update']],
+            'freelance-promos' => ['module_name' => 'freelance', 'actions' => ['view', 'create', 'update', 'delete']],
+            'freelance-special-offers' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-risk' => ['module_name' => 'freelance', 'actions' => ['view']],
+            'freelance-audit' => ['module_name' => 'freelance', 'actions' => ['view']],
             // Rides (docs/rides-plan.md): the Google key and the free estimate.
             'ride-settings' => [
                 'module_name' => 'passenger_ride',
@@ -304,6 +387,7 @@ class AdminPermissionSeeder extends Seeder
             'ride-lists' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-loyalty' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'driver-ranks' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'driver-services' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).
@@ -436,6 +520,11 @@ class AdminPermissionSeeder extends Seeder
                     'send',
                 ],
             ],
+            // AI assistant screens: one group per screen (Modules\AI\Support\AiAdminScreens, docs/screens/README.md).
+            ...array_map(
+                fn (array $actions) => ['module_name' => 'ai_assistant', 'actions' => $actions],
+                AiAdminScreens::GROUPS,
+            ),
         ];
     }
 

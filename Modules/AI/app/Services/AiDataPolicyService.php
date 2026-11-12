@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiDataPolicyResource;
 use Modules\AI\Repositories\AiDataPolicyRepository;
 
-class AiDataPolicyService extends BaseService
+/** AI data policies catalog: list (+status counts), create/update with translations, status, bulk delete, trash. */
+class AiDataPolicyService extends CatalogService
 {
     /**
      * @var class-string

@@ -30,8 +30,8 @@ class FreelanceProject extends Model implements HasMedia
     public const VISIBILITIES = ['public', 'private'];
 
     protected $fillable = [
-        'uuid', 'client_id', 'country_id', 'freelance_specialty_id', 'title', 'description', 'budget_type', 'budget_min_minor',
-        'budget_max_minor', 'currency_code', 'duration_days', 'visibility', 'status', 'status_reason', 'version',
+        'uuid', 'client_id', 'country_id', 'freelance_specialty_id', 'service_id', 'title', 'description', 'questions', 'budget_type', 'budget_min_minor',
+        'budget_max_minor', 'max_cost_minor', 'currency_code', 'duration_days', 'visibility', 'rehire_freelancer_id', 'rehire_from_project_id', 'rehire_plan', 'status', 'status_reason', 'version',
         'submitted_at', 'published_at', 'awarded_at', 'closed_at', 'offers_deadline_at', 'offers_closed_at', 'offers_close_reason', 'reopen_count',
     ];
 
@@ -44,8 +44,11 @@ class FreelanceProject extends Model implements HasMedia
     {
         return [
             'status' => FreelanceProjectStatus::class,
+            'questions' => 'array',
+            'rehire_plan' => 'array',
             'budget_min_minor' => 'integer',
             'budget_max_minor' => 'integer',
+            'max_cost_minor' => 'integer',
             'duration_days' => 'integer',
             'version' => 'integer',
             'submitted_at' => 'datetime',
@@ -84,9 +87,20 @@ class FreelanceProject extends Model implements HasMedia
         return $this->belongsToMany(FreelanceSkill::class, 'freelance_project_skills', 'project_id', 'freelance_skill_id');
     }
 
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(FreelanceProjectInvitation::class, 'project_id');
+    }
+
     public function offers(): HasMany
     {
         return $this->hasMany(FreelanceOffer::class, 'project_id');
+    }
+
+    /** FL-L04: the ready-made service this project was ordered from (null for a project the client wrote). */
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceService::class, 'service_id')->withTrashed();
     }
 
     public function events(): HasMany

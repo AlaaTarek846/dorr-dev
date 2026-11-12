@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiGatewayRequest;
 use Modules\AI\Services\AiGatewayService;
 
-class AiGatewayController extends Controller
+/**
+ * Admin AI gateways - the catalog CRUD (like CountryController): index/show, store, update, status, bulk delete,
+ * trash/restore/force delete.
+ */
+class AiGatewayController extends CatalogController
 {
-    public function __construct(protected AiGatewayService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-gateways';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-gateways')) - so no controller
+     * permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiGatewayService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiGatewayRequest $request)
@@ -20,18 +38,18 @@ class AiGatewayController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $gateway)
-    {
-        return $this->service->find($gateway);
-    }
-
-    public function update(AiGatewayRequest $request, int $gateway)
+    public function update(AiGatewayRequest $request, int|string $gateway)
     {
         return $this->service->updateRecord($gateway, $request->validated());
     }
 
-    public function destroy(int $gateway)
+    public function deleteMultiple(AiGatewayRequest $request)
     {
-        return $this->service->delete($gateway);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiGatewayRequest $request, int|string $gateway)
+    {
+        return $this->service->changeStatus($gateway, (bool) $request->validated('status'));
     }
 }

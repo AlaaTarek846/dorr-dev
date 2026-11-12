@@ -20,4 +20,27 @@ class FreelanceCountry
             default => null,
         };
     }
+
+    /** @var array<int, array{code: string, name: string}|null> */
+    private static array $cards = [];
+
+    /**
+     * `{code, name}` of a country, for the apps to show where a project, a service, a consultation or a post comes from now that
+     * freelance work is open across countries (owner, 2026-11-04). Read once a request per country; null when unknown.
+     *
+     * @return array{code: string, name: string}|null
+     */
+    public static function card(?int $countryId): ?array
+    {
+        if ($countryId === null) {
+            return null;
+        }
+        $key = $countryId.'|'.app()->getLocale();
+        if (! array_key_exists($key, self::$cards)) {
+            $c = \App\Models\Country::query()->with('translations')->find($countryId);
+            self::$cards[$key] = $c === null ? null : ['code' => (string) $c->code, 'name' => (string) ($c->translatedName() ?? $c->code)];
+        }
+
+        return self::$cards[$key];
+    }
 }

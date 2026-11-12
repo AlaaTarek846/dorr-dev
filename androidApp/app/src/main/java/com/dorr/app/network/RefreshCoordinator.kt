@@ -24,6 +24,9 @@ object RefreshCoordinator {
     private val _inFlight = MutableStateFlow(0)
     val inFlight: StateFlow<Int> = _inFlight.asStateFlow()
 
+    /** A notice arrived while the app is open (a freelance push, say): the screens on show reload once, like a pull. */
+    fun noticeArrived() = _pullTick.update { it + 1 }
+
     internal fun requestStarted() = _inFlight.update { it + 1 }
 
     internal fun requestFinished() = _inFlight.update { (it - 1).coerceAtLeast(0) }

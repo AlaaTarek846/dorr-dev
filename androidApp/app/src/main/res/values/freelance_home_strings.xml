@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The client's freelance hub (the redesign, batch A) -->
+    <string name="flh_title">Freelance</string>
+    <string name="flh_subtitle">Post a project or order a ready-made service</string>
+    <string name="flh_new_title">Got work that needs a pro?</string>
+    <string name="flh_new_body">Post your project and get offers from verified freelancers.</string>
+    <string name="flh_new_action">Post a project</string>
+    <string name="flh_sections">Sections</string>
+    <string name="flh_tools">My tools</string>
+    <string name="flh_services">Services</string>
+    <string name="flh_projects_line">Follow your projects and their offers</string>
+    <string name="flh_services_line">Ready-made services at a fixed price</string>
+    <string name="flh_consult_line">Book a session with an expert</string>
+    <string name="flh_favorites">Favourites</string>
+    <!-- Batch B: the hub's dashboard -->
+    <string name="flh_att_title">Waiting for you</string>
+    <string name="flh_att_review">A delivery to review</string>
+    <string name="flh_att_fund">A part to fund</string>
+    <string name="flh_att_offers">New offers</string>
+    <string name="flh_att_fix">A project to fix</string>
+    <string name="flh_numbers">My numbers</string>
+    <string name="flh_stat_projects">Running projects</string>
+    <string name="flh_stat_offers">New offers</string>
+    <string name="flh_stat_orders">Running orders</string>
+    <string name="flh_stat_consults">Coming consultations</string>
+    <string name="flh_stat_funded">Funded this month</string>
+    <string name="flh_running">Your running projects</string>
+    <string name="flh_see_all">See all</string>
+    <string name="flh_suggested">Suggested services</string>
+    <string name="flh_next_consult">Your next consultation</string>
+    <string name="flh_with">with %1$s</string>
+    <string name="flh_consult_pending">Waiting for the freelancer to accept</string>
+    <string name="flh_journey_title">How it works</string>
+    <string name="flh_step_1">Post your project and set your budget</string>
+    <string name="flh_step_2">Get offers from freelancers and compare them</string>
+    <string name="flh_step_3">Choose a freelancer and fund the first part</string>
+    <string name="flh_step_4">Receive the work and pay only when you approve it</string>
+    <!-- Batch C: my projects and the project page -->
+    <string name="flp_scope_active">Running</string>
+    <string name="flp_scope_ended">Ended</string>
+    <string name="flp_empty_ended_title">No ended projects</string>
+    <string name="flp_empty_ended_text">Projects that finished, were cancelled or were rejected show here.</string>
+    <string name="flp_offers_n">%1$d offers</string>
+    <string name="flp_tab_details">Details</string>
+    <string name="flp_tab_offers">Offers</string>
+    <string name="flp_tab_work">The work</string>
+    <string name="flp_more">More</string>
+    <string name="flp_more_title">Project options</string>
+    <string name="flp_no_offers_yet">No offers yet. You get a notification as soon as one arrives.</string>
+    <!-- Batch D: offers and the agreement -->
+    <string name="flo_picked">%1$d of %2$d picked to compare</string>
+    <string name="flo_clear">Clear</string>
+    <string name="flo_more_title">Offer options</string>
+    <string name="fla_now">Now: %1$s (%2$s)</string>
+    <string name="fla_all_done">All parts done (%1$d of %2$d)</string>
+    <!-- Batch F: my activity -->
+    <string name="fla_activity">My activity</string>
+    <string name="fla_activity_line">Your orders, consultations and the offers sent to you</string>
+    <!-- Batch G: my receipts -->
+    <string name="flr_title">My receipts</string>
+    <string name="flr_line">Every payment and refund of your freelance work</string>
+    <string name="flr_empty_title">No receipts yet</string>
+    <string name="flr_empty_body">A receipt shows here for every payment or refund on your work.</string>
+    <!-- Batch H: finishing touches -->
+    <string name="flx_retry">Try again</string>
+</resources>

@@ -533,6 +533,15 @@ internal fun listTime(iso: String?): String {
     }
 }
 
+/** "Monday 2026-11-30 00:00" in the phone's language. */
+internal fun taskDueStamp(iso: String?): String {
+    val instant = parseInstant(iso) ?: return ""
+    val zoned = instant.atZone(zone)
+    val day = DateTimeFormatter.ofPattern("EEEE", AppLocale.java()).format(zoned)
+    val rest = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(zone).format(instant)
+    return "$day $rest"
+}
+
 internal fun dayOf(iso: String?): LocalDate? = parseInstant(iso)?.atZone(zone)?.toLocalDate()
 
 /** The floating date chip in a conversation. */

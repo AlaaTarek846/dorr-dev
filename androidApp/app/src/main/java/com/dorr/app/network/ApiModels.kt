@@ -18,6 +18,7 @@ data class ApiEnvelope<T>(
 data class PaginationDto(
     @SerializedName("current_page") val currentPage: Int,
     @SerializedName("has_more_pages") val hasMorePages: Boolean,
+    val total: Int? = null,
 )
 
 /** Pulls a human-readable message out of an API error body (422 and friends).
@@ -48,6 +49,8 @@ data class ApiFailure(
     val lockedUntil: String? = null,
     /** `data.retry_after` (seconds) on a `chat_slow_mode` (429) answer. */
     val retryAfter: Int? = null,
+    /** The whole `data` object of the error (e.g. `errors[{line, field}]` of a refused results file). */
+    val data: com.google.gson.JsonObject? = null,
 )
 
 /**
@@ -67,7 +70,7 @@ fun Throwable.apiFailure(): ApiFailure {
     val data = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
     val lockedUntil = data?.get("locked_until").text()
     val retryAfter = data?.get("retry_after")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
-    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter)
+    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter, data)
 }
 
 data class CountryDto(
@@ -132,6 +135,8 @@ data class AuthResultDto(
 data class UserDto(
     val id: Int,
     val name: String?,
+    /** The account verification ✔ (docs/verification_tasks.md AV-024). */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
     val email: String?,
     val phone: String?,
     @SerializedName("phone_verified_at") val phoneVerifiedAt: String?,

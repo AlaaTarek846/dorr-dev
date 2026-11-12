@@ -2,13 +2,13 @@ package com.dorr.app.ui.screens.chat
 
 import android.graphics.BitmapFactory
 import android.util.Base64
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,18 +23,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.DataUsage
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Photo
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.SdStorage
+import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,12 +62,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.ConfirmDialog
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.dorr.app.chat.ChatDataSaver
 import com.dorr.app.chat.ChatLite
 import com.dorr.app.chat.ChatUsage
 import com.dorr.app.network.AttachmentDto
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -109,66 +118,71 @@ internal fun HeldPhoto(file: AttachmentDto?, modifier: Modifier) {
 fun DataPerformancePage() {
     val host = LocalChat.current
     val context = LocalContext.current
-    ChPage(stringResource(R.string.pf_title), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            // ------------------------------------------------ data saver (82)
-            PerfSection(Icons.Rounded.DataUsage, stringResource(R.string.pf_saver), stringResource(R.string.pf_saver_sub)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("off" to R.string.pf_off, "mobile" to R.string.pf_saver_mobile, "always" to R.string.pf_saver_always).forEach { (key, label) ->
-                        PerfPill(stringResource(label), ChatDataSaver.mode == key, Modifier.weight(1f)) { ChatDataSaver.setMode(context, key) }
-                    }
-                }
-                StatusLine(
-                    stringResource(if (ChatDataSaver.metered) R.string.pf_net_mobile else R.string.pf_net_wifi) + " · " +
-                        stringResource(if (ChatDataSaver.active) R.string.pf_saving_now else R.string.pf_not_saving),
-                    ChatDataSaver.active,
-                )
-            }
+    var saverPicker by remember { mutableStateOf(false) }
+    var litePicker by remember { mutableStateOf(false) }
+    val saverChoices = listOf("off" to R.string.pf_off, "mobile" to R.string.pf_saver_mobile, "always" to R.string.pf_saver_always)
+    val liteChoices = listOf("auto" to R.string.pf_auto, "on" to R.string.pf_on, "off" to R.string.pf_off)
+    val saverStatus = stringResource(if (ChatDataSaver.metered) R.string.pf_net_mobile else R.string.pf_net_wifi) + " · " +
+        stringResource(if (ChatDataSaver.active) R.string.pf_saving_now else R.string.pf_not_saving)
+    val liteStatus = stringResource(R.string.pf_phone_memory, String.format(Locale.US, "%.1f", ChatLite.ramGb)) + " · " +
+        stringResource(if (ChatLite.active) R.string.pf_lite_on_now else R.string.pf_lite_off_now)
 
-            // ------------------------------------------------ lite mode (87)
-            PerfSection(Icons.Rounded.Speed, stringResource(R.string.pf_lite), stringResource(R.string.pf_lite_sub)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("auto" to R.string.pf_auto, "on" to R.string.pf_on, "off" to R.string.pf_off).forEach { (key, label) ->
-                        PerfPill(stringResource(label), ChatLite.mode == key, Modifier.weight(1f)) { ChatLite.setMode(context, key) }
-                    }
-                }
-                StatusLine(
-                    stringResource(R.string.pf_phone_memory, String.format(Locale.US, "%.1f", ChatLite.ramGb)) + " · " +
-                        stringResource(if (ChatLite.active) R.string.pf_lite_on_now else R.string.pf_lite_off_now),
-                    ChatLite.active,
-                )
-            }
-
-            // ------------------------------------------------ manage storage (backlog 46–48)
-            Row(
-                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)
-                    .clickable { host.push(ChRoute.Storage()) }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBadge(Icons.Rounded.DeleteSweep)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.bk_storage), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(stringResource(R.string.bk_storage_sub), color = Ch.Mut, fontSize = 12.5.sp)
-                }
-                Text("›", color = Ch.Soft, fontSize = 22.sp)
-            }
-
-            // ------------------------------------------------ usage stats (83)
-            Row(
-                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)
-                    .clickable { host.push(ChRoute.Usage) }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBadge(Icons.Rounded.SdStorage)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.us_title), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(stringResource(R.string.us_link_sub), color = Ch.Mut, fontSize = 12.5.sp)
-                }
-                Text("›", color = Ch.Soft, fontSize = 22.sp)
+    ChPage(stringResource(R.string.pf_title), onBack = { host.pop() }, settingsHeader = true) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 16.dp)) {
+            Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                PrivacySettingsRow(
+                    Icons.Rounded.DataUsage,
+                    stringResource(R.string.pf_saver),
+                    subtitle = stringResource(R.string.pf_saver_sub) + "\n" + saverStatus,
+                    value = stringResource(when (ChatDataSaver.mode) {
+                        "mobile" -> R.string.pf_saver_mobile
+                        "always" -> R.string.pf_saver_always
+                        else -> R.string.pf_off
+                    }),
+                ) { saverPicker = true }
+                PrivacySettingsRow(
+                    Icons.Rounded.Speed,
+                    stringResource(R.string.pf_lite),
+                    subtitle = stringResource(R.string.pf_lite_sub) + "\n" + liteStatus,
+                    value = stringResource(when (ChatLite.mode) {
+                        "on" -> R.string.pf_on
+                        "off" -> R.string.pf_off
+                        else -> R.string.pf_auto
+                    }),
+                ) { litePicker = true }
+                PrivacySettingsRow(
+                    Icons.Rounded.DeleteSweep,
+                    stringResource(R.string.bk_storage),
+                    subtitle = stringResource(R.string.bk_storage_sub),
+                ) { host.push(ChRoute.Storage()) }
+                PrivacySettingsRow(
+                    Icons.Rounded.SdStorage,
+                    stringResource(R.string.us_title),
+                    subtitle = stringResource(R.string.us_link_sub),
+                    last = true,
+                ) { host.push(ChRoute.Usage) }
             }
         }
+    }
+    if (saverPicker) {
+        ChoiceSheet(
+            title = stringResource(R.string.pf_saver),
+            subtitle = stringResource(R.string.pf_saver_sub),
+            options = saverChoices.map { (key, label) -> stringResource(label) to { ChatDataSaver.setMode(context, key); Unit } },
+            radios = true,
+            selected = saverChoices.indexOfFirst { it.first == ChatDataSaver.mode }.takeIf { it >= 0 } ?: 0,
+            onDismiss = { saverPicker = false },
+        )
+    }
+    if (litePicker) {
+        ChoiceSheet(
+            title = stringResource(R.string.pf_lite),
+            subtitle = stringResource(R.string.pf_lite_sub),
+            options = liteChoices.map { (key, label) -> stringResource(label) to { ChatLite.setMode(context, key); Unit } },
+            radios = true,
+            selected = liteChoices.indexOfFirst { it.first == ChatLite.mode }.takeIf { it >= 0 } ?: 0,
+            onDismiss = { litePicker = false },
+        )
     }
 }
 
@@ -184,14 +198,14 @@ fun UsagePage() {
     var outBytes by remember { mutableLongStateOf(0L) }
     var imageBytes by remember { mutableLongStateOf(0L) }
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
     var refresh by remember { mutableStateOf(0) }
     val cleared = stringResource(R.string.us_cleared)
+    val resetDone = stringResource(R.string.us_reset_done)
 
     LaunchedEffect(Unit) {
-        while (true) {
-            stats = ChatUsage.snapshot()
-            delay(2_000)
-        }
+        ChatUsage.seedDemoIfEmpty()
+        stats = ChatUsage.snapshot()
     }
     LaunchedEffect(refresh) {
         withContext(Dispatchers.IO) {
@@ -203,102 +217,129 @@ fun UsagePage() {
     fun v(key: String) = stats[key] ?: 0L
     fun data(kind: String, mobile: Boolean) = v(ChatUsage.dataKey(kind, true, mobile)) + v(ChatUsage.dataKey(kind, false, mobile))
 
-    if (confirmReset) {
-        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            containerColor = Ch.Surface,
-            title = { locale.Provide { Text(stringResource(R.string.us_reset_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) } },
-            text = { locale.Provide { Text(stringResource(R.string.us_reset_sub), color = Ch.Mut) } },
-            confirmButton = {
-                locale.Provide {
-                    TextButton(onClick = { ChatUsage.reset(); stats = ChatUsage.snapshot(); confirmReset = false }) { Text(stringResource(R.string.us_reset), color = Ch.Red, fontWeight = FontWeight.Bold) }
+    if (confirmClear) {
+        ConfirmDialog(
+            icon = Icons.Rounded.DeleteSweep,
+            title = stringResource(R.string.us_clear_title),
+            message = stringResource(R.string.us_clear_sub),
+            confirmLabel = stringResource(R.string.us_clear),
+            onConfirm = {
+                confirmClear = false
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        val cutoff = System.currentTimeMillis() - 10 * 60_000L
+                        File(context.cacheDir, "chat-out").listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.deleteRecursively() }
+                        runCatching { chatImages(context).diskCache?.clear() }
+                        runCatching { chatImages(context).memoryCache?.clear() }
+                    }
+                    host.showToast(cleared)
+                    refresh++
                 }
             },
-            dismissButton = { locale.Provide { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.us_cancel), color = Ch.Mut) } } },
+            onDismiss = { confirmClear = false },
+        )
+    }
+    if (confirmReset) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Refresh,
+            title = stringResource(R.string.us_reset_title),
+            message = stringResource(R.string.us_reset_sub),
+            confirmLabel = stringResource(R.string.us_reset),
+            onConfirm = {
+                confirmReset = false
+                ChatUsage.reset()
+                stats = ChatUsage.snapshot()
+                host.showToast(resetDone)
+            },
+            onDismiss = { confirmReset = false },
         )
     }
 
-    ChPage(stringResource(R.string.us_title), onBack = { host.pop() }) {
+    ChPage(stringResource(R.string.us_title), onBack = { host.pop() }, settingsHeader = true) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             // ------------------------------------------------ the total, mobile against Wi-Fi
             val mobile = data("msg", true) + data("media", true) + v(ChatUsage.callDataKey(true))
             val wifi = data("msg", false) + data("media", false) + v(ChatUsage.callDataKey(false))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Brush.linearGradient(listOf(Ch.Red, Ch.RedDeep))).padding(16.dp)) {
-                Text(stringResource(R.string.us_total), color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                Text(usageBytes(mobile + wifi), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                v(ChatUsage.SINCE).takeIf { it > 0 }?.let {
-                    Text(stringResource(R.string.us_since, sinceDate(it)), color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Ch.Red, Ch.RedDeep))).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(3.dp).height(14.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.9f)))
+                            Spacer(Modifier.width(7.dp))
+                            Text(stringResource(R.string.us_total), color = Color.White.copy(alpha = 0.88f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        }
+                        Text(usageBytes(mobile + wifi), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
+                        v(ChatUsage.SINCE).takeIf { it > 0 }?.let {
+                            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.CalendarMonth, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(13.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.us_since, sinceDate(it)), color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Box(
+                        Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.14f)).border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.SdCard, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 SplitBar(mobile, wifi)
-                Row(Modifier.padding(top = 6.dp)) {
-                    Text("● " + stringResource(R.string.pf_net_mobile) + " " + usageBytes(mobile), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    Text("● " + stringResource(R.string.pf_net_wifi) + " " + usageBytes(wifi), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    UsageNetPart(Icons.Rounded.SignalCellularAlt, stringResource(R.string.pf_net_mobile), usageBytes(mobile), Modifier.weight(1f), iconAtStart = true)
+                    Box(Modifier.width(1.dp).height(22.dp).background(Color.White.copy(alpha = 0.28f)))
+                    UsageNetPart(Icons.Rounded.TrendingUp, stringResource(R.string.pf_net_wifi), usageBytes(wifi), Modifier.weight(1f), iconAtStart = false)
                 }
             }
 
             // ------------------------------------------------ messages
-            PerfSection(Icons.Rounded.ChatBubble, stringResource(R.string.us_messages), null) {
-                StatRow(stringResource(R.string.us_sent), v(ChatUsage.SENT).toString())
-                StatRow(stringResource(R.string.us_received), v(ChatUsage.RECEIVED).toString())
-                StatRow(stringResource(R.string.us_data), usageBytes(data("msg", true) + data("msg", false)), splitOf(data("msg", true), data("msg", false)))
+            UsageBlock(Icons.Rounded.ChatBubble, stringResource(R.string.us_messages)) {
+                UsageStatRow(stringResource(R.string.us_sent), v(ChatUsage.SENT).toString())
+                UsageStatRow(stringResource(R.string.us_received), v(ChatUsage.RECEIVED).toString())
+                UsageStatRow(stringResource(R.string.us_bytes_sent), usageBytes(v(ChatUsage.dataKey("msg", true, true)) + v(ChatUsage.dataKey("msg", true, false))))
+                UsageStatRow(stringResource(R.string.us_bytes_received), usageBytes(v(ChatUsage.dataKey("msg", false, true)) + v(ChatUsage.dataKey("msg", false, false))))
+                UsageStatRow(stringResource(R.string.pf_net_mobile), usageBytes(data("msg", true)))
+                UsageStatRow(stringResource(R.string.pf_net_wifi), usageBytes(data("msg", false)), last = true)
             }
 
             // ------------------------------------------------ media
-            PerfSection(Icons.Rounded.Photo, stringResource(R.string.us_media), null) {
-                val up = v(ChatUsage.dataKey("media", true, true)) + v(ChatUsage.dataKey("media", true, false))
-                val down = v(ChatUsage.dataKey("media", false, true)) + v(ChatUsage.dataKey("media", false, false))
-                StatRow(stringResource(R.string.us_uploaded), usageBytes(up))
-                StatRow(stringResource(R.string.us_downloaded), usageBytes(down))
-                StatRow(stringResource(R.string.us_data), usageBytes(up + down), splitOf(data("media", true), data("media", false)))
+            val up = v(ChatUsage.dataKey("media", true, true)) + v(ChatUsage.dataKey("media", true, false))
+            val down = v(ChatUsage.dataKey("media", false, true)) + v(ChatUsage.dataKey("media", false, false))
+            UsageBlock(Icons.Rounded.Photo, stringResource(R.string.us_media)) {
+                UsageStatRow(stringResource(R.string.us_uploaded), usageBytes(up))
+                UsageStatRow(stringResource(R.string.us_downloaded), usageBytes(down))
+                UsageStatRow(stringResource(R.string.pf_net_mobile), usageBytes(data("media", true)))
+                UsageStatRow(stringResource(R.string.pf_net_wifi), usageBytes(data("media", false)), last = true)
             }
 
             // ------------------------------------------------ calls
-            PerfSection(Icons.Rounded.Call, stringResource(R.string.us_calls), null) {
-                StatRow(stringResource(R.string.us_calls_out), v(ChatUsage.CALLS_OUT).toString())
-                StatRow(stringResource(R.string.us_calls_in), v(ChatUsage.CALLS_IN).toString())
-                val seconds = v(ChatUsage.CALL_SECONDS)
-                StatRow(stringResource(R.string.us_call_time), stringResource(R.string.us_hours_minutes, seconds / 3600, (seconds % 3600) / 60))
-                val cm = v(ChatUsage.callDataKey(true))
-                val cw = v(ChatUsage.callDataKey(false))
-                StatRow(stringResource(R.string.us_data), usageBytes(cm + cw), splitOf(cm, cw))
+            val seconds = v(ChatUsage.CALL_SECONDS)
+            UsageBlock(Icons.Rounded.Call, stringResource(R.string.us_calls)) {
+                UsageStatRow(stringResource(R.string.us_calls_out), v(ChatUsage.CALLS_OUT).toString())
+                UsageStatRow(stringResource(R.string.us_calls_in), v(ChatUsage.CALLS_IN).toString())
+                UsageStatRow(stringResource(R.string.us_call_time), stringResource(R.string.us_hours_minutes, seconds / 3600, (seconds % 3600) / 60))
+                UsageStatRow(stringResource(R.string.pf_net_mobile), usageBytes(v(ChatUsage.callDataKey(true))))
+                UsageStatRow(stringResource(R.string.pf_net_wifi), usageBytes(v(ChatUsage.callDataKey(false))), last = true)
             }
 
             // ------------------------------------------------ storage on this phone
-            PerfSection(Icons.Rounded.SdStorage, stringResource(R.string.us_storage), stringResource(R.string.us_storage_sub)) {
-                StatRow(stringResource(R.string.us_storage_images), usageBytes(imageBytes))
-                StatRow(stringResource(R.string.us_storage_sent), usageBytes(outBytes))
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted)
-                        .clickable {
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    // Files being sent right now are a few minutes old at most: kept.
-                                    val cutoff = System.currentTimeMillis() - 10 * 60_000L
-                                    File(context.cacheDir, "chat-out").listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.deleteRecursively() }
-                                    runCatching { chatImages(context).diskCache?.clear() }
-                                    runCatching { chatImages(context).memoryCache?.clear() }
-                                }
-                                host.showToast(cleared)
-                                refresh++
-                            }
-                        }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(Icons.Rounded.DeleteSweep, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.us_clear), color = Ch.Red, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
+            UsageBlock(Icons.Rounded.SdStorage, stringResource(R.string.us_storage), stringResource(R.string.us_storage_sub)) {
+                UsageStatRow(stringResource(R.string.us_storage_images), usageBytes(imageBytes))
+                UsageStatRow(stringResource(R.string.us_storage_sent), usageBytes(outBytes), last = true)
             }
-
-            Text(
-                stringResource(R.string.us_reset), color = Ch.Mut, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 18.dp).clip(RoundedCornerShape(14.dp)).clickable { confirmReset = true }.padding(12.dp),
-            )
-            Text(stringResource(R.string.us_note), color = Ch.Soft, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 20.dp))
+            ChPrimaryButton(
+                stringResource(R.string.us_clear),
+                Modifier.fillMaxWidth().padding(top = 14.dp),
+                icon = Icons.Rounded.DeleteSweep,
+            ) { confirmClear = true }
+            ChPrimaryButton(
+                stringResource(R.string.us_reset),
+                Modifier.fillMaxWidth().padding(top = 10.dp),
+                icon = Icons.Rounded.Refresh,
+            ) { confirmReset = true }
+            Text(stringResource(R.string.us_note), color = settingsMut(), fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp))
         }
     }
 }
@@ -306,67 +347,72 @@ fun UsagePage() {
 // ------------------------------------------------------------------ pieces
 
 @Composable
-private fun PerfSection(icon: ImageVector, title: String, sub: String?, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(24.dp)).background(Ch.Surface).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(icon)
-            Spacer(Modifier.width(10.dp))
-            Text(title, color = Ch.Ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-        }
-        if (sub != null) Text(sub, color = Ch.Mut, fontSize = 12.5.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
-        else Spacer(Modifier.height(8.dp))
-        content()
+private fun UsageBlock(icon: ImageVector, title: String, sub: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Row(Modifier.padding(top = 18.dp, start = 4.dp, end = 4.dp, bottom = if (sub == null) 10.dp else 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Text(title, color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+    }
+    if (sub != null) {
+        Text(sub, color = settingsMut(), fontSize = 12.5.sp, modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 10.dp))
+    }
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp), content = content)
+}
+
+@Composable
+private fun UsageStatRow(label: String, value: String, last: Boolean = false) {
+    val dark = settingsNight()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f), maxLines = 1)
+        Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, color = settingsInk())
+    }
+    if (!last) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
     }
 }
 
 @Composable
-private fun IconBadge(icon: ImageVector) {
-    Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(19.dp))
+private fun UsageNetIcon(icon: ImageVector) {
+    Box(
+        Modifier.size(26.dp).border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(13.dp))
     }
 }
 
+/** One half of the usage hero: circular icon on the outer edge, name and amount in one line. */
 @Composable
-private fun PerfPill(label: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (on) Ch.Red else Ch.SurfaceMuted, label = "perfPill")
-    Text(
-        label, color = if (on) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1,
-        modifier = modifier.clip(RoundedCornerShape(14.dp)).background(bg).clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp),
-    )
-}
-
-@Composable
-private fun StatusLine(text: String, on: Boolean) {
-    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(if (on) Color(0xFF16A34A) else Ch.Soft))
+private fun UsageNetPart(icon: ImageVector, label: String, value: String, modifier: Modifier, iconAtStart: Boolean) {
+    Row(
+        modifier.padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (iconAtStart) Arrangement.Start else Arrangement.End,
+    ) {
+        UsageNetIcon(icon)
         Spacer(Modifier.width(6.dp))
-        Text(text, color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun StatRow(label: String, value: String, sub: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(label, color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            if (sub != null) Text(sub, color = Ch.Soft, fontSize = 11.5.sp)
+        if (iconAtStart) {
+            Text(label, color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Spacer(Modifier.width(5.dp))
+            Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        } else {
+            Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Spacer(Modifier.width(5.dp))
+            Text(label, color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
-        Text(value, color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
-
-/** "Mobile 12 MB · Wi-Fi 80 MB" under a data row. */
-@Composable
-private fun splitOf(mobile: Long, wifi: Long): String =
-    stringResource(R.string.pf_net_mobile) + " " + usageBytes(mobile) + " · " + stringResource(R.string.pf_net_wifi) + " " + usageBytes(wifi)
 
 /** Mobile data against Wi-Fi, as one bar. */
 @Composable
 private fun SplitBar(mobile: Long, wifi: Long) {
     val total = (mobile + wifi).coerceAtLeast(1)
     val share = (mobile.toFloat() / total).coerceIn(0f, 1f)
-    Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))) {
-        if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(CircleShape).background(Color.White))
+    Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f))) {
+        if (share > 0f) Box(Modifier.fillMaxWidth(share).fillMaxHeight().clip(CircleShape).background(Color.White.copy(alpha = 0.92f)))
     }
 }
 

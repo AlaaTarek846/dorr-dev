@@ -120,8 +120,8 @@ class AiIntentRouterServiceTest extends TestCase
         $this->assertSame(['image_generation'], $first->capabilities());
 
         // The exact message is active at once; the broader phrase waits for a second confirmation.
-        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف بيت علي البحر وقت الغروب', 'match_mode' => 'exact', 'is_active' => true]);
-        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف', 'match_mode' => 'phrase', 'is_active' => false, 'confirmations' => 1]);
+        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف بيت علي البحر وقت الغروب', 'match_mode' => 'exact', 'status' => true]);
+        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف', 'match_mode' => 'phrase', 'status' => false, 'confirmations' => 1]);
 
         // Same message again: answered from what was learned - the mock allows ONE call only.
         $second = $this->decide('نفسي اشوف بيت على البحر وقت الغروب');
@@ -141,7 +141,7 @@ class AiIntentRouterServiceTest extends TestCase
         $this->decide('نفسي اشوف بيت على البحر وقت الغروب');
         $this->decide('نفسي اشوف قطه بتلعب في الجنينه');
 
-        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف', 'match_mode' => 'phrase', 'is_active' => true, 'confirmations' => 2]);
+        $this->assertDatabaseHas('ai_learned_intents', ['phrase' => 'نفسي اشوف', 'match_mode' => 'phrase', 'status' => true, 'confirmations' => 2]);
 
         // A brand-new message with the phrase: no third model call (mock allows exactly two).
         $third = $this->decide('نفسي اشوف سفينه فضاء عملاقه فوق القمر');
@@ -238,7 +238,7 @@ class AiIntentRouterServiceTest extends TestCase
         $this->decide('نفسي اشوف بيت على البحر وقت الغروب');
         $this->decide('نفسي اشوف قطه بتلعب في الجنينه');
 
-        $this->assertFalse(AiLearnedIntent::query()->where('phrase', 'نفسي اشوف')->value('is_active'));
+        $this->assertFalse(AiLearnedIntent::query()->where('phrase', 'نفسي اشوف')->value('status'));
     }
 
     public function test_repeated_provider_failures_stop_the_router_asking_and_chat_is_unaffected(): void

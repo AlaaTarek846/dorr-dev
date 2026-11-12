@@ -2,17 +2,35 @@
 
 namespace Modules\AI\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\CatalogController;
 use Modules\AI\Http\Requests\AiSafetyRuleRequest;
 use Modules\AI\Services\AiSafetyRuleService;
 
-class AiSafetyRuleController extends Controller
+/**
+ * Admin AI safety rules - the catalog CRUD (like CountryController): index/show, store, update, status, bulk delete,
+ * trash/restore/force delete.
+ */
+class AiSafetyRuleController extends CatalogController
 {
-    public function __construct(protected AiSafetyRuleService $service) {}
-
-    public function index()
+    protected static function adminPermissionGroup(): string
     {
-        return $this->service->list();
+        return 'ai-safety-rules';
+    }
+
+    /**
+     * Guarded by admin.screen on the route group (AiAdminScreens::middleware('ai-safety-rules')) - so no
+     * controller permission middleware here.
+     *
+     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [];
+    }
+
+    public function __construct(AiSafetyRuleService $service)
+    {
+        parent::__construct($service);
     }
 
     public function store(AiSafetyRuleRequest $request)
@@ -20,18 +38,18 @@ class AiSafetyRuleController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int $rule)
-    {
-        return $this->service->find($rule);
-    }
-
-    public function update(AiSafetyRuleRequest $request, int $rule)
+    public function update(AiSafetyRuleRequest $request, int|string $rule)
     {
         return $this->service->updateRecord($rule, $request->validated());
     }
 
-    public function destroy(int $rule)
+    public function deleteMultiple(AiSafetyRuleRequest $request)
     {
-        return $this->service->delete($rule);
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AiSafetyRuleRequest $request, int|string $rule)
+    {
+        return $this->service->changeStatus($rule, (bool) $request->validated('status'));
     }
 }

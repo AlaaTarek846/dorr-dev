@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -349,6 +350,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 if (isSearching) ConversationSearchBar(searchQuery, onChange = { searchQuery = it }) { searching = false; searchQuery = "" }
                 else ConversationHeader(c, state, onSearch = { searching = true }, onAi = { aiMenu = true })
             }
+            // Educational / work groups: "General" and the terms / projects I'm in (GR-007).
+            if (!searching) GroupSpaceTabs(c)
             BackHandler(searching) { searching = false; searchQuery = ""; searchKinds = emptySet() }
             androidx.compose.animation.AnimatedVisibility(searching) {
                 Column {
@@ -457,6 +460,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 if (ChatAi.memory) stringResource(R.string.ch_ai_memory) to { memoryOpen = true; Unit } else null,
             ),
             subtitle = stringResource(R.string.ch_ai_privacy_note),
+            fixedHeight = LocalConfiguration.current.screenHeightDp.dp * 0.58f,
             onDismiss = { aiMenu = false },
         )
         state.askAbout?.let { ids -> AiAskSheet(state.id, ids, onDismiss = { state.askAbout = null }) { jumpTo(it) } }
@@ -468,6 +472,12 @@ fun ConversationPage(route: ChRoute.Conversation) {
             "important" -> AiImportantSheet(state.id, onDismiss = { aiPanel = null }) { _, m -> jumpTo(m) }
             "dates" -> AiDatesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
             "files" -> AiRelatedFilesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
+        }
+        // GR-038: a message made into a work-group task (in its main group; in the project when it came from one).
+        state.groupTaskFrom?.let { m ->
+            val g = state.conversation?.group
+            val main = g?.space?.parentId ?: state.conversation?.id
+            if (main != null) TaskFromMessageSheet(main, g?.space?.id, m) { state.groupTaskFrom = null }
         }
         state.aiTool?.let { (kind, m) ->
             val closeTool = { state.aiTool = null }
@@ -570,14 +580,15 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                     ChAvatar(c?.avatar, c?.title, peerKey ?: state.id, size = 34.dp, isGroup = c?.isGroup == true, online = presence?.online == true)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(
+                        com.dorr.app.ui.components.VerifiedName(
                             c?.title.orEmpty(),
+                            // A verified channel, or a verified person (account verification).
+                            verified = c?.group?.isVerified == true || c?.peer?.isVerified == true,
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = CairoFontFamily,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            tickTint = Color.White,
                         )
                         val subtitle = when {
                             activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
@@ -691,29 +702,16 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
         }
     }
     if (linkTypePicker) {
-        ChoiceSheet(
-            title = stringResource(R.string.cl_pick_type),
-            subtitle = stringResource(R.string.cl_create_sub),
-            options = listOf(
-                stringResource(R.string.cl_voice) to {
-                    scope.launch {
-                        try {
-                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "audio")).data
-                        } catch (e: Exception) {
-                            host.showToast(e.apiFailure().message ?: networkError, error = true)
-                        }
+        CallLinkTypeSheet(
+            onPick = { type ->
+                scope.launch {
+                    try {
+                        showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to type)).data
+                    } catch (e: Exception) {
+                        host.showToast(e.apiFailure().message ?: networkError, error = true)
                     }
-                },
-                stringResource(R.string.cl_video) to {
-                    scope.launch {
-                        try {
-                            showingLink = ApiClient.chat.createCallLink(chatAuth(), mapOf("type" to "video")).data
-                        } catch (e: Exception) {
-                            host.showToast(e.apiFailure().message ?: networkError, error = true)
-                        }
-                    }
-                },
-            ),
+                }
+            },
             onDismiss = { linkTypePicker = false },
         )
     }
@@ -779,6 +777,8 @@ private fun BottomArea(c: ConversationDto?, state: ConversationState) {
         // A follower: mute and share instead of a composer.
         c.isChannel && !c.canSend -> ChannelFollowerBar(c) { state.conversation = it }
         c.blockedMe == true || c.status == "rejected" -> NoticeBar(stringResource(R.string.ch_cant_send), null) {}
+        // Archived, or a term / project that closed (GR-006, GR-007).
+        c.group?.readOnly == true -> NoticeBar(stringResource(R.string.ch_group_read_only_bar), null) {}
         !c.canSend -> NoticeBar(stringResource(R.string.ch_only_admins), null) {}
         else -> Composer(state)
     }

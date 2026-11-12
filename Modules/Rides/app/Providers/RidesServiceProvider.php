@@ -83,6 +83,10 @@ class RidesServiceProvider extends ModuleServiceProvider
         Event::listen(DriverLocationUpdated::class, HandleDriverLocation::class);
         // O-59: a free captain's car moves on the riders' maps around him.
         Event::listen(DriverLocationUpdated::class, \Modules\Rides\Listeners\BroadcastAreaDriver::class);
+        // O-79: a captain who starts work gets the requests already waiting around them at once.
+        Event::listen(\Modules\Driver\Events\DriverCameOnline::class, fn (\Modules\Driver\Events\DriverCameOnline $e) => rescue(
+            fn () => $this->app->make(\Modules\Rides\Services\Dispatch\DispatchEngine::class)->nudgeNear((int) $e->driver->id, $e->lat, $e->lng, cameOnline: true),
+        ));
 
         // DORR AI's chat offers DORR rides when the person wants to go somewhere (the card fills the booking in).
         $this->app->booted(fn () => $this->app->make(\Modules\AI\Services\AiServiceActions::class)

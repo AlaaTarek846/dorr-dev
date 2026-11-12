@@ -1,35 +1,38 @@
 <template>
     <div ref="modalElement" class="modal fade" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header catalog-modal-header">
                     <div class="d-flex align-items-center justify-content-between w-100 gap-3">
                         <h6 class="modal-title mb-0">{{ modalTitle }}</h6>
-                        <button type="button" class="btn-close" aria-label="Close" @click="close"></button>
+                        <button type="button" class="btn-close catalog-modal-close" aria-label="Close" @click="close"></button>
                     </div>
                 </div>
 
-                <form @submit.prevent="submit">
+                <!-- No language tabs: the phrase is the users' own words the router matches, not a label to translate. -->
+                <form class="catalog-scroll-form" @submit.prevent="submit">
                     <div class="modal-body px-4 pb-2">
-                        <div class="row g-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-12">
-                                <label for="li-phrase" class="form-label">
-                                    {{ t('ai_learned_intents.phrase') }} <span class="text-danger">*</span>
-                                </label>
-                                <input
-                                    id="li-phrase"
-                                    v-model="form.phrase"
-                                    type="text"
-                                    dir="auto"
-                                    maxlength="120"
-                                    class="form-control"
-                                    :class="{ 'is-invalid': errors.phrase }"
-                                    :disabled="isEdit"
-                                    :placeholder="t('ai_learned_intents.phrase_placeholder')"
-                                    @input="delete errors.phrase"
-                                >
-                                <div v-if="errors.phrase" class="invalid-feedback d-block">{{ errors.phrase }}</div>
-                                <div v-else class="form-text">{{ t('ai_learned_intents.phrase_help') }}</div>
+                                <label for="li-phrase" class="form-label">{{ t('ai_learned_intents.phrase') }} <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="ri-chat-quote-line"></i></span>
+                                    <input
+                                        id="li-phrase"
+                                        v-model="form.phrase"
+                                        type="text"
+                                        dir="auto"
+                                        maxlength="120"
+                                        class="form-control"
+                                        :class="inputClass('phrase')"
+                                        :disabled="isEdit"
+                                        :placeholder="t('ai_learned_intents.phrase_placeholder')"
+                                        @input="onFieldInput('phrase')"
+                                    >
+                                    <FormFieldFeedback v-if="!isEdit" v-bind="feedbackFor('phrase')" />
+                                </div>
+                                <div v-if="messageFor('phrase')" class="invalid-feedback d-block">{{ messageFor('phrase') }}</div>
+                                <div v-else class="form-text">{{ isEdit ? t('ai_learned_intents.phrase_locked') : t('ai_learned_intents.phrase_help') }}</div>
                             </div>
 
                             <div class="col-md-6">
@@ -42,19 +45,19 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label for="li-intent" class="form-label">
-                                    {{ t('ai_learned_intents.intent') }} <span class="text-danger">*</span>
-                                </label>
-                                <select
-                                    id="li-intent"
+                                <label for="li-intent" class="form-label">{{ t('ai_learned_intents.intent') }} <span class="text-danger">*</span></label>
+                                <Select
                                     v-model="form.intent"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': errors.intent }"
-                                    @change="delete errors.intent"
-                                >
-                                    <option v-for="intent in intents" :key="intent" :value="intent">{{ t(`ai_learned_intents.intents.${intent}`) }}</option>
-                                </select>
-                                <div v-if="errors.intent" class="invalid-feedback d-block">{{ errors.intent }}</div>
+                                    input-id="li-intent"
+                                    :options="intentOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :invalid="Boolean(serverErrors.intent)"
+                                    append-to="body"
+                                    class="w-100"
+                                    @update:model-value="onFieldInput('intent')"
+                                />
+                                <div v-if="serverErrors.intent" class="invalid-feedback d-block">{{ serverErrors.intent[0] }}</div>
                             </div>
 
                             <div v-if="form.intent === 'file_output'" class="col-md-6">
@@ -67,28 +70,19 @@
                                 </select>
                             </div>
 
-                            <div v-if="isEdit" class="col-md-6">
-                                <label class="form-label d-block mb-2">{{ t('ai_learned_intents.is_active') }}</label>
-                                <div
-                                    class="toggle toggle-success mb-0"
-                                    :class="{ on: form.is_active }"
-                                    role="button"
-                                    tabindex="0"
-                                    @click="form.is_active = ! form.is_active"
-                                    @keydown.enter.space.prevent="form.is_active = ! form.is_active"
-                                >
+                            <div class="col-md-6">
+                                <label class="form-label d-block mb-2">{{ t('ai_learned_intents.status') }}</label>
+                                <div class="toggle toggle-success mb-0 catalog-modal-toggle" :class="{ on: form.status }" role="switch" tabindex="0" :aria-checked="form.status" @click="form.status = !form.status" @keydown.enter.space.prevent="form.status = !form.status">
                                     <span></span>
                                 </div>
+                                <div class="form-text">{{ t('ai_learned_intents.status_hint') }}</div>
                             </div>
                         </div>
                     </div>
 
                     <div class="modal-footer catalog-modal-footer">
                         <button type="button" class="btn btn-light" @click="close">{{ t('close') }}</button>
-                        <button type="submit" class="btn btn-primary btn-wave" :disabled="submitting">
-                            <span v-if="submitting" class="spinner-border spinner-border-sm me-1"></span>
-                            {{ t('save_changes') }}
-                        </button>
+                        <button type="submit" class="btn btn-primary btn-wave" :disabled="submitting">{{ submitting ? t('ai_learned_intents.saving') : t('save_changes') }}</button>
                     </div>
                 </form>
             </div>
@@ -97,15 +91,24 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import useVuelidate from '@vuelidate/core';
+import { helpers, maxLength, required } from '@vuelidate/validators';
+import Select from 'primevue/select';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import FormFieldFeedback from '../../../../../../components/ui/FormFieldFeedback.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
+import useValidation from '../../../../../../composables/useValidation';
+import { setupCatalogModalWatcher } from '../../../../../../utils/catalog';
+
+const RESOURCE_URI = '/api/admin/v1/ai-learned-intents';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
     type: { type: String, default: 'create' },
     record: { type: Object, default: null },
+    // Must mirror Modules\AI\Support\AiChatIntent::ACTIONS (passed by the list).
     intents: { type: Array, default: () => [] },
 });
 
@@ -113,36 +116,66 @@ const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
+const { applyApiErrors, fieldFeedback } = useValidation();
 
 const modalElement = ref(null);
 const submitting = ref(false);
-const errors = reactive({});
+const serverErrors = reactive({});
 let modalInstance = null;
 
 const isEdit = computed(() => props.type === 'edit');
+
 const modalTitle = computed(() => (
-    isEdit.value ? `${t('ai_learned_intents.edit_title')} #${props.record?.id ?? ''}` : t('ai_learned_intents.create_title')
+    isEdit.value ? `${t('ai_learned_intents.edit_title')}${props.record?.id ? ` #${props.record.id}` : ''}` : t('ai_learned_intents.create_title')
 ));
 
-const form = reactive({
-    phrase: '',
-    match_mode: 'phrase',
-    intent: 'image_generation',
-    file_format: null,
-    is_active: true,
-});
+const intentOptions = computed(() => props.intents.map((value) => ({ value, label: t(`ai_learned_intents.intents.${value}`) })));
 
-function clearErrors() {
-    Object.keys(errors).forEach((key) => delete errors[key]);
+const DEFAULTS = { phrase: '', match_mode: 'phrase', intent: 'image_generation', file_format: null, status: true };
+
+const form = reactive({ ...DEFAULTS });
+
+const rules = computed(() => (isEdit.value ? {} : {
+    phrase: {
+        required: helpers.withMessage(() => t('validation.required', { field: t('ai_learned_intents.phrase') }), required),
+        minLength: helpers.withMessage(() => t('ai_learned_intents.phrase_too_short'), (value) => String(value ?? '').trim().length >= 2),
+        maxLength: helpers.withMessage(() => t('validation.max.string', { field: t('ai_learned_intents.phrase'), max: 120 }), maxLength(120)),
+    },
+}));
+
+const v$ = useVuelidate(rules, form, { $autoDirty: true });
+
+function feedbackFor(field) {
+    return fieldFeedback(v$.value[field], serverErrors[field]?.[0], form[field]);
+}
+
+function inputClass(field) {
+    const feedback = feedbackFor(field);
+
+    return { 'is-invalid': feedback.show && feedback.invalid, 'is-valid': feedback.show && feedback.valid && ! isEdit.value };
+}
+
+function messageFor(field) {
+    if (! feedbackFor(field).invalid) {
+        return null;
+    }
+
+    return v$.value[field]?.$errors?.[0]?.$message || serverErrors[field]?.[0] || null;
+}
+
+function onFieldInput(field) {
+    delete serverErrors[field];
+    v$.value[field]?.$touch();
+}
+
+function resetValidation() {
+    v$.value.$reset();
+    applyApiErrors(serverErrors, {});
 }
 
 function resetForm() {
-    form.phrase = '';
-    form.match_mode = 'phrase';
-    form.intent = props.intents[0] ?? 'image_generation';
-    form.file_format = null;
-    form.is_active = true;
-    clearErrors();
+    Object.assign(form, DEFAULTS, { intent: props.intents[0] ?? 'image_generation' });
+    resetValidation();
 }
 
 function fillForm(record) {
@@ -150,12 +183,24 @@ function fillForm(record) {
     form.match_mode = record?.match_mode ?? 'phrase';
     form.intent = record?.intent ?? 'image_generation';
     form.file_format = record?.file_format ?? null;
-    form.is_active = Boolean(record?.is_active);
-    clearErrors();
+    form.status = Boolean(record?.status);
+    resetValidation();
+}
+
+function buildPayload() {
+    const fileFormat = form.intent === 'file_output' ? form.file_format : null;
+
+    // The phrase and match type are what was learned: set once, never changed.
+    return isEdit.value
+        ? { intent: form.intent, file_format: fileFormat, status: form.status }
+        : { phrase: form.phrase.trim(), match_mode: form.match_mode, intent: form.intent, file_format: fileFormat, status: form.status };
 }
 
 function openModal() {
-    if (! modalElement.value) return;
+    if (! modalElement.value) {
+        return;
+    }
+
     modalInstance ??= new window.bootstrap.Modal(modalElement.value, { focus: false });
     modalInstance.show();
 }
@@ -169,46 +214,32 @@ function close() {
     emit('close');
 }
 
-async function submit() {
-    clearErrors();
+function onModalHidden() {
+    emit('close');
+}
 
-    if (! isEdit.value && form.phrase.trim().length < 2) {
-        errors.phrase = t('ai_learned_intents.phrase_too_short');
+async function submit() {
+    v$.value.$touch();
+
+    if (v$.value.$invalid) {
         showWarning(t('toast.validation_error'));
         return;
     }
 
     submitting.value = true;
+    applyApiErrors(serverErrors, {});
 
     try {
-        const fileFormat = form.intent === 'file_output' ? form.file_format : null;
-        let response;
+        const response = isEdit.value && props.record?.id
+            ? await adminAxios.put(`${RESOURCE_URI}/${props.record.id}`, buildPayload())
+            : await adminAxios.post(RESOURCE_URI, buildPayload());
 
-        if (isEdit.value && props.record?.id) {
-            response = await adminAxios.put(`/api/admin/v1/ai-learned-intents/${props.record.id}`, {
-                intent: form.intent,
-                file_format: fileFormat,
-                is_active: form.is_active,
-            });
-            showSuccess(extractApiMessage(response, t('toast.updated')));
-        } else {
-            response = await adminAxios.post('/api/admin/v1/ai-learned-intents', {
-                phrase: form.phrase,
-                match_mode: form.match_mode,
-                intent: form.intent,
-                file_format: fileFormat,
-            });
-            showSuccess(extractApiMessage(response, t('toast.created')));
-        }
-
+        showSuccess(extractApiMessage(response, t(isEdit.value ? 'toast.updated' : 'toast.created')));
         closeModal();
         emit('saved');
     } catch (error) {
         if (error.response?.status === 422) {
-            const serverErrors = error.response.data.errors ?? {};
-            Object.entries(serverErrors).forEach(([key, messages]) => {
-                errors[key] = Array.isArray(messages) ? messages[0] : messages;
-            });
+            applyApiErrors(serverErrors, error.response.data.errors ?? {});
             showWarning(t('toast.validation_error'));
         } else {
             showError(extractApiErrorMessage(error, t('toast.error')));
@@ -218,24 +249,51 @@ async function submit() {
     }
 }
 
-watch(() => props.show, (show) => {
-    if (show) {
-        if (isEdit.value && props.record) {
-            fillForm(props.record);
-        } else {
-            resetForm();
-        }
-        openModal();
-    } else {
-        closeModal();
-    }
+setupCatalogModalWatcher({
+    props,
+    fillForm,
+    resetForm,
+    openModal,
+    closeModal,
+    resourceUri: RESOURCE_URI,
 });
 
 onMounted(() => {
-    modalElement.value?.addEventListener('hidden.bs.modal', () => emit('close'));
+    modalElement.value?.addEventListener('hidden.bs.modal', onModalHidden);
 });
 
 onUnmounted(() => {
+    modalElement.value?.removeEventListener('hidden.bs.modal', onModalHidden);
     modalInstance?.dispose();
 });
 </script>
+
+<style scoped>
+.catalog-modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--default-border, #dee2e6);
+}
+
+.catalog-modal-header .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.catalog-modal-close {
+    margin: 0 !important;
+    padding: 0.625rem;
+    flex-shrink: 0;
+    opacity: 0.65;
+    background-size: 0.65rem;
+}
+
+.catalog-modal-close:hover {
+    opacity: 1;
+}
+
+.catalog-modal-footer {
+    padding: 1rem 1.5rem 1.25rem;
+    gap: 0.5rem;
+}
+</style>

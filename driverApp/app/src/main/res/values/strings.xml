@@ -79,4 +79,5 @@
     <string name="cf_cancel">Cancel</string>
     <string name="pf_next_trips">Next trip</string>
     <string name="pf_next_trips_hint">Before my ride ends, offer me a request that starts near where it drops off.</string>
+    <string name="rider_verified">Verified account</string>
 </resources>

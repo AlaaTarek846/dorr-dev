@@ -79,6 +79,8 @@ class ConversationResource extends JsonResource
             'peer' => $peerProfile,
             'group' => $group === null ? null : [
                 'name' => $group->name,
+                // normal | education | work (fixed): which extra tools the group has.
+                'kind' => ($group->kind ?? \Modules\Chat\Enums\GroupKind::Normal)->value,
                 'description' => $group->description,
                 'avatar' => $group->avatarUrl(),
                 // A channel counts its followers (they aren't loaded, see ConversationService::hydrate()).
@@ -87,6 +89,25 @@ class ConversationResource extends JsonResource
                 'only_admins_edit_info' => $group->only_admins_edit_info,
                 'only_admins_add_members' => $group->only_admins_add_members,
                 'approve_joins' => $group->approve_joins,
+                // direct | approval | request (the person may say why).
+                'join_mode' => $group->join_mode ?? ($group->approve_joins ? 'approval' : 'direct'),
+                // Educational / work groups: what I may do here (the app shows only that; the server checks anyway).
+                // Read only: archived, or a term / project that closed (GR-006, GR-007).
+                'archived_at' => $group->archived_at?->toIso8601String(),
+                'read_only' => \Modules\Chat\Services\GroupLifecycleService::readOnly($conversation),
+                // A hand-over waiting for the member's answer — only the owner and that member see it (GR-005).
+                'ownership_offer' => \Modules\Chat\Services\GroupLifecycleService::isKindGroup($conversation)
+                    ? app(\Modules\Chat\Services\GroupLifecycleService::class)->offerFor($me, $conversation) : null,
+                // A term / subgroup / project: which main group it's in (GR-007).
+                'space' => ($space = \Modules\Chat\Services\GroupSpaceService::spaceOf($conversation)) === null ? null : [
+                    'id' => $space->id,
+                    'type' => $space->type,
+                    'is_closed' => $space->closed_at !== null,
+                    'parent_id' => $space->parent?->uuid,
+                    'parent_name' => $space->parent?->group?->name,
+                ],
+                'my_permissions' => ($group->kind ?? \Modules\Chat\Enums\GroupKind::Normal) !== \Modules\Chat\Enums\GroupKind::Normal
+                    ? \Modules\Chat\Support\GroupPermissions::ofParticipant($me, $conversation) : null,
                 // Moderation: members wait this long between messages (0 = off); the banned
                 // words list is only shown to the admins who manage it.
                 'slow_mode_seconds' => (int) $group->slow_mode_seconds,
@@ -99,6 +120,8 @@ class ConversationResource extends JsonResource
                 // Channels: the @handle and whether anyone can find it in "Discover".
                 'handle' => $group->handle,
                 'is_public' => (bool) $group->is_public,
+                // Paid: members' numbers hidden from each other, no private chats from here (one way).
+                'members_hidden' => $group->membersHidden(),
                 // Part of a community (WhatsApp list 93): its id and name, and whether this is its announcements group.
                 'community' => \Modules\Chat\Services\CommunityService::badge($group),
                 // Channels: the ✔ (verified by Dorr, or a paid verification running) and the category.
@@ -145,6 +168,10 @@ class ConversationResource extends JsonResource
     private function canSend(ChatParticipant $me, $group): bool
     {
         if (! $me->isActive() || $me->conversation->status === ConversationStatus::Rejected) {
+            return false;
+        }
+
+        if ($group !== null && \Modules\Chat\Services\GroupLifecycleService::readOnly($me->conversation)) {
             return false;
         }
 

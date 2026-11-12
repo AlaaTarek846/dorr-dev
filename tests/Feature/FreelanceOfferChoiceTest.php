@@ -128,15 +128,23 @@ class FreelanceOfferChoiceTest extends TestCase
         $this->assertSame(['Laravel', 'Vue'], collect($sara['freelancer']['matching_skills'])->pluck('name')->sort()->values()->all());
         $this->assertSame(2, $sara['freelancer']['project_skills_count']);
         $this->assertNull($sara['freelancer']['rating']);
-        $this->assertSame(['shortlist' => true, 'reject' => true, 'choose' => true], $sara['can']);
+        $this->assertSame(['shortlist' => true, 'unshortlist' => false, 'reject' => true, 'choose' => true, 'chat' => true], $sara['can']);
         // Without the client fee switch the client pays the price.
-        $this->assertSame(['price_minor' => 300000, 'client_fee_minor' => 0, 'total_minor' => 300000, 'currency' => 'SAR'], $sara['client_cost']);
+        $this->assertSame(['price_minor' => 300000, 'client_fee_minor' => 0, 'total_minor' => 300000, 'currency' => 'SAR'], array_diff_key($sara['client_cost'], ['lines' => 1]));
+        $this->assertSame(['price', 'total'], array_column($sara['client_cost']['lines'], 'key'));
         $this->assertArrayNotHasKey('phone', $sara['freelancer']);
         $this->assertArrayNotHasKey('email', $sara['freelancer']);
 
         // Only the shortlisted.
         $this->postJson(self::CLIENT."/{$this->project->uuid}/offers/{$this->offer('lina')->uuid}/shortlist")->assertOk();
         $this->assertSame(['Lina'], $this->names('?status=shortlisted'));
+
+        // Taking her off the shortlist is quiet and puts her back to «seen».
+        $lina = $this->offer('lina')->uuid;
+        $this->postJson(self::CLIENT."/{$this->project->uuid}/offers/{$lina}/unshortlist")->assertOk()->assertJsonPath('data.status', 'viewed')->assertJsonPath('data.can.unshortlist', false);
+        $this->assertSame([], $this->names('?status=shortlisted'));
+        $this->assertSame(0, $this->f['lina']->notifications()->where('data->event', 'freelance.offer.unshortlisted')->count());
+        $this->postJson(self::CLIENT."/{$this->project->uuid}/offers/{$lina}/unshortlist")->assertStatus(409);
     }
 
     public function test_two_or_three_offers_side_by_side_and_a_profile_without_contact_details(): void
@@ -222,5 +230,23 @@ class FreelanceOfferChoiceTest extends TestCase
         Sanctum::actingAs($other, [], 'user_api');
         $this->getJson(self::CLIENT."/{$this->project->uuid}/offers")->assertNotFound();
         $this->getJson(self::CLIENT."/{$this->project->uuid}/offers/{$this->offer('omar')->uuid}/freelancer")->assertNotFound();
+    }
+
+    public function test_the_offers_come_in_pages_in_the_same_order_whatever_the_sort(): void
+    {
+        $this->asClient();
+        foreach (['newest' => ['omar', 'lina', 'sara'], 'cheapest' => ['sara', 'omar', 'lina'], 'fastest' => ['lina', 'omar', 'sara'], 'completeness' => ['omar', 'lina', 'sara']] as $sort => $order) {
+            $names = [];
+            $first = $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?sort={$sort}&per_page=2")->assertOk()
+                ->assertJsonCount(2, 'data')->assertJsonPath('pagination.has_more_pages', true)->assertJsonPath('pagination.total', 3);
+            $second = $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?sort={$sort}&per_page=2&page=2")->assertOk()
+                ->assertJsonCount(1, 'data')->assertJsonPath('pagination.has_more_pages', false);
+            foreach (array_merge($first->json('data'), $second->json('data')) as $row) {
+                $names[] = strtolower($row['freelancer']['name']);
+            }
+            $this->assertSame($order, $names, "sort {$sort}");
+        }
+        // The status filter pages too.
+        $this->getJson(self::CLIENT."/{$this->project->uuid}/offers?status=rejected&per_page=2")->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('pagination.total', 0);
     }
 }

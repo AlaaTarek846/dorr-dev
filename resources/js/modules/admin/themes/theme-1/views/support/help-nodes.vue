@@ -252,7 +252,7 @@
                 <div class="mb-3">
                     <label class="form-label" for="hn-audience">{{ t('support.help.audience') }}</label>
                     <select id="hn-audience" v-model="form.audience" class="form-select">
-                        <option v-for="a in ['all', 'user', 'driver']" :key="a" :value="a">{{ t(`support.help.audiences.${a}`) }}</option>
+                        <option v-for="a in ['all', 'user', 'driver', 'freelancer']" :key="a" :value="a">{{ t(`support.help.audiences.${a}`) }}</option>
                     </select>
                 </div>
                 <div class="row g-3 align-items-end">

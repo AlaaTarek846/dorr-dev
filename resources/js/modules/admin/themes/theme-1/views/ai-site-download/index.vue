@@ -33,8 +33,9 @@
                             </div>
                             <div
                                 class="toggle toggle-success mb-0"
-                                :class="{ on: setting.is_active, 'opacity-50': saving }"
-                                role="button"
+                                :class="{ on: setting.is_active, 'opacity-50': saving || ! canUpdate }"
+                                :role="canUpdate ? 'button' : undefined"
+                                :aria-disabled="! canUpdate"
                                 tabindex="0"
                                 @click="flip('is_active')"
                                 @keydown.enter.space.prevent="flip('is_active')"
@@ -46,10 +47,10 @@
                         <div class="pt-3" :class="{ 'opacity-50': ! setting.is_active }">
                             <p class="fw-semibold mb-2">{{ t('ai_site_download.pricing') }}</p>
                             <div class="btn-group w-100" role="group">
-                                <button type="button" class="btn" :class="setting.is_free ? 'btn-primary' : 'btn-outline-primary'" :disabled="saving || ! setting.is_active" @click="setFree(true)">
+                                <button type="button" class="btn" :class="setting.is_free ? 'btn-primary' : 'btn-outline-primary'" :disabled="saving || ! setting.is_active || ! canUpdate" @click="setFree(true)">
                                     <i class="ri-gift-line me-1 align-middle"></i>{{ t('ai_site_download.free') }}
                                 </button>
-                                <button type="button" class="btn" :class="! setting.is_free ? 'btn-primary' : 'btn-outline-primary'" :disabled="saving || ! setting.is_active" @click="setFree(false)">
+                                <button type="button" class="btn" :class="! setting.is_free ? 'btn-primary' : 'btn-outline-primary'" :disabled="saving || ! setting.is_active || ! canUpdate" @click="setFree(false)">
                                     <i class="ri-money-dollar-circle-line me-1 align-middle"></i>{{ t('ai_site_download.paid') }}
                                 </button>
                             </div>
@@ -73,7 +74,7 @@
 
                         <div v-if="! setting.is_free && ! setting.prices_count" class="alert alert-warning fs-13">{{ t('ai_site_download.no_price_warning') }}</div>
 
-                        <button type="button" class="btn btn-primary mt-auto align-self-start" @click="pricesShow = true">
+                        <button v-if="canUpdate" type="button" class="btn btn-primary mt-auto align-self-start" @click="pricesShow = true">
                             <i class="ri-earth-line me-1 align-middle"></i>{{ t('ai_site_offers.manage_prices') }}
                         </button>
                     </div>
@@ -89,10 +90,12 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import ModalOfferPrices from '../ai-site-offers/ModalOfferPrices.vue';
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-site-download');
 const { showSuccess, showError } = useToast();
 
 const setting = ref(null);
@@ -130,13 +133,13 @@ async function save(patch) {
 }
 
 function flip(key) {
-    if (! saving.value) {
+    if (canUpdate.value && ! saving.value) {
         save({ [key]: ! setting.value[key] });
     }
 }
 
 function setFree(value) {
-    if (! saving.value && setting.value.is_free !== value) {
+    if (canUpdate.value && ! saving.value && setting.value.is_free !== value) {
         save({ is_free: value });
     }
 }

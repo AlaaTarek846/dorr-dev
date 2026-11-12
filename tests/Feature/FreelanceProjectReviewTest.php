@@ -201,12 +201,12 @@ class FreelanceProjectReviewTest extends TestCase
         $this->asClient();
         $uuid = $this->pending();
         $this->asClient();
-        $media = $this->post(self::CLIENT_API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->create('brief.pdf', 40, 'application/pdf')], ['Accept' => 'application/json']);
+        $media = $this->post(self::CLIENT_API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->createWithContent('brief.pdf', "%PDF-1.4\n%%EOF")], ['Accept' => 'application/json']);
         // A project under review can't take new files, so add it while it is a draft.
         $media->assertStatus(409);
 
         $this->postJson(self::CLIENT_API."/{$uuid}/withdraw")->assertOk();
-        $id = $this->post(self::CLIENT_API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->create('brief.pdf', 40, 'application/pdf')], ['Accept' => 'application/json'])->assertCreated()->json('data.attachments.0.id');
+        $id = $this->post(self::CLIENT_API."/{$uuid}/attachments", ['file' => UploadedFile::fake()->createWithContent('brief.pdf', "%PDF-1.4\n%%EOF")], ['Accept' => 'application/json'])->assertCreated()->json('data.attachments.0.id');
         $this->postJson(self::CLIENT_API."/{$uuid}/submit")->assertOk();
 
         $this->asAdmin();

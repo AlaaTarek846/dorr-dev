@@ -22,6 +22,15 @@ use Modules\Chat\Http\Controllers\General\DecisionController;
 use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\FolderController;
 use Modules\Chat\Http\Controllers\General\GroupController;
+use Modules\Chat\Http\Controllers\General\GroupEducationController;
+use Modules\Chat\Http\Controllers\General\GroupExtrasController;
+use Modules\Chat\Http\Controllers\General\GroupParentController;
+use Modules\Chat\Http\Controllers\General\GroupWorkController;
+use Modules\Chat\Http\Controllers\General\GroupLifecycleController;
+use Modules\Chat\Http\Controllers\General\GroupSpaceController;
+use Modules\Chat\Http\Controllers\General\GroupTaskController;
+use Modules\Chat\Http\Controllers\General\GroupToolsController;
+use Modules\Chat\Http\Controllers\General\GroupRoleController;
 use Modules\Chat\Http\Controllers\General\LifeController;
 use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\MessageExtrasController;
@@ -36,6 +45,7 @@ use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
 use Modules\Chat\Http\Controllers\General\VoiceRoomController;
 use Modules\Chat\Http\Middleware\EnsureChatFeature;
+use Modules\Chat\Http\Middleware\EnsureGroupTool;
 use Modules\Chat\Http\Middleware\RememberTimezone;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
@@ -111,14 +121,150 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
 
     // ------------------------------------------------------------ groups
     Route::post('groups', [GroupController::class, 'store']);
+    // Before {conversation}: what hiding a group's members costs here (paid, chat settings).
+    Route::get('groups/hidden-members', [GroupController::class, 'hiddenMembersPrice']);
+    // Educational / work groups I deleted that can still come back (GR-006).
+    Route::get('groups/deleted', [GroupLifecycleController::class, 'deleted']);
+    Route::post('groups/{conversation}/restore', [GroupLifecycleController::class, 'restore'])->withTrashed();
     Route::post('groups/{conversation}', [GroupController::class, 'update']); // POST: multipart avatar
     Route::patch('groups/{conversation}/settings', [GroupController::class, 'settings']);
     Route::get('groups/{conversation}/members', [GroupController::class, 'members']);
     Route::post('groups/{conversation}/members', [GroupController::class, 'addMembers']);
     Route::delete('groups/{conversation}/members/{participant}', [GroupController::class, 'removeMember']);
     Route::patch('groups/{conversation}/members/{participant}/role', [GroupController::class, 'role']);
+    // Educational and work groups: roles and their permissions (docs/groups_tasks.md GR-004).
+    Route::get('groups/{conversation}/roles', [GroupRoleController::class, 'index']);
+    Route::post('groups/{conversation}/roles', [GroupRoleController::class, 'store']);
+    Route::patch('groups/{conversation}/roles/{role}', [GroupRoleController::class, 'update'])->whereNumber('role');
+    Route::delete('groups/{conversation}/roles/{role}', [GroupRoleController::class, 'destroy'])->whereNumber('role');
+    Route::put('groups/{conversation}/members/{participant}/roles', [GroupRoleController::class, 'member'])->whereNumber('participant');
     Route::post('groups/{conversation}/leave', [GroupController::class, 'leave']);
     Route::post('groups/{conversation}/owner', [GroupController::class, 'transferOwnership']);
+    // Educational / work groups: the hand-over waits for the member's answer (GR-005).
+    Route::post('groups/{conversation}/owner/accept', [GroupLifecycleController::class, 'accept']);
+    Route::post('groups/{conversation}/owner/decline', [GroupLifecycleController::class, 'decline']);
+    Route::delete('groups/{conversation}/owner', [GroupLifecycleController::class, 'cancel']);
+    Route::post('groups/{conversation}/archive', [GroupLifecycleController::class, 'archive']);
+    // Announcements, my notice settings, the activity log (GR-008, GR-009, GR-010).
+    Route::get('groups/{conversation}/announcements', [GroupToolsController::class, 'announcements'])->middleware(EnsureGroupTool::class.':announcements');
+    Route::post('groups/{conversation}/announcements', [GroupToolsController::class, 'announce'])->middleware('throttle:30,1,chat-announce')->middleware(EnsureGroupTool::class.':announcements');
+    Route::get('groups/{conversation}/notification-prefs', [GroupToolsController::class, 'prefs']);
+    Route::put('groups/{conversation}/notification-prefs', [GroupToolsController::class, 'setPrefs']);
+    Route::get('groups/{conversation}/audit-log', [GroupToolsController::class, 'auditLog']);
+    // Educational groups: lessons, homework, tests and the bank, sessions and attendance (GR-013..017).
+    Route::get('groups/{conversation}/lessons', [GroupEducationController::class, 'lessons'])->middleware(EnsureGroupTool::class.':lessons');
+    Route::post('groups/{conversation}/lessons', [GroupEducationController::class, 'storeLesson'])->middleware('throttle:30,1,chat-edu-write')->middleware(EnsureGroupTool::class.':lessons');
+    Route::get('groups/{conversation}/lessons/{lesson}', [GroupEducationController::class, 'lesson'])->whereUuid('lesson')->middleware(EnsureGroupTool::class.':lessons');
+    Route::post('groups/{conversation}/lessons/{lesson}', [GroupEducationController::class, 'updateLesson'])->whereUuid('lesson')->middleware(EnsureGroupTool::class.':lessons');
+    Route::delete('groups/{conversation}/lessons/{lesson}', [GroupEducationController::class, 'destroyLesson'])->whereUuid('lesson')->middleware(EnsureGroupTool::class.':lessons');
+    Route::post('groups/{conversation}/lessons/{lesson}/messages', [GroupEducationController::class, 'lessonMessage'])->whereUuid('lesson')->middleware(EnsureGroupTool::class.':lessons');
+    Route::get('groups/{conversation}/assignments', [GroupEducationController::class, 'assignments'])->middleware(EnsureGroupTool::class.':assignments');
+    Route::post('groups/{conversation}/assignments', [GroupEducationController::class, 'storeAssignment'])->middleware('throttle:30,1,chat-edu-write')->middleware(EnsureGroupTool::class.':assignments');
+    Route::get('groups/{conversation}/assignments/{assignment}', [GroupEducationController::class, 'assignment'])->whereUuid('assignment')->middleware(EnsureGroupTool::class.':assignments');
+    Route::post('groups/{conversation}/assignments/{assignment}', [GroupEducationController::class, 'updateAssignment'])->whereUuid('assignment')->middleware(EnsureGroupTool::class.':assignments');
+    Route::delete('groups/{conversation}/assignments/{assignment}', [GroupEducationController::class, 'destroyAssignment'])->whereUuid('assignment')->middleware(EnsureGroupTool::class.':assignments');
+    Route::post('groups/{conversation}/assignments/{assignment}/submit', [GroupEducationController::class, 'submit'])->whereUuid('assignment')->middleware('throttle:20,1,chat-edu-submit')->middleware(EnsureGroupTool::class.':assignments');
+    Route::get('groups/{conversation}/assignments/{assignment}/submissions', [GroupEducationController::class, 'submissions'])->whereUuid('assignment')->middleware(EnsureGroupTool::class.':assignments');
+    Route::post('groups/{conversation}/assignments/{assignment}/grades', [GroupEducationController::class, 'grade'])->whereUuid('assignment')->middleware(EnsureGroupTool::class.':assignments');
+    Route::get('groups/{conversation}/quizzes', [GroupEducationController::class, 'quizzes'])->middleware(EnsureGroupTool::class.':quizzes');
+    // Before {quiz}: the coming tests (GR-022).
+    Route::get('groups/{conversation}/quizzes/schedule', [GroupExtrasController::class, 'schedule'])->middleware(EnsureGroupTool::class.':quizzes');
+    Route::post('groups/{conversation}/quizzes', [GroupEducationController::class, 'storeQuiz'])->middleware('throttle:30,1,chat-edu-write')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::get('groups/{conversation}/quizzes/{quiz}', [GroupEducationController::class, 'quiz'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::patch('groups/{conversation}/quizzes/{quiz}', [GroupEducationController::class, 'updateQuiz'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::delete('groups/{conversation}/quizzes/{quiz}', [GroupEducationController::class, 'destroyQuiz'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::post('groups/{conversation}/quizzes/{quiz}/start', [GroupEducationController::class, 'startQuiz'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::post('groups/{conversation}/quizzes/{quiz}/submit', [GroupEducationController::class, 'submitQuiz'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::get('groups/{conversation}/quizzes/{quiz}/attempts', [GroupEducationController::class, 'attempts'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::post('groups/{conversation}/quizzes/{quiz}/attempts/{attempt}/mark', [GroupEducationController::class, 'markAttempt'])->whereUuid('quiz')->whereNumber('attempt')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::get('groups/{conversation}/question-bank', [GroupEducationController::class, 'bank'])->middleware(EnsureGroupTool::class.':quizzes');
+    Route::post('groups/{conversation}/question-bank', [GroupEducationController::class, 'storeBank'])->middleware(EnsureGroupTool::class.':quizzes');
+    Route::delete('groups/{conversation}/question-bank/{question}', [GroupEducationController::class, 'destroyBank'])->whereNumber('question')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::get('groups/{conversation}/sessions', [GroupEducationController::class, 'sessions'])->middleware(EnsureGroupTool::class.':sessions');
+    Route::post('groups/{conversation}/sessions', [GroupEducationController::class, 'storeSession'])->middleware(EnsureGroupTool::class.':sessions');
+    Route::get('groups/{conversation}/sessions/{session}', [GroupEducationController::class, 'session'])->whereUuid('session')->middleware(EnsureGroupTool::class.':sessions');
+    Route::delete('groups/{conversation}/sessions/{session}', [GroupEducationController::class, 'destroySession'])->whereUuid('session')->middleware(EnsureGroupTool::class.':sessions');
+    Route::post('groups/{conversation}/sessions/{session}/attendance', [GroupEducationController::class, 'recordAttendance'])->whereUuid('session')->middleware(EnsureGroupTool::class.':sessions');
+    Route::get('groups/{conversation}/attendance', [GroupEducationController::class, 'attendanceReport'])->middleware(EnsureGroupTool::class.':sessions');
+    // Educational extras (GR-021, 024, 025, 026, 028, 030) and help requests (GR-031, GR-041).
+    Route::get('groups/{conversation}/bag', [GroupExtrasController::class, 'bag'])->middleware(EnsureGroupTool::class.':bag');
+    Route::get('groups/{conversation}/quizzes/{quiz}/leaderboard', [GroupExtrasController::class, 'leaderboard'])->whereUuid('quiz')->middleware(EnsureGroupTool::class.':quizzes');
+    Route::get('groups/{conversation}/stars', [GroupExtrasController::class, 'stars'])->middleware(EnsureGroupTool::class.':stars');
+    Route::post('groups/{conversation}/stars', [GroupExtrasController::class, 'awardStar'])->middleware(EnsureGroupTool::class.':stars');
+    Route::get('groups/{conversation}/reading', [GroupExtrasController::class, 'reading'])->middleware(EnsureGroupTool::class.':reading');
+    Route::post('groups/{conversation}/reading', [GroupExtrasController::class, 'addReading'])->middleware(EnsureGroupTool::class.':reading');
+    Route::post('groups/{conversation}/reading/{item}/progress', [GroupExtrasController::class, 'readingProgress'])->whereUuid('item')->middleware(EnsureGroupTool::class.':reading');
+    Route::get('groups/{conversation}/certificates', [GroupExtrasController::class, 'certificates'])->middleware(EnsureGroupTool::class.':certificates');
+    Route::post('groups/{conversation}/certificates', [GroupExtrasController::class, 'issueCertificate'])->middleware('throttle:30,1,chat-certificates')->middleware(EnsureGroupTool::class.':certificates');
+    Route::post('groups/{conversation}/surveys', [GroupExtrasController::class, 'survey'])->middleware(EnsureGroupTool::class.':surveys');
+    Route::get('groups/{conversation}/help', [GroupExtrasController::class, 'helpRequests'])->middleware(EnsureGroupTool::class.':help');
+    Route::post('groups/{conversation}/help', [GroupExtrasController::class, 'ask'])->middleware('throttle:30,1,chat-help')->middleware(EnsureGroupTool::class.':help');
+    Route::post('groups/{conversation}/help/{help}/answer', [GroupExtrasController::class, 'answer'])->whereUuid('help')->middleware(EnsureGroupTool::class.':help');
+    Route::post('groups/{conversation}/help/{help}/close', [GroupExtrasController::class, 'closeHelp'])->whereUuid('help')->middleware(EnsureGroupTool::class.':help');
+    // Work extras (GR-040, 042, 043, 044, 046) and polls in both kinds (GR-045).
+    Route::get('groups/{conversation}/shifts', [GroupWorkController::class, 'shifts'])->middleware(EnsureGroupTool::class.':shifts');
+    Route::post('groups/{conversation}/shifts', [GroupWorkController::class, 'storeShift'])->middleware(EnsureGroupTool::class.':shifts');
+    Route::delete('groups/{conversation}/shifts/{shift}', [GroupWorkController::class, 'destroyShift'])->whereUuid('shift')->middleware(EnsureGroupTool::class.':shifts');
+    Route::post('groups/{conversation}/shifts/{shift}/handover', [GroupWorkController::class, 'handover'])->whereUuid('shift')->middleware(EnsureGroupTool::class.':shifts');
+    Route::post('groups/{conversation}/shifts/{shift}/swap', [GroupWorkController::class, 'askSwap'])->whereUuid('shift')->middleware(EnsureGroupTool::class.':shifts');
+    Route::post('groups/{conversation}/shifts/{shift}/swap/answer', [GroupWorkController::class, 'answerSwap'])->whereUuid('shift')->middleware(EnsureGroupTool::class.':shifts');
+    Route::get('groups/{conversation}/goals', [GroupWorkController::class, 'goals'])->middleware(EnsureGroupTool::class.':competitions');
+    Route::post('groups/{conversation}/goals', [GroupWorkController::class, 'storeGoal'])->middleware(EnsureGroupTool::class.':competitions');
+    Route::post('groups/{conversation}/goals/{goal}/points', [GroupWorkController::class, 'points'])->whereUuid('goal')->middleware(EnsureGroupTool::class.':competitions');
+    Route::get('groups/{conversation}/badges', [GroupWorkController::class, 'badges'])->middleware(EnsureGroupTool::class.':badges');
+    Route::post('groups/{conversation}/badges', [GroupWorkController::class, 'giveBadge'])->middleware(EnsureGroupTool::class.':badges');
+    Route::get('groups/{conversation}/ideas', [GroupWorkController::class, 'ideas'])->middleware(EnsureGroupTool::class.':ideas');
+    Route::post('groups/{conversation}/ideas', [GroupWorkController::class, 'propose'])->middleware('throttle:30,1,chat-ideas')->middleware(EnsureGroupTool::class.':ideas');
+    Route::post('groups/{conversation}/ideas/{idea}/vote', [GroupWorkController::class, 'vote'])->whereUuid('idea')->middleware(EnsureGroupTool::class.':ideas');
+    Route::post('groups/{conversation}/ideas/{idea}/status', [GroupWorkController::class, 'ideaStatus'])->whereUuid('idea')->middleware(EnsureGroupTool::class.':ideas');
+    Route::get('groups/{conversation}/meetings', [GroupWorkController::class, 'meetings'])->middleware(EnsureGroupTool::class.':meetings');
+    Route::post('groups/{conversation}/meetings', [GroupWorkController::class, 'storeMeeting'])->middleware(EnsureGroupTool::class.':meetings');
+    Route::post('groups/{conversation}/meetings/{meeting}/minutes', [GroupWorkController::class, 'minutes'])->whereUuid('meeting')->middleware(EnsureGroupTool::class.':meetings');
+    Route::post('groups/{conversation}/meetings/{meeting}/tasks', [GroupWorkController::class, 'meetingTasks'])->whereUuid('meeting')->middleware(EnsureGroupTool::class.':meetings');
+    Route::post('groups/{conversation}/polls', [GroupWorkController::class, 'poll'])->middleware('throttle:30,1,chat-polls')->middleware(EnsureGroupTool::class.':polls');
+
+    // Parents in educational groups (GR-018, 019, 027 — D8): the student, the teacher…
+    Route::post('groups/{conversation}/parents/code', [GroupParentController::class, 'code'])->middleware('throttle:10,1,chat-parent-code')->middleware(EnsureGroupTool::class.':parents');
+    Route::get('groups/{conversation}/parents/mine', [GroupParentController::class, 'mine'])->middleware(EnsureGroupTool::class.':parents');
+    Route::get('groups/{conversation}/parents', [GroupParentController::class, 'index'])->middleware(EnsureGroupTool::class.':parents');
+    Route::patch('groups/{conversation}/parents/settings', [GroupParentController::class, 'settings'])->middleware(EnsureGroupTool::class.':parents');
+    Route::post('groups/{conversation}/parents/{link}/decide', [GroupParentController::class, 'decide'])->whereUuid('link')->middleware(EnsureGroupTool::class.':parents');
+    Route::delete('groups/{conversation}/parents/{link}', [GroupParentController::class, 'destroy'])->whereUuid('link')->middleware(EnsureGroupTool::class.':parents');
+    Route::get('groups/{conversation}/parent-meetings', [GroupParentController::class, 'meetings'])->middleware(EnsureGroupTool::class.':parents');
+    Route::post('groups/{conversation}/parent-meetings', [GroupParentController::class, 'storeMeeting'])->middleware(EnsureGroupTool::class.':parents');
+    Route::delete('groups/{conversation}/parent-meetings/{meeting}', [GroupParentController::class, 'destroyMeeting'])->whereUuid('meeting')->middleware(EnsureGroupTool::class.':parents');
+    // …and the parent (no member of the class: checked on every request in the service).
+    Route::post('parent/link', [GroupParentController::class, 'redeem'])->middleware('throttle:10,1,chat-parent-link');
+    Route::get('parent/children', [GroupParentController::class, 'children']);
+    Route::get('parent/children/{link}', [GroupParentController::class, 'child'])->whereUuid('link');
+    Route::delete('parent/children/{link}', [GroupParentController::class, 'unlink'])->whereUuid('link');
+    Route::post('parent/children/{link}/message', [GroupParentController::class, 'message'])->whereUuid('link');
+    Route::get('parent/children/{link}/meetings', [GroupParentController::class, 'childMeetings'])->whereUuid('link');
+    Route::post('parent/children/{link}/meetings/{meeting}/book', [GroupParentController::class, 'book'])->whereUuid(['link', 'meeting']);
+    Route::delete('parent/children/{link}/meetings/{meeting}/book', [GroupParentController::class, 'cancelBooking'])->whereUuid(['link', 'meeting']);
+    // Terms: the next one, and who's in one (GR-012).
+    Route::post('groups/{conversation}/spaces/{space}/next-term', [GroupSpaceController::class, 'nextTerm'])->whereNumber('space')->middleware(EnsureGroupTool::class.':spaces');
+    Route::get('groups/{conversation}/spaces/{space}/members', [GroupSpaceController::class, 'members'])->whereNumber('space')->middleware(EnsureGroupTool::class.':spaces');
+    // Work groups: tasks, repeating, checklist and proof, approval (GR-033..036).
+    Route::get('groups/{conversation}/tasks', [GroupTaskController::class, 'index'])->middleware(EnsureGroupTool::class.':tasks');
+    Route::get('groups/{conversation}/tasks/report', [GroupTaskController::class, 'report'])->middleware(EnsureGroupTool::class.':tasks');
+    Route::get('groups/{conversation}/tasks/export', [GroupTaskController::class, 'export'])->middleware('throttle:10,1,chat-tasks-export')->middleware(EnsureGroupTool::class.':tasks');
+    Route::post('groups/{conversation}/tasks', [GroupTaskController::class, 'store'])->middleware('throttle:60,1,chat-group-tasks')->middleware(EnsureGroupTool::class.':tasks');
+    Route::get('groups/{conversation}/tasks/{task}', [GroupTaskController::class, 'show'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::patch('groups/{conversation}/tasks/{task}', [GroupTaskController::class, 'update'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::delete('groups/{conversation}/tasks/{task}', [GroupTaskController::class, 'destroy'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::post('groups/{conversation}/tasks/{task}/status', [GroupTaskController::class, 'status'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::post('groups/{conversation}/tasks/{task}/review', [GroupTaskController::class, 'review'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::post('groups/{conversation}/tasks/{task}/proof', [GroupTaskController::class, 'proof'])->whereUuid('task')->middleware('throttle:30,1,chat-task-proof')->middleware(EnsureGroupTool::class.':tasks');
+    Route::post('groups/{conversation}/tasks/{task}/items', [GroupTaskController::class, 'addItem'])->whereUuid('task')->middleware(EnsureGroupTool::class.':tasks');
+    Route::patch('groups/{conversation}/tasks/{task}/items/{item}', [GroupTaskController::class, 'tickItem'])->whereUuid('task')->whereNumber('item')->middleware(EnsureGroupTool::class.':tasks');
+    Route::delete('groups/{conversation}/tasks/{task}/items/{item}', [GroupTaskController::class, 'removeItem'])->whereUuid('task')->whereNumber('item')->middleware(EnsureGroupTool::class.':tasks');
+    // Terms, subgroups and projects: chats of their own inside the group (GR-007).
+    Route::get('groups/{conversation}/spaces', [GroupSpaceController::class, 'index'])->middleware(EnsureGroupTool::class.':spaces');
+    Route::post('groups/{conversation}/spaces', [GroupSpaceController::class, 'store'])->middleware(EnsureGroupTool::class.':spaces');
+    Route::post('groups/{conversation}/spaces/{space}/members', [GroupSpaceController::class, 'addMembers'])->whereNumber('space')->middleware(EnsureGroupTool::class.':spaces');
+    Route::delete('groups/{conversation}/spaces/{space}/members/{participant}', [GroupSpaceController::class, 'removeMember'])->whereNumber(['space', 'participant'])->middleware(EnsureGroupTool::class.':spaces');
+    Route::post('groups/{conversation}/spaces/{space}/close', [GroupSpaceController::class, 'close'])->whereNumber('space')->middleware(EnsureGroupTool::class.':spaces');
     Route::delete('groups/{conversation}', [GroupController::class, 'destroy']);
     Route::get('groups/{conversation}/invite', [GroupController::class, 'invite']);
     Route::post('groups/{conversation}/invite/reset', [GroupController::class, 'resetInvite']);
@@ -427,4 +573,7 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::post('calls/{call}/decline', [CallController::class, 'decline']);
     Route::post('calls/{call}/leave', [CallController::class, 'leave']);
     Route::get('calls/{call}/token', [CallController::class, 'token']);
+
+    // ------------------------------------------------------------ account verification (docs/verification_tasks.md)
+    require __DIR__.'/verification_customer.php';
 });

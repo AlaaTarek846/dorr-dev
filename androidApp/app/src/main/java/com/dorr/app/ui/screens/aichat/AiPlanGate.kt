@@ -31,8 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.google.gson.JsonParser
 
 /**
@@ -50,13 +50,13 @@ object AiPlanGate {
 
     /** Error codes that mean "this needs (a bigger) DORR AI plan". */
     private fun isPlanCode(code: String): Boolean =
-        code.startsWith("chat_ai_plan_") || code.startsWith("rides_ai_plan_") || code == "chat_ai_image_not_in_plan" || code == "chat_ai_image_daily_limit" || code == "ai_plan_required"
+        code.startsWith("chat_ai_plan_") || code.startsWith("rides_ai_plan_") || code.startsWith("freelance_ai_plan_") || code == "chat_ai_image_not_in_plan" || code == "chat_ai_image_daily_limit" || code == "ai_plan_required"
 
     /** Called by the HTTP client with a 402/429 answer's body. */
     fun inspect(body: String) {
         val root = runCatching { JsonParser.parseString(body).asJsonObject }.getOrNull() ?: return
         val code = root.get("error_code")?.takeIf { it.isJsonPrimitive }?.asString ?: return
-        if (code == "chat_ai_plan_blocked" || code == "rides_ai_plan_blocked" || !isPlanCode(code)) return
+        if (code == "chat_ai_plan_blocked" || code == "rides_ai_plan_blocked" || code == "freelance_ai_plan_blocked" || !isPlanCode(code)) return
         val message = root.get("message")?.takeIf { it.isJsonPrimitive }?.asString ?: return
         Handler(Looper.getMainLooper()).post { prompt = message }
     }
@@ -83,7 +83,7 @@ fun AiPlanPromptDialog(night: Boolean, onSubscribe: () -> Unit) {
     val ink = if (night) Ai.inkDark else Ai.inkLight
     val mut = if (night) Ai.mutDark else Ai.mutLight
 
-    Dialog(onDismissRequest = { AiPlanGate.dismiss() }) {
+    LocaleAwareDialog(onDismissRequest = { AiPlanGate.dismiss() }) {
         Column(Modifier.clip(RoundedCornerShape(22.dp)).background(surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Ai.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.WorkspacePremium, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(28.dp))

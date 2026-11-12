@@ -95,264 +95,363 @@ class AIDatabaseSeeder extends Seeder
         // country-specific override, so this degrades gracefully.
         $sarCurrencyId = Currency::query()->where('code', 'SAR')->value('id');
 
+        // Plan text is translated (ai_plan_translations, like countries): one block per language.
         $plans = [
             [
                 'code' => 'free_trial',
-                'name' => 'تجربة مجانية',
-                'description' => 'جرّب المساعد الذكي أسبوع كامل مجاناً قبل ما تشترك.',
                 'usage_minutes' => 60,
                 'cooldown_minutes' => 30,
                 'duration_days' => 7,
                 'price' => 0,
                 'original_price' => null,
                 'currency_id' => $sarCurrencyId,
-                'badge' => null,
                 'is_featured' => false,
-                'features' => [
-                    '60 دقيقة محادثة مجاناً',
-                    'بدون بطاقة ائتمان',
-                    'تجربة كل مميزات المساعد الذكي',
-                ],
                 'is_trial' => true,
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 1,
+                'translations' => [
+                    'ar' => [
+                        'name' => 'تجربة مجانية',
+                        'description' => 'جرّب المساعد الذكي أسبوع كامل مجاناً قبل ما تشترك.',
+                        'badge' => null,
+                        'features' => ['60 دقيقة محادثة مجاناً', 'بدون بطاقة ائتمان', 'تجربة كل مميزات المساعد الذكي'],
+                    ],
+                    'en' => [
+                        'name' => 'Free trial',
+                        'description' => 'Try the AI assistant free for a whole week before you subscribe.',
+                        'badge' => null,
+                        'features' => ['60 free chat minutes', 'No credit card needed', 'Every assistant feature included'],
+                    ],
+                ],
             ],
             [
                 'code' => 'basic',
-                'name' => 'الخطة الأساسية',
-                'description' => 'مناسبة للاستخدام الخفيف والمتابعة اليومية العادية.',
                 'usage_minutes' => 300,
                 'cooldown_minutes' => 15,
                 'duration_days' => 30,
                 'price' => 99,
                 'original_price' => null,
                 'currency_id' => $sarCurrencyId,
-                'badge' => null,
                 'is_featured' => false,
-                'features' => [
-                    '300 دقيقة محادثة شهرياً',
-                    'دعم عبر الشات',
-                    'رسائل صوتية ونصية',
-                ],
                 'is_trial' => false,
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 2,
+                'translations' => [
+                    'ar' => [
+                        'name' => 'الخطة الأساسية',
+                        'description' => 'مناسبة للاستخدام الخفيف والمتابعة اليومية العادية.',
+                        'badge' => null,
+                        'features' => ['300 دقيقة محادثة شهرياً', 'دعم عبر الشات', 'رسائل صوتية ونصية'],
+                    ],
+                    'en' => [
+                        'name' => 'Basic',
+                        'description' => 'For light use and everyday follow-up.',
+                        'badge' => null,
+                        'features' => ['300 chat minutes a month', 'Chat support', 'Voice and text messages'],
+                    ],
+                ],
             ],
             [
                 'code' => 'pro',
-                'name' => 'الخطة الاحترافية',
-                'description' => 'الأنسب لمعظم المستخدمين - دقائق أكتر وبدون أي انتظار.',
                 'usage_minutes' => 1500,
                 'cooldown_minutes' => 0,
                 'duration_days' => 30,
                 'price' => 249,
                 'original_price' => 299,
                 'currency_id' => $sarCurrencyId,
-                'badge' => 'الأكثر شيوعاً',
                 'is_featured' => true,
-                'features' => [
-                    '1500 دقيقة محادثة شهرياً',
-                    'بدون فترة انتظار بين الجلسات',
-                    'أولوية في الرد والدعم الفني',
-                    'مكالمات صوتية فورية (Realtime)',
-                ],
                 'is_trial' => false,
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 3,
+                'translations' => [
+                    'ar' => [
+                        'name' => 'الخطة الاحترافية',
+                        'description' => 'الأنسب لمعظم المستخدمين - دقائق أكتر وبدون أي انتظار.',
+                        'badge' => 'الأكثر شيوعاً',
+                        'features' => ['1500 دقيقة محادثة شهرياً', 'بدون فترة انتظار بين الجلسات', 'أولوية في الرد والدعم الفني', 'مكالمات صوتية فورية (Realtime)'],
+                    ],
+                    'en' => [
+                        'name' => 'Pro',
+                        'description' => 'The best fit for most people - more minutes and no waiting.',
+                        'badge' => 'Most popular',
+                        'features' => ['1500 chat minutes a month', 'No wait between sessions', 'Priority answers and support', 'Live voice calls (Realtime)'],
+                    ],
+                ],
             ],
             [
                 'code' => 'business',
-                'name' => 'خطة الأعمال',
-                'description' => 'استخدام غير محدود لأصحاب الأعمال ومقدمي الخدمة الكبار.',
                 'usage_minutes' => 0,
                 'cooldown_minutes' => 0,
                 'duration_days' => 30,
                 'price' => 599,
                 'original_price' => null,
                 'currency_id' => $sarCurrencyId,
-                'badge' => 'الأفضل قيمة',
                 'is_featured' => false,
-                'features' => [
-                    'استخدام غير محدود بدون أي سقف دقائق',
-                    'أولوية قصوى في المعالجة',
-                    'دعم مخصص على مدار الساعة',
-                    'مناسبة لفرق العمل الكبيرة',
-                ],
                 'is_trial' => false,
-                'is_active' => true,
+                'status' => true,
                 'sort_order' => 4,
+                'translations' => [
+                    'ar' => [
+                        'name' => 'خطة الأعمال',
+                        'description' => 'استخدام غير محدود لأصحاب الأعمال ومقدمي الخدمة الكبار.',
+                        'badge' => 'الأفضل قيمة',
+                        'features' => ['استخدام غير محدود بدون أي سقف دقائق', 'أولوية قصوى في المعالجة', 'دعم مخصص على مدار الساعة', 'مناسبة لفرق العمل الكبيرة'],
+                    ],
+                    'en' => [
+                        'name' => 'Business',
+                        'description' => 'Unlimited use for business owners and large providers.',
+                        'badge' => 'Best value',
+                        'features' => ['Unlimited use, no minute cap', 'Top processing priority', 'Dedicated 24/7 support', 'Made for large teams'],
+                    ],
+                ],
             ],
         ];
 
-        foreach ($plans as $plan) {
-            AiPlan::query()->updateOrCreate(['code' => $plan['code']], $plan);
+        foreach ($plans as $data) {
+            $translations = $data['translations'];
+            unset($data['translations']);
+
+            $plan = AiPlan::withTrashed()->updateOrCreate(['code' => $data['code']], $data);
+
+            foreach ($translations as $locale => $values) {
+                $plan->translations()->updateOrCreate(['locale' => $locale], $values);
+            }
         }
     }
 
     /**
      * Seeds a starter set of AI intents (Phase 4) used by routing rules to
      * decide which provider/model handles which kind of request. Safe to
-     * re-run - upserts by the unique "key" column.
+     * re-run - upserts by the unique "key" column (the technical code the
+     * classifier looks up); the name / description the admin reads are
+     * translated (ai_intent_translations): one block per language.
      */
     protected function seedDefaultIntents(): void
     {
         $intents = [
-            [
-                'key' => 'chat',
-                'name' => 'محادثة عامة',
-                'description' => 'محادثة نصية عامة بين المستخدم أو مقدم الخدمة والمساعد الذكي.',
-                'is_active' => true,
+            'chat' => [
+                'ar' => ['name' => 'محادثة عامة', 'description' => 'محادثة نصية عامة بين المستخدم أو مقدم الخدمة والمساعد الذكي.'],
+                'en' => ['name' => 'General chat', 'description' => 'General text conversation between a user or provider and the assistant.'],
             ],
-            [
-                'key' => 'support',
-                'name' => 'دعم فني',
-                'description' => 'أسئلة دعم واستفسارات عن استخدام المنصة.',
-                'is_active' => true,
+            'support' => [
+                'ar' => ['name' => 'دعم فني', 'description' => 'أسئلة دعم واستفسارات عن استخدام المنصة.'],
+                'en' => ['name' => 'Support', 'description' => 'Support questions about using the platform.'],
             ],
-            [
-                'key' => 'content_generation',
-                'name' => 'توليد محتوى',
-                'description' => 'توليد نصوص أو أوصاف أو محتوى تسويقي.',
-                'is_active' => true,
+            'content_generation' => [
+                'ar' => ['name' => 'توليد محتوى', 'description' => 'توليد نصوص أو أوصاف أو محتوى تسويقي.'],
+                'en' => ['name' => 'Content generation', 'description' => 'Writing texts, descriptions or marketing content.'],
             ],
-            [
-                'key' => 'recommendation',
-                'name' => 'توصيات',
-                'description' => 'اقتراح خدمات أو مقدمي خدمة مناسبين للمستخدم.',
-                'is_active' => true,
+            'recommendation' => [
+                'ar' => ['name' => 'توصيات', 'description' => 'اقتراح خدمات أو مقدمي خدمة مناسبين للمستخدم.'],
+                'en' => ['name' => 'Recommendations', 'description' => 'Suggesting services or providers that suit the user.'],
             ],
         ];
 
-        foreach ($intents as $intent) {
-            AiIntent::query()->updateOrCreate(['key' => $intent['key']], $intent);
+        foreach ($intents as $key => $translations) {
+            $intent = AiIntent::withTrashed()->updateOrCreate(['key' => $key], ['status' => true]);
+
+            foreach ($translations as $locale => $values) {
+                $intent->translations()->updateOrCreate(['locale' => $locale], $values);
+            }
         }
     }
 
     /**
      * Seeds one default global routing policy and one default production
-     * gateway pointing to it, so the admin screens (and later the routing
-     * engine) have a working baseline instead of empty tables. Safe to
-     * re-run - upserts by the unique "name" column.
+     * gateway pointing to it, so the admin screens (and the routing engine)
+     * have a working baseline instead of empty tables. Safe to re-run - finds
+     * them by their Arabic or English name (ai_routing_policy_translations /
+     * ai_gateway_translations), the trash included.
      */
     protected function seedDefaultRoutingPolicyAndGateway(): void
     {
-        $policy = AiRoutingPolicy::query()->updateOrCreate(
-            ['name' => 'السياسة الافتراضية العامة'],
-            [
-                'scope_type' => 'global',
-                'country_code' => null,
-                'service_key' => null,
-                'plan_id' => null,
-                'selection_strategy' => 'priority',
-                'fallback_enabled' => true,
-                'priority' => 0,
-                'is_active' => true,
-            ],
-        );
+        $policyNames = ['ar' => 'السياسة الافتراضية العامة', 'en' => 'Default global policy'];
 
-        AiGateway::query()->updateOrCreate(
-            ['name' => 'البوابة الافتراضية'],
-            [
-                'environment' => 'production',
-                'default_policy_id' => $policy->id,
-                'is_active' => true,
-            ],
-        );
+        $policy = AiRoutingPolicy::withTrashed()
+            ->whereHas('translations', fn ($q) => $q->whereIn('name', array_values($policyNames)))
+            ->first() ?? new AiRoutingPolicy;
+
+        $policy->fill([
+            'scope_type' => 'global',
+            'country_code' => null,
+            'service_key' => null,
+            'plan_id' => null,
+            'selection_strategy' => 'priority',
+            'fallback_enabled' => true,
+            'priority' => 0,
+            'status' => true,
+        ])->save();
+
+        foreach ($policyNames as $locale => $name) {
+            $policy->translations()->updateOrCreate(['locale' => $locale], ['name' => $name]);
+        }
+
+        $gatewayNames = ['ar' => 'البوابة الافتراضية', 'en' => 'Default gateway'];
+
+        $gateway = AiGateway::withTrashed()
+            ->whereHas('translations', fn ($q) => $q->whereIn('name', array_values($gatewayNames)))
+            ->first() ?? new AiGateway;
+
+        $gateway->fill([
+            'environment' => 'production',
+            'default_policy_id' => $policy->id,
+            'status' => true,
+        ])->save();
+
+        foreach ($gatewayNames as $locale => $name) {
+            $gateway->translations()->updateOrCreate(['locale' => $locale], ['name' => $name]);
+        }
     }
 
     /**
      * Seeds a starter set of AI safety policies and rules (Phase 5) so the
      * admin moderation screens have a realistic baseline instead of empty
-     * tables. Safe to re-run - upserts by the unique "name" column.
+     * tables. Safe to re-run - finds the policy / each rule by its Arabic or
+     * English name (ai_safety_policy_translations / ai_safety_rule_translations),
+     * the trash included; the names the admin reads are written per language.
      */
     protected function seedDefaultSafetyPoliciesAndRules(): void
     {
-        $policy = AiSafetyPolicy::query()->updateOrCreate(
-            ['name' => 'سياسة منع محاولات الاختراق والمحتوى الخطير'],
-            [
-                'risk_level' => 'high',
-                'applies_to' => ['chat', 'agent', 'tool', 'code'],
+        $policyText = [
+            'ar' => [
+                'name' => 'سياسة منع محاولات الاختراق والمحتوى الخطير',
                 'description' => 'تمنع محاولات Prompt Injection والطلبات التي قد تضر بالمستخدم أو بالنظام.',
-                'is_active' => true,
             ],
-        );
-
-        $rules = [
-            [
-                'name' => 'حظر طلبات حذف الملفات الجماعي بدون تأكيد',
-                'condition' => ['type' => 'keyword_match', 'keywords' => ['حذف كل الملفات', 'delete all files']],
-                'action' => 'require_confirmation',
-                'priority' => 100,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'حظر محاولات كشف تعليمات النظام',
-                'condition' => ['type' => 'keyword_match', 'keywords' => ['اطبع تعليماتك', 'show your system prompt']],
-                'action' => 'block',
-                'priority' => 90,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'تحويل المحتوى المشبوه للمراجعة البشرية',
-                'condition' => ['type' => 'risk_score', 'min_score' => 0.7],
-                'action' => 'review',
-                'priority' => 50,
-                'is_active' => true,
+            'en' => [
+                'name' => 'Hacking attempts and harmful content policy',
+                'description' => 'Stops prompt injection attempts and requests that could harm the user or the system.',
             ],
         ];
 
-        foreach ($rules as $rule) {
-            AiSafetyRule::query()->updateOrCreate(
-                ['safety_policy_id' => $policy->id, 'name' => $rule['name']],
-                $rule + ['safety_policy_id' => $policy->id],
-            );
+        $policy = AiSafetyPolicy::withTrashed()
+            ->whereHas('translations', fn ($q) => $q->whereIn('name', array_column($policyText, 'name')))
+            ->first() ?? new AiSafetyPolicy;
+
+        $policy->fill([
+            'risk_level' => 'high',
+            'applies_to' => ['chat', 'agent', 'tool', 'code'],
+            'status' => true,
+        ])->save();
+
+        foreach ($policyText as $locale => $values) {
+            $policy->translations()->updateOrCreate(['locale' => $locale], $values);
+        }
+
+        $rules = [
+            [
+                'names' => ['ar' => 'حظر طلبات حذف الملفات الجماعي بدون تأكيد', 'en' => 'Mass file deletion needs confirmation'],
+                'condition' => ['type' => 'keyword_match', 'keywords' => ['حذف كل الملفات', 'delete all files']],
+                'action' => 'require_confirmation',
+                'priority' => 100,
+            ],
+            [
+                'names' => ['ar' => 'حظر محاولات كشف تعليمات النظام', 'en' => 'Block attempts to reveal the system prompt'],
+                'condition' => ['type' => 'keyword_match', 'keywords' => ['اطبع تعليماتك', 'show your system prompt']],
+                'action' => 'block',
+                'priority' => 90,
+            ],
+            [
+                'names' => ['ar' => 'تحويل المحتوى المشبوه للمراجعة البشرية', 'en' => 'Send suspicious content to human review'],
+                'condition' => ['type' => 'risk_score', 'min_score' => 0.7],
+                'action' => 'review',
+                'priority' => 50,
+            ],
+        ];
+
+        foreach ($rules as $data) {
+            $names = $data['names'];
+            unset($data['names']);
+
+            $rule = AiSafetyRule::withTrashed()
+                ->where('safety_policy_id', $policy->id)
+                ->whereHas('translations', fn ($q) => $q->whereIn('name', array_values($names)))
+                ->first() ?? new AiSafetyRule;
+
+            $rule->fill($data + ['safety_policy_id' => $policy->id, 'status' => true])->save();
+
+            foreach ($names as $locale => $name) {
+                $rule->translations()->updateOrCreate(['locale' => $locale], ['name' => $name]);
+            }
         }
     }
 
     /**
      * Seeds default security and data policies (Phase 6) so the admin
      * screens have a sane baseline (auth/authorization/tenant isolation
-     * all required by default). Safe to re-run - upserts by "name".
+     * all required by default). Safe to re-run - finds each policy by its
+     * Arabic or English name (ai_security_policy_translations /
+     * ai_data_policy_translations), the trash included; the names the
+     * admin reads are written per language.
      */
     protected function seedDefaultSecurityAndDataPolicies(): void
     {
-        AiSecurityPolicy::query()->updateOrCreate(
-            ['name' => 'السياسة الأمنية الافتراضية'],
-            [
-                'authentication_required' => true,
-                'authorization_required' => true,
-                'tenant_isolation_required' => true,
-                'rate_limit_enabled' => true,
+        $securityText = [
+            'ar' => [
+                'name' => 'السياسة الأمنية الافتراضية',
                 'description' => 'السياسة الافتراضية التي تُطبّق على كل طلبات الذكاء الاصطناعي: تسجيل دخول، صلاحيات، وعزل تام بين المستأجرين.',
-                'is_active' => true,
             ],
-        );
+            'en' => [
+                'name' => 'Default security policy',
+                'description' => 'The default policy for every AI request: sign-in, permission checks and full isolation between tenants.',
+            ],
+        ];
+
+        $security = AiSecurityPolicy::withTrashed()
+            ->whereHas('translations', fn ($q) => $q->whereIn('name', array_column($securityText, 'name')))
+            ->first() ?? new AiSecurityPolicy;
+
+        $security->fill([
+            'authentication_required' => true,
+            'authorization_required' => true,
+            'tenant_isolation_required' => true,
+            'rate_limit_enabled' => true,
+            'status' => true,
+        ])->save();
+
+        foreach ($securityText as $locale => $values) {
+            $security->translations()->updateOrCreate(['locale' => $locale], $values);
+        }
 
         $dataPolicies = [
             [
-                'name' => 'سياسة البيانات الشخصية',
+                'translations' => [
+                    'ar' => ['name' => 'سياسة البيانات الشخصية', 'description' => 'تنطبق على أي بيانات شخصية لليوزر أو مقدم الخدمة يتم تمريرها للذكاء الاصطناعي.'],
+                    'en' => ['name' => 'Personal data policy', 'description' => 'Applies to any personal data of a user or provider passed to the AI.'],
+                ],
                 'data_classification' => 'personal',
                 'retention_days' => 365,
                 'consent_required' => true,
                 'minimization_enabled' => true,
                 'external_provider_allowed' => true,
-                'description' => 'تنطبق على أي بيانات شخصية لليوزر أو مقدم الخدمة يتم تمريرها للذكاء الاصطناعي.',
-                'is_active' => true,
+                'status' => true,
             ],
             [
-                'name' => 'سياسة البيانات الداخلية العامة',
+                'translations' => [
+                    'ar' => ['name' => 'سياسة البيانات الداخلية العامة', 'description' => 'تنطبق على بيانات النظام الداخلية العادية غير الحساسة.'],
+                    'en' => ['name' => 'General internal data policy', 'description' => 'Applies to ordinary, non-sensitive internal system data.'],
+                ],
                 'data_classification' => 'internal',
                 'retention_days' => null,
                 'consent_required' => false,
                 'minimization_enabled' => true,
                 'external_provider_allowed' => true,
-                'description' => 'تنطبق على بيانات النظام الداخلية العادية غير الحساسة.',
-                'is_active' => true,
+                'status' => true,
             ],
         ];
 
-        foreach ($dataPolicies as $policy) {
-            AiDataPolicy::query()->updateOrCreate(['name' => $policy['name']], $policy);
+        foreach ($dataPolicies as $data) {
+            $translations = $data['translations'];
+            unset($data['translations']);
+
+            $policy = AiDataPolicy::withTrashed()
+                ->whereHas('translations', fn ($q) => $q->whereIn('name', array_column($translations, 'name')))
+                ->first() ?? new AiDataPolicy;
+
+            $policy->fill($data)->save();
+
+            foreach ($translations as $locale => $values) {
+                $policy->translations()->updateOrCreate(['locale' => $locale], $values);
+            }
         }
     }
 
@@ -360,14 +459,16 @@ class AIDatabaseSeeder extends Seeder
      * Seeds a default data-sanitization rule for every AI provider row
      * (Phase 6), so PII/secrets sanitization is enabled by default for
      * any provider added by ensureDefaults() above. Safe to re-run -
-     * upserts by the unique "provider_id" column.
+     * upserts by the unique "provider_id" column, the trash included (a
+     * rule the admin moved to the trash stays there). No text to
+     * translate: a rule holds switches and JSON only.
      */
     protected function seedDefaultProviderDataRules(AiProviderRepository $repository): void
     {
         $providers = $repository->index()->get();
 
         foreach ($providers as $provider) {
-            AiProviderDataRule::query()->updateOrCreate(
+            AiProviderDataRule::withTrashed()->updateOrCreate(
                 ['provider_id' => $provider->id],
                 [
                     'sanitize_pii' => true,
@@ -375,7 +476,7 @@ class AIDatabaseSeeder extends Seeder
                     'transformation_rules' => [
                         'mask_fields' => ['email', 'phone'],
                     ],
-                    'is_active' => true,
+                    'status' => true,
                 ],
             );
         }
@@ -386,15 +487,19 @@ class AIDatabaseSeeder extends Seeder
      * sections 7-14) so risk-sensitive domains (legal/health/code) are
      * protected from the moment the AI module is installed, instead of
      * needing an admin to remember to configure them first. Safe to
-     * re-run - upserts by the unique "domain_key" column.
+     * re-run - upserts by the unique "domain_key" column (the trash
+     * included); the name / description the admin reads are translated
+     * (ai_domain_policy_translations): one block per language.
      */
     protected function seedDefaultDomainPolicies(): void
     {
         $policies = [
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_LEGAL,
-                'name' => 'المسار القانوني',
-                'description' => 'أسئلة قانونية أو متعلقة بعقود ولوائح.',
+                'translations' => [
+                    'ar' => ['name' => 'المسار القانوني', 'description' => 'أسئلة قانونية أو متعلقة بعقود ولوائح.'],
+                    'en' => ['name' => 'Legal', 'description' => 'Legal questions, contracts and regulations.'],
+                ],
                 'risk_level' => 'high',
                 'requires_jurisdiction' => true,
                 'requires_triage' => false,
@@ -402,12 +507,13 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => true,
                 'system_prompt_addition' => 'Never invent a law, article number, or court ruling. If no verified source is available, say so plainly instead of guessing.',
                 'disclaimer_text' => __('ai.domain_disclaimer_legal'),
-                'is_active' => true,
             ],
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_HEALTH,
-                'name' => 'المسار الصحي',
-                'description' => 'أسئلة صحية أو أعراض أو أدوية.',
+                'translations' => [
+                    'ar' => ['name' => 'المسار الصحي', 'description' => 'أسئلة صحية أو أعراض أو أدوية.'],
+                    'en' => ['name' => 'Health', 'description' => 'Health questions, symptoms or medicines.'],
+                ],
                 'risk_level' => 'critical',
                 'requires_jurisdiction' => false,
                 'requires_triage' => true,
@@ -415,12 +521,13 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => true,
                 'system_prompt_addition' => 'Never present a confident diagnosis. Be explicit about medical uncertainty and encourage seeing a licensed doctor for anything serious.',
                 'disclaimer_text' => __('ai.domain_disclaimer_health'),
-                'is_active' => true,
             ],
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_EDUCATION,
-                'name' => 'المسار التعليمي',
-                'description' => 'أسئلة دراسية أو شرح مناهج أو حل واجبات.',
+                'translations' => [
+                    'ar' => ['name' => 'المسار التعليمي', 'description' => 'أسئلة دراسية أو شرح مناهج أو حل واجبات.'],
+                    'en' => ['name' => 'Education', 'description' => 'Study questions, curriculum explanations or homework.'],
+                ],
                 'risk_level' => 'low',
                 'requires_jurisdiction' => false,
                 'requires_triage' => false,
@@ -428,12 +535,13 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => false,
                 'system_prompt_addition' => 'Verify the steps and reasoning of any solution, not only the final answer. Adjust explanation depth to the level implied by the question.',
                 'disclaimer_text' => null,
-                'is_active' => true,
             ],
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_CODE,
-                'name' => 'المسار البرمجي',
-                'description' => 'طلبات كتابة أو تصحيح كود.',
+                'translations' => [
+                    'ar' => ['name' => 'المسار البرمجي', 'description' => 'طلبات كتابة أو تصحيح كود.'],
+                    'en' => ['name' => 'Code', 'description' => 'Requests to write or fix code.'],
+                ],
                 'risk_level' => 'medium',
                 'requires_jurisdiction' => false,
                 'requires_triage' => false,
@@ -441,12 +549,13 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => false,
                 'system_prompt_addition' => 'Always specify the language/version you are targeting. Prefer a single, complete, runnable code block so it can be automatically executed and verified.',
                 'disclaimer_text' => null,
-                'is_active' => true,
             ],
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_MARKETING,
-                'name' => 'مسار التسويق',
-                'description' => 'محتوى تسويقي أو إعلاني أو وصف منتج.',
+                'translations' => [
+                    'ar' => ['name' => 'مسار التسويق', 'description' => 'محتوى تسويقي أو إعلاني أو وصف منتج.'],
+                    'en' => ['name' => 'Marketing', 'description' => 'Marketing or advertising content, product descriptions.'],
+                ],
                 'risk_level' => 'low',
                 'requires_jurisdiction' => false,
                 'requires_triage' => false,
@@ -454,12 +563,13 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => false,
                 'system_prompt_addition' => null,
                 'disclaimer_text' => null,
-                'is_active' => true,
             ],
             [
                 'domain_key' => AiDomainPolicy::DOMAIN_GENERAL_INFO,
-                'name' => 'معلومات عامة',
-                'description' => 'أي سؤال عام لا ينتمي لمسار متخصص آخر.',
+                'translations' => [
+                    'ar' => ['name' => 'معلومات عامة', 'description' => 'أي سؤال عام لا ينتمي لمسار متخصص آخر.'],
+                    'en' => ['name' => 'General info', 'description' => 'Any general question that belongs to no other domain.'],
+                ],
                 'risk_level' => 'low',
                 'requires_jurisdiction' => false,
                 'requires_triage' => false,
@@ -467,12 +577,18 @@ class AIDatabaseSeeder extends Seeder
                 'allowlist_enforced' => false,
                 'system_prompt_addition' => null,
                 'disclaimer_text' => null,
-                'is_active' => true,
             ],
         ];
 
-        foreach ($policies as $policy) {
-            AiDomainPolicy::query()->updateOrCreate(['domain_key' => $policy['domain_key']], $policy);
+        foreach ($policies as $data) {
+            $translations = $data['translations'];
+            unset($data['translations']);
+
+            $policy = AiDomainPolicy::withTrashed()->updateOrCreate(['domain_key' => $data['domain_key']], $data + ['status' => true]);
+
+            foreach ($translations as $locale => $values) {
+                $policy->translations()->updateOrCreate(['locale' => $locale], $values);
+            }
         }
     }
 
@@ -567,8 +683,10 @@ class AIDatabaseSeeder extends Seeder
             ],
         ];
 
+        // The question / keywords / notes are test data (not translated). withTrashed: a case the admin moved to the
+        // trash is updated in place, not duplicated (and stays in the trash).
         foreach ($cases as $case) {
-            AiBenchmarkCase::query()->updateOrCreate(['prompt' => $case['prompt']], $case);
+            AiBenchmarkCase::withTrashed()->updateOrCreate(['prompt' => $case['prompt']], $case);
         }
     }
 
@@ -608,53 +726,58 @@ class AIDatabaseSeeder extends Seeder
             $languageModels[$code] = $language;
         }
 
+        // The name people read is translated (ai_language_variant_translations): one entry per language.
         $variants = [
             [
                 'language' => 'ar',
                 'code' => 'msa',
-                'name' => 'العربية الفصحى',
+                'names' => ['ar' => 'العربية الفصحى', 'en' => 'Modern Standard Arabic'],
                 'style' => 'formal',
                 'is_default' => true,
-                'is_active' => true,
+                'status' => true,
             ],
             [
                 'language' => 'ar',
                 'code' => 'egyptian_arabic',
-                'name' => 'اللهجة المصرية',
+                'names' => ['ar' => 'اللهجة المصرية', 'en' => 'Egyptian Arabic'],
                 'style' => 'conversational',
                 'is_default' => false,
-                'is_active' => true,
+                'status' => true,
             ],
             [
                 'language' => 'ar',
                 'code' => 'saudi_arabic',
-                'name' => 'اللهجة السعودية',
+                'names' => ['ar' => 'اللهجة السعودية', 'en' => 'Saudi Arabic'],
                 'style' => 'conversational',
                 'is_default' => false,
-                'is_active' => true,
+                'status' => true,
             ],
             [
                 'language' => 'en',
                 'code' => 'standard_en',
-                'name' => 'Standard English',
+                'names' => ['ar' => 'الإنجليزية القياسية', 'en' => 'Standard English'],
                 'style' => 'formal',
                 'is_default' => true,
-                'is_active' => true,
+                'status' => true,
             ],
         ];
 
         foreach ($variants as $variant) {
             $languageId = $languageModels[$variant['language']]->id;
 
-            AiLanguageVariant::query()->updateOrCreate(
+            // withTrashed: a variant the admin moved to the trash is updated in place, not duplicated.
+            $model = AiLanguageVariant::withTrashed()->updateOrCreate(
                 ['language_id' => $languageId, 'code' => $variant['code']],
                 [
-                    'name' => $variant['name'],
                     'style' => $variant['style'],
                     'is_default' => $variant['is_default'],
-                    'is_active' => $variant['is_active'],
+                    'status' => $variant['status'],
                 ],
             );
+
+            foreach ($variant['names'] as $locale => $name) {
+                $model->translations()->updateOrCreate(['locale' => $locale], ['name' => $name]);
+            }
         }
     }
 }

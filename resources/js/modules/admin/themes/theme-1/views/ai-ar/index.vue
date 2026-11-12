@@ -22,7 +22,7 @@
         <div v-if="loading" class="text-center py-5"><span class="spinner-border spinner-border-sm me-2"></span>{{ t('ai_ar.loading') }}</div>
 
         <!-- Settings -->
-        <div v-else-if="current === 'settings' && settings" class="card custom-card"><div class="card-body row g-3">
+        <div v-else-if="current === 'settings' && settings" class="card custom-card"><fieldset :disabled="! canUpdate" class="card-body row g-3">
             <div class="col-12 form-check form-switch ms-2">
                 <input id="ar-enabled" v-model="settings.is_enabled" class="form-check-input" type="checkbox">
                 <label for="ar-enabled" class="form-check-label">{{ t('ai_ar.enabled') }}</label>
@@ -32,12 +32,12 @@
             <div class="col-md-4"><label class="form-label">{{ t('ai_ar.capture_retention_days') }}</label><input v-model.number="settings.capture_retention_days" type="number" min="1" max="365" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">{{ t('ai_ar.commission_percent') }}</label><input v-model.number="settings.commission_percent" type="number" min="0" max="50" step="0.5" class="form-control"><small class="text-muted">{{ t('ai_ar.commission_hint') }}</small></div>
             <div class="col-md-4"><label class="form-label">{{ t('ai_ar.escrow_release_days') }}</label><input v-model.number="settings.escrow_release_days" type="number" min="1" max="30" class="form-control"><small class="text-muted">{{ t('ai_ar.escrow_hint') }}</small></div>
-            <div class="col-12"><button class="btn btn-primary" :disabled="saving" @click="saveSettings">{{ t('ai_ar.save') }}</button></div>
-        </div></div>
+            <div v-if="canUpdate" class="col-12"><button class="btn btn-primary" :disabled="saving" @click="saveSettings">{{ t('ai_ar.save') }}</button></div>
+        </fieldset></div>
 
         <!-- Model library -->
         <div v-else-if="current === 'library'">
-            <div class="card custom-card"><div class="card-body row g-3">
+            <div v-if="canUpdate" class="card custom-card"><div class="card-body row g-3">
                 <p class="fw-semibold mb-0">{{ t('ai_ar.add_model') }}</p>
                 <div class="col-md-3"><input v-model="form.name_en" class="form-control" :placeholder="t('ai_ar.name_en')"></div>
                 <div class="col-md-3"><input v-model="form.name_ar" class="form-control" :placeholder="t('ai_ar.name_ar')"></div>
@@ -63,22 +63,22 @@
                             <td>{{ a.name_en }}<div class="text-muted fs-12">{{ a.name_ar }}</div></td>
                             <td>{{ a.category }}</td>
                             <td>
-                                <select :value="a.license || ''" class="form-select form-select-sm" @change="setLicense(a, $event.target.value)">
+                                <select :value="a.license || ''" :disabled="! canUpdate" class="form-select form-select-sm" @change="setLicense(a, $event.target.value)">
                                     <option value="">-</option>
                                     <option v-for="l in licenses" :key="l" :value="l">{{ l }}</option>
                                 </select>
                             </td>
                             <td><span class="badge bg-light text-dark">{{ a.status }}</span></td>
                             <td>
-                                <select :value="a.current_version_id || ''" class="form-select form-select-sm" @change="activate(a, $event.target.value)">
+                                <select :value="a.current_version_id || ''" :disabled="! canUpdate" class="form-select form-select-sm" @change="activate(a, $event.target.value)">
                                     <option value="" disabled>-</option>
                                     <option v-for="v in (a.versions || [])" :key="v.id" :value="v.id">v{{ v.version_no }}</option>
                                 </select>
                             </td>
                             <td>
-                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" :checked="a.is_public" @change="publish(a, $event.target.checked)"></div>
+                                <div class="form-check form-switch"><input class="form-check-input" type="checkbox" :checked="a.is_public" :disabled="! canUpdate" @change="publish(a, $event.target.checked)"></div>
                             </td>
-                            <td><button class="btn btn-sm btn-outline-danger" @click="reject(a)">{{ t('ai_ar.reject') }}</button></td>
+                            <td><button v-if="canUpdate" class="btn btn-sm btn-outline-danger" @click="reject(a)">{{ t('ai_ar.reject') }}</button></td>
                         </tr>
                         <tr v-if="! assets.length"><td colspan="7" class="text-center text-muted">{{ t('ai_ar.empty') }}</td></tr>
                     </tbody>
@@ -116,12 +116,12 @@
                     <tbody>
                         <tr v-for="o in orders" :key="o.id">
                             <td>{{ o.title }}<div class="text-muted fs-12">#{{ o.id }} · {{ t('ai_ar.provider') }} #{{ o.provider_id }}</div></td>
-                            <td>{{ money(o.amount_minor) }} {{ o.currency }}</td>
-                            <td>{{ money(o.commission_minor) }} ({{ o.commission_percent }}%)</td>
+                            <td>{{ money(o.amount_minor, o.currency) }} {{ o.currency }}</td>
+                            <td>{{ money(o.commission_minor, o.currency) }} ({{ o.commission_percent }}%)</td>
                             <td><span class="badge bg-light text-dark">{{ t('ai_ar.order_status.' + o.status) }}</span><div v-if="o.resolution_note" class="text-muted fs-12 text-wrap">{{ o.resolution_note }}</div></td>
                             <td class="text-wrap">{{ o.dispute_reason || '-' }}</td>
                             <td>
-                                <div v-if="o.status === 'disputed'" class="d-flex gap-2 align-items-center">
+                                <div v-if="canUpdate && o.status === 'disputed'" class="d-flex gap-2 align-items-center">
                                     <input v-model="notes[o.id]" class="form-control form-control-sm" maxlength="500" :placeholder="t('ai_ar.resolution_note')">
                                     <button class="btn btn-sm btn-success" :disabled="saving" @click="resolve(o, 'release')">{{ t('ai_ar.release') }}</button>
                                     <button class="btn btn-sm btn-outline-danger" :disabled="saving" @click="resolve(o, 'refund')">{{ t('ai_ar.refund') }}</button>
@@ -136,8 +136,11 @@
 
         <!-- Tested devices -->
         <div v-else-if="current === 'devices'">
-            <div class="card custom-card"><div class="card-body row g-3">
+            <div v-if="canUpdate" class="card custom-card"><div class="card-body row g-3">
                 <p class="fw-semibold mb-0">{{ t('ai_ar.add_device') }}</p>
+                <div class="col-md-2">
+                    <select v-model="device.platform" class="form-select" :aria-label="t('ai_ar.device_platform')"><option v-for="x in platforms" :key="x" :value="x">{{ t('ai_ar.platform_' + x) }}</option></select>
+                </div>
                 <div class="col-md-3"><input v-model="device.manufacturer" class="form-control" :placeholder="t('ai_ar.manufacturer')"></div>
                 <div class="col-md-3"><input v-model="device.model_pattern" class="form-control" :placeholder="t('ai_ar.model_pattern')"></div>
                 <div class="col-md-2">
@@ -151,14 +154,14 @@
             </div></div>
             <div class="card custom-card"><div class="card-body"><div class="table-responsive">
                 <table class="table text-nowrap align-middle">
-                    <thead><tr><th>{{ t('ai_ar.manufacturer') }}</th><th>{{ t('ai_ar.model_pattern') }}</th><th>ARCore</th><th>{{ t('ai_ar.tier_label') }}</th><th></th></tr></thead>
+                    <thead><tr><th>{{ t('ai_ar.device_platform') }}</th><th>{{ t('ai_ar.manufacturer') }}</th><th>{{ t('ai_ar.model_pattern') }}</th><th>ARCore</th><th>{{ t('ai_ar.tier_label') }}</th><th></th></tr></thead>
                     <tbody>
                         <tr v-for="d in devices" :key="d.id">
-                            <td>{{ d.manufacturer }}</td><td>{{ d.model_pattern }}</td><td>{{ d.arcore_supported ? '✓' : '✗' }}</td>
+                            <td>{{ t('ai_ar.platform_' + (d.platform || 'android')) }}</td><td>{{ d.manufacturer }}</td><td>{{ d.model_pattern }}</td><td>{{ d.arcore_supported ? '✓' : '✗' }}</td>
                             <td>{{ t('ai_ar.tier.' + d.tier) }}</td>
-                            <td><button class="btn btn-sm btn-outline-danger" @click="removeDevice(d)">{{ t('ai_ar.delete') }}</button></td>
+                            <td><button v-if="canUpdate" class="btn btn-sm btn-outline-danger" @click="removeDevice(d)">{{ t('ai_ar.delete') }}</button></td>
                         </tr>
-                        <tr v-if="! devices.length"><td colspan="5" class="text-center text-muted">{{ t('ai_ar.empty') }}</td></tr>
+                        <tr v-if="! devices.length"><td colspan="6" class="text-center text-muted">{{ t('ai_ar.empty') }}</td></tr>
                     </tbody>
                 </table>
             </div></div></div>
@@ -170,9 +173,11 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-ar');
 const { showSuccess, showError } = useToast();
 const base = '/api/admin/v1/ai-ar';
 
@@ -193,8 +198,14 @@ const reviews = ref([]);
 const fileInput = ref(null);
 const form = ref({ name_en: '', name_ar: '', category: 'furniture', license: '' });
 const orderStatuses = ['paid', 'delivered', 'disputed', 'released', 'refunded'];
-const money = (m) => (Number(m || 0) / 100).toFixed(2);
-const device = ref({ manufacturer: '', model_pattern: '', tier: 'basic', arcore_supported: true });
+// Minor units per currency (KWD / BHD / OMR have 3 places): the orders answer carries currency_decimals.
+const currencyDecimals = ref({});
+const money = (m, code) => {
+    const places = currencyDecimals.value[String(code || '').toUpperCase()] ?? 2;
+    return (Number(m || 0) / (10 ** places)).toFixed(places);
+};
+const platforms = ['android', 'ios'];
+const device = ref({ platform: 'android', manufacturer: '', model_pattern: '', tier: 'basic', arcore_supported: true });
 
 async function run(call) {
     try { return await call(); } catch (error) { showError(extractApiErrorMessage(error, t('toast.error'))); return null; }
@@ -214,7 +225,11 @@ async function open(tab) {
     if (tab === 'settings') settings.value = (await run(() => adminAxios.get(`${base}/settings`)))?.data.data ?? settings.value;
     if (tab === 'library') assets.value = (await run(() => adminAxios.get(`${base}/assets`)))?.data.data ?? [];
     if (tab === 'reviews') reviews.value = (await run(() => adminAxios.get(`${base}/reviews`)))?.data.data ?? [];
-    if (tab === 'orders') orders.value = (await run(() => adminAxios.get(`${base}/orders`, { params: orderFilter.value ? { status: orderFilter.value } : {} })))?.data.data ?? [];
+    if (tab === 'orders') {
+        const res = await run(() => adminAxios.get(`${base}/orders`, { params: orderFilter.value ? { status: orderFilter.value } : {} }));
+        currencyDecimals.value = { ...currencyDecimals.value, ...(res?.data.currency_decimals ?? {}) };
+        orders.value = res?.data.data ?? [];
+    }
     if (tab === 'devices') devices.value = (await run(() => adminAxios.get(`${base}/devices`)))?.data.data ?? [];
     loading.value = false;
 }

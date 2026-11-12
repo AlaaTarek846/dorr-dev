@@ -14,7 +14,8 @@ class AiSiteHostingPlanPrice extends Model
 
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(AiSiteHostingPlan::class, 'plan_id');
+        // withTrashed: a plan in the trash keeps its prices (restore brings it back as it was).
+        return $this->belongsTo(AiSiteHostingPlan::class, 'plan_id')->withTrashed();
     }
 
     public function currency(): BelongsTo

@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Modules\AI\Events\AiSiteRequestChanged;
 use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Exceptions\AiSubscriptionException;
 use Modules\AI\Models\AiSiteRequestInstallment as Installment;
@@ -29,6 +30,9 @@ use Modules\Wallet\Exceptions\InsufficientBalanceException;
  */
 class AiSiteServiceRequestService
 {
+    /** @var array<int, array{0: ?int, 1: ?string}> requests whose live "changed" event waits for the commit */
+    protected array $pendingBroadcasts = [];
+
     public function __construct(
         protected AiSubscriptionBillingService $billing,
         protected NotificationCenter $center,
@@ -198,6 +202,7 @@ class AiSiteServiceRequestService
         }
 
         $message = $request->messages()->create(['sender' => AiSiteRequestMessage::FROM_CUSTOMER, 'sender_id' => $request->owner_id, 'body' => $body]);
+        $this->broadcastChange($request, $message);
         $this->notifyAdmins($request, 'message', ['text' => Str::limit($body, 90)]);
 
         return $message;
@@ -297,6 +302,15 @@ class AiSiteServiceRequestService
         }
 
         return DB::transaction(function () use ($request, $code, $note) {
+            if (in_array($code, [Status::REJECTED, Status::CANCELLED], true)) {
+                // Lock the row so two clicks cannot both see the money as still paid.
+                $request = AiSiteServiceRequest::query()->with('owner')->lockForUpdate()->findOrFail($request->id);
+                $moved = $this->moveTo($request, $code, $note);
+                $this->refundPaid($moved);
+
+                return $moved->refresh();
+            }
+
             if ($code === Status::DELIVERED) {
                 $request->forceFill(['delivered_at' => now()])->save();
                 $this->release($request, fn ($i) => $i->trigger === Installment::ON_DELIVERY);
@@ -362,6 +376,7 @@ class AiSiteServiceRequestService
     public function adminMessage(AiSiteServiceRequest $request, ?int $adminId, string $body): AiSiteRequestMessage
     {
         $message = $request->messages()->create(['sender' => AiSiteRequestMessage::FROM_ADMIN, 'sender_id' => $adminId, 'body' => $body]);
+        $this->broadcastChange($request, $message);
         $this->notify($request, 'message', ['text' => Str::limit($body, 90)]);
 
         return $message;
@@ -387,6 +402,42 @@ class AiSiteServiceRequestService
             $this->system($request, 'installment_due', ['title' => $installment->title, 'amount' => $installment->amount.' '.$request->currency]);
             $this->notify($request, 'installment', ['item' => $installment->title, 'amount' => $installment->amount.' '.$request->currency]);
         }
+    }
+
+    /**
+     * A request stopped by the team (rejected / cancelled) after the customer paid: every paid instalment goes back to
+     * the customer's wallet as spend-only credit (the same rule as an AR order refund). Runs once - refunded
+     * instalments are marked "refunded", so calling it again finds nothing left to give back.
+     */
+    protected function refundPaid(AiSiteServiceRequest $request): void
+    {
+        $paid = $request->installments()->where('status', Installment::PAID)->lockForUpdate()->get();
+
+        if ($paid->isEmpty()) {
+            return;
+        }
+
+        $owner = $request->owner ?? throw new AiSiteException('refund_failed', 422);
+        $amount = round((float) $paid->sum('amount'), 2);
+        $country = $request->country_id ? Country::query()->find($request->country_id) : currentCountry();
+
+        try {
+            $wallet = $this->billing->walletFor($owner, $country);
+            $this->billing->credit($wallet, $amount, WalletTransactionType::Refund, [
+                'reference_type' => 'ai_site_service_request',
+                'reference_id' => $request->id,
+            ]);
+        } catch (AiSubscriptionException) {
+            throw new AiSiteException('country_not_resolved', 422);
+        }
+
+        foreach ($paid as $installment) {
+            $installment->forceFill(['status' => Installment::REFUNDED])->save();
+        }
+
+        $shown = $amount.' '.$request->currency;
+        $this->system($request, 'refunded', ['amount' => $shown]);
+        $this->notify($request, 'refunded', ['amount' => $shown]);
     }
 
     /** Once delivered and fully paid the request is complete and the customer gets the handover. */
@@ -415,10 +466,50 @@ class AiSiteServiceRequestService
     /** @param  array<string, scalar|null>  $vars */
     protected function system(AiSiteServiceRequest $request, string $key, array $vars = []): void
     {
-        $request->messages()->create([
+        $message = $request->messages()->create([
             'sender' => AiSiteRequestMessage::FROM_SYSTEM,
             'body' => __('ai.site_req_sys_'.$key, $vars + ['status' => '', 'note' => '', 'title' => '', 'amount' => '', 'date' => '']),
         ]);
+
+        $this->broadcastChange($request, $message);
+    }
+
+    /**
+     * Tells the customer's app and the admins' dashboards that this request changed (one event per request per commit,
+     * however many system lines the action wrote), so an open conversation reloads once instead of polling.
+     */
+    protected function broadcastChange(AiSiteServiceRequest $request, AiSiteRequestMessage $message): void
+    {
+        $id = (int) $request->id;
+        $first = ! array_key_exists($id, $this->pendingBroadcasts);
+        $this->pendingBroadcasts[$id] = [(int) $message->id, (string) $message->sender];
+
+        if (! $first) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($request, $id) {
+            [$messageId, $sender] = $this->pendingBroadcasts[$id] ?? [null, null];
+            unset($this->pendingBroadcasts[$id]);
+
+            try {
+                $channels = $this->center->adminsWith('ai-site-requests.view')
+                    ->map(fn ($admin) => $admin->receivesBroadcastNotificationsOn())->values()->all();
+                $owner = $request->owner;
+
+                // The owner's own private channel, named after its class like the apps subscribe to it
+                // (Modules.User.Models.User.{id}, Modules.Provider.Models.Provider.{id}).
+                if ($owner !== null) {
+                    $channels[] = str_replace('\\', '.', $owner::class).'.'.$owner->getKey();
+                }
+
+                if ($channels !== []) {
+                    event(new AiSiteRequestChanged(array_values(array_unique($channels)), $id, $messageId, $sender));
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
     }
 
     /** @param  array<string, scalar|null>  $vars */
@@ -520,7 +611,7 @@ class AiSiteServiceRequestService
                 'accepted_at' => $request->accepted_at?->toIso8601String(),
                 'started_at' => $request->started_at?->toIso8601String(),
                 'due_at' => $request->due_at?->toIso8601String(),
-                'remaining_seconds' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED ? max(0, now()->diffInSeconds($request->due_at, false)) : null,
+                'remaining_seconds' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED ? max(0, (int) now()->diffInSeconds($request->due_at, false)) : null,
                 'overdue' => $request->due_at && ! $request->isFinal() && $request->status !== Status::DELIVERED && $request->due_at->isPast(),
                 'delivered_at' => $request->delivered_at?->toIso8601String(),
                 'completed_at' => $request->completed_at?->toIso8601String(),

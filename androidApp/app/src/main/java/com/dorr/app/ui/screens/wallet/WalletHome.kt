@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Info
@@ -60,6 +61,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,7 +140,40 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
     }
 
     // Reloads on reconnect and when I switch to another of my wallets.
-    LaunchedEffect(collectReconnectTick(), com.dorr.app.network.WalletCountry.selected) { load() }
+    LaunchedEffect(collectReconnectTick(), com.dorr.app.network.WalletCountry.selected, WalletCountry.international) { load() }
+
+    // My wallets as swipeable cards: the ones of my countries (where I am first) and the dollar wallet last. A swipe that settles
+    // on another card makes it the wallet every wallet screen works on (its balance, number, history, top-up).
+    val context = LocalContext.current
+    val here = WalletCountry.here?.uppercase()
+    val activeKey = if (WalletCountry.international) "INT" else (WalletCountry.selected?.uppercase() ?: here ?: host.balance?.countryCode?.uppercase())
+    val keys = (host.localCodes.ifEmpty { listOfNotNull(here ?: activeKey?.takeIf { it != "INT" }) } + (if (host.intlWallet) listOf("INT") else emptyList())).distinct()
+    val keysNow by rememberUpdatedState(keys)
+    val activeNow by rememberUpdatedState(activeKey)
+    val pager = rememberPagerState(initialPage = keys.indexOf(activeKey).coerceAtLeast(0)) { keysNow.size }
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(activeKey, keys) {
+        val i = keys.indexOf(activeKey)
+        if (i >= 0 && i != pager.currentPage) pager.animateScrollToPage(i)
+    }
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect { page ->
+            val key = keysNow.getOrNull(page) ?: return@collect
+            // Before my wallet is known the list is only the dollar card (page 0): that is not a swipe to it. Taking it for one opened
+            // the wallet on the dollar side instead of the local one.
+            if (activeNow == null) return@collect
+            if (key == activeNow) return@collect
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            if (key == "INT") {
+                WalletCountry.international = true
+            } else {
+                WalletCountry.international = false
+                WalletCountry.select(context, key)
+            }
+            host.balance = host.balances[key]
+            recent = null
+        }
+    }
     LaunchedEffect(loading) {
         if (loading) {
             while (true) { spin.snapTo(0f); spin.animateTo(360f, tween(800, easing = LinearEasing)) }
@@ -151,14 +191,29 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
     ) {
         val balance = host.balance
 
-        Box(Modifier.waRise(0)) {
-            if (balance != null) {
-                WaHeroCard(balance, host)
-            } else {
+        Column(Modifier.waRise(0)) {
+            if (keys.isEmpty()) {
                 WaSkeleton(Modifier.fillMaxWidth().height(172.dp), RoundedCornerShape(24.dp))
+            } else {
+                HorizontalPager(pager, Modifier.fillMaxWidth(), pageSpacing = 12.dp, verticalAlignment = Alignment.Top) { page ->
+                    val key = keys[page]
+                    val shown = if (key == activeKey) balance ?: host.balances[key] else host.balances[key]
+                    Box(Modifier.padding(bottom = 12.dp)) {
+                        if (shown != null) WaHeroCard(shown, host, key)
+                        else WaSkeleton(Modifier.fillMaxWidth().height(172.dp), RoundedCornerShape(24.dp))
+                    }
+                }
+                if (keys.size > 1) {
+                    WalletDots(keys.size, pager.currentPage) { i -> scope.launch { pager.animateScrollToPage(i) } }
+                }
             }
         }
-        if (balance != null) {
+        // The freelance international wallet (dollars): no country to be away from, no rewards, no transfers.
+        val international = WalletCountry.international
+        if (international) {
+            WaNote(stringResource(R.string.wa_intl_note), icon = Icons.Rounded.Public, modifier = Modifier.padding(top = 8.dp))
+        }
+        if (balance != null && !international) {
             val current = balance.countryCode?.uppercase()
             val here = WalletCountry.here?.uppercase()
             if (current != null && here != null && current != here) {
@@ -166,42 +221,20 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
             }
         }
 
+        // Watch & Earn (D17): a card under the balance, with my rewards balance.
+        if (balance != null && !international) {
+            com.dorr.app.ui.screens.watchearn.WatchEarnWalletCard(balance.rewardMinor, balance.currencyCode, Modifier.padding(top = 10.dp).waRise(1))
+        }
+
         Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 0.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HomeAction(stringResource(R.string.wa_action_topup), 1, Modifier.weight(1f), { host.push(WaRoute.Topup) }) {
                 Icon(painterResource(R.drawable.ic_ms_add_card), null, tint = Wa.Red, modifier = Modifier.size(22.dp))
             }
-            HomeAction(Icons.Rounded.NorthEast, stringResource(R.string.wa_action_transfer), 2, Modifier.weight(1f)) { host.push(WaRoute.Transfer) }
+            if (!international) HomeAction(Icons.Rounded.NorthEast, stringResource(R.string.wa_action_transfer), 2, Modifier.weight(1f)) { host.push(WaRoute.Transfer) }
             HomeAction(stringResource(R.string.wa_action_history), 3, Modifier.weight(1f), { host.push(WaRoute.History) }) {
                 Icon(painterResource(R.drawable.ic_ms_credit_card_clock), null, tint = Wa.Red, modifier = Modifier.size(22.dp))
             }
             HomeAction(Icons.Rounded.Settings, stringResource(R.string.wa_action_pin), 4, Modifier.weight(1f)) { host.push(WaRoute.PinSettings) }
-        }
-
-        balance?.otherWallets?.takeIf { it.isNotEmpty() }?.let { others ->
-            WaCard(Modifier.fillMaxWidth().padding(top = 8.dp).waRise(4), padding = 16.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Public, null, tint = Wa.Ink, modifier = Modifier.size(16.dp))
-                    Text(stringResource(R.string.wa_other_wallets), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
-                }
-                val context = LocalContext.current
-                others.forEach { other ->
-                    // A tap switches to that wallet: its number, QR and transfers (to its own country).
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(Wa.Field)
-                            .clickable { com.dorr.app.network.WalletCountry.select(context, other.countryCode) }.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        WalletFlag(other.countryCode)
-                        Spacer(Modifier.width(10.dp))
-                        Text(countryName(other.countryCode), color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                            Text(money(other.totalMinor) + " " + other.currencyCode.orEmpty(), color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                        }
-                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Wa.Soft, modifier = Modifier.size(18.dp))
-                    }
-                }
-                Text(stringResource(R.string.wa_other_wallets_note), color = Wa.Mut, fontSize = 11.5.sp, lineHeight = 20.sp)
-            }
         }
 
         WaSectionTitle(stringResource(R.string.wa_recent), Modifier.waRise(5), topPadding = 12.dp) {
@@ -262,9 +295,31 @@ private fun HomeAction(label: String, index: Int, modifier: Modifier, onClick: (
     }
 }
 
+/** The dollar wallet's own look (teal, next to the navy of the country wallets), so a swipe is seen as a different wallet. */
+private val IntlTint = Color(0xFF0F766E)
+private val IntlHeroBrush = Brush.linearGradient(listOf(Color(0xFF0F8F82), Color(0xFF0F766E), Color(0xFF134E4A)))
+
+/** One dot per wallet; the current one stretches into a pill. A tap on a dot jumps to that wallet. */
+@Composable
+private fun WalletDots(count: Int, current: Int, onSelect: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        repeat(count) { i ->
+            val selected = i == current
+            val width by androidx.compose.animation.core.animateDpAsState(if (selected) 22.dp else 7.dp, tween(260), label = "dotW")
+            val color by androidx.compose.animation.animateColorAsState(if (selected) Wa.Red else Wa.Soft.copy(alpha = 0.45f), tween(260), label = "dotC")
+            Box(
+                Modifier.padding(horizontal = 3.dp, vertical = 6.dp)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(i) }
+                    .padding(2.dp),
+            ) { Box(Modifier.height(7.dp).width(width).clip(CircleShape).background(color)) }
+        }
+    }
+}
+
 /** The balance card — same order as the reference: number + actions, total chip, amount, then the two parts. */
 @Composable
-private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
+private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost, key: String) {
+    val international = key == "INT"
     val context = LocalContext.current
     val currencyCode = balance.currencyCode.orEmpty()
     val hidden = host.hideBalance
@@ -281,24 +336,42 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
     }
 
     val inspecting = LocalInspectionMode.current
-    val shown = remember { Animatable(if (inspecting) balance.totalMinor.toFloat() else host.shownTotal.toFloat()) }
+    val shown = remember { Animatable(if (inspecting) balance.totalMinor.toFloat() else (host.shownTotals[key] ?: balance.totalMinor).toFloat()) }
     LaunchedEffect(balance.totalMinor) {
         shown.animateTo(balance.totalMinor.toFloat(), tween(900))
-        host.shownTotal = balance.totalMinor
+        host.shownTotals[key] = balance.totalMinor
     }
-
+    val tint = if (international) IntlTint else Wa.Red
     val shape = RoundedCornerShape(24.dp)
     val barShape = RoundedCornerShape(18.dp)
     Box(
         Modifier
             .fillMaxWidth()
-            .shadow(14.dp, shape, ambientColor = Wa.Red.copy(alpha = 0.22f), spotColor = Wa.Red.copy(alpha = 0.32f))
+            .shadow(10.dp, shape, ambientColor = tint.copy(alpha = 0.22f), spotColor = tint.copy(alpha = 0.32f))
             .clip(shape)
-            .background(Wa.HeroBrush),
+            .background(if (international) IntlHeroBrush else Wa.HeroBrush),
     ) {
         Box(Modifier.size(150.dp).offset(x = (-30).dp, y = 50.dp).align(Alignment.BottomStart).background(Color(0x10FFFFFF), CircleShape))
 
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            // Which wallet this card is: its country (or the world, for the dollar wallet) and its currency.
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (international) {
+                    Box(Modifier.size(24.dp).background(Color.White.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) { WalletFlag("INT") }
+                } else {
+                    WalletFlag(balance.countryCode, Modifier.size(width = 24.dp, height = 17.dp))
+                }
+                Text(
+                    if (international) stringResource(R.string.wa_intl_wallet_title) else stringResource(R.string.wa_wallet_of, countryName(balance.countryCode)),
+                    color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                )
+                if (currencyCode.isNotBlank()) {
+                    Text(
+                        currencyCode, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 9.dp, vertical = 3.dp),
+                    )
+                }
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -310,7 +383,6 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        WalletFlag(balance.countryCode, Modifier.size(width = 16.dp, height = 11.dp))
                     }
                     if (number.isNotBlank()) {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -334,12 +406,15 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                             copied = true
                             host.showToast(copiedText)
                         }
-                        HeroCircle(Icons.Outlined.QrCode2) { host.push(WaRoute.MyQr) }
-                        HeroCircle(Icons.Rounded.Share) {
-                            val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
-                            context.startActivity(Intent.createChooser(send, null))
+                        // The international wallet receives nothing from others and has no country to switch: copy only.
+                        if (!international) {
+                            HeroCircle(Icons.Outlined.QrCode2) { host.push(WaRoute.MyQr) }
+                            HeroCircle(Icons.Rounded.Share) {
+                                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
+                                context.startActivity(Intent.createChooser(send, null))
+                            }
+                            HeroCircle(Icons.Rounded.SwapHoriz) { pickWallet = true }
                         }
-                        HeroCircle(Icons.Rounded.SwapHoriz) { pickWallet = true }
                     }
                 }
             }
@@ -388,6 +463,7 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                     stringResource(R.string.wa_withdrawable),
                     if (hidden) "****" else "${money(balance.withdrawableMinor)} $currencyCode",
                     Modifier.weight(1f),
+                    dot = com.dorr.app.ui.screens.watchearn.We.Withdrawable,
                 ) { host.openSheet(WaSheet.Explain) }
                 Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
                 HeroPart(
@@ -395,7 +471,19 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
                     stringResource(R.string.wa_spend_only),
                     if (hidden) "****" else "${money(balance.spendOnlyMinor)} $currencyCode",
                     Modifier.weight(1f),
+                    dot = com.dorr.app.ui.screens.watchearn.We.SpendOnly,
                 ) { host.openSheet(WaSheet.Explain) }
+                // Watch & Earn rewards: spent anywhere in the app, never withdrawn (same colour on every page). None in the dollar wallet.
+                if (!international) {
+                    Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
+                    HeroPart(
+                        Icons.Rounded.EmojiEvents,
+                        stringResource(R.string.we_reward_balance),
+                        if (hidden) "****" else "${money(balance.rewardMinor)} $currencyCode",
+                        Modifier.weight(1f),
+                        dot = com.dorr.app.ui.screens.watchearn.We.Reward,
+                    ) { com.dorr.app.ui.screens.watchearn.WatchEarnLink.show(com.dorr.app.ui.screens.watchearn.WeRoute.Rewards) }
+                }
             }
             if (balance.heldMinor > 0) {
                 Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -427,7 +515,7 @@ private fun HeroCircle(icon: ImageVector, onClick: () -> Unit) {
 
 /** One half of the glass bar: icon + label, amount under it. */
 @Composable
-private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
+private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier, dot: Color? = null, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.96f)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -440,7 +528,12 @@ private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            // The bucket's colour, the same on every page (wallet, ad wallet, Watch & Earn).
+            if (dot != null) {
+                Spacer(Modifier.width(5.dp))
+                Box(Modifier.size(7.dp).clip(CircleShape).background(dot).border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape))
+            }
         }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Text(

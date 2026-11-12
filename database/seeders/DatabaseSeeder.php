@@ -24,8 +24,11 @@ use Modules\AI\Database\Seeders\AIDatabaseSeeder;
 use Modules\Chat\Database\Seeders\ChatDatabaseSeeder;
 use Modules\Discover\Database\Seeders\DiscoverSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceDocumentTypeSeeder;
+use Modules\Freelance\Database\Seeders\FreelancePlansSeeder;
+use Modules\Freelance\Database\Seeders\FreelanceLegalPageSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSettingsSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSkillSeeder;
+use Modules\Freelance\Database\Seeders\FreelanceSupportHelpSeeder;
 use Modules\Freelance\Database\Seeders\FreelanceSpecialtySeeder;
 use Modules\Driver\Database\Seeders\DriverDatabaseSeeder;
 use Modules\Rides\Database\Seeders\RidesDatabaseSeeder;
@@ -56,6 +59,8 @@ class DatabaseSeeder extends Seeder
             FreelanceSkillSeeder::class,
             FreelanceDocumentTypeSeeder::class,
             FreelanceSettingsSeeder::class,
+            FreelancePlansSeeder::class,
+            FreelanceSupportHelpSeeder::class,
             SportsSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
@@ -63,6 +68,8 @@ class DatabaseSeeder extends Seeder
             MobileAppFontSeeder::class,
             DashboardThemeSeeder::class,
             ServiceCategoriesSeeder::class,
+            // Needs the freelance service category above.
+            FreelanceLegalPageSeeder::class,
             // After the countries, the Discover cities and the service categories they point at.
             DriverDatabaseSeeder::class,
             RidesDatabaseSeeder::class,

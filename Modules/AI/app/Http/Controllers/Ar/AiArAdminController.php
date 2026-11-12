@@ -10,6 +10,7 @@ use Modules\AI\Models\Ar\AiArAsset;
 use Modules\AI\Models\Ar\AiArDeviceProfile;
 use Modules\AI\Models\Ar\AiArSetting;
 use Modules\AI\Services\Ar\AiArAssetService;
+use Modules\AI\Support\CurrencyDecimals;
 
 /** Ops console API for the AR engine: settings, the model library with licences and versions, and the tested-device list. */
 class AiArAdminController extends Controller
@@ -110,7 +111,11 @@ class AiArAdminController extends Controller
     {
         $rows = \Modules\AI\Models\Ar\AiArOrder::query()->with('experience:id,title')->when($request->query('status'), fn ($q, $st) => $q->where('status', $st))->latest('id')->limit(200)->get();
 
-        return ApiResponse::success($rows->map(fn ($o) => AiArOrderController::presentOrder($o) + ['title' => $o->experience?->title, 'provider_id' => $o->provider_id, 'customer_id' => $o->customer_id])->all());
+        // currency_decimals: the *_minor amounts are divided by each currency's own places (KWD has 3), not a fixed 100.
+        return ApiResponse::success(
+            $rows->map(fn ($o) => AiArOrderController::presentOrder($o) + ['title' => $o->experience?->title, 'provider_id' => $o->provider_id, 'customer_id' => $o->customer_id])->all(),
+            meta: ['currency_decimals' => CurrencyDecimals::for($rows->pluck('currency'))],
+        );
     }
 
     public function resolveOrder(Request $request, int $id, \Modules\AI\Services\Ar\AiArOrderService $orders)
@@ -129,12 +134,13 @@ class AiArAdminController extends Controller
     public function storeDevice(Request $request)
     {
         $data = $request->validate([
-            'platform' => ['nullable', 'string', 'max:10'], 'manufacturer' => ['required', 'string', 'max:60'], 'model_pattern' => ['required', 'string', 'max:120'],
+            'platform' => ['nullable', 'in:android,ios'], 'manufacturer' => ['required', 'string', 'max:60'], 'model_pattern' => ['required', 'string', 'max:120'],
             'arcore_supported' => ['required', 'boolean'], 'depth_supported' => ['nullable', 'boolean'], 'tier' => ['required', 'in:full,basic,fallback_only'],
             'notes' => ['nullable', 'string', 'max:255'], 'verified_at' => ['nullable', 'date'],
         ]);
 
-        return ApiResponse::success(AiArDeviceProfile::query()->create($data), 'OK', 201);
+        // The screen picks Android or iOS; an old caller that sends nothing keeps the column default (android).
+        return ApiResponse::success(AiArDeviceProfile::query()->create(array_filter($data, fn ($v) => $v !== null)), 'OK', 201);
     }
 
     public function destroyDevice(int $id)

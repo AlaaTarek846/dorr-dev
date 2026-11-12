@@ -1,3 +1,4 @@
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../api/adminAxios';
 import crudStructure from './crudStructure';
@@ -20,8 +21,11 @@ export function useUsers() {
     const usersStore = useUsersStore();
     const { t } = useI18n();
     const { showSuccess, showError } = useToast();
+    // Account verification (AV-029): '' everyone, '1' only verified, '0' only the others.
+    const verifiedFilter = ref('');
 
     const crud = crudStructure({
+        getExtraListParams: () => (verifiedFilter.value !== '' ? { verified: verifiedFilter.value } : {}),
         confirmDeleteKey: 'users.confirm_delete',
         searchDefaults: {
             searchInTranslations: false,
@@ -53,6 +57,11 @@ export function useUsers() {
         crud.filterColumns.value = value === 'all' ? [] : userStatusFilterParams(value).filterColumns;
         crud.getData(1);
     };
+
+    function setVerifiedFilter(value) {
+        verifiedFilter.value = value;
+        crud.getData(1);
+    }
 
     async function changeUserStatus(user, status) {
         if (! user?.id || user.status === status) {
@@ -88,6 +97,8 @@ export function useUsers() {
         currentPage: crud.pagePaginate,
         search: crud.searchText,
         statusFilter: crud.statusFilter,
+        verifiedFilter,
+        setVerifiedFilter,
         fetchUsers: crud.getData,
         setStatusFilter: crud.setStatusFilter,
         deleteUser: (id) => crud.deleteData(id, true),

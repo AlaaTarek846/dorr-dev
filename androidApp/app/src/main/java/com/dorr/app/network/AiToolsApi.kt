@@ -55,7 +55,12 @@ interface AiToolsApi {
     suspend fun today(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<TodayDto>
 
     @GET("mobile/v1/chat/tasks")
-    suspend fun tasks(@Header("Authorization") auth: String, @Query("status") status: String? = null): ApiEnvelope<List<TaskDto>>
+    suspend fun tasks(
+        @Header("Authorization") auth: String,
+        @Query("status") status: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("per_page") perPage: Int? = null,
+    ): ApiEnvelope<List<TaskDto>>
 
     /** `{tasks: [{text, due_at?}], message_id?}` */
     @POST("mobile/v1/chat/tasks")
@@ -206,7 +211,12 @@ data class AiMessageRefDto(
     val text: String? = null,
 )
 
-data class ImportantDto(val items: List<AiMessageRefDto> = emptyList(), val messages: Int = 0, val chats: Int = 0)
+data class ImportantDto(
+    val items: List<AiMessageRefDto> = emptyList(),
+    val messages: Int = 0,
+    val chats: Int = 0,
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class TodayDto(val summary: List<String> = emptyList(), val highlights: List<AiMessageRefDto> = emptyList(), val messages: Int = 0, val chats: Int = 0)
 

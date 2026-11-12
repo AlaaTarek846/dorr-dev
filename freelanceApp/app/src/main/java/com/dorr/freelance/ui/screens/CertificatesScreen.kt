@@ -1,5 +1,9 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.School
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -14,7 +18,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import com.dorr.freelance.ui.kit.AlertDialog
+import com.dorr.freelance.ui.kit.DialogButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -222,13 +227,14 @@ private fun CertificateForm(initial: CertificateDto, onBack: () -> Unit, onChang
     }
 
     Page(title = stringResource(if (initial.id == 0) R.string.certificates_add else R.string.common_edit), onBack = onBack) {
-        Card {
-            DorrTextField(title, { title = it }, label = stringResource(R.string.certificate_title), modifier = Modifier.fillMaxWidth())
-            DorrTextField(issuer, { issuer = it }, label = stringResource(R.string.certificate_issuer), modifier = Modifier.fillMaxWidth())
+        com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.School, stringResource(R.string.certificate_intro_title), stringResource(R.string.certificate_intro))
+        com.dorr.freelance.ui.components.FormGroup {
+            DorrTextField(title, { title = it }, label = stringResource(R.string.certificate_title), icon = Icons.Rounded.School, modifier = Modifier.fillMaxWidth())
+            DorrTextField(issuer, { issuer = it }, label = stringResource(R.string.certificate_issuer), icon = Icons.Rounded.Business, modifier = Modifier.fillMaxWidth())
             DateField(issued, { issued = it }, label = stringResource(R.string.certificate_issued), modifier = Modifier.fillMaxWidth())
             DateField(expires, { expires = it }, label = stringResource(R.string.certificate_expires), modifier = Modifier.fillMaxWidth())
             DorrTextField(
-                url, { url = it }, label = stringResource(R.string.certificate_url), placeholder = "https://",
+                url, { url = it }, label = stringResource(R.string.certificate_url), icon = Icons.Rounded.Link, placeholder = "https://",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
             )
@@ -259,8 +265,8 @@ private fun CertificateForm(initial: CertificateDto, onBack: () -> Unit, onChang
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             text = { Text(stringResource(R.string.common_delete_confirm)) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete), color = settingsAccent()) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel), color = settingsMut()) } },
+            confirmButton = { DialogButton(onClick = { confirmDelete = false; delete() }) { Text(stringResource(R.string.common_delete)) } },
+            dismissButton = { DialogButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 }

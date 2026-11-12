@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FL-L05: الاشتراكات الشهرية -->
+    <string name="mks_monthly">شهري</string>
+    <string name="mks_from_month">يبدأ من %1$s / شهر</string>
+    <string name="mks_per_month">في الشهر</string>
+    <string name="mks_subscribe">اشترك شهرياً</string>
+    <string name="mks_confirm_title">اشترك في الخدمة دي</string>
+    <string name="mks_confirm_body">ده أول شهر. المحترف قدامه %1$d ساعة يوافق، ومفيش فلوس بتتدفع قبلها. بعد كده إنت اللي بتأكّد كل شهر بنفسك.</string>
+    <string name="mks_terms_title">الاشتراك الشهري ماشي إزاي</string>
+    <string name="mks_term_month">كل شهر بيتسلّم لوحده في %1$d يوم أو أقل.</string>
+    <string name="mks_term_confirm">مفيش تجديد لوحده: قبل نهاية الشهر بـ%1$d أيام بتأكّد الشهر الجاي، وساعتها بيتدفع من محفظتك.</string>
+    <string name="mks_term_notice">عشان توقفه، اطلب قبل نهاية الشهر بـ%1$d أيام أو أكتر وهيخلص مع الشهر ده؛ غير كده هيخلص مع الشهر اللي بعده.</string>
+    <string name="mks_term_price">السعر بيفضل زي النهارده طول ما إنت مشترك.</string>
+    <string name="mks_tab">شهرية</string>
+    <string name="mks_month_n">الشهر %1$d</string>
+    <string name="mks_price_month">%1$s / شهر</string>
+    <string name="mks_status_active">شغّال</string>
+    <string name="mks_status_pending">مستني المحترف</string>
+    <string name="mks_status_ended">خلص</string>
+    <string name="mks_month_ends">الشهر الحالي بيخلص %1$s</string>
+    <string name="mks_renew_due">أكّد الشهر الجاي — قبل %1$s، وإلا الاشتراك هيخلص</string>
+    <string name="mks_pending_hint">أول شهر بيبدأ أول ما المحترف يوافق.</string>
+    <string name="mks_ending_me">إنت طالب توقفه — هيخلص %1$s</string>
+    <string name="mks_ending_freelancer">المحترف طالب يوقفه — هيخلص %1$s</string>
+    <string name="mks_end_me">إنت وقّفته</string>
+    <string name="mks_end_freelancer">المحترف وقّفه</string>
+    <string name="mks_end_not_renewed">الشهر الجاي ماتأكدش</string>
+    <string name="mks_end_first">أول شهر ما بدأش</string>
+    <string name="mks_renew_cta">أكّد الشهر الجاي</string>
+    <string name="mks_renew_title">أكّد الشهر الجاي</string>
+    <string name="mks_renew_body">الشهر الجاي هيبدأ دلوقتي بنفس الشروط، وفلوسه هتتحجز من محفظتك لحد ما توافق على التسليم.</string>
+    <string name="mks_renew_safe">الفلوس بتفضل محجوزة في دُرر — المحترف مش بياخدها غير لما توافق.</string>
+    <string name="mks_renew_done">اتأكد الشهر الجاي</string>
+    <string name="mks_cancel">وقّف الاشتراك</string>
+    <string name="mks_keep">كمّل الاشتراك</string>
+    <string name="mks_cancel_title">توقف الاشتراك ده؟</string>
+    <string name="mks_cancel_body">الإيقاف محتاج إشعار: لو طلبته قبل نهاية الشهر الحالي بـ%1$d أيام أو أكتر هيخلص مع الشهر ده؛ غير كده هيخلص مع الشهر اللي بعده (وبتأكّده برضه). تقدر ترجع فيه لحد ساعتها.</string>
+    <string name="mks_cancel_done">المحترف هيعرف هيخلص إمتى</string>
+    <string name="mks_keep_done">الاشتراك مكمّل</string>
+    <string name="mks_empty_title">مفيش اشتراكات شهرية</string>
+    <string name="mks_empty_body">الخدمات اللي عليها «شهري» تقدر تشترك فيها — والشغل بييجي كل شهر.</string>
+</resources>

@@ -252,7 +252,7 @@ class FreelancerProfileListsTest extends TestCase
 
         $created = $this->postJson('/api/freelance/v1/profile/certificates', [
             'title' => 'AWS Developer', 'issuer' => 'Amazon', 'issued_on' => '2023-03-01', 'expires_on' => '2026-03-01', 'credential_url' => 'https://example.com/verify/123',
-            'proof' => UploadedFile::fake()->create('aws.pdf', 300, 'application/pdf'),
+            'proof' => UploadedFile::fake()->createWithContent('aws.pdf', "%PDF-1.4\n%%EOF"),
         ])->assertCreated()->assertJsonPath('data.proof.name', 'proof.pdf')->assertJsonMissingPath('data.proof.url')->json('data');
 
         // It is on the private disk, not the public one, and no public URL is given out.
@@ -278,7 +278,7 @@ class FreelancerProfileListsTest extends TestCase
         $id = $this->postJson('/api/freelance/v1/profile/certificates', ['title' => 'Cert', 'issuer' => 'Body', 'proof' => UploadedFile::fake()->image('a.png')])->assertCreated()->json('data.id');
 
         $this->postJson("/api/freelance/v1/profile/certificates/{$id}", ['title' => 'Cert 2'])->assertOk()->assertJsonPath('data.title', 'Cert 2')->assertJsonPath('data.issuer', 'Body')->assertJsonPath('data.proof.name', 'proof.png');
-        $this->postJson("/api/freelance/v1/profile/certificates/{$id}", ['proof' => UploadedFile::fake()->create('b.pdf', 50, 'application/pdf')])->assertOk()->assertJsonPath('data.proof.name', 'proof.pdf');
+        $this->postJson("/api/freelance/v1/profile/certificates/{$id}", ['proof' => UploadedFile::fake()->createWithContent('b.pdf', "%PDF-1.4\n%%EOF")])->assertOk()->assertJsonPath('data.proof.name', 'proof.pdf');
         $this->assertSame(1, FreelancerCertificate::query()->find($id)->media()->count(), 'replacing keeps one file');
         $this->postJson("/api/freelance/v1/profile/certificates/{$id}", ['remove_proof' => 1])->assertOk()->assertJsonPath('data.proof', null);
 

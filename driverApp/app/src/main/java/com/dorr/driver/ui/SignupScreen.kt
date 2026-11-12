@@ -355,7 +355,9 @@ private fun DetailsStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
         runCatching { LocalDate.parse(dob!!.take(10)).isAfter(latestBirth) }.getOrDefault(false) -> R.string.ob_err_adult
         else -> null
     }
-    val valid = listOfNotNull(nameLocal, emailLocal, idLocal, dobLocal).isEmpty()
+    // O-74: For Her goes to women captains — the gender must be chosen.
+    val genderLocal = if (!locked && gender.isNullOrBlank()) R.string.ob_err_required else null
+    val valid = listOfNotNull(nameLocal, emailLocal, idLocal, dobLocal, genderLocal).isEmpty()
 
     fun save() {
         tried = true
@@ -408,6 +410,7 @@ private fun DetailsStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
                 options = options.genders.ifEmpty { listOf("male", "female") }.map { it to genderLabel(context, it) },
                 selected = gender.orEmpty(), onSelect = { if (!locked) gender = it },
             )
+            FieldHint(problem(tried, genderLocal, server, "gender"))
         }
 
         Column(Modifier.staggerIn(3).alpha(if (locked) 0.6f else 1f)) {
@@ -981,6 +984,7 @@ private fun missingLabel(context: Context, s: OnboardingDto, code: String): Stri
     code == "name" -> context.getString(R.string.ob_name)
     code == "national_id" -> context.getString(R.string.ob_national_id)
     code == "date_of_birth" -> context.getString(R.string.ob_dob)
+    code == "gender" -> context.getString(R.string.ob_gender)
     code == "vehicle" -> context.getString(R.string.ob_vehicle)
     code.startsWith("document:") -> code.removePrefix("document:").let { c -> s.requiredDocuments.firstOrNull { it.type.code == c }?.type?.name ?: c }
     else -> code

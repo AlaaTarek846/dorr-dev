@@ -12,9 +12,9 @@ use Modules\Freelance\Models\FreelanceSpecialty;
 use Modules\Freelance\Models\Freelancer;
 
 /**
- * Projects as the freelancer sees them (FL-206 / FL-207): the published, public projects of their own country — nothing else,
- * not even by guessing a uuid. A private project, a project of another country and a project that is not published are
- * simply not found. The client's name and phone are never shown, and the files only after an offer is accepted (later).
+ * Projects as the freelancer sees them (FL-206 / FL-207): the published, public projects of every country where the service and
+ * projects are open (open across countries, owner 2026-11-04) — nothing else, not even by guessing a uuid. A private project, a
+ * project of a closed country and a project that is not published are simply not found. The client's name and phone are never shown, and the files only after an offer is accepted (later).
  */
 class FreelancerProjects
 {
@@ -24,7 +24,7 @@ class FreelancerProjects
         return Project::query()
             ->where('status', Status::Published->value)
             ->where('visibility', 'public')
-            ->where('country_id', $freelancer->country_id);
+            ->whereIn('country_id', app(\Modules\Freelance\Services\Features\FreelanceFeatures::class)->openCountries('projects'));
     }
 
     /**
@@ -76,7 +76,12 @@ class FreelancerProjects
     {
         $project = $this->visible($freelancer)->where('uuid', $uuid)->with(['specialty.translations', 'skills.translations'])->withCount('media')->first();
 
-        return $project ?? Project::query()->where('uuid', $uuid)->whereIn('status', [Status::Awarded->value, Status::Closed->value])
+        // FL-205: a private project they are invited to (and the invitation is still alive).
+        $project ??= Project::query()->where('uuid', $uuid)->where('status', Status::Published->value)->where('visibility', 'private')
+            ->whereHas('invitations', fn ($q) => $q->where('freelancer_id', $freelancer->id)->whereIn('status', \Modules\Freelance\Models\FreelanceProjectInvitation::LIVE))
+            ->with(['specialty.translations', 'skills.translations'])->withCount('media')->first();
+
+        return $project ?? Project::query()->where('uuid', $uuid)->whereIn('status', [Status::Awarded->value, Status::InProgress->value, Status::Closed->value, Status::Published->value, Status::Cancelled->value])
             ->whereHas('offers', fn ($q) => $q->where('freelancer_id', $freelancer->id))
             ->with(['specialty.translations', 'skills.translations'])->withCount('media')->firstOrFail();
     }
@@ -112,6 +117,8 @@ class FreelancerProjects
     {
         $out = [
             'uuid' => $project->uuid,
+            // Where it comes from (open across countries): {code, name}.
+            'country' => \Modules\Freelance\Services\Features\FreelanceCountry::card((int) $project->country_id),
             'title' => $project->title,
             'specialty' => $project->specialty === null ? null : ['id' => $project->specialty->id, 'name' => $project->specialty->translatedName()],
             'skills' => $project->skills->map(fn (FreelanceSkill $s) => ['id' => $s->id, 'name' => $s->translatedName()])->values()->all(),
@@ -131,7 +138,7 @@ class FreelancerProjects
 
         // The list shows a short text; the page shows all of it. Never the client, never the files themselves.
         return $out + ($detail
-            ? ['description' => $project->description, 'attachments_count' => (int) $project->media_count]
+            ? ['description' => $project->description, 'questions' => array_values((array) $project->questions), 'attachments_count' => (int) $project->media_count]
             : ['summary' => mb_strimwidth((string) $project->description, 0, 160, '…')]);
     }
 

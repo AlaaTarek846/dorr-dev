@@ -26,7 +26,7 @@
                             {{ t('ai_benchmark_runs.manage_cases') }}
                         </router-link>
 
-                        <div class="d-flex align-items-center gap-2">
+                        <div v-if="canCreate" class="d-flex align-items-center gap-2">
                             <select v-model="triggerDomain" class="form-select form-select-sm" style="width: auto;">
                                 <option value="">{{ t('ai_benchmark_runs.all_domains') }}</option>
                                 <option value="legal">legal</option>
@@ -179,6 +179,7 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 
 const { t, locale } = useI18n();
 
@@ -187,6 +188,7 @@ function truncate(value, max) {
     return value.length > max ? value.slice(0, max) + '\u2026' : value;
 }
 const { showSuccess, showError } = useToast();
+const { canCreate } = useCatalogPermissions('ai-benchmark-runs');
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 const runs = ref([]);

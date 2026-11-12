@@ -148,7 +148,7 @@ class SupportHelpNodeController extends Controller implements HasMiddleware
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
             'status' => ['sometimes', 'boolean'],
             // D-286: for the riders, the captains, or both.
-            'audience' => ['sometimes', 'in:all,user,driver'],
+            'audience' => ['sometimes', 'in:all,user,driver,freelancer'],
         ]);
 
         // A topic goes under a new parent only if that parent is not the topic itself or one of its own

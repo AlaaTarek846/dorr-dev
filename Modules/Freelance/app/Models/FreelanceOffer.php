@@ -23,8 +23,8 @@ class FreelanceOffer extends Model implements HasMedia
     public const DISK = 'local';
 
     protected $fillable = [
-        'uuid', 'project_id', 'freelancer_id', 'price_minor', 'currency_code', 'duration_days', 'details', 'status', 'status_reason',
-        'commission_minor', 'net_minor', 'fees', 'free', 'viewed_at', 'accepted_at', 'withdrawn_at',
+        'uuid', 'project_id', 'freelancer_id', 'team_id', 'submitted_by_freelancer_id', 'price_minor', 'list_price_minor', 'loyalty_bp', 'currency_code', 'duration_days', 'details', 'answers', 'rights', 'status',
+        'status_reason', 'commission_minor', 'net_minor', 'fees', 'free', 'credit_id', 'viewed_at', 'accepted_at', 'withdrawn_at',
     ];
 
     protected static function booted(): void
@@ -37,10 +37,15 @@ class FreelanceOffer extends Model implements HasMedia
         return [
             'status' => FreelanceOfferStatus::class,
             'price_minor' => 'integer',
+            'list_price_minor' => 'integer',
+            'loyalty_bp' => 'integer',
             'duration_days' => 'integer',
             'commission_minor' => 'integer',
             'net_minor' => 'integer',
             'fees' => 'array',
+            'answers' => 'array',
+            // FL-L13: who owns the work once it is paid and what the client may do with it.
+            'rights' => 'array',
             'free' => 'boolean',
             'viewed_at' => 'datetime',
             'accepted_at' => 'datetime',
@@ -56,6 +61,24 @@ class FreelanceOffer extends Model implements HasMedia
     public function project(): BelongsTo
     {
         return $this->belongsTo(FreelanceProject::class, 'project_id');
+    }
+
+    /** FS-205: the team this offer is made in the name of (null: the freelancer's own). */
+    /** FS-206c: the PM who sent the team offer for the Owner who signs it (null: the Owner sent it himself). */
+    public function submittedBy(): BelongsTo
+    {
+        return $this->belongsTo(Freelancer::class, 'submitted_by_freelancer_id');
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(FreelanceTeam::class, 'team_id');
+    }
+
+    /** FS-205: who works on it, as it was when it was sent. */
+    public function staff(): HasMany
+    {
+        return $this->hasMany(FreelanceOfferTeamMember::class, 'offer_id')->orderBy('id');
     }
 
     public function freelancer(): BelongsTo

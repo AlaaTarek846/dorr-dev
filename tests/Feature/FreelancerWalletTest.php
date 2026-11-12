@@ -129,7 +129,7 @@ class FreelancerWalletTest extends TestCase
         $admin->givePermissionTo(['withdrawal-requests.approve', 'withdrawal-requests.view']);
         Sanctum::actingAs($admin, [], 'admin_api');
         \Illuminate\Support\Facades\Storage::fake('local');
-        $this->post("/api/admin/v1/withdrawal-requests/{$request->id}/approve", ['receipt' => \Illuminate\Http\UploadedFile::fake()->create('receipt.pdf', 50, 'application/pdf')], ['Accept' => 'application/json'])
+        $this->post("/api/admin/v1/withdrawal-requests/{$request->id}/approve", ['receipt' => \Illuminate\Http\UploadedFile::fake()->createWithContent('receipt.pdf', "%PDF-1.4\n%%EOF")], ['Accept' => 'application/json'])
             ->assertOk()->assertJsonPath('data.status', 'approved');
         $this->assertSame(4000, $wallet->fresh()->withdrawable_minor);
         $this->assertContains('wallet_withdrawal_paid_title', $this->me->notifications()->pluck('data')->pluck('title')->all());

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FS-209b: الشغل كفريق — المشاريع وعبء العمل ومين على كل مرحلة وعرض باسم الفريق -->
+    <string name="tw_tab_projects">المشاريع</string>
+    <string name="tw_tab_workload">عبء العمل</string>
+    <string name="tw_scope_me">أنا</string>
+    <string name="tw_scope_team">فريقي</string>
+
+    <string name="tw_banner_title">إنت شغال على المشروع ده مع %1$s</string>
+    <string name="tw_banner_signer">إنت اللي وقّعت باسم الفريق والفلوس بتيجي عندك.</string>
+    <string name="tw_banner_pm">إنت بتدير الشغل: تبدأ المراحل وتسند الناس عليها وتتابع التقارير. التسليم والرد على العميل من حق الـ Owner.</string>
+    <string name="tw_banner_member">إنت بتتابع الشغل وتبدأ المراحل اللي مسندة ليك. التسليم والرد على العميل من حق الـ Owner.</string>
+    <string name="tw_banner_no_money">المبالغ مخفية في مكانك في الفريق.</string>
+
+    <string name="tw_projects_empty_title">مفيش مشاريع للفريق لسه</string>
+    <string name="tw_projects_empty_body">لما عرض الفريق يتختار، المشروع هيظهر هنا.</string>
+    <string name="tw_projects_empty_member">المشاريع اللي بتتسند عليك هتظهر هنا.</string>
+    <string name="tw_signed_by">وقّعه %1$s</string>
+
+    <string name="tw_load_intro">اللي كل واحد شايله في مشاريع الفريق الشغالة.</string>
+    <string name="tw_load_mine">بتشوف أرقامك إنت بس.</string>
+    <string name="tw_load_empty_title">مفيش حد شايل شغل</string>
+    <string name="tw_load_empty_body">اسند ناس على مراحل مشروع شغال وعبء كل واحد هيظهر هنا.</string>
+    <string name="tw_load_projects">مشاريع</string>
+    <string name="tw_load_parts">مراحل مفتوحة</string>
+    <string name="tw_load_tasks">مهام مفتوحة</string>
+    <string name="tw_load_overdue">متأخرة</string>
+    <string name="tw_load_blocked">معطّلة</string>
+    <string name="tw_load_done">خلصت</string>
+
+    <string name="tw_assign">اسند ناس عليها</string>
+    <string name="tw_assign_title">مين بيشتغل على المرحلة دي</string>
+    <string name="tw_assign_hint">اختار من أعضاء الفريق النشطين. العضو بيشوف المشروع أول ما يتسند على مرحلة فيه.</string>
+    <string name="tw_assign_none">محدّش مسند عليها لسه</string>
+
+    <string name="tw_offer_as">ابعت العرض باسم</string>
+    <string name="tw_offer_quota_left">باقي %1$d من %2$d عروض للفريق الشهر ده</string>
+    <string name="tw_offer_quota_free">عروض الفريق الشهر ده: %1$d (من غير حد)</string>
+    <string name="tw_offer_staff">مين هيشتغل عليه</string>
+    <string name="tw_offer_staff_hint">العميل بيشوف الاسم الأول والدور واللي كل واحد هيتولاه. PM واحد على الأكتر، ومش أكتر من 20 شخص.</string>
+    <string name="tw_offer_staff_none">محدّش اتختار — عرض الفريق هيتبعت من غير قايمة.</string>
+    <string name="tw_offer_role_pm">PM</string>
+    <string name="tw_offer_role_exec">منفّذ</string>
+    <string name="tw_offer_responsibility">هيتولى إيه (اختياري)</string>
+    <string name="tw_offer_signer">مين يوقّع ويستلم الفلوس</string>
+    <string name="tw_offer_signer_pm">إنت بتبعت كـ PM، فاختار الـ Owner اللي هيوقّع الاتفاقية ويستلم الفلوس.</string>
+    <string name="tw_offer_signer_owner">الاتفاقية هتتوقّع باسمك إلا لو اخترت Owner تاني.</string>
+    <string name="tw_offer_team_badge">باسم فريق %1$s</string>
+    <string name="tw_offer_sent_by">بعته %1$s</string>
+    <string name="tw_offer_team_people">فريق العرض</string>
+    <string name="tw_offer_staff_edit">غيّر مين بيشتغل عليه</string>
+</resources>

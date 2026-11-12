@@ -19,6 +19,7 @@ class SupportMessage extends Model
     protected $fillable = [
         'user_id',
         'driver_id',
+        'freelancer_id',
         'admin_id',
         'support_ticket_id',
         'sender',

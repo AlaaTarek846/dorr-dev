@@ -46,10 +46,12 @@ class WalletShareService
             'currency_symbol' => $currency?->symbol,
             'decimal_places' => $currency?->decimal_places ?? 2,
             'recipient_name' => MaskedName::of($recipient?->name),
+            'recipient_verified' => \App\Support\AccountBadge::verified($recipient),
             'recipient_wallet_number' => $transaction->counterpartyWallet?->wallet_number
                 ? WalletNumber::format($transaction->counterpartyWallet->wallet_number)
                 : null,
             'sender_name' => MaskedName::of($sender->name ?? null),
+            'sender_verified' => \App\Support\AccountBadge::verified($sender),
             'is_reversed' => $transaction->isReversed(),
             'transferred_at' => $transaction->created_at?->toIso8601String(),
         ];
@@ -83,6 +85,7 @@ class WalletShareService
             'country_code' => $country->code,
             'currency' => $wallet->currency?->code,
             'owner_name' => MaskedName::of($owner->name ?? null),
+            'owner_verified' => \App\Support\AccountBadge::verified($owner),
         ];
     }
 }

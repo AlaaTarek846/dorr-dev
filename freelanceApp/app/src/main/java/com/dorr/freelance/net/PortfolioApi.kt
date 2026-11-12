@@ -39,6 +39,34 @@ interface PortfolioApi {
     suspend fun deleteImage(@Path("id") id: Int, @Path("media") media: Int): Response<ApiEnvelope<PortfolioItemDto>>
 }
 
+/**
+ * FS-209c: a team's works (FS-202a), under `/api/freelance/v1/teams/{team}/portfolio` - the same fields as mine (without the agreement link).
+ * Everybody in the team reads; the Owners write.
+ */
+interface TeamPortfolioApi {
+    @GET("${ApiClient.FREELANCE}teams/{team}/portfolio")
+    suspend fun list(@Path("team") team: String): Response<ApiEnvelope<List<PortfolioItemDto>>>
+
+    @POST("${ApiClient.FREELANCE}teams/{team}/portfolio")
+    suspend fun create(@Path("team") team: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ApiEnvelope<PortfolioItemDto>>
+
+    @PUT("${ApiClient.FREELANCE}teams/{team}/portfolio/{id}")
+    suspend fun update(@Path("team") team: String, @Path("id") id: Int, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<ApiEnvelope<PortfolioItemDto>>
+
+    @DELETE("${ApiClient.FREELANCE}teams/{team}/portfolio/{id}")
+    suspend fun delete(@Path("team") team: String, @Path("id") id: Int): Response<ApiEnvelope<Any>>
+
+    @PUT("${ApiClient.FREELANCE}teams/{team}/portfolio/order")
+    suspend fun order(@Path("team") team: String, @Body body: PortfolioOrderRequest): Response<ApiEnvelope<List<PortfolioItemDto>>>
+
+    @Multipart
+    @POST("${ApiClient.FREELANCE}teams/{team}/portfolio/{id}/images")
+    suspend fun addImage(@Path("team") team: String, @Path("id") id: Int, @Part image: MultipartBody.Part): Response<ApiEnvelope<PortfolioItemDto>>
+
+    @DELETE("${ApiClient.FREELANCE}teams/{team}/portfolio/{id}/images/{media}")
+    suspend fun deleteImage(@Path("team") team: String, @Path("id") id: Int, @Path("media") media: Int): Response<ApiEnvelope<PortfolioItemDto>>
+}
+
 data class PortfolioOrderRequest(val ids: List<Int>)
 
 data class PortfolioItemDto(
@@ -57,6 +85,9 @@ data class PortfolioItemDto(
     @SerializedName("rights_confirmed") val rightsConfirmed: Boolean = false,
     val hidden: Boolean = false,
     @SerializedName("hidden_reason") val hiddenReason: String? = null,
+    /** FL-L13: the finished work it comes from (uuid of the agreement), and whether that client took their leave back. */
+    val agreement: String? = null,
+    @SerializedName("withdrawn_by_client") val withdrawnByClient: Boolean = false,
 )
 
 data class PortfolioRefDto(val id: Int = 0, val name: String = "")

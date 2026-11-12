@@ -17,7 +17,7 @@
             <div class="row g-3">
                 <div class="col-xl-4">
                     <WalletSection :title="t('rides.rides.people')" icon="ri-team-line" class="mb-3">
-                        <WalletInfoTile :label="t('rides.rides.rider')" icon="ri-user-line" class="mb-2">{{ ride.rider?.name || '—' }} <span class="text-muted fs-12" dir="ltr">{{ ride.rider?.phone }}</span></WalletInfoTile>
+                        <WalletInfoTile :label="t('rides.rides.rider')" icon="ri-user-line" class="mb-2"><UserName :user="ride.rider">{{ ride.rider?.name || '—' }}</UserName> <span class="text-muted fs-12" dir="ltr">{{ ride.rider?.phone }}</span></WalletInfoTile>
                         <WalletInfoTile v-if="ride.beneficiary" :label="t('rides.rides.beneficiary')" icon="ri-user-shared-line" class="mb-2">
                             {{ ride.beneficiary.name }} <span class="text-muted fs-12" dir="ltr">{{ ride.beneficiary.phone }}</span>
                             <div class="text-muted fs-12">{{ t('rides.rides.beneficiary_consent') }} · {{ formatDate(ride.beneficiary.consented_at) }}</div>
@@ -229,6 +229,7 @@ import WalletPageHeader from '../../../../../../../components/wallet/WalletPageH
 import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
+import UserName from '../../../../../../../components/ui/UserName.vue';
 
 // One ride's whole story: people, the trip, the money line by line, the timeline, offers, chat, Wasl.
 const { t, locale } = useI18n();

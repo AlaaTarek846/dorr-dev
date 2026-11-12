@@ -1,5 +1,22 @@
 package com.dorr.freelance.ui.screens
 
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.MarkEmailUnread
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import com.dorr.freelance.ui.kit.settingsCard
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Description
+import com.dorr.freelance.ui.components.SkeletonDetail
+import com.dorr.freelance.ui.components.SkeletonList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +34,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
@@ -26,6 +44,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Work
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
@@ -94,7 +116,7 @@ private fun minor(text: String): Long? = text.takeIf { it.isNotBlank() }?.let { 
 
 /** "5 days ago" in the notification wording (the notices' time strings are reused). */
 @Composable
-private fun publishedAgo(iso: String?): String? {
+internal fun publishedAgo(iso: String?): String? {
     val minutes = runCatching { Duration.between(OffsetDateTime.parse(iso), OffsetDateTime.now()).toMinutes().toInt() }.getOrNull()?.coerceAtLeast(0) ?: return null
     return when {
         minutes < 1 -> stringResource(R.string.notif_time_now)
@@ -106,7 +128,7 @@ private fun publishedAgo(iso: String?): String? {
     }
 }
 
-private fun budgetText(b: ProjectBudgetDto): String? {
+internal fun budgetText(b: ProjectBudgetDto): String? {
     val low = b.minMinor ?: return null
     val range = if (b.type == "range" && b.maxMinor != null) "${formatMinor(low, null)} – ${formatMinor(b.maxMinor, null)}" else formatMinor(low, null)
     return "‎$range ${b.currency}"
@@ -127,8 +149,9 @@ private fun offersLine(p: ProjectDto): Pair<String, Boolean>? {
  * Projects (FL-206): the published projects of my country, newest first — a search box, a filter sheet (specialty, budget, duration),
  * the saved ones, 15 at a time with infinite scroll. Read when the page opens and when the connection returns; nothing on a timer.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}) {
+fun ProjectsTab(onBack: () -> Unit, onOpenProject: (String) -> Unit, embedded: Boolean = false) {
     val reconnect = collectReconnectTick()
     val scope = rememberCoroutineScope()
     val night = settingsNight()
@@ -151,26 +174,35 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
     var loaded by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf<String?>(null) }
 
+    // A first page (new search, filter, reconnect) replaces whatever is still on its way; a later page waits for the one before it.
+    // `loading` is cleared even when the call is cancelled, so the list can never stay stuck on its spinner.
+    var generation by remember { mutableIntStateOf(0) }
+
     suspend fun loadPage(next: Int) {
-        if (loading) return
+        if (next == 1) generation++ else if (loading) return
+        val mine = generation
         loading = true
         failed = null
-        val result = apiCall {
-            ApiClient.projects.list(
-                page = next, perPage = PAGE_SIZE, q = query.trim().ifBlank { null }, specialtyId = filter.specialty?.id,
-                budgetMinMinor = minor(filter.budgetMin), budgetMaxMinor = minor(filter.budgetMax),
-                durationMaxDays = filter.durationMax.toIntOrNull(), favorites = if (savedOnly) 1 else null,
-                scope = if (hasSpecialties == true) reach else "all",
-            )
+        try {
+            val result = apiCall {
+                ApiClient.projects.list(
+                    page = next, perPage = PAGE_SIZE, q = query.trim().ifBlank { null }, specialtyId = filter.specialty?.id,
+                    budgetMinMinor = minor(filter.budgetMin), budgetMaxMinor = minor(filter.budgetMax),
+                    durationMaxDays = filter.durationMax.toIntOrNull(), favorites = if (savedOnly) 1 else null,
+                    scope = if (hasSpecialties == true) reach else "all",
+                )
+            }
+            if (mine != generation) return
+            if (result is ApiResult.Ok) {
+                if (next == 1) rows.clear()
+                rows.addAll(result.data.filter { r -> rows.none { it.uuid == r.uuid } })
+                page = next
+                hasMore = result.data.size >= PAGE_SIZE
+            } else failed = result.errorText(offlineText) ?: genericError
+            loaded = true
+        } finally {
+            if (mine == generation) loading = false
         }
-        if (result is ApiResult.Ok) {
-            if (next == 1) rows.clear()
-            rows.addAll(result.data.filter { r -> rows.none { it.uuid == r.uuid } })
-            page = next
-            hasMore = result.data.size >= PAGE_SIZE
-        } else failed = result.errorText(offlineText) ?: genericError
-        loading = false
-        loaded = true
     }
 
     // A new search / filter / reconnect starts again from the first page (a search waits 400 ms after the last key).
@@ -193,36 +225,58 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
         }
     }
     LaunchedEffect(nearEnd, rows.size, hasMore, loaded) {
-        if (loaded && nearEnd && hasMore && !loading && failed == null) loadPage(page + 1)
+        if (loaded && nearEnd && hasMore && !loading && failed == null) scope.launch { loadPage(page + 1) }
     }
 
+    var refreshing by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 14.dp)) {
-            Column(Modifier.padding(top = 14.dp, bottom = 10.dp)) { SettingsScreenTitle(stringResource(R.string.projects_title)) }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DorrTextField(query, { query = it.take(100) }, icon = Icons.Rounded.Search, placeholder = stringResource(R.string.projects_search), modifier = Modifier.weight(1f))
-                Box(
-                    Modifier.size(46.dp).clip(RoundedCornerShape(16.dp)).background(if (filter.active > 0) settingsAccent() else settingsAccent().copy(alpha = 0.10f)).clickable { sheet = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.FilterList, contentDescription = stringResource(R.string.projects_filter), tint = if (filter.active > 0) androidx.compose.ui.graphics.Color.White else settingsAccent(), modifier = Modifier.size(22.dp))
-                }
-            }
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!embedded) com.dorr.freelance.ui.kit.SubHeader(title = stringResource(R.string.projects_title), onBack = onBack)
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            // The search box with the filter button inside it (its number shows how many filters are on).
+            DorrTextField(
+                query, { query = it.take(100) }, icon = Icons.Rounded.Search, placeholder = stringResource(R.string.projects_search), modifier = Modifier.fillMaxWidth(),
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (query.isNotEmpty()) Icon(
+                            Icons.Rounded.Close, stringResource(R.string.common_close), tint = settingsMut(),
+                            modifier = Modifier.size(30.dp).clip(RoundedCornerShape(50)).clickable { query = "" }.padding(6.dp),
+                        )
+                        Box(
+                            Modifier.padding(start = 2.dp).size(34.dp).clip(RoundedCornerShape(11.dp))
+                                .background(if (filter.active > 0) settingsAccent() else settingsAccent().copy(alpha = 0.10f)).clickable { sheet = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.Tune, stringResource(R.string.projects_filter), tint = if (filter.active > 0) Color.White else settingsAccent(), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                },
+            )
+            // Where to look: my specialties, all of them, or the ones I saved; then each filter that is on, removable on its own.
+            Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (hasSpecialties == true) {
-                    ProjectChip(stringResource(R.string.projects_mine), !savedOnly && reach == "mine") { savedOnly = false; reach = "mine" }
-                    ProjectChip(stringResource(R.string.projects_all_specialties), !savedOnly && reach == "all") { savedOnly = false; reach = "all" }
+                    ProjectChip(stringResource(R.string.projects_mine), !savedOnly && reach == "mine", icon = Icons.Rounded.AutoAwesome) { savedOnly = false; reach = "mine" }
+                    ProjectChip(stringResource(R.string.projects_all_specialties), !savedOnly && reach == "all", icon = Icons.Rounded.Apps) { savedOnly = false; reach = "all" }
                 } else {
-                    ProjectChip(stringResource(R.string.projects_all), !savedOnly) { savedOnly = false }
+                    ProjectChip(stringResource(R.string.projects_all), !savedOnly, icon = Icons.Rounded.Apps) { savedOnly = false }
                 }
-                ProjectChip(stringResource(R.string.projects_saved), savedOnly) { savedOnly = true }
-                ProjectChip(stringResource(R.string.offer_my_offers), false, onClick = onOpenMyOffers)
-                if (filter.active > 0) ProjectChip(stringResource(R.string.projects_clear_filter, filter.active), false) { filter = ProjectFilter() }
+                ProjectChip(stringResource(R.string.projects_saved), savedOnly, icon = Icons.Rounded.Star) { savedOnly = true }
+                filter.specialty?.let { s -> FilterOnChip(s.name) { filter = filter.copy(specialty = null) } }
+                if (filter.budgetMin.isNotBlank() || filter.budgetMax.isNotBlank()) {
+                    val range = listOf(filter.budgetMin, filter.budgetMax).filter { it.isNotBlank() }.joinToString(" – ")
+                    FilterOnChip(stringResource(R.string.projects_chip_budget, range)) { filter = filter.copy(budgetMin = "", budgetMax = "") }
+                }
+                filter.durationMax.toIntOrNull()?.let { d -> FilterOnChip(stringResource(R.string.projects_chip_duration, d)) { filter = filter.copy(durationMax = "") } }
             }
         }
+        androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+            isRefreshing = refreshing,
+            // Pulling down asks once for the first page again (the freelancer's own gesture, not a timer).
+            onRefresh = { refreshing = true; scope.launch { loadPage(1); refreshing = false } },
+            modifier = Modifier.fillMaxSize().weight(1f),
+        ) {
         LazyColumn(
-            state = listState, modifier = Modifier.fillMaxSize().weight(1f),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
+            state = listState, modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (loaded && rows.isEmpty() && failed == null) item(key = "empty") {
                 Column(Modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -231,13 +285,17 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(stringResource(if (savedOnly) R.string.projects_no_saved else R.string.projects_none), color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(if (savedOnly) R.string.projects_no_saved_text else R.string.projects_none_text), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    Text(stringResource(if (savedOnly) R.string.projects_no_saved_text else R.string.projects_none_text), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     if (!savedOnly && hasSpecialties == true && reach == "mine") {
                         Text(
                             stringResource(R.string.projects_show_all), color = settingsAccent(), fontWeight = FontWeight.Bold, fontSize = 14.sp,
                             modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(12.dp)).clickable { reach = "all" }.padding(10.dp),
                         )
                     }
+                    if (filter.active > 0) Text(
+                        stringResource(R.string.projects_clear_filter, filter.active), color = settingsAccent(), fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).clickable { filter = ProjectFilter() }.padding(10.dp),
+                    )
                 }
             }
             items(rows, key = { it.uuid }) { p ->
@@ -257,7 +315,8 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
                     }
                 })
             }
-            if (loading) item(key = "spinner") {
+            if (!loaded && failed == null) item(key = "skeleton") { SkeletonList() }
+            else if (loading && !refreshing) item(key = "spinner") {
                 Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(24.dp)) }
             }
             if (failed != null) item(key = "failed") {
@@ -267,49 +326,119 @@ fun ProjectsTab(onOpenProject: (String) -> Unit, onOpenMyOffers: () -> Unit = {}
                 )
             }
         }
+        }
     }
 
     if (sheet) FilterSheet(filter, onDismiss = { sheet = false }, onApply = { filter = it; sheet = false })
 }
 
+/** A scope chip: filled with the app colour when chosen, a soft outline otherwise. */
 @Composable
-private fun ProjectChip(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun ProjectChip(text: String, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, onClick: () -> Unit) {
     val accent = settingsAccent()
-    Text(
-        text, color = if (selected) androidx.compose.ui.graphics.Color.White else settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(if (selected) accent else accent.copy(alpha = 0.08f)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp),
-    )
+    val ink = if (selected) Color.White else settingsInk()
+    Row(
+        Modifier.clip(RoundedCornerShape(999.dp))
+            .background(if (selected) accent else settingsCard())
+            .border(1.dp, if (selected) accent else settingsMut().copy(alpha = 0.22f), RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = if (selected) ink else accent, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.size(6.dp))
+        }
+        Text(text, color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    }
 }
 
+/** A filter that is on, with its × to take it off. */
+@Composable
+private fun FilterOnChip(text: String, onRemove: () -> Unit) {
+    val accent = settingsAccent()
+    Row(
+        Modifier.clip(RoundedCornerShape(999.dp)).background(accent.copy(alpha = 0.12f)).clickable(onClick = onRemove).padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, color = accent, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+        Spacer(Modifier.size(4.dp))
+        Icon(Icons.Rounded.Close, stringResource(R.string.projects_remove_filter), tint = accent, modifier = Modifier.size(15.dp))
+    }
+}
+
+/** A small fact of a project: an icon and a short text (budget, days, files). */
+@Composable
+private fun ProjectFact(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, strong: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = if (strong) settingsAccent() else settingsMut(), modifier = Modifier.size(15.dp))
+        Spacer(Modifier.size(4.dp))
+        Text(text, color = if (strong) settingsInk() else settingsMut(), fontSize = 12.5.sp, fontWeight = if (strong) FontWeight.ExtraBold else FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/**
+ * One project in the list: its specialty and age on top, the title and a short text, the budget / days / files, up to three skills, then a
+ * footer with how open it is for offers, my offer or invitation, and the star.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectCard(p: ProjectDto, onOpen: () -> Unit, onToggleSaved: () -> Unit) {
-    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp)).clickable(onClick = onOpen).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.Top) {
-            Text(p.title.orEmpty(), color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Icon(
-                if (p.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = stringResource(R.string.projects_save),
-                tint = if (p.isFavorite) androidx.compose.ui.graphics.Color(0xFFF59E0B) else settingsMut(),
-                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(50)).clickable(onClick = onToggleSaved).padding(3.dp),
-            )
-        }
-        p.summary?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            budgetText(p.budget)?.let { Text(it, color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
-            p.durationDays?.let { Text(stringResource(R.string.projects_days, it), color = settingsMut(), fontSize = 12.sp) }
-        }
-        if (p.skills.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            p.skills.take(4).forEach { s ->
-                Text(s.name, color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 10.dp, vertical = 3.dp))
+    val green = Color(0xFF16A34A)
+    val amber = Color(0xFFD97706)
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).clickable(onClick = onOpen)) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                p.specialty?.name?.let {
+                    Text(
+                        it, color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 10.dp, vertical = 3.dp),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                // The client's country: the list mixes every open country.
+                com.dorr.freelance.ui.components.CountryTag(p.country, Modifier.padding(end = 8.dp))
+                publishedAgo(p.publishedAt)?.let { Text(it, color = settingsMut(), fontSize = 11.sp, maxLines = 1) }
+            }
+            Text(p.title.orEmpty(), color = settingsInk(), fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+            p.summary?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                budgetText(p.budget)?.let { ProjectFact(Icons.Rounded.Payments, it, strong = true) }
+                p.durationDays?.let { ProjectFact(Icons.Rounded.Schedule, stringResource(R.string.projects_days, it)) }
+                if (p.attachmentsCount > 0) ProjectFact(Icons.Rounded.AttachFile, p.attachmentsCount.toString())
+            }
+            if (p.skills.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                p.skills.take(3).forEach { s ->
+                    Text(s.name, color = settingsInk(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(settingsMut().copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+                if (p.skills.size > 3) Text("+${p.skills.size - 3}", color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
             }
         }
-        offersLine(p)?.let { (text, open) -> Text(text, color = if (open) androidx.compose.ui.graphics.Color(0xFF16A34A) else androidx.compose.ui.graphics.Color(0xFFD97706), fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            p.specialty?.let { Text(it.name, color = settingsMut(), fontSize = 11.sp) }
-            publishedAgo(p.publishedAt)?.let { Text("·  $it", color = settingsMut(), fontSize = 11.sp) }
-            if (p.offered) Text("·  " + stringResource(R.string.offer_sent_badge), color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        // The footer: how open it is, my offer / invitation, and the star.
+        Row(
+            Modifier.fillMaxWidth().background(settingsMut().copy(alpha = 0.06f)).padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val line = offersLine(p)
+            line?.let { (text, open) ->
+                val tint = if (open) green else amber
+                Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(tint))
+                Text(text, color = tint, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+            Spacer(Modifier.weight(1f))
+            if (p.offered) Badge(stringResource(R.string.offer_sent_badge), settingsAccent())
+            else if (p.invitation != null) Badge(stringResource(R.string.projects_invited_badge), Color(0xFF3B82F6))
+            Icon(
+                if (p.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = stringResource(R.string.projects_save),
+                tint = if (p.isFavorite) Color(0xFFF59E0B) else settingsMut(),
+                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable(onClick = onToggleSaved).padding(6.dp),
+            )
         }
     }
+}
+
+@Composable
+private fun Badge(text: String, tint: Color) {
+    Text(text, color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 3.dp))
 }
 
 // ---------------------------------------------------------------- the filter sheet
@@ -322,47 +451,86 @@ private fun FilterSheet(initial: ProjectFilter, onDismiss: () -> Unit, onApply: 
     LaunchedEffect(Unit) { (apiCall { ApiClient.lists.specialtyTree() } as? ApiResult.Ok)?.data?.let { tree = it } }
 
     LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = if (night) AccountDark.card else androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), fullHeight = true) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.projects_filter), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.projects_specialty), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            com.dorr.freelance.ui.components.FormIntro(Icons.Rounded.FilterList, stringResource(R.string.projects_filter), stringResource(R.string.projects_filter_intro))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Rounded.Category, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.projects_specialty), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            }
             val nodes = tree
-            if (nodes == null) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-            else Column(Modifier.heightIn(max = 220.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (nodes == null) com.dorr.freelance.ui.components.SkeletonBlock(Modifier.fillMaxWidth(), height = 120.dp, radius = 16.dp)
+            else Column(Modifier.heightIn(max = 260.dp).clip(RoundedCornerShape(16.dp)).background(settingsAccent().copy(alpha = 0.05f)).verticalScroll(rememberScrollState()).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 SpecialtyOption(stringResource(R.string.projects_any), draft.specialty == null) { draft = draft.copy(specialty = null) }
                 nodes.forEach { parent ->
                     SpecialtyOption(parent.name, draft.specialty?.id == parent.id, bold = true) { draft = draft.copy(specialty = parent) }
                     parent.children.forEach { c -> SpecialtyOption(c.name, draft.specialty?.id == c.id, indent = true) { draft = draft.copy(specialty = c) } }
                 }
             }
-            Text(stringResource(R.string.projects_budget), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                DorrTextField(draft.budgetMin, { draft = draft.copy(budgetMin = it) }, placeholder = stringResource(R.string.projects_from), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
-                DorrTextField(draft.budgetMax, { draft = draft.copy(budgetMax = it) }, placeholder = stringResource(R.string.projects_to), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Rounded.Payments, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.projects_budget), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             }
-            DorrTextField(draft.durationMax, { draft = draft.copy(durationMax = it.filter(Char::isDigit).take(3)) }, label = stringResource(R.string.projects_duration_max), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
-            SettingsPrimaryButton(text = stringResource(R.string.projects_apply), onClick = { onApply(draft) })
-            Text(
-                stringResource(R.string.projects_reset), color = settingsAccent(), fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onApply(ProjectFilter()) }.padding(10.dp),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DorrTextField(draft.budgetMin, { draft = draft.copy(budgetMin = it) }, label = stringResource(R.string.projects_from), placeholder = "0.00", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+                DorrTextField(draft.budgetMax, { draft = draft.copy(budgetMax = it) }, label = stringResource(R.string.projects_to), placeholder = "0.00", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+            }
+            DorrTextField(draft.durationMax, { draft = draft.copy(durationMax = it.filter(Char::isDigit).take(3)) }, label = stringResource(R.string.projects_duration_max), icon = Icons.Rounded.Schedule, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+            ActionButton(stringResource(R.string.projects_apply), Icons.Rounded.Check, Tone.Primary) { onApply(draft) }
+            ActionButton(stringResource(R.string.projects_reset), Icons.Rounded.Refresh, Tone.Soft) { onApply(ProjectFilter()) }
         }
     }
 }
 
 @Composable
 private fun SpecialtyOption(text: String, selected: Boolean, bold: Boolean = false, indent: Boolean = false, onClick: () -> Unit) {
-    Text(
-        (if (selected) "✓  " else "") + text, color = if (selected) settingsAccent() else settingsInk(), fontSize = 14.sp, fontWeight = if (bold || selected) FontWeight.Bold else FontWeight.Normal,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(start = if (indent) 22.dp else 6.dp, top = 8.dp, bottom = 8.dp, end = 6.dp),
-    )
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (selected) settingsAccent().copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick).padding(start = if (indent) 22.dp else 10.dp, top = 9.dp, bottom = 9.dp, end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, color = if (selected) settingsAccent() else settingsInk(), fontSize = 14.sp, fontWeight = if (bold || selected) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f))
+        if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
+    }
 }
 
 // ---------------------------------------------------------------- one project
 
-/** One project's page (FL-207): everything the client wrote, the budget and the time, and the star to save it. */
+/** A section of the project page: a card with a small icon title over its content. */
+@Composable
+private fun DetailSection(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(20.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))
+            }
+            Spacer(Modifier.size(8.dp))
+            Text(title, color = settingsInk(), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        content()
+    }
+}
+
+/** One of the three facts under the title: a value and what it is. */
+@Composable
+private fun DetailFact(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String, tint: Color, modifier: Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(14.dp)).background(tint.copy(alpha = 0.08f)).padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
+        Text(value, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(label, color = settingsMut(), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/**
+ * One project's page (FL-207): a head card (specialty, how open it is, the title, when it was posted, the star) with the budget, the days and
+ * the offers deadline; then what the client wrote (a long text folds), the skills, the client's questions and the files; an invitation waiting
+ * for my answer; and a bar fixed at the bottom with the main step — send an offer, or see mine (and its agreement).
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = {}, onEditOffer: () -> Unit = {}) {
+fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = {}, onOpenOffer: () -> Unit = {}, onAgreement: () -> Unit = {}) {
     var myOffer by remember { mutableStateOf<com.dorr.freelance.net.OfferDto?>(null) }
     var offerChecked by remember { mutableStateOf(false) }
     val reconnect = collectReconnectTick()
@@ -371,6 +539,7 @@ fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = 
     val genericError = stringResource(R.string.login_error_generic)
     var project by remember { mutableStateOf<ProjectDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uuid, reconnect) {
         val result = apiCall { ApiClient.projects.show(uuid) }
@@ -379,79 +548,156 @@ fun ProjectDetailScreen(uuid: String, onBack: () -> Unit, onOffer: () -> Unit = 
             error = null
         } else error = result.errorText(offlineText) ?: genericError
     }
-
-    Page(title = stringResource(R.string.projects_project), onBack = onBack) {
-        val p = project
-        if (p == null) {
-            if (error == null) CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            ErrorBanner(error, Modifier.fillMaxWidth())
-            return@Page
+    // My offer on it (FL-301); a notice (the client saw, shortlisted, decided) reads it once more — nothing on a timer.
+    LaunchedEffect(uuid, project?.offered) {
+        if (project == null) return@LaunchedEffect
+        (apiCall { ApiClient.offers.mine(uuid) } as? ApiResult.Ok)?.data?.let { myOffer = it.offer }
+        offerChecked = true
+        com.dorr.freelance.net.Realtime.changed.collect {
+            (apiCall { ApiClient.offers.mine(uuid) } as? ApiResult.Ok)?.data?.let { myOffer = it.offer }
         }
-        Card {
-            Row(verticalAlignment = Alignment.Top) {
-                Text(p.title.orEmpty(), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                Icon(
-                    if (p.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = stringResource(R.string.projects_save),
-                    tint = if (p.isFavorite) androidx.compose.ui.graphics.Color(0xFFF59E0B) else settingsMut(),
-                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(50)).clickable {
-                        val before = p
-                        project = p.copy(isFavorite = !p.isFavorite)
-                        scope.launch {
-                            val result = apiCall { if (before.isFavorite) ApiClient.projects.unfavorite(uuid) else ApiClient.projects.favorite(uuid) }
-                            if (result is ApiResult.Ok) project = result.data else {
-                                project = before
-                                error = result.errorText(offlineText) ?: genericError
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        com.dorr.freelance.ui.kit.PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            com.dorr.freelance.ui.kit.SubHeader(title = stringResource(R.string.projects_project), onBack = onBack)
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                val p = project
+                if (p == null) {
+                    if (error == null) SkeletonDetail()
+                    ErrorBanner(error, Modifier.fillMaxWidth())
+                    return@Column
+                }
+                val offersInfo = offersLine(p)
+                val open = offersInfo?.second == true
+                val stateTint = if (open) Color(0xFF16A34A) else Color(0xFFD97706)
+
+                // The head card.
+                Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        p.specialty?.name?.let {
+                            Text(
+                                it, color = settingsAccent(), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            if (p.isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, contentDescription = stringResource(R.string.projects_save),
+                            tint = if (p.isFavorite) Color(0xFFF59E0B) else settingsMut(),
+                            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(50)).background(settingsMut().copy(alpha = 0.08f)).clickable {
+                                val before = p
+                                project = p.copy(isFavorite = !p.isFavorite)
+                                scope.launch {
+                                    val result = apiCall { if (before.isFavorite) ApiClient.projects.unfavorite(uuid) else ApiClient.projects.favorite(uuid) }
+                                    if (result is ApiResult.Ok) project = result.data else {
+                                        project = before
+                                        error = result.errorText(offlineText) ?: genericError
+                                    }
+                                }
+                            }.padding(7.dp),
+                        )
+                    }
+                    Text(p.title.orEmpty(), color = settingsInk(), fontSize = 19.sp, fontWeight = FontWeight.Black, lineHeight = 26.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        publishedAgo(p.publishedAt)?.let { Text(stringResource(R.string.projects_posted, it), color = settingsMut(), fontSize = 12.sp) }
+                        offersInfo?.let { (text, _) ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(stateTint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                                Box(Modifier.size(6.dp).clip(RoundedCornerShape(50)).background(stateTint))
+                                Spacer(Modifier.size(6.dp))
+                                Text(text, color = stateTint, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
-                    }.padding(4.dp),
-                )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DetailFact(Icons.Rounded.Payments, budgetText(p.budget) ?: "—", stringResource(R.string.projects_budget), Color(0xFF10B981), Modifier.weight(1f))
+                        DetailFact(Icons.Rounded.Schedule, p.durationDays?.let { stringResource(R.string.projects_days, it) } ?: "—", stringResource(R.string.projects_duration), Color(0xFF3B82F6), Modifier.weight(1f))
+                        DetailFact(Icons.Rounded.AttachFile, p.attachmentsCount.toString(), stringResource(R.string.projects_files_label), Color(0xFF8B5CF6), Modifier.weight(1f))
+                    }
+                }
+
+                // FL-205: an invitation to a private project waits for my yes or no.
+                var invitation by remember(p.invitation) { mutableStateOf(p.invitation) }
+                invitation?.let { inv ->
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF3B82F6).copy(alpha = 0.08f))
+                            .border(1.dp, Color(0xFF3B82F6).copy(alpha = 0.25f), RoundedCornerShape(20.dp)).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.MarkEmailUnread, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.size(8.dp))
+                            Text(stringResource(R.string.inv_banner, invitationStatusLabel(inv.status)), color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (inv.status == "sent") InvitationAnswer(inv.uuid, onAnswered = { invitation = inv.copy(status = it) }, onError = { error = it })
+                    }
+                }
+
+                DetailSection(Icons.Rounded.Description, stringResource(R.string.projects_description)) {
+                    val text = p.description.orEmpty()
+                    val long = text.length > 420
+                    Text(
+                        text, color = settingsInk(), fontSize = 14.sp, lineHeight = 23.sp,
+                        maxLines = if (long && !expanded) 7 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis,
+                    )
+                    if (long) Text(
+                        stringResource(if (expanded) R.string.projects_read_less else R.string.projects_read_more), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { expanded = !expanded }.padding(vertical = 4.dp, horizontal = 2.dp),
+                    )
+                }
+                if (p.skills.isNotEmpty()) DetailSection(Icons.Rounded.AutoAwesome, stringResource(R.string.projects_skills)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        p.skills.forEach { s ->
+                            Text(s.name, color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 5.dp))
+                        }
+                    }
+                }
+                if (!p.questions.isNullOrEmpty()) DetailSection(Icons.AutoMirrored.Rounded.HelpOutline, stringResource(R.string.offer_questions)) {
+                    Text(stringResource(R.string.projects_questions_hint), color = settingsMut(), fontSize = 12.sp)
+                    p.questions.orEmpty().forEachIndexed { i, q ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text(
+                                "${i + 1}", color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.size(22.dp).clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.12f)).padding(top = 3.dp),
+                            )
+                            Spacer(Modifier.size(10.dp))
+                            Text(q, color = settingsInk(), fontSize = 13.5.sp, lineHeight = 20.sp, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+                if (p.attachmentsCount > 0) DetailSection(Icons.Rounded.AttachFile, stringResource(R.string.projects_files_label)) {
+                    Text(stringResource(R.string.projects_files_note, p.attachmentsCount), color = settingsMut(), fontSize = 13.sp, lineHeight = 19.sp)
+                }
+                ErrorBanner(error, Modifier.fillMaxWidth())
             }
-            publishedAgo(p.publishedAt)?.let { Text(it, color = settingsMut(), fontSize = 12.sp) }
-        }
-        Card {
-            DetailField(stringResource(R.string.projects_budget), budgetText(p.budget))
-            DetailField(stringResource(R.string.projects_duration), p.durationDays?.let { stringResource(R.string.projects_days, it) })
-            DetailField(stringResource(R.string.projects_specialty), p.specialty?.name)
-            offersLine(p)?.let { (text, _) -> DetailField(stringResource(R.string.projects_offers), text) }
-        }
-        Card {
-            Text(stringResource(R.string.projects_description), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(p.description.orEmpty(), color = settingsInk(), fontSize = 14.sp, lineHeight = 22.sp)
-        }
-        if (p.skills.isNotEmpty()) Card {
-            Text(stringResource(R.string.projects_skills), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                p.skills.forEach { s ->
-                    Text(s.name, color = settingsAccent(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(settingsAccent().copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 5.dp))
+
+            // The bar fixed at the bottom: the main step for this project.
+            val p = project
+            val sent = myOffer
+            if (p != null && (sent != null || (offerChecked && p.offers.accepting))) {
+                Column(
+                    Modifier.fillMaxWidth().background(settingsCard())
+                        .drawBehind { drawLine(Color.Black.copy(alpha = 0.06f), androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), 1.dp.toPx()) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (sent != null) {
+                        sent.agreement?.let { ag ->
+                            OfferLinkRow(
+                                Icons.Rounded.Description, stringResource(R.string.ag_title), agreementStatusText(ag.status),
+                                if (ag.status == "pending_approval") Color(0xFFD97706) else settingsAccent(), onAgreement,
+                            )
+                        }
+                        SettingsPrimaryButton(text = stringResource(R.string.offer_view_mine), onClick = onOpenOffer)
+                    } else {
+                        SettingsPrimaryButton(text = stringResource(R.string.offer_send_one), onClick = onOffer)
+                    }
                 }
             }
         }
-        if (p.attachmentsCount > 0) Text(stringResource(R.string.projects_files_note, p.attachmentsCount), color = settingsMut(), fontSize = 12.sp)
-        // My offer, or the button to send one (FL-301): the form itself says why not when I can't.
-        LaunchedEffect(uuid, p.offered) {
-            (apiCall { ApiClient.offers.mine(uuid) } as? ApiResult.Ok)?.data?.let { myOffer = it.offer }
-            offerChecked = true
-            // A notice arrived (the client saw, shortlisted, decided): read it once more — nothing on a timer.
-            com.dorr.freelance.net.Realtime.changed.collect {
-                (apiCall { ApiClient.offers.mine(uuid) } as? ApiResult.Ok)?.data?.let { myOffer = it.offer }
-            }
-        }
-        val sent = myOffer
-        when {
-            sent != null -> {
-                Text(stringResource(R.string.offer_mine), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                MyOfferCard(sent, onEdit = onEditOffer, onChanged = { myOffer = it })
-            }
-            offerChecked && p.offers.accepting -> SettingsPrimaryButton(text = stringResource(R.string.offer_send_one), onClick = onOffer)
-        }
-        ErrorBanner(error, Modifier.fillMaxWidth())
-    }
-}
-
-@Composable
-private fun DetailField(label: String, value: String?) {
-    Column {
-        Text(label, color = settingsMut(), fontSize = 12.sp)
-        Text(value?.takeIf { it.isNotBlank() } ?: "—", color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }

@@ -48,7 +48,7 @@ class FreelanceDemoSeeder extends Seeder
         ['Tariq Rejected', 'Verification was rejected', 'verification_rejected', 'Software & APIs', ['REST APIs'], []],
     ];
 
-    /** @var list<array{0: string, 1: string, 2: string, 3: list<string>, 4: int, 5: int, 6: int}> title, description, specialty (en), skills, budget min, max (SAR), days */
+    /** @var list<array{0: string, 1: string, 2: string, 3: list<string>, 4: int, 5: int, 6: int}> title, description, specialty (en), skills, budget min, max (in the freelance currency), days */
     private const TEMPLATES = [
         ['A booking website for my clinic', 'A small site where patients pick a doctor, a day and a time, and get a reminder by message.', 'Web development', ['Laravel', 'Vue.js'], 3000, 5000, 30],
         ['Android app for a delivery shop', 'An app to browse products, order and follow the delivery, with push notifications.', 'Mobile apps', ['Kotlin'], 8000, 12000, 60],
@@ -167,8 +167,9 @@ class FreelanceDemoSeeder extends Seeder
                 'weekly_hours' => [['day' => 0, 'from' => '09:00', 'to' => '17:00'], ['day' => 1, 'from' => '09:00', 'to' => '17:00'], ['day' => 2, 'from' => '09:00', 'to' => '17:00']],
             ]);
             // Some money to look at (once: a second run does not add more).
+            // In the international wallet, the freelance currency (`freelance.money`).
             $wallets = app(WalletService::class);
-            $wallet = $wallets->firstOrCreateWallet($f, $country);
+            $wallet = app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->wallet($f);
             if ((int) $wallet->withdrawable_minor === 0) {
                 $wallets->credit($wallet, 250000, WalletBucket::Withdrawable, WalletTransactionType::Topup);
             }
@@ -192,7 +193,7 @@ class FreelanceDemoSeeder extends Seeder
             $project = FreelanceProject::query()->updateOrCreate(['client_id' => $client->id, 'title' => $title], [
                 'country_id' => $country->id, 'freelance_specialty_id' => $this->specialty($specialty)?->id, 'description' => $description,
                 'budget_type' => $range ? 'range' : 'fixed', 'budget_min_minor' => ($range ? $min : $max) * 100, 'budget_max_minor' => $range ? $max * 100 : null,
-                'currency_code' => (string) $country->currency?->code, 'duration_days' => $days, 'visibility' => $i % 6 === 5 ? 'private' : 'public',
+                'currency_code' => app(\Modules\Freelance\Services\Policy\FreelanceMoney::class)->code(), 'duration_days' => $days, 'visibility' => $i % 6 === 5 ? 'private' : 'public',
                 'status' => $status,
                 'status_reason' => match ($status) {
                     Status::ChangesRequested => 'Say how the patients are reminded, and which languages the site needs.',

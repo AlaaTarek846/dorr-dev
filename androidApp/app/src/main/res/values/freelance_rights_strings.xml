@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FL-L13: ownership and licences as a client sees them (prefix rights_; the dispute reason keeps the fl_dr_ family). -->
+<resources>
+    <string name="rights_title">Ownership and licence</string>
+    <string name="rights_offer_intro">Who owns the work once you pay for it, and what you may do with it.</string>
+    <string name="rights_clauses_title">What this means for you</string>
+    <string name="rights_portfolio_wish">The freelancer would like to show the finished work in their portfolio. That only happens if you agree.</string>
+    <string name="rights_compare">Ownership</string>
+    <string name="rights_state_pending">Not passed yet</string>
+    <string name="rights_state_partial">Partly passed</string>
+    <string name="rights_state_granted">Fully passed</string>
+    <string name="rights_parts_n">%1$d of %2$d parts passed to the project owner</string>
+    <string name="rights_preview_only">Until a part is approved and paid you can only preview and review it. Its rights pass to you when you approve it and it is paid.</string>
+    <string name="rights_terms_show">Read the full text</string>
+    <string name="rights_terms_hide">Hide the text</string>
+    <string name="rights_terms_version">Version %1$d</string>
+    <string name="rights_portfolio_title">Show it in their portfolio</string>
+    <string name="rights_portfolio_hint">Let the freelancer show this finished work in their public portfolio. You can take it back at any time and it disappears at once.</string>
+    <string name="rights_portfolio_asked">The freelancer asked your permission to show this work in their portfolio.</string>
+    <string name="rights_delivery_confirmed">The freelancer confirmed the work is theirs · %1$s</string>
+    <string name="rights_materials_title">Outside material they listed</string>
+    <string name="rights_report">Report this work</string>
+    <string name="rights_report_title">Report this work</string>
+    <string name="rights_report_body">Use this only if the work is not the freelancer\'s own, for example it is yours or someone else\'s. We review every report.</string>
+    <string name="rights_report_hint">What happened? Say why it is not theirs (at least 10 characters)</string>
+    <string name="rights_report_send">Send report</string>
+    <string name="fl_dr_rights">Rights over the work (it is not theirs, or I was not given the rights)</string>
+    <string name="rights_preview_locked">Preview only until this part is approved and paid</string>
+</resources>

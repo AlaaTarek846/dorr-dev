@@ -29,12 +29,12 @@ class AccountSession extends Model
 
     protected $fillable = [
         'owner_type', 'owner_id', 'token_id', 'device_id', 'device_name', 'platform', 'app_version',
-        'ip', 'country_code', 'user_agent', 'revoked_at', 'revoked_reason',
+        'ip', 'country_code', 'latitude', 'longitude', 'ip_city', 'city_id', 'user_agent', 'revoked_at', 'revoked_reason',
     ];
 
     protected function casts(): array
     {
-        return ['revoked_at' => 'datetime'];
+        return ['revoked_at' => 'datetime', 'latitude' => 'float', 'longitude' => 'float', 'city_id' => 'integer'];
     }
 
     public function owner(): MorphTo
