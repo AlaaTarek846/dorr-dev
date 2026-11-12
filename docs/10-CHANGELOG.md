@@ -8,7 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-<<<<<<< HEAD
+
 - **Freelance FS-705b (owner 2026-11-12):** an offer or agreement in a team's name is charged under the TEAM's plan commission only (a team on no
   plan pays the country's rate, whatever the Owner's own plan). Wired the catalog limits where they were fixed numbers: consultations at once,
   special offers a day, loyalty tiers, portfolio (own and team's), offer templates, capacity, CRM reminders, staff per offer; a team offer shows
@@ -32,7 +32,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - Apps: freelancer Android + iOS twin (CRM screens, insight cards, plan benefit), client apps call the work-open endpoint; admin plans screen sets `crm`.
   - Tests `tests/Feature/FreelanceCrmAnalyticsTest.php` (9); API in `docs/modules/freelance/API.md` «Phase 7».
 
-=======
 - **Paging rule: 15 at a time, the next 15 load by themselves — no «show more» (owner 2026-11-11):** a shared `AutoLoadMore` (Android `ui/components/AutoLoadMore.kt`, iOS `UI/Components/AutoLoadMore.swift`) goes under the last row of a list in a normal scrolling page: within about a screen-fifth of the bottom edge it asks for the next page, one request at a time, with a small spinner; a short page keeps asking until the screen is full or there is no more. Used by the wallet statement (`WalletHistory.kt`, `WalletHome.swift`) and Events — saved events, the organizer's events, the kinds under «My interests» (`EventsScreen.kt/.swift`). Same APIs (`per_page=15`, `pagination.has_more_pages`). Rule recorded in `AGENTS.md`.
 - **Wallet: top-up rows use the «Top up» button's icon (owner 2026-11-11):** in «Last activity», the statement and the transaction sheet, a `topup` row now shows the same card icon as the home «شحن» action instead of a plain «+» (Android `ic_ms_add_card` — `txMeta` is now `@Composable` to load it; iOS `creditcard.and.123`). Files: `WaFormat.kt`, `WaFormat.swift`.
 - **Sandbox checkout: the card centred for real (owner 2026-11-11):** the page centred in `100vh`, which the app's WebView sized several screens tall, so the card sat high with a scroll bar. Now `html { height: 100% }` + `body { min-height: 100%; padding: 16px 0 }`: centred between the app header and the tab bar, and on a phone too short for the card it starts at the top and scrolls. Android: the real cause — `AndroidView` gives the WebView `WRAP_CONTENT`, and a wrap-content WebView sizes the page to its content, so the page's height was the card's; `GatewayLayer` (`WalletTopup.kt`) now sets `MATCH_PARENT`. iOS untouched (WKWebView fills its frame). The page background is now the app's plain `--bg` (no primary-tinted gradient), so it runs on from the app header. The payment result page (`payment-result.blade.php`) gets the same plain background and centring.
@@ -41,7 +40,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Wallet: «Dollar wallet» (owner 2026-11-11):** the international wallet is now called «محفظة الدولار» / «Dollar wallet» (`wa_intl_wallet_title`) and shows the US flag instead of the globe (`WalletFlag("INT")` → flagcdn `us`, same size as the country flags). Its card gets the switch button beside copy (still no QR/share). «My wallets» now lists every wallet: the country ones (also those the host has seen, so the dollar card lists them) with their last balance, and the dollar wallet last (when `intlWallet`); picking switches to and from it (Android: `WalletCountry.international`; iOS: `WalletHost.pickKey` → the pager). Files: `WalletPicker.kt`, `WalletHome.kt`, `wallet_picker_strings.xml` (ar/en), `WalletPicker.swift`, `WaTheme.swift`, `WalletHome.swift`, `WalletHost.swift`.
 - **Wallet home: the balance beside «Total balance» (owner 2026-11-11):** the amount now sits on the same line as the «إجمالي الرصيد» pill, at the other end (the left in Arabic), instead of on its own line under it. Files: `WalletHome.kt`, `WalletHome.swift`.
 - **Android: the «show calls over everything» sheet waits for the first call (owner 2026-11-11):** it used to open the first time the chat was opened; now it opens once right after the first call ends (made or answered — `CallController` marks `dorr_calls/had_call`), or the next time the chat opens if that call ended elsewhere, never during a call; still once (`call_permissions_asked`), and still offered on the calls page while missing. Android only (iOS has no such sheet: CallKit shows calls itself). Files: `CallService.kt` (`CallPermissions`), `CallController.kt`, `ChatCallPermissionsUi.kt`, `ChatScreen.kt`.
->>>>>>> dev-test
+
 - **AI Marketing Director — phases B, C, D (owner 2026-11-11):** managers approve plans and content too.
   - B: daily calendar from an approved plan, ad studio (A/B versions, claims review in code), content approvals bound to the
     words, budgets (ad spend in money / AI in calls, owner approval, alerts), results by hand or CSV, KPI board (measured vs
