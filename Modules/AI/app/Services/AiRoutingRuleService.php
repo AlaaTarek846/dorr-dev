@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiRoutingRuleResource;
 use Modules\AI\Repositories\AiRoutingRuleRepository;
 
-class AiRoutingRuleService extends BaseService
+/** AI routing rules catalog (no translations): list (+status counts), create/update, status, bulk delete, trash. */
+class AiRoutingRuleService extends CatalogService
 {
     /**
      * @var class-string

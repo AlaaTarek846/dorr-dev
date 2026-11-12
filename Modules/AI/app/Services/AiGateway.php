@@ -8,6 +8,7 @@ use Modules\AI\Models\AiProviderDataRule;
 use Modules\AI\Models\AiProviderLog;
 use Modules\AI\Models\AiProviderModel;
 use Modules\AI\Models\AiRequest;
+use Modules\AI\Services\Connectors\AbstractHttpConnector;
 use Modules\AI\Services\Connectors\AnthropicConnector;
 use Modules\AI\Services\Connectors\Contracts\AiConnector;
 use Modules\AI\Services\Connectors\Contracts\TranscribesAudio;
@@ -53,8 +54,8 @@ class AiGateway
         $messages = $this->formatMultimodalContent($provider, $messages);
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->sendChat($provider, $messages, $useWebSearch);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->sendChat($provider, $messages, $useWebSearch);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -130,8 +131,8 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->editImage($provider, (string) $provider->model, $imageBytes, $imageMime, $sanitizedPrompt);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->editImage($provider, (string) $provider->model, $imageBytes, $imageMime, $sanitizedPrompt);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -158,8 +159,8 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->generateImage($provider, (string) $provider->model, $sanitizedPrompt);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->generateImage($provider, (string) $provider->model, $sanitizedPrompt);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -187,8 +188,8 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->startVideo($provider, (string) $provider->model, $prompt, $seconds, $options);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->startVideo($provider, (string) $provider->model, $prompt, $seconds, $options);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -221,8 +222,8 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->embed($provider, $text);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->embed($provider, $text);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -243,8 +244,8 @@ class AiGateway
     public function transcribeAudio(AiProvider $provider, string $audioBytes, string $audioMime, ?string $languageHint = null, ?AiRequest $context = null): array
     {
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->transcribeAudio($provider, (string) $provider->model, $audioBytes, $audioMime, $languageHint);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->transcribeAudio($provider, (string) $provider->model, $audioBytes, $audioMime, $languageHint);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -272,8 +273,8 @@ class AiGateway
         }
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->synthesizeSpeech($provider, (string) $provider->model, $text);
-        $this->logCall($provider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($provider))->synthesizeSpeech($provider, (string) $provider->model, $text);
+        $this->logCall($provider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -293,8 +294,8 @@ class AiGateway
         $callProvider = tap(clone $provider, fn (AiProvider $p) => $p->model = $modelKey);
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($callProvider)->createRealtimeSession($callProvider, $modelKey, $options);
-        $this->logCall($callProvider, $context, $startedAt, $result);
+        $result = ($connector = $this->connectorFor($callProvider))->createRealtimeSession($callProvider, $modelKey, $options);
+        $this->logCall($callProvider, $context, $startedAt, $result, $connector);
 
         return $result;
     }
@@ -303,7 +304,10 @@ class AiGateway
      * Applies the provider's ai_provider_data_rules row (v2.0 doc, 17.2 -
      * PII/secret minimization before data leaves to an external model),
      * to the user/assistant turns only - never to our own system prompt,
-     * which is not user-supplied content.
+     * which is not user-supplied content. Its transformation_rules (mask_fields, redact_terms - see
+     * AiPiiSanitizer::applyTransformationRules) apply too, even with both switches off. On top of the rule, the
+     * active personal data policy forbidding external providers masks personal data for every provider
+     * (AiPersonalDataPolicy).
      *
      * @param  list<array{role: string, content: string}>  $messages
      * @return list<array{role: string, content: string}>
@@ -311,12 +315,15 @@ class AiGateway
     protected function applyDataRules(AiProvider $provider, array $messages): array
     {
         $rule = $this->dataRuleFor($provider);
+        $sanitizePii = (bool) $rule?->sanitize_pii || app(AiPersonalDataPolicy::class)->mustMaskOutgoingPersonalData();
+        $sanitizeSecrets = (bool) $rule?->sanitize_secrets;
+        $transformations = is_array($rule?->transformation_rules) ? $rule->transformation_rules : [];
 
-        if (! $rule || (! $rule->sanitize_pii && ! $rule->sanitize_secrets)) {
+        if (! $sanitizePii && ! $sanitizeSecrets && $transformations === []) {
             return $messages;
         }
 
-        return array_map(function (array $message) use ($rule) {
+        return array_map(function (array $message) use ($sanitizePii, $sanitizeSecrets, $transformations) {
             if ($message['role'] === 'system') {
                 return $message;
             }
@@ -325,12 +332,21 @@ class AiGateway
             $isMultimodalMarker = is_array($content) && array_key_exists('text', $content);
             $text = $isMultimodalMarker ? $content['text'] : $content;
 
-            if ($rule->sanitize_pii) {
+            if (! is_string($text)) {
+                return $message;
+            }
+
+            if ($sanitizeSecrets) {
+                // Secrets first: the phone pattern could otherwise eat part of a key (AiPiiSanitizer::redactBoth).
+                $text = $this->sanitizer->redactSecrets($text);
+            }
+
+            if ($sanitizePii) {
                 $text = $this->sanitizer->redactPii($text);
             }
 
-            if ($rule->sanitize_secrets) {
-                $text = $this->sanitizer->redactSecrets($text);
+            if ($transformations !== []) {
+                $text = $this->sanitizer->applyTransformationRules($text, $transformations);
             }
 
             if ($isMultimodalMarker) {
@@ -427,9 +443,10 @@ class AiGateway
 
     protected function dataRuleFor(AiProvider $provider): ?AiProviderDataRule
     {
+        // Switched off = not applied; a trashed rule never loads (SoftDeletes).
         return AiProviderDataRule::query()
             ->where('provider_id', $provider->id)
-            ->where('is_active', true)
+            ->where('status', true)
             ->first();
     }
 
@@ -439,7 +456,7 @@ class AiGateway
      * column by design), only status/timing/error metadata. Logging
      * failure never breaks the actual chat call.
      */
-    protected function logCall(AiProvider $provider, ?AiRequest $context, float $startedAt, array $result): void
+    protected function logCall(AiProvider $provider, ?AiRequest $context, float $startedAt, array $result, ?AiConnector $connector = null): void
     {
         if (! $context) {
             return;
@@ -450,6 +467,9 @@ class AiGateway
                 'provider_id' => $provider->id,
                 'request_id' => $context->id,
                 'correlation_id' => $context->correlation_id,
+                // The status the provider really answered with (null = no HTTP
+                // answer at all: connection failure / missing key / unsupported).
+                'http_status' => $connector instanceof AbstractHttpConnector ? $connector->lastHttpStatus() : null,
                 'response_time_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'error_code' => $result['success'] ? null : 'provider_error',
                 'error_message' => $result['success'] ? null : mb_substr((string) ($result['message'] ?? ''), 0, 500),

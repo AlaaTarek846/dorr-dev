@@ -47,11 +47,16 @@ class AiKnowledgeSourceService extends BaseService
         ], $data['content']);
     }
 
+    /**
+     * Approving makes the source usable again: deprecate() is the only thing that switches is_active off, so an
+     * approved source is always active too (before, a deprecated-then-approved source showed "approved" but was
+     * never used).
+     */
     public function approve(int $id): AiKnowledgeSource
     {
         /** @var AiKnowledgeSource $source */
         $source = $this->repository->show($id);
-        $source->update(['approval_status' => AiKnowledgeSource::APPROVAL_APPROVED]);
+        $source->update(['approval_status' => AiKnowledgeSource::APPROVAL_APPROVED, 'is_active' => true]);
 
         return $source->fresh();
     }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI marketing director, phase D: optimisation. -->
+    <string name="mktg_optimise">Optimisation</string>
+    <string name="mktg_optimise_sub">Suggestions, alerts and A/B tests</string>
+    <string name="mktg_suggestions">Suggestions</string>
+    <string name="mktg_alert_rules">Alerts</string>
+    <string name="mktg_no_alert_rules">No alert yet.</string>
+    <string name="mktg_alert_new">New alert</string>
+    <string name="mktg_above">above</string>
+    <string name="mktg_below">below</string>
+    <string name="mktg_threshold">Limit</string>
+    <string name="mktg_now_value">now %1$s</string>
+    <string name="mktg_experiments">A/B tests</string>
+    <string name="mktg_no_experiments">No test yet.</string>
+    <string name="mktg_experiment_new">New A/B test</string>
+    <string name="mktg_hypothesis">What do you expect?</string>
+    <string name="mktg_hypothesis_hint">e.g. a headline with the delivery time gets more clicks</string>
+    <string name="mktg_conversion_rate">Conversion rate</string>
+    <string name="mktg_conclude">End the test</string>
+    <string name="mktg_concluded">Ended</string>
+    <string name="mktg_running">Running</string>
+    <string name="mktg_experiment_min">A winner is named only with at least 100 trials per version and a clear difference.</string>
+    <string name="mktg_simulation">What moves your profit most</string>
+    <string name="mktg_simulation_note">Each figure is moved up and down while the others stay the same. Estimates from your inputs, not a forecast.</string>
+    <string name="mktg_simulate">Simulate</string>
+    <string name="mktg_base_profit">Estimated monthly profit: %1$s</string>
+</resources>

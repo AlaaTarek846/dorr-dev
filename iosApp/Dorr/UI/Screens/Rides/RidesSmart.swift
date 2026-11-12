@@ -118,6 +118,19 @@ final class SpeechListener: ObservableObject {
 
 /// The assistant: say or write the trip, see what DORR AI understood, pick the place — then it is shown on the map to
 /// confirm or move (nothing is booked here).
+extension RidesState {
+    /// What DORR AI understood besides the place (category, time, riders, payment, a note) fills the booking —
+    /// from «دُرر يفهم مقصدك» or DORR AI's chat. The rider still sees and changes all of it.
+    func applyAiBooking(_ understood: RideAiUnderstoodDto?) {
+        guard let u = understood else { return }
+        if let p = u.passengers { passengers = p }
+        if let pay = u.payment, feature(pay) { payment = pay }
+        if let note = u.note { pickupNote = note }
+        if let cat = u.category { preferCategory = cat }
+        if let when = u.when, feature("scheduled"), let at = parseRideTime(when) { scheduledAt = at }
+    }
+}
+
 struct SmartDestinationSheet: View {
     @Environment(\.wa) private var wa
     @ObservedObject var state: RidesState
@@ -147,13 +160,8 @@ struct SmartDestinationSheet: View {
     }
 
     private func pick(_ place: RideAiPlaceDto) {
-        let u = answer?.understood
         // What else was said fills the booking sheet; the rider still sees and changes all of it.
-        if let p = u?.passengers { state.passengers = p }
-        if let pay = u?.payment, state.feature(pay) { state.payment = pay }
-        if let note = u?.note { state.pickupNote = note }
-        if let cat = u?.category { state.preferCategory = cat }
-        if let when = u?.when, state.feature("scheduled"), let at = parseRideTime(when) { state.scheduledAt = at }
+        state.applyAiBooking(answer?.understood)
         state.editing = "destination"
         state.set(RidePoint(lat: place.lat, lng: place.lng, address: (place.address ?? "").isEmpty ? (place.name ?? "") : place.address!, name: place.name))
         // Confirm (or move) it on the map before anything is priced or booked.
@@ -204,6 +212,13 @@ struct SmartDestinationSheet: View {
         }
         .background(wa.settingsCard.ignoresSafeArea())
         .onDisappear { speech.stop() }
+        // Words from DORR AI's chat: understood at once.
+        .task {
+            guard let words = state.smartText else { return }
+            state.smartText = nil
+            text = words
+            ask(words)
+        }
     }
 
     @ViewBuilder

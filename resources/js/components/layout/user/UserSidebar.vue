@@ -45,6 +45,13 @@
                         </router-link>
                     </li>
 
+                    <li class="slide">
+                        <router-link :to="{ name: 'user.marketing' }" class="side-menu__item">
+                            <i class="ri-megaphone-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('marketing.title') }}</span>
+                        </router-link>
+                    </li>
+
                     <li class="slide__category">
                         <span class="category-name">{{ t('profile.title') }}</span>
                     </li>

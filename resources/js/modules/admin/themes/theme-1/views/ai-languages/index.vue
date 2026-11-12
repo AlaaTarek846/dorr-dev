@@ -61,6 +61,7 @@
                                         </td>
                                         <td>
                                             <div
+                                                v-if="canUpdate"
                                                 class="toggle toggle-success mb-0"
                                                 :class="{ on: language.ai_enabled }"
                                                 role="button"
@@ -70,6 +71,9 @@
                                             >
                                                 <span></span>
                                             </div>
+                                            <span v-else class="badge" :class="language.ai_enabled ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                {{ language.ai_enabled ? t('yes') : t('no') }}
+                                            </span>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -99,9 +103,11 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 
 const { t } = useI18n();
 const { showSuccess, showError } = useToast();
+const { canUpdate } = useCatalogPermissions('ai-languages');
 
 const languages = ref([]);
 const loading = ref(true);
@@ -122,6 +128,8 @@ async function loadLanguages() {
 }
 
 async function toggleAiEnabled(language) {
+    if (! canUpdate.value) return;
+
     const previous = language.ai_enabled;
     language.ai_enabled = ! language.ai_enabled;
 

@@ -25,6 +25,7 @@
                     </div>
 
                     <div class="modal-body px-4 pb-2">
+                        <fieldset :disabled="!canUpdate">
                         <p v-if="models.length === 0 && !showAddForm" class="fs-12 text-muted mb-2">
                             {{ t('ai_settings.models.empty_hint') }}
                         </p>
@@ -382,10 +383,12 @@
                                 </div>
                             </div>
                         </form>
+                        </fieldset>
                     </div>
 
                     <div class="modal-footer catalog-modal-footer">
                         <button type="button" class="btn btn-light" @click="closeModal">{{ t('close') }}</button>
+                        <template v-if="canUpdate">
                         <button
                             type="button"
                             class="btn btn-outline-secondary btn-sm"
@@ -423,6 +426,7 @@
                             <i class="ri-add-line align-middle"></i>
                             {{ t('ai_settings.models.add_model') }}
                         </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -437,6 +441,11 @@ import adminAxios from '../../api/adminAxios';
 import useToast, { extractApiErrorMessage } from '../../composables/useToast';
 
 const props = defineProps({
+    // false = read-only: the admin has ai-settings.view but not ai-settings.update.
+    canUpdate: {
+        type: Boolean,
+        default: true,
+    },
     provider: {
         type: Object,
         required: true,

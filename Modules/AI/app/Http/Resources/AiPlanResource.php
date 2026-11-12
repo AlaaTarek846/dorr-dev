@@ -5,6 +5,12 @@ namespace Modules\AI\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * One AI plan. name / description / badge / features are in the request's language (X-Locale / locale
+ * middleware) - the same keys the apps have always read (AiPlanDto on Android/iOS, the driver app), so they need no
+ * change. `is_active` is kept next to the catalog's `status` for them. Only the admin panel gets `translations[]`
+ * (every language, for the edit form's language tabs).
+ */
 class AiPlanResource extends JsonResource
 {
     /**
@@ -32,12 +38,24 @@ class AiPlanResource extends JsonResource
             'currency_id' => $this->currency_id,
             'badge' => $this->badge,
             'is_featured' => (bool) $this->is_featured,
-            'features' => $this->features ?? [],
+            'features' => $this->features,
             'is_trial' => (bool) $this->is_trial,
-            'is_active' => (bool) $this->is_active,
+            'status' => (bool) $this->status,
+            'is_active' => (bool) $this->status,
             'sort_order' => $this->sort_order,
+            'translations' => $this->when(
+                $request->is('api/admin/*') && $this->relationLoaded('translations'),
+                fn () => $this->translations->map(fn ($item) => [
+                    'locale' => $item->locale,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'badge' => $item->badge,
+                    'features' => array_values($item->features ?? []),
+                ])->values(),
+            ),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

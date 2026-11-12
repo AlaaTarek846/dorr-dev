@@ -74,6 +74,7 @@ struct AgreementPage: View {
     let onDispute: (_ milestone: String, _ dispute: String?) -> Void
     /// FS-150e: opens the Workroom of this work (nil: the page has none to open).
     var onWorkroom: (() -> Void)?
+    var onSummary: (() -> Void)?
     /// FS-210: opens the profile of the team that does the work (nil: the page has none to open).
     var onTeam: ((String) -> Void)?
     @State private var agreement: FreelanceAgreementDto?
@@ -225,6 +226,8 @@ struct AgreementPage: View {
             if let access = a.access, !access.isOwner { TeamAccessBanner(access: access, currency: a.currency ?? "") }
             // FS-150e: once the work runs (and after it ends, to read) its Workroom is one tap away — tasks, files, decisions, timeline.
             if activity, let onWorkroom { WorkroomEntryCard(project: projectUuid, onOpen: onWorkroom) }
+            // FS-801: DORR AI's summary of the work, for the owner (on his DORR AI plan).
+            if activity, let onSummary, a.access?.isOwner != false { FlPmEntry(onOpen: onSummary) }
             FlTabs(tabs: [
                 FlTab(icon: "doc.text", label: L("fl_tab_overview")),
                 FlTab(icon: "flag.fill", label: L("fl_tab_parts"), badge: milestones.count),

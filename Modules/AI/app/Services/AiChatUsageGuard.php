@@ -78,6 +78,14 @@ class AiChatUsageGuard
             ->latest('id')
             ->first();
 
+        // The free trial is one-time (ai-plans guide): a trial subscription whose minutes were used up is closed
+        // below, and one still left open from before that fix is closed here instead of opening a new window
+        // after the cooldown.
+        if ($subscription && $this->isUsedUpTrial($subscription, $trial)) {
+            $this->closeTrialSubscription($subscription);
+            $subscription = null;
+        }
+
         if (! $subscription) {
             $suspended = AiSubscription::query()
                 ->where('owner_type', $ownerType)
@@ -99,7 +107,7 @@ class AiChatUsageGuard
 
             $plan = AiPlan::query()
                 ->where('is_trial', true)
-                ->where('is_active', true)
+                ->where('status', true)
                 ->orderBy('sort_order')
                 ->first();
 
@@ -183,6 +191,12 @@ class AiChatUsageGuard
             if ($plan->is_trial) {
                 $trial->trial_status = AiTrialControl::TRIAL_ENDED;
                 $trial->save();
+
+                // One-time: the trial subscription ends with its minutes, so no window reopens after the
+                // cooldown. Only an admin setting the trial back to "eligible" grants a new one.
+                $this->closeTrialSubscription($subscription);
+
+                return $this->deny(self::REASON_TRIAL_ENDED, plan: $plan, subscription: $subscription, trialStatus: $trial->trial_status);
             }
 
             return $this->deny(
@@ -231,7 +245,7 @@ class AiChatUsageGuard
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
             ->with('plan')->latest('id')->first();
 
-        if ($active !== null) {
+        if ($active !== null && ! $this->isUsedUpTrial($active, $trial)) {
             return $answer(true, null, $active->plan);
         }
 
@@ -244,7 +258,7 @@ class AiChatUsageGuard
         }
 
         // Never used yet: allowed exactly when evaluate() would start the free trial plan.
-        $trialPlan = AiPlan::query()->where('is_trial', true)->where('is_active', true)->orderBy('sort_order')->first();
+        $trialPlan = AiPlan::query()->where('is_trial', true)->where('status', true)->orderBy('sort_order')->first();
 
         return $trialPlan !== null ? $answer(true, null, $trialPlan) : $answer(false, self::REASON_NO_PLAN);
     }
@@ -261,14 +275,17 @@ class AiChatUsageGuard
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
             ->with('plan')->latest('id')->first();
 
-        if ($active !== null) {
+        $trial = AiTrialControl::query()
+            ->where('owner_type', $owner->getMorphClass())->where('owner_id', $owner->getAuthIdentifier())->first();
+
+        if ($active !== null && ! $this->isUsedUpTrial($active, $trial)) {
             return $active->plan;
         }
 
         $preview = $this->preview($owner);
 
         return $preview['allowed'] && $preview['is_trial']
-            ? AiPlan::query()->where('is_trial', true)->where('is_active', true)->orderBy('sort_order')->first()
+            ? AiPlan::query()->where('is_trial', true)->where('status', true)->orderBy('sort_order')->first()
             : null;
     }
 
@@ -281,6 +298,21 @@ class AiChatUsageGuard
     {
         $session->duration_seconds = (int) round($session->started_at->diffInSeconds(now()));
         $session->save();
+    }
+
+    /**
+     * A free-trial subscription whose trial already ended (its minutes were used up): it must not open again.
+     */
+    protected function isUsedUpTrial(AiSubscription $subscription, ?AiTrialControl $trial): bool
+    {
+        $plan = $subscription->plan ?? $subscription->plan()->first();
+
+        return $plan !== null && $plan->is_trial && $trial?->trial_status === AiTrialControl::TRIAL_ENDED;
+    }
+
+    protected function closeTrialSubscription(AiSubscription $subscription): void
+    {
+        $subscription->forceFill(['status' => AiSubscription::STATUS_EXPIRED, 'ends_at' => now()])->save();
     }
 
     /**

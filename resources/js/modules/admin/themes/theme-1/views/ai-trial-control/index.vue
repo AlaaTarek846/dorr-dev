@@ -51,6 +51,7 @@
                                                 v-if="drafts[record.id]"
                                                 class="form-select form-select-sm w-auto"
                                                 v-model="drafts[record.id].trial_status"
+                                                :disabled="! canUpdate"
                                             >
                                                 <option value="eligible">{{ t('ai_trial_control.trial_eligible') }}</option>
                                                 <option value="active">{{ t('ai_trial_control.trial_active') }}</option>
@@ -62,6 +63,7 @@
                                                 v-if="drafts[record.id]"
                                                 class="form-select form-select-sm w-auto"
                                                 v-model="drafts[record.id].abuse_status"
+                                                :disabled="! canUpdate"
                                             >
                                                 <option value="clear">{{ t('ai_trial_control.abuse_clear') }}</option>
                                                 <option value="flagged">{{ t('ai_trial_control.abuse_flagged') }}</option>
@@ -74,10 +76,12 @@
                                                 type="text"
                                                 class="form-control form-control-sm"
                                                 v-model="drafts[record.id].abuse_reason"
+                                                :disabled="! canUpdate"
                                             >
                                         </td>
                                         <td class="text-end pe-4">
                                             <button
+                                                v-if="canUpdate"
                                                 type="button"
                                                 class="btn btn-sm btn-primary-light"
                                                 :disabled="busyId === record.id || ! isDirty(record)"
@@ -110,6 +114,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
@@ -118,6 +123,7 @@ import AdminPaginationFooter from '../../../../../../components/admin/AdminPagin
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-trial-control');
 const { showSuccess, showError } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 

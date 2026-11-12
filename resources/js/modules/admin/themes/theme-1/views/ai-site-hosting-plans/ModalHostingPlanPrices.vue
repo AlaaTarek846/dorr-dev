@@ -11,6 +11,7 @@
                 </div>
 
                 <div class="modal-body px-4 pb-2">
+                    <div v-if="!canEdit" class="alert alert-warning fs-13 py-2"><i class="ri-lock-line me-1"></i>{{ t('ai_site_offers.prices_read_only') }}</div>
                     <div class="alert alert-info fs-13">{{ t('ai_site_hosting.prices_intro') }}</div>
 
                     <div v-if="loading" class="text-center py-5">
@@ -34,7 +35,7 @@
                                     <td class="fw-semibold">{{ row.country_name }}</td>
                                     <td dir="ltr">{{ row.currency_code }}</td>
                                     <td style="min-width: 160px;">
-                                        <input v-model="row.price" type="number" step="0.01" min="0" class="form-control form-control-sm" dir="ltr">
+                                        <input v-model="row.price" type="number" step="0.01" min="0" class="form-control form-control-sm" dir="ltr" :disabled="!canEdit">
                                     </td>
                                     <td>
                                         <span v-if="row.price !== '' && row.price !== null" class="badge bg-success-transparent">{{ t('ai_site_offers.on_sale') }}</span>
@@ -47,8 +48,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-light" @click="close">{{ t('ai_site_offers.cancel') }}</button>
-                    <button type="button" class="btn btn-primary" :disabled="saving || loading" @click="save">
+                    <button type="button" class="btn btn-light" @click="close">{{ t('close') }}</button>
+                    <button v-if="canEdit" type="button" class="btn btn-primary" :disabled="saving || loading" @click="save">
                         <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>{{ t('ai_site_offers.save') }}
                     </button>
                 </div>
@@ -66,6 +67,8 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 const props = defineProps({
     show: { type: Boolean, default: false },
     offer: { type: Object, default: null },
+    // false = read-only (the admin can see the screen but not edit it), like ai-plans/ModalManagePrices.vue.
+    canEdit: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(['close', 'saved']);

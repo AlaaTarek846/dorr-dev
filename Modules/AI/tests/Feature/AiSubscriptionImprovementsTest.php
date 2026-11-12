@@ -387,6 +387,46 @@ class AiSubscriptionImprovementsTest extends TestCase
         $this->assertSame(1, $overview['cancelled_or_expired_last_30_days']);
         $this->assertEquals(200.0, $overview['mrr']); // two auto_renew=true active-billable subs at 100 each (planA + planA-in-grace)
         $this->assertEquals(100.0, $overview['revenue_this_month']);
+        $this->assertSame([['currency' => 'EGP', 'amount' => 200.0]], $overview['mrr_by_currency']);
+        $this->assertSame([['currency' => 'EGP', 'amount' => 100.0]], $overview['revenue_this_month_by_currency']);
         $this->assertCount(3, $overview['plan_distribution']);
+    }
+
+    public function test_mrr_and_revenue_are_split_per_currency_never_added_across_currencies(): void
+    {
+        $egpPlan = $this->makePlan(['price' => 100, 'duration_days' => 30]);
+        $sarPlan = $this->makePlan(['price' => 50, 'duration_days' => 30, 'currency' => 'SAR']);
+
+        $egp = AiSubscription::query()->create([
+            'owner_type' => 'user', 'owner_id' => 1, 'plan_id' => $egpPlan->id,
+            'starts_at' => now(), 'ends_at' => now()->addDays(20), 'status' => AiSubscription::STATUS_ACTIVE,
+            'auto_renew' => true, 'current_plan_price' => 100, 'current_plan_duration_days' => 30,
+        ]);
+        // A country price: the EGP plan was bought in SAR - the payment's currency wins over the plan's.
+        $paidInSar = AiSubscription::query()->create([
+            'owner_type' => 'user', 'owner_id' => 2, 'plan_id' => $egpPlan->id,
+            'starts_at' => now(), 'ends_at' => now()->addDays(20), 'status' => AiSubscription::STATUS_ACTIVE,
+            'auto_renew' => true, 'current_plan_price' => 30, 'current_plan_duration_days' => 30,
+        ]);
+        AiSubscription::query()->create([
+            'owner_type' => 'user', 'owner_id' => 3, 'plan_id' => $sarPlan->id,
+            'starts_at' => now(), 'ends_at' => now()->addDays(20), 'status' => AiSubscription::STATUS_ACTIVE,
+            'auto_renew' => true, 'current_plan_price' => 50, 'current_plan_duration_days' => 30,
+        ]);
+
+        foreach ([[$egp, 100, 'EGP'], [$paidInSar, 30, 'SAR']] as [$subscription, $amount, $currency]) {
+            AiSubscriptionPayment::query()->create([
+                'subscription_id' => $subscription->id, 'plan_id' => $egpPlan->id, 'owner_type' => 'user', 'owner_id' => $subscription->owner_id,
+                'type' => AiSubscriptionPayment::TYPE_INITIAL, 'status' => AiSubscriptionPayment::STATUS_SUCCEEDED,
+                'amount' => $amount, 'currency' => $currency,
+            ]);
+        }
+
+        $overview = app(AiSubscriptionReportService::class)->overview();
+
+        $this->assertSame([['currency' => 'EGP', 'amount' => 100.0], ['currency' => 'SAR', 'amount' => 80.0]], $overview['mrr_by_currency']);
+        $this->assertSame([['currency' => 'EGP', 'amount' => 100.0], ['currency' => 'SAR', 'amount' => 30.0]], $overview['revenue_this_month_by_currency']);
+        $this->assertNull($overview['mrr'], 'no single number across currencies');
+        $this->assertNull($overview['revenue_this_month']);
     }
 }

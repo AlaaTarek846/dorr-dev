@@ -681,6 +681,7 @@
 "fs_health_n_mine_part_unfunded" = "اتأكد مع العميل من تمويل %1$@.";
 "fs_health_n_mine_report_late" = "ابعت تقرير التقدم.";
 "fs_health_n_mine_review_waiting" = "كلّم العميل علشان يراجع %1$@.";
+"fs_health_n_mine_task_overdue" = "خلّص المهمة %1$@ أو اتفق على ميعاد جديد في غرفة الشغل.";
 "fs_health_n_wait_change_waiting" = "مستنيين العميل يرد على طلب التعديل.";
 "fs_health_n_wait_dispute_open" = "مستنيين قرار النزاع على %1$@.";
 "fs_health_n_wait_part_due_soon" = "ميعاد %1$@ قرّب.";
@@ -690,6 +691,7 @@
 "fs_health_n_wait_part_unfunded" = "مستنيين العميل يمول %1$@.";
 "fs_health_n_wait_report_late" = "مستنيين تقرير التقدم.";
 "fs_health_n_wait_review_waiting" = "مستنيين العميل يراجع %1$@.";
+"fs_health_n_wait_task_overdue" = "مستنيين العميل يخلّص المهمة %1$@.";
 "fs_health_on_track" = "المشروع ماشي في ميعاده";
 "fs_health_part_fallback" = "الجزء ده";
 "fs_health_r_change_waiting" = "في طلب تعديل مستني رد.";
@@ -701,6 +703,8 @@
 "fs_health_r_part_unfunded" = "%1$@ لسه متمولش.";
 "fs_health_r_report_late" = "تقرير التقدم اتأخر.";
 "fs_health_r_review_waiting" = "%1$@ اتسلّم وبيستنى مراجعة العميل.";
+"fs_health_r_task_overdue" = "المهمة %1$@ عدّت ميعادها بـ %2$@.";
+"fs_health_r_task_overdue_nodays" = "المهمة %1$@ عدّت ميعادها.";
 "fs_health_state_at_risk" = "محتاج انتباه";
 "fs_health_state_blocked" = "واقف";
 "fs_health_state_delayed" = "متأخر";

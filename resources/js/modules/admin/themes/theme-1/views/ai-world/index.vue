@@ -35,15 +35,15 @@
             <div v-for="m in (stats?.money || [])" :key="m.currency" class="col-md-6">
                 <div class="card custom-card"><div class="card-body">
                     <p class="fw-semibold mb-2">{{ m.currency || '-' }}</p>
-                    <div class="d-flex justify-content-between"><span>{{ t('ai_world.charged') }}</span><strong>{{ money(m.charged) }}</strong></div>
-                    <div class="d-flex justify-content-between"><span>{{ t('ai_world.refunded') }}</span><strong>{{ money(m.refunded) }}</strong></div>
+                    <div class="d-flex justify-content-between"><span>{{ t('ai_world.charged') }}</span><strong>{{ money(m.charged, m.currency) }}</strong></div>
+                    <div class="d-flex justify-content-between"><span>{{ t('ai_world.refunded') }}</span><strong>{{ money(m.refunded, m.currency) }}</strong></div>
                 </div></div>
             </div>
             <div v-if="! Object.keys(stats?.projects_by_status || {}).length" class="col-12 text-muted">{{ t('ai_world.empty') }}</div>
         </div>
 
         <!-- Settings -->
-        <div v-else-if="current === 'settings' && settings" class="card custom-card"><div class="card-body row g-3">
+        <div v-else-if="current === 'settings' && settings" class="card custom-card"><fieldset :disabled="! canUpdate" class="card-body row g-3">
             <div class="col-12 form-check form-switch ms-2">
                 <input id="w-enabled" v-model="settings.is_enabled" class="form-check-input" type="checkbox">
                 <label for="w-enabled" class="form-check-label">{{ t('ai_world.enabled') }}</label>
@@ -52,8 +52,8 @@
             <div class="col-md-4"><label class="form-label">{{ t('ai_world.max_retries') }}</label><input v-model.number="settings.max_retries_per_scene" type="number" min="0" max="5" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">{{ t('ai_world.retention_days') }}</label><input v-model.number="settings.retention_days" type="number" min="1" max="365" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">{{ t('ai_world.identity_threshold') }}</label><input v-model.number="settings.identity_threshold" type="number" min="0" max="100" class="form-control"><small class="text-muted">{{ t('ai_world.identity_hint') }}</small></div>
-            <div class="col-12"><button class="btn btn-primary" :disabled="saving" @click="saveSettings">{{ t('ai_world.save') }}</button></div>
-        </div></div>
+            <div v-if="canUpdate" class="col-12"><button class="btn btn-primary" :disabled="saving" @click="saveSettings">{{ t('ai_world.save') }}</button></div>
+        </fieldset></div>
 
         <!-- Country modes -->
         <div v-else-if="current === 'countries'" class="card custom-card"><div class="card-body">
@@ -61,10 +61,10 @@
                 <thead><tr><th>{{ t('ai_world.country') }}</th><th v-for="m in modeKeys" :key="m">{{ t('ai_world.modes.' + m) }}</th></tr></thead>
                 <tbody><tr v-for="c in countries" :key="c.country_id">
                     <td>{{ c.code }} <small class="text-muted">{{ c.currency }}</small></td>
-                    <td v-for="m in modeKeys" :key="m"><input v-model="c.modes[m]" type="checkbox" class="form-check-input"></td>
+                    <td v-for="m in modeKeys" :key="m"><input v-model="c.modes[m]" type="checkbox" class="form-check-input" :disabled="! canUpdate"></td>
                 </tr></tbody>
             </table></div>
-            <button class="btn btn-primary" :disabled="saving" @click="saveCountries">{{ t('ai_world.save') }}</button>
+            <button v-if="canUpdate" class="btn btn-primary" :disabled="saving" @click="saveCountries">{{ t('ai_world.save') }}</button>
         </div></div>
 
         <!-- Prices -->
@@ -74,11 +74,11 @@
                 <thead><tr><th>{{ t('ai_world.country') }}</th><th>{{ t('ai_world.quality') }}</th><th>{{ t('ai_world.price_per_second') }}</th><th>{{ t('ai_world.active') }}</th></tr></thead>
                 <tbody><tr v-for="(p, i) in priceRows" :key="i">
                     <td>{{ countryCode(p.country_id) }}</td><td>{{ p.quality }}</td>
-                    <td style="max-width:160px"><input v-model.number="p.price_per_second_minor" type="number" min="0" class="form-control form-control-sm"></td>
-                    <td><input v-model="p.is_active" type="checkbox" class="form-check-input"></td>
+                    <td style="max-width:160px"><input v-model.number="p.price_per_second_minor" type="number" min="0" class="form-control form-control-sm" :disabled="! canUpdate"></td>
+                    <td><input v-model="p.is_active" type="checkbox" class="form-check-input" :disabled="! canUpdate"></td>
                 </tr></tbody>
             </table></div>
-            <button class="btn btn-primary" :disabled="saving" @click="savePrices">{{ t('ai_world.save') }}</button>
+            <button v-if="canUpdate" class="btn btn-primary" :disabled="saving" @click="savePrices">{{ t('ai_world.save') }}</button>
         </div></div>
 
         <!-- Projects -->
@@ -92,7 +92,7 @@
                 <tbody>
                     <tr v-for="p in projects" :key="p.id">
                         <td>{{ p.id }}</td><td>{{ p.owner_id ?? '-' }}</td><td>{{ t('ai_world.status.' + p.status) }}</td><td>{{ p.total_seconds }}</td>
-                        <td>{{ money(p.charged_minor) }} {{ p.currency }}</td><td>{{ money(p.refunded_minor) }}</td>
+                        <td>{{ money(p.charged_minor, p.currency) }} {{ p.currency }}</td><td>{{ money(p.refunded_minor, p.currency) }}</td>
                         <td><button class="btn btn-sm btn-light" @click="openProject(p.id)">{{ t('ai_world.details') }}</button></td>
                     </tr>
                     <tr v-if="! projects.length"><td colspan="7" class="text-muted">{{ t('ai_world.empty') }}</td></tr>
@@ -101,7 +101,7 @@
             <div v-if="detail" class="border rounded p-3 mt-3">
                 <p class="fw-semibold">#{{ detail.project.id }} - {{ t('ai_world.ledger') }}</p>
                 <table class="table table-sm"><tbody>
-                    <tr v-for="l in detail.ledger" :key="l.id"><td>{{ l.type }}</td><td>{{ money(l.amount_minor) }} {{ l.currency }}</td><td class="text-muted">{{ l.note }}</td></tr>
+                    <tr v-for="l in detail.ledger" :key="l.id"><td>{{ l.type }}</td><td>{{ money(l.amount_minor, l.currency) }} {{ l.currency }}</td><td class="text-muted">{{ l.note }}</td></tr>
                     <tr v-if="! detail.ledger.length"><td class="text-muted">{{ t('ai_world.empty') }}</td></tr>
                 </tbody></table>
                 <p class="fw-semibold">{{ t('ai_world.attempts') }}</p>
@@ -120,7 +120,7 @@
                         <td>{{ r.id }}</td><td>{{ t('ai_world.report_types.' + r.type) }}</td><td>{{ r.project_id ?? '-' }}</td>
                         <td style="white-space:normal;max-width:320px">{{ r.notes }}</td>
                         <td>
-                            <select :value="r.status" class="form-select form-select-sm" @change="setReport(r, $event.target.value)">
+                            <select :value="r.status" class="form-select form-select-sm" :disabled="! canUpdate" @change="setReport(r, $event.target.value)">
                                 <option v-for="s in reportStatuses" :key="s" :value="s">{{ t('ai_world.report_status.' + s) }}</option>
                             </select>
                         </td><td></td>
@@ -136,9 +136,11 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('ai-world');
 const { showSuccess, showError } = useToast();
 const base = '/api/admin/v1/ai-world';
 
@@ -159,7 +161,13 @@ const reports = ref([]);
 const detail = ref(null);
 const statusFilter = ref('');
 
-const money = (minor) => ((Number(minor) || 0) / 100).toFixed(2);
+// Minor units per currency (KWD / BHD / OMR have 3 places): stats, projects and a project answer carry currency_decimals.
+const currencyDecimals = ref({});
+const remember = (res) => { currencyDecimals.value = { ...currencyDecimals.value, ...(res?.data.currency_decimals ?? {}) }; return res; };
+const money = (minor, code) => {
+    const places = currencyDecimals.value[String(code || '').toUpperCase()] ?? 2;
+    return ((Number(minor) || 0) / (10 ** places)).toFixed(places);
+};
 const countryCode = (id) => countries.value.find((c) => c.country_id === id)?.code ?? id;
 
 async function run(call) {
@@ -170,7 +178,7 @@ async function open(tab) {
     current.value = tab;
     loading.value = true;
     detail.value = null;
-    if (tab === 'overview') stats.value = (await run(() => adminAxios.get(`${base}/stats`)))?.data.data ?? stats.value;
+    if (tab === 'overview') stats.value = remember(await run(() => adminAxios.get(`${base}/stats`)))?.data.data ?? stats.value;
     if (tab === 'settings') settings.value = (await run(() => adminAxios.get(`${base}/settings`)))?.data.data ?? settings.value;
     if (tab === 'countries' || tab === 'prices') {
         countries.value = (await run(() => adminAxios.get(`${base}/country-modes`)))?.data.data ?? countries.value;
@@ -187,12 +195,12 @@ async function open(tab) {
 }
 
 async function loadProjects() {
-    const res = await run(() => adminAxios.get(`${base}/projects`, { params: statusFilter.value ? { status: statusFilter.value } : {} }));
+    const res = remember(await run(() => adminAxios.get(`${base}/projects`, { params: statusFilter.value ? { status: statusFilter.value } : {} })));
     projects.value = res?.data.data ?? [];
 }
 
 async function openProject(id) {
-    detail.value = (await run(() => adminAxios.get(`${base}/projects/${id}`)))?.data.data ?? null;
+    detail.value = remember(await run(() => adminAxios.get(`${base}/projects/${id}`)))?.data.data ?? null;
 }
 
 async function save(call) {

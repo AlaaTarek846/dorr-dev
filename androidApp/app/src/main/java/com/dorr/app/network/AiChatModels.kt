@@ -69,10 +69,29 @@ data class AiMessageDto(
     // see AiFileCitationResource server-side. Only real, already-
     // computed metadata; never rendered unless this list is non-empty.
     val citations: List<AiFileCitationDto> = emptyList(),
+    /** DORR services offered with this answer — e.g. a ride with the destination already understood. */
+    val actions: List<AiServiceActionDto> = emptyList(),
     @SerializedName("created_at") val createdAt: String?,
 ) {
     val isUser: Boolean get() = role == "user"
 }
+
+/**
+ * A DORR service card under an answer (Modules/AI AiServiceActions). `ride_booking`: the person wants to go
+ * somewhere — the place from the admin's map and what else was understood, in the same shape as
+ * «دُرر يفهم مقصدك» (rides `ai/understand`).
+ */
+data class AiServiceActionDto(
+    val type: String,
+    val service: String? = null,
+    val title: String? = null,
+    val subtitle: String? = null,
+    val text: String? = null,
+    val destination: RideAiPlaceDto? = null,
+    val places: List<RideAiPlaceDto> = emptyList(),
+    val understood: RideAiUnderstoodDto? = null,
+    val clarify: String? = null,
+)
 
 /** Mirrors Modules/AI's AiFileCitationResource field-for-field. */
 data class AiFileCitationDto(

@@ -48,7 +48,8 @@ class AiBenchmarkRunner
     public function run(Authenticatable $triggeredBy, ?int $providerId = null, ?string $domainKey = null): AiBenchmarkRun
     {
         $cases = AiBenchmarkCase::query()
-            ->where('is_active', true)
+            // Switched on and not in the trash (SoftDeletes scope) - a paused or trashed case never runs.
+            ->where('status', true)
             ->when($domainKey, fn ($query) => $query->where('domain_key', $domainKey))
             ->get();
 
@@ -65,30 +66,61 @@ class AiBenchmarkRunner
         $abstained = 0;
         $resolvedModelKey = null;
 
-        foreach ($cases as $case) {
-            $outcome = $this->runCase($triggeredBy, $case, $forcedProvider);
+        // The run executes inside the admin's HTTP request: if anything throws, the run is marked
+        // failed (with what was measured so far) instead of staying "running" for ever; a fatal
+        // error / time-out that skips the catch is caught by the shutdown guard below.
+        $finished = false;
+        register_shutdown_function(function () use ($run, &$finished) {
+            if ($finished) {
+                return;
+            }
 
-            AiBenchmarkResult::query()->create([
-                'run_id' => $run->id,
-                'case_id' => $case->id,
-                ...$outcome,
+            try {
+                AiBenchmarkRun::query()->whereKey($run->id)->where('status', AiBenchmarkRun::STATUS_RUNNING)
+                    ->update(['status' => AiBenchmarkRun::STATUS_FAILED, 'finished_at' => now()]);
+            } catch (\Throwable) {
+                // Nothing more can be done while PHP shuts down.
+            }
+        });
+
+        try {
+            foreach ($cases as $case) {
+                $outcome = $this->runCase($triggeredBy, $case, $forcedProvider);
+
+                AiBenchmarkResult::query()->create([
+                    'run_id' => $run->id,
+                    'case_id' => $case->id,
+                    ...$outcome,
+                ]);
+
+                $passed += $outcome['passed'] ? 1 : 0;
+                $abstained += $outcome['abstained'] ? 1 : 0;
+                $resolvedModelKey ??= $outcome['_model_key'] ?? null;
+            }
+
+            $total = $cases->count();
+
+            $run->update([
+                'status' => AiBenchmarkRun::STATUS_COMPLETED,
+                'passed_cases' => $passed,
+                'abstained_cases' => $abstained,
+                'pass_rate' => $total > 0 ? round(($passed / $total) * 100, 2) : null,
+                'model_key' => $resolvedModelKey,
+                'finished_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            $run->update([
+                'status' => AiBenchmarkRun::STATUS_FAILED,
+                'passed_cases' => $passed,
+                'abstained_cases' => $abstained,
+                'model_key' => $resolvedModelKey,
+                'finished_at' => now(),
             ]);
 
-            $passed += $outcome['passed'] ? 1 : 0;
-            $abstained += $outcome['abstained'] ? 1 : 0;
-            $resolvedModelKey ??= $outcome['_model_key'] ?? null;
+            throw $e;
+        } finally {
+            $finished = true;
         }
-
-        $total = $cases->count();
-
-        $run->update([
-            'status' => AiBenchmarkRun::STATUS_COMPLETED,
-            'passed_cases' => $passed,
-            'abstained_cases' => $abstained,
-            'pass_rate' => $total > 0 ? round(($passed / $total) * 100, 2) : null,
-            'model_key' => $resolvedModelKey,
-            'finished_at' => now(),
-        ]);
 
         return $run->fresh('results.case');
     }
@@ -169,7 +201,7 @@ class AiBenchmarkRunner
         if ($case->domain_key) {
             $policy = AiDomainPolicy::query()
                 ->where('domain_key', $case->domain_key)
-                ->where('is_active', true)
+                ->where('status', true)
                 ->first();
 
             if ($policy?->system_prompt_addition) {

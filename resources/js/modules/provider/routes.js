@@ -3,6 +3,7 @@ import AuthLayout from '../../layouts/AuthLayout.vue';
 import { resolvePage } from '../../dashboard/resolvePage';
 import { resolveShell } from '../../dashboard/resolveShell';
 import providerAuth from '../../router/middleware/providerAuth';
+import marketingRoutes from '../../components/marketing/marketingRoutes';
 import providerGuest from '../../router/middleware/providerGuest';
 
 const page = (viewPath) => resolvePage('provider', viewPath);
@@ -82,6 +83,7 @@ export default [
                 component: page('ai-ar/index'),
                 meta: { middleware: [providerAuth] },
             },
+            marketingRoutes('provider', page('marketing/index'), [providerAuth]),
             {
                 path: 'profile',
                 name: 'provider.profile',

@@ -77,6 +77,8 @@ final class RidesState: ObservableObject {
     @Published var scheduleOpen = false
     /// Block 06: «دُرر يفهم مقصدك» is open; AI-09's suggestion.
     @Published var smartOpen = false
+    /// Words from DORR AI's chat for «دُرر يفهم مقصدك» to understand at once (no place was found there).
+    @Published var smartText: String?
     @Published var suggestion: RideAiSuggestDto?
     /// The Safety Center page is open (R-219).
     @Published var safetyOpen = false
@@ -176,6 +178,15 @@ final class RidesState: ObservableObject {
 final class RidesLink: ObservableObject {
     static let shared = RidesLink()
     @Published var pending: String?
+    /// DORR AI's chat: "Book with DORR" — the trip it understood, to fill the booking in when rides opens.
+    @Published var prefill: AiServiceActionDto?
+    /// Set with `prefill`: the app opens the rides screen (over DORR AI, which is there again on back).
+    @Published var openRequested = false
+
+    func book(_ action: AiServiceActionDto) {
+        prefill = action
+        openRequested = true
+    }
 
     func show(_ uuid: String) { pending = uuid }
 }

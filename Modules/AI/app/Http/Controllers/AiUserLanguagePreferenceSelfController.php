@@ -42,7 +42,9 @@ class AiUserLanguagePreferenceSelfController extends Controller
                 Language::query()->with('translations')->where('ai_enabled', true)->orderBy('code')->get()
             ),
             'variants' => AiLanguageVariantResource::collection(
-                AiLanguageVariant::query()->with('language.translations')->where('is_active', true)->orderBy('name')->get()
+                // Switched-on variants not in the trash, by their name in the caller's language (the name is translated).
+                AiLanguageVariant::query()->with('language.translations')->where('status', true)->get()
+                    ->sortBy(fn (AiLanguageVariant $variant) => (string) $variant->name, SORT_NATURAL | SORT_FLAG_CASE)->values()
             ),
         ]);
     }

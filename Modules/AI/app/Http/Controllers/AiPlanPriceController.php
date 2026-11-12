@@ -4,7 +4,9 @@ namespace Modules\AI\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
+use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Modules\AI\Http\Requests\AiPlanPriceRequest;
 use Modules\AI\Models\AiPlan;
 use Modules\AI\Models\AiPlanPrice;
@@ -15,8 +17,17 @@ use Modules\AI\Models\AiPlanPrice;
  * business asked for a separate screen/tab), reached via
  * admin/v1/ai-plans/{plan}/prices.
  */
-class AiPlanPriceController extends Controller
+class AiPlanPriceController extends Controller implements HasMiddleware
 {
+    /** Reading the prices = seeing the plan; changing them = editing the plan. */
+    public static function middleware(): array
+    {
+        return AdminPermissionMiddleware::fromActionMethodMap('ai-plans', [
+            ['view', ['index']],
+            ['update', ['store', 'destroy']],
+        ]);
+    }
+
     /**
      * One row per ACTIVE country (not just the ones already customized),
      * merged with any existing override - exactly what the admin table

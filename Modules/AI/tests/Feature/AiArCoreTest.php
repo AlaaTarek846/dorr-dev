@@ -194,7 +194,7 @@ class AiArCoreTest extends TestCase
 
     public function test_admin_publishes_a_library_model_only_with_a_licence(): void
     {
-        Sanctum::actingAs(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true]), ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
 
         $id = $this->postJson('/api/admin/v1/ai-ar/assets', ['name_en' => 'Sofa', 'category' => 'furniture', 'file' => $this->file($this->glb(), 'sofa.glb')])->assertStatus(201)->json('data.id');
         $versionId = AiArAsset::find($id)->versions()->first()->id;
@@ -205,5 +205,23 @@ class AiArCoreTest extends TestCase
         $this->postJson("/api/admin/v1/ai-ar/assets/$id/publish", ['is_public' => true])->assertOk()->assertJsonPath('data.is_public', true);
         $this->postJson('/api/admin/v1/ai-ar/devices', ['manufacturer' => 'Acme', 'model_pattern' => 'X%', 'arcore_supported' => true, 'tier' => 'basic'])->assertStatus(201);
         $this->putJson('/api/admin/v1/ai-ar/settings', ['max_triangles' => 50])->assertStatus(422);
+    }
+
+    public function test_devices_keep_their_platform_and_the_app_header_picks_the_list(): void
+    {
+        Sanctum::actingAs(\Tests\Support\AdminPermissions::grant(Admin::query()->create(['name' => 'A', 'email' => 'ad-'.uniqid().'@example.test', 'password' => 'password', 'status' => true])), ['*'], 'admin_api');
+
+        $this->postJson('/api/admin/v1/ai-ar/devices', ['platform' => 'ios', 'manufacturer' => 'Apple', 'model_pattern' => 'iPhone1%', 'arcore_supported' => false, 'tier' => 'fallback_only'])
+            ->assertStatus(201)->assertJsonPath('data.platform', 'ios');
+        $this->postJson('/api/admin/v1/ai-ar/devices', ['platform' => 'windows', 'manufacturer' => 'X', 'model_pattern' => 'X%', 'arcore_supported' => true, 'tier' => 'basic'])->assertStatus(422);
+        $this->postJson('/api/admin/v1/ai-ar/devices', ['manufacturer' => 'Acme', 'model_pattern' => 'X%', 'arcore_supported' => true, 'tier' => 'basic'])->assertStatus(201);
+        $this->assertSame(['android', 'ios'], AiArDeviceProfile::query()->orderBy('platform')->pluck('platform')->all());
+
+        // The app sends no platform field, only the X-Platform header every request carries.
+        $this->user();
+        $device = ['manufacturer' => 'Apple', 'model' => 'iPhone15', 'arcore_supported' => true];
+        $this->postJson('/api/user/v1/ai-ar/capability', $device, ['X-Platform' => 'ios'])->assertOk()
+            ->assertJsonPath('data.matched_profile', true)->assertJsonPath('data.tier', 'fallback_only');
+        $this->postJson('/api/user/v1/ai-ar/capability', $device, ['X-Platform' => 'android'])->assertOk()->assertJsonPath('data.matched_profile', false);
     }
 }

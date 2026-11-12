@@ -45,6 +45,9 @@ use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Safety\SafetyPolicyEngine;
 use Modules\AI\Services\DocumentGeneration\AiDocumentContentParser;
 use Modules\AI\Services\DocumentGeneration\AiDocumentRenderer;
+use Modules\AI\Services\Monitoring\AiSafetyScanRecorder;
+use Modules\AI\Services\Monitoring\AiSecurityEventRecorder;
+use Modules\AI\Models\AiSecurityEvent;
 use Modules\AI\Services\Retrieval\AiBuiltContext;
 use Modules\AI\Services\Retrieval\AiContextBuilder;
 use Modules\AI\Services\Retrieval\AiRetrievalEngine;
@@ -479,6 +482,16 @@ class AiChatService
         $usage = $this->usageGuard->evaluate($owner);
 
         if (! $usage['allowed']) {
+            if ($usage['reason'] === AiChatUsageGuard::REASON_BLOCKED) {
+                // A blocked account (AI trial control) still trying to chat - a security event.
+                app(AiSecurityEventRecorder::class)->record(
+                    AiSecurityEventRecorder::EVENT_BLOCKED_OWNER_ATTEMPT,
+                    AiSecurityEvent::SEVERITY_MEDIUM,
+                    $owner,
+                    'Blocked account (AI trial control) tried to send a chat message.',
+                );
+            }
+
             return ApiResponse::error(
                 $this->usageDenialMessage($usage['reason']),
                 $usage['reason'] === AiChatUsageGuard::REASON_BLOCKED ? 403 : 402,
@@ -591,6 +604,13 @@ class AiChatService
         $safety = $this->safetyGuard->evaluate($content);
         $outgoingContent = $safety['sanitized'] ?? $content;
 
+        // A "require confirmation" safety rule: the first time, the message is held back and the person is asked to
+        // confirm; sending the very same message again right after (same conversation, within
+        // ai.chat.safety_confirmation_minutes) is the confirmation, and it goes on like Review (logged). Checked
+        // before this turn's own messages are stored.
+        $confirmationPending = $safety['action'] === AiSafetyRule::ACTION_REQUIRE_CONFIRMATION
+            && ! $this->confirmsSafetyPrompt($owner, $conversation, $content);
+
         // A trace_id (v2.0 doc, 3.1/16.4) is minted for every request the
         // moment it is accepted - including one the safety layer goes on
         // to block - so the whole lifecycle, blocked or not, is traceable
@@ -628,6 +648,9 @@ class AiChatService
 
             throw $e;
         }
+
+        // Every safety check is kept in ai_safety_scans (passed or not); failure-safe.
+        app(AiSafetyScanRecorder::class)->record($safety, $owner, $aiRequest);
 
         $userMessage = $this->createSequencedMessage($conversation, [
             'role' => AiMessage::ROLE_USER,
@@ -696,6 +719,7 @@ class AiChatService
             $this->logSafetyEvent($owner, $safety, $content, $aiRequest);
 
             $aiRequest->status = AiRequest::STATUS_BLOCKED;
+            $aiRequest->error_code = AiRequest::ERROR_SAFETY_BLOCKED;
             $aiRequest->error_message = Str::limit(__('ai.message_blocked'), 500);
             $aiRequest->save();
 
@@ -725,7 +749,42 @@ class AiChatService
             ], __('ai.message_blocked'));
         }
 
-        if (in_array($safety['action'], [AiSafetyRule::ACTION_REVIEW, AiSafetyRule::ACTION_SANITIZE], true)) {
+        if ($confirmationPending) {
+            // Nothing reaches the AI and no usage is counted; the same response keys as a blocked message.
+            $this->logSafetyEvent($owner, $safety, $content, $aiRequest);
+
+            $aiRequest->status = AiRequest::STATUS_CANCELLED;
+            $aiRequest->error_code = AiRequest::ERROR_SAFETY_CONFIRMATION;
+            $aiRequest->error_message = Str::limit(__('ai.safety_confirmation_required'), 500);
+            $aiRequest->save();
+
+            $conversation->provider_key = $provider->key;
+            $conversation->save();
+
+            $assistantMessage = $this->createSequencedMessage($conversation, [
+                'role' => AiMessage::ROLE_ASSISTANT,
+                'content' => __('ai.safety_confirmation_required'),
+                'provider_key' => $provider->key,
+                'request_id' => $aiRequest->id,
+                'is_error' => false,
+            ]);
+
+            $this->broadcastAssistantMessage($conversation, $assistantMessage);
+
+            return ApiResponse::success([
+                'user_message' => new AiMessageResource($userMessage->fresh('attachments')),
+                'assistant_message' => new AiMessageResource($assistantMessage->loadMissing('fileCitations.file')),
+                'conversation' => new AiConversationResource($conversation->refresh()->load('messages.attachments')),
+                'usage' => $this->usageSummary($usage),
+                'trace_id' => $aiRequest->correlation_id,
+                'status' => $aiRequest->status,
+                'confidence' => null,
+                'sources' => [],
+                'warnings' => [],
+            ], __('ai.safety_confirmation_required'));
+        }
+
+        if (in_array($safety['action'], [AiSafetyRule::ACTION_REVIEW, AiSafetyRule::ACTION_SANITIZE, AiSafetyRule::ACTION_REQUIRE_CONFIRMATION], true)) {
             $this->logSafetyEvent($owner, $safety, $content, $aiRequest);
         }
 
@@ -831,6 +890,12 @@ class AiChatService
         // EvidencePlanner (spec 324): the evidence and accuracy rules for this request's topics.
         $domainGuidance = ($domainGuidance === null ? '' : $domainGuidance."\n\n").$this->evidencePlanner->guidance($outgoingContent);
 
+        // DORR's own services (AiServiceActions): e.g. "I want to go to the airport" → recommend DORR rides.
+        $serviceGuidance = app(AiServiceActions::class)->guidance($owner, $content);
+        if ($serviceGuidance !== null) {
+            $domainGuidance .= "\n\n".$serviceGuidance;
+        }
+
         // Memory only on an explicit request (spec 142): "افتكر إن…" / "remember that…" is saved
         // (when memory is on) and the answer confirms it — or says why it was not.
         $memoryNote = $this->rememberIfAsked($owner, $conversation, $content);
@@ -889,6 +954,7 @@ class AiChatService
         $aiRequest->model_key = $usedModel;
         $aiRequest->status = $result['success'] ? AiRequest::STATUS_COMPLETED : AiRequest::STATUS_FAILED;
         $aiRequest->error_message = $result['success'] ? null : Str::limit($result['message'], 500);
+        $aiRequest->error_code = $result['success'] ? null : AiRequest::failureCode($result['message'] ?? null);
         $aiRequest->save();
 
         AiResponse::query()->create([
@@ -1018,10 +1084,16 @@ class AiChatService
         // one-time snapshot persisted straight onto the message (see the
         // ai_messages migration for why these duplicate ai_verifications
         // / ai_document_generations instead of being relations).
+        // The service cards under the answer (never when the answer failed or was held back).
+        $serviceActions = $result['success'] && $verification['status'] !== AiVerification::STATUS_ABSTAINED
+            ? app(AiServiceActions::class)->actions($owner, $content)
+            : [];
+
         $assistantMessage = $this->createSequencedMessage($conversation, [
             'role' => AiMessage::ROLE_ASSISTANT,
             'content' => $replyContent,
             'safety' => $safety,
+            'actions' => $serviceActions === [] ? null : $serviceActions,
             'provider_key' => $usedProvider->key,
             'model' => $usedModel,
             'tokens_used' => $outputTokens,
@@ -1120,6 +1192,9 @@ class AiChatService
             AiRequest::STATUS_COMPLETED,
             AiRequest::STATUS_BLOCKED,
             AiRequest::STATUS_FAILED,
+            // Held for a safety confirmation: a retry under the same key gets the same question back (sending the
+            // message again under a new key is what confirms it).
+            AiRequest::STATUS_CANCELLED,
         ];
 
         if (! in_array($existing->status, $terminalStatuses, true)) {
@@ -1201,6 +1276,52 @@ class AiChatService
      * 23000 through PDO, so checking the exception's SQL state is
      * portable between them without parsing driver-specific error text.
      */
+    /**
+     * Whether $content confirms the safety question the assistant just asked in this conversation: the last message
+     * is that question (a request held with ERROR_SAFETY_CONFIRMATION, recent enough) and the person sent the same
+     * text again. Fail-safe: any problem = not confirmed (they are simply asked again).
+     */
+    protected function confirmsSafetyPrompt(Authenticatable $owner, AiConversation $conversation, string $content): bool
+    {
+        try {
+            $last = AiMessage::query()
+                ->where('conversation_id', $conversation->id)
+                ->orderByDesc('sequence_number')
+                ->orderByDesc('id')
+                ->first();
+
+            if (! $last || $last->role !== AiMessage::ROLE_ASSISTANT || ! $last->request_id) {
+                return false;
+            }
+
+            $held = AiRequest::query()
+                ->whereKey($last->request_id)
+                ->where('owner_type', $owner->getMorphClass())
+                ->where('owner_id', $owner->getAuthIdentifier())
+                ->where('status', AiRequest::STATUS_CANCELLED)
+                ->where('error_code', AiRequest::ERROR_SAFETY_CONFIRMATION)
+                ->where('created_at', '>=', now()->subMinutes(max(1, (int) config('ai.chat.safety_confirmation_minutes', 30))))
+                ->first();
+
+            if (! $held) {
+                return false;
+            }
+
+            $asked = AiMessage::query()
+                ->where('request_id', $held->id)
+                ->where('role', AiMessage::ROLE_USER)
+                ->value('content');
+
+            $normalize = fn (string $text) => mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $text)));
+
+            return is_string($asked) && $normalize($asked) === $normalize($content);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
     protected function isUniqueConstraintViolation(QueryException $e): bool
     {
         return $e->getCode() === '23000';
@@ -1292,6 +1413,9 @@ class AiChatService
             $hasNext = $fallbackEnabled && isset($candidates[$index + 1]);
 
             if ($hasNext) {
+                // One more provider tried for this request (saved with the final status).
+                $aiRequest->retry_count = (int) $aiRequest->retry_count + 1;
+
                 AiFailover::query()->create([
                     'primary_provider_id' => $provider->id,
                     'fallback_provider_id' => $candidates[$index + 1]['provider']->id,
@@ -1455,7 +1579,8 @@ class AiChatService
             'request_id' => $aiRequest->id,
             'attempt_number' => $attempt,
             'verifier_provider_id' => $verifierProvider->id,
-            'draft_content' => Str::limit($draftContent, 20000, ''),
+            // Same redaction as ai_responses.response (data policy) - not the raw draft.
+            'draft_content' => Str::limit($this->minimizedForLog($draftContent), 20000, ''),
             'claims' => $verdict['claims'],
             'issues' => $verdict['issues'],
             'supported_claims_ratio' => $verdict['supported_claims_ratio'],
@@ -1501,15 +1626,12 @@ class AiChatService
      * (v2.0 doc, 17.3). The real, unredacted content always stays in
      * ai_messages - this only trims what the *audit log* duplicates.
      * Minimization defaults to on (fail-safe) when no policy is
-     * configured or it cannot be read.
+     * configured or it cannot be read. A switched-off or trashed policy is
+     * not read (AiDataPolicy::activePersonal).
      */
     protected function minimizedForLog(string $text): string
     {
-        $policy = AiDataPolicy::query()
-            ->where('data_classification', AiDataPolicy::CLASSIFICATION_PERSONAL)
-            ->where('is_active', true)
-            ->orderByDesc('id')
-            ->first();
+        $policy = AiDataPolicy::activePersonal();
 
         if ($policy && ! $policy->minimization_enabled) {
             return $text;
@@ -1664,7 +1786,8 @@ class AiChatService
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $project];
         }
 
-        foreach ($conversation->instructions()->where('is_active', true)->orderByDesc('priority')->get() as $instruction) {
+        // Switched-off instructions are skipped; trashed ones never load (SoftDeletes).
+        foreach ($conversation->instructions()->where('status', true)->orderByDesc('priority')->get() as $instruction) {
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $instruction->instruction];
         }
 
@@ -2043,6 +2166,17 @@ class AiChatService
     {
         $audience = $owner->getMorphClass() === 'provider' ? 'service provider' : 'customer';
 
+        // The active personal data policy may forbid sending the account's personal details (consent required, or
+        // no external provider allowed) - then only the country is shared (AiPersonalDataPolicy).
+        if (! app(AiPersonalDataPolicy::class)->allowsOwnerProfile()) {
+            $country = method_exists($owner, 'country') ? $owner->country()->with('translation')->first() : null;
+
+            return $country
+                ? "The {$audience} you are talking to is in: ".($country->translatedName() ?? $country->code)
+                    .'. Their personal details are not shared with you; do not ask for them unless the task needs them.'
+                : '';
+        }
+
         $lines = ["Here is what you already know about the {$audience} you are talking to - never ask them for it again:"];
 
         $lines[] = '- Name: '.$owner->name;
@@ -2254,7 +2388,8 @@ class AiChatService
             'safety_policy_id' => $safety['rule']->safety_policy_id,
             'safety_rule_id' => $safety['rule']->id,
             'action_taken' => $safety['action'],
-            'reason' => Str::limit($content, 500),
+            // Same redaction as ai_requests.prompt (data policy) - never the raw message.
+            'reason' => Str::limit($this->minimizedForLog($content), 500),
         ]);
 
         $this->auditTrail->record(
@@ -2507,6 +2642,7 @@ class AiChatService
     ): JsonResponse {
         $aiRequest->status = $isError ? AiRequest::STATUS_FAILED : AiRequest::STATUS_COMPLETED;
         $aiRequest->error_message = $isError ? ($errorDetail ?? $warning) : null;
+        $aiRequest->error_code = $isError ? ($errorDetail === null ? AiRequest::ERROR_FAILED : AiRequest::failureCode($errorDetail)) : null;
         $aiRequest->save();
 
         $assistantMessage = $this->createSequencedMessage($conversation, [
@@ -2576,6 +2712,7 @@ class AiChatService
             : __('ai.image_quota_reached', ['limit' => (int) ($decision['limit'] ?? 0)]);
 
         $aiRequest->status = AiRequest::STATUS_FAILED;
+        $aiRequest->error_code = AiRequest::ERROR_IMAGE_QUOTA;
         $aiRequest->error_message = 'image_quota:'.$decision['reason'];
         $aiRequest->save();
 
@@ -2680,6 +2817,7 @@ class AiChatService
         $aiRequest->model_key = $candidate['model_key'];
         $aiRequest->status = $result['success'] ? AiRequest::STATUS_COMPLETED : AiRequest::STATUS_FAILED;
         $aiRequest->error_message = $result['success'] ? null : Str::limit((string) $result['message'], 500);
+        $aiRequest->error_code = $result['success'] ? null : AiRequest::failureCode((string) $result['message']);
         $aiRequest->save();
 
         $assistantMessage = $this->createSequencedMessage($conversation, [

@@ -1249,6 +1249,29 @@ enum FreelanceApi {
     }
 
     /// FS-213: `teams` too - each team's invitation goes to its Owner, who offers in the team's name.
+    /// FS-401 / FS-501: DORR AI for the client — which tools are on here and whether the plan allows them now.
+    static func aiStatus() async throws -> ApiEnvelope<FreelanceAiStatusDto> {
+        try await ApiClient.snake("\(base)/projects/ai/status")
+    }
+
+    /// FS-401: the idea (and the answers to its questions) written as a project draft; nothing is saved.
+    static func aiBuild(idea: String, answers: [(String, String)]) async throws -> ApiEnvelope<FreelanceAiBuildDto> {
+        try await ApiClient.snake("\(base)/projects/ai/build", method: "POST", body: [
+            "idea": .string(idea),
+            "answers": .array(answers.map { .object(["question": .string($0.0), "answer": .string($0.1)]) }),
+        ])
+    }
+
+    /// FS-501 / FS-503: the best freelancers and teams for my project, each with a score and the reasons.
+    static func aiMatches(_ uuid: String, refresh: Bool = false) async throws -> ApiEnvelope<FreelanceMatchesDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/matches", query: ["refresh": refresh ? "1" : nil])
+    }
+
+    /// FS-801: DORR AI's summary of my running project for the last `days` (1 · 7 · 30); reading only.
+    static func aiSummary(_ uuid: String, days: Int, refresh: Bool = false) async throws -> ApiEnvelope<FreelancePmSummaryDto> {
+        try await ApiClient.snake("\(base)/projects/\(uuid)/workroom/ai/summary", query: ["days": String(days), "refresh": refresh ? "1" : nil])
+    }
+
     static func invite(_ uuid: String, freelancers: [String] = [], teams: [String] = []) async throws -> ApiEnvelope<FreelanceInvitationsDto> {
         try await ApiClient.snake("\(base)/projects/\(uuid)/invitations", method: "POST", body: [
             "freelancers": .array(freelancers.map(JSONValue.string)), "teams": .array(teams.map(JSONValue.string)),
@@ -1286,3 +1309,129 @@ enum FreelanceApi {
         try await ApiClient.snake("\(base)/projects/\(uuid)/attachments/\(media)", method: "DELETE")
     }
 }
+
+// MARK: - FS-401 / FS-501: DORR AI
+
+struct FreelanceAiStatusDto: Codable, Equatable {
+    var builder: Bool?
+    var matching: Bool?
+    /// FS-801: the AI Project Manager's summary.
+    var manager: Bool?
+    var allowed: Bool?
+    var reason: String?
+}
+
+/// What DORR AI wrote: the draft for the form, the brief it came from, and what it still asks the client.
+struct FreelanceAiBuildDto: Codable, Equatable {
+    var draft: FreelanceAiDraftDto?
+    var brief: FreelanceAiBriefDto?
+    var questions: [String]?
+}
+
+struct FreelanceAiDraftDto: Codable, Equatable {
+    var title: String?
+    var description: String?
+    var specialty: FreelanceNamedDto?
+    var skills: [FreelanceNamedDto]?
+    var budget: FreelanceBudgetDto?
+    var durationDays: Int?
+    var visibility: String?
+    var questions: [String]?
+}
+
+struct FreelanceAiBriefDto: Codable, Equatable {
+    var summary: String?
+    var goal: String?
+    var audience: String?
+    var features: [String]?
+    var deliverables: [String]?
+    var acceptance: [String]?
+    var outOfScope: [String]?
+    var assumptions: [String]?
+}
+
+/// The candidates once each; `lists` names them (uuids) in each order: best · quality · value · fastest.
+struct FreelanceMatchesDto: Codable, Equatable {
+    var candidates: [FreelanceMatchDto]?
+    var lists: [String: [String]]?
+    var teams: [FreelanceTeamMatchDto]?
+    var summary: String?
+    /// `specialty`: the project needs a specialty or skills first.
+    var needs: String?
+    var canInvite: Bool?
+}
+
+struct FreelanceMatchDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var name: String?
+    var headline: String?
+    var avatarUrl: String?
+    var specialties: [String]?
+    var skillsMatched: [String]?
+    var score: Int?
+    var rating: Double?
+    var reviewsCount: Int?
+    var completedProjects: Int?
+    var onTimeRate: Int?
+    var availableNow: Bool?
+    var isNew: Bool?
+    var reasons: [String]?
+    var why: String?
+    var invited: Bool?
+    var offered: Bool?
+
+    var id: String { uuid }
+}
+
+struct FreelanceTeamMatchDto: Codable, Equatable, Identifiable {
+    var uuid: String
+    var name: String?
+    var logoUrl: String?
+    var membersCount: Int?
+    var verified: Bool?
+    var score: Int?
+    var rating: Double?
+    var completedProjects: Int?
+    var reasons: [String]?
+    var why: String?
+
+    var id: String { uuid }
+}
+
+// MARK: - FS-801: the AI Project Manager
+
+/// What happened on a running project lately — the numbers DORR counted, its health, and DORR AI's summary (nil in a quiet period).
+struct FreelancePmSummaryDto: Codable, Equatable {
+    var days: Int?
+    var facts: FreelancePmFactsDto?
+    var health: FreelanceHealthDto?
+    var quiet: Bool?
+    var summary: FreelancePmTextDto?
+    var generatedAt: String?
+}
+
+struct FreelancePmFactsDto: Codable, Equatable {
+    var tasksOpen: Int?
+    var tasksOverdue: Int?
+    var tasksDone: Int?
+    var tasksNew: Int?
+    var decisions: Int?
+    var files: Int?
+    var reports: Int?
+    var percent: Int?
+    var changes: Int?
+    var messages: Int?
+    var parts: Int?
+    var partsDone: Int?
+}
+
+struct FreelancePmTextDto: Codable, Equatable {
+    var headline: String?
+    var progress: [String]?
+    var decisions: [String]?
+    var changes: [String]?
+    var risks: [String]?
+    var nextClient: [String]?
+    var nextFreelancer: [String]?
+}
+

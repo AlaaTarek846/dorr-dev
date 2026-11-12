@@ -63,6 +63,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **AI Marketing Director A–D (2026-11-09 → 11):** `Modules/Marketing` — A: switches, package, projects + team, sourced research, plans with approvals (owner or manager), finance, export. B: calendar, ad studio + claims review, budgets (ads money / AI calls), results + CSV, KPI board, executive report. C: Meta (sandbox first) — OAuth vault, campaigns created PAUSED, approvals bound to version/payload/cap, delegations, Idempotency-Key, UNKNOWN + reconcile, metrics, signed webhooks. D: A/B tests, alert rules, suggestions, simulation. 70 tests. Android compiles (A–D); iOS ported (not compiled); admin Vue pages done; user/provider web: phase A done, B–C in progress. Open: Xcode build, `TAVILY_API_KEY`, Meta sandbox keys, ad creative (Page) step. See `docs/marketing_tasks.md`.
 - **Chat voice message (2026-11-02):** smaller bubble; speed pill always on the waveform line beside play; «اعرضه كنص» / transcript as a full-width highlighted strip (title start, × end). Android + iOS, neither built yet.
 - **Chat message long-press (2026-11-02):** top action bar (back · reply · forward · star · reminder · pin · delete · ⋮ dropdown for the rest) replaces the long menu; reactions sit under the lifted message. Single selection only (no multi-select counter yet). Android built; iOS ported, not built here (no Xcode on Windows).
 - **Android money-request card (2026-11-01):** title from `chat_strings` with the name filled in; amount uses currency code; smaller card.

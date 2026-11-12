@@ -72,6 +72,9 @@ class AiContextContinuationService
             'sources' => $sources->map(fn (AiConversation $c) => ['id' => $c->id, 'title' => $c->title])->values()->all(),
         ];
 
+        // Source conversations that belong to the person's projects: the capsule becomes that project's memory.
+        app(AiUserProjectService::class)->rememberCapsule($owner, $sources, $capsule);
+
         $conversation = $this->conversations->createForOwner($owner);
         $conversation->title = Str::limit(__('ai.assistant_capsule_title', ['title' => $sources->first()->title ?: __('ai.assistant_capsule_untitled')]), 120);
         $conversation->save();

@@ -174,6 +174,9 @@ return [
     // FL-208: the most freelancers told about one new project (the best fits first).
     'matching' => ['max_recipients' => 100],
 
+    // FS-401 / FS-501: a whole project brief is a long answer — a reasoning model needs more than the AI system's default 20s (under the apps' 90s).
+    'ai' => ['request_timeout' => (int) env('FREELANCE_AI_REQUEST_TIMEOUT', 75)],
+
     // FS-104: the people an owner may bring into one project (docs/modules/freelance/PERMISSIONS.md).
     'client_team' => ['max_members' => (int) env('FREELANCE_CLIENT_TEAM_MAX', 10)],
 

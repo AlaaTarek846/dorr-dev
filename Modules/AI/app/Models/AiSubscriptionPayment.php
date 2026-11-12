@@ -57,7 +57,8 @@ class AiSubscriptionPayment extends Model
 
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(AiPlan::class, 'plan_id');
+        // withTrashed: a plan moved to the trash still names what was bought / configured.
+        return $this->belongsTo(AiPlan::class, 'plan_id')->withTrashed();
     }
 
     public function owner(): MorphTo

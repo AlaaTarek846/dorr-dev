@@ -49,8 +49,12 @@ class AiUserLanguagePreference extends Model
         return $this->belongsTo(Language::class, 'language_id');
     }
 
+    /**
+     * withTrashed: the admin screen and the user's settings still name a variant that was moved to the trash; the
+     * chat (AiChatLanguageResolver) only applies it while it is available (switched on and not in the trash).
+     */
     public function variant(): BelongsTo
     {
-        return $this->belongsTo(AiLanguageVariant::class, 'variant_id');
+        return $this->belongsTo(AiLanguageVariant::class, 'variant_id')->withTrashed();
     }
 }

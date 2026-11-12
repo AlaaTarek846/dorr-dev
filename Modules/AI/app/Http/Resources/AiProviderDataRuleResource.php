@@ -5,6 +5,7 @@ namespace Modules\AI\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/** One AI provider data rule - the same keys as before; `is_active` is kept next to the catalog's `status`. */
 class AiProviderDataRuleResource extends JsonResource
 {
     /**
@@ -23,9 +24,11 @@ class AiProviderDataRuleResource extends JsonResource
             'sanitize_pii' => (bool) $this->sanitize_pii,
             'sanitize_secrets' => (bool) $this->sanitize_secrets,
             'transformation_rules' => $this->transformation_rules,
-            'is_active' => (bool) $this->is_active,
+            'status' => (bool) $this->status,
+            'is_active' => (bool) $this->status,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
+            'deleted_at' => $this->deleted_at?->toISOString(),
         ];
     }
 }

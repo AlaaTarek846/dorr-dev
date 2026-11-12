@@ -2,11 +2,12 @@
 
 namespace Modules\AI\Services;
 
-use App\Services\BaseService;
+use App\Services\CatalogService;
 use Modules\AI\Http\Resources\AiProviderDataRuleResource;
 use Modules\AI\Repositories\AiProviderDataRuleRepository;
 
-class AiProviderDataRuleService extends BaseService
+/** AI provider data rules catalog, no translations: list (+status counts), create/update, status, bulk delete, trash. */
+class AiProviderDataRuleService extends CatalogService
 {
     /**
      * @var class-string

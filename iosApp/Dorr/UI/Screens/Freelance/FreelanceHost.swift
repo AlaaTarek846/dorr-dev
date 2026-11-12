@@ -95,9 +95,13 @@ struct FreelanceHost: View {
                            onGone: { listVersion += 1; back() }, onPreview: { open(.preview(p)) },
                            onCopied: { listVersion += 1; replace(.project($0)) }, onOffers: { open(.offers(p)) },
                            onOpenOffer: { open(.offer(p, $0)) }, onAgreement: { open(.agreement(p)) },
-                           onInvitations: { open(.invitations(p)) }, onTeam: { open(.team(p)) })
+                           onInvitations: { open(.invitations(p)) }, onTeam: { open(.team(p)) }, onMatches: { open(.matches(p)) })
         case .preview(let p):
             PreviewPage(uuid: p, onBack: back, onEdit: { replace(.editProject(p)) }, onSent: { listVersion += 1; back() })
+        case .matches(let p):
+            MatchesPage(projectUuid: p, onBack: back, onTeam: { open(.freelancerTeam($0)) })
+        case .pmSummary(let p):
+            ProjectSummaryPage(projectUuid: p, onBack: back)
         case .invitations(let p):
             InvitationsPage(projectUuid: p, onBack: back, onOpenOffer: { open(.offer(p, $0)) }, onMadePublic: { listVersion += 1; back() })
         case .offers(let p):
@@ -114,6 +118,7 @@ struct FreelanceHost: View {
             AgreementPage(projectUuid: p, onBack: back, onEnded: { listVersion += 1 },
                           onDispute: { m, d in open(d.map { .dispute(p, $0) } ?? .newDispute(p, m)) },
                           onWorkroom: { open(.workroom(p, "")) },
+                          onSummary: { open(.pmSummary(p)) },
                           onTeam: { open(.freelancerTeam($0)) })
         // FS-150e: the Workroom (tasks, files, decisions, timeline) of the running work, and one of its files.
         case .workroom(let p, let tab):
@@ -681,6 +686,9 @@ private struct ProjectDetails: View {
     let onAgreement: () -> Void
     let onInvitations: () -> Void
     var onTeam: () -> Void = {}
+    var onMatches: () -> Void = {}
+    // FS-503: whether «the best people for your project» is on here.
+    @State private var aiStatus: FreelanceAiStatusDto?
     @State private var project: FreelanceProjectDto?
     @State private var leaving = false
     @State private var busy = false
@@ -747,6 +755,7 @@ private struct ProjectDetails: View {
                 FlLoading(error: error)
             }
         }
+        .task { aiStatus = try? await FreelanceApi.aiStatus().data }
         .task(id: network.reconnectTick) {
             do { project = try await FreelanceApi.project(uuid).data } catch { self.error = flError(error) }
         }
@@ -961,6 +970,11 @@ private struct ProjectDetails: View {
                             .background(wa.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                     }
+                }
+                // FS-503: the best people for this project, by DORR AI (owner only, while it is still looking for someone).
+                if let st = aiStatus, st.matching == true, p.access?.isOwner != false,
+                   ["draft", "pending_review", "changes_requested", "published"].contains(p.state) {
+                    FlAiEntry(title: L("fla_matches_title"), text: L("fla_matches_entry"), action: L("fla_matches_open"), status: st, onOpen: onMatches)
                 }
                 // FL-205: a private project is filled by invitation.
                 if let inv = p.invitations, p.state == "published" {
@@ -1315,6 +1329,26 @@ private struct ProjectForm: View {
     @State private var error: String?
     @State private var initial: String?
     @State private var leaving = false
+    // FS-402: DORR AI writes the project from the idea.
+    @State private var aiStatus: FreelanceAiStatusDto?
+    @State private var building = false
+    @State private var aiFilled = false
+
+    /// The draft DORR AI wrote fills the form; the client checks it and saves.
+    private func useDraft(_ built: FreelanceAiBuildDto) {
+        guard let d = built.draft else { return }
+        if let v = d.title { title = v }
+        if let v = d.description { description = v }
+        if let v = d.specialty { specialty = v }
+        if let v = d.skills, !v.isEmpty { skills = v }
+        budgetType = d.budget?.type ?? "fixed"
+        if let v = d.budget?.minMinor { budgetMin = flMoney(v) }
+        budgetMax = d.budget?.maxMinor.map { flMoney($0) } ?? ""
+        if let v = d.durationDays { duration = String(v) }
+        if let v = d.questions, !v.isEmpty { questions = v }
+        aiFilled = true
+        building = false
+    }
 
     private func moneyOrNil(_ text: String) -> Int? {
         let t = text.trimmingCharacters(in: .whitespaces)
@@ -1475,11 +1509,20 @@ private struct ProjectForm: View {
                 pickSpecialty = false
             }
         }
+        .task { aiStatus = try? await FreelanceApi.aiStatus().data }
+        .dorrDialog(isPresented: $building, bottom: true) {
+            ProjectBuilderSheet(onDismiss: { building = false }, onUse: useDraft)
+        }
     }
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 18) {
             FlIntro(icon: "briefcase.fill", title: L("fl_form_intro_title"), text: L("fl_form_intro"))
+            // FS-402: not technical? DORR AI writes the project from the idea; the client checks it here before saving.
+            if let st = aiStatus, st.builder == true {
+                FlAiEntry(title: L("fla_builder_title"), text: L("fla_builder_entry"), action: L("fla_write"), status: st) { building = true }
+            }
+            if aiFilled { FlNotice(text: L("fla_used"), icon: "checkmark.circle.fill", color: Color(hex: 0x16A34A)) }
             VStack(alignment: .leading, spacing: 14) {
                 DorrTextArea(value: limited($title, 120), label: L("fl_title"), placeholder: L("fl_title_hint"), icon: "textformat", singleLine: true)
                 DorrTextArea(value: limited($description, 5000), label: L("fl_description"), placeholder: L("fl_description_hint"), icon: "text.alignleft", minHeight: 130)

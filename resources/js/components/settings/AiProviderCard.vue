@@ -39,12 +39,14 @@
                 </span>
                 <div
                     class="toggle toggle-success mb-0"
-                    :class="{ on: provider.is_enabled, 'ai-provider-toggle--loading': togglingEnabled }"
-                    role="button"
-                    tabindex="0"
+                    :class="{ on: provider.is_enabled, 'ai-provider-toggle--loading': togglingEnabled, 'pe-none opacity-50': !canUpdate }"
+                    role="switch"
+                    :tabindex="canUpdate ? 0 : -1"
+                    :aria-checked="provider.is_enabled"
+                    :aria-disabled="!canUpdate"
                     :aria-busy="togglingEnabled"
-                    @click="onToggleEnabled"
-                    @keydown.enter.space.prevent="onToggleEnabled"
+                    @click="canUpdate && onToggleEnabled()"
+                    @keydown.enter.space.prevent="canUpdate && onToggleEnabled()"
                 >
                     <span></span>
                 </div>
@@ -53,6 +55,7 @@
 
         <div class="card-body">
             <form @submit.prevent="saveSettings">
+                <fieldset :disabled="!canUpdate">
                 <div class="mb-3">
                     <label class="form-label" :for="`${provider.key}-api-key`">
                         {{ t('ai_settings.api_key') }}
@@ -255,9 +258,10 @@
                         </button>
                     </div>
                 </div>
+                </fieldset>
             </form>
 
-            <AiProviderModelManager :provider="provider" @refresh-all="$emit('refresh-all')" />
+            <AiProviderModelManager :provider="provider" :can-update="canUpdate" @refresh-all="$emit('refresh-all')" />
         </div>
     </div>
 </template>
@@ -266,6 +270,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../api/adminAxios';
+import { usePermission } from '../../composables/usePermission';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../composables/useToast';
 import useValidation from '../../composables/useValidation';
 import AiProviderModelManager from './AiProviderModelManager.vue';
@@ -276,6 +281,10 @@ const props = defineProps({
         required: true,
     },
 });
+
+// Changing a provider needs ai-settings.update (backend enforces it too); without it the card is read-only.
+const { can } = usePermission();
+const canUpdate = computed(() => can('ai-settings.update'));
 
 const emit = defineEmits(['updated', 'refresh-all']);
 
