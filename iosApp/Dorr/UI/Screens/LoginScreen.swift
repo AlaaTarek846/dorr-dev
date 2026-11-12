@@ -7,7 +7,6 @@ struct LoginScreen: View {
     @Environment(\.wa) private var wa
 
     @State private var phone = ""
-    @State private var acceptedTerms = false
     @State private var showPrivacy = false
     @State private var showTerms = false
     @State private var isLoading = false
@@ -15,8 +14,6 @@ struct LoginScreen: View {
     @State private var countries: [CountryDto] = []
     @State private var menuExpanded = false
     /// The server said this phone belongs to a deleted (restorable) account — show the Restore card.
-    @State private var showRestoreCard = false
-    @State private var restoreRequesting = false
 
     // Seeded default country is Saudi Arabia until the dropdown answers.
     @State private var selectedCountryId: Int?
@@ -26,7 +23,8 @@ struct LoginScreen: View {
     @State private var phoneStartsWith = ""
 
     private var isPhoneValid: Bool { phone.count == phoneLength && (phoneStartsWith.isEmpty || phone.hasPrefix(phoneStartsWith)) }
-    private var isFormValid: Bool { acceptedTerms && isPhoneValid }
+    /// No checkbox: «By continuing, you agree to …» sits under the button (agreeing by continuing).
+    private var isFormValid: Bool { isPhoneValid }
     private var canSubmit: Bool { !isLoading && isFormValid }
 
     private var phoneError: String? {
@@ -60,15 +58,6 @@ struct LoginScreen: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // A deleted (but restorable) account — Restore jumps into the OTP flow to bring it back.
-            if showRestoreCard {
-                RestoreAccountCard(restoring: restoreRequesting, onRestore: restoreAccount, onDismiss: { showRestoreCard = false })
-                    .frame(maxWidth: 440)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
             if showPrivacy {
                 LegalContentScreen(kind: .privacy) { showPrivacy = false }.transition(.opacity).zIndex(2)
             }
@@ -77,7 +66,6 @@ struct LoginScreen: View {
             }
         }
         .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.4), value: router.sessionExpiredNotice || router.accountDeletedNotice)
-        .animation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.35), value: showRestoreCard)
         .task(id: router.sessionExpiredNotice) {
             guard router.sessionExpiredNotice else { return }
             try? await Task.sleep(nanoseconds: 5_500_000_000)
@@ -93,7 +81,7 @@ struct LoginScreen: View {
 
     private var content: some View {
         let accent = wa.accent
-        let mut = wa.night ? wa.mut : AppearanceState.shared.color("authTextMuted", Color(hex: 0x6B7280), dark: false)
+        let mut = AuthColors.mut(wa)
         return ScrollView {
             VStack(spacing: 0) {
                 HStack {
@@ -103,46 +91,24 @@ struct LoginScreen: View {
                 .frame(maxWidth: 440)
 
                 VStack(spacing: 0) {
-                    Text(L("login_title")).font(.dorr(30, .heavy)).foregroundStyle(accent).multilineTextAlignment(.center).padding(.top, 8)
+                    // Over the phone field: the full Dorr logo (the mark over the name — the dark-letters one by day,
+                    // the white-letters one by night), «Welcome to Dorr» and what happens next.
+                    Image(wa.night ? "DorrLogoFullDark" : "DorrLogoFullLight").resizable().scaledToFit()
+                        .frame(width: 96)
+                        .padding(.top, 4)
+                        .accessibilityLabel(L("app_name"))
+                    Text(L("login_title")).font(.dorr(22, .heavy)).foregroundStyle(accent).multilineTextAlignment(.center)
+                        .padding(.top, 18)
                     Text(L("login_subtitle")).font(.dorr(14)).foregroundStyle(mut).multilineTextAlignment(.center).lineSpacing(5)
-                        .frame(maxWidth: 260).padding(.top, 8)
-                    DorrLogo(width: 156, onDark: wa.night).padding(.top, 22).padding(.bottom, 26)
+                        .frame(maxWidth: 320).padding(.top, 4)
+                        .padding(.bottom, 20)
 
                     phoneField
 
-                    if let phoneError {
-                        let errorInk = wa.night ? Color(hex: 0xFFB4B4) : AppColors.danger
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.circle").font(.system(size: 14, weight: .semibold))
-                            Text(phoneError).font(.dorr(12, .medium))
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(errorInk)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(AppColors.danger.opacity(wa.night ? 0.16 : 0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(AppColors.danger.opacity(wa.night ? 0.38 : 0.28), lineWidth: 1))
-                        .padding(.top, 8)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    submitButton(accent: accent).padding(.top, 20)
 
-                    termsRow(accent: accent, mut: mut).padding(.top, 12)
+                    termsLine(accent: accent, mut: mut).padding(.top, 14)
 
-                    submitButton(accent: accent).padding(.top, 16)
-
-                    if let errorMessage {
-                        HStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.circle").font(.system(size: 18, weight: .semibold)).foregroundStyle(wa.red)
-                            Text(errorMessage).font(.dorr(12, .medium)).foregroundStyle(wa.night ? wa.darkAccent : Color(hex: 0x001B53))
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(wa.night ? wa.darkWell : wa.red.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(wa.night ? wa.darkAccent : Color(hex: 0xFBC8B7), lineWidth: 1))
-                        .padding(.top, 16)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
                 }
                 .frame(maxWidth: 440)
                 .animation(.easeOut(duration: 0.2), value: phoneError)
@@ -154,6 +120,8 @@ struct LoginScreen: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
+        // A server message is in the language it was asked in: switching language drops it.
+        .onChange(of: router.locale) { _ in errorMessage = nil }
     }
 
     private var phoneField: some View {
@@ -164,38 +132,32 @@ struct LoginScreen: View {
             phone: Binding(get: { phone }, set: { value in
                 if value.count <= phoneLength {
                     phone = value
-                    if showRestoreCard { showRestoreCard = false }
+                    errorMessage = nil
                 }
             }),
-            canSubmit: canSubmit, onSubmit: submit
+            // The field's own check first, else what the server said («wait 60 s…») — both under the field.
+            canSubmit: canSubmit, onSubmit: submit, error: phoneError ?? errorMessage
         )
     }
 
-    private func termsRow(accent: Color, mut: Color) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            Button { acceptedTerms.toggle() } label: {
-                Image(systemName: acceptedTerms ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 21))
-                    .foregroundStyle(acceptedTerms ? accent : (wa.night ? wa.line : Color(hex: 0xD1D5DB)))
-                    .frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            // The two links open the terms / the privacy policy over the login page.
-            Text(termsText(accent: accent, mut: mut))
-                .font(.dorr(13))
-                .lineSpacing(4)
-                // Links take the tint, not their foreground colour.
-                .tint(accent)
-                .environment(\.openURL, OpenURLAction { url in
-                    if url.host == "terms" { showTerms = true } else { showPrivacy = true }
-                    return .handled
-                })
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 4)
+    /// Under the button: «By continuing, you agree to the Terms of Use and the Privacy Policy», centred — each link in
+    /// the app's colour, underlined, opening its page over the login page. Continuing is the agreement (no checkbox).
+    private func termsLine(accent: Color, mut: Color) -> some View {
+        Text(termsText(accent: accent, mut: mut))
+            .font(.dorr(12))
+            .lineSpacing(4)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            // Links take the tint, not their foreground colour.
+            .tint(accent)
+            .environment(\.openURL, OpenURLAction { url in
+                if url.host == "terms" { showTerms = true } else { showPrivacy = true }
+                return .handled
+            })
     }
 
-    /// "I agree to the Terms of Use and Privacy Policy" with the two names as real links (underlined, semibold).
+    /// "By continuing, you agree to the Terms of Use and Privacy Policy" with the two names as real links (underlined,
+    /// semibold).
     private func termsText(accent: Color, mut: Color) -> AttributedString {
         func part(_ text: String, link: String? = nil) -> AttributedString {
             var piece = AttributedString(text)
@@ -203,7 +165,7 @@ struct LoginScreen: View {
             if let link {
                 piece.link = URL(string: "dorr://\(link)")
                 piece.underlineStyle = .single
-                piece.font = .dorr(13, .semibold)
+                piece.font = .dorr(12, .semibold)
             }
             return piece
         }
@@ -217,17 +179,18 @@ struct LoginScreen: View {
                 if isLoading {
                     ProgressView().tint(.white)
                 } else {
-                    Text(L("login_cta")).font(.dorr(15, .bold))
+                    Text(L("login_cta")).font(.dorr(16, .bold))
                 }
             }
-            .foregroundStyle(canSubmit || isLoading ? .white : (wa.night ? accent.opacity(0.92) : accent.opacity(0.55)))
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(canSubmit || isLoading ? accent : .clear, in: Capsule())
-            .overlay { if !canSubmit && !isLoading { Capsule().stroke(accent.opacity(wa.night ? 0.55 : 0.35), lineWidth: 1) } }
+            // Filled in the app's colour once the number is right; before that a soft grey fill with grey words (no
+            // outline) — clearly not ready yet (androidApp's disabled colours).
+            .foregroundStyle(canSubmit || isLoading ? .white : AuthColors.soft(wa))
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(canSubmit || isLoading ? accent : loginSoftFill(wa, 0.6), in: Capsule())
             .shadow(color: isFormValid && !isLoading ? accent.opacity(0.4) : .clear, radius: 8, y: 4)
         }
         .buttonStyle(.plain)
-        // Its disabled look is drawn above (outline only); SwiftUI's own dimming would add to it.
+        // Its disabled look is drawn above (grey fill); SwiftUI's own dimming would add to it.
         .allowsHitTesting(canSubmit)
     }
 
@@ -262,16 +225,18 @@ struct LoginScreen: View {
         guard canSubmit else { return }
         isLoading = true
         errorMessage = nil
-        showRestoreCard = false
         Task {
             do {
                 let dto = try await MobileAuthApi.requestOtp(OtpRequest(dialCode: dialCode, phone: phone)).data
-                isLoading = false
                 if dto?.accountState == "deleted" {
-                    // The account exists but was deleted — offer the restore step instead of the OTP.
+                    // The account was deleted: send the restore code straight away and open the restore page (it says
+                    // «Restore your account» itself) — no card to tap first. Back returns here.
                     router.accountDeletedNotice = false
-                    showRestoreCard = true
+                    _ = try await MobileAuthApi.requestRestoreOtp(OtpRequest(dialCode: dialCode, phone: phone))
+                    isLoading = false
+                    router.otpRequested(dialCode: dialCode, phone: phone, restore: true)
                 } else {
+                    isLoading = false
                     router.otpRequested(dialCode: dialCode, phone: phone, restore: false)
                 }
             } catch {
@@ -281,22 +246,6 @@ struct LoginScreen: View {
         }
     }
 
-    /// The user picked "Restore Account": send the restore OTP, then verify via the OTP screen.
-    private func restoreAccount() {
-        guard !restoreRequesting else { return }
-        restoreRequesting = true
-        errorMessage = nil
-        Task {
-            do {
-                _ = try await MobileAuthApi.requestRestoreOtp(OtpRequest(dialCode: dialCode, phone: phone))
-                restoreRequesting = false
-                router.otpRequested(dialCode: dialCode, phone: phone, restore: true)
-            } catch {
-                restoreRequesting = false
-                errorMessage = error.serverMessage ?? L("login_error_generic")
-            }
-        }
-    }
 }
 
 func formatDialCode(_ value: String) -> String {
@@ -316,13 +265,16 @@ struct NoticeBanner: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        let messageColor = wa.night ? Color(hex: 0xE5C0C4) : Color(hex: 0x7F1D1D)
+        // Signed out / account deleted: the danger red (the admin's), on the app's card.
+        let bad = AuthColors.danger(wa)
+        let titleColor = AuthColors.onStatus(bad, night: wa.night)
+        let messageColor = AuthColors.mut(wa)
         HStack(spacing: 0) {
-            Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.red)
+            Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(titleColor)
                 .frame(width: 40, height: 40)
-                .background(wa.night ? Color(hex: 0x4A1E24) : Color(hex: 0xFEE2E2), in: Circle())
+                .background(bad.opacity(wa.night ? 0.22 : 0.14), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.dorr(13.5, .bold)).foregroundStyle(wa.night ? Color(hex: 0xFDE8E8) : Color(hex: 0x001B53))
+                Text(title).font(.dorr(13.5, .bold)).foregroundStyle(titleColor)
                 Text(message).font(.dorr(12)).foregroundStyle(messageColor).lineSpacing(2)
             }
             .padding(.leading, 12)
@@ -335,61 +287,18 @@ struct NoticeBanner: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(wa.night ? Color(hex: 0x2B191C) : Color(hex: 0xFFF5F5), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(wa.night ? wa.red.opacity(0.45) : Color(hex: 0xFCA5A5), lineWidth: 1))
-        .shadow(color: Color(hex: 0x001B53).opacity(0.2), radius: 10, y: 4)
-    }
-}
-
-/// The login attempt hit a soft-deleted account — offer to restore it via OTP.
-private struct RestoreAccountCard: View {
-    @Environment(\.wa) private var wa
-    let restoring: Bool
-    let onRestore: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        let messageColor = wa.night ? Color(hex: 0xA7C4B2) : Color(hex: 0x166534)
-        HStack(spacing: 0) {
-            Image(systemName: "clock.arrow.circlepath").font(.system(size: 17, weight: .semibold)).foregroundStyle(wa.red)
-                .frame(width: 40, height: 40)
-                .background(wa.night ? Color(hex: 0x2F3D45) : Color(hex: 0xDCFCE7), in: Circle())
-            VStack(alignment: .leading, spacing: 0) {
-                Text(L("account_deleted_title")).font(.dorr(13.5, .bold)).foregroundStyle(wa.night ? Color(hex: 0xDCFCE7) : Color(hex: 0x14532D))
-                Text(L("account_restore_message")).font(.dorr(12)).foregroundStyle(messageColor).lineSpacing(2).padding(.top, 2)
-                Button(action: onRestore) {
-                    HStack(spacing: 6) {
-                        if restoring { ProgressView().tint(wa.red).scaleEffect(0.6).frame(width: 14, height: 14) }
-                        Text(L("account_restore_action")).font(.dorr(13, .bold)).foregroundStyle(wa.red)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(wa.red.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .disabled(restoring)
-                .padding(.top, 8)
-            }
-            .padding(.leading, 12)
-            Spacer(minLength: 8)
-            Button(action: onDismiss) {
-                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(messageColor.opacity(0.8)).frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("common_close"))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(wa.night ? Color(hex: 0x1F2A24) : Color(hex: 0xF0FDF4), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(wa.night ? AppColors.success.opacity(0.45) : Color(hex: 0x86EFAC), lineWidth: 1))
+        .background(AuthColors.card(wa).mix(bad, wa.night ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AuthColors.statusFrame(bad), lineWidth: 1))
         .shadow(color: Color(hex: 0x001B53).opacity(0.2), radius: 10, y: 4)
     }
 }
 
 // MARK: - Phone field
 
-/// The 44pt pill: phone icon | flag + dial code (opens the searchable country list) | the number, clear ×.
-/// Always laid out left-to-right, like a phone number is written.
+/// androidApp `PhoneField` — «Phone number» over the field; the field: the country on a soft background (flag, dial
+/// code, caret — opens the searchable country list) | the number, grouped as it's typed («10 1234 5678»), clear ×;
+/// under it what a number here looks like («10 digits starting with 1») or, in red, what's wrong with it. The frame
+/// takes the app's colour while typing and red with an error. Always laid out left-to-right, like a phone number.
 private struct LoginPhoneField: View {
     @Environment(\.wa) private var wa
     let countries: [CountryDto]
@@ -403,66 +312,123 @@ private struct LoginPhoneField: View {
     @Binding var phone: String
     let canSubmit: Bool
     let onSubmit: () -> Void
+    let error: String?
     @FocusState private var focused: Bool
 
     var body: some View {
-        let ink = wa.night ? wa.ink : AppColors.textPrimary
-        let placeholder = phoneStartsWith + String(repeating: "*", count: max(phoneLength - phoneStartsWith.count, 0))
-        HStack(spacing: 0) {
-            Image(systemName: "phone.fill").font(.system(size: 15)).foregroundStyle(wa.night ? wa.mut : Color(hex: 0x9CA3AF))
-            separator
-            Button { if !countries.isEmpty { menuExpanded = true } } label: {
-                HStack(spacing: 4) {
-                    FlagImage(code: flagCode)
-                    Text(verbatim: dialCode).font(.dorr(14, .bold)).foregroundStyle(ink)
-                    if !countries.isEmpty {
-                        Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(wa.night ? wa.mut : AppColors.textSecondary).padding(.leading, 2)
+        let ink = AuthColors.ink(wa)
+        let mut = AuthColors.mut(wa)
+        let danger = AuthColors.danger(wa)
+        let line = AuthColors.line(wa)
+        let groups = phoneGroups(phoneLength)
+        // «1X XXXX XXXX»: the digits a number starts with, then X for the rest, grouped like the typed number.
+        let placeholder = groupPhone(phoneStartsWith + String(repeating: "X", count: max(phoneLength - phoneStartsWith.count, 0)), groups)
+        let border = error != nil ? danger : (focused ? wa.red : line)
+        let hint: String = phoneLength <= 0 ? "" :
+            Lp("login_phone_digits", phoneLength, String(phoneLength)) + (phoneStartsWith.isEmpty ? "" : " " + L("login_phone_starts", phoneStartsWith))
+        VStack(alignment: .leading, spacing: 0) {
+            Text(L("login_phone_label")).font(.dorr(13.5, .bold)).foregroundStyle(ink)
+                .padding(.leading, 2).padding(.bottom, 8)
+            HStack(spacing: 0) {
+                // The country: its flag, its code and a caret, on a soft background — it opens the list.
+                Button { if !countries.isEmpty { menuExpanded = true } } label: {
+                    HStack(spacing: 6) {
+                        FlagImage(code: flagCode)
+                        Text(verbatim: dialCode).font(.dorr(15, .bold)).foregroundStyle(ink)
+                        if !countries.isEmpty {
+                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(mut).padding(.leading, 2)
+                        }
                     }
-                }
-                .padding(6)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("login_country_code"))
-            .popover(isPresented: $menuExpanded) {
-                CountryMenu(countries: countries, selectedCountryId: selectedCountryId, onSelect: onCountrySelected)
-                    .compactPopover()
-            }
-            separator
-            ZStack(alignment: .leading) {
-                if phone.isEmpty {
-                    Text(verbatim: placeholder).font(.dorr(14, .medium)).foregroundStyle(wa.night ? wa.mut : AppColors.textMuted)
-                }
-                TextField("", text: Binding(get: { phone }, set: { phone = String(asciiDigits($0).prefix(phoneLength)) }))
-                    .font(.dorr(14, .medium))
-                    .foregroundStyle(ink)
-                    .tint(wa.red)
-                    .keyboardType(.phonePad)
-                    .textContentType(.telephoneNumber)
-                    .focused($focused)
-                    .submitLabel(.done)
-                    .onSubmit { if canSubmit { onSubmit() } }
-            }
-            if !phone.isEmpty {
-                Button { phone = "" } label: {
-                    Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(wa.night ? wa.mut : Color(hex: 0x9CA3AF))
-                        .frame(width: 28, height: 28)
+                    .padding(.leading, 12).padding(.trailing, 8)
+                    .frame(maxHeight: .infinity)
+                    .background(loginSoftFill(wa, 0.4))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(L("login_country_code"))
+                .popover(isPresented: $menuExpanded) {
+                    CountryMenu(countries: countries, selectedCountryId: selectedCountryId, onSelect: onCountrySelected)
+                        .compactPopover()
+                }
+                line.frame(width: 1).frame(maxHeight: .infinity)
+                ZStack(alignment: .leading) {
+                    if phone.isEmpty {
+                        Text(verbatim: placeholder).font(.dorr(16, .semibold)).foregroundStyle(AuthColors.soft(wa))
+                    }
+                    // Shown in groups («10 1234 5678»); the number itself stays plain digits (sent as is).
+                    TextField("", text: Binding(get: { groupPhone(phone, groups) }, set: { phone = String(asciiDigits($0).prefix(phoneLength)) }))
+                        .font(.dorr(16, .semibold))
+                        .foregroundStyle(ink)
+                        .tint(wa.red)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit { if canSubmit { onSubmit() } }
+                }
+                .padding(.leading, 14)
+                if !phone.isEmpty {
+                    Button { phone = "" } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(AuthColors.soft(wa))
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer().frame(width: 8)
+            }
+            .frame(height: 52)
+            .background(AuthColors.card(wa))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(border, lineWidth: (focused || error != nil) ? 1.5 : 1))
+            .environment(\.layoutDirection, .leftToRight)
+            // Under the field: what's wrong (the field's check or the server's answer) as a red line with its icon, like
+            // the OTP page — else what a number here looks like.
+            if let error {
+                HStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.circle").font(.system(size: 13, weight: .semibold))
+                    Text(verbatim: error).font(.dorr(12.5, .medium))
+                }
+                .foregroundStyle(AuthColors.onStatus(danger, night: wa.night))
+                .padding(.leading, 2).padding(.top, 6)
+            } else if !hint.isEmpty {
+                Text(verbatim: hint).font(.dorr(12)).foregroundStyle(mut)
+                    .padding(.leading, 2).padding(.top, 6)
             }
         }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
-        .background(wa.night ? wa.darkCard : .white, in: Capsule())
-        .overlay { if focused { Capsule().stroke(wa.red, lineWidth: 1.5) } }
-        .shadow(color: wa.night ? .clear : .black.opacity(0.1), radius: 3, y: 1.5)
-        .environment(\.layoutDirection, .leftToRight)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+}
 
-    private var separator: some View {
-        (wa.night ? wa.line : Color(hex: 0xE5E7EB)).frame(width: 1, height: 18).padding(.horizontal, 8)
+/// androidApp `loginSoftFill` — the sign-in's soft fill: the country part of the phone field (0.4) and «Send» before
+/// the number is right (0.6) — the app's card colour mixed with its frame colour, so it follows the admin's colours
+/// by day and by night (was a fixed grey by day and a fixed brown, `darkWell`, by night).
+@MainActor
+func loginSoftFill(_ wa: WaPalette, _ amount: Double) -> Color {
+    wa.surface.mix(wa.line, amount)
+}
+
+/// androidApp `phoneGroups`: how a number of [length] digits is grouped — two digits, then fours (the first of those
+/// shorter if need be).
+func phoneGroups(_ length: Int) -> [Int] {
+    if length <= 4 { return [max(length, 1)] }
+    var tail: [Int] = []
+    var rest = length - 2
+    while rest > 0 { tail.insert(min(rest, 4), at: 0); rest -= 4 }
+    return [2] + tail
+}
+
+/// androidApp `groupPhone`: [digits] with a space between the [groups] («1012345678» → «10 1234 5678»).
+func groupPhone(_ digits: String, _ groups: [Int]) -> String {
+    let chars = Array(digits)
+    var parts: [String] = []
+    var i = 0
+    for size in groups where i < chars.count {
+        parts.append(String(chars[i..<min(i + size, chars.count)]))
+        i += size
     }
+    if i < chars.count { parts.append(String(chars[i...])) }
+    return parts.joined(separator: " ")
 }
 
 /// The country dropdown: a search box, then every country (flag, name, dial code), the chosen one tinted.
@@ -478,15 +444,16 @@ private struct CountryMenu: View {
         let visible = countries.filter { q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.code.localizedCaseInsensitiveContains(q) || $0.dialCode.contains(q) }
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundStyle(wa.night ? wa.mut : AppColors.textMuted)
+                Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundStyle(AuthColors.soft(wa))
                 ZStack(alignment: .leading) {
-                    if query.isEmpty { Text(L("login_country_search")).font(.dorr(14)).foregroundStyle(wa.night ? wa.mut : AppColors.textMuted) }
-                    TextField("", text: $query).font(.dorr(14)).foregroundStyle(wa.night ? wa.ink : AppColors.textPrimary).autocorrectionDisabled()
+                    if query.isEmpty { Text(L("login_country_search")).font(.dorr(14)).foregroundStyle(AuthColors.soft(wa)) }
+                    TextField("", text: $query).font(.dorr(14)).foregroundStyle(AuthColors.ink(wa)).autocorrectionDisabled()
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(wa.night ? wa.darkWell : Color(hex: 0xF3F4F6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            // The search box on the sign-in's soft fill.
+            .background(loginSoftFill(wa, 0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .padding(8)
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -498,12 +465,12 @@ private struct CountryMenu: View {
                                 FlagImage(code: country.flag?.code ?? country.code)
                                 Text(verbatim: country.name.isEmpty ? country.code : country.name)
                                     .font(.dorr(14, selected ? .bold : .regular))
-                                    .foregroundStyle(tint ?? (wa.night ? wa.ink : AppColors.textPrimary))
+                                    .foregroundStyle(tint ?? AuthColors.ink(wa))
                                     .lineLimit(1)
                                     .padding(.leading, 10)
                                 Spacer(minLength: 8)
                                 Text(verbatim: formatDialCode(country.dialCode)).font(.dorr(13, .semibold))
-                                    .foregroundStyle(tint ?? (wa.night ? wa.mut : AppColors.textSecondary))
+                                    .foregroundStyle(tint ?? AuthColors.mut(wa))
                             }
                             .padding(.horizontal, 12)
                             .frame(height: 48)
@@ -516,7 +483,7 @@ private struct CountryMenu: View {
             }
         }
         .frame(minWidth: 260, maxHeight: 340)
-        .background(wa.night ? wa.darkCard : .white)
+        .background(AuthColors.card(wa))
     }
 }
 
@@ -534,8 +501,10 @@ extension View {
 
 // MARK: - Language picker
 
-/// androidApp `LanguagePicker` — the languages the server offers (ar / en and any downloadable one), the
-/// chosen one with a check; a downloadable language is fetched first and applied only if that worked.
+/// androidApp `LanguagePicker` — the language button. With two languages (Arabic and English, or the list not loaded)
+/// it shows the *other* one in its own name — «English» while the app is in Arabic — and one tap switches straight to
+/// it. With three or more it shows the current one with a caret and opens the list (the chosen one with a check); a
+/// downloadable language is fetched first and applied only if that worked.
 @MainActor
 struct LanguagePicker: View {
     @EnvironmentObject private var router: AppRouter
@@ -545,18 +514,40 @@ struct LanguagePicker: View {
     @State private var selected: LanguageDto?
     @State private var downloadFailed = false
 
+    /// Two languages (or none listed yet — the app ships Arabic and English): a one-tap switch to the other.
+    private var toggle: Bool { languages.count <= 2 }
+    private var otherCode: String {
+        languages.first { $0.code.caseInsensitiveCompare(router.locale) != .orderedSame }?.code
+            ?? (router.locale.lowercased() == "ar" ? "en" : "ar")
+    }
+    /// A language's own name ("English", "العربية"); others keep the server's name.
+    private var otherName: String {
+        switch otherCode.lowercased() {
+        case "ar": return "العربية"
+        case "en": return "English"
+        default: return languages.first { $0.code.caseInsensitiveCompare(otherCode) == .orderedSame }?.name ?? otherCode.uppercased()
+        }
+    }
+
     var body: some View {
-        Button { if !languages.isEmpty { expanded = true } } label: {
+        Button {
+            if toggle {
+                let next = otherCode
+                Task { if !(await router.chooseLanguage(next)) { downloadFailed = true } }
+            } else if !languages.isEmpty {
+                expanded = true
+            }
+        } label: {
             HStack(spacing: 8) {
-                Image(systemName: "globe").font(.system(size: 17, weight: .medium)).foregroundStyle(wa.red)
-                Text(verbatim: selected?.name ?? L("language_arabic")).font(.dorr(13, .semibold))
-                    .foregroundStyle(wa.night ? wa.ink : Color(hex: 0x374151))
-                Triangle().fill(wa.red).frame(width: 8, height: 5)
+                Image(systemName: "globe").font(.system(size: 16, weight: .medium)).foregroundStyle(wa.red)
+                Text(verbatim: toggle ? otherName : (selected?.name ?? L("language_arabic"))).font(.dorr(13, .bold))
+                    .foregroundStyle(wa.night ? wa.ink : wa.red)
+                if !toggle { Triangle().fill(wa.red).frame(width: 8, height: 5) }
             }
             .padding(.horizontal, 12)
-            .frame(height: 36)
-            .background(wa.night ? wa.darkCard : .white, in: Capsule())
-            .shadow(color: wa.night ? .clear : .black.opacity(0.12), radius: 6, y: 2)
+            .frame(height: 34)
+            .contentShape(Capsule())
+            .overlay(Capsule().stroke(AuthColors.line(wa), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .popover(isPresented: $expanded) {
@@ -567,7 +558,7 @@ struct LanguagePicker: View {
                         HStack(spacing: 8) {
                             FlagImage(code: languageFlagCode(language))
                             Text(verbatim: language.name).font(.dorr(13, isSelected ? .bold : .medium))
-                                .foregroundStyle(isSelected ? wa.accent : (wa.night ? wa.ink : Color(hex: 0x374151)))
+                                .foregroundStyle(isSelected ? wa.accent : AuthColors.ink(wa))
                             Spacer(minLength: 12)
                             if isSelected { Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)).foregroundStyle(wa.red) }
                         }
@@ -580,7 +571,7 @@ struct LanguagePicker: View {
                 }
             }
             .padding(.vertical, 6)
-            .background(wa.night ? wa.darkCard : .white)
+            .background(AuthColors.card(wa))
             .compactPopover()
         }
         .alert(L("language_download_failed"), isPresented: $downloadFailed) { Button("OK", role: .cancel) {} }

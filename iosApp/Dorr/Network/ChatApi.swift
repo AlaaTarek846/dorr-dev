@@ -1238,8 +1238,9 @@ enum ChatApi {
     static func stories(page: Int = 1, perPage: Int = 15) async throws -> ApiEnvelope<StoryFeedDto> {
         try await ApiClient.snake("\(base)/stories", query: ["page": String(page), "per_page": String(perPage)])
     }
-    static func postStory(fields: [String: String], file: ChatFile?) async throws -> ApiEnvelope<JSONAny?> {
-        try await multipart("\(base)/stories", fields: fields, files: file.map { [$0] } ?? [])
+    /// `poster`: a video's poster frame (`thumbnail`) — the picture in a reply's quote of it.
+    static func postStory(fields: [String: String], file: ChatFile?, poster: ChatFile? = nil) async throws -> ApiEnvelope<JSONAny?> {
+        try await multipart("\(base)/stories", fields: fields, files: [file, poster].compactMap { $0 })
     }
     static func deleteStory(_ id: String) async throws -> ApiEnvelope<JSONAny?> { try await ApiClient.snake("\(base)/stories/\(id)", method: "DELETE") }
     static func viewStory(_ id: String) async throws -> ApiEnvelope<JSONAny?> { try await ApiClient.snake("\(base)/stories/\(id)/view", method: "POST", body: [:]) }
@@ -1253,7 +1254,10 @@ enum ChatApi {
     static func replyStory(_ id: String, body: String) async throws -> ApiEnvelope<MessageDto> {
         try await ApiClient.snake("\(base)/stories/\(id)/reply", method: "POST", body: ["body": .string(body)])
     }
-    static func storyViewers(_ id: String) async throws -> ApiEnvelope<[StoryViewerDto]> { try await ApiClient.snake("\(base)/stories/\(id)/viewers") }
+    /// With `page`: 15 at a time (the sheet loads more as it scrolls); without it, the whole list.
+    static func storyViewers(_ id: String, page: Int? = nil, perPage: Int? = nil) async throws -> ApiEnvelope<[StoryViewerDto]> {
+        try await ApiClient.snake("\(base)/stories/\(id)/viewers", query: ["page": page.map(String.init), "per_page": perPage.map(String.init)])
+    }
     static func storyPrivacy() async throws -> ApiEnvelope<StoryPrivacyDto> { try await ApiClient.snake("\(base)/stories/privacy") }
     static func updateStoryPrivacy(_ body: [String: Any?]) async throws -> ApiEnvelope<StoryPrivacyDto> { try await ApiClient.snake("\(base)/stories/privacy", method: "PUT", body: json(body)) }
     static func muteStories(_ body: [String: Any?]) async throws -> ApiEnvelope<StoryFeedDto> { try await ApiClient.snake("\(base)/stories/mute", method: "POST", body: json(body)) }

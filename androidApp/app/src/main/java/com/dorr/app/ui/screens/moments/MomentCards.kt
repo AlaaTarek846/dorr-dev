@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,7 +84,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
@@ -621,6 +624,49 @@ private fun ToggleLine(
     if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
 }
 
+private val onCardInk = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.7f), offset = Offset(0f, 1f), blurRadius = 10f))
+
+/** Play, a waveform and the length, sitting on the card with no fill of its own. */
+@Composable
+private fun CardVoiceRow(playKey: String, url: String?, durationMs: Long?) {
+    val playing = VoicePlayer.isPlaying(playKey)
+    val progress = if (VoicePlayer.playingId == playKey) VoicePlayer.progress else 0f
+    val bars = remember { List(26) { i -> 22 + ((i * 37) % 68) } }
+    androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.16f))
+            .clickable(enabled = url != null) { url?.let { VoicePlayer.toggle(playKey, it) } }.padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f)), contentAlignment = Alignment.Center) {
+            Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+        Canvas(Modifier.weight(1f).height(26.dp)) {
+            val gap = 2.dp.toPx()
+            val w = ((size.width - gap * (bars.size - 1)) / bars.size).coerceAtLeast(1f)
+            bars.forEachIndexed { i, v ->
+                val h = (size.height * (0.22f + 0.78f * v / 100f)).coerceAtLeast(3.dp.toPx())
+                val filled = (i + 0.5f) / bars.size <= progress
+                drawRoundRect(
+                    if (filled) Color.White else Color.White.copy(alpha = 0.45f),
+                    Offset(i * (w + gap), (size.height - h) / 2),
+                    Size(w, h),
+                    CornerRadius(w / 2),
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            durationMs?.let { "%02d:%02d".format(it / 1000 / 60, (it / 1000) % 60) } ?: "",
+            color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = onCardInk,
+        )
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.Rounded.Mic, null, tint = Color.White, modifier = Modifier.size(16.dp))
+    }
+    }
+}
+
 private fun durationLabel(ms: Long): String {
     val s = ms / 1000
     return "%d:%02d".format(s / 60, s % 60)
@@ -673,7 +719,7 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
     val look = remember(card) { card?.let { runCatching { Gson().fromJson(it, CardLookDto::class.java) }.getOrNull() } ?: CardLookDto() }
     val revealAt = card?.get("reveal_at")?.takeIf { it.isJsonPrimitive }?.asString?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
 
-    Column(Modifier.width(270.dp)) {
+    Column(Modifier.width(236.dp)) {
         CardFace(look, Modifier.fillMaxWidth(), effects = if ((MomentsStore.center?.effects ?: "full") == "off") "off" else "light") {
             if (dto.sealed) {
                 SealedCountdown(revealAt, onOpenSealed)
@@ -684,9 +730,12 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
             }
             val pop = remember { Animatable(0.85f) }
             LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f)) }
-            Column(Modifier.scale(pop.value)) {
+            Column(Modifier.scale(pop.value), horizontalAlignment = Alignment.CenterHorizontally) {
                 dto.body?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = Color(0xFF111928), fontSize = 14.5.sp, modifier = Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.92f)).padding(12.dp))
+                    Text(
+                        it, color = Color.White, fontSize = 13.5.sp, textAlign = TextAlign.Center, style = onCardInk,
+                        modifier = Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 10.dp),
+                    )
                 }
                 val contributions = card?.arr("contributions")
                 val used = mutableSetOf<Int>()
@@ -694,9 +743,12 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
                     val c = el.takeIf { it.isJsonObject }?.asJsonObject ?: return@forEach
                     val files = c.arr("files")?.mapNotNull { f -> f.takeIf { it.isJsonObject }?.asJsonObject?.int("attachment") }.orEmpty()
                     used += files
-                    Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.92f)).padding(10.dp)) {
-                        c.get("name")?.takeIf { it.isJsonPrimitive }?.asString?.let { Text(it, color = momentColor(look.primaryColor, Ch.Red), fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold) }
-                        c.get("text")?.takeIf { it.isJsonPrimitive }?.asString?.let { Text(it, color = Color(0xFF111928), fontSize = 14.sp) }
+                    Column(
+                        Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        c.get("name")?.takeIf { it.isJsonPrimitive }?.asString?.let { Text(it, color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, style = onCardInk) }
+                        c.get("text")?.takeIf { it.isJsonPrimitive }?.asString?.let { Text(it, color = Color.White, fontSize = 13.5.sp, textAlign = TextAlign.Center, style = onCardInk) }
                         Attachments(dto, files, onOpenPhoto)
                     }
                 }
@@ -704,14 +756,10 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
                 card?.obj("gift")?.let { g ->
                     val amount = g.long("amount_minor") ?: 0
                     val currency = g.get("currency_code")?.takeIf { it.isJsonPrimitive }?.asString
-                    Row(
-                        Modifier.padding(top = 10.dp).clip(RoundedCornerShape(50)).background(Color.White).padding(horizontal = 14.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("🎁", fontSize = 16.sp)
-                        Spacer(Modifier.width(6.dp))
-                        androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                            Text(formatMinor(amount, currency), color = Color(0xFF047857), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Box(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                            Text(formatMinor(amount, currency), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, style = onCardInk, modifier = Modifier.align(Alignment.Center))
+                            Text("🎁", fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterEnd))
                         }
                     }
                 }
@@ -756,22 +804,11 @@ private fun Attachments(dto: MessageDto, indices: List<Int>, onOpenPhoto: (Int) 
     if (files.isEmpty()) return
     val photos = files.filter { it.second.mimeType?.startsWith("image/") == true }
     val voices = files.filterNot { it.second.mimeType?.startsWith("image/") == true }
-    voices.forEach { (i, a) ->
-        val key = "${dto.id}#$i"
-        val playing = VoicePlayer.isPlaying(key)
-        Row(
-            Modifier.padding(top = 6.dp).clip(RoundedCornerShape(50)).background(Color.White).clickable { ApiClient.mediaUrl(a.url)?.let { VoicePlayer.toggle(key, it) } }.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color(0xFF111928), modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(R.string.mo_card_voice_play) + (a.durationMs?.let { "  " + durationLabel(it) } ?: ""), color = Color(0xFF111928), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-        }
-    }
+    voices.forEach { (i, a) -> CardVoiceRow("${dto.id}#$i", ApiClient.mediaUrl(a.url), a.durationMs) }
     if (photos.isNotEmpty()) {
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             photos.take(3).forEachIndexed { n, (i, a) ->
-                Box(Modifier.weight(1f).height(80.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenPhoto(i) }) {
+                Box(Modifier.weight(1f).height(64.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenPhoto(i) }) {
                     AsyncImage(ApiClient.mediaUrl(a.thumbnail ?: a.url), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     if (n == 2 && photos.size > 3) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
                         Text("+${photos.size - 3}", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)

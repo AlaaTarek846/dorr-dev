@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -105,6 +106,7 @@ data class AiNote(val kind: String, val text: String? = null, val loading: Boole
 /** The translation / transcript under a bubble, with a way to hide it. */
 @Composable
 internal fun AiNotePanel(note: AiNote, mine: Boolean, onHide: () -> Unit) {
+    if (note.kind == "transcript") return VoiceTranscriptPanel(note, mine, onHide)
     val ink = if (mine) Ch.OutText else Ch.Ink
     Column(
         Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
@@ -124,7 +126,7 @@ internal fun AiNotePanel(note: AiNote, mine: Boolean, onHide: () -> Unit) {
         AnimatedContent(note, label = "aiNote", transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }) { n ->
             when {
                 n.loading -> AiShimmer(ink)
-                n.failed != null -> Text(n.failed, color = Ch.Danger, fontSize = 12.5.sp)
+                n.failed != null -> Text(n.failed, color = ink.copy(alpha = 0.9f), fontSize = 12.5.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                 else -> Text(n.text.orEmpty(), color = ink, fontSize = 14.sp, lineHeight = 20.sp)
             }
         }
@@ -143,17 +145,50 @@ internal fun AiShimmer(ink: Color) {
     }
 }
 
-/** Under a voice message: "Show text". */
+/** Under a voice message: "Show text", a strip across the bubble under a thin line (like "show replies"). */
 @Composable
 internal fun TranscribeChip(mine: Boolean, onClick: () -> Unit) {
-    val ink = if (mine) Ch.OutText else Ch.Red
-    Row(
-        Modifier.padding(start = 10.dp, bottom = 6.dp).clip(CircleShape).background(ink.copy(alpha = 0.1f)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Rounded.GraphicEq, null, tint = ink, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(stringResource(R.string.ch_ai_show_text), color = ink, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+    val accent = if (mine) Ch.OutText else Ch.Red
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = (if (mine) Ch.OutText else Ch.InText).copy(alpha = 0.18f))
+        Row(
+            Modifier.fillMaxWidth().background(accent.copy(alpha = 0.16f)).clickable(onClick = onClick).padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.GraphicEq, null, tint = accent, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(5.dp))
+            Text(stringResource(R.string.ch_ai_show_text), color = accent, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+/** A voice message's text: the same strip, its title at the start and × at the end, then the words. */
+@Composable
+private fun VoiceTranscriptPanel(note: AiNote, mine: Boolean, onHide: () -> Unit) {
+    val accent = if (mine) Ch.OutText else Ch.Red
+    val ink = if (mine) Ch.OutText else Ch.Ink
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = (if (mine) Ch.OutText else Ch.InText).copy(alpha = 0.18f))
+        Row(
+            Modifier.fillMaxWidth().background(accent.copy(alpha = 0.16f)).padding(start = 12.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.GraphicEq, null, tint = accent, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(5.dp))
+            Text(stringResource(R.string.ch_ai_transcript), color = accent, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClick = onHide), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Close, null, tint = accent, modifier = Modifier.size(15.dp))
+            }
+        }
+        AnimatedContent(note, label = "voiceText", transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }) { n ->
+            Box(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 8.dp)) {
+                when {
+                    n.loading -> AiShimmer(ink)
+                    n.failed != null -> Text(n.failed, color = ink.copy(alpha = 0.9f), fontSize = 12.5.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                    else -> Text(n.text.orEmpty(), color = ink, fontSize = 13.5.sp, lineHeight = 19.sp)
+                }
+            }
+        }
     }
 }
 

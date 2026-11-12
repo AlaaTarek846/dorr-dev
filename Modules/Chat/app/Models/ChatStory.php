@@ -15,6 +15,9 @@ class ChatStory extends Model implements HasMedia
 
     public const MEDIA = 'story';
 
+    /** A video status's poster frame (picked by the app when it posts) — the picture in quotes of it. */
+    public const POSTER = 'story_poster';
+
     protected $fillable = ['uuid', 'owner_type', 'owner_id', 'type', 'body', 'style', 'duration_ms', 'allow_replies', 'is_public', 'expires_at', 'mentions', 'reshared_from_id'];
 
     protected function casts(): array
@@ -54,6 +57,17 @@ class ChatStory extends Model implements HasMedia
     public function ownerKey(): string
     {
         return $this->owner_type.':'.$this->owner_id;
+    }
+
+    /** A small picture of it for quotes (a reply in the chat, a mention): the photo itself, or a video's poster. */
+    public function thumbnailUrl(): ?string
+    {
+        $media = $this->getFirstMedia(self::MEDIA);
+        if ($media !== null && str_starts_with((string) $media->mime_type, 'image/')) {
+            return $media->getUrl();
+        }
+
+        return $this->getFirstMedia(self::POSTER)?->getUrl();
     }
 
     public function isOwnedBy(string $type, int $id): bool

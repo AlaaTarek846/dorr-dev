@@ -119,7 +119,7 @@ struct ContactActionsSheet: View {
     }
 }
 
-/// «موجود على دُر» in green, «غير موجود على دُر» in the soft colour. The dot sits on the visual left.
+/// «موجود على دُرر» in green, «غير موجود على دُرر» in the soft colour. The dot sits on the visual left.
 private struct DorrStatusPill: View {
     @ObservedObject private var ch = Ch.shared
     let onDorr: Bool

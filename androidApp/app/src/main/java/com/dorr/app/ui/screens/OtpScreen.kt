@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -34,14 +36,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -119,6 +120,16 @@ fun OtpScreen(
     var isSuccess by remember { mutableStateOf(false) }
     val shakeOffset = remember { Animatable(0f) }
 
+    // A server message is in the language it was asked in: switching language drops it (the next one comes in the new one).
+    val languageCode = com.dorr.app.ui.locale.LocalAppLanguage.current.code
+    val firstLanguage = remember { languageCode }
+    LaunchedEffect(languageCode) {
+        if (languageCode != firstLanguage) {
+            errorMessage = null
+            hasError = false
+        }
+    }
+
     var countdown by remember { mutableIntStateOf(60) }
     var canResend by remember { mutableStateOf(false) }
     var timerKey by remember { mutableIntStateOf(0) }
@@ -163,6 +174,12 @@ fun OtpScreen(
                 hasError = true
                 errorMessage = it.serverMessage() ?: genericOtpError
                 triggerShake()
+                // Then the boxes empty and the first one takes the cursor, ready for the code again (the message stays
+                // until the next digit is typed).
+                delay(700)
+                for (i in digits.indices) digits[i] = ""
+                hasError = false
+                focusRequesters[0].requestFocus()
             }
         }
     }
@@ -170,6 +187,7 @@ fun OtpScreen(
     fun onDigitChanged(index: Int, value: String) {
         if (value.isNotEmpty()) {
             hasError = false
+            errorMessage = null
             if (index < OTP_LENGTH - 1) {
                 focusRequesters[index + 1].requestFocus()
             } else {
@@ -201,13 +219,15 @@ fun OtpScreen(
     val canVerify = !isVerifying && isComplete
 
     val borderColor = when {
-        isSuccess -> AppColors.success
-        hasError -> AppColors.danger
+        isSuccess -> AuthColors.success(settingsNight())
+        hasError -> AuthColors.danger(settingsNight())
         else -> null
     }
 
     val scrollState = rememberScrollState()
     val night = settingsNight()
+    val ink = if (night) AccountDark.ink else settingsAccent()
+    val mut = AuthColors.mut(night)
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Full bleed background canvas
@@ -232,17 +252,20 @@ fun OtpScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // Back: the language button's look — a see-through circle, 34, with a soft frame — and a chevron in the
+                // app's colour (› in Arabic, ‹ in English).
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
+                        .border(1.dp, AuthColors.line(night), CircleShape)
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
                         contentDescription = stringResource(R.string.common_back),
-                        tint = if (night) AccountDark.accent else Color(0xFF111928),
+                        tint = if (night) AccountDark.ink else settingsAccent(),
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -251,49 +274,6 @@ fun OtpScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // A deleted account is being restored: the code above was sent by the
-            // restore endpoint, and verifying it will bring the account back.
-            AnimatedVisibility(
-                visible = restoreMode,
-                enter = fadeIn(animationSpec = tween(320)) + expandVertically(animationSpec = tween(320)),
-                exit = fadeOut(animationSpec = tween(200)) + shrinkVertically(animationSpec = tween(200)),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = 440.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(AppColors.success.copy(alpha = if (night) 0.16f else 0.12f))
-                        .border(1.dp, AppColors.success.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        tint = AppColors.success,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            stringResource(R.string.account_restore_title),
-                            color = if (night) Color.White else Color(0xFF14532D),
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            stringResource(R.string.account_restore_message),
-                            color = if (night) Color(0xFFD1D5DB) else Color(0xFF166534),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                        )
-                    }
-                }
-            }
-
-            if (restoreMode) Spacer(Modifier.height(8.dp))
 
             Column(
                 modifier = Modifier
@@ -302,33 +282,46 @@ fun OtpScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 OtpShield(
-                    modifier = Modifier.size(118.dp),
+                    modifier = Modifier.size(88.dp),
                     isError = hasError,
+                    restore = restoreMode,
                 )
 
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(18.dp))
 
                 Text(
-                    text = stringResource(R.string.otp_title),
+                    text = stringResource(if (restoreMode) R.string.account_restore_title else R.string.otp_title),
                     color = settingsAccent(),
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 26.sp,
+                    fontSize = 22.sp,
+                    lineHeight = 30.sp,
                     textAlign = TextAlign.Center,
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
 
-                val formattedPhone = listOf(dialCode, phoneNumber).filter { it.isNotBlank() }.joinToString(" ")
+                // «Enter the 4-digit code we sent to», then the number on its own line, grouped like the sign-in shows it.
                 Text(
-                    text = stringResource(R.string.otp_subtitle, formattedPhone),
+                    text = stringResource(if (restoreMode) R.string.otp_restore_subtitle else R.string.otp_subtitle, OTP_LENGTH.toString()),
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
-                    color = if (night) AccountDark.mut else Color(0xFF6B7280),
+                    color = mut,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.widthIn(max = 280.dp),
+                    modifier = Modifier.widthIn(max = 320.dp),
                 )
+                val formattedPhone = listOf(dialCode, groupPhone(phoneNumber, phoneGroups(phoneNumber.length)))
+                    .filter { it.isNotBlank() }.joinToString(" ")
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(
+                        text = formattedPhone,
+                        color = ink,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
 
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // OTP Digits (always LTR, perfectly centered, no clipping)
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -336,7 +329,7 @@ fun OtpScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .graphicsLayer { translationX = shakeOffset.value },
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                     ) {
                         for (i in 0 until OTP_LENGTH) {
                             DigitBox(
@@ -359,27 +352,64 @@ fun OtpScreen(
                     }
                 }
 
-                Spacer(Modifier.height(22.dp))
+                // What went wrong, right under the boxes: a red line with its icon (the danger red), until the next digit.
+                AnimatedVisibility(
+                    visible = errorMessage != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    val bad = AuthColors.onStatus(AuthColors.danger(night), night)
+                    Row(
+                        modifier = Modifier.padding(top = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = bad, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = errorMessage.orEmpty(),
+                            color = bad,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
 
+                // Until real SMS is wired: the code to use, small, under the boxes.
+                Text(
+                    text = stringResource(R.string.otp_dev_hint),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = mut,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // «Verify»: filled in the app's colour once the code is complete; before that the sign-in's soft fill
+                // with grey words; while checking, the app's colour with a spinner.
                 val buttonShape = RoundedCornerShape(999.dp)
+                val accent = settingsAccent()
                 Button(
                     onClick = ::verify,
                     enabled = canVerify,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = settingsAccent(),
-                        disabledContainerColor = settingsAccent(),
+                        containerColor = accent,
+                        disabledContainerColor = if (isVerifying) accent else loginSoftFill(night, 0.6f),
                         contentColor = Color.White,
-                        disabledContentColor = Color.White,
+                        disabledContentColor = if (isVerifying) Color.White else if (night) AccountDark.mut else com.dorr.app.ui.theme.appearanceColor("textMuted", Color(0xFF9CA3AF), night = false),
                     ),
                     shape = buttonShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .shadow(
-                            elevation = 8.dp,
-                            shape = buttonShape,
-                            ambientColor = Color(0x38001B53),
-                            spotColor = Color(0x38001B53),
+                        .height(52.dp)
+                        .then(
+                            if (canVerify) {
+                                Modifier.shadow(8.dp, buttonShape, ambientColor = accent.copy(alpha = 0.4f), spotColor = accent.copy(alpha = 0.4f))
+                            } else {
+                                Modifier
+                            },
                         ),
                 ) {
                     if (isVerifying) {
@@ -391,9 +421,8 @@ fun OtpScreen(
                     } else {
                         Text(
                             text = stringResource(R.string.otp_verify),
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
                         )
                     }
                 }
@@ -405,50 +434,6 @@ fun OtpScreen(
                     countdown = countdown,
                     canResend = canResend,
                     onResend = ::resend,
-                )
-
-                // Error message banner
-                AnimatedVisibility(
-                    visible = hasError && errorMessage != null,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    errorMessage?.let { message ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
-                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFFBC8B7), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Rounded.ErrorOutline,
-                                contentDescription = null,
-                                tint = settingsAccent(),
-                                modifier = Modifier.size(20.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = message,
-                                color = if (night) AccountDark.accent else Color(0xFF001B53),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text = stringResource(R.string.otp_dev_hint),
-                    fontSize = 12.sp,
-                    color = Color(0xFFF59E0B),
-                    textAlign = TextAlign.Center,
                 )
             }
         }
@@ -475,18 +460,29 @@ private fun DigitBox(
     val scope = rememberCoroutineScope()
 
     val night = settingsNight()
-    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFFBD2C4)
+    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else AuthColors.line(night)
 
+    // «_» blinking under the focused empty box (the design's cursor), in the app's colour.
+    val blink = androidx.compose.animation.core.rememberInfiniteTransition(label = "otpCursor")
+    val cursorAlpha by blink.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            tween(500, easing = androidx.compose.animation.core.LinearEasing),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "otpCursorAlpha",
+    )
     Surface(
         modifier = Modifier
-            .width(44.dp)
-            .height(52.dp)
+            .width(56.dp)
+            .height(60.dp)
             .scale(scale.value),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         color = if (highlightFill && overrideBorderColor != null) {
             overrideBorderColor.copy(alpha = 0.05f)
         } else {
-            if (night) AccountDark.card else Color.White
+            AuthColors.card(night)
         },
         border = androidx.compose.foundation.BorderStroke(1.5.dp, boxBorderColor),
     ) {
@@ -494,6 +490,16 @@ private fun DigitBox(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
+            if (isFocused && value.isEmpty()) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                        .size(width = 20.dp, height = 2.5.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(settingsAccent().copy(alpha = cursorAlpha)),
+                )
+            }
             // A soft keyboard sends no key event for Backspace on an empty field, so the box always
             // holds an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
             val shown = OTP_MARKER + value
@@ -519,11 +525,12 @@ private fun DigitBox(
                 textStyle = TextStyle(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (night) AccountDark.ink else Color(0xFF111928),
+                    color = AuthColors.ink(night),
                     textAlign = TextAlign.Center,
                 ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                cursorBrush = SolidColor(settingsAccent()),
+                // The system cursor is hidden: a short line lying at the bottom of the focused empty box stands in.
+                cursorBrush = SolidColor(Color.Transparent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
@@ -552,44 +559,61 @@ private fun DigitBox(
     }
 }
 
+/**
+ * Under «Verify»: «Didn't get the code? You can resend in 0:17» (the time bold, in the app's colour, ticking on the
+ * phone's clock), then «Didn't get the code? Resend» — «Resend» bold in the app's accent, tappable.
+ */
 @Composable
 private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Unit) {
-    if (canResend) {
-        Text(
-            text = stringResource(R.string.otp_resend),
-            color = if (settingsNight()) AccountDark.accent else settingsAccent(),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.clickable(onClick = onResend),
-        )
-        return
+    val night = settingsNight()
+    val mut = AuthColors.mut(night)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.otp_resend_question), color = mut, fontSize = 13.5.sp)
+        Spacer(Modifier.width(6.dp))
+        if (canResend) {
+            Text(
+                text = stringResource(R.string.otp_resend),
+                color = settingsAccent(),
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onResend)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        } else {
+            Text(stringResource(R.string.otp_resend_in), color = mut, fontSize = 13.5.sp)
+            Spacer(Modifier.width(5.dp))
+            Text(
+                text = "%d:%02d".format(java.util.Locale.ROOT, countdown / 60, countdown % 60),
+                color = if (night) AccountDark.ink else settingsAccent(),
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
-
-    Text(
-        text = stringResource(R.string.otp_resend_in, countdown),
-        fontSize = 12.sp,
-        color = if (settingsNight()) AccountDark.mut else Color(0xFF9CA3AF),
-        textAlign = TextAlign.Center,
-    )
 }
 
-// Decorative OTP shield
+/**
+ * The OTP page's badge: the shield with a white lock (a white restore icon for a deleted account), on a rounded square of
+ * the same colour, faint (no ring) — the app's main colour, or the danger red (badge and square together) on a wrong
+ * code.
+ */
 @Composable
-fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
+fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false, restore: Boolean = false) {
+    val night = settingsNight()
     val badgeColor by animateColorAsState(
-        targetValue = if (isError) AppColors.danger else settingsAccent(),
+        targetValue = if (isError) AuthColors.danger(night) else settingsAccent(),
         animationSpec = tween(600), label = "otpShieldBadge",
     )
-    val ringColor = badgeColor.copy(alpha = 0.28f)
     Box(
-        modifier = modifier.size(118.dp),
+        modifier = modifier
+            .size(88.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(badgeColor.copy(alpha = if (night) 0.16f else 0.10f)),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(color = ringColor, style = Stroke(width = 2.dp.toPx()))
-        }
-        Canvas(modifier = Modifier.size(92.dp)) {
+        Canvas(modifier = Modifier.size(76.dp)) {
             val s = size.width / 64f
             val shield = Path().apply {
                 moveTo(32f * s, 6f * s)
@@ -601,6 +625,8 @@ fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
                 close()
             }
             drawPath(shield, color = badgeColor)
+            // A deleted account: the restore icon goes in the shield instead of the lock (drawn over the canvas below).
+            if (restore) return@Canvas
             // White lock body
             drawRoundRect(
                 color = Color.White,
@@ -619,6 +645,15 @@ fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
             drawPath(
                 shackle, color = Color.White,
                 style = Stroke(width = 2.6f * s, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+            )
+        }
+        // A deleted account being restored: the restore icon (a clock with an arrow), white, inside the shield.
+        if (restore) {
+            Icon(
+                Icons.Rounded.History,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.offset(y = (-1).dp).size(26.dp),
             )
         }
     }

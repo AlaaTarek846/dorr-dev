@@ -60,6 +60,10 @@ interface RidesApi {
     @GET("mobile/v1/rides/places/suggest")
     suspend fun placeSuggest(@Header("Authorization") auth: String, @Query("q") q: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<List<PlaceHitDto>>
 
+    /** The chat's «send location»: the places right around a point (the admin's provider, then popular), nearest first. */
+    @GET("mobile/v1/rides/places/nearby")
+    suspend fun placeNearby(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<List<PlaceHitDto>>
+
     /** O-59: the free captains' cars around me now, and the area channels to follow for their moves. */
     @GET("mobile/v1/rides/nearby-cars")
     suspend fun nearbyCars(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<NearbyCarsDto>

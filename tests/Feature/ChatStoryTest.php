@@ -110,6 +110,12 @@ class ChatStoryTest extends TestCase
         $this->assertCount(1, $viewers);
         $this->assertSame($this->bob->id, $viewers[0]['viewer']['id']);
         $this->assertSame(1, $this->feedOf($this->alice)['mine']['stories'][0]['views']);
+        // A page at a time (the app's sheet loads 15 more as it scrolls), with the total.
+        $page = $this->getJson("/api/mobile/v1/chat/stories/{$id}/viewers?page=1", $this->headers())->assertOk();
+        $this->assertCount(1, $page->json('data'));
+        $this->assertSame($this->bob->id, $page->json('data.0.viewer.id'));
+        $this->assertSame(1, $page->json('pagination.total'));
+        $this->assertFalse($page->json('pagination.has_more_pages'));
 
         // Someone else's viewers list is not mine to see.
         $this->as($this->bob);
@@ -127,10 +133,18 @@ class ChatStoryTest extends TestCase
         $this->assertSame($id, $reply->json('data.meta.story_id'));
         $this->assertSame('React to me', $reply->json('data.meta.text'));
 
+        // The same emoji again sends nothing new (as in WhatsApp, one message per new reaction).
+        $this->putJson("/api/mobile/v1/chat/stories/{$id}/reaction", ['emoji' => '🔥'], $this->headers())->assertOk();
+
         $this->as($this->alice);
         $viewers = $this->getJson("/api/mobile/v1/chat/stories/{$id}/viewers", $this->headers())->json('data');
         $this->assertSame('🔥', $viewers[0]['reaction']);
-        $this->assertSame(1, ChatMessage::query()->where('type', 'story_reply')->count());
+        // The reaction landed in our chat too, quoting the status (then the typed reply).
+        $replies = ChatMessage::query()->where('type', 'story_reply')->orderBy('id')->get();
+        $this->assertCount(2, $replies);
+        $this->assertSame('🔥', $replies[0]->body);
+        $this->assertSame($id, data_get($replies[0]->meta, 'story_id'));
+        $this->assertNotNull(data_get($replies[0]->meta, 'expires_at'));
     }
 
     public function test_replies_can_be_turned_off(): void

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Onboarding pages: the small label, the title, its highlighted line and the text. -->
+    <string name="onb_chat_eyebrow">Chat &amp; AI</string>
+    <string name="onb_chat_title">Talk, share, and ask</string>
+    <string name="onb_chat_highlight">Dorr AI</string>
+    <string name="onb_chat_body">Chat with your friends, share your status, and ask Dorr AI anything you need.</string>
+
+    <string name="onb_rides_eyebrow">Your rides &amp; services</string>
+    <string name="onb_rides_title">Taxi, drivers, and events</string>
+    <string name="onb_rides_highlight">With one tap</string>
+    <string name="onb_rides_body">Order a taxi or a driver for your car, book driving lessons and event tickets, and watch and earn.</string>
+
+    <string name="onb_wallet_eyebrow">Dorr Wallet</string>
+    <string name="onb_wallet_title">Pay and top up</string>
+    <string name="onb_wallet_highlight">Safely and easily</string>
+    <string name="onb_wallet_body">Top up your wallet, pay for all your services, and follow your balance and rewards in one place.</string>
+
+    <!-- The last page's button. -->
+    <string name="onb_start">Start your experience</string>
+    <string name="onb_safe">A safe and secure experience</string>
+</resources>

@@ -81,7 +81,7 @@
     <string name="cp_t_sent">إنت بعت</string>
     <string name="cp_t_received">إنت استلمت</string>
     <string name="cp_priority">الأولوية</string>
-    <string name="cp_why_mention">@ ليك</string>
+    <string name="cp_why_mention">\@ ليك</string>
     <string name="cp_why_urgent">عاجل</string>
     <string name="cp_why_owed">مستني ردك</string>
     <string name="cp_why_direct">ليك</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">درر</string>
+    <string name="app_name">دُرر</string>
     <string name="app_tagline">بدعم من درر</string>
 
     <string name="onboarding_skip">تخطي</string>
@@ -13,17 +13,28 @@
     <string name="onboarding_account_title">حسابك</string>
     <string name="onboarding_account_body">احفظ بياناتك وعناوينك وتفضيلاتك.</string>
 
-    <string name="login_title">تسجيل الدخول</string>
-    <string name="login_subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</string>
+    <string name="login_title">أهلًا بك في دُرر</string>
+    <string name="login_subtitle">أدخل رقم هاتفك وسنرسل لك رمز تحقق لتسجيل الدخول أو إنشاء حساب جديد.</string>
     <string name="login_hint">6000 0000</string>
-    <string name="login_cta">أرسل كود التأكيد</string>
+    <string name="login_cta">إرسال رمز التحقق</string>
     <string name="login_country_code">كود الدولة</string>
     <string name="login_country_search">ابحث عن دولة</string>
-    <string name="login_terms">موافق على شروط الاستخدام وسياسة الخصوصية</string>
-    <string name="login_terms_prefix">موافق على </string>
+    <string name="login_terms">بالمتابعة، فإنك توافق على شروط الاستخدام و سياسة الخصوصية</string>
+    <string name="login_terms_prefix">"بالمتابعة، فإنك توافق على "</string>
     <string name="login_terms_use">شروط الاستخدام</string>
-    <string name="login_terms_mid"> و</string>
+    <string name="login_terms_mid">" و "</string>
     <string name="login_terms_privacy">سياسة الخصوصية</string>
+    <!-- خانة رقم الهاتف: العنوان فوقها، وتحتها شكل الرقم («10 أرقام تبدأ بـ 1»). -->
+    <string name="login_phone_label">رقم الهاتف</string>
+    <plurals name="login_phone_digits">
+        <item quantity="zero">%1$s أرقام</item>
+        <item quantity="one">رقم واحد</item>
+        <item quantity="two">رقمان</item>
+        <item quantity="few">%1$s أرقام</item>
+        <item quantity="many">%1$s رقمًا</item>
+        <item quantity="other">%1$s أرقام</item>
+    </plurals>
+    <string name="login_phone_starts">تبدأ بـ %1$s</string>
     <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
     <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
     <string name="login_error_phone_invalid_country">الدولة أو كود الاتصال غير صالح.</string>
@@ -32,11 +43,12 @@
     <string name="session_expired_message">انتهت صلاحية جلستك. يرجى تسجيل الدخول مجددًا للمتابعة.</string>
 
     <string name="otp_title">تأكيد رقم الهاتف</string>
-    <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>
+    <string name="otp_subtitle">أدخل الرمز المكوّن من %1$s أرقام الذي أرسلناه إلى</string>
     <string name="otp_verify">تأكيد</string>
-    <string name="otp_resend">إعادة إرسال الكود</string>
-    <string name="otp_resend_in">إعادة الإرسال بعد %1$d ثانية</string>
-    <string name="otp_dev_hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 1234</string>
+    <string name="otp_resend">إعادة الإرسال</string>
+    <string name="otp_resend_question">لم يصلك الرمز؟</string>
+    <string name="otp_resend_in">يمكنك إعادة الإرسال بعد</string>
+    <string name="otp_dev_hint">للتجربة: 1234</string>
     <string name="otp_error_generic">كود التحقق غير صحيح أو انتهت صلاحيته. حاول مرة أخرى.</string>
 
     <string name="home_greeting">مرحباً، %1$s</string>
@@ -224,6 +236,7 @@
     <string name="account_restore_action">استرجاع الحساب</string>
     <string name="account_restore_title">استرجاع حسابك</string>
     <string name="account_restore_message">تم حذف حسابك. أدخل الكود لاسترجاعه.</string>
+    <string name="otp_restore_subtitle">حسابك محذوف. أدخل الرمز المكوّن من %1$s أرقام الذي أرسلناه إلى</string>
     <string name="logout_confirm_message">هل أنت متأكد من تسجيل الخروج؟</string>
     <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. يمكن استعادة حسابك بتسجيل الدخول مرة أخرى بنفس رقم الهاتف. هل أنت متأكد؟</string>
 
@@ -414,8 +427,8 @@
     <string name="notif_sample_title_welcome">مرحباً بك في التطبيق</string>
     <string name="notif_sample_body_welcome">شكراً لتسجيلك معنا.</string>
     <string name="invite_title">شارك التطبيق مع أصدقائك</string>
-    <string name="invite_sub">ادعُ أصدقاءك إلى دُر</string>
-    <string name="invite_headline">شارك دُر مع أصدقائك</string>
+    <string name="invite_sub">ادعُ أصدقاءك إلى دُرر</string>
+    <string name="invite_headline">شارك دُرر مع أصدقائك</string>
     <string name="invite_step1_title">شارك الرمز</string>
     <string name="invite_step1_body">أرسل رمز الدعوة حتى يجد أصدقاؤك التطبيق وينضمّوا إليك.</string>
     <string name="invite_step2_title">الأصدقاء ينضمّون</string>
@@ -426,12 +439,12 @@
     <string name="invite_copy">نسخ</string>
     <string name="invite_copied">تم نسخ رمز الدعوة</string>
     <string name="invite_share_now">شارك الرمز الآن</string>
-    <string name="invite_share_body">انضم إليّ على دُر. استخدم رمز الدعوة %1$s\n%2$s</string>
+    <string name="invite_share_body">انضم إليّ على دُرر. استخدم رمز الدعوة %1$s\n%2$s</string>
     <string name="invite_code_failed">تعذر تحميل رمز الدعوة. تأكد من الاتصال ثم أعد المحاولة.</string>
     <string name="invite_code_retry">إعادة المحاولة</string>
     <string name="rate_title">تقييم التطبيق</string>
     <string name="rate_sub">نجوم وتعليق</string>
-    <string name="rate_headline">كيف تجربتك مع دُر؟</string>
+    <string name="rate_headline">كيف تجربتك مع دُرر؟</string>
     <string name="rate_body">النجوم والتعليق القصير يساعدنا نحسّن التطبيق.</string>
     <string name="rate_hint">اضغط على نجمة للتقييم</string>
     <string name="rate_label_1">يحتاج تحسين</string>
@@ -531,7 +544,7 @@
     <string name="ev_ask_ex2">حفلات مجانية الأسبوع ده</string>
     <string name="ev_ask_ex3">إيه الفعاليات في دبي الأسبوع الجاي؟</string>
     <string name="ev_ask_note">DORR AI بيفهم إنت بتدور على إيه بس — كل الفعاليات اللي بتظهر حقيقية من اكتشف.</string>
-    <string name="ev_ask_understood">بدوّر على</string>
+    <string name="ev_ask_understood">أبحث عن</string>
     <string name="ev_ask_none">مفيش حاجة مطابقة دلوقتي — جرّب كلام أو تواريخ تانية.</string>
     <string name="ev_upcoming">الجاية</string>
     <string name="ev_past">اللي فاتت</string>
@@ -911,7 +924,7 @@
     <string name="spx_scored">سجّل</string>
     <string name="spx_search">بحث</string>
     <string name="spx_search_hint">فريق، دوري، لاعب…</string>
-    <string name="spx_search_sub">دوّر على أي فريق أو بطولة أو لاعب وافتح صفحته.</string>
+    <string name="spx_search_sub">ابحث عن أي فريق أو بطولة أو لاعب وافتح صفحته.</string>
     <string name="spx_seasons_n">%1$d مواسم</string>
     <string name="spx_shots">التسديدات (على المرمى)</string>
     <string name="spx_stadium">الملعب</string>
@@ -944,14 +957,14 @@
     <string name="spx_winner">البطل</string>
     <string name="spx_wins">فوز</string>
     <string name="spx_yellow">كروت صفرا</string>
-    <string name="spw_myteam">دُر · فريقي</string>
+    <string name="spw_myteam">دُرر · فريقي</string>
     <string name="spw_myteam_desc">نتيجة فريقك لايف أو ماتشه الجاي.</string>
-    <string name="spw_live_now">دُر · مباشر دلوقتي</string>
+    <string name="spw_live_now">دُرر · مباشر دلوقتي</string>
     <string name="spw_live_desc">أهم الماتشات اللي شغالة دلوقتي.</string>
     <string name="spw_live">مباشر</string>
     <string name="spw_loading">بيحمّل…</string>
-    <string name="spw_sign_in">سجّل دخول في دُر عشان تشوف فرقك.</string>
-    <string name="spw_pick_teams">تابع فريق في رياضة دُر.</string>
+    <string name="spw_sign_in">سجّل دخول في دُرر عشان تشوف فرقك.</string>
+    <string name="spw_pick_teams">تابع فريق في رياضة دُرر.</string>
     <string name="spw_no_live">مفيش ماتشات شغالة دلوقتي.</string>
     <string name="spw_then">بعده: %1$s – %2$s · %3$s</string>
     <string name="support_sub">التذاكر والأسئلة الشائعة</string>
@@ -1197,7 +1210,7 @@
     <string name="lv_go_live_sub">اللي في المكالمة بيكمّلوا كلامهم، والمتفرجين بيشوفوا ويسمعوا بس.</string>
     <string name="lv_title_hint">عنوان (اختياري)</string>
     <string name="lv_audience_members">أعضاء المحادثة دي</string>
-    <string name="lv_audience_link">أي حد في دُر معاه اللينك</string>
+    <string name="lv_audience_link">أي حد في دُرر معاه اللينك</string>
     <string name="lv_start">ابدأ البث</string>
     <string name="lv_share">شارك البث</string>
     <string name="lv_share_members">لأعضاء المحادثة بس، فبيتشارك في محادثته بس.</string>
@@ -1279,7 +1292,7 @@
     <string name="ch_close_sheet">إغلاق</string>
     <!-- Features by country and city (spec أمان 2) -->
     <string name="cf_location_title">اللي متاح في مكانك</string>
-    <string name="cf_location_sub">بعض مزايا الشات (زي المكالمات) بتختلف حسب مدينتك. اسمح بالموقع التقريبي، ودُر بيحفظ اسم مدينتك بس، عمره ما بيحفظ مكانك بالظبط.</string>
+    <string name="cf_location_sub">بعض مزايا الشات (زي المكالمات) بتختلف حسب مدينتك. اسمح بالموقع التقريبي، ودُرر بيحفظ اسم مدينتك بس، عمره ما بيحفظ مكانك بالظبط.</string>
     <string name="cf_location_ok">اسمح بالموقع التقريبي</string>
     <string name="cf_location_later">مش دلوقتي</string>
     <!-- WhatsApp backlog, simple items -->
