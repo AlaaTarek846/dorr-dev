@@ -3,6 +3,9 @@
         <WalletPageHeader :title="t('watch_earn.settings.title')" :section="t('sidebar.watch_earn')" />
 
         <div v-if="loading" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></div>
+        <div v-else-if="!rows.length" class="card custom-card">
+            <div class="card-body text-center text-muted py-5"><i class="ri-global-line fs-24 d-block mb-1"></i>{{ t('wallet.common.empty') }}</div>
+        </div>
         <div v-else class="row g-3">
             <!-- Countries -->
             <div class="col-lg-3">
@@ -23,19 +26,20 @@
                     <div class="card-header d-flex align-items-center justify-content-between">
                         <div class="card-title mb-0">{{ selected.country.name }} <span class="text-muted fs-12">({{ selected.currency.code }})</span></div>
                         <div class="form-check form-switch mb-0">
-                            <input id="we-enabled" v-model="form.enabled" class="form-check-input" type="checkbox">
+                            <input id="we-enabled" v-model="form.enabled" class="form-check-input" type="checkbox" :disabled="!canUpdate">
                             <label class="form-check-label" for="we-enabled">{{ t('watch_earn.settings.enabled') }}</label>
                         </div>
                     </div>
-                    <div class="card-body">
+                    <fieldset class="card-body" :disabled="!canUpdate">
                         <h6 class="fw-semibold mb-3"><i class="ri-price-tag-3-line me-1 text-primary"></i>{{ t('watch_earn.settings.pricing') }}</h6>
                         <div class="row g-3 mb-2">
                             <div v-for="key in moneyKeys" :key="key" class="col-md-3">
                                 <label class="form-label fs-12">{{ t(`watch_earn.settings.${key}`) }}</label>
                                 <div class="input-group input-group-sm">
-                                    <input v-model="form[key]" type="number" min="0" :step="step" class="form-control">
+                                    <input v-model="form[key]" type="number" min="0" :step="step" class="form-control" :class="{ 'is-invalid': errorOf(`${key}_minor`) }" @input="clearError(`${key}_minor`)">
                                     <span class="input-group-text">{{ selected.currency.code }}</span>
                                 </div>
+                                <div v-if="errorOf(`${key}_minor`)" class="invalid-feedback d-block">{{ errorOf(`${key}_minor`) }}</div>
                             </div>
                         </div>
                         <SplitBar class="mb-2" :split="splitMinor" :price="priceMinor" :currency="selected.currency" />
@@ -44,17 +48,19 @@
                         <div class="row g-3 mb-4 mt-1">
                             <div class="col-md-6">
                                 <label class="form-label fs-12">{{ t('watch_earn.settings.unclaimed_interaction') }}</label>
-                                <select v-model="form.unclaimed_interaction" class="form-select form-select-sm">
+                                <select v-model="form.unclaimed_interaction" class="form-select form-select-sm" :class="{ 'is-invalid': errorOf('unclaimed_interaction') }">
                                     <option value="platform">{{ t('watch_earn.settings.unclaimed_platform') }}</option>
                                     <option value="not_charged">{{ t('watch_earn.settings.unclaimed_not_charged') }}</option>
                                 </select>
+                                <div v-if="errorOf('unclaimed_interaction')" class="invalid-feedback d-block">{{ errorOf('unclaimed_interaction') }}</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fs-12">{{ t('watch_earn.settings.min_ad_wallet') }}</label>
                                 <div class="input-group input-group-sm">
-                                    <input v-model="form.min_ad_wallet" type="number" min="0" :step="step" class="form-control">
+                                    <input v-model="form.min_ad_wallet" type="number" min="0" :step="step" class="form-control" :class="{ 'is-invalid': errorOf('min_ad_wallet_minor') }" @input="clearError('min_ad_wallet_minor')">
                                     <span class="input-group-text">{{ selected.currency.code }}</span>
                                 </div>
+                                <div v-if="errorOf('min_ad_wallet_minor')" class="invalid-feedback d-block">{{ errorOf('min_ad_wallet_minor') }}</div>
                             </div>
                         </div>
 
@@ -71,7 +77,8 @@
                             </div>
                             <div v-for="key in playerKeys" :key="key" class="col-md-3 col-6">
                                 <label class="form-label fs-12">{{ t(`watch_earn.settings.${key}`) }}</label>
-                                <input v-model.number="form[key]" type="number" min="0" class="form-control form-control-sm">
+                                <input v-model.number="form[key]" type="number" min="0" class="form-control form-control-sm" :class="{ 'is-invalid': errorOf(key) }" @input="clearError(key)">
+                                <div v-if="errorOf(key)" class="invalid-feedback d-block">{{ errorOf(key) }}</div>
                             </div>
                         </div>
 
@@ -79,10 +86,11 @@
                         <div class="row g-3">
                             <div v-for="key in ruleKeys" :key="key" class="col-md-4 col-6">
                                 <label class="form-label fs-12">{{ t(`watch_earn.settings.${key}`) }}</label>
-                                <input v-model.number="form[key]" type="number" min="0" class="form-control form-control-sm">
+                                <input v-model.number="form[key]" type="number" min="0" class="form-control form-control-sm" :class="{ 'is-invalid': errorOf(key) }" @input="clearError(key)">
+                                <div v-if="errorOf(key)" class="invalid-feedback d-block">{{ errorOf(key) }}</div>
                             </div>
                         </div>
-                    </div>
+                    </fieldset>
                     <div v-if="canUpdate" class="card-footer text-end">
                         <button type="submit" class="btn btn-primary btn-sm" :disabled="saving || !splitOk">
                             <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>{{ t('save') }}
@@ -95,7 +103,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
@@ -118,6 +126,11 @@ const selected = ref(null);
 const form = ref(null);
 const loading = ref(true);
 const saving = ref(false);
+// 422 messages by the API's field name (price_per_view_minor, image_seconds…), shown under each field.
+const errors = reactive({});
+const errorOf = (key) => errors[key]?.[0] ?? null;
+const clearError = (key) => delete errors[key];
+const clearErrors = () => Object.keys(errors).forEach((key) => delete errors[key]);
 
 const decimals = computed(() => selected.value?.currency.decimals ?? 2);
 const step = computed(() => (decimals.value > 0 ? 1 / 10 ** decimals.value : 1));
@@ -133,6 +146,7 @@ const splitOk = computed(() => {
 });
 
 function select(row) {
+    clearErrors();
     selected.value = row;
     const d = row.currency.decimals ?? 2;
     form.value = {
@@ -160,6 +174,7 @@ async function load() {
 
 async function save() {
     saving.value = true;
+    clearErrors();
     const f = form.value;
     const d = decimals.value;
     try {
@@ -184,6 +199,7 @@ async function save() {
         showSuccess(t('watch_earn.settings.saved'));
         await load();
     } catch (error) {
+        Object.assign(errors, error?.response?.data?.errors ?? {});
         showError(extractApiErrorMessage(error));
     } finally {
         saving.value = false;

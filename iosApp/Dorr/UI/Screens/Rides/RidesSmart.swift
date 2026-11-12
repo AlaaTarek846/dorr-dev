@@ -324,7 +324,7 @@ private func comfortSummary(_ p: RideComfortPrefsDto?, _ s: RideComfortScreenDto
     return parts.joined(separator: " · ")
 }
 
-/// «راحتي» on the booking sheet: what I like, in one line — tap to change.
+/// On the booking sheet: a quiet ride for this trip (one switch), then «راحتي» — what I like, in one line, tap to change.
 struct ComfortRow: View {
     @Environment(\.wa) private var wa
     @ObservedObject var state: RidesState
@@ -333,6 +333,9 @@ struct ComfortRow: View {
 
     var body: some View {
         Group {
+            if let s = screen, s.quietEnabled == true {
+                QuietRideRow(state: state, saved: s.prefs?.quiet ?? false)
+            }
             if state.feature("comfort"), let s = screen, s.enabled == true {
                 let summary = comfortSummary(s.prefs, s)
                 Button { open = true } label: {
@@ -356,9 +359,33 @@ struct ComfortRow: View {
             }
         }
         .task {
-            guard state.feature("comfort") else { return }
+            guard state.feature("comfort") || state.feature("quiet_ride") else { return }
             screen = try? await RidesApi.comfort(lat: state.pickup?.lat, lng: state.pickup?.lng).data
         }
+    }
+}
+
+/// A quiet ride, like the big ride apps: the captain is told the rider prefers no small talk.
+private struct QuietRideRow: View {
+    @Environment(\.wa) private var wa
+    @ObservedObject var state: RidesState
+    let saved: Bool
+
+    var body: some View {
+        let on = Binding(get: { state.quietRide ?? saved }, set: { state.quietRide = $0 })
+        HStack(spacing: 10) {
+            Image(systemName: "speaker.slash.fill").font(.system(size: 14)).foregroundStyle(wa.accent)
+                .frame(width: 30, height: 30).background(wa.accent.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 0) {
+                Text(L("rd_quiet_title")).font(.dorr(14, .semibold)).foregroundStyle(wa.settingsInk)
+                Text(L("rd_quiet_sub")).font(.dorr(12)).foregroundStyle(wa.settingsMut)
+            }
+            Spacer(minLength: 0)
+            Toggle("", isOn: on).labelsHidden().tint(wa.accent)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture { on.wrappedValue.toggle() }
     }
 }
 

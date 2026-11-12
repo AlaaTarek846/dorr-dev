@@ -357,14 +357,15 @@ internal fun SuggestedTag() {
     }
 }
 
-/** «راحتي» on the booking sheet: what I like, in one line — tap to change. */
+/** On the booking sheet: a quiet ride for this trip (one switch), then «راحتي» — what I like, in one line, tap to change. */
 @Composable
 internal fun ComfortRow(state: RidesState) {
-    if (!state.feature("comfort")) return
+    if (!state.feature("comfort") && !state.feature("quiet_ride")) return
     var open by remember { mutableStateOf(false) }
     var screen by remember { mutableStateOf<RideComfortScreenDto?>(null) }
     LaunchedEffect(Unit) { screen = runCatching { ApiClient.rides.comfort(ridesAuth(), state.pickup?.lat, state.pickup?.lng).data }.getOrNull() }
     val s = screen ?: return
+    if (s.quietEnabled) QuietRideRow(state, s.prefs.quiet)
     if (!s.enabled) return
     val summary = comfortSummary(s.prefs, s)
     Row(
@@ -382,6 +383,26 @@ internal fun ComfortRow(state: RidesState) {
         Text(stringResource(R.string.rd_change), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
     if (open) ComfortSheet(s, onClose = { open = false }) { screen = it; open = false }
+}
+
+/** A quiet ride, like the big ride apps: the captain is told the rider prefers no small talk. */
+@Composable
+private fun QuietRideRow(state: RidesState, saved: Boolean) {
+    val on = state.quietRide ?: saved
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(12.dp)).pressable { state.quietRide = !on }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(30.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.VolumeOff, null, tint = settingsAccent(), modifier = Modifier.size(17.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.rd_quiet_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.rd_quiet_sub), color = settingsMut(), fontSize = 12.sp)
+        }
+        Switch(checked = on, onCheckedChange = { state.quietRide = it }, colors = SwitchDefaults.colors(checkedTrackColor = settingsAccent()))
+    }
 }
 
 private fun comfortSummary(p: RideComfortPrefsDto, s: RideComfortScreenDto): String = listOfNotNull(

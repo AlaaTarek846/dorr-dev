@@ -14,6 +14,7 @@ use Modules\Wallet\Models\WithdrawalRequest;
 use Modules\Wallet\Services\WithdrawalMethodService;
 use Modules\Wallet\Services\WithdrawalService;
 use Modules\Wallet\Support\OwnerType;
+use Modules\Wallet\Support\WalletOwner;
 
 /**
  * The provider's own withdrawal requests. `store` is behind RequiresWalletPin.
@@ -46,7 +47,7 @@ class WithdrawalController extends Controller
 
     public function store(WithdrawalRequestFormRequest $request)
     {
-        $owner = $request->user();
+        $owner = WalletOwner::of($request);
 
         $withdrawal = $this->withdrawals->request(
             $owner,
@@ -81,7 +82,7 @@ class WithdrawalController extends Controller
 
     private function ownRequests(Request $request): Builder
     {
-        $owner = $request->user();
+        $owner = WalletOwner::of($request);
 
         return WithdrawalRequest::query()->whereHas('wallet', fn ($q) => $q
             ->where('owner_type', OwnerType::aliasFor($owner))

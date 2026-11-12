@@ -695,6 +695,8 @@
     <string name="rd_comfort_none">لا توجد تفضيلات — اضغط للاختيار</string>
     <string name="rd_comfort_quiet">رحلة هادئة</string>
     <string name="rd_comfort_quiet_sub">دون أحاديث غير ضرورية</string>
+    <string name="rd_quiet_title">رحلة هادئة</string>
+    <string name="rd_quiet_sub">سنُبلغ الكابتن بأنك تفضّل عدم الحديث، ويبقى الكلام الضروري للرحلة متاحًا</string>
     <string name="rd_comfort_ac">التكييف</string>
     <string name="rd_comfort_music">الموسيقى</string>
     <string name="rd_comfort_notes">ملاحظات للكابتن</string>

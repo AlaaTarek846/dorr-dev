@@ -11,6 +11,7 @@ use Modules\Wallet\Enums\WalletDirection;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Http\Resources\WalletTransactionResource;
 use Modules\Wallet\Services\WalletStatementService;
+use Modules\Wallet\Support\WalletOwner;
 
 /**
  * The owner's statement for the wallet of the request's country — only ever
@@ -35,7 +36,7 @@ class WalletTransactionController extends Controller
 
         abort_if($country === null, 500, 'The country middleware did not run on this route.');
 
-        $wallet = $this->statements->walletOf($request->user(), $country);
+        $wallet = $this->statements->walletOf(WalletOwner::of($request), $country);
 
         if ($wallet === null) {
             return ApiResponse::success([], __('api.retrieved'), 200, [

@@ -72,6 +72,8 @@
     <string name="nt_card_title">التالية: %1$s</string>
     <string name="nt_waiting">تبدأ بعد انتهاء الرحلة %1$s</string>
     <string name="cf_title">راحة الراكب</string>
+    <string name="cf_quiet_title">رحلة هادئة</string>
+    <string name="cf_quiet_body">يفضّل الراكب عدم الحديث. لا تتحدث إلا عند حاجة الرحلة (الطريق أو مكان الالتقاء أو السلامة).</string>
     <string name="cf_tap_hint">اضغط على أي طلب غير ممكن — وسيعرف الراكب السبب.</string>
     <string name="cf_told">«%1$s» — أُبلغ الراكب: %2$s</string>
     <string name="cf_unable_title">لا تستطيع تنفيذ «%1$s»؟</string>

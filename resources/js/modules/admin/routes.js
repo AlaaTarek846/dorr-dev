@@ -1156,7 +1156,7 @@ export default [
                 path: 'providers',
                 name: 'admin.providers.index',
                 component: page('provider/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'providers.view' },
             },
             {
                 path: 'sms/providers',

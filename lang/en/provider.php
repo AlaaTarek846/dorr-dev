@@ -37,6 +37,7 @@ return [
         'owner_only' => 'Only the owner of the establishment can do this.',
         'already_submitted' => 'The establishment is under review or already approved.',
         'documents_missing' => 'Complete the required documents first.',
+        'vehicle_required' => 'Add at least one vehicle with its photos before sending the establishment for review; moving needs a vehicle.',
         'main_branch' => 'The main branch cannot be deleted.',
         'already_member' => 'This number is already a member of, or invited to, the establishment.',
         'permission_not_held' => 'You cannot grant a permission you do not have.',

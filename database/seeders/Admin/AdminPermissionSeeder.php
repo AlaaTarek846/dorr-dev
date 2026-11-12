@@ -22,7 +22,7 @@ class AdminPermissionSeeder extends Seeder
      *
      * @return array<string, array{module_name: string, actions: list<string>}>
      */
-    private function permissionGroups(): array
+    public static function permissionGroups(): array
     {
         return [
             'admins' => [
@@ -287,18 +287,23 @@ class AdminPermissionSeeder extends Seeder
                 'actions' => ['view'],
             ],
             // Watch & Earn (docs/watch_earn_tasks.md WE-040..043): the settings per country, the ads' review and
-            // management, and the money report.
+            // management, and the money report — its own service in the dashboard's header, apart from the others.
             'watch-earn-settings' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-ads' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view', 'update'],
             ],
             'watch-earn-finance' => [
-                'module_name' => 'general_services',
+                'module_name' => 'watch_earn',
                 'actions' => ['view'],
+            ],
+            // The old providers list (Modules/Provider ProviderController) — the dashboard's "Providers" page.
+            'providers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
             ],
             // DORR AI Marketing Director (docs/marketing_tasks.md): switches per country, packages, operations.
             'marketing-feature-rules' => [
@@ -390,6 +395,14 @@ class AdminPermissionSeeder extends Seeder
             'driver-services' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            // Provider establishments: review, vehicle types, documents asked (docs/moving_tasks.md A-11).
+            'provider-establishments' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'provider-vehicle-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
+            'provider-document-types' => ['module_name' => 'moving', 'actions' => ['view', 'create', 'update', 'delete']],
+            'moving-policies' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'moving-cases' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
+            'moving-requests' => ['module_name' => 'moving', 'actions' => ['view']],
+            'moving-tickets' => ['module_name' => 'moving', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).
             'sports-settings' => [
                 'module_name' => 'general_services',
@@ -535,7 +548,7 @@ class AdminPermissionSeeder extends Seeder
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        foreach ($this->permissionGroups() as $groupName => $group) {
+        foreach (self::permissionGroups() as $groupName => $group) {
             $serviceCategoryId = $this->resolveServiceCategoryId($group['module_name']);
 
             foreach ($group['actions'] as $action) {

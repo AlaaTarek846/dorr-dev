@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.NextPlan
 import androidx.compose.material.icons.rounded.Spa
+import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,12 +71,36 @@ internal fun NextTripBadge(next: NextTripOfferDto?) {
     }
 }
 
+/**
+ * A quiet ride, on its own and on top (request card and trip): the rider prefers no small talk — the
+ * captain still says what the trip needs (the way, the pickup, safety).
+ */
+@Composable
+internal fun QuietRideBadge(comfort: ComfortDto?) {
+    if (comfort?.quiet != true) return
+    Row(
+        Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(DorrBrand.navy.copy(alpha = 0.1f)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.VolumeOff, null, tint = DorrBrand.navy, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(stringResource(R.string.cf_quiet_title), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = DorrBrand.navy)
+            Text(stringResource(R.string.cf_quiet_body), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
+        }
+    }
+}
+
+/** The rest of «راحتي» (the quiet ride has its own badge). */
+private fun ComfortDto.chipItems(): List<ComfortItemDto> = items.filter { it.item != "quiet" }
+
 /** The rider's «راحتي», read-only (the request card). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ComfortChips(comfort: ComfortDto?, unable: Set<String> = emptySet(), onItem: ((ComfortItemDto) -> Unit)? = null) {
     val c = comfort ?: return
-    if (c.items.isEmpty()) return
+    val items = c.chipItems()
+    if (items.isEmpty()) return
     Column(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(DorrBrand.success.copy(alpha = 0.07f)).padding(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Spa, null, tint = DorrBrand.success, modifier = Modifier.size(16.dp))
@@ -84,7 +109,7 @@ internal fun ComfortChips(comfort: ComfortDto?, unable: Set<String> = emptySet()
         }
         Spacer(Modifier.size(6.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            c.items.forEach { item ->
+            items.forEach { item ->
                 val off = item.item in unable
                 Text(
                     item.label, fontSize = 12.sp, textDecoration = if (off) TextDecoration.LineThrough else null,
@@ -114,8 +139,9 @@ internal fun TripComfortCard(trip: TripDto, onUpdated: (TripDto) -> Unit) {
     var asking by remember { mutableStateOf<ComfortItemDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val open = trip.status in setOf("accepted", "arrived", "in_progress")
+    QuietRideBadge(c)
     ComfortChips(c, c.unable.mapNotNull { it.item }.toSet(), onItem = if (open) ({ asking = it }) else null)
-    if (open && c.unable.size < c.items.size) Text(stringResource(R.string.cf_tap_hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f), modifier = Modifier.padding(top = 4.dp))
+    if (open && c.unable.count { it.item != "quiet" } < c.chipItems().size) Text(stringResource(R.string.cf_tap_hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f), modifier = Modifier.padding(top = 4.dp))
     c.unable.forEach { u ->
         Text(stringResource(R.string.cf_told, u.label.orEmpty(), u.reasonLabel.orEmpty()), fontSize = 12.sp, color = DorrBrand.warning, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
     }

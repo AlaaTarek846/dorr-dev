@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wl_title">المحفظة</string>
+    <string name="wl_withdraw">سحب</string>
+    <string name="wl_all">الكل</string>
+    <string name="wl_send_code">إرسال الرمز</string>
+    <string name="wl_confirm_code">تأكيد الرمز</string>
+    <string name="wl_frozen">الرقم السري مقفل. تواصل مع الدعم لفتحه.</string>
+    <string name="wl_recover_photo">طريقة الاسترجاع لديك تتطلب صورًا. تواصل مع الدعم.</string>
+    <string name="wl_must_change">أُعيد تعيين الرقم السري. اختر رقمًا جديدًا للمتابعة.</string>
+    <string name="wl_check">التحقق من الدفع</string>
+    <string name="wl_wd_title">سحب الأرصدة</string>
+    <string name="wl_wd_can">يمكنك سحب ما يصل إلى %1$s</string>
+    <string name="wl_wd_to">السحب إلى</string>
+    <string name="wl_wd_add">إضافة وجهة</string>
+    <string name="wl_wd_save">حفظ الوجهة</string>
+    <string name="wl_wd_send">إرسال الطلب</string>
+    <string name="wl_wd_sent">أُرسل الطلب، والمبلغ محجوز حتى الموافقة عليه.</string>
+    <string name="wl_wd_too_much">المبلغ أكبر من الحد المتاح للسحب.</string>
+    <string name="wl_wd_none">لا توجد طلبات سحب بعد.</string>
+    <string name="wl_wd_requests">طلباتك</string>
+    <string name="wl_wd_pending">قيد المراجعة</string>
+    <string name="wl_wd_approved">تم التحويل</string>
+    <string name="wl_wd_rejected">مرفوض</string>
+    <string name="wl_wd_receipt">عرض الإيصال</string>
+    <string name="wl_bank">حساب بنكي</string>
+    <string name="wl_mobile">محفظة هاتف</string>
+    <string name="wl_label">اسم (اختياري)</string>
+    <string name="wl_bank_name">اسم البنك</string>
+    <string name="wl_holder">اسم صاحب الحساب</string>
+    <string name="wl_provider">مزود المحفظة</string>
+    <string name="wl_number">رقم المحفظة</string>
+    <string name="wl_delete_method">حذف</string>
+    <string name="wl_cancel_add">إلغاء</string>
+    <string name="pd_send_code">إرسال الرمز</string>
+    <string name="profile_otp_confirm">تأكيد</string>
+    <string name="profile_otp_timer">إعادة الإرسال بعد %1$d ثانية</string>
+    <string name="profile_otp_resend">إعادة إرسال الرمز</string>
+</resources>

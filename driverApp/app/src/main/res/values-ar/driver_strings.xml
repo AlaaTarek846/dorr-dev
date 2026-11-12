@@ -158,7 +158,7 @@
     <string name="sch_empty">لا توجد رحلات مجدولة قريبة منك الآن</string>
     <string name="sch_mine_empty">لم تحجز أي رحلة بعد</string>
     <string name="sch_fixed_net">صافيك الثابت</string>
-    <string name="sch_trip_km">%1$s كم مشوار</string>
+    <string name="sch_trip_km">%1$s كم للرحلة</string>
     <string name="sch_online_from">كن متصلاً من %1$s</string>
     <string name="sch_reserve">احجزها لي</string>
     <string name="sch_start">ابدأ التوجه للالتقاط</string>
@@ -201,7 +201,7 @@
     <string name="sc_phone">رقم الجوال</string>
     <string name="sc_when">متى يصله رابط رحلتك؟</string>
     <string name="sc_every_trip">كل الرحلات</string>
-    <string name="sc_night">بالليل فقط</string>
+    <string name="sc_night">ليلًا فقط</string>
     <string name="sc_manual">يدوياً</string>
     <string name="sc_arrival">إشعار «وصلت بالسلامة»</string>
     <string name="sc_remove">حذف</string>
@@ -717,7 +717,7 @@
     <string name="bus_start_return">بدء العودة</string>
     <string name="bus_finish">إنهاء الرحلة</string>
     <string name="bus_scan_ticket">مسح تذكرة راكب</string>
-    <string name="bus_scan_prompt">وجّه الكاميرا لكود التذكرة</string>
+    <string name="bus_scan_prompt">وجّه الكاميرا إلى رمز التذكرة</string>
     <string name="bus_leg_out">الذهاب</string>
     <string name="bus_leg_back">العودة</string>
     <string name="bus_passengers">الركاب (%1$d)</string>
@@ -774,7 +774,7 @@
     <string name="mr_cancel">إلغاء (مع استرداد المبالغ للجميع)</string>
     <string name="mr_finish">عدنا — إنهاء الرحلة</string>
     <string name="mr_finish_hire">إنهاء هذا التأجير</string>
-    <string name="mr_scan_prompt">وجّه الكاميرا لكود الضيف</string>
+    <string name="mr_scan_prompt">وجّه الكاميرا إلى رمز الضيف</string>
     <string name="mr_boarded">صعد %1$s (%2$d أشخاص)</string>
     <string name="mr_bookings">الحجوزات (%1$d)</string>
     <string name="mr_guests_n">%1$d أشخاص</string>

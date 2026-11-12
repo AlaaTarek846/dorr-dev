@@ -10,9 +10,10 @@
 import ai from './services/ai';
 import freelance from './services/freelance';
 import marketing from './services/marketing';
+import moving from './services/moving';
 import rides from './services/rides';
 
-export const guideServices = [ai, rides, freelance, marketing];
+export const guideServices = [ai, rides, moving, freelance, marketing];
 
 const screenModules = import.meta.glob('./screens/*/*.js');
 

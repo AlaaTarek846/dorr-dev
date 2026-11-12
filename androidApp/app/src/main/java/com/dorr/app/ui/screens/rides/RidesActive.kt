@@ -350,7 +350,7 @@ private fun ArrivedWaiting(ride: RideDto, minute: String, hour: String) {
 
 /** A Saudi-style plate: letters | numbers, with the car's colour as a strip. */
 @Composable
-private fun Plate(letters: String?, numbers: String?, colorHex: String?) {
+internal fun Plate(letters: String?, numbers: String?, colorHex: String?) {
     val strip = runCatching { Color(android.graphics.Color.parseColor(colorHex ?: "#CCCCCC")) }.getOrDefault(Color.LightGray)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.clip(RoundedCornerShape(6.dp)).border(2.dp, Color(0xFF1F2937), RoundedCornerShape(6.dp)).background(Color.White)) {

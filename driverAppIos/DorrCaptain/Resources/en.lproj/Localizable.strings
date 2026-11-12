@@ -135,6 +135,8 @@
 "bus_with_return" = "There's a return trip";
 "cancel" = "Cancel";
 "cf_cancel" = "Cancel";
+"cf_quiet_body" = "The rider prefers not to talk. Speak only when the trip needs it (the way, the pickup or safety).";
+"cf_quiet_title" = "Quiet ride";
 "cf_tap_hint" = "Tap an item if it isn't possible — the rider is told why.";
 "cf_title" = "Rider's comfort";
 "cf_told" = "«%1$@» — told the rider: %2$@";

@@ -1,17 +1,24 @@
 <?php
 
+use App\Support\Admin\AdminPermissionMiddleware;
 use Illuminate\Support\Facades\Route;
+use Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController;
+use Modules\Rides\Http\Controllers\Admin\DriverRankAdminController;
 use Modules\Rides\Http\Controllers\Admin\DriverRegulatorAdminController;
+use Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController;
+use Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController;
 use Modules\Rides\Http\Controllers\Admin\RideAdminController;
 use Modules\Rides\Http\Controllers\Admin\RideCaseController;
 use Modules\Rides\Http\Controllers\Admin\RideCategoryController;
 use Modules\Rides\Http\Controllers\Admin\RideFeatureRuleController;
+use Modules\Rides\Http\Controllers\Admin\RideInsightsController;
 use Modules\Rides\Http\Controllers\Admin\RideListController;
 use Modules\Rides\Http\Controllers\Admin\RidePolicyController;
 use Modules\Rides\Http\Controllers\Admin\RideSafetyIncidentController;
 use Modules\Rides\Http\Controllers\Admin\RideSettingController;
 use Modules\Rides\Http\Controllers\Admin\RideZoneController;
 use Modules\Rides\Http\Controllers\Admin\WaslLogController;
+use Modules\Rides\Http\Controllers\DispatchCheckController;
 
 // Admin → Rides (docs/rides-plan.md §4.4): settings, switches, categories, prices & rules, rides, Wasl, lists.
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
@@ -60,7 +67,8 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('rides', [RideAdminController::class, 'index']);
         Route::get('rides/{ride}', [RideAdminController::class, 'show'])->whereNumber('ride');
         // O-47: why this request did or didn't reach each captain around it.
-        Route::get('rides/{ride}/dispatch-check', [\Modules\Rides\Http\Controllers\DispatchCheckController::class, 'ride'])->whereNumber('ride');
+        Route::get('rides/{ride}/dispatch-check', [DispatchCheckController::class, 'ride'])->whereNumber('ride')
+            ->middleware(AdminPermissionMiddleware::permission('rides', 'view'));
         Route::post('rides/{ride}/wasl-retry', [RideAdminController::class, 'waslRetry'])->whereNumber('ride')->middleware('throttle:30,1');
 
         // Safety: every SOS, open first (R-110, D-141).
@@ -72,41 +80,41 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('wasl-logs/{waslLog}', [WaslLogController::class, 'show'])->whereNumber('waslLog');
 
         // Block 06: service quality (AI-19, with DORR AI's reading on request) and rides with fraud signs (AI-06).
-        Route::get('rides-quality', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'quality']);
-        Route::post('rides-quality/explain', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'explain'])->middleware('throttle:10,1');
-        Route::get('rides-risk', [\Modules\Rides\Http\Controllers\Admin\RideInsightsController::class, 'risky']);
+        Route::get('rides-quality', [RideInsightsController::class, 'quality']);
+        Route::post('rides-quality/explain', [RideInsightsController::class, 'explain'])->middleware('throttle:10,1');
+        Route::get('rides-risk', [RideInsightsController::class, 'risky']);
         // O-07, O-08: the rides page's maps — the heat map of requests and the captains on the map.
-        Route::get('rides-map/heat', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'heatMap']);
-        Route::get('rides-map/drivers', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'driversMap']);
+        Route::get('rides-map/heat', [RideAdminController::class, 'heatMap']);
+        Route::get('rides-map/drivers', [RideAdminController::class, 'driversMap']);
         // D-224, D-299: captain payouts — international requests, frozen accounts.
-        Route::get('driver-payouts', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'index']);
-        Route::post('driver-payouts/{driver}/international', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'international'])->whereNumber('driver');
-        Route::post('driver-payouts/{driver}/freeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'freeze'])->whereNumber('driver');
-        Route::post('driver-payouts/{driver}/unfreeze', [\Modules\Rides\Http\Controllers\Admin\DriverPayoutAdminController::class, 'unfreeze'])->whereNumber('driver');
+        Route::get('driver-payouts', [DriverPayoutAdminController::class, 'index']);
+        Route::post('driver-payouts/{driver}/international', [DriverPayoutAdminController::class, 'international'])->whereNumber('driver');
+        Route::post('driver-payouts/{driver}/freeze', [DriverPayoutAdminController::class, 'freeze'])->whereNumber('driver');
+        Route::post('driver-payouts/{driver}/unfreeze', [DriverPayoutAdminController::class, 'unfreeze'])->whereNumber('driver');
         // D-239..D-259: captain ranks — the ranks, one captain's record, appeals.
         // O-89: captain services, and per country which kind of vehicle works in which.
-        Route::get('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'index']);
-        Route::post('driver-services', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'store']);
-        Route::put('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'update'])->whereNumber('id');
-        Route::delete('driver-services/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'destroy'])->whereNumber('id');
-        Route::get('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'rules']);
-        Route::put('driver-service-rules', [\Modules\Rides\Http\Controllers\Admin\DriverServiceAdminController::class, 'saveRules']);
-        Route::get('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'index']);
-        Route::post('driver-ranks', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'store']);
-        Route::put('driver-ranks/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'update'])->whereNumber('id');
-        Route::delete('driver-ranks/{id}', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'destroy'])->whereNumber('id');
-        Route::get('driver-ranks/driver', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'driver']);
-        Route::post('driver-ranks/drivers/{driver}/notes', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'note'])->whereNumber('driver');
-        Route::get('driver-ranks/appeals', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'appeals']);
-        Route::post('driver-ranks/appeals/{note}', [\Modules\Rides\Http\Controllers\Admin\DriverRankAdminController::class, 'answer'])->whereNumber('note');
+        Route::get('driver-services', [DriverServiceAdminController::class, 'index']);
+        Route::post('driver-services', [DriverServiceAdminController::class, 'store']);
+        Route::put('driver-services/{id}', [DriverServiceAdminController::class, 'update'])->whereNumber('id');
+        Route::delete('driver-services/{id}', [DriverServiceAdminController::class, 'destroy'])->whereNumber('id');
+        Route::get('driver-service-rules', [DriverServiceAdminController::class, 'rules']);
+        Route::put('driver-service-rules', [DriverServiceAdminController::class, 'saveRules']);
+        Route::get('driver-ranks', [DriverRankAdminController::class, 'index']);
+        Route::post('driver-ranks', [DriverRankAdminController::class, 'store']);
+        Route::put('driver-ranks/{id}', [DriverRankAdminController::class, 'update'])->whereNumber('id');
+        Route::delete('driver-ranks/{id}', [DriverRankAdminController::class, 'destroy'])->whereNumber('id');
+        Route::get('driver-ranks/driver', [DriverRankAdminController::class, 'driver']);
+        Route::post('driver-ranks/drivers/{driver}/notes', [DriverRankAdminController::class, 'note'])->whereNumber('driver');
+        Route::get('driver-ranks/appeals', [DriverRankAdminController::class, 'appeals']);
+        Route::post('driver-ranks/appeals/{note}', [DriverRankAdminController::class, 'answer'])->whereNumber('note');
         // R-146..R-155: DORR points — tiers, badges, challenges, rewards, one rider's points.
-        Route::get('ride-loyalty/options', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'options']);
-        Route::get('ride-loyalty/member', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'member']);
-        Route::post('ride-loyalty/members/{user}/adjust', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'adjust'])->whereNumber('user');
-        Route::get('ride-loyalty/{list}', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'index'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards']);
-        Route::post('ride-loyalty/{list}', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'store'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards']);
-        Route::put('ride-loyalty/{list}/{id}', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'update'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards'])->whereNumber('id');
-        Route::delete('ride-loyalty/{list}/{id}', [\Modules\Rides\Http\Controllers\Admin\LoyaltyAdminController::class, 'destroy'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards'])->whereNumber('id');
+        Route::get('ride-loyalty/options', [LoyaltyAdminController::class, 'options']);
+        Route::get('ride-loyalty/member', [LoyaltyAdminController::class, 'member']);
+        Route::post('ride-loyalty/members/{user}/adjust', [LoyaltyAdminController::class, 'adjust'])->whereNumber('user');
+        Route::get('ride-loyalty/{list}', [LoyaltyAdminController::class, 'index'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards']);
+        Route::post('ride-loyalty/{list}', [LoyaltyAdminController::class, 'store'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards']);
+        Route::put('ride-loyalty/{list}/{id}', [LoyaltyAdminController::class, 'update'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards'])->whereNumber('id');
+        Route::delete('ride-loyalty/{list}/{id}', [LoyaltyAdminController::class, 'destroy'])->whereIn('list', ['tiers', 'badges', 'challenges', 'rewards'])->whereNumber('id');
         Route::get('ride-lists/{list}', [RideListController::class, 'index'])->whereIn('list', ['cancel-reasons', 'rating-tags']);
         Route::post('ride-lists/{list}', [RideListController::class, 'store'])->whereIn('list', ['cancel-reasons', 'rating-tags']);
         Route::put('ride-lists/{list}/{id}', [RideListController::class, 'update'])->whereIn('list', ['cancel-reasons', 'rating-tags'])->whereNumber('id');

@@ -20,6 +20,7 @@ class ServiceCategoriesSeeder extends Seeder
         'system_users',
         'admin',
         'admin_permission',
+        'watch_earn',
     ];
 
     public function run(): void
@@ -60,6 +61,8 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'الملاعب', 'en' => 'Sports Venues'], 'module_name' => 'sports_venues', 'requires_provider' => true],
             ['name' => ['ar' => 'الفعاليات', 'en' => 'Events'], 'module_name' => 'events', 'requires_provider' => true],
             ['name' => ['ar' => 'العمل الحر', 'en' => 'Freelance'], 'module_name' => 'freelance', 'requires_provider' => false],
+            // Watch & Earn's dashboard (Modules/WatchEarn): its own service in the header so its pages show alone.
+            ['name' => ['ar' => 'شاهد واكسب', 'en' => 'Watch & Earn'], 'module_name' => 'watch_earn', 'requires_provider' => false],
             ['name' => ['ar' => 'مدير التسويق الذكي', 'en' => 'AI Marketing Director'], 'module_name' => 'marketing', 'requires_provider' => false],
         ];
 
@@ -83,6 +86,7 @@ class ServiceCategoriesSeeder extends Seeder
             $category->save();
 
             $this->syncServiceCategoryTranslations($category, $row['name']);
+            $this->attachDefaultImage($category);
         }
 
         $this->attachAssignableServicesToCountries();
@@ -118,6 +122,24 @@ class ServiceCategoriesSeeder extends Seeder
         foreach (array_chunk($rows, 500) as $chunk) {
             DB::table('country_service_category')->insertOrIgnore($chunk);
         }
+    }
+
+    /**
+     * Starter icon from database/seeders/data/service-images/{module}.png (drawn by
+     * database/seeders/scripts/service-images.py). An image the admin uploaded is never replaced.
+     */
+    protected function attachDefaultImage(ServiceCategory $category): void
+    {
+        $path = database_path("seeders/data/service-images/{$category->module_name}.png");
+
+        if (! is_file($path) || $category->getSingleMedia('image') !== null) {
+            return;
+        }
+
+        $category->addMedia($path)
+            ->preservingOriginal()
+            ->usingFileName('image.png')
+            ->toMediaCollection('image');
     }
 
     /**

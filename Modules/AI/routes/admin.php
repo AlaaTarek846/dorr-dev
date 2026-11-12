@@ -49,8 +49,6 @@ use Modules\AI\Http\Controllers\AiSiteAdminProjectController;
 use Modules\AI\Http\Controllers\AiSiteDownloadSettingController;
 use Modules\AI\Http\Controllers\AiSiteHostingPlanController;
 use Modules\AI\Http\Controllers\AiSiteOfferController;
-use Modules\AI\Http\Controllers\Ar\AiArAdminController;
-use Modules\AI\Http\Controllers\World\AiWorldAdminController;
 use Modules\AI\Http\Controllers\AiSiteServiceRequestAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
@@ -59,9 +57,11 @@ use Modules\AI\Http\Controllers\AiUsageController;
 use Modules\AI\Http\Controllers\AiUsageSessionController;
 use Modules\AI\Http\Controllers\AiUserLanguagePreferenceController;
 use Modules\AI\Http\Controllers\AiVerificationController;
+use Modules\AI\Http\Controllers\Ar\AiArAdminController;
+use Modules\AI\Http\Controllers\World\AiWorldAdminController;
 use Modules\AI\Support\AiAdminScreens;
 
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-providers')->group(function () {
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general', 'admin.area:ai-settings'])->prefix('admin/v1/ai-providers')->group(function () {
     Route::get('/', [AiProviderController::class, 'index']);
 
     Route::post('{provider}', [AiProviderController::class, 'update'])

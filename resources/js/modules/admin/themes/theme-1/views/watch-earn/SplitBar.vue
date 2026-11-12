@@ -35,10 +35,10 @@ const parts = computed(() => [
 </script>
 
 <style scoped>
-.we-split { display: flex; height: 14px; border-radius: 8px; overflow: hidden; background: #eee; }
+.we-split { display: flex; height: 14px; border-radius: 8px; overflow: hidden; background: var(--default-background); border: 1px solid var(--default-border); }
 .we-split span { transition: width .4s ease; }
-.we-split__platform { background: #845adf; }
-.we-split__view { background: #23b7e5; }
-.we-split__interaction { background: #f5b849; }
+.we-split__platform { background: rgb(var(--primary-rgb)); }
+.we-split__view { background: rgb(var(--secondary-rgb)); }
+.we-split__interaction { background: rgb(var(--warning-rgb)); }
 .we-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; vertical-align: middle; }
 </style>

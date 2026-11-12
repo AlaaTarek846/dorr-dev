@@ -33,6 +33,9 @@ class RideFeatures
         // Block 06: DORR AI in rides — the rider's booking assistant («دُرر يفهم مقصدك», AI-09), «راحتي»,
         // the captain's next trip, and DORR Driver AI (with the demand forecast).
         'ai_booking', 'comfort', 'next_trip', 'driver_ai',
+        // A quiet ride on its own (like the big ride apps): the rider asks for no small talk and the
+        // captain sees it on the request and the trip — on even where «راحتي» as a whole is off.
+        'quiet_ride',
     ];
 
     public static function categoryFeature(string $slug): string

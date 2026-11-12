@@ -1,0 +1,19 @@
+// Shared build settings. The backend is each developer's own choice in Local.xcconfig (not committed), the iOS twin of
+// providerApp/local.properties `dorr.apiHost` / `dorr.apiScheme`:
+//
+//   DORR_API_HOST = my-tunnel.ngrok-free.dev
+//   DORR_API_SCHEME = https
+//
+// Copy Local.xcconfig.example to Local.xcconfig and edit it.
+
+DORR_API_HOST = dorr.test
+DORR_API_SCHEME = https
+
+// providerApp `dorr.mapsKey`: the Google Maps key (put it in Local.xcconfig, never here) — without it, when the admin's engine
+// is Google, Apple Maps draws instead of a blank map.
+DORR_GOOGLE_MAPS_KEY =
+
+// providerApp's applicationId; Local.xcconfig may change it (and set DEVELOPMENT_TEAM) for a real iPhone.
+PRODUCT_BUNDLE_IDENTIFIER = com.dorr.provider
+
+#include? "Local.xcconfig"

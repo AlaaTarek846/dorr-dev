@@ -69,6 +69,8 @@ export function notificationIcon(notification) {
     if (event.startsWith('wallet.')) return 'bx bx-wallet';
     if (event.startsWith('support.')) return 'bx bx-support';
     if (event.startsWith('ai_subscription.')) return 'bx bx-bot';
+    if (event.startsWith('admin.provider_')) return 'bx bx-store';
+    if (event.startsWith('admin.moving_')) return 'bx bx-package';
 
     return 'bx bx-bell';
 }

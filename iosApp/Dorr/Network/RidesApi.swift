@@ -791,6 +791,8 @@ struct RideComfortOptionsDto: Codable, Equatable {
 
 struct RideComfortScreenDto: Codable, Equatable {
     var enabled: Bool?
+    /// The quiet-ride switch on the booking sheet (on with «راحتي», or on its own).
+    var quietEnabled: Bool?
     var prefs: RideComfortPrefsDto?
     var options: RideComfortOptionsDto?
     var disclaimer: String?

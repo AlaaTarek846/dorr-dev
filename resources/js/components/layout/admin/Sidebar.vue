@@ -653,7 +653,7 @@
                                 </router-link>
                             </li>
 
-                            <li class="slide">
+                            <li v-if="can('providers.view')" class="slide">
                                 <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
                                     <i class="ri-user-settings-line side-menu__icon"></i>
                                     <span class="side-menu__label">{{ t('providers.title') }}</span>
@@ -847,6 +847,8 @@ const isChatVisible = computed(() => selectedModuleName.value === 'chat');
 const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
+/** The AI dashboard's areas (Modules/AI routes/admin.php → `admin.area:{group}`); a menu shows with any of its areas. */
+
 const showSystemUsersSection = computed(
     () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view') || can('security-events.view')),
 );
@@ -878,8 +880,9 @@ const showSmsSection = computed(
     () => can('sms-providers.view') || can('whatsapp.view') || can('otp-settings.view'),
 );
 
-/** Providers nav has no permission gate yet; section shows if it or service categories are visible. */
-const showServicesSection = computed(() => can('service_categories.view') || true);
+const showServicesSection = computed(
+    () => can('service_categories.view') || can('faqs.view') || can('legal-page.view') || can('providers.view'),
+);
 
 const showCatalogSection = computed(
     () => can('flags.view')
@@ -940,7 +943,10 @@ const watchEarnItems = [
     { route: 'admin.watch-earn.finance', permission: 'watch-earn-finance.view', icon: 'ri-money-dollar-circle-line', label: 'watch_earn.finance.title' },
 ];
 
-const showWatchEarnSection = computed(() => watchEarnItems.some((item) => can(item.permission)));
+/** Shown when the header's service is Watch & Earn (its own service, not under every other one). */
+const showWatchEarnSection = computed(
+    () => selectedModuleName.value === 'watch_earn' && watchEarnItems.some((item) => can(item.permission)),
+);
 
 /** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
 const ridesItems = [

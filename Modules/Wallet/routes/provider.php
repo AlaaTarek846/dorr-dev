@@ -4,9 +4,11 @@ use Illuminate\Support\Facades\Route;
 use Modules\Wallet\Http\Controllers\Provider\WithdrawalController;
 use Modules\Wallet\Http\Controllers\Provider\WithdrawalMethodController;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
+use Modules\Wallet\Http\Middleware\ResolveWalletOwner;
 
 Route::middleware('locale')->prefix('provider/v1')->group(function () {
-    Route::middleware(['auth:provider_api', 'country', 'remember-locale'])->group(function () {
+    // ResolveWalletOwner: in the providers app the balance, statement and payouts are the establishment's (docs/moving_tasks.md A-10).
+    Route::middleware(['auth:provider_api', 'country', 'remember-locale', ResolveWalletOwner::class])->group(function () {
         require __DIR__.'/customer.php';
 
         // Withdrawal is provider-only for now (wallet-structure.md §6).

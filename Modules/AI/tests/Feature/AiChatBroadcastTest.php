@@ -166,7 +166,7 @@ class AiChatBroadcastTest extends TestCase
         $owner = $this->makeOwner();
         $conversation = $this->makeConversation($owner);
 
-        Sanctum::actingAs($owner, ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($owner), ['*'], 'admin_api');
 
         $response = $this->postJson('/broadcasting/auth', [
             'channel_name' => 'private-ai-conversation.'.$conversation->id,
@@ -182,7 +182,7 @@ class AiChatBroadcastTest extends TestCase
         $otherOwner = $this->makeOwner();
         $conversation = $this->makeConversation($owner);
 
-        Sanctum::actingAs($otherOwner, ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($otherOwner), ['*'], 'admin_api');
 
         $response = $this->postJson('/broadcasting/auth', [
             'channel_name' => 'private-ai-conversation.'.$conversation->id,
@@ -195,7 +195,7 @@ class AiChatBroadcastTest extends TestCase
     public function test_broadcasting_auth_rejects_a_nonexistent_conversation(): void
     {
         $owner = $this->makeOwner();
-        Sanctum::actingAs($owner, ['*'], 'admin_api');
+        Sanctum::actingAs(\Tests\Support\AdminAccess::full($owner), ['*'], 'admin_api');
 
         $response = $this->postJson('/broadcasting/auth', [
             'channel_name' => 'private-ai-conversation.999999',

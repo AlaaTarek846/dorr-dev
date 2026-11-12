@@ -80,6 +80,10 @@ object ChatRealtime {
     val RIDE_EVENTS = listOf("ride.changed", "ride.message", "ride.driver_location")
     private val watchedRides = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
+    /** A move's private channel while its pages are open (`private-moving.{uuid}`): it changed (reload once), and the truck's place. */
+    val MOVING_EVENTS = listOf("moving.changed", "moving.driver_location")
+    private val watchedMoves = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     /** One Watch & Earn ad while its comments are open (`private-watch-earn.ad.{uuid}`): comments and reaction counts. */
     val WATCH_EARN_AD_EVENTS = listOf("watch_earn.comment", "watch_earn.comment_deleted", "watch_earn.reactions")
     private val watchedAds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -191,6 +195,7 @@ object ChatRealtime {
             }
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
             watchedRides.forEach { subscribeRide(client, it) }
+            watchedMoves.forEach { subscribeMove(client, it) }
             watchedAds.forEach { subscribeAd(client, it) }
             watchedWorkrooms.keys.forEach { subscribeWorkroom(client, it) }
         }
@@ -259,6 +264,33 @@ object ChatRealtime {
                 }
             }, *RIDE_EVENTS.toTypedArray())
         }.onFailure { Log.w(TAG, "Ride channel $uuid failed", it) }
+    }
+
+    /** Listen to one move (`moving.changed`, `moving.driver_location` arrive on [events]). Safe before the connection is up. */
+    fun watchMoving(uuid: String) {
+        if (watchedMoves.add(uuid)) pusher?.let { subscribeMove(it, uuid) }
+    }
+
+    fun unwatchMoving(uuid: String) {
+        if (watchedMoves.remove(uuid)) runCatching { pusher?.unsubscribe("private-moving.$uuid") }
+    }
+
+    private fun subscribeMove(client: Pusher, uuid: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-moving.$uuid") != null) return
+            client.subscribePrivate("private-moving.$uuid", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Moving channel auth failed: $message", e)
+                }
+            }, *MOVING_EVENTS.toTypedArray())
+        }.onFailure { Log.w(TAG, "Moving channel $uuid failed", it) }
     }
 
     /** A freelance room (`private-freelance-chat.{uuid}`) while its page is open: `freelance.message` / `freelance.read` arrive on [events]. */
@@ -341,6 +373,7 @@ object ChatRealtime {
         runCatching { pusher?.disconnect() }
         pusher = null
         watchedRides.clear()
+        watchedMoves.clear()
         watchedAds.clear()
         watchedWorkrooms.clear()
         userId = null

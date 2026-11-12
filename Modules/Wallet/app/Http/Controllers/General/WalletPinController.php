@@ -48,6 +48,9 @@ class WalletPinController extends Controller
         }
 
         $this->pins->set($owner, $request->validated('pin'));
+        // The phone that creates the PIN is the one the account signed in on (by its code): it starts trusted, so a
+        // new account isn't asked to confirm a "new device" the moment its wallet opens.
+        $this->devices->trust($owner, $request->header('X-Device-Id'));
         $this->notifier->pinCreated($owner);
 
         return ApiResponse::created(['has_pin' => true], __('api.created'));

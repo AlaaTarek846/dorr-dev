@@ -175,6 +175,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Freelance notifications open their page again (2026-11-03):** the "freelance open" flag and the open-page stack now live in `FreelanceLink` (not in `MainScreen`, which is rebuilt when the notifications list closes). A client `freelance.message` notice carries `project`/`offer` and opens the offer page (Android + iOS `pageFor`).
 
 ### Changed
+- **Android furniture moving, customer screens (2026-11-05, docs/moving_tasks.md D-01 → D-03):** the moving service opens `MovingHost`: «طلباتي», the new-request steps with a server draft, offers three at a time, accepting on the shared payment screen, following the job live, delivery code and QR, report, rating, changes, cancelling, invoice and tickets. `CheckoutRequest` gained an optional `checkoutId`. Code only, not built yet; the iOS port is a separate round.
 - **Portals: subscription history + «new period» before paying (2026-11-08):**
   - **History:** ⋮ → «Subscription history» opens a sheet listing every period paid for the portal, newest first, each with its package, amount + currency, from → to, and a state (running · upcoming · ended).
   - **Server:** `ChatPackageService::history` now also returns `currency_code`, `paid_at` and `state` (`upcoming` for an early renewal). It's served by `GET portals/{id}`; a test was added to `ChatPortalsTest`.
