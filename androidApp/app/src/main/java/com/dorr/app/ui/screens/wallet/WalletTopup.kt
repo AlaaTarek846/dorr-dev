@@ -456,7 +456,8 @@ internal fun TopupStage(
                         }
                         Spacer(Modifier.height(12.dp))
                         WaButton(stringResource(R.string.wa_done), onDone)
-                        WaButton(stringResource(R.string.wa_view_statement), onStatement, style = WaButtonStyle.Quiet)
+                        Spacer(Modifier.height(10.dp))
+                        WaButton(stringResource(R.string.wa_view_statement), onStatement, style = WaButtonStyle.Ghost)
                     }
                 }
                 payment.status == "pending" && payment.requiresOtp -> WaStatusColumn() {
@@ -551,6 +552,11 @@ internal fun GatewayLayer(url: String?, onClose: () -> Unit) {
                         // No white flash before the page paints.
                         setBackgroundColor(pageBackground)
                         webViewClient = WebViewClient()
+                        // AndroidView gives the view WRAP_CONTENT, and a wrap-content WebView sizes the page to its own
+                        // content (100% / 100vh = the card), so nothing could centre it: fill the space instead.
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
                         loadUrl(pageUrl)
                     }
                 },

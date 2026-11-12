@@ -46,7 +46,8 @@ import com.dorr.app.ui.screens.profile.settingsSurface
 /*
  * Calls over other apps and the lock screen, like Messenger: "display over other apps" (the
  * ringing page opens on top of whatever is on screen) and, on Android 14+, full-screen calls.
- * Asked once in the chat, and offered on the calls page for as long as either is missing.
+ * Asked once in the chat — right after the first call ends (made or answered), when the reason is plain, not on the
+ * first visit — and offered on the calls page for as long as either is missing.
  */
 
 /** Re-read when I come back from the phone's settings. */
@@ -82,13 +83,23 @@ internal fun CallPermissionCard() {
     }
 }
 
-/** Once, the first time the chat opens with something missing. */
+/**
+ * Once, after the first call is over (CallController marks it), if something is still missing — not while a call is on
+ * screen. A first call that ended away from the chat is caught the next time the chat opens.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CallPermissionPrompt() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
-    var open by remember { mutableStateOf(!prefs.getBoolean(ASKED, false) && CallPermissions.missing(context)) }
+    var open by remember { mutableStateOf(false) }
+    val phase = com.dorr.app.chat.CallController.phase
+    androidx.compose.runtime.LaunchedEffect(phase) {
+        val inCall = phase != null && phase != com.dorr.app.chat.CallPhase.Ended
+        if (!inCall && !prefs.getBoolean(ASKED, false) && prefs.getBoolean(CallPermissions.HAD_CALL, false) && CallPermissions.missing(context)) {
+            open = true
+        }
+    }
     if (!open) return
     val tick = rememberResumeTick()
     fun close() {
@@ -165,5 +176,5 @@ private fun PermissionSettingsRow(icon: ImageVector, title: String, done: Boolea
     )
 }
 
-private const val PREFS = "dorr_calls"
+private const val PREFS = CallPermissions.PREFS
 private const val ASKED = "call_permissions_asked"

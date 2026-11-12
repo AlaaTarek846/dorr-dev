@@ -29,6 +29,7 @@ class WalletResource extends JsonResource
                 'email' => $owner->email ?? null,
             ],
             'country_code' => $this->country?->code,
+            'country_name' => $this->country?->translatedName() ?? $this->country?->code,
             'currency_code' => $this->currency?->code,
             'total_minor' => $this->totalBalanceMinor(),
             'withdrawable_minor' => $this->withdrawable_minor,

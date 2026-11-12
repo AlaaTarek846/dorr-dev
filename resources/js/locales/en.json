@@ -2862,6 +2862,7 @@
             "reason": "Reason (required)",
             "reason_required": "A written reason is required (at least 3 characters).",
             "choose_bucket": "Choose a balance type",
+            "owner_user_international": "User international wallet",
             "empty_title": "No wallets yet",
             "apply_adjustment": "Apply adjustment",
             "adjusted": "Adjustment recorded.",
@@ -3029,7 +3030,7 @@
             "min_allowed_balance_user_minor": "User debt allowed",
             "saved": "Settings saved.",
             "saving": "Saving...",
-            "search": "Search country code…"
+            "search": "Search country name or code…"
         }
     },
     "notifications": {

@@ -6545,7 +6545,7 @@
 "wa_history_empty_title" = "لا توجد حركات";
 "wa_history_title" = "كشف الحساب";
 "wa_intl_note" = "محفظة الفريلانس بالدولار: كل شغل الفريلانس بيتدفع منها، وبتشحنها وتسحب منها. مينفعش تحوّل منها لحد.";
-"wa_intl_wallet_title" = "المحفظة الدولية";
+"wa_intl_wallet_title" = "محفظة الدولار";
 "wa_load_failed" = "تعذّر تحميل المحفظة";
 "wa_method_coming_soon_toast" = "طريقة الدفع هذه ستتوفر قريباً";
 "wa_method_sandbox_sub" = "بوابة تجريبية — لا يتم خصم أموال حقيقية";

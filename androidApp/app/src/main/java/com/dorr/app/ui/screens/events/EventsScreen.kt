@@ -886,15 +886,8 @@ private fun EvSaved(onBack: () -> Unit, go: (EvPage) -> Unit) {
             empty = stringResource(R.string.ev_saved_empty),
             onInterest = { e -> if (!e.interested) items.removeAll { it.id == e.id } },
         )
-        if (more) {
-            WaButton(
-                stringResource(R.string.ev_more),
-                { if (!loadingMore) scope.launch { load(page + 1) } },
-                style = WaButtonStyle.Ghost,
-                loading = loadingMore,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
+        // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+        com.dorr.app.ui.components.AutoLoadMore(more && !loading, loadingMore, Wa.Red) { scope.launch { load(page + 1) } }
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -943,15 +936,8 @@ private fun InterestsKinds(prefs: DiscPrefsDto, save: (DiscPrefsDto) -> Unit) {
             if (index != kinds.lastIndex || more) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) com.dorr.app.ui.screens.AccountDark.line else Color(0xFFF6E4E8)))
         }
     }
-    if (more) {
-        WaButton(
-            stringResource(R.string.ev_more),
-            { if (!loadingMore) scope.launch { load(page + 1) } },
-            style = WaButtonStyle.Ghost,
-            loading = loadingMore,
-            modifier = Modifier.padding(top = 10.dp),
-        )
-    }
+    // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+    com.dorr.app.ui.components.AutoLoadMore(more, loadingMore, com.dorr.app.ui.screens.profile.settingsAccent()) { scope.launch { load(page + 1) } }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1256,15 +1242,8 @@ private fun EvOrganizer(onBack: () -> Unit, go: (EvPage) -> Unit) {
                             events.forEachIndexed { i, e ->
                                 EventRow(e, Modifier.padding(bottom = 8.dp).waRise(i.coerceAtMost(6)), review = e.reviewStatus) { go(EvPage.Event(e.id)) }
                             }
-                            if (more) {
-                                WaButton(
-                                    stringResource(R.string.ev_more),
-                                    { if (!loadingMore) scope.launch { loadEvents(page + 1) } },
-                                    style = WaButtonStyle.Ghost,
-                                    loading = loadingMore,
-                                    modifier = Modifier.padding(top = 4.dp),
-                                )
-                            }
+                            // No «show more»: the next 15 load by themselves near the end (the app's paging rule).
+                            com.dorr.app.ui.components.AutoLoadMore(more, loadingMore, Wa.Red) { scope.launch { loadEvents(page + 1) } }
                         }
                     }
                 }

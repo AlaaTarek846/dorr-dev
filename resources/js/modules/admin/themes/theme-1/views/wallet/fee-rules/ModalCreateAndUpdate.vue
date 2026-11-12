@@ -148,7 +148,7 @@
                                     :placeholder="t('wallet.rules.any_country')"
                                     show-clear
                                     filter
-                                    append-to="self"
+                                    append-to="body"
                                     class="w-100"
                                 />
                             </div>
@@ -165,7 +165,7 @@
                                     option-value="value"
                                     :placeholder="t('wallet.rules.any_method')"
                                     show-clear
-                                    append-to="self"
+                                    append-to="body"
                                     class="w-100"
                                 />
                             </div>
@@ -182,7 +182,7 @@
                                     option-value="value"
                                     :placeholder="t('wallet.rules.any_owner')"
                                     show-clear
-                                    append-to="self"
+                                    append-to="body"
                                     class="w-100"
                                 />
                             </div>

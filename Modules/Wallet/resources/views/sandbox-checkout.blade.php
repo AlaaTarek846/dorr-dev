@@ -7,7 +7,10 @@
     <style>
         @include('wallet::partials.theme-vars', ['theme' => $theme])
         * { box-sizing: border-box; }
-        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, rgba(var(--primary-rgb), .14), var(--bg) 60%); font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; color: var(--ink); }
+        /* Centred in the space the page really has (between the app's header and tab bar): 100% of the WebView, not 100vh,
+           which an in-app WebView can size far taller than the screen. Taller than that (a small phone) → it starts at the top and scrolls. */
+        html { height: 100%; }
+        body { margin: 0; min-height: 100%; padding: 16px 0; display: flex; align-items: center; justify-content: center; background: var(--bg); font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; color: var(--ink); }
         .card { width: min(92vw, 340px); background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 28px 24px; text-align: center; box-shadow: 0 20px 50px rgba(var(--primary-rgb), .14); animation: rise .4s ease both; }
         @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
         .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .5px; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 4px 12px; }
@@ -21,7 +24,8 @@
         button { border: 0; border-radius: 14px; height: 48px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform .12s; }
         button:active { transform: scale(.97); }
         .approve { background: var(--primary); color: #fff; box-shadow: 0 8px 18px rgba(var(--primary-rgb), .28); }
-        .decline { background: var(--field); color: var(--ink); }
+        .decline { background: transparent; color: var(--primary); border: 1.5px solid rgba(var(--primary-rgb), .55); }
+        .decline:active { background: rgba(var(--primary-rgb), .08); }
         .note { font-size: 12px; color: var(--soft); margin-top: 16px; line-height: 1.6; }
     </style>
 </head>

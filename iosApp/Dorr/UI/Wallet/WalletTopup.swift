@@ -363,7 +363,7 @@ struct TopupStage: View {
                         .padding(.top, 16)
                         .padding(.bottom, 6)
                         WaButton(text: L("wa_done"), action: onDone).padding(.top, 12)
-                        WaButton(text: L("wa_view_statement"), style: .quiet, action: onStatement)
+                        WaButton(text: L("wa_view_statement"), style: .ghost, action: onStatement).padding(.top, 10)
                     }
                 }
             } else if payment.status == "pending" && payment.requiresOtp {
